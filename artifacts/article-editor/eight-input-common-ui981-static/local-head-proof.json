@@ -1,0 +1,21 @@
+{
+    "head": "3ddfd5776fb05fe3ac3641475550b809ff20726d",
+    "parents": [
+        "b302f58a9aaee9f2399d9274157a478f3c2f78fb"
+    ],
+    "originalInputsExact": 741,
+    "ownEngineeringEvidencePaths": 101,
+    "totalChangedPaths": 842,
+    "productionPaths": [
+        "src/frontend/src/components/admin/article/ArticleWriteEditor.vue",
+        "src/frontend/src/components/article/ArticleCommentTreeNode.vue",
+        "src/frontend/src/components/ui/LocaleSelector.vue",
+        "src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue",
+        "src/frontend/src/components/admin/article/ArticleRevisionPanel.vue",
+        "src/frontend/src/components/article/ArticleCommentsVirtualList.vue",
+        "src/frontend/src/views/admin/security/SecuritySimulator.vue",
+        "src/frontend/src/components/admin/SecurityDashboardWorkbench.vue"
+    ],
+    "donorAncestryReplayed": false,
+    "localWorktreeClean": true
+}

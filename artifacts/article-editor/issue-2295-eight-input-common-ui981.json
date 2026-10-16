@@ -224,5 +224,19 @@
     "delivery": "Authorized private Ozwasyd/FsusBlog draft only; [skip ci] task commits preserve execution HOLD. No Ready/merge/close/release/package or authority refresh. Missing/skipped remote checks are not passes.",
     "rollback": "Omit/revert exact741input union and own ordinary evidence/WIP to named base. Original input branches untouched; no live state changed.",
     "evidenceRoot": "artifacts/article-editor/eight-input-common-ui981-static",
-    "rawMap": "artifacts/article-editor/eight-input-common-ui981-static/delivery-map.json"
+    "rawMap": "artifacts/article-editor/eight-input-common-ui981-static/delivery-map.json",
+    "publication": {
+        "pr": 4422,
+        "url": "https://github.com/Ozwasyd/FsusBlog/pull/4422",
+        "private": true,
+        "draft": true,
+        "initialVerifiedRemoteHead": "3ddfd5776fb05fe3ac3641475550b809ff20726d",
+        "initialTrueParent": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+        "messageTitleRangeProspectiveAndActualRestGateExit": 0,
+        "initialChangedFiles": 842,
+        "handoffFollowup": "This follow-up adds only ordinary metadata/publication proof and this WIP; all production and original input entries remain unchanged. Current final SHA is the containing PR head.",
+        "concurrent4421": "Separate graph/snapshot/storage conflict combination; excluded.",
+        "remoteChecks": "Initial status/check-runs preserved as observations; pending/skipped/absent are never pass.",
+        "uploads": "Initial ordinary git push and draft creation both exit0; no rejection or bypass."
+    }
 }

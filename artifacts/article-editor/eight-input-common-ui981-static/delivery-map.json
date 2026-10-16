@@ -693,6 +693,139 @@
             "sha256": "9930486e6f2bfd51181efc224a54fd7b259b4e84e5a71b0656f7b250112aa7f3",
             "mode": "100644",
             "meaning": "lossless original final-whitespace failure capsule"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/local-head-proof.json",
+            "bytes": 930,
+            "sha256": "cd2345e70299bb20eb5f9c1287b61878cd42986d9b8d4151d0972e984a06a50c",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/github-actor.json",
+            "bytes": 34,
+            "sha256": "f8755425b2ed3f933bd830f5d27ba5b5af3285b1693fd9c9307c752b3ff465d9",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/prospective-pr-event.json",
+            "bytes": 10609,
+            "sha256": "d4fecd947847d2c25d7bc9f7feea413f8addb03e9fdcf5487de75781ee368f4d",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/range-contract.txt",
+            "bytes": 117,
+            "sha256": "33dbe5387f52185ab81a5a1cfd5ee1f30a924f82812307aa409df3723de2f861",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/range-contract.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/prospective-pr-contract.txt",
+            "bytes": 44,
+            "sha256": "6b106e38b8dca0ffd0347ccd952adaf00bac45e564cbb712bcdb7741964eb03f",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/prospective-pr-contract.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/push-initial.txt",
+            "bytes": 605,
+            "sha256": "409d8f4d105357b4be1547656ed29fcc8daac4b9f947ae01751a87d51db22912",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/push-initial.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/create-draft.txt",
+            "bytes": 46,
+            "sha256": "f453ec52166c4a476f3bb3a5ac52ec99607a3b0bdae8f491222508ca93b13c76",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/create-draft.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/actual-pr-4422.json",
+            "bytes": 25787,
+            "sha256": "1f8f90fc9a7e82b1552fd7e07dca6c561d09b51eee68793d4b37e5e61bd2bd79",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/actual-pr-event.json",
+            "bytes": 32072,
+            "sha256": "2999ef1a2f7ee59a412fa694b88f003ed27a673fa14a605908da25dcaf65d739",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/actual-pr-contract.txt",
+            "bytes": 44,
+            "sha256": "6b106e38b8dca0ffd0347ccd952adaf00bac45e564cbb712bcdb7741964eb03f",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/actual-pr-contract.exit",
+            "bytes": 2,
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/concurrent-4421.json",
+            "bytes": 222,
+            "sha256": "eedc64b341c84cda043740bf72d32132efb409c35a167660acf645cc5fc41cd1",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/remote-status-initial.json",
+            "bytes": 99,
+            "sha256": "e5bd509fbe825e58e57fdcf9ea5765a36fef65f398d3bfbb33ed821f769060ff",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/remote-checks-initial.json",
+            "bytes": 34,
+            "sha256": "cb94646e60544ba682294dab7e576ef54a8866d556fc6fd651a922b3b428ebc5",
+            "mode": "100644",
+            "meaning": "ordinary publication/metadata check evidence at initial draft source head; no acceptance claim"
+        },
+        {
+            "path": "artifacts/article-editor/eight-input-common-ui981-static/handoff-whitespace.snapshot.json",
+            "bytes": 27303,
+            "sha256": "f0f08c28315fb183de44a130e67b7596cdcdbfb61fb1cf7b031437ce6396da67",
+            "mode": "100644",
+            "meaning": "lossless complete handoff-whitespace failure capsule"
         }
     ],
     "snapshotMeaning": "Original generated/effective/config snapshots retain original cwd and relative paths; delivered copies are not runnable projects. Recorder/compiler source snapshots are archived tooling text, not product or runtime harness. All processes completed before copying."
