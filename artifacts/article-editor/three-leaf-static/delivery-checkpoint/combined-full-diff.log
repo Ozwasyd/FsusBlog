@@ -1,0 +1,129 @@
+artifacts/article-editor/graph-preflight-intake4385-static/current-production.patch:71: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/exact-donor-production.patch:71: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/source-message.txt:6: new blank line at EOF.
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:37: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:42: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:46: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:50: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:56: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:69: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:80: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:91: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:110: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:126: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:135: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:139: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:141: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:155: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:160: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:175: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:177: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:181: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:186: trailing whitespace.
++ 
+artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch:190: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:2: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:4: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:7: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:9: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:11: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:13: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:15: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:17: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:19: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:21: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:23: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:25: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:27: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:29: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:31: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:33: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:35: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:37: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:39: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:41: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:43: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/exact-input-diff-check.log:45: trailing whitespace.
+++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:37: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:42: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:46: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:50: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:56: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:69: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:80: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:91: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:110: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:126: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:135: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:139: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:141: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:155: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:160: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:175: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:177: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:181: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:186: trailing whitespace.
++ 
+artifacts/article-editor/three-leaf-static/ui-installed-lock-diff.patch:190: trailing whitespace.
++ 
