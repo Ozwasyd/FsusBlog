@@ -1,0 +1,15 @@
+{
+  "baselineDiagnostics": 110,
+  "candidateDiagnostics": 106,
+  "added": [],
+  "removed": [
+    "src/api/binaryApiClient.ts(POS): error TS2345: Argument of type 'Location' is not assignable to parameter of type 'string | URL | undefined'.\n  Type 'Location' is missing the following properties from type 'URL': password, searchParams, username, toJSON",
+    "src/services/binaryTransport.ts(POS): error TS6133: 'T' is declared but its value is never read.",
+    "src/services/binaryTransport.ts(POS): error TS2367: This comparison appears to be unintentional because the types '\"anonymous\"' and '\"optional\"' have no overlap.",
+    "src/services/binaryTransport.ts(POS): error TS2367: This comparison appears to be unintentional because the types '\"anonymous\" | \"admin\" | \"user\"' and '\"optional\"' have no overlap."
+  ],
+  "normalization": "Only diagnostic header positions; full multiline continuation text and multiplicity retained",
+  "UIErrorsInAppBaseline": 25,
+  "UIErrorsInAppCandidate": 25,
+  "separateUI57": "Parent-reported original UI full-project baseline, not rerun or reclassified as this application result"
+}
