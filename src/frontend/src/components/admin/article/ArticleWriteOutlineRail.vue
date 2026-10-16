@@ -147,13 +147,14 @@ const OutlinePanelContent = defineComponent({
             nodeButtons.delete(nodeId);
         };
 
-        const focusNode = (nodeId: string | undefined): void =>
+        const focusNode = async (nodeId: string | undefined): Promise<void> =>
         {
             if (!nodeId)
             {
                 return;
             }
-            void nextTick(() => nodeButtons.get(nodeId)?.focus({ preventScroll: true }));
+            await nextTick();
+            nodeButtons.get(nodeId)?.focus({ preventScroll: true });
         };
 
         const nodeIndex = (nodeId: string | undefined): number =>
@@ -169,7 +170,7 @@ const OutlinePanelContent = defineComponent({
             return props.snapshot.items.find((item) => item.nodeId === parentId) ?? null;
         };
 
-        const handleTreeKeydown = (event: KeyboardEvent): void =>
+        const handleTreeKeydown = async (event: KeyboardEvent): Promise<void> =>
         {
             const target = event.target;
             if (!(target instanceof HTMLButtonElement) || target.getAttribute('role') !== 'treeitem')
@@ -188,19 +189,19 @@ const OutlinePanelContent = defineComponent({
             {
                 case 'ArrowDown':
                     event.preventDefault();
-                    focusNode(next?.nodeId);
+                    await focusNode(next?.nodeId);
                     break;
                 case 'ArrowUp':
                     event.preventDefault();
-                    focusNode(previous?.nodeId);
+                    await focusNode(previous?.nodeId);
                     break;
                 case 'Home':
                     event.preventDefault();
-                    focusNode(visibleNodes.value[0]?.nodeId);
+                    await focusNode(visibleNodes.value[0]?.nodeId);
                     break;
                 case 'End':
                     event.preventDefault();
-                    focusNode(visibleNodes.value[visibleNodes.value.length - 1]?.nodeId);
+                    await focusNode(visibleNodes.value[visibleNodes.value.length - 1]?.nodeId);
                     break;
                 case 'ArrowRight':
                     event.preventDefault();
@@ -210,7 +211,7 @@ const OutlinePanelContent = defineComponent({
                     }
                     else if (node.children.length > 0)
                     {
-                        focusNode(node.children[0]?.nodeId);
+                        await focusNode(node.children[0]?.nodeId);
                     }
                     break;
                 case 'ArrowLeft': {
@@ -221,7 +222,7 @@ const OutlinePanelContent = defineComponent({
                     }
                     else
                     {
-                        focusNode(parentNode(node)?.nodeId);
+                        await focusNode(parentNode(node)?.nodeId);
                     }
                     break;
                 }
@@ -451,27 +452,25 @@ onMounted(() =>
     isOpen.value = readRailPreference();
 });
 
-const focusLauncher = (): void =>
+const focusLauncher = async (): Promise<void> =>
 {
     if (!focusReturnPending)
     {
         return;
     }
     focusReturnPending = false;
-    void nextTick(() =>
+    await nextTick();
+    if (!isCompact.value)
     {
-        if (!isCompact.value)
-        {
-            launcherRef.value?.focus({ preventScroll: true });
-            return;
-        }
-        if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function')
-        {
-            launcherRef.value?.focus({ preventScroll: true });
-            return;
-        }
-        window.requestAnimationFrame(() => launcherRef.value?.focus({ preventScroll: true }));
-    });
+        launcherRef.value?.focus({ preventScroll: true });
+        return;
+    }
+    if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function')
+    {
+        launcherRef.value?.focus({ preventScroll: true });
+        return;
+    }
+    window.requestAnimationFrame(() => launcherRef.value?.focus({ preventScroll: true }));
 };
 
 const openRail = (): void =>
@@ -480,7 +479,7 @@ const openRail = (): void =>
     isOpen.value = true;
 };
 
-const requestClose = (): void =>
+const requestClose = async (): Promise<void> =>
 {
     if (!isOpen.value)
     {
@@ -490,25 +489,25 @@ const requestClose = (): void =>
     isOpen.value = false;
     if (!isCompact.value)
     {
-        focusLauncher();
+        await focusLauncher();
     }
 };
 
-const handleHostVisibility = (visible: boolean): void =>
+const handleHostVisibility = async (visible: boolean): Promise<void> =>
 {
     if (visible)
     {
         openRail();
         return;
     }
-    requestClose();
+    await requestClose();
 };
 
-const handleClosed = (): void =>
+const handleClosed = async (): Promise<void> =>
 {
     if (isCompact.value)
     {
-        focusLauncher();
+        await focusLauncher();
     }
 };
 
