@@ -366,6 +366,19 @@ test('source integration explicitly refuses every unregistered source surface ra
     assert.deepEqual(unsupportedSourceStageFiles(['tools/contracts/Unknown.slnx'], ['tools/contracts/Unknown.slnx']), []);
 });
 
+test('only independently checked canonical blame metadata leaves unsupported source inputs', async () =>
+{
+    const { sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
+        await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+    const canonical = '.git-blame-ignore-revs';
+    const other = ['nested/.git-blame-ignore-revs', 'source.d.mts', 'unregistered.input'];
+    assert.deepEqual(unsupportedSourceStageFiles([canonical, ...other]), [canonical, ...other]);
+    assert.deepEqual(unsupportedSourceStageFiles([canonical], [], [], ['nested/' + canonical]), [canonical]);
+    assert.deepEqual(unsupportedSourceStageFiles([canonical, ...other], [], [], [canonical, ...other]), other);
+    assert.equal(sourceGovernanceExecutableEntries().length, 10);
+    assert.deepEqual(selectSourceRegressionTargets([canonical]), ['tools/configuration/solution-source.test.mjs']);
+});
+
 test('flat solution checker and its refusal controls are explicit source execution ports', async () =>
 {
     const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =

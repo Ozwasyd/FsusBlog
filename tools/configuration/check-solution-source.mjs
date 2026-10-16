@@ -7,6 +7,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
+import { parseBlameIgnoreRevisions, validateRepositoryBlameIgnore } from '../governance/change-contract.mjs';
+
 const xmlParser = String.raw`
 import json, sys
 from xml.parsers import expat
@@ -413,6 +415,63 @@ export function validatePythonSourceReceipt({ repositoryRoot, files, expectedHea
     return expected;
 }
 
+/** Inspect only canonical blame metadata; the independent range/PR contract still applies. */
+export function inspectBlameIgnoreSource({ repositoryRoot, files })
+{
+    if (['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'].some(key => process.env[key]))
+    {
+        throw new Error('blame-ignore inspection refuses an ambient alternate Git repository or index');
+    }
+    const root = path.resolve(repositoryRoot);
+    if (fs.realpathSync(root) !== root || !fs.lstatSync(root).isDirectory())
+    {
+        throw new Error('blame-ignore inspection requires the actual repository directory');
+    }
+    if (!Array.isArray(files) || files.length !== 1 || files[0] !== '.git-blame-ignore-revs')
+    {
+        throw new Error('blame-ignore inspection requires only the canonical .git-blame-ignore-revs input');
+    }
+    const head = git(root, ['rev-parse', 'HEAD']).toString('utf8').trim();
+    const indexDigest = sha256(git(root, ['ls-files', '--stage', '-z']));
+    const held = bindFile(root, files[0]);
+    try
+    {
+        const errors = validateRepositoryBlameIgnore(root);
+        if (errors.length)
+        {
+            throw new Error('blame-ignore history refused: ' + errors.join('\n'));
+        }
+        if (head !== git(root, ['rev-parse', 'HEAD']).toString('utf8').trim()
+            || indexDigest !== sha256(git(root, ['ls-files', '--stage', '-z'])))
+        {
+            throw new Error('blame-ignore source inspection HEAD or index changed');
+        }
+        verifyFile(held);
+        return { schema: 'fsusblog.blame-ignore-source-check.v1', head, indexDigest,
+            validator: 'tools/governance/change-contract.mjs#validateRepositoryBlameIgnore',
+            sources: [held.binding], revisions: parseBlameIgnoreRevisions(held.bytes.toString('utf8')),
+            status: 'success', qualificationEligible: false };
+    }
+    finally
+    {
+        fs.closeSync(held.descriptor);
+    }
+}
+
+export function validateBlameIgnoreSourceReceipt({ repositoryRoot, files, expectedHead, receipt })
+{
+    if (typeof expectedHead !== 'string' || !/^[a-f0-9]{40}$/u.test(expectedHead))
+    {
+        throw new Error('blame-ignore receipt requires the independent candidate HEAD');
+    }
+    const expected = inspectBlameIgnoreSource({ repositoryRoot, files });
+    if (expected.head !== expectedHead || !isDeepStrictEqual(receipt, expected))
+    {
+        throw new Error('blame-ignore receipt does not exactly bind the independent current source projection');
+    }
+    return expected;
+}
+
 function main(argv)
 {
     let repositoryRoot;
@@ -427,9 +486,9 @@ function main(argv)
         }
         if (argv[index] === '--language')
         {
-            if (language || value !== 'python-ast')
+            if (language || !['python-ast', 'git-blame-ignore'].includes(value))
             {
-                throw new Error('source checker accepts only one fixed python-ast language mode');
+                throw new Error('source checker accepts only one fixed python-ast or git-blame-ignore language mode');
             }
             language = value;
         }
@@ -450,8 +509,10 @@ function main(argv)
     {
         throw new Error('solution checker requires explicit --root');
     }
-    console.log(JSON.stringify(language ? inspectPythonSource({ repositoryRoot, files })
-        : inspectSolutionSource({ repositoryRoot, files })));
+    console.log(JSON.stringify(language === 'git-blame-ignore'
+        ? inspectBlameIgnoreSource({ repositoryRoot, files })
+        : language === 'python-ast' ? inspectPythonSource({ repositoryRoot, files })
+            : inspectSolutionSource({ repositoryRoot, files })));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

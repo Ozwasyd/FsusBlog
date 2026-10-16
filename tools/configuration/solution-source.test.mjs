@@ -8,6 +8,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { inspectPythonSource, inspectSolutionSource, validatePythonSourceReceipt, validateSolutionSourceReceipt } from './check-solution-source.mjs';
+import * as sourceChecker from './check-solution-source.mjs';
+import { validateCommitRange } from '../governance/change-contract.mjs';
 
 function fixture(source, action)
 {
@@ -634,4 +636,245 @@ test('Python AST batch budget refuses the next committed source before reading o
             syncBuiltinESMExports();
         }
     });
+});
+
+
+const blameFile = '.git-blame-ignore-revs';
+
+function blameFixture(action, { extension = 'cs', semantic = false, register = true } = {})
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-blame-source-'));
+    const env = { ...process.env, GIT_OPTIONAL_LOCKS: '0',
+        GIT_AUTHOR_NAME: 'Blame source fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+        GIT_COMMITTER_NAME: 'Blame source fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid' };
+    const git = (...args) => execFileSync('git', ['-C', root, ...args], { env });
+    const commit = message =>
+    {
+        git('add', '.');
+        const tree = git('write-tree').toString('utf8').trim();
+        const current = spawnSync('git', ['-C', root, 'rev-parse', '--verify', 'HEAD'], { env, encoding: 'utf8' });
+        const parents = current.status === 0 ? ['-p', current.stdout.trim()] : [];
+        const revision = execFileSync('git', ['-C', root, 'commit-tree', tree, ...parents],
+            { env, input: message }).toString('utf8').trim();
+        git('update-ref', 'HEAD', revision);
+        return revision;
+    };
+    try
+    {
+        git('init', '--quiet');
+        const file = 'source.' + extension;
+        fs.writeFileSync(path.join(root, blameFile), '');
+        fs.writeFileSync(path.join(root, file), extension === 'cs' ? 'class Fixture { }\n' : 'export const value = 1;\n');
+        const base = commit('test(tooling): initialize controlled blame source\n\nRefs: #1163\n');
+        fs.writeFileSync(path.join(root, file), extension === 'cs'
+            ? semantic ? 'class ChangedFixture { }\n' : 'class Fixture    {    }\n'
+            : semantic ? 'export const value = 2;\n' : 'export const value  =  1;\n');
+        const format = commit('style(frontend): normalize controlled source whitespace\n\n'
+            + 'Change-Class: format-only\nFormatter: source-fixture@1 :: source-fixture\n'
+            + 'Idempotence-Evidence: artifacts/style/idempotence.json\nRefs: #1163\n');
+        if (register)
+        {
+            fs.writeFileSync(path.join(root, blameFile), format + '\n');
+            commit('chore(governance): register controlled format revision\n\nRefs: #1163\n');
+        }
+        return action({ root, base, format, git, commit, env });
+    }
+    finally
+    {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+}
+
+const inspectBlame = root =>
+{
+    assert.equal(typeof sourceChecker.inspectBlameIgnoreSource, 'function');
+    return sourceChecker.inspectBlameIgnoreSource({ repositoryRoot: root, files: [blameFile] });
+};
+
+test('canonical blame source binds actual registered format history and the normal checker CLI', () =>
+{
+    blameFixture(({ root, format, git }) =>
+    {
+        const actual = inspectBlame(root);
+        assert.equal(actual.status, 'success');
+        assert.equal(actual.qualificationEligible, false);
+        assert.equal(actual.head, git('rev-parse', 'HEAD').toString('utf8').trim());
+        assert.deepEqual(actual.revisions, [format]);
+        assert.deepEqual(actual.sources.map(value => value.file), [blameFile]);
+        const checker = fileURLToPath(new URL('./check-solution-source.mjs', import.meta.url));
+        const cli = spawnSync(process.execPath, [checker, '--language', 'git-blame-ignore',
+            '--root', root, '--file', blameFile], { encoding: 'utf8' });
+        assert.equal(cli.status, 0, cli.stderr);
+        assert.deepEqual(JSON.parse(cli.stdout), actual);
+    });
+});
+
+test('canonical blame source invokes the existing JavaScript AST equivalence boundary', () =>
+{
+    blameFixture(({ root }) => assert.equal(inspectBlame(root).status, 'success'), { extension: 'mjs' });
+    blameFixture(({ root }) => assert.throws(() => inspectBlame(root), /Format-only diff changes non-whitespace or quoted-value tokens/u),
+        { extension: 'mjs', semantic: true });
+    blameFixture(({ root }) => assert.throws(() => inspectBlame(root), /Format-only diff changes non-whitespace or quoted-value tokens/u),
+        { semantic: true });
+});
+
+test('canonical blame source refuses malformed missing duplicate unreachable and merge revision entries', () =>
+{
+    for (const mutate of [
+        ({ root }) => fs.writeFileSync(path.join(root, blameFile), 'not-a-sha\n'),
+        ({ root }) => fs.writeFileSync(path.join(root, blameFile), '0'.repeat(40) + '\n'),
+        ({ root, format }) => fs.writeFileSync(path.join(root, blameFile), format + '\n' + format + '\n'),
+        ({ root, base, git, env }) =>
+        {
+            const tree = git('rev-parse', 'HEAD^{tree}').toString('utf8').trim();
+            const revision = execFileSync('git', ['-C', root, 'commit-tree', tree, '-p', base],
+                { env, input: 'style(frontend): create unreachable controlled revision\n' }).toString('utf8').trim();
+            fs.writeFileSync(path.join(root, blameFile), revision + '\n');
+        },
+        ({ root, base, git, env }) =>
+        {
+            const tree = git('rev-parse', 'HEAD^{tree}').toString('utf8').trim();
+            const head = git('rev-parse', 'HEAD').toString('utf8').trim();
+            const revision = execFileSync('git', ['-C', root, 'commit-tree', tree, '-p', head, '-p', base],
+                { env, input: 'style(frontend): merge controlled format history\n' }).toString('utf8').trim();
+            git('update-ref', 'HEAD', revision);
+            fs.writeFileSync(path.join(root, blameFile), revision + '\n');
+        }
+    ])
+    {
+        blameFixture(control =>
+        {
+            mutate(control);
+            control.commit('test(governance): register rejected blame input\n\nRefs: #1163\n');
+            assert.throws(() => inspectBlame(control.root), /blame-ignore/u);
+        });
+    }
+});
+
+test('canonical blame source preserves missing path link mode working-tree and index refusals', () =>
+{
+    for (const mutate of [
+        root => fs.rmSync(path.join(root, blameFile)),
+        root => fs.writeFileSync(path.join(root, blameFile), '# unstaged source drift\n'),
+        root => fs.chmodSync(path.join(root, blameFile), 0o755),
+        root =>
+        {
+            fs.renameSync(path.join(root, blameFile), path.join(root, 'original-blame'));
+            fs.symlinkSync('original-blame', path.join(root, blameFile));
+        },
+        root => fs.linkSync(path.join(root, blameFile), path.join(root, 'blame-alias')),
+        root =>
+        {
+            fs.writeFileSync(path.join(root, blameFile), '# staged source drift\n');
+            execFileSync('git', ['-C', root, 'add', blameFile]);
+        }
+    ])
+    {
+        blameFixture(({ root }) =>
+        {
+            mutate(root);
+            assert.throws(() => inspectBlame(root), /ENOENT|ELOOP|regular|single-link|HEAD|index|bytes|mode/u);
+        });
+    }
+    blameFixture(({ root }) =>
+    {
+        for (const files of [[], [blameFile, blameFile], ['nested/' + blameFile], ['../' + blameFile], ['other.input']])
+        {
+            assert.throws(() => sourceChecker.inspectBlameIgnoreSource({ repositoryRoot: root, files }), /canonical/u);
+        }
+        for (const key of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'])
+        {
+            const previous = process.env[key];
+            process.env[key] = path.join(root, 'alternate-git-input');
+            try
+            {
+                assert.throws(() => inspectBlame(root), /ambient alternate Git/u);
+            }
+            finally
+            {
+                if (previous === undefined)
+                {
+                    delete process.env[key];
+                }
+                else
+                {
+                    process.env[key] = previous;
+                }
+            }
+        }
+    });
+});
+
+test('canonical blame receipt cannot substitute HEAD source history or qualification', () =>
+{
+    blameFixture(({ root }) =>
+    {
+        const actual = inspectBlame(root);
+        const validate = (receipt, expectedHead = actual.head) => sourceChecker.validateBlameIgnoreSourceReceipt({
+            repositoryRoot: root, files: [blameFile], expectedHead, receipt });
+        assert.deepEqual(validate(JSON.parse(JSON.stringify(actual))), actual);
+        for (const mutate of [
+            value => { value.head = '0'.repeat(40); },
+            value => { value.indexDigest = '0'.repeat(64); },
+            value => { value.sources[0].sha256 = '0'.repeat(64); },
+            value => { value.revisions = []; },
+            value => { value.qualificationEligible = true; },
+            value => { value.validator = 'caller-approval'; },
+            value => { value.extraApproval = true; }
+        ])
+        {
+            const changed = structuredClone(actual);
+            mutate(changed);
+            assert.throws(() => validate(changed), /receipt/u);
+        }
+        assert.throws(() => validate(actual, '0'.repeat(40)), /receipt/u);
+    });
+});
+
+test('canonical blame held input and whole index refuse drift during the final Git recheck', () =>
+{
+    for (const drift of ['source', 'index'])
+    {
+        blameFixture(({ root, git }) =>
+        {
+            const original = childProcess.execFileSync;
+            let indexes = 0;
+            childProcess.execFileSync = (executable, args, options) =>
+            {
+                if (executable === 'git' && args[0] === '-C' && args[1] === root
+                    && args.length === 5 && args.slice(2).join(' ') === 'ls-files --stage -z' && ++indexes === 2)
+                {
+                    if (drift === 'source')
+                    {
+                        fs.writeFileSync(path.join(root, blameFile), '# replaced during validation\n');
+                    }
+                    else
+                    {
+                        git('update-index', '--chmod=+x', 'source.cs');
+                    }
+                }
+                return original(executable, args, options);
+            };
+            syncBuiltinESMExports();
+            try
+            {
+                assert.throws(() => inspectBlame(root), /identity changed|bytes|index/u);
+                assert.equal(indexes, 2);
+            }
+            finally
+            {
+                childProcess.execFileSync = original;
+                syncBuiltinESMExports();
+            }
+        });
+    }
+});
+
+test('canonical blame source success does not replace mandatory later-registration range checks', () =>
+{
+    blameFixture(({ root, base }) =>
+    {
+        assert.equal(inspectBlame(root).status, 'success');
+        assert.match(validateCommitRange(root, base + '..HEAD').join('\n'), /missing blame-ignore entry/u);
+    }, { register: false });
 });
