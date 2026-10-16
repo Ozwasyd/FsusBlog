@@ -1,8 +1,8 @@
 <template>
-    <button
+    <FsusUiButton
         v-if="!isOpen"
         ref="launcherRef"
-        type="button"
+        native-type="button"
         class="article-write-outline-launcher"
         aria-label="打开文章大纲"
         :aria-controls="resolvedPanelId"
@@ -14,7 +14,7 @@
             <List />
         </ElIcon>
         <span class="article-write-outline-visually-hidden">打开文章大纲</span>
-    </button>
+    </FsusUiButton>
 
     <component
         v-if="isCompact || isOpen"
@@ -86,10 +86,17 @@ import {
     flattenArticleOutlineTree
 } from '@/composables/useArticleOutline';
 import { useMediaQuery } from '@/composables/useMediaQuery';
+import { FsusUiButton } from '@/fsusui/button';
 import { Close, List } from '@/fsusui/icons';
 import type { MarkdownEditorOutlineItem, MarkdownOutlineTreeNode } from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteOutlineRail' });
+
+/** Only ButtonInstance.ref's documented native button is consumed. */
+interface OutlineButtonHandle
+{
+    readonly ref?: HTMLButtonElement;
+}
 
 const RAIL_OPEN_STORAGE_KEY = 'fsusblog.article-outline.rail-open.v1';
 
@@ -139,8 +146,9 @@ const OutlinePanelContent = defineComponent({
         });
 
         const registerNodeButton = (nodeId: string, element: unknown): void => {
-            if (element instanceof HTMLButtonElement) {
-                nodeButtons.set(nodeId, element);
+            const button = (element as OutlineButtonHandle | null)?.ref;
+            if (button instanceof HTMLButtonElement) {
+                nodeButtons.set(nodeId, button);
                 return;
             }
             nodeButtons.delete(nodeId);
@@ -224,12 +232,12 @@ const OutlinePanelContent = defineComponent({
         }, [
             h('header', { class: 'article-write-outline-header' }, [
                 h('h2', { id: props.titleId, class: 'article-write-outline-title' }, '文章大纲'),
-                h('button', {
-                    type: 'button',
+                h(FsusUiButton, {
+                    nativeType: 'button',
                     class: 'article-write-outline-close',
                     'aria-label': '关闭文章大纲',
                     onClick: () => emit('close')
-                }, [h(resolveComponent('ElIcon'), { 'aria-hidden': 'true' }, () => [h(Close)])])
+                }, () => [h(resolveComponent('ElIcon'), { 'aria-hidden': 'true' }, () => [h(Close)])])
             ]),
             status.value === 'stale'
                 ? h('p', { class: 'article-write-outline-message', role: 'status' }, '文章大纲正在同步。')
@@ -249,12 +257,12 @@ const OutlinePanelContent = defineComponent({
                         class: 'article-write-outline-node',
                         'data-outline-node': node.nodeId
                     }, [
-                        h('button', {
+                        h(FsusUiButton, {
                             ref: (element) => registerNodeButton(node.nodeId, element),
-                            type: 'button',
+                            nativeType: 'button',
                             class: [
                                 'article-write-outline-item',
-                                { 'is-active': props.activeHeadingId === node.nodeId }
+                                { 'article-write-outline-item-selected': props.activeHeadingId === node.nodeId }
                             ],
                             role: 'treeitem',
                             tabindex: props.activeHeadingId === node.nodeId || index === 0 ? '0' : '-1',
@@ -268,7 +276,7 @@ const OutlinePanelContent = defineComponent({
                             'data-outline-node-id': node.nodeId,
                             style: { '--article-outline-depth': String(Math.max(0, node.depth - 1)) },
                             onClick: () => emit('reveal-heading', node)
-                        }, [
+                        }, () => h('span', { class: 'article-write-outline-item-content' }, [
                             node.children.length > 0
                                 ? h('span', {
                                     class: 'article-write-outline-disclosure',
@@ -280,19 +288,19 @@ const OutlinePanelContent = defineComponent({
                                 }, expanded.value.has(node.nodeId) ? '▾' : '▸')
                                 : h('span', { class: 'article-write-outline-disclosure-placeholder', 'aria-hidden': 'true' }),
                             h('span', { class: 'article-write-outline-item-text', title: node.text || '无标题' }, node.text || '无标题')
-                        ]),
+                        ])),
                         node.diagnostics.length > 0
                             ? h('div', {
                                 class: 'article-write-outline-diagnostics',
                                 role: 'group',
                                 'aria-label': '大纲诊断'
-                            }, node.diagnostics.map((diagnostic) => h('button', {
+                            }, node.diagnostics.map((diagnostic) => h(FsusUiButton, {
                                 key: `${node.nodeId}:${diagnostic.code}`,
-                                type: 'button',
+                                nativeType: 'button',
                                 class: 'article-write-outline-diagnostic',
                                 'data-outline-diagnostic': diagnostic.code,
                                 onClick: () => emit('reveal-range', node)
-                            }, diagnosticLabels[diagnostic.code] ?? diagnostic.code)))
+                            }, () => diagnosticLabels[diagnostic.code] ?? diagnostic.code)))
                             : null
                     ]))),
             ])
@@ -321,7 +329,7 @@ const emit = defineEmits<{
 const isCompact = useMediaQuery('(max-width: 1023px)', false);
 const publicDrawer = resolveComponent('ElDrawer');
 const isOpen = ref(false);
-const launcherRef = ref<HTMLButtonElement | null>(null);
+const launcherRef = ref<OutlineButtonHandle | null>(null);
 const expandedNodeIds = ref<ReadonlySet<string>>(new Set());
 let focusReturnPending = false;
 let mounted = false;
@@ -415,14 +423,14 @@ const focusLauncher = (): void => {
     focusReturnPending = false;
     void nextTick(() => {
         if (!isCompact.value) {
-            launcherRef.value?.focus({ preventScroll: true });
+            launcherRef.value?.ref?.focus({ preventScroll: true });
             return;
         }
         if (typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
-            launcherRef.value?.focus({ preventScroll: true });
+            launcherRef.value?.ref?.focus({ preventScroll: true });
             return;
         }
-        window.requestAnimationFrame(() => launcherRef.value?.focus({ preventScroll: true }));
+        window.requestAnimationFrame(() => launcherRef.value?.ref?.focus({ preventScroll: true }));
     });
 };
 
@@ -517,13 +525,6 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
     color: var(--fsusblog-text-primary);
 }
 
-.article-write-outline-content
- {
-    display: grid;
-    min-height: 0;
-    grid-template-rows: auto minmax(0, 1fr);
-}
-
 .article-write-outline-header
  {
     display: flex;
@@ -553,76 +554,6 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
     border-radius: var(--fsus-radius-control);
     background: transparent;
     color: var(--fsusblog-text-muted);
-}
-
-.article-write-outline-tree-wrap
- {
-    min-height: 0;
-    overflow: auto;
-    overscroll-behavior: contain;
-    padding: var(--fsus-space-2);
-}
-
-.article-write-outline-tree
- {
-    display: grid;
-    gap: var(--fsus-space-1);
-}
-
-.article-write-outline-item
- {
-    display: flex;
-    width: 100%;
-    min-height: var(--fsus-control-height);
-    align-items: center;
-    gap: var(--fsus-space-1);
-    cursor: pointer;
-    border: 0;
-    border-radius: var(--fsus-radius-control-small);
-    padding: var(--fsus-space-1) var(--fsus-space-2);
-    padding-inline-start: calc(
-        var(--fsus-space-2) + var(--article-outline-depth, 0) * var(--fsus-space-4)
-    );
-    background: transparent;
-    color: var(--fsusblog-text-primary);
-    font: inherit;
-    line-height: 1.4;
-    text-align: start;
-}
-
-.article-write-outline-item:hover,
-.article-write-outline-item.is-active
- {
-    background: var(--fsus-state-selected-bg, var(--fsusblog-page-bg-soft));
-}
-
-.article-write-outline-item.is-active
- {
-    color: var(--fsus-scholarly-blue);
-    font-weight: 700;
-}
-
-.article-write-outline-disclosure,
-.article-write-outline-disclosure-placeholder
- {
-    display: inline-grid;
-    width: 1rem;
-    flex: 0 0 1rem;
-    place-items: center;
-    color: var(--fsusblog-text-muted);
-}
-
-.article-write-outline-disclosure
- {
-    cursor: pointer;
-}
-
-.article-write-outline-item-text
- {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .article-write-outline-diagnostics
@@ -676,4 +607,104 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
         left: var(--fsus-space-3);
      }
  }
+</style>
+
+<style>
+/* The render component uses product classes without the outer SFC scope attribute. */
+.article-write-outline-content
+ {
+    display: grid;
+    min-width: 0;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.article-write-outline-content .article-write-outline-tree-wrap
+ {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: var(--fsus-space-2);
+}
+
+.article-write-outline-content .article-write-outline-tree
+ {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--fsus-space-1);
+}
+
+.article-write-outline-content .article-write-outline-node
+ {
+    min-width: 0;
+}
+
+.article-write-outline-content .article-write-outline-item
+ {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    min-height: var(--fsus-control-height);
+    align-items: center;
+    gap: var(--fsus-space-1);
+    cursor: pointer;
+    border: 0;
+    border-radius: var(--fsus-radius-control-small);
+    padding: var(--fsus-space-1) var(--fsus-space-2);
+    padding-inline-start: calc(
+        var(--fsus-space-2) + var(--article-outline-depth, 0) * var(--fsus-space-4)
+    );
+    background: transparent;
+    color: var(--fsusblog-text-primary);
+    font: inherit;
+    line-height: 1.4;
+    text-align: start;
+}
+
+.article-write-outline-content .article-write-outline-item:hover,
+.article-write-outline-content .article-write-outline-item.article-write-outline-item-selected
+ {
+    background: var(--fsus-state-selected-bg, var(--fsusblog-page-bg-soft));
+}
+
+.article-write-outline-content .article-write-outline-item.article-write-outline-item-selected
+ {
+    color: var(--fsusblog-text-primary);
+    font-weight: 700;
+}
+
+.article-write-outline-content .article-write-outline-item-content
+ {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: center;
+    gap: var(--fsus-space-1);
+}
+
+.article-write-outline-content .article-write-outline-disclosure,
+.article-write-outline-content .article-write-outline-disclosure-placeholder
+ {
+    display: inline-grid;
+    width: 1rem;
+    flex: 0 0 1rem;
+    place-items: center;
+    color: var(--fsusblog-text-muted);
+}
+
+.article-write-outline-content .article-write-outline-disclosure
+ {
+    cursor: pointer;
+}
+
+.article-write-outline-content .article-write-outline-item-text
+ {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 </style>
