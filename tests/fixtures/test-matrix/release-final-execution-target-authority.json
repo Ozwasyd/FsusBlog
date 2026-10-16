@@ -40,8 +40,8 @@
         },
         {
             "path": "config/development/frontend-style-policy.json",
-            "contentDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
-            "indexDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d"
+            "contentDigest": "sha256:f53d513697f3538c6c83ed6c590aeabe26abb39c1203b1cf9fa21eb0d5b42aa8",
+            "indexDigest": "sha256:f53d513697f3538c6c83ed6c590aeabe26abb39c1203b1cf9fa21eb0d5b42aa8"
         },
         {
             "path": "config/development/frontend-style-rule-registry.json",
@@ -465,8 +465,8 @@
         },
         {
             "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
-            "contentDigest": "sha256:c8183a545cbad1ef8e173658c73876c828ce47558052eeac3cf12c2f6a2f6ebe",
-            "indexDigest": "sha256:c8183a545cbad1ef8e173658c73876c828ce47558052eeac3cf12c2f6a2f6ebe"
+            "contentDigest": "sha256:0202dae264e9c4e7418c33537d8c275c44856d2fbcd47d304a2b92282f515826",
+            "indexDigest": "sha256:0202dae264e9c4e7418c33537d8c275c44856d2fbcd47d304a2b92282f515826"
         },
         {
             "path": "src/frontend/src/locales/localeDomains.ts",
@@ -762,6 +762,11 @@
             "path": "src/frontend/stylelint.config.mjs",
             "contentDigest": "sha256:85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf",
             "indexDigest": "sha256:85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+        },
+        {
+            "path": "src/frontend/tsconfig.node.json",
+            "contentDigest": "sha256:db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2",
+            "indexDigest": "sha256:db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2"
         },
         {
             "path": "src/frontend/wasm/build.sh",
@@ -2155,8 +2160,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:dbd764cf0ed4af01cb9ffdc562ac5d52bcccbf4964bc587b20dece0f8b21d085",
-            "indexDigest": "sha256:dbd764cf0ed4af01cb9ffdc562ac5d52bcccbf4964bc587b20dece0f8b21d085"
+            "contentDigest": "sha256:c0d344a8aad817f8d5a92486e8f1ebf995a9c94c92aa0bf1f38c3112da4b4aee",
+            "indexDigest": "sha256:c0d344a8aad817f8d5a92486e8f1ebf995a9c94c92aa0bf1f38c3112da4b4aee"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -3205,8 +3210,8 @@
         },
         {
             "path": "tools/frontend/check-frontend-style.mjs",
-            "contentDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
-            "indexDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2"
+            "contentDigest": "sha256:131ed9e7b58a205978c4bf672776c5931b2c73bd9b928de705e3664634d3ad06",
+            "indexDigest": "sha256:131ed9e7b58a205978c4bf672776c5931b2c73bd9b928de705e3664634d3ad06"
         },
         {
             "path": "tools/frontend/check-locale-domain-bundles.mjs",
@@ -3305,8 +3310,8 @@
         },
         {
             "path": "tools/frontend/style-toolchain/eslint.config.mjs",
-            "contentDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
-            "indexDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a"
+            "contentDigest": "sha256:bc28356260ae1ce75545acd95955369ad9c4a6324746cecc5bea124e5de8a0c0",
+            "indexDigest": "sha256:bc28356260ae1ce75545acd95955369ad9c4a6324746cecc5bea124e5de8a0c0"
         },
         {
             "path": "tools/frontend/style-toolchain/package-lock.json",
@@ -4420,8 +4425,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:4717b396eec6ba68aac47d3013dc1c16f6400eb31c30478ce4793f8c027ab6c0",
-            "indexDigest": "sha256:4717b396eec6ba68aac47d3013dc1c16f6400eb31c30478ce4793f8c027ab6c0"
+            "contentDigest": "sha256:ec8bd021189c2bc2be3de09c446cac8699a3c5a4b09ba5717154b1d4d6b44153",
+            "indexDigest": "sha256:ec8bd021189c2bc2be3de09c446cac8699a3c5a4b09ba5717154b1d4d6b44153"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -6970,8 +6975,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:85e6acb7ad9fa0373c1162993a7d9abc4fe740517755170b026c7981c627660f",
-            "indexDigest": "sha256:85e6acb7ad9fa0373c1162993a7d9abc4fe740517755170b026c7981c627660f",
+            "contentDigest": "sha256:d7e3ceccdc0e79a3ff47837614be54ab948c958f75fde0b105d0dd9e79597752",
+            "indexDigest": "sha256:d7e3ceccdc0e79a3ff47837614be54ab948c958f75fde0b105d0dd9e79597752",
             "dependencyClosure": [
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",
@@ -6988,6 +6993,7 @@
                 "src/frontend/scripts/fsusui-root.mjs",
                 "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
                 "src/frontend/stylelint.config.mjs",
+                "src/frontend/tsconfig.node.json",
                 "stylelint.config.mjs",
                 "tests/tools/native-tooling-style.test.mjs",
                 "tests/tools/package.json",
