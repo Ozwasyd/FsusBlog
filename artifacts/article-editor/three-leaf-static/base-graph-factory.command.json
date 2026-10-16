@@ -1,0 +1,21 @@
+{
+  "cwd": "/workspace/FsusBlog-three-leaf-base",
+  "argv": [
+    "node",
+    "tools/governance/check-canonical-article-graph-factory.mjs"
+  ],
+  "envOverrides": {
+    "PATH": "/workspace/.setup/tools/node_modules/.bin:/workspace/.setup/dotnet:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+    "DOTNET_CLI_HOME": "/workspace/.setup/dotnet-home",
+    "NUGET_PACKAGES": "/workspace/.setup/nuget",
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-three-leaf-ui973"
+  },
+  "startedUTC": "2026-10-16T02:51:35.677777+00:00",
+  "exit": 0,
+  "finishedUTC": "2026-10-16T02:51:35.930623+00:00",
+  "bytes": 56,
+  "lines": 1,
+  "sha256": "23105fd675ff738da7ecf9f5f6ca7e13bc346bda87ca9db0ea2c112ebd8e4b2f"
+}

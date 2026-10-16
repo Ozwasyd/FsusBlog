@@ -1,0 +1,483 @@
+{
+  "kind": "ordinary source/environment identity observations; no frozen authority, classification or acceptance receipt",
+  "heads": {
+    "/workspace/FsusBlog-three-leaf": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "/workspace/FsusBlog-three-leaf-tracked-status": " M src/backend/Services/Authoring/ArticleGraphQueryService.cs\n",
+    "/workspace/FsusUI-three-leaf-ui973": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+    "/workspace/FsusUI-three-leaf-ui973-tracked-status": ""
+  },
+  "observedSourceFiles": [
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "AGENTS.md",
+      "bytes": 7223,
+      "sha256": "aa730a70f94d61eb4684e0d0010b84b08e8cc4f9f46f89808de95f895cc7bf3d"
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": ".agents/skills/fsusblog-design-conformance/SKILL.md",
+      "bytes": 3817,
+      "sha256": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73"
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "docs/development/change-contract.md",
+      "bytes": 32875,
+      "sha256": "28827cc20b650edd9875ce49090bf0a2a4b0d9aa00400e6191e6755a76ab5586"
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "docs/development/document-lifecycle.md",
+      "bytes": 5925,
+      "sha256": "f0ed9493e97dac9f3b9adacdc39ddaada81b4560563aed334c088a4b034e577d"
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "docs/design/governance.md",
+      "bytes": 8848,
+      "sha256": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e"
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "docs/design/surface-profiles.md",
+      "bytes": 7642,
+      "sha256": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243"
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "src/frontend/src/fsusui/README.md",
+      "bytes": 6837,
+      "sha256": "1a581458698e3cbfa6e40f5a0d6328183d67aeac72487496ff3d2a601acd5cc3"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "AGENTS.md",
+      "bytes": 8053,
+      "sha256": "8b4a9edb311b50e6c036658c92db7dadf7d71a196039f6da3484933647370e89"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": ".agents/skills/fsusui-design-conformance/SKILL.md",
+      "bytes": 11447,
+      "sha256": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "docs/index.md",
+      "bytes": 5070,
+      "sha256": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "docs/design.md",
+      "bytes": 49896,
+      "sha256": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "docs/design/governance.md",
+      "bytes": 6291,
+      "sha256": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "docs/design/change-classification.md",
+      "bytes": 6082,
+      "sha256": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "docs/workflows/visual-change.md",
+      "bytes": 6324,
+      "sha256": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "docs/consumers/design-integration.md",
+      "bytes": 5637,
+      "sha256": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "vue/packages/element-plus/index.ts",
+      "bytes": 4458,
+      "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "vue/packages/components/pagination/index.ts",
+      "bytes": 240,
+      "sha256": "0c6e042fd4e260c94f864e49122238e34fb77b28fa808a167ea83d7f1324a1e6"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "vue/packages/components/pagination/src/pagination.ts",
+      "bytes": 15083,
+      "sha256": "953aa7398a087e9dad3d0a23fd0ae733183f3857ef365176931c910b72abef9b"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "vue/packages/element-plus/package.json",
+      "bytes": 9777,
+      "sha256": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "package.json",
+      "bytes": 33483,
+      "sha256": "3c94a82459e759aef22d33f0909ec44d5ab4a03a776a44c48427a62be4924d43"
+    },
+    {
+      "root": "/workspace/FsusUI-three-leaf-ui973",
+      "path": "pnpm-lock.yaml",
+      "bytes": 533429,
+      "sha256": "faf72e9bf46044be7e407783119c6fbe1945858855471ff3b6bc3e20155f19a2"
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/csharp-style-baseline.json",
+      "bytes": 6748,
+      "sha256": "0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/csharp-style-policy.json",
+      "bytes": 14226,
+      "sha256": "29f9d010d5221b393164526fc6203dc555f453b83e26b77552617a13beb23200",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/frontend-style-baseline-corrections.json",
+      "bytes": 1422,
+      "sha256": "ce615f4ba1198c1f48cfc36090be9a83a700c204b822edc5089f30347ec7b026",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/frontend-style-baseline.json",
+      "bytes": 620180,
+      "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/frontend-style-policy.json",
+      "bytes": 3632,
+      "sha256": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/frontend-style-reviewed-residual.json",
+      "bytes": 343316,
+      "sha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/frontend-style-rule-registry.json",
+      "bytes": 8767,
+      "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/native-tooling-style-baseline.json",
+      "bytes": 260,
+      "sha256": "ee7574423caeb6165dc610a4958429cd6e02411a926fa84f6133605b5f8b6d6c",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/native-tooling-style-exceptions.json",
+      "bytes": 28188,
+      "sha256": "aa788845ecdf0cda4f29e1e6b556f8d8a1d78f209e99648d8c80faf7281770e0",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "config/development/native-tooling-style-policy.json",
+      "bytes": 5270,
+      "sha256": "17ef12cad465acc82cbd1e07f0204d34a1dbdc913bfd53df7bce906a52237822",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+      "bytes": 10275,
+      "sha256": "c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "tools/frontend/style-toolchain/package-lock.json",
+      "bytes": 169746,
+      "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "tools/frontend/style-toolchain/package.json",
+      "bytes": 928,
+      "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "src/frontend/eslint.config.mjs",
+      "bytes": 51,
+      "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "src/frontend/package-lock.json",
+      "bytes": 337719,
+      "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "src/frontend/package.json",
+      "bytes": 48113,
+      "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "src/frontend/tsconfig.app.json",
+      "bytes": 1099,
+      "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "src/frontend/tsconfig.json",
+      "bytes": 173,
+      "sha256": "f8f8b77d34a1641383539c260f8d83c817d93e6a99294ca071cd6c080eb6f167",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf",
+      "path": "src/frontend/tsconfig.node.json",
+      "bytes": 735,
+      "sha256": "db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/csharp-style-baseline.json",
+      "bytes": 6748,
+      "sha256": "0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/csharp-style-policy.json",
+      "bytes": 14226,
+      "sha256": "29f9d010d5221b393164526fc6203dc555f453b83e26b77552617a13beb23200",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/frontend-style-baseline-corrections.json",
+      "bytes": 1422,
+      "sha256": "ce615f4ba1198c1f48cfc36090be9a83a700c204b822edc5089f30347ec7b026",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/frontend-style-baseline.json",
+      "bytes": 620180,
+      "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/frontend-style-policy.json",
+      "bytes": 3632,
+      "sha256": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/frontend-style-reviewed-residual.json",
+      "bytes": 343316,
+      "sha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/frontend-style-rule-registry.json",
+      "bytes": 8767,
+      "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/native-tooling-style-baseline.json",
+      "bytes": 260,
+      "sha256": "ee7574423caeb6165dc610a4958429cd6e02411a926fa84f6133605b5f8b6d6c",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/native-tooling-style-exceptions.json",
+      "bytes": 28188,
+      "sha256": "aa788845ecdf0cda4f29e1e6b556f8d8a1d78f209e99648d8c80faf7281770e0",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "config/development/native-tooling-style-policy.json",
+      "bytes": 5270,
+      "sha256": "17ef12cad465acc82cbd1e07f0204d34a1dbdc913bfd53df7bce906a52237822",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+      "bytes": 10275,
+      "sha256": "c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "tools/frontend/style-toolchain/package-lock.json",
+      "bytes": 169746,
+      "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "tools/frontend/style-toolchain/package.json",
+      "bytes": 928,
+      "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "src/frontend/eslint.config.mjs",
+      "bytes": 51,
+      "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "src/frontend/package-lock.json",
+      "bytes": 337719,
+      "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "src/frontend/package.json",
+      "bytes": 48113,
+      "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "src/frontend/tsconfig.app.json",
+      "bytes": 1099,
+      "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "src/frontend/tsconfig.json",
+      "bytes": 173,
+      "sha256": "f8f8b77d34a1641383539c260f8d83c817d93e6a99294ca071cd6c080eb6f167",
+      "matchesExactBase": true
+    },
+    {
+      "root": "/workspace/FsusBlog-three-leaf-base",
+      "path": "src/frontend/tsconfig.node.json",
+      "bytes": 735,
+      "sha256": "db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2",
+      "matchesExactBase": true
+    }
+  ],
+  "existingDependencies": [
+    {
+      "path": "/workspace/FsusBlog/src/frontend/node_modules/typescript/package.json",
+      "name": "typescript",
+      "version": "6.0.3",
+      "sha256": "9332e97c30d3e53ed54910b89207ed657fb444066484df6e5b6965bf130865e9"
+    },
+    {
+      "path": "/workspace/FsusBlog/src/frontend/node_modules/vue/package.json",
+      "name": "vue",
+      "version": "3.5.33",
+      "sha256": "fec980abfce3f75f81a6d9511de47400bc86a3496fe11620e701ad2590014297"
+    },
+    {
+      "path": "/workspace/FsusBlog/src/frontend/node_modules/vue-tsc/package.json",
+      "name": "vue-tsc",
+      "version": "3.2.7",
+      "sha256": "25b23c964e4f493ca6207d97bc99e94f6fc449609eb0ce89620535410d8f98f7"
+    },
+    {
+      "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/compiler-sfc/package.json",
+      "name": "@vue/compiler-sfc",
+      "version": "3.5.33",
+      "sha256": "94de2ba48240f3515f45803c93ede444b5760bf4076d302c6357d1ed6921716d"
+    },
+    {
+      "path": "/workspace/FsusBlog/src/frontend/node_modules/@vue/compiler-dom/package.json",
+      "name": "@vue/compiler-dom",
+      "version": "3.5.33",
+      "sha256": "11ab3432a156516d6ddee0f7a4fdf7a51ba9bedbbdacb3de628204a5e517d892"
+    },
+    {
+      "path": "/workspace/FsusBlog-three-leaf/src/frontend/node_modules/eslint/package.json",
+      "missing": true
+    },
+    {
+      "path": "/workspace/FsusBlog-three-leaf/src/frontend/node_modules/stylelint/package.json",
+      "missing": true
+    },
+    {
+      "path": "/workspace/FsusUI/node_modules/typescript/package.json",
+      "name": "typescript",
+      "version": "6.0.2",
+      "sha256": "bb6ee7e709ae60426e30b8d393df4d939ee61407794b4f053ce6338d6eaa8c63"
+    },
+    {
+      "path": "/workspace/FsusUI/node_modules/vue/package.json",
+      "name": "vue",
+      "version": "3.5.32",
+      "sha256": "fc1afd2562b2ae3f0991b1a4ad37c2819a5486ca1172c5a1d17740b214936614"
+    },
+    {
+      "path": "/workspace/FsusUI/node_modules/vue-tsc/package.json",
+      "name": "vue-tsc",
+      "version": "3.2.6",
+      "sha256": "1f15d73b551ee928e4fbe3a7c5433df262152ebb6fc75de4210a1b048d613c15"
+    },
+    {
+      "path": "/workspace/FsusUI/node_modules/@vue/compiler-sfc/package.json",
+      "name": "@vue/compiler-sfc",
+      "version": "3.5.32",
+      "sha256": "9cd5455467d29f8262c69ebc95fe5a7227b19f643eff919f89ca4dfa1fffb552"
+    },
+    {
+      "path": "/workspace/FsusUI/node_modules/@vue/compiler-dom/package.json",
+      "name": "@vue/compiler-dom",
+      "version": "3.5.32",
+      "sha256": "86069615cd8d1438cb21038f89fcc2370d056a53ef4489ed40273217bec64bb0"
+    },
+    {
+      "path": "/workspace/FsusUI/node_modules/eslint/package.json",
+      "name": "eslint",
+      "version": "10.2.0",
+      "sha256": "e31fc3af73d9e705250ff2e83acb7186b9e5f97de2b1a2c5c45591923b2eca36"
+    },
+    {
+      "path": "/workspace/FsusUI-three-leaf-ui973/node_modules/stylelint/package.json",
+      "missing": true
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "cwd": "/workspace/FsusBlog-storage-conflict-4395",
+  "argv": [
+    "git",
+    "diff",
+    "--cached",
+    "--check"
+  ],
+  "exitCode": 0
+}

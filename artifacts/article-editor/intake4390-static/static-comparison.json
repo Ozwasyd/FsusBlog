@@ -1,0 +1,93 @@
+{
+    "application": {
+        "baseExit": 2,
+        "candidateExit": 2,
+        "baseLines": 30,
+        "candidateLines": 30,
+        "rawBytesIdentical": true,
+        "positionOnlyNormalizedCompleteOutputEqual": true,
+        "addedCompleteRowsWithMultiplicity": [],
+        "removedCompleteRowsWithMultiplicity": []
+    },
+    "full-style": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 83667,
+        "candidateLines": 83667,
+        "rawBytesIdentical": true,
+        "positionOnlyNormalizedCompleteOutputEqual": true,
+        "addedCompleteRowsWithMultiplicity": [],
+        "removedCompleteRowsWithMultiplicity": []
+    },
+    "fsusui-boundary": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 21,
+        "candidateLines": 21,
+        "rawBytesIdentical": true,
+        "positionOnlyNormalizedCompleteOutputEqual": true,
+        "addedCompleteRowsWithMultiplicity": [],
+        "removedCompleteRowsWithMultiplicity": []
+    },
+    "binary-boundary": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 7,
+        "candidateLines": 7,
+        "rawBytesIdentical": true,
+        "positionOnlyNormalizedCompleteOutputEqual": true,
+        "addedCompleteRowsWithMultiplicity": [],
+        "removedCompleteRowsWithMultiplicity": []
+    },
+    "code-intent": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 3,
+        "candidateLines": 3,
+        "rawBytesIdentical": false,
+        "positionOnlyNormalizedCompleteOutputEqual": false,
+        "addedCompleteRowsWithMultiplicity": [
+            "[code-intent] 2 error(s) across 5748 checked file(s):\n"
+        ],
+        "removedCompleteRowsWithMultiplicity": [
+            "[code-intent] 2 error(s) across 5747 checked file(s):\n"
+        ]
+    },
+    "lifecycle": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 7,
+        "candidateLines": 7,
+        "rawBytesIdentical": true,
+        "positionOnlyNormalizedCompleteOutputEqual": true,
+        "addedCompleteRowsWithMultiplicity": [],
+        "removedCompleteRowsWithMultiplicity": []
+    },
+    "authoritative": {
+        "baseExit": 1,
+        "candidateExit": 1,
+        "baseLines": 41,
+        "candidateLines": 41,
+        "rawBytesIdentical": true,
+        "positionOnlyNormalizedCompleteOutputEqual": true,
+        "addedCompleteRowsWithMultiplicity": [],
+        "removedCompleteRowsWithMultiplicity": []
+    },
+    "applicationDiagnostics": {
+        "base": {
+            "total": 29,
+            "Blog": 4,
+            "UI": 25,
+            "leaf": 0
+        },
+        "candidate": {
+            "total": 29,
+            "Blog": 4,
+            "UI": 25,
+            "leaf": 0
+        }
+    },
+    "strictLeaf": 0,
+    "ast": 0,
+    "generatedConfigByteIdentical": true
+}

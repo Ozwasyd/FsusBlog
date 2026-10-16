@@ -1,0 +1,39 @@
+{
+  "kind": "ordinary source/static environment facts; no setup/install performed",
+  "links": [
+    [
+      "/workspace/FsusBlog-three-leaf/src/frontend/node_modules",
+      "/workspace/FsusBlog/src/frontend/node_modules"
+    ],
+    [
+      "/workspace/FsusBlog-three-leaf-base/src/frontend/node_modules",
+      "/workspace/FsusBlog/src/frontend/node_modules"
+    ],
+    [
+      "/workspace/FsusUI-three-leaf-ui973/node_modules",
+      "/workspace/FsusUI/node_modules"
+    ],
+    [
+      "/workspace/FsusUI-three-leaf-ui973/vue/packages/components/node_modules",
+      "/workspace/FsusUI/vue/packages/components/node_modules"
+    ],
+    [
+      "/workspace/FsusUI-three-leaf-ui973/vue/packages/element-plus/node_modules",
+      "/workspace/FsusUI/vue/packages/element-plus/node_modules"
+    ],
+    [
+      "/workspace/FsusUI-three-leaf-ui973/vue/packages/icons-vue/node_modules",
+      "/workspace/FsusUI/vue/packages/icons-vue/node_modules"
+    ],
+    [
+      "/workspace/FsusUI-three-leaf-ui973/vue/packages/theme-chalk/node_modules",
+      "/workspace/FsusUI/vue/packages/theme-chalk/node_modules"
+    ],
+    [
+      "/workspace/FsusUI-three-leaf-ui973/vue/packages/wasm/node_modules",
+      "/workspace/FsusUI/vue/packages/wasm/node_modules"
+    ]
+  ],
+  "blogManifests": "tracked package and lock equal exact base",
+  "uiRootManifests": "installed source root differs: package +1 line, pnpm lock +58/-5; exact diff retained; no dependency qualification claimed"
+}

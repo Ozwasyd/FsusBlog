@@ -1,0 +1,13 @@
+{
+  "cwd": "/workspace/FsusBlog-storage-conflict-4395",
+  "argv": [
+    "rg",
+    "-n",
+    "VaultStoredConflictReview|VaultConflictList|VaultResolutionStatus|conflictEvidencePresentation|resolutionStatusPresentation|storedConflictReviewPresentation",
+    "src/frontend/src",
+    "--glob",
+    "!**/article-vault/**"
+  ],
+  "interpretation": "exit1 with empty output means no external source matches in this exact tree; not a runtime host proof",
+  "exitCode": 1
+}

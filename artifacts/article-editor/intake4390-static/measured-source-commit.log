@@ -1,0 +1,8 @@
+tree 493d84be6a42b39dbf5b647a244522a378af6482
+parent b302f58a9aaee9f2399d9274157a478f3c2f78fb
+author CHEN PENG YU <lyuaoss@gmail.com> 1792061254 +0000
+committer CHEN PENG YU <lyuaoss@gmail.com> 1792061254 +0000
+
+feat(frontend): admit reviewed snapshot ratio source [skip ci]
+
+Refs #2304

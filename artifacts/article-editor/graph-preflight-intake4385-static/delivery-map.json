@@ -1,0 +1,866 @@
+{
+  "kind": "ordinary completed raw static evidence delivery map; no receipt, authority or qualification schema",
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "sourceHead": "fa2057c6d3d6893ac7588b849669957d703aa8a8",
+  "sourceHeadMeaning": "Exact committed production source checked; later evidence-only commit does not modify any production source. Final containing commit is read back from remote PR rather than self-referenced.",
+  "donorHead": "432019fcb1a4fbd4ebdbd1f2617190d8185a5990",
+  "uiHead": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+  "allProcessesCompleted": true,
+  "files": [
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/actual-alias-identities.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/actual-alias-identities.json",
+      "bytes": 2291,
+      "sha256": "22181c251fee31877a7f4bc3cc92e7af1c3f903e4245902b23a285eb792ecd18"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-authoritative.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.command.json",
+      "bytes": 411,
+      "sha256": "1b6398b8b9058848597848f647787acc84eb71e72f23394d785a7cb4f2f8ca9d"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-authoritative.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-authoritative.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.log",
+      "bytes": 6771,
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-binary.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-binary.command.json",
+      "bytes": 423,
+      "sha256": "dfada79681e92c117eed8208a3709d2402a001f21ea2abc729d9631e4fc29233"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-binary.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-binary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-binary.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-binary.log",
+      "bytes": 866,
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-boundary.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-boundary.command.json",
+      "bytes": 414,
+      "sha256": "70ddb3301d83afbc45f92e6e6b5cccbc7f370e578979235844578d19c0e25a2d"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-boundary.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-boundary.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-boundary.log",
+      "bytes": 2805,
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-build.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-build.command.json",
+      "bytes": 485,
+      "sha256": "9696d4f2ff3c6642752037d6a2708ef45b303f391f8d0236476c18d2e571ae1b"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-build.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-build.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-build.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-build.log",
+      "bytes": 192231,
+      "sha256": "13cfde6320329edf09493a2a4c6f1fb59fc1c5f22dac4891b96dee09c17e97a6"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-full-csharp.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.command.json",
+      "bytes": 407,
+      "sha256": "3cb26ae8e6dcc675010358c2c2bdbe4203bd20d63df57619977c92013ab458db"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-full-csharp.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-full-csharp.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.log",
+      "bytes": 122452,
+      "sha256": "67cac1ea2f04480f5e40c40b37935e7a5dd698fa293a87b1f8e56e940edc25f0"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-full-style.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-style.command.json",
+      "bytes": 411,
+      "sha256": "58e988fc3580b268b3511719ad07622383b62966c90bcfca8d9e8682042431b6"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-full-style.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-style.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-full-style.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-style.log",
+      "bytes": 11861610,
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-graph-factory.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.command.json",
+      "bytes": 418,
+      "sha256": "040ed0e6597bdd7213b395d2884ed5eaacb7bd5f2bdb6995a346f4a890d4abd6"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-graph-factory.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-graph-factory.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.log",
+      "bytes": 56,
+      "sha256": "23105fd675ff738da7ecf9f5f6ca7e13bc346bda87ca9db0ea2c112ebd8e4b2f"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-intent.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-intent.command.json",
+      "bytes": 398,
+      "sha256": "3bb3c7d1ff0595284d71d05d60ba1d37b157f9b200461213432999279305a892"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-intent.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-intent.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-intent.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-intent.log",
+      "bytes": 353,
+      "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-lifecycle.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.command.json",
+      "bytes": 410,
+      "sha256": "0167fa29a39f94bf00355ad5ad8d3295928f9a20b61c69a93a3d1e5083a73195"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-lifecycle.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-lifecycle.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.log",
+      "bytes": 762,
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-local-application-config.snapshot.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-local-application-config.snapshot.json",
+      "bytes": 2762,
+      "sha256": "941353f3f02b1084aba7561514223a06b2f711745b6c5d3270a8ce7b28311008"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-strict-csharp.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.command.json",
+      "bytes": 480,
+      "sha256": "6783147ff990516d3237fec318ec14140cb86af627a8f7d7a640408668588c8c"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-strict-csharp.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-strict-csharp.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.log",
+      "bytes": 45,
+      "sha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-types.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-types.command.json",
+      "bytes": 425,
+      "sha256": "5acc858b3c21294374a681b96d00b607087b380a4fa4fe141f044ddd79082016"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-types.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-types.exit",
+      "bytes": 2,
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/base-types.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/base-types.log",
+      "bytes": 5319,
+      "sha256": "5f62e5c80087ffd6a2812fedc20d3da83a365688a3534f7b29145e4341776d2f"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/build-diagnostic-comparison.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/build-diagnostic-comparison.json",
+      "bytes": 342199,
+      "sha256": "a9bd2c629141c4b55a378b05a7e3bd39ce07fb42e15013ef8d02f070786e7450"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-authoritative.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.command.json",
+      "bytes": 413,
+      "sha256": "665a6fa99875f98bc595f8b206fe200133371d910a183c4854b1c3e6daf88488"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-authoritative.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-authoritative.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.log",
+      "bytes": 6771,
+      "sha256": "7ef7c37f2d494d72fcc2ae562ad45efee5044fa9ff83037812499955ee214403"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-binary.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.command.json",
+      "bytes": 425,
+      "sha256": "0f36fa029ccb4985d7ba401eeb8a94dd845d3089cecf4a81fff36f4109d17fc7"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-binary.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-binary.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.log",
+      "bytes": 866,
+      "sha256": "413dd15867501fb2310f36076564f2c624493f838d2e074e459889e58e2adf32"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-boundary.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.command.json",
+      "bytes": 416,
+      "sha256": "bb6b275033a77ec801dffa018cc17e73426ccc0f0a1fb8f41569d212be82cdfc"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-boundary.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-boundary.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.log",
+      "bytes": 2805,
+      "sha256": "3995f0058a7712dc529f675e08a84c11fa25b0feb54af3f82cab5b374f6328ff"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-build.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-build.command.json",
+      "bytes": 487,
+      "sha256": "fc67dc1813698603b422ad7beda7fa20c9f93c3caf0e92343fe6f9daa7341496"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-build.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-build.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-build.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-build.log",
+      "bytes": 194887,
+      "sha256": "e17c21f7a0342d89daeda9a6576ba9cccab97b950c532ee12b945a7d2e983e7a"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-full-csharp.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.command.json",
+      "bytes": 409,
+      "sha256": "42bdbb650023b90141af2a698c1fab37d1e5e1715eb4e4786140a16aefeef84e"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-full-csharp.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-full-csharp.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.log",
+      "bytes": 122452,
+      "sha256": "67cac1ea2f04480f5e40c40b37935e7a5dd698fa293a87b1f8e56e940edc25f0"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-full-style.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.command.json",
+      "bytes": 413,
+      "sha256": "f70b5e3408e9b33a308735b7f07718d7cbca725dbf4654e94089f857a700099f"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-full-style.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-full-style.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.log",
+      "bytes": 11861610,
+      "sha256": "e3f52c2de413f7f3556242ddcc25deac6c4dbb9aecd27a135d40bab41ea3f75a"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-graph-factory.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.command.json",
+      "bytes": 420,
+      "sha256": "9344a379ff2cf2345419027563abc86673b5960e1a9ad13142d6b36bc75a5001"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-graph-factory.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-graph-factory.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.log",
+      "bytes": 56,
+      "sha256": "23105fd675ff738da7ecf9f5f6ca7e13bc346bda87ca9db0ea2c112ebd8e4b2f"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-intent.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.command.json",
+      "bytes": 400,
+      "sha256": "e5fbabfe6b771250db133bd9edef40274a07b7993d2cd31a49e168fc26aabe17"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-intent.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-intent.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.log",
+      "bytes": 353,
+      "sha256": "e78db41e65ac4ad6e3e6d41a0cd175afff98798bdf77dd37231da870d1e6e34f"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-lifecycle.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.command.json",
+      "bytes": 412,
+      "sha256": "543bc744f6add0ef07713faec132af84a30013b33460284ea65f53c1c8cb8a77"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-lifecycle.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.exit",
+      "bytes": 2,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-lifecycle.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.log",
+      "bytes": 762,
+      "sha256": "de42b0491677ef361470ee44a966a54e4d924f51e1e434a3841402e4c52a480a"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-local-application-config.snapshot.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-local-application-config.snapshot.json",
+      "bytes": 2762,
+      "sha256": "941353f3f02b1084aba7561514223a06b2f711745b6c5d3270a8ce7b28311008"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-strict-csharp.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.command.json",
+      "bytes": 482,
+      "sha256": "f300f004b60deed736e86734501422a3b9efdc9a8e390f42e889267ef902152f"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-strict-csharp.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-strict-csharp.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.log",
+      "bytes": 45,
+      "sha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-types.command.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-types.command.json",
+      "bytes": 427,
+      "sha256": "c82718f28e12d8df31a75f1d3c7df3f08ddb5730c026f06c39e39cf4072cfe42"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-types.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-types.exit",
+      "bytes": 2,
+      "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/candidate-types.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-types.log",
+      "bytes": 5319,
+      "sha256": "5f62e5c80087ffd6a2812fedc20d3da83a365688a3534f7b29145e4341776d2f"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/current-production.patch",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/current-production.patch",
+      "bytes": 5301,
+      "sha256": "e963f69b3d67afc604ed197d511db484a1f6a03088bcde3a3aae58eab3133076"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/dup4366.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/dup4366.json",
+      "bytes": 12731,
+      "sha256": "68c4dc7db8d5b4a7cdffe0bc36e9c471dc6c9d2690374489e9199a378dcae8cf"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/exact-donor-production.patch",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/exact-donor-production.patch",
+      "bytes": 5301,
+      "sha256": "e963f69b3d67afc604ed197d511db484a1f6a03088bcde3a3aae58eab3133076"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/exact-production-diff-comparison.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/exact-production-diff-comparison.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/input-identities.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/input-identities.json",
+      "bytes": 12111,
+      "sha256": "24001355fd2eba016fccacc08adfa2738bfc1c2e29307d56525125620875052a"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/pr4366.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/pr4366.json",
+      "bytes": 13401,
+      "sha256": "e290d0ef485bf925bd390beb3dfe5c09b72e033173f15b4a9c35c24fe7ccbe61"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/pr4385.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/pr4385.json",
+      "bytes": 10543,
+      "sha256": "c90c3b7cb8a5f26e1bb14d32eca6b9b2db5dc0d7b1226da25cbc27f5f202f424"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/repository-contract.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/repository-contract.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/repository-contract.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/repository-contract.log",
+      "bytes": 51,
+      "sha256": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/search__432019fcb1a4fbd4ebdbd1f2617190d8185a5990_.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/search__432019fcb1a4fbd4ebdbd1f2617190d8185a5990_.json",
+      "bytes": 12731,
+      "sha256": "68c4dc7db8d5b4a7cdffe0bc36e9c471dc6c9d2690374489e9199a378dcae8cf"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/search_base_codex_issue_2295_history_preview_reveal_checkpoint_20261015.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/search_base_codex_issue_2295_history_preview_reveal_checkpoint_20261015.json",
+      "bytes": 89196,
+      "sha256": "403b7e315b7cd27ecd86aaea53936dd3c3f090dcf320f27b5a6135e8b8e5427c"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/source-diff-check.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/source-diff-check.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/source-message-contract.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/source-message-contract.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.log",
+      "bytes": 36,
+      "sha256": "d0f4f591aee85999e4bd6eea79833551a1710eccee9d1bced11e3ae6f07759ba"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/source-message.txt",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/source-message.txt",
+      "bytes": 190,
+      "sha256": "a2692c914e67b15e00c41e27deb427f3e88719afcf7404bfd69acf45c964b551"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/source-preservation.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/source-preservation.json",
+      "bytes": 1155,
+      "sha256": "6d834acccef6b073cae9f5556e6e26636e1559f828e4eefec2735d56346b48a8"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/source-provenance.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/source-provenance.json",
+      "bytes": 921,
+      "sha256": "b97fc0a42d27d9739c7f3e5bd4692241a0c8eb4434839bef065b3f471f940f8b"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/source-range-contract.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/source-range-contract.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.log",
+      "bytes": 81,
+      "sha256": "732d2fdb56ad44bbac7eceb4ba95a3a9befebec530d1ce61174a2fe3d43b1cfe"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/static-comparison.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/static-comparison.json",
+      "bytes": 4439,
+      "sha256": "4dc755e5ee1a1843671a2ded58a68b362f57e30ca81633f206828f5dfc4dfc59"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/style-install.exit",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/style-install.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/style-install.log",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/style-install.log",
+      "bytes": 235,
+      "sha256": "33332424a809cfb2d9cc98ad8e338550f789285e06e95918f272b87089fdc254"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/toolchain-and-config-identities.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/toolchain-and-config-identities.json",
+      "bytes": 2700,
+      "sha256": "408c77c857e13879399e284e3a479d16b2365dc2bc1414953a36803ebb467658"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/ui-dependency-identities.json",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/ui-dependency-identities.json",
+      "bytes": 768,
+      "sha256": "988dc744872952e07c55a0fb7c628cde4b5a3814377a7e5cc675b0f74736df59"
+    },
+    {
+      "originalAbsolutePath": "/workspace/fsusblog-4366-evidence/ui-installed-lock-diff.patch",
+      "deliveryPath": "artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch",
+      "bytes": 8118,
+      "sha256": "c1b8b254e7ea62144eb5d432e0af4484b67bc162205d6aa7453d5f83f3601ea2"
+    }
+  ],
+  "originalCommands": [
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node tools/docs/check-authoritative-development-docs.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:40.355092+00:00",
+      "finished": "2026-10-15T10:50:40.560602+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:30.212799+00:00",
+      "finished": "2026-10-15T10:50:30.388027+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node tests/frontend/checks/static/check-fsusui-boundary.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:29.977766+00:00",
+      "finished": "2026-10-15T10:50:30.212669+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "dotnet build src/backend/FsusBlog.Server.csproj -c Release --no-incremental /p:RestoreLockedMode=true /p:PublishClientAssets=false",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:45:27.818738+00:00",
+      "finished": "2026-10-15T10:47:38.115620+00:00",
+      "exit": 0
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node tools/dotnet/check-csharp-style.mjs --mode full",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:48:17.882861+00:00",
+      "finished": "2026-10-15T10:48:23.655043+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node tools/frontend/check-frontend-style.mjs --mode full",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:48:23.655200+00:00",
+      "finished": "2026-10-15T10:50:29.977631+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node tools/governance/check-canonical-article-graph-factory.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:40.560742+00:00",
+      "finished": "2026-10-15T10:50:41.013889+00:00",
+      "exit": 0
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node tools/governance/check-code-intent.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:30.388182+00:00",
+      "finished": "2026-10-15T10:50:40.058238+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node tools/docs/generate-document-lifecycle.mjs --check",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:40.058372+00:00",
+      "finished": "2026-10-15T10:50:40.354742+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node tools/dotnet/check-csharp-style.mjs --mode strict-full --file src/backend/Services/Authoring/ArticleGraphQueryService.cs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:41.014041+00:00",
+      "finished": "2026-10-15T10:50:47.574337+00:00",
+      "exit": 0
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-base",
+      "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:47:38.115859+00:00",
+      "finished": "2026-10-15T10:48:17.882702+00:00",
+      "exit": 2
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node tools/docs/check-authoritative-development-docs.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:46.757878+00:00",
+      "finished": "2026-10-15T10:50:46.980287+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node tests/frontend/checks/static/check-binary-import-boundaries.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:36.262068+00:00",
+      "finished": "2026-10-15T10:50:36.417986+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node tests/frontend/checks/static/check-fsusui-boundary.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:36.022857+00:00",
+      "finished": "2026-10-15T10:50:36.261941+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "dotnet build src/backend/FsusBlog.Server.csproj -c Release --no-incremental /p:RestoreLockedMode=true /p:PublishClientAssets=false",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:45:29.124203+00:00",
+      "finished": "2026-10-15T10:47:41.286401+00:00",
+      "exit": 0
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node tools/dotnet/check-csharp-style.mjs --mode full",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:48:21.512619+00:00",
+      "finished": "2026-10-15T10:48:27.310303+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node tools/frontend/check-frontend-style.mjs --mode full",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:48:27.310611+00:00",
+      "finished": "2026-10-15T10:50:36.022550+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node tools/governance/check-canonical-article-graph-factory.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:46.980422+00:00",
+      "finished": "2026-10-15T10:50:47.304150+00:00",
+      "exit": 0
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node tools/governance/check-code-intent.mjs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:36.418182+00:00",
+      "finished": "2026-10-15T10:50:46.470065+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node tools/docs/generate-document-lifecycle.mjs --check",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:46.470338+00:00",
+      "finished": "2026-10-15T10:50:46.757717+00:00",
+      "exit": 1
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node tools/dotnet/check-csharp-style.mjs --mode strict-full --file src/backend/Services/Authoring/ArticleGraphQueryService.cs",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:50:47.304600+00:00",
+      "finished": "2026-10-15T10:50:53.186858+00:00",
+      "exit": 0
+    },
+    {
+      "cwd": "/workspace/fsusblog-4366-intake",
+      "command": "node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+      "setup": "source /workspace/.setup/activate.sh",
+      "envOverrides": {
+        "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+        "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+      },
+      "started": "2026-10-15T10:47:41.286563+00:00",
+      "finished": "2026-10-15T10:48:21.512453+00:00",
+      "exit": 2
+    }
+  ],
+  "additionalCommands": {
+    "styleInstall": "npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/fsusblog-4366-npm-cache --prefix tools/frontend/style-toolchain",
+    "sourceDiff": "git diff --check b302f58a9aaee9f2399d9274157a478f3c2f78fb HEAD",
+    "exactProductionDiff": "cmp current-production.patch exact-donor-production.patch",
+    "trustedMetadata": "node /workspace/fsusblog-4366-base/tools/governance/check-change-contract.mjs --root /workspace/fsusblog-4366-intake --message-file source-message.txt; separately --range b302f58a9aaee9f2399d9274157a478f3c2f78fb..HEAD; separately --repository"
+  },
+  "configurationSnapshots": "ordinary unmodified snapshots only; original generated config location and cwd retained in actual-alias-identities.json, not runnable configuration at delivery location"
+}

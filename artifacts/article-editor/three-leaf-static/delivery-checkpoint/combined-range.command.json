@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "node",
+    "/workspace/FsusBlog-three-leaf-base/tools/governance/check-change-contract.mjs",
+    "--root",
+    "/workspace/FsusBlog-three-leaf",
+    "--range",
+    "b302f58a9aaee9f2399d9274157a478f3c2f78fb..HEAD"
+  ],
+  "cwd": "/workspace/FsusBlog-three-leaf",
+  "exit": 0
+}

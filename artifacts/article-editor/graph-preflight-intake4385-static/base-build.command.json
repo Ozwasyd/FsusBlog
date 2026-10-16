@@ -1,0 +1,12 @@
+{
+  "cwd": "/workspace/fsusblog-4366-base",
+  "command": "dotnet build src/backend/FsusBlog.Server.csproj -c Release --no-incremental /p:RestoreLockedMode=true /p:PublishClientAssets=false",
+  "setup": "source /workspace/.setup/activate.sh",
+  "envOverrides": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/fsusblog-4366-ui973"
+  },
+  "started": "2026-10-15T10:45:27.818738+00:00",
+  "finished": "2026-10-15T10:47:38.115620+00:00",
+  "exit": 0
+}

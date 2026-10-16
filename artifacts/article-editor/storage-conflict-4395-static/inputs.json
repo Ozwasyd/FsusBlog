@@ -1,0 +1,105 @@
+{
+  "base": {
+    "root": "/workspace/FsusBlog-storage-conflict-4395-base",
+    "head": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "status": ""
+  },
+  "candidate": {
+    "root": "/workspace/FsusBlog-storage-conflict-4395",
+    "head": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "status": "?? src/frontend/src/components/article-vault/\n"
+  },
+  "ui": {
+    "root": "/workspace/FsusUI-ui973-storage-conflict-4395",
+    "head": "41a127611fa3db054b7d5bca25aeb101f2401ef6",
+    "status": ""
+  },
+  "blogInputs": {
+    ".agents/skills/fsusblog-design-conformance/SKILL.md": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73",
+    "docs/design/governance.md": "42a6e93abe079a076eab1bac630964b5b105c2b38232fa4ecb7e9b391f06ef3e",
+    "docs/design/surface-profiles.md": "6d624db06a4b5be8e8e87aabfb2aa93cc2f1b627b864313b7ba851a19701f243",
+    "src/frontend/package.json": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+    "src/frontend/package-lock.json": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+    "src/frontend/tsconfig.app.json": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+    "src/frontend/tsconfig.json": "f8f8b77d34a1641383539c260f8d83c817d93e6a99294ca071cd6c080eb6f167",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+    "src/frontend/scripts/fsusui-root.mjs": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304",
+    "config/development/frontend-style-policy.json": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+    "tools/frontend/style-toolchain/package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+  },
+  "uiInputs": {
+    ".agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+    "docs/index.md": "b7aefe9f989ce962ada16c1fcbabf0613d862dfe0ec2bd016865a1a33d5b6f18",
+    "docs/design.md": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039",
+    "docs/design/governance.md": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+    "docs/design/change-classification.md": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+    "docs/workflows/visual-change.md": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+    "docs/consumers/design-integration.md": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+    "vue/packages/element-plus/package.json": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c",
+    "vue/packages/element-plus/index.ts": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+    "docs/components/button.md": "fde2fdbe5d25cd3811189020264e8e1c5714ce593d5fdb92a888aa7fb7303f76",
+    "docs/components/pagination.md": "95f37690161c02ac5ffa951af5f0b2aeef7bfd517f0b83c4342a867d4d3c128d"
+  },
+  "staticDependencyOrigin": {
+    "frontend": "copied unchanged from /workspace/FsusBlog/src/frontend/node_modules; no install/lifecycle",
+    "ui": "real /workspace/FsusUI/node_modules via symlink; no private packages shim added",
+    "lint": "missing original locked style-toolchain/node_modules; installation question pending"
+  },
+  "sourceLeafHead": "8ea2ef029ab320674321884202e9e163a50abff2",
+  "originalLeafBase": "0c96259e00f9d39d41824110f63c3cc260a2cbf3",
+  "sourceLeaves": [
+    {
+      "path": "src/frontend/src/components/article-vault/VaultConflictList.vue",
+      "blob": "0d95647a09baea57801ec6e1c98a44beae383937",
+      "donorBlob": "0d95647a09baea57801ec6e1c98a44beae383937",
+      "bytes": 10011,
+      "sha256": "8bc21a8dc0e9f45618be22c68a085851d070e2a9e3c0626fb28c5db9d11cec74"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+      "blob": "1e1e52dcf04de0c5412af71c008b431c602fa2a1",
+      "donorBlob": "1e1e52dcf04de0c5412af71c008b431c602fa2a1",
+      "bytes": 10894,
+      "sha256": "47182f943e9359781e5c32fe7b90326556b759aef9fb484a411eb9626eef44f0"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/VaultStoredConflictReview.vue",
+      "blob": "364c9f2ffe8d66436aec5c577c71aca965f69dc4",
+      "donorBlob": "364c9f2ffe8d66436aec5c577c71aca965f69dc4",
+      "bytes": 7700,
+      "sha256": "ed0e2344f88c18b323a929d707332ace0731eaaba81e0f7e6cc6d205b7fae2ac"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+      "blob": "709a071e3743b2add4a3dbf0bbd08d6febb74954",
+      "donorBlob": "709a071e3743b2add4a3dbf0bbd08d6febb74954",
+      "bytes": 7590,
+      "sha256": "dc06339abd945a2969b75fb029d531466fb25f0a77477cfd22413d1f174b6382"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+      "blob": "12e23d71fee3bb1ad67b3f885a57fbd3dc956254",
+      "donorBlob": "12e23d71fee3bb1ad67b3f885a57fbd3dc956254",
+      "bytes": 6524,
+      "sha256": "67db78b5eaf093d6629fd1306ec5754dc37268ad2fa1cb07acddb23756c318f7"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/storedConflictReviewPresentation.ts",
+      "blob": "81b2795503df22944bf22c4f078c447111b3d2bd",
+      "donorBlob": "81b2795503df22944bf22c4f078c447111b3d2bd",
+      "bytes": 9003,
+      "sha256": "2cb41a76bfe07bc3d8d16382af6a9aa79c697ce5833e8696241a07d5f41f8dc7"
+    }
+  ],
+  "scopeDisposition": {
+    "sourceOnly": true,
+    "profile": "task",
+    "owner": "FsusBlog consumer composition",
+    "prescribedSource": "exact six reviewed PR4395 production blobs; no design decisions",
+    "classificationReceipt": "HOLD/UNRUN by user instruction; ordinary source/input record only",
+    "renderedEvidence": "HOLD/UNRUN",
+    "CSS": "theme/product CSS incomplete; no consumer acceptance",
+    "lintInstallationQuestion": "pending; no answer assumed",
+    "newBoundaryFinding": "VaultConflictList.vue direct public ElPagination import, warnings20->21; exact source retained for independent review"
+  }
+}

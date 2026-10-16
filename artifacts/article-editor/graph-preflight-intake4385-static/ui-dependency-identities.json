@@ -1,0 +1,20 @@
+[
+  {
+    "path": "package.json",
+    "ui973Sha256": "3c94a82459e759aef22d33f0909ec44d5ab4a03a776a44c48427a62be4924d43",
+    "installedRootSha256": "4e6502bacf6c8edfe52fd20f7d59bd5df9a05f8f627546e62fb889f6e5c50ace",
+    "byteIdentical": false
+  },
+  {
+    "path": "pnpm-lock.yaml",
+    "ui973Sha256": "faf72e9bf46044be7e407783119c6fbe1945858855471ff3b6bc3e20155f19a2",
+    "installedRootSha256": "9160eda59f2ebd9e27701d9df9718ccb7b327ceb83d418310ef542b1651451d7",
+    "byteIdentical": false
+  },
+  {
+    "path": "vue/packages/element-plus/package.json",
+    "ui973Sha256": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c",
+    "installedRootSha256": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c",
+    "byteIdentical": true
+  }
+]

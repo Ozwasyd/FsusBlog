@@ -1,0 +1,22 @@
+[fsusui-boundary] warnings=21 strict=true
+- src/frontend/src/App.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/article/AdminArticleCompactCard.vue: internal-selector: uses .el-tag
+- src/frontend/src/components/admin/article/ArticleBulkExecutionProgress.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/article/ArticleBulkImpactPreview.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/article/ArticleBulkOperationParameters.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/article/ArticleBulkResults.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/article/ArticleBulkSelectionBar.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/article/ArticleRelationGraph.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/article/AuthoringWorkspaceLayout.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/canvas/AuthoringCanvasEdgeToLinkDialog.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/canvas/AuthoringCanvasNodeCard.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/canvas/AuthoringCanvasOutlineView.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/canvas/AuthoringCanvasPackageDialog.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/canvas/AuthoringCanvasToolbar.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/admin/canvas/AuthoringCanvasWorkspace.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/components/article-vault/VaultConflictList.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/services/authoring/articleAttachmentUploadRequest.ts: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/services/authoring/articleLiveCapability.ts: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/views/admin/canvas/AuthoringCanvasView.vue: runtime-import-outside-boundary: imports runtime from @ozwasyd/element-plus
+- src/frontend/src/views/auth/Login.vue: internal-selector: uses .el-checkbox__label
+- src/frontend/src/views/auth/Register.vue: internal-selector: uses .el-checkbox__label

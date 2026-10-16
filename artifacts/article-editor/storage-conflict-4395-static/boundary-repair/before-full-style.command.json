@@ -1,0 +1,16 @@
+{
+  "cwd": "/workspace/FsusBlog-storage-conflict-4395",
+  "argv": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "full"
+  ],
+  "environment": {
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-ui973-storage-conflict-4395"
+  },
+  "startedUTC": "2026-10-15T23:53:30.620707+00:00",
+  "exitCode": 1,
+  "finishedUTC": "2026-10-15T23:53:33.081758+00:00"
+}

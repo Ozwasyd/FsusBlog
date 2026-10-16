@@ -1,0 +1,22 @@
+{
+  "relationPortAndUnavailablePrefix": {
+    "baseSha256": "11bf1321b484d0d8d22b26b8df009ad7908bf0b784376a1d91bf98a638eeb0fd",
+    "candidateSha256": "11bf1321b484d0d8d22b26b8df009ad7908bf0b784376a1d91bf98a638eeb0fd",
+    "byteIdentical": true
+  },
+  "Empty": {
+    "baseSha256": "2f8e908e0c43bd49cb3f2babf899a5cc649a48d091392c37bcd83a42509766eb",
+    "candidateSha256": "2f8e908e0c43bd49cb3f2babf899a5cc649a48d091392c37bcd83a42509766eb",
+    "byteIdentical": true
+  },
+  "originalCancellationCatch": {
+    "baseSha256": "6aab48bd105494122e4abb0a3294c124bc7f245c5125613fdb5b703ad902dab3",
+    "candidateSha256": "6aab48bd105494122e4abb0a3294c124bc7f245c5125613fdb5b703ad902dab3",
+    "byteIdentical": true
+  },
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "sourceHead": "fa2057c6d3d6893ac7588b849669957d703aa8a8",
+  "sharedContractDelta": "",
+  "sourceDiff": "59\t7\tsrc/backend/Services/Authoring/ArticleGraphQueryService.cs\n",
+  "AST": "Original full Server C# compiler and original dotnet format verification parse the real source; no custom AST/behavior harness or product execution. Results are bound in build and strict-csharp logs."
+}

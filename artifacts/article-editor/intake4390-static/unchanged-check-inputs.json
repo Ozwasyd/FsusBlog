@@ -1,0 +1,122 @@
+[
+  {
+    "path": ".editorconfig",
+    "bytes": 7786,
+    "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "eslint.config.mjs",
+    "bytes": 78,
+    "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "stylelint.config.mjs",
+    "bytes": 81,
+    "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "src/frontend/eslint.config.mjs",
+    "bytes": 51,
+    "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "src/frontend/stylelint.config.mjs",
+    "bytes": 54,
+    "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "bytes": 7025,
+    "sha256": "e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "src/frontend/scripts/fsusui-root.mjs",
+    "bytes": 3990,
+    "sha256": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "tools/frontend/check-frontend-style.mjs",
+    "bytes": 65325,
+    "sha256": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+    "bytes": 10275,
+    "sha256": "c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "tools/frontend/style-toolchain/stylelint.config.mjs",
+    "bytes": 1896,
+    "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "config/development/frontend-style-policy.json",
+    "bytes": 3632,
+    "sha256": "b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "config/development/frontend-style-baseline.json",
+    "bytes": 620180,
+    "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "config/development/frontend-style-rule-registry.json",
+    "bytes": 8767,
+    "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "tools/frontend/style-toolchain/package.json",
+    "bytes": 928,
+    "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "tools/frontend/style-toolchain/package-lock.json",
+    "bytes": 169746,
+    "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "src/frontend/package.json",
+    "bytes": 48113,
+    "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "src/frontend/package-lock.json",
+    "bytes": 337719,
+    "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "src/frontend/tsconfig.app.json",
+    "bytes": 1099,
+    "sha256": "d8d55a517af2f580fe560d7327bde8124fc284e4e9e08af6a1773cd3775b128d",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "src/frontend/tsconfig.json",
+    "bytes": 173,
+    "sha256": "f8f8b77d34a1641383539c260f8d83c817d93e6a99294ca071cd6c080eb6f167",
+    "exactBaseBytes": true
+  },
+  {
+    "path": "src/frontend/tsconfig.node.json",
+    "bytes": 735,
+    "sha256": "db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2",
+    "exactBaseBytes": true
+  }
+]

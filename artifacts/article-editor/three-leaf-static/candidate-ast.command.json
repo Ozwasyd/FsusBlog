@@ -1,0 +1,9 @@
+{
+  "cwd": "/workspace/FsusBlog-three-leaf",
+  "argv": [
+    "node",
+    "/workspace/three-leaf-evidence/parse-source.cjs"
+  ],
+  "exit": 0,
+  "scope": "eight frontend files; TypeScript/SFC/template syntax only; C# actual compiler separately"
+}

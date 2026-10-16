@@ -1,0 +1,13 @@
+{
+  "argv": [
+    "git",
+    "diff",
+    "--check",
+    "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+    "HEAD",
+    "--",
+    "src/"
+  ],
+  "cwd": "/workspace/FsusBlog-three-leaf",
+  "exit": 0
+}
