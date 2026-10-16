@@ -215,4 +215,68 @@ describe('message API binary transport', () => {
     expect(statusView.getInt32(16, true)).toBe(2)
     expect(new TextDecoder().decode(statusFrame.subarray(32))).toBe('resolved_by_admin')
   })
+
+    it('preserves the big-endian 63-bit system source identity across a timeout retry', async () =>
+    {
+        const random = vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation((array) =>
+        {
+            if (!(array instanceof Uint8Array))
+            {
+                throw new Error('expected source identity bytes');
+            }
+            expect(array).toHaveLength(8);
+            array.set([0x81, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
+            return array;
+        });
+        try
+        {
+            const request = { targetAccountId: 3, subject: 'Retry source identity', body: 'Body' };
+            const timeout = Object.assign(new Error('response timeout'), { status: 408 });
+            mockBinary.mockRejectedValueOnce(timeout);
+            await expect(messageApi.adminSendSystemMessage(request)).rejects.toBe(timeout);
+            const first = mockBinary.mock.calls[0][0];
+            expect(new Headers(first.requestOptions?.headers).get('X-Fsus-Source-Event-Id')).toBe('81985529216486895');
+            await messageApi.adminSendSystemMessage(request);
+            const second = mockBinary.mock.calls[1][0];
+            expect(new Headers(second.requestOptions?.headers).get('X-Fsus-Source-Event-Id')).toBe('81985529216486895');
+            expect(second.binaryRoute).toEqual({ operationId: 'binary_post_admin_messages_system_send' });
+            expect(second.frameType).toBe(FrameType.ConversationDetailV2);
+            expect(random).toHaveBeenCalledOnce();
+            await messageApi.adminSendSystemMessage(request);
+            expect(random).toHaveBeenCalledTimes(2);
+        }
+        finally
+        {
+            random.mockRestore();
+        }
+    });
+
+    it('keeps the zero-random time fallback and explicit source identity unchanged', async () =>
+    {
+        const now = vi.spyOn(Date, 'now').mockReturnValue(1778290000123);
+        const random = vi.spyOn(globalThis.crypto, 'getRandomValues').mockImplementation((array) =>
+        {
+            if (!(array instanceof Uint8Array))
+            {
+                throw new Error('expected source identity bytes');
+            }
+            expect(array).toHaveLength(8);
+            array.fill(0);
+            return array;
+        });
+        try
+        {
+            const request = { targetAccountId: 3, subject: 'Zero source identity', body: 'Body' };
+            await messageApi.adminSendSystemMessage(request);
+            expect(new Headers(mockBinary.mock.calls[0][0].requestOptions?.headers).get('X-Fsus-Source-Event-Id')).toBe('1778290000123');
+            await messageApi.adminSendSystemMessage({ ...request, sourceEventId: ' 42 ' });
+            expect(new Headers(mockBinary.mock.calls[1][0].requestOptions?.headers).get('X-Fsus-Source-Event-Id')).toBe('42');
+            expect(random).toHaveBeenCalledOnce();
+        }
+        finally
+        {
+            random.mockRestore();
+            now.mockRestore();
+        }
+    });
 })
