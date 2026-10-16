@@ -19,10 +19,12 @@
                 :class="{ 'article-workspace-tabs__item--active': tab.isActive }"
                 :data-tab-state="tabState(tab)"
             >
-                <button
+                <FsusUiButton
                     :id="tabButtonId(tab.tabId)"
                     :ref="(element) => registerTabElement(tab.tabId, element)"
-                    type="button"
+                    native-type="button"
+                    text
+                    :auto-insert-space="false"
                     class="article-workspace-tabs__tab"
                     role="tab"
                     :aria-selected="tab.isActive"
@@ -33,42 +35,50 @@
                     @dblclick="promote(tab.tabId)"
                     @auxclick="handleAuxiliaryClick(tab.tabId, $event)"
                 >
-                    <span class="article-workspace-tabs__title">{{ tab.title }}</span>
-                    <span class="article-workspace-tabs__state">
-                        <span class="sr-only">状态：</span>{{ tabState(tab) }}
+                    <span class="article-workspace-tabs__tab-content">
+                        <span class="article-workspace-tabs__title">{{ tab.title }}</span>
+                        <span class="article-workspace-tabs__state">
+                            <span class="sr-only">状态：</span>{{ tabState(tab) }}
+                        </span>
                     </span>
-                </button>
-                <button
-                    type="button"
+                </FsusUiButton>
+                <FsusUiButton
+                    native-type="button"
+                    text
+                    :auto-insert-space="false"
                     class="article-workspace-tabs__pin"
                     :aria-label="tab.isPinned ? `取消固定：${tab.title}` : `固定：${tab.title}`"
                     :aria-pressed="tab.isPinned"
                     @click="promoteOrUnpin(tab)"
                 >
                     <span aria-hidden="true">{{ tab.isPinned ? '已固定' : '预览' }}</span>
-                </button>
-                <button
-                    type="button"
+                </FsusUiButton>
+                <FsusUiButton
+                    native-type="button"
+                    text
+                    :auto-insert-space="false"
                     class="article-workspace-tabs__close"
                     :aria-label="`请求关闭：${tab.title}`"
                     @click="requestClose(tab.tabId)"
                 >
                     <span aria-hidden="true">×</span>
-                </button>
+                </FsusUiButton>
             </div>
         </div>
 
-        <button
+        <FsusUiButton
             v-if="tabs.length > 1"
             ref="overflowTriggerRef"
-            type="button"
+            native-type="button"
+            text
+            :auto-insert-space="false"
             class="article-workspace-tabs__overflow"
             :aria-expanded="overflowOpen"
             aria-haspopup="menu"
             @click="overflowOpen = !overflowOpen"
         >
             更多标签（{{ tabs.length }}）
-        </button>
+        </FsusUiButton>
         <div
             v-if="overflowOpen"
             class="article-workspace-tabs__overflow-list"
@@ -82,24 +92,30 @@
                 class="article-workspace-tabs__overflow-item"
                 role="none"
             >
-                <button
-                    type="button"
+                <FsusUiButton
+                    native-type="button"
+                    text
+                    :auto-insert-space="false"
                     class="article-workspace-tabs__overflow-tab"
                     role="menuitem"
                     @click="activateFromOverflow(tab.tabId)"
                 >
-                    <span>{{ tab.title }}</span>
-                    <span class="article-workspace-tabs__overflow-state">{{ tabState(tab) }}</span>
-                </button>
-                <button
-                    type="button"
+                    <span class="article-workspace-tabs__menu-content">
+                        <span class="article-workspace-tabs__menu-title">{{ tab.title }}</span>
+                        <span class="article-workspace-tabs__overflow-state">{{ tabState(tab) }}</span>
+                    </span>
+                </FsusUiButton>
+                <FsusUiButton
+                    native-type="button"
+                    text
+                    :auto-insert-space="false"
                     class="article-workspace-tabs__overflow-close"
                     role="menuitem"
                     :aria-label="`请求关闭：${tab.title}`"
                     @click="requestClose(tab.tabId)"
                 >
                     关闭
-                </button>
+                </FsusUiButton>
             </div>
         </div>
     </nav>
@@ -110,21 +126,25 @@
         aria-label="当前文章标签"
         data-article-workspace-tab-strip="mobile"
     >
-        <button
-            type="button"
+        <FsusUiButton
+            native-type="button"
+            text
+            :auto-insert-space="false"
             class="article-workspace-tabs__compact-trigger"
             ref="overflowTriggerRef"
             :aria-expanded="overflowOpen"
             aria-haspopup="menu"
             @click="overflowOpen = !overflowOpen"
         >
-            <span class="article-workspace-tabs__compact-title">
-                {{ activeTab?.title ?? '没有打开的文章' }}
+            <span class="article-workspace-tabs__compact-content">
+                <span class="article-workspace-tabs__compact-title">
+                    {{ activeTab?.title ?? '没有打开的文章' }}
+                </span>
+                <span class="article-workspace-tabs__compact-state">
+                    {{ activeTab ? tabState(activeTab) : '选择文章' }}
+                </span>
             </span>
-            <span class="article-workspace-tabs__compact-state">
-                {{ activeTab ? tabState(activeTab) : '选择文章' }}
-            </span>
-        </button>
+        </FsusUiButton>
         <div
             v-if="overflowOpen"
             class="article-workspace-tabs__compact-list"
@@ -138,34 +158,42 @@
                 class="article-workspace-tabs__compact-item"
                 role="none"
             >
-                <button
-                    type="button"
+                <FsusUiButton
+                    native-type="button"
+                    text
+                    :auto-insert-space="false"
                     class="article-workspace-tabs__compact-tab"
                     role="menuitemradio"
                     :aria-checked="tab.isActive"
                     @click="activateFromOverflow(tab.tabId)"
                 >
-                    <span>{{ tab.title }}</span>
-                    <span class="article-workspace-tabs__compact-status">{{ tabState(tab) }}</span>
-                </button>
-                <button
-                    type="button"
+                    <span class="article-workspace-tabs__menu-content">
+                        <span class="article-workspace-tabs__menu-title">{{ tab.title }}</span>
+                        <span class="article-workspace-tabs__compact-status">{{ tabState(tab) }}</span>
+                    </span>
+                </FsusUiButton>
+                <FsusUiButton
+                    native-type="button"
+                    text
+                    :auto-insert-space="false"
                     class="article-workspace-tabs__compact-action"
                     role="menuitem"
                     :aria-label="tab.isPinned ? `取消固定：${tab.title}` : `固定：${tab.title}`"
                     @click="promoteOrUnpin(tab)"
                 >
                     {{ tab.isPinned ? '取消固定' : '固定' }}
-                </button>
-                <button
-                    type="button"
+                </FsusUiButton>
+                <FsusUiButton
+                    native-type="button"
+                    text
+                    :auto-insert-space="false"
                     class="article-workspace-tabs__compact-action"
                     role="menuitem"
                     :aria-label="`请求关闭：${tab.title}`"
                     @click="requestClose(tab.tabId)"
                 >
                     关闭
-                </button>
+                </FsusUiButton>
             </div>
         </div>
     </section>
@@ -176,6 +204,7 @@ import { computed, nextTick, ref, toRaw } from 'vue';
 
 import { useArticleWorkspaceTabs } from '@/composables/useArticleWorkspaceTabs';
 import { useMediaQuery } from '@/composables/useMediaQuery';
+import { FsusUiButton } from '@/fsusui/button';
 import type {
     ArticleWorkspaceTabPresentation,
     ArticleWorkspaceTabRouter,
@@ -186,6 +215,11 @@ import type { ComponentPublicInstance } from 'vue';
 
 defineOptions({ name: 'ArticleWorkspaceTabStrip' });
 
+/** Only ButtonInstance's documented native ref is needed by the existing focus paths. */
+interface WorkspaceButtonHandle {
+    readonly ref?: HTMLButtonElement;
+}
+
 const props = defineProps<{
     coordinator?: ArticleWorkspaceTabRouter;
     router?: ArticleWorkspaceNavigationPort;
@@ -194,7 +228,7 @@ const props = defineProps<{
 const isCompact = useMediaQuery('(max-width: 1023px)', false);
 const overflowOpen = ref(false);
 const tabListRef = ref<HTMLElement | null>(null);
-const overflowTriggerRef = ref<HTMLButtonElement | null>(null);
+const overflowTriggerRef = ref<WorkspaceButtonHandle | null>(null);
 const tabElements = new Map<string, HTMLElement>();
 const {
     tabs,
@@ -228,9 +262,10 @@ const tabButtonId = (tabId: string): string => `article-workspace-tab-${tabId}`;
 
 const registerTabElement = (tabId: string, element: Element | ComponentPublicInstance | null): void =>
 {
-    if (element instanceof HTMLElement)
+    const buttonElement = (element as WorkspaceButtonHandle | null)?.ref;
+    if (buttonElement instanceof HTMLElement)
     {
-        tabElements.set(tabId, element);
+        tabElements.set(tabId, buttonElement);
         return;
     }
     tabElements.delete(tabId);
@@ -294,7 +329,7 @@ const activate = async (tabId: string): Promise<void> =>
     tabElement?.focus();
     if (!tabElement)
     {
-        overflowTriggerRef.value?.focus();
+        overflowTriggerRef.value?.ref?.focus();
     }
     overflowOpen.value = false;
 };
@@ -327,7 +362,7 @@ const activateFromOverflow = async (tabId: string): Promise<void> =>
 const closeOverflowAndReturnFocus = (): void =>
 {
     overflowOpen.value = false;
-    overflowTriggerRef.value?.focus();
+    overflowTriggerRef.value?.ref?.focus();
 };
 
 const handleMenuKeydown = (event: KeyboardEvent): void =>
@@ -494,18 +529,41 @@ const handleTabListKeydown = (event: KeyboardEvent): void =>
 
 .article-workspace-tabs__tab
  {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    flex: 1 1 auto;
+    padding: var(--fsus-space-2) var(--fsus-space-3);
+    text-align: left;
+}
+
+.article-workspace-tabs__tab-content,
+.article-workspace-tabs__menu-content,
+.article-workspace-tabs__compact-content
+ {
     display: flex;
+    width: 100%;
     min-width: 0;
     flex: 1 1 auto;
     align-items: center;
+}
+
+.article-workspace-tabs__tab-content
+ {
     gap: var(--fsus-space-2);
-    padding: var(--fsus-space-2) var(--fsus-space-3);
-    text-align: left;
+}
+
+.article-workspace-tabs__menu-content,
+.article-workspace-tabs__compact-content
+ {
+    justify-content: space-between;
+    gap: var(--fsus-space-3);
 }
 
 .article-workspace-tabs__title
  {
     min-width: 0;
+    flex: 0 1 auto;
     overflow: hidden;
     font-size: 14px;
     font-weight: 500;
@@ -545,6 +603,14 @@ const handleTabListKeydown = (event: KeyboardEvent): void =>
 .article-workspace-tabs__close
  {
     font-size: 18px;
+}
+
+.article-workspace-tabs__item > .article-workspace-tabs__pin,
+.article-workspace-tabs__item > .article-workspace-tabs__close,
+.article-workspace-tabs__overflow-item > .article-workspace-tabs__overflow-close,
+.article-workspace-tabs__compact-item > .article-workspace-tabs__compact-action
+ {
+    margin-left: 0;
 }
 
 .article-workspace-tabs__tab:hover,
@@ -614,20 +680,18 @@ const handleTabListKeydown = (event: KeyboardEvent): void =>
 .article-workspace-tabs__overflow-tab,
 .article-workspace-tabs__compact-tab
  {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     flex: 1 1 auto;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--fsus-space-3);
     padding: var(--fsus-space-3) var(--fsus-space-4);
     text-align: left;
 }
 
-.article-workspace-tabs__overflow-tab > span:first-child,
-.article-workspace-tabs__compact-tab > span:first-child
+.article-workspace-tabs__menu-title
  {
     min-width: 0;
+    flex: 1 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -649,11 +713,9 @@ const handleTabListKeydown = (event: KeyboardEvent): void =>
 
 .article-workspace-tabs__compact-trigger
  {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     width: 100%;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--fsus-space-3);
     border: 1px solid var(--fsusblog-panel-border);
     border-radius: var(--fsus-radius-navigation);
     padding: var(--fsus-space-2) var(--fsus-space-3);
@@ -663,6 +725,7 @@ const handleTabListKeydown = (event: KeyboardEvent): void =>
 .article-workspace-tabs__compact-title
  {
     min-width: 0;
+    flex: 1 1 auto;
     overflow: hidden;
     font-size: 14px;
     font-weight: 500;
