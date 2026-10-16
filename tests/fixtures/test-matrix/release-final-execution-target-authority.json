@@ -110,8 +110,8 @@
         },
         {
             "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
-            "contentDigest": "sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8",
-            "indexDigest": "sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8"
+            "contentDigest": "sha256:a400a42e583620395a9fa07f52b2fb0388c3929154845df73d154d4707a65a37",
+            "indexDigest": "sha256:a400a42e583620395a9fa07f52b2fb0388c3929154845df73d154d4707a65a37"
         },
         {
             "path": "src/frontend/scripts/vite-watch-policy.mjs",
