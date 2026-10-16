@@ -33,7 +33,6 @@ PoW/account entry, current-user, session, MFA/TOTP, and Recovery Key routes use 
 
 <!-- Detailed authentication payloads are centralized in contracts.md. -->
 
-
 ---
 
 ## Passkey / WebAuthn — `/api/binary/auth/passkey`
@@ -86,8 +85,6 @@ System configuration payloads are defined in the [system contracts](contracts.md
 
 ---
 
-<a id="integrity-verification-sidecars--integrity"></a>
-
 ## Integrity verification sidecars — `/integrity`
 
 These public JSON manifests are outside the `/api/binary/**` AEDS main path.
@@ -110,12 +107,17 @@ These public JSON manifests are outside the `/api/binary/**` AEDS main path.
 
 ---
 
-<a id="read-proof"></a>
-<a id="rum-telemetry"></a>
-
 ## Binary endpoints — `/api/binary`
 
 All runtime API output uses `Content-Type: application/octet-stream` (AEDS v2 frames). Clients must prefer `/api/binary/**`; legacy text APIs are not registered.
+
+### Read proof
+
+The read-proof challenge and submission routes are listed in the [binary routes](#binary-routes).
+
+### RUM telemetry
+
+The RUM ingestion route is listed in the [binary routes](#binary-routes).
 
 ### Binary routes
 
@@ -194,15 +196,13 @@ The entire route group requires authentication (🔑).
 
 The entire route group requires the admin role (👑).
 
-
 Hot-reloading `Messages:ReplyWritesEnabled=false` pauses both reply endpoints with `503 message_reply_writes_disabled`; reads and explicit status changes remain available. `Messages:MutationIdempotencyEnabled=false` fails closed for creates, both reply types, and system-send with `503 message_mutation_idempotency_disabled`; never fall back to writes without mutation/source identity. `Messages:AdminAccountProjectionEnabled=false` pauses both admin reads with `503 message_admin_account_projection_disabled`; account message endpoints and their existing frames remain available. `Messages:StatusMutationsEnabled=false` pauses admin status writes with `503 message_status_mutations_disabled`; reads and the notification stream are unaffected. `Messages:SystemMessageTargetValidationEnabled=false` fails closed for new system messages with `503 system_message_target_validation_disabled`; a replay with the same digest for an already submitted source event still returns the original result.
-
-<a id="开放分发与作者工作台"></a>
 
 ## Open distribution and authoring workbench
 
-The production authoring frontend calls native `/api/binary/author/**` AEDS v2 endpoints; external `/api/author/**` JSON entry points and the internal bridge compatibility layer are removed. The production admin-security frontend likewise calls native `/api/binary/admin/security/**` AEDS v2 endpoints; external `/api/admin/security/**` JSON entry points and the bridge are removed.
+### 开放分发与作者工作台
 
+The production authoring frontend calls native `/api/binary/author/**` AEDS v2 endpoints; external `/api/author/**` JSON entry points and the internal bridge compatibility layer are removed. The production admin-security frontend likewise calls native `/api/binary/admin/security/**` AEDS v2 endpoints; external `/api/admin/security/**` JSON entry points and the bridge are removed.
 
 | POST | `/api/binary/author/drafts` | 👑 | Save with `expectedServerRevision` CAS; return incremented `serverRevision` and original `baseRevisionId`. |
 | GET | `/api/binary/author/drafts/{draftKey}` | 👑 | Read server draft, `serverRevision`, and original `baseRevisionId`. |
@@ -308,6 +308,7 @@ The production authoring frontend calls native `/api/binary/author/**` AEDS v2 e
 ---
 
 ## Notifications and health checks
+
 The notification channel is an AEDS WebSocket stream, not Server-Sent Events; it does not use `EventSource` or `text/event-stream`. v2 `ArticleChanged(8)` payloads carry nullable `revisionId/releaseId` coordinates; the frontend receives int64 values as decimal strings. If the coordinates are superseded before dispatch, the event is not published and the remaining outbox edge is marked skipped. A Passkey-counter rollback publishes `NotificationStreamEventType.SessionRevoked=16` after persisting revocation of all ordinary sessions; browsers clear ordinary account state and force re-authentication across tabs, while an independent admin session remains active.
 
 ---
@@ -332,7 +333,7 @@ Endpoints marked 🚦 use the `fixed_ip` policy and count by client IP.
 ## Article/thread comment policy
 
 | Endpoint | Auth | Response | Purpose |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | GET `/api/binary/comment/policy?articleId=&rootId=` | 🔓 📦 | `CommentPolicySnapshot`(164) | Site → article → thread effective composer policy |
 | GET/PUT `/api/authoring/moderation/articles/{articleId}/comment-policy` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | Admin article override, moderation/slow mode, and optimistic version |
 | PUT `/api/authoring/moderation/articles/{articleId}/comment-threads/{rootId}` | 🔐 📦 | `CommentPolicySnapshot`(164) envelope | Admin single-thread lock/unlock and audit |
@@ -342,7 +343,7 @@ Endpoints marked 🚦 use the `fixed_ip` policy and count by client IP.
 | Method and path | Permission | Response | Meaning |
 | --- | --- | --- | --- |
 | GET `/api/ops/cluster/nodes` | independent admin principal + `system.config` + `fixed_ip` | JSON cluster runtime snapshot, `no-store` | Nodes, role state, lease/checkpoint summary, events, health, and metrics; single returns the local healthy node. |
-| POST `/api/ops/cluster/nodes/{nodeId}/state` | Same + trusted origin + `X-Fsus-Mfa-Proof` | JSON node state, `no-store` | Only `alive|draining|maintenance`. |
+| POST `/api/ops/cluster/nodes/{nodeId}/state` | Same + trusted origin + `X-Fsus-Mfa-Proof` | JSON node state, `no-store` | Only `alive\|draining\|maintenance`. |
 | POST `/api/ops/cluster/scheduler` | Same + trusted origin + `X-Fsus-Mfa-Proof` | JSON scheduling latch, `no-store` | Stop/resume new-role scheduling without restart. |
 | POST `/api/ops/cluster/leases/{leaseId}/release-expired` | Same + trusted origin + `X-Fsus-Mfa-Proof` | JSON release result, `no-store` | Clean up expired leases only; never force-release an active lease. |
 

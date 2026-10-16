@@ -19,6 +19,7 @@ instead of the aggregate implementation.
 Routes, cursors, SQL ordering, region visibility, display fallbacks, cache keys,
 and AEDS contracts remain unchanged. Rollback requires no schema or cache
 migration.
+
 ## Current thread depth boundary
 
 <!-- fsus-doc-claim
