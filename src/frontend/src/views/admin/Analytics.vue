@@ -96,6 +96,8 @@ import {
     FsusUiTaskPageHeader
 } from '@/fsusui';
 
+defineOptions({ name: 'AdminAnalytics' });
+
 const { loading, dashboardView } = useAdminDashboard();
 
 interface DistributionRow {
