@@ -58,9 +58,18 @@ test('full disposable artifact tar roundtrip keeps owner/mode/mtime/raw xattr an
 test('artifact source epoch, symlink and hardlink controls fail before output allocation', async () => {
     for (const kind of ['epoch', 'symlink', 'hardlink']) {
         const plan = artifactPlan();
-        if (kind === 'epoch') plan.expectedRoot.ino = '0';
-        if (kind === 'symlink') fs.symlinkSync('/etc/passwd', path.join(plan.original, 'outside'));
-        if (kind === 'hardlink') fs.linkSync(path.join(plan.original, 'nested', 'owner.bin'), path.join(plan.original, 'alias'));
+        if (kind === 'epoch')
+        {
+            plan.expectedRoot.ino = '0';
+        }
+        if (kind === 'symlink')
+        {
+            fs.symlinkSync('/etc/passwd', path.join(plan.original, 'outside'));
+        }
+        if (kind === 'hardlink')
+        {
+            fs.linkSync(path.join(plan.original, 'nested', 'owner.bin'), path.join(plan.original, 'alias'));
+        }
         await assert.rejects(preserveCompiledArtifacts(plan, 'b'.repeat(64)));
         assert.equal(fs.readdirSync(plan.taskRoot).some(value => value.startsWith('compiled-preservation-')), false);
     }
