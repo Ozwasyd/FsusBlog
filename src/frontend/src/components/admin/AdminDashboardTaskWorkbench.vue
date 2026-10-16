@@ -120,13 +120,15 @@
                 role="alert"
             >
                 <span>最近变更读取失败；任务区仍可继续使用。</span>
-                <button
-                    type="button"
+                <FsusUiButton
+                    native-type="button"
                     class="dashboard-inline-action"
+                    link
+                    inline-action
                     @click="$emit('refresh-recent-changes')"
                 >
                     重新加载变更
-                </button>
+                </FsusUiButton>
             </div>
 
             <ul
@@ -156,14 +158,16 @@
                 role="status"
             >
                 <span>{{ recentChangesLoaded ? '最近变更中暂无新记录。' : '最近变更尚未检查。' }}</span>
-                <button
+                <FsusUiButton
                     v-if="!recentChangesLoaded"
-                    type="button"
+                    native-type="button"
                     class="dashboard-inline-action"
+                    link
+                    inline-action
                     @click="$emit('refresh-recent-changes')"
                 >
                     立即检查
-                </button>
+                </FsusUiButton>
             </div>
         </section>
 
@@ -221,13 +225,15 @@
                 role="alert"
             >
                 <span>站点摘要读取失败；系统状态不受影响。</span>
-                <button
-                    type="button"
+                <FsusUiButton
+                    native-type="button"
                     class="dashboard-inline-action"
+                    link
+                    inline-action
                     @click="$emit('refresh-summary')"
                 >
                     重新加载摘要
-                </button>
+                </FsusUiButton>
             </div>
 
             <template v-else-if="summaryLoaded">
@@ -259,13 +265,15 @@
                 role="status"
             >
                 <span>站点摘要尚未检查。</span>
-                <button
-                    type="button"
+                <FsusUiButton
+                    native-type="button"
                     class="dashboard-inline-action"
+                    link
+                    inline-action
                     @click="$emit('refresh-summary')"
                 >
                     立即检查
-                </button>
+                </FsusUiButton>
             </div>
         </section>
     </div>
@@ -274,6 +282,7 @@
 <script setup lang="ts">
 import type { ConsoleSupportLink } from '@/config/consoleWelcomeCallout';
 import { FsusUiSectionHeader, FsusUiTaskPageHeader } from '@/fsusui';
+import { FsusUiButton } from '@/fsusui/button';
 import type {
     AdminDashboardLedgerItem,
     AdminDashboardRecentChangeItem,
@@ -608,8 +617,13 @@ const formatChangeTime = (value: string): string =>
     gap: var(--fsus-space-2);
 }
 
-.dashboard-summary__details,
-.dashboard-inline-action
+.dashboard-inline-state .dashboard-inline-action
+ {
+    min-height: 2.5rem;
+    font-weight: 700;
+}
+
+.dashboard-summary__details
  {
     display: inline-flex;
     min-height: 2.5rem;
@@ -625,14 +639,12 @@ const formatChangeTime = (value: string): string =>
     padding: 0 var(--fsus-space-1);
 }
 
-.dashboard-summary__details:hover,
-.dashboard-inline-action:hover
+.dashboard-summary__details:hover
  {
     color: var(--fsusblog-color-primary);
 }
 
-.dashboard-summary__details:focus-visible,
-.dashboard-inline-action:focus-visible
+.dashboard-summary__details:focus-visible
  {
     color: var(--fsusblog-color-primary);
     box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
