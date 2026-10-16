@@ -58,34 +58,43 @@
                 role="group"
                 aria-label="编辑表面"
             >
-                <button
-                    type="button"
+                <FsusUiButton
+                    class="article-write-editor__surface-action"
+                    native-type="button"
+                    :text="sessionSurface !== 'live'"
+                    :type="sessionSurface === 'live' ? 'primary' : 'default'"
                     :aria-pressed="sessionSurface === 'live'"
                     :disabled="loading"
                     data-authoring-surface="live"
                     @click="requestSurface('live')"
                 >
                     实时
-                </button>
-                <button
-                    type="button"
+                </FsusUiButton>
+                <FsusUiButton
+                    class="article-write-editor__surface-action"
+                    native-type="button"
+                    :text="sessionSurface !== 'source'"
+                    :type="sessionSurface === 'source' ? 'primary' : 'default'"
                     :aria-pressed="sessionSurface === 'source'"
                     :disabled="loading"
                     data-authoring-surface="source"
                     @click="requestSurface('source')"
                 >
                     源码
-                </button>
+                </FsusUiButton>
             </div>
-            <button
-                type="button"
+            <FsusUiButton
+                class="article-write-editor__surface-action"
+                native-type="button"
+                :text="!sourceCompareOpen"
+                :type="sourceCompareOpen ? 'primary' : 'default'"
                 :aria-pressed="sourceCompareOpen"
                 :disabled="loading"
                 data-authoring-tool="source-compare"
                 @click="toggleSourceCompare"
             >
                 源码对照
-            </button>
+            </FsusUiButton>
             <slot name="secondary-action" />
         </div>
     </div>
@@ -106,6 +115,7 @@ import type {
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
+import { FsusUiButton } from '@/fsusui/button';
 import type { ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
 import type { ArticleDocumentContext } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
@@ -465,26 +475,8 @@ defineExpose({
     line-height: 1.4;
 }
 
-.article-write-editor__secondary button
+.article-write-editor__secondary .article-write-editor__surface-action
  {
-    min-height: 2.75rem;
-    padding-inline: 0.5rem;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    cursor: pointer;
-}
-
-.article-write-editor__secondary button[aria-pressed='true']
- {
-    color: var(--fsusblog-text-primary);
-    font-weight: 700;
-}
-
-.article-write-editor__secondary button:disabled
- {
-    cursor: not-allowed;
-    opacity: 0.6;
+    margin: 0;
 }
 </style>
