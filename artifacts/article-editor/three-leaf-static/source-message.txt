@@ -1,0 +1,5 @@
+feat(frontend): compose graph snapshot and storage conflict sources
+
+Preserve exact accepted source deltas and original ordinary evidence on the fixed base.
+
+Refs: #2295

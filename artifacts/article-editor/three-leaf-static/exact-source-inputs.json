@@ -1,0 +1,2664 @@
+{
+  "base": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "pathCount": 332,
+  "productionCount": 9,
+  "overlap": [],
+  "paths": [
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/actual-alias-identities.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 33dbb76532ce355f3f38f5bcc561525d69153384\tartifacts/article-editor/graph-preflight-intake4385-static/actual-alias-identities.json",
+      "worktreeBlob": "33dbb76532ce355f3f38f5bcc561525d69153384",
+      "bytes": 2291
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 97cca6777d48b2a92a9c00239e362e62c3cd3ffb\tartifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.command.json",
+      "worktreeBlob": "97cca6777d48b2a92a9c00239e362e62c3cd3ffb",
+      "bytes": 411
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.log",
+      "worktreeBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+      "bytes": 6771
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-binary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 1e2d953ba5b78af60b5e6329bba3a245c0fc8c6f\tartifacts/article-editor/graph-preflight-intake4385-static/base-binary.command.json",
+      "worktreeBlob": "1e2d953ba5b78af60b5e6329bba3a245c0fc8c6f",
+      "bytes": 423
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-binary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-binary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-binary.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/graph-preflight-intake4385-static/base-binary.log",
+      "worktreeBlob": "3e106d0c23145547a3a2e00513e47225dcc94036",
+      "bytes": 866
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-boundary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 47010ca78a3136f6358d7b29edb24deef7a3990d\tartifacts/article-editor/graph-preflight-intake4385-static/base-boundary.command.json",
+      "worktreeBlob": "47010ca78a3136f6358d7b29edb24deef7a3990d",
+      "bytes": 414
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-boundary.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/graph-preflight-intake4385-static/base-boundary.log",
+      "worktreeBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4",
+      "bytes": 2805
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-build.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e8dd2b66abea2bac717ffa741f08850cba5afa05\tartifacts/article-editor/graph-preflight-intake4385-static/base-build.command.json",
+      "worktreeBlob": "e8dd2b66abea2bac717ffa741f08850cba5afa05",
+      "bytes": 485
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-build.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/base-build.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-build.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e619c7643298df2459d041bb7e2f291cdeefc3c3\tartifacts/article-editor/graph-preflight-intake4385-static/base-build.log",
+      "worktreeBlob": "e619c7643298df2459d041bb7e2f291cdeefc3c3",
+      "bytes": 192231
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 01efcf1c93197eb961c7985180dfcabafe46603c\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.command.json",
+      "worktreeBlob": "01efcf1c93197eb961c7985180dfcabafe46603c",
+      "bytes": 407
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob ad5343de4e50989ad2ac5df56dbae685ebf05e35\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.log",
+      "worktreeBlob": "ad5343de4e50989ad2ac5df56dbae685ebf05e35",
+      "bytes": 122452
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-style.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f711eff346f842630e206861a12a7721a622993d\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-style.command.json",
+      "worktreeBlob": "f711eff346f842630e206861a12a7721a622993d",
+      "bytes": 411
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-style.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-style.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-style.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 59da6091e3747a49c3930cb227dc781ea5d821c7\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-style.log",
+      "worktreeBlob": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+      "bytes": 11861610
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e986be888cf47c5161015bbc51d3b768a07a36bb\tartifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.command.json",
+      "worktreeBlob": "e986be888cf47c5161015bbc51d3b768a07a36bb",
+      "bytes": 418
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0e05818c478530885de361e77c9da926dd2ab0ea\tartifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.log",
+      "worktreeBlob": "0e05818c478530885de361e77c9da926dd2ab0ea",
+      "bytes": 56
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-intent.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f11205c27a7b981cf28a8275a9553bff07f698f2\tartifacts/article-editor/graph-preflight-intake4385-static/base-intent.command.json",
+      "worktreeBlob": "f11205c27a7b981cf28a8275a9553bff07f698f2",
+      "bytes": 398
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-intent.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-intent.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-intent.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 193370d74f86868232a6d59cb2c41fb0545cb621\tartifacts/article-editor/graph-preflight-intake4385-static/base-intent.log",
+      "worktreeBlob": "193370d74f86868232a6d59cb2c41fb0545cb621",
+      "bytes": 353
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cd6a19387eb4d449c27947357eb72991ea4b8e33\tartifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.command.json",
+      "worktreeBlob": "cd6a19387eb4d449c27947357eb72991ea4b8e33",
+      "bytes": 410
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.log",
+      "worktreeBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+      "bytes": 762
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-local-application-config.snapshot.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e5c1e9e5b9969ea1469ee05cb63cbaf5eb64d06a\tartifacts/article-editor/graph-preflight-intake4385-static/base-local-application-config.snapshot.json",
+      "worktreeBlob": "e5c1e9e5b9969ea1469ee05cb63cbaf5eb64d06a",
+      "bytes": 2762
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 18916d61027a60abde8a23296ada845aec453269\tartifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.command.json",
+      "worktreeBlob": "18916d61027a60abde8a23296ada845aec453269",
+      "bytes": 480
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob eb7a4eb3e41386b010f0f513c448725049df4f29\tartifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.log",
+      "worktreeBlob": "eb7a4eb3e41386b010f0f513c448725049df4f29",
+      "bytes": 45
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-types.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9f12d4e012404c3dc99de8ba1b91ca0b30d7d68d\tartifacts/article-editor/graph-preflight-intake4385-static/base-types.command.json",
+      "worktreeBlob": "9f12d4e012404c3dc99de8ba1b91ca0b30d7d68d",
+      "bytes": 425
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-types.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/graph-preflight-intake4385-static/base-types.exit",
+      "worktreeBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-types.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3d9b50d2f149326d3db6300adaf8ef227498c3c3\tartifacts/article-editor/graph-preflight-intake4385-static/base-types.log",
+      "worktreeBlob": "3d9b50d2f149326d3db6300adaf8ef227498c3c3",
+      "bytes": 5319
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/build-diagnostic-comparison.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob c25d2571ba6b62576f5f8e8c921c323c6c89871d\tartifacts/article-editor/graph-preflight-intake4385-static/build-diagnostic-comparison.json",
+      "worktreeBlob": "c25d2571ba6b62576f5f8e8c921c323c6c89871d",
+      "bytes": 342199
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 7b525c6769f3ee25f7ab582a40db9d4775cf82ea\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.command.json",
+      "worktreeBlob": "7b525c6769f3ee25f7ab582a40db9d4775cf82ea",
+      "bytes": 413
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.log",
+      "worktreeBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+      "bytes": 6771
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 1fa81b1e8ff6a4c3aac0ad087ec28f0095992621\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.command.json",
+      "worktreeBlob": "1fa81b1e8ff6a4c3aac0ad087ec28f0095992621",
+      "bytes": 425
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.log",
+      "worktreeBlob": "3e106d0c23145547a3a2e00513e47225dcc94036",
+      "bytes": 866
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 6d8fb4769ed9741a2947302b0c8a3ee53dfcc194\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.command.json",
+      "worktreeBlob": "6d8fb4769ed9741a2947302b0c8a3ee53dfcc194",
+      "bytes": 416
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.log",
+      "worktreeBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4",
+      "bytes": 2805
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-build.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3759a2946e70342465bde5d4f82d811d153b7d74\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-build.command.json",
+      "worktreeBlob": "3759a2946e70342465bde5d4f82d811d153b7d74",
+      "bytes": 487
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-build.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-build.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-build.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0642b5db72a5aa570c7f2ec39031538ac8288aa3\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-build.log",
+      "worktreeBlob": "0642b5db72a5aa570c7f2ec39031538ac8288aa3",
+      "bytes": 194887
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 181f30e4d9d0f2a3fd1c37c23b02bd23cbed954e\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.command.json",
+      "worktreeBlob": "181f30e4d9d0f2a3fd1c37c23b02bd23cbed954e",
+      "bytes": 409
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob ad5343de4e50989ad2ac5df56dbae685ebf05e35\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.log",
+      "worktreeBlob": "ad5343de4e50989ad2ac5df56dbae685ebf05e35",
+      "bytes": 122452
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 5d6385af568c7bb627cb18299df7ed35b9e3bb34\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.command.json",
+      "worktreeBlob": "5d6385af568c7bb627cb18299df7ed35b9e3bb34",
+      "bytes": 413
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 59da6091e3747a49c3930cb227dc781ea5d821c7\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.log",
+      "worktreeBlob": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+      "bytes": 11861610
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob a04e5c04238fb1cd720fe69ae35ab690b4a46636\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.command.json",
+      "worktreeBlob": "a04e5c04238fb1cd720fe69ae35ab690b4a46636",
+      "bytes": 420
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0e05818c478530885de361e77c9da926dd2ab0ea\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.log",
+      "worktreeBlob": "0e05818c478530885de361e77c9da926dd2ab0ea",
+      "bytes": 56
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 8fe8639e2e321dba6703b9d9260498aa985dbf8e\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.command.json",
+      "worktreeBlob": "8fe8639e2e321dba6703b9d9260498aa985dbf8e",
+      "bytes": 400
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 193370d74f86868232a6d59cb2c41fb0545cb621\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.log",
+      "worktreeBlob": "193370d74f86868232a6d59cb2c41fb0545cb621",
+      "bytes": 353
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 2c1cd75aecaf26989f287d73b4993d87f05d2c94\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.command.json",
+      "worktreeBlob": "2c1cd75aecaf26989f287d73b4993d87f05d2c94",
+      "bytes": 412
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.log",
+      "worktreeBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+      "bytes": 762
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-local-application-config.snapshot.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e5c1e9e5b9969ea1469ee05cb63cbaf5eb64d06a\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-local-application-config.snapshot.json",
+      "worktreeBlob": "e5c1e9e5b9969ea1469ee05cb63cbaf5eb64d06a",
+      "bytes": 2762
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob a37ad6493fdc4ed7ea13810626a95f010013e47e\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.command.json",
+      "worktreeBlob": "a37ad6493fdc4ed7ea13810626a95f010013e47e",
+      "bytes": 482
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob eb7a4eb3e41386b010f0f513c448725049df4f29\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.log",
+      "worktreeBlob": "eb7a4eb3e41386b010f0f513c448725049df4f29",
+      "bytes": 45
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-types.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 239501cb4b15a307a21cb37f709b8d6fa73eec2b\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-types.command.json",
+      "worktreeBlob": "239501cb4b15a307a21cb37f709b8d6fa73eec2b",
+      "bytes": 427
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-types.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-types.exit",
+      "worktreeBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-types.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3d9b50d2f149326d3db6300adaf8ef227498c3c3\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-types.log",
+      "worktreeBlob": "3d9b50d2f149326d3db6300adaf8ef227498c3c3",
+      "bytes": 5319
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/current-production.patch",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob c372308689f2e4b206a85a6800385b4ef3f51b69\tartifacts/article-editor/graph-preflight-intake4385-static/current-production.patch",
+      "worktreeBlob": "c372308689f2e4b206a85a6800385b4ef3f51b69",
+      "bytes": 5301
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/delivery-map.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 7a8018a3209aeaf26947253f4ec211d302905f53\tartifacts/article-editor/graph-preflight-intake4385-static/delivery-map.json",
+      "worktreeBlob": "7a8018a3209aeaf26947253f4ec211d302905f53",
+      "bytes": 42884
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/dup4366.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 04a89948664cf657edbefacaa68c23968ff15434\tartifacts/article-editor/graph-preflight-intake4385-static/dup4366.json",
+      "worktreeBlob": "04a89948664cf657edbefacaa68c23968ff15434",
+      "bytes": 12731
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/exact-donor-production.patch",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob c372308689f2e4b206a85a6800385b4ef3f51b69\tartifacts/article-editor/graph-preflight-intake4385-static/exact-donor-production.patch",
+      "worktreeBlob": "c372308689f2e4b206a85a6800385b4ef3f51b69",
+      "bytes": 5301
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.log",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/input-identities.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 7cc956ec0f9f03e2620ef683b93927b889bb8d55\tartifacts/article-editor/graph-preflight-intake4385-static/input-identities.json",
+      "worktreeBlob": "7cc956ec0f9f03e2620ef683b93927b889bb8d55",
+      "bytes": 12111
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/pr4366.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob caa46b5e79bd36c27f77c16b57a935002f631b1b\tartifacts/article-editor/graph-preflight-intake4385-static/pr4366.json",
+      "worktreeBlob": "caa46b5e79bd36c27f77c16b57a935002f631b1b",
+      "bytes": 13401
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/pr4385.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 2e199a1bd32b5069c0d0bc3626d8a62f93c8626f\tartifacts/article-editor/graph-preflight-intake4385-static/pr4385.json",
+      "worktreeBlob": "2e199a1bd32b5069c0d0bc3626d8a62f93c8626f",
+      "bytes": 10543
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/repository-contract.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/repository-contract.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/repository-contract.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob db097d432349b7e3da767f1ab24c3a3d81d223e0\tartifacts/article-editor/graph-preflight-intake4385-static/repository-contract.log",
+      "worktreeBlob": "db097d432349b7e3da767f1ab24c3a3d81d223e0",
+      "bytes": 51
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/search__432019fcb1a4fbd4ebdbd1f2617190d8185a5990_.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 04a89948664cf657edbefacaa68c23968ff15434\tartifacts/article-editor/graph-preflight-intake4385-static/search__432019fcb1a4fbd4ebdbd1f2617190d8185a5990_.json",
+      "worktreeBlob": "04a89948664cf657edbefacaa68c23968ff15434",
+      "bytes": 12731
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/search_base_codex_issue_2295_history_preview_reveal_checkpoint_20261015.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 069df68590216011f9e3226cd408093e08efd99d\tartifacts/article-editor/graph-preflight-intake4385-static/search_base_codex_issue_2295_history_preview_reveal_checkpoint_20261015.json",
+      "worktreeBlob": "069df68590216011f9e3226cd408093e08efd99d",
+      "bytes": 89196
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.log",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 13edb3d373a5dbcb943c27e18d39a3d7d746fbac\tartifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.log",
+      "worktreeBlob": "13edb3d373a5dbcb943c27e18d39a3d7d746fbac",
+      "bytes": 36
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-message.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 1c6c369e86e3595fd3a4471fc0fbb92a3bc69c79\tartifacts/article-editor/graph-preflight-intake4385-static/source-message.txt",
+      "worktreeBlob": "1c6c369e86e3595fd3a4471fc0fbb92a3bc69c79",
+      "bytes": 190
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-preservation.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 449a3a40859e8a4d3c1f79d98d4f7ee9407a38f1\tartifacts/article-editor/graph-preflight-intake4385-static/source-preservation.json",
+      "worktreeBlob": "449a3a40859e8a4d3c1f79d98d4f7ee9407a38f1",
+      "bytes": 1155
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-provenance.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cdd428ba549bcaacfa1a757915519f9fb62e7e0b\tartifacts/article-editor/graph-preflight-intake4385-static/source-provenance.json",
+      "worktreeBlob": "cdd428ba549bcaacfa1a757915519f9fb62e7e0b",
+      "bytes": 921
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.log",
+      "worktreeBlob": "273b7619b63dfc3b1cbc562e57efd992c8449cfe",
+      "bytes": 81
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/static-comparison.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 41d81f9230e3cc78cc1326ccde6e95df830de76f\tartifacts/article-editor/graph-preflight-intake4385-static/static-comparison.json",
+      "worktreeBlob": "41d81f9230e3cc78cc1326ccde6e95df830de76f",
+      "bytes": 4439
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/style-install.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/style-install.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/style-install.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 7a92edae20c1847cc3efbd6b351b81b91e21c5ee\tartifacts/article-editor/graph-preflight-intake4385-static/style-install.log",
+      "worktreeBlob": "7a92edae20c1847cc3efbd6b351b81b91e21c5ee",
+      "bytes": 235
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/toolchain-and-config-identities.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob b551b0c908047136221bb0097a0d7896dfeb1bfe\tartifacts/article-editor/graph-preflight-intake4385-static/toolchain-and-config-identities.json",
+      "worktreeBlob": "b551b0c908047136221bb0097a0d7896dfeb1bfe",
+      "bytes": 2700
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/ui-dependency-identities.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 53249c5686d35ba066b6e267bec7bec14b5c6067\tartifacts/article-editor/graph-preflight-intake4385-static/ui-dependency-identities.json",
+      "worktreeBlob": "53249c5686d35ba066b6e267bec7bec14b5c6067",
+      "bytes": 768
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0eed0184587cfb5e449ba6ed85811c71fe4ac6e4\tartifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch",
+      "worktreeBlob": "0eed0184587cfb5e449ba6ed85811c71fe4ac6e4",
+      "bytes": 8118
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/article-editor/issue-2474-graph-preflight-intake4385.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 249fc6c5e7605d9418929a34a732bb61380e8e85\tartifacts/article-editor/issue-2474-graph-preflight-intake4385.json",
+      "worktreeBlob": "249fc6c5e7605d9418929a34a732bb61380e8e85",
+      "bytes": 11283
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "artifacts/change-contract/issue-2474-bounded-memory-external-naming.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 11e18f46703b7056dc545116ea2e233d22c7750b\tartifacts/change-contract/issue-2474-bounded-memory-external-naming.json",
+      "worktreeBlob": "11e18f46703b7056dc545116ea2e233d22c7750b",
+      "bytes": 580
+    },
+    {
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "path": "src/backend/Services/Authoring/ArticleGraphQueryService.cs",
+      "baseEntry": "100644 blob 2600ffd78a9316be7ce50868df6667291d8d85be\tsrc/backend/Services/Authoring/ArticleGraphQueryService.cs",
+      "sourceEntry": "100644 blob 437c64dc14105a0d0c4d3be37d7bb376fc47d369\tsrc/backend/Services/Authoring/ArticleGraphQueryService.cs",
+      "worktreeBlob": "437c64dc14105a0d0c4d3be37d7bb376fc47d369",
+      "bytes": 6272
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-application.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/intake4390-static/base-application.exit",
+      "worktreeBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-application.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 760513178d9b1ebfd283574b87bfcda2b646c9f8\tartifacts/article-editor/intake4390-static/base-application.log",
+      "worktreeBlob": "760513178d9b1ebfd283574b87bfcda2b646c9f8",
+      "bytes": 5423
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-authoritative.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-authoritative.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-authoritative.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/intake4390-static/base-authoritative.log",
+      "worktreeBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+      "bytes": 6771
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-binary-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-binary-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-binary-boundary.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/intake4390-static/base-binary-boundary.log",
+      "worktreeBlob": "3e106d0c23145547a3a2e00513e47225dcc94036",
+      "bytes": 866
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-code-intent.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-code-intent.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-code-intent.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 193370d74f86868232a6d59cb2c41fb0545cb621\tartifacts/article-editor/intake4390-static/base-code-intent.log",
+      "worktreeBlob": "193370d74f86868232a6d59cb2c41fb0545cb621",
+      "bytes": 353
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-commands.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 07eea8148209416ddca1eefd8cb0fe73805e9737\tartifacts/article-editor/intake4390-static/base-commands.json",
+      "worktreeBlob": "07eea8148209416ddca1eefd8cb0fe73805e9737",
+      "bytes": 4710
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-fsusui-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-fsusui-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-fsusui-boundary.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/intake4390-static/base-fsusui-boundary.log",
+      "worktreeBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4",
+      "bytes": 2805
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-full-style.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-full-style.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-full-style.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 59da6091e3747a49c3930cb227dc781ea5d821c7\tartifacts/article-editor/intake4390-static/base-full-style.log",
+      "worktreeBlob": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+      "bytes": 11861610
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-lifecycle.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-lifecycle.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-lifecycle.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/intake4390-static/base-lifecycle.log",
+      "worktreeBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+      "bytes": 762
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/base-tsconfig.fsusui-local.app.snapshot.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3ebfe148d78f82c6e9c4ec71f88822de04d419b1\tartifacts/article-editor/intake4390-static/base-tsconfig.fsusui-local.app.snapshot.json",
+      "worktreeBlob": "3ebfe148d78f82c6e9c4ec71f88822de04d419b1",
+      "bytes": 2842
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-application.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/intake4390-static/candidate-application.exit",
+      "worktreeBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-application.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 760513178d9b1ebfd283574b87bfcda2b646c9f8\tartifacts/article-editor/intake4390-static/candidate-application.log",
+      "worktreeBlob": "760513178d9b1ebfd283574b87bfcda2b646c9f8",
+      "bytes": 5423
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-ast.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/candidate-ast.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-ast.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 1b6519ce3148ef99cc43f6266199ceee219c1722\tartifacts/article-editor/intake4390-static/candidate-ast.log",
+      "worktreeBlob": "1b6519ce3148ef99cc43f6266199ceee219c1722",
+      "bytes": 1212
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-authoritative.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-authoritative.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-authoritative.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/intake4390-static/candidate-authoritative.log",
+      "worktreeBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+      "bytes": 6771
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-binary-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-binary-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-binary-boundary.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/intake4390-static/candidate-binary-boundary.log",
+      "worktreeBlob": "3e106d0c23145547a3a2e00513e47225dcc94036",
+      "bytes": 866
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-code-intent.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-code-intent.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-code-intent.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9548e9d881a06caa933aa06c4408066bf4b8d443\tartifacts/article-editor/intake4390-static/candidate-code-intent.log",
+      "worktreeBlob": "9548e9d881a06caa933aa06c4408066bf4b8d443",
+      "bytes": 353
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-commands.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 46c2370cbeaeb7403db343bad080e4d88a4c93c7\tartifacts/article-editor/intake4390-static/candidate-commands.json",
+      "worktreeBlob": "46c2370cbeaeb7403db343bad080e4d88a4c93c7",
+      "bytes": 5610
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-fsusui-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-fsusui-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-fsusui-boundary.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/intake4390-static/candidate-fsusui-boundary.log",
+      "worktreeBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4",
+      "bytes": 2805
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-full-style.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-full-style.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-full-style.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 59da6091e3747a49c3930cb227dc781ea5d821c7\tartifacts/article-editor/intake4390-static/candidate-full-style.log",
+      "worktreeBlob": "59da6091e3747a49c3930cb227dc781ea5d821c7",
+      "bytes": 11861610
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-lifecycle.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-lifecycle.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-lifecycle.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/intake4390-static/candidate-lifecycle.log",
+      "worktreeBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+      "bytes": 762
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-strict-leaf.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/candidate-strict-leaf.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-strict-leaf.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9f8f17027c384ddba90a4d06343b0fd3307fd420\tartifacts/article-editor/intake4390-static/candidate-strict-leaf.log",
+      "worktreeBlob": "9f8f17027c384ddba90a4d06343b0fd3307fd420",
+      "bytes": 68
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/candidate-tsconfig.fsusui-local.app.snapshot.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3ebfe148d78f82c6e9c4ec71f88822de04d419b1\tartifacts/article-editor/intake4390-static/candidate-tsconfig.fsusui-local.app.snapshot.json",
+      "worktreeBlob": "3ebfe148d78f82c6e9c4ec71f88822de04d419b1",
+      "bytes": 2842
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/corrected-source-commit.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob afc8b4dd9d468889d309d329d9e312a3ebbffe34\tartifacts/article-editor/intake4390-static/corrected-source-commit.log",
+      "worktreeBlob": "afc8b4dd9d468889d309d329d9e312a3ebbffe34",
+      "bytes": 288
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/corrected-source-range-contract.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/corrected-source-range-contract.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/corrected-source-range-contract.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/intake4390-static/corrected-source-range-contract.log",
+      "worktreeBlob": "273b7619b63dfc3b1cbc562e57efd992c8449cfe",
+      "bytes": 81
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/delivery-map.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob b40cd5ff8a0520d98e7c586d545d69ef49658e34\tartifacts/article-editor/intake4390-static/delivery-map.json",
+      "worktreeBlob": "b40cd5ff8a0520d98e7c586d545d69ef49658e34",
+      "bytes": 39710
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/delivery-range-contract.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/delivery-range-contract.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/delivery-range-contract.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/intake4390-static/delivery-range-contract.log",
+      "worktreeBlob": "273b7619b63dfc3b1cbc562e57efd992c8449cfe",
+      "bytes": 81
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/delivery-range-whitespace.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/delivery-range-whitespace.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/delivery-range-whitespace.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/intake4390-static/delivery-range-whitespace.log",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/delivery-whitespace.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/delivery-whitespace.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/delivery-whitespace.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/intake4390-static/delivery-whitespace.log",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/dependency-inputs.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 526864dd9e9abbb5b4d120c9b9dbeaf06fa09065\tartifacts/article-editor/intake4390-static/dependency-inputs.json",
+      "worktreeBlob": "526864dd9e9abbb5b4d120c9b9dbeaf06fa09065",
+      "bytes": 482
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/duplicate-audit.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f6b4c6f7172ae1b958514032f135247793003597\tartifacts/article-editor/intake4390-static/duplicate-audit.json",
+      "worktreeBlob": "f6b4c6f7172ae1b958514032f135247793003597",
+      "bytes": 44438
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/duplicate-recheck.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 93ce620adc49229b40998ff2f46a10e33cf5e61b\tartifacts/article-editor/intake4390-static/duplicate-recheck.json",
+      "worktreeBlob": "93ce620adc49229b40998ff2f46a10e33cf5e61b",
+      "bytes": 37729
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/final-delivery-whitespace.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/final-delivery-whitespace.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/final-delivery-whitespace.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/intake4390-static/final-delivery-whitespace.log",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/lint-install.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/lint-install.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/lint-install.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 974be6a0bee711a9aa4affae3d8886a4fe1eb4d1\tartifacts/article-editor/intake4390-static/lint-install.log",
+      "worktreeBlob": "974be6a0bee711a9aa4affae3d8886a4fe1eb4d1",
+      "bytes": 234
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/measured-source-commit.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 2b0776690e672a71782c97143bfef825fd99cc57\tartifacts/article-editor/intake4390-static/measured-source-commit.log",
+      "worktreeBlob": "2b0776690e672a71782c97143bfef825fd99cc57",
+      "bytes": 287
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/parse-leaf.cjs",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 4cfa5a3217c92f23c0498a0b9febdb40e5c9d1c3\tartifacts/article-editor/intake4390-static/parse-leaf.cjs",
+      "worktreeBlob": "4cfa5a3217c92f23c0498a0b9febdb40e5c9d1c3",
+      "bytes": 1561
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/pr-4408-contract-initial.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/pr-4408-contract-initial.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/pr-4408-contract-initial.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 2eeca48f5063b5d0dbd09b50327f848c5cd474bf\tartifacts/article-editor/intake4390-static/pr-4408-contract-initial.log",
+      "worktreeBlob": "2eeca48f5063b5d0dbd09b50327f848c5cd474bf",
+      "bytes": 265
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/pr-4408-rest-initial.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 16aea6d027c3798ca0c5bc56e5eeaa66cf532152\tartifacts/article-editor/intake4390-static/pr-4408-rest-initial.json",
+      "worktreeBlob": "16aea6d027c3798ca0c5bc56e5eeaa66cf532152",
+      "bytes": 28088
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/source-head.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob c5f1bc0d2c6c687b2f0e34063ab28db5960897db\tartifacts/article-editor/intake4390-static/source-head.txt",
+      "worktreeBlob": "c5f1bc0d2c6c687b2f0e34063ab28db5960897db",
+      "bytes": 41
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/source-inputs.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob b7edb5fba9126905b6594d4363bc2b17c290f85e\tartifacts/article-editor/intake4390-static/source-inputs.json",
+      "worktreeBlob": "b7edb5fba9126905b6594d4363bc2b17c290f85e",
+      "bytes": 2094
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/source-range-contract.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/source-range-contract.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/source-range-contract.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob b328bb9f11ab6db1b5b26f2479fbcf8f751a3ec4\tartifacts/article-editor/intake4390-static/source-range-contract.log",
+      "worktreeBlob": "b328bb9f11ab6db1b5b26f2479fbcf8f751a3ec4",
+      "bytes": 109
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/source-title-contract.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/source-title-contract.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/source-title-contract.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob a91dc642978c20e9c600ea599036cf944ece61e4\tartifacts/article-editor/intake4390-static/source-title-contract.log",
+      "worktreeBlob": "a91dc642978c20e9c600ea599036cf944ece61e4",
+      "bytes": 27
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/source-whitespace.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/source-whitespace.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/source-whitespace.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/intake4390-static/source-whitespace.log",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/static-comparison.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob aed967f9386324fd4303392760202239c373c977\tartifacts/article-editor/intake4390-static/static-comparison.json",
+      "worktreeBlob": "aed967f9386324fd4303392760202239c373c977",
+      "bytes": 2821
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/trusted-parser-install.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/trusted-parser-install.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/trusted-parser-install.log",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 5b03beda3c21975620dceac7d30a86e034cae067\tartifacts/article-editor/intake4390-static/trusted-parser-install.log",
+      "worktreeBlob": "5b03beda3c21975620dceac7d30a86e034cae067",
+      "bytes": 27
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/ui-inputs.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 8f13b27c93855570e4a19014d27268fcf14e706e\tartifacts/article-editor/intake4390-static/ui-inputs.json",
+      "worktreeBlob": "8f13b27c93855570e4a19014d27268fcf14e706e",
+      "bytes": 5072
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/intake4390-static/unchanged-check-inputs.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 578e07dcb1da8dcef501e6a79990b3337b19cf3a\tartifacts/article-editor/intake4390-static/unchanged-check-inputs.json",
+      "worktreeBlob": "578e07dcb1da8dcef501e6a79990b3337b19cf3a",
+      "bytes": 3776
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "artifacts/article-editor/issue-2304-intake4390-on4385-wip.md",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob fe35e69b87a787a3d8e739df9a82ace70c613e15\tartifacts/article-editor/issue-2304-intake4390-on4385-wip.md",
+      "worktreeBlob": "fe35e69b87a787a3d8e739df9a82ace70c613e15",
+      "bytes": 11568
+    },
+    {
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 8d9427320ecd553d5225e354af45d027cd21dfe6\tsrc/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts",
+      "worktreeBlob": "8d9427320ecd553d5225e354af45d027cd21dfe6",
+      "bytes": 1322
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/issue-2295-storage-conflict-4395-intake-wip.md",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob b2ecf36bedb9240d0d42fc194a5022ae0a342de7\tartifacts/article-editor/issue-2295-storage-conflict-4395-intake-wip.md",
+      "worktreeBlob": "b2ecf36bedb9240d0d42fc194a5022ae0a342de7",
+      "bytes": 19553
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-application.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 8a12157c73777f8178bd0a49e5b02da942843b19\tartifacts/article-editor/storage-conflict-4395-static/base-application.command.json",
+      "worktreeBlob": "8a12157c73777f8178bd0a49e5b02da942843b19",
+      "bytes": 423
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-application.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/storage-conflict-4395-static/base-application.exit",
+      "worktreeBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-application.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 45ccff6dd7cb8b9749df1b899ada8b9f92fbb838\tartifacts/article-editor/storage-conflict-4395-static/base-application.txt",
+      "worktreeBlob": "45ccff6dd7cb8b9749df1b899ada8b9f92fbb838",
+      "bytes": 5709
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-authoritative.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 88acb52cdb091cb0b7066fea2b5852403301908c\tartifacts/article-editor/storage-conflict-4395-static/base-authoritative.command.json",
+      "worktreeBlob": "88acb52cdb091cb0b7066fea2b5852403301908c",
+      "bytes": 415
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-authoritative.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-authoritative.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-authoritative.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/storage-conflict-4395-static/base-authoritative.txt",
+      "worktreeBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+      "bytes": 6771
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-binary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 97d005e2f7e5e3304424abff72792c0562019f60\tartifacts/article-editor/storage-conflict-4395-static/base-binary.command.json",
+      "worktreeBlob": "97d005e2f7e5e3304424abff72792c0562019f60",
+      "bytes": 427
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-binary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-binary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-binary.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/storage-conflict-4395-static/base-binary.txt",
+      "worktreeBlob": "3e106d0c23145547a3a2e00513e47225dcc94036",
+      "bytes": 866
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-boundary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f3c980f5172d3728cc607249ea80b63d4807af32\tartifacts/article-editor/storage-conflict-4395-static/base-boundary.command.json",
+      "worktreeBlob": "f3c980f5172d3728cc607249ea80b63d4807af32",
+      "bytes": 418
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-boundary.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/storage-conflict-4395-static/base-boundary.txt",
+      "worktreeBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4",
+      "bytes": 2805
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-code-intent.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 32800efa0b958fcddc31e032c723b1bf57e4456d\tartifacts/article-editor/storage-conflict-4395-static/base-code-intent.command.json",
+      "worktreeBlob": "32800efa0b958fcddc31e032c723b1bf57e4456d",
+      "bytes": 402
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-code-intent.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-code-intent.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-code-intent.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 193370d74f86868232a6d59cb2c41fb0545cb621\tartifacts/article-editor/storage-conflict-4395-static/base-code-intent.txt",
+      "worktreeBlob": "193370d74f86868232a6d59cb2c41fb0545cb621",
+      "bytes": 353
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-full-style.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob aecb4b5101fc81572e5a69ca264319d8f0f110f9\tartifacts/article-editor/storage-conflict-4395-static/base-full-style.command.json",
+      "worktreeBlob": "aecb4b5101fc81572e5a69ca264319d8f0f110f9",
+      "bytes": 429
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-full-style.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-full-style.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-full-style.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/base-full-style.txt",
+      "worktreeBlob": "04ae917950027473b3c2bd848e13aa03099587a9",
+      "bytes": 227
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-generated-config.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 4dbdee3025f8905f6aa9af7860e7a726ef326847\tartifacts/article-editor/storage-conflict-4395-static/base-generated-config.json",
+      "worktreeBlob": "4dbdee3025f8905f6aa9af7860e7a726ef326847",
+      "bytes": 3062
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-lifecycle.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob fc0d4e1e9355c8e4cdef85911a1c3fb5cbbb7708\tartifacts/article-editor/storage-conflict-4395-static/base-lifecycle.command.json",
+      "worktreeBlob": "fc0d4e1e9355c8e4cdef85911a1c3fb5cbbb7708",
+      "bytes": 421
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-lifecycle.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-lifecycle.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-lifecycle.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/storage-conflict-4395-static/base-lifecycle.txt",
+      "worktreeBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+      "bytes": 762
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 4414472b3da6974e990ea97b0c49d2c46e4b99f6\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.command.json",
+      "worktreeBlob": "4414472b3da6974e990ea97b0c49d2c46e4b99f6",
+      "bytes": 431
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.exit",
+      "worktreeBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 45ccff6dd7cb8b9749df1b899ada8b9f92fbb838\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.txt",
+      "worktreeBlob": "45ccff6dd7cb8b9749df1b899ada8b9f92fbb838",
+      "bytes": 5709
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob a78bc4efb521214bb34ddf3b2cec6a62a6bfce16\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.command.json",
+      "worktreeBlob": "a78bc4efb521214bb34ddf3b2cec6a62a6bfce16",
+      "bytes": 278
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 5a4fb401952f25271edba869b7edc303dda75b51\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.txt",
+      "worktreeBlob": "5a4fb401952f25271edba869b7edc303dda75b51",
+      "bytes": 672
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 89eb7ddc321a1c58c76d95fb2e6000c5766c5a98\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.command.json",
+      "worktreeBlob": "89eb7ddc321a1c58c76d95fb2e6000c5766c5a98",
+      "bytes": 410
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.txt",
+      "worktreeBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+      "bytes": 6771
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 935bb50a4dc9500344754e1265def384c0dccd1f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.command.json",
+      "worktreeBlob": "935bb50a4dc9500344754e1265def384c0dccd1f",
+      "bytes": 422
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.txt",
+      "worktreeBlob": "3e106d0c23145547a3a2e00513e47225dcc94036",
+      "bytes": 866
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob be3752b34e2cd91edfbe6ca2b28ccbddcc9fdbdb\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.command.json",
+      "worktreeBlob": "be3752b34e2cd91edfbe6ca2b28ccbddcc9fdbdb",
+      "bytes": 413
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.txt",
+      "worktreeBlob": "9035d36bb27009344f6a3ba39957ac400a5b00a4",
+      "bytes": 2805
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f756cdd09657ba43f7fa3f8fe0c7be6d2e9b3857\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.command.json",
+      "worktreeBlob": "f756cdd09657ba43f7fa3f8fe0c7be6d2e9b3857",
+      "bytes": 397
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 04a3909fa99283d0749e9a61f4330d82fa80a618\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.txt",
+      "worktreeBlob": "04a3909fa99283d0749e9a61f4330d82fa80a618",
+      "bytes": 353
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob c9657b71da6f7872049267f5f43db8c9b32faf20\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.command.json",
+      "worktreeBlob": "c9657b71da6f7872049267f5f43db8c9b32faf20",
+      "bytes": 424
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.txt",
+      "worktreeBlob": "04ae917950027473b3c2bd848e13aa03099587a9",
+      "bytes": 227
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d184dede575b7a8198e54f80dcea5c49a072bfef\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.command.json",
+      "worktreeBlob": "d184dede575b7a8198e54f80dcea5c49a072bfef",
+      "bytes": 416
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.txt",
+      "worktreeBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+      "bytes": 762
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob ca5c6992bbaf3aa34d8b9b9905bdcd74ce9230e2\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.command.json",
+      "worktreeBlob": "ca5c6992bbaf3aa34d8b9b9905bdcd74ce9230e2",
+      "bytes": 1046
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.txt",
+      "worktreeBlob": "04ae917950027473b3c2bd848e13aa03099587a9",
+      "bytes": 227
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 21a6431687dcec3355f252df243eb5cac7a55a34\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.command.json",
+      "worktreeBlob": "21a6431687dcec3355f252df243eb5cac7a55a34",
+      "bytes": 431
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.exit",
+      "worktreeBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 45ccff6dd7cb8b9749df1b899ada8b9f92fbb838\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.txt",
+      "worktreeBlob": "45ccff6dd7cb8b9749df1b899ada8b9f92fbb838",
+      "bytes": 5709
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0c069ec3479e44fa910dcfb56547ff20cd756b61\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.command.json",
+      "worktreeBlob": "0c069ec3479e44fa910dcfb56547ff20cd756b61",
+      "bytes": 410
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.txt",
+      "worktreeBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+      "bytes": 6771
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 32a49748c468063f3968efdbbe533688c3be83b5\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.command.json",
+      "worktreeBlob": "32a49748c468063f3968efdbbe533688c3be83b5",
+      "bytes": 422
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.txt",
+      "worktreeBlob": "3e106d0c23145547a3a2e00513e47225dcc94036",
+      "bytes": 866
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob b95065bff08d556e588a0e75366ea3927d6250b9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.command.json",
+      "worktreeBlob": "b95065bff08d556e588a0e75366ea3927d6250b9",
+      "bytes": 413
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f62d8ccac66c1b25f9a3f91c922802a6b9997e9f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.txt",
+      "worktreeBlob": "f62d8ccac66c1b25f9a3f91c922802a6b9997e9f",
+      "bytes": 2948
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob b0824b5fb992b93bcc067b8ea0e82dd3c4541018\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.command.json",
+      "worktreeBlob": "b0824b5fb992b93bcc067b8ea0e82dd3c4541018",
+      "bytes": 397
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f95e667ee389468a1e07f34cf0810fe1ae5d0994\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.txt",
+      "worktreeBlob": "f95e667ee389468a1e07f34cf0810fe1ae5d0994",
+      "bytes": 353
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 75d3dd4eba4032a68b796f150ee0db49cc35f17a\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.command.json",
+      "worktreeBlob": "75d3dd4eba4032a68b796f150ee0db49cc35f17a",
+      "bytes": 424
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.txt",
+      "worktreeBlob": "04ae917950027473b3c2bd848e13aa03099587a9",
+      "bytes": 227
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d725c3ff226a75f61a9c60b7014b911778306a24\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.command.json",
+      "worktreeBlob": "d725c3ff226a75f61a9c60b7014b911778306a24",
+      "bytes": 416
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.txt",
+      "worktreeBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+      "bytes": 762
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 29b71efef6f342f81bc4df5ca45d31ceaf18ad3a\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.command.json",
+      "worktreeBlob": "29b71efef6f342f81bc4df5ca45d31ceaf18ad3a",
+      "bytes": 258
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 13edb3d373a5dbcb943c27e18d39a3d7d746fbac\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.txt",
+      "worktreeBlob": "13edb3d373a5dbcb943c27e18d39a3d7d746fbac",
+      "bytes": 36
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d69073c6c77560a6f788aefa54ab95b212afb57e\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message.txt",
+      "worktreeBlob": "d69073c6c77560a6f788aefa54ab95b212afb57e",
+      "bytes": 261
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/comparison.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d9a184f89ad3c86f0089bc7d14455ac8020c2a96\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/comparison.json",
+      "worktreeBlob": "d9a184f89ad3c86f0089bc7d14455ac8020c2a96",
+      "bytes": 2355
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/delivery-map.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 849ac3d5bb302d8a9cda66edff661092dcac5e6f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/delivery-map.json",
+      "worktreeBlob": "849ac3d5bb302d8a9cda66edff661092dcac5e6f",
+      "bytes": 14389
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/generated-config-snapshot.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 4dbdee3025f8905f6aa9af7860e7a726ef326847\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/generated-config-snapshot.json",
+      "worktreeBlob": "4dbdee3025f8905f6aa9af7860e7a726ef326847",
+      "bytes": 3062
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/parse-source.cjs.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 21ddc628aeebfe29b81fcbe005a310e5a64b14f3\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/parse-source.cjs.txt",
+      "worktreeBlob": "21ddc628aeebfe29b81fcbe005a310e5a64b14f3",
+      "bytes": 1567
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/repair-inputs.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 963396a366c12412134ba1398e6e07a0f66dfe31\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/repair-inputs.json",
+      "worktreeBlob": "963396a366c12412134ba1398e6e07a0f66dfe31",
+      "bytes": 3109
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-proof.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 069302a4e275b91c258d80898713aa175aaed845\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-proof.json",
+      "worktreeBlob": "069302a4e275b91c258d80898713aa175aaed845",
+      "bytes": 5072
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 715d1954741aa03699c1528989d16887fafaf6b4\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.command.json",
+      "worktreeBlob": "715d1954741aa03699c1528989d16887fafaf6b4",
+      "bytes": 144
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.txt",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-application.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3125dadfdfc276104f904be1cc2169c08bd6679e\tartifacts/article-editor/storage-conflict-4395-static/candidate-application.command.json",
+      "worktreeBlob": "3125dadfdfc276104f904be1cc2169c08bd6679e",
+      "bytes": 431
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-application.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/storage-conflict-4395-static/candidate-application.exit",
+      "worktreeBlob": "0cfbf08886fca9a91cb753ec8734c84fcbe52c9f",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-application.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 45ccff6dd7cb8b9749df1b899ada8b9f92fbb838\tartifacts/article-editor/storage-conflict-4395-static/candidate-application.txt",
+      "worktreeBlob": "45ccff6dd7cb8b9749df1b899ada8b9f92fbb838",
+      "bytes": 5709
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-ast.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e1a76fcbc67a9e13848cdb5142094ed9cceb0cdf\tartifacts/article-editor/storage-conflict-4395-static/candidate-ast.command.json",
+      "worktreeBlob": "e1a76fcbc67a9e13848cdb5142094ed9cceb0cdf",
+      "bytes": 266
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-ast.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/candidate-ast.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-ast.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob eb22eeca403766dfa314dfbbb82769f8c8d227a9\tartifacts/article-editor/storage-conflict-4395-static/candidate-ast.txt",
+      "worktreeBlob": "eb22eeca403766dfa314dfbbb82769f8c8d227a9",
+      "bytes": 614
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d52b5fe5d27de3d21ffd6c78d97493bb04b02291\tartifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.command.json",
+      "worktreeBlob": "d52b5fe5d27de3d21ffd6c78d97493bb04b02291",
+      "bytes": 410
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.txt",
+      "worktreeBlob": "f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9",
+      "bytes": 6771
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-binary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob c062cce073ab0cc5dff315160ef0e54544343898\tartifacts/article-editor/storage-conflict-4395-static/candidate-binary.command.json",
+      "worktreeBlob": "c062cce073ab0cc5dff315160ef0e54544343898",
+      "bytes": 422
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-binary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-binary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-binary.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/storage-conflict-4395-static/candidate-binary.txt",
+      "worktreeBlob": "3e106d0c23145547a3a2e00513e47225dcc94036",
+      "bytes": 866
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-boundary.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob af1eeec4d76a385241cdc2b08b3a667868ab89f8\tartifacts/article-editor/storage-conflict-4395-static/candidate-boundary.command.json",
+      "worktreeBlob": "af1eeec4d76a385241cdc2b08b3a667868ab89f8",
+      "bytes": 413
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-boundary.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-boundary.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-boundary.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f62d8ccac66c1b25f9a3f91c922802a6b9997e9f\tartifacts/article-editor/storage-conflict-4395-static/candidate-boundary.txt",
+      "worktreeBlob": "f62d8ccac66c1b25f9a3f91c922802a6b9997e9f",
+      "bytes": 2948
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 396f426f521982dd721036cd49c96efd0768a5d7\tartifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.command.json",
+      "worktreeBlob": "396f426f521982dd721036cd49c96efd0768a5d7",
+      "bytes": 397
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob f95e667ee389468a1e07f34cf0810fe1ae5d0994\tartifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.txt",
+      "worktreeBlob": "f95e667ee389468a1e07f34cf0810fe1ae5d0994",
+      "bytes": 353
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-full-style.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 323bf41350f107fca475de337e5101940fc9da98\tartifacts/article-editor/storage-conflict-4395-static/candidate-full-style.command.json",
+      "worktreeBlob": "323bf41350f107fca475de337e5101940fc9da98",
+      "bytes": 424
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-full-style.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-full-style.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-full-style.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/candidate-full-style.txt",
+      "worktreeBlob": "04ae917950027473b3c2bd848e13aa03099587a9",
+      "bytes": 227
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-generated-config.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 4dbdee3025f8905f6aa9af7860e7a726ef326847\tartifacts/article-editor/storage-conflict-4395-static/candidate-generated-config.json",
+      "worktreeBlob": "4dbdee3025f8905f6aa9af7860e7a726ef326847",
+      "bytes": 3062
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 41eca781dcf7a702a5fd373e240b1237e5cc1910\tartifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.command.json",
+      "worktreeBlob": "41eca781dcf7a702a5fd373e240b1237e5cc1910",
+      "bytes": 416
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.txt",
+      "worktreeBlob": "cda5c5d83aa0c4e9f163ac8633959bcca201ce4a",
+      "bytes": 762
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 17eea1ba5cad5037bf0e700828973c613242c635\tartifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.command.json",
+      "worktreeBlob": "17eea1ba5cad5037bf0e700828973c613242c635",
+      "bytes": 987
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.txt",
+      "worktreeBlob": "04ae917950027473b3c2bd848e13aa03099587a9",
+      "bytes": 227
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/comparison.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 69c6aff9301fb0e71ed6c9436b348cb3d3809adf\tartifacts/article-editor/storage-conflict-4395-static/comparison.json",
+      "worktreeBlob": "69c6aff9301fb0e71ed6c9436b348cb3d3809adf",
+      "bytes": 1854
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob c3b571466e1ce9f822d7b9cdf614863612ce0b44\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.txt",
+      "worktreeBlob": "c3b571466e1ce9f822d7b9cdf614863612ce0b44",
+      "bytes": 46
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/delivery-map.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e65bb42ac6144b2e0fad3aad3a6ccf61d41488d1\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/delivery-map.json",
+      "worktreeBlob": "e65bb42ac6144b2e0fad3aad3a6ccf61d41488d1",
+      "bytes": 5729
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.txt",
+      "worktreeBlob": "273b7619b63dfc3b1cbc562e57efd992c8449cfe",
+      "bytes": 81
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.txt",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 188772dc7f0cc374b5bed10aeb70fcdf0b8bf9dc\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.txt",
+      "worktreeBlob": "188772dc7f0cc374b5bed10aeb70fcdf0b8bf9dc",
+      "bytes": 710
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 812ce3591ff308b74adb00f05eea156e76facb24\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.txt",
+      "worktreeBlob": "812ce3591ff308b74adb00f05eea156e76facb24",
+      "bytes": 81
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.json",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob af61cf0cbc5a76f1ebf9b7aaa568ef9b0802cc5e\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.json",
+      "worktreeBlob": "af61cf0cbc5a76f1ebf9b7aaa568ef9b0802cc5e",
+      "bytes": 222246
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.stderr.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.stderr.txt",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback-event.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob c1e189153a48e9b442054b4ed2e8e9563505caa7\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback-event.json",
+      "worktreeBlob": "c1e189153a48e9b442054b4ed2e8e9563505caa7",
+      "bytes": 30701
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob ce264e5fc7f4ae5c0987cf294c174746807077f1\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.json",
+      "worktreeBlob": "ce264e5fc7f4ae5c0987cf294c174746807077f1",
+      "bytes": 26137
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 9da62aeadbfe4965324fe95dcd8fc4e8df4cc434\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.txt",
+      "worktreeBlob": "9da62aeadbfe4965324fe95dcd8fc4e8df4cc434",
+      "bytes": 121
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-map.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e0ddcd9e3f87abd6d3eeb39a26afdbf70f0f2be1\tartifacts/article-editor/storage-conflict-4395-static/delivery-map.json",
+      "worktreeBlob": "e0ddcd9e3f87abd6d3eeb39a26afdbf70f0f2be1",
+      "bytes": 15156
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/duplicate-check.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 6d40ee4efca8076a7f4c122c322af493b959cf8a\tartifacts/article-editor/storage-conflict-4395-static/duplicate-check.json",
+      "worktreeBlob": "6d40ee4efca8076a7f4c122c322af493b959cf8a",
+      "bytes": 824
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/external-callsites.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob b20e2a3b7e10c72988435bba56e8438d5f3fbd61\tartifacts/article-editor/storage-conflict-4395-static/external-callsites.command.json",
+      "worktreeBlob": "b20e2a3b7e10c72988435bba56e8438d5f3fbd61",
+      "bytes": 465
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/external-callsites.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/external-callsites.exit",
+      "worktreeBlob": "d00491fd7e5bb6fa28c517a0bb32b8b506539d4d",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/external-callsites.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/external-callsites.txt",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/inputs.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 989541183f877c7efaf0b22ac0d1110315a89642\tartifacts/article-editor/storage-conflict-4395-static/inputs.json",
+      "worktreeBlob": "989541183f877c7efaf0b22ac0d1110315a89642",
+      "bytes": 6020
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/parse-source.cjs.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e618da4265ccf3df5d92ce3cc9acee9b469a5866\tartifacts/article-editor/storage-conflict-4395-static/parse-source.cjs.txt",
+      "worktreeBlob": "e618da4265ccf3df5d92ce3cc9acee9b469a5866",
+      "bytes": 1465
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/resolver.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob a54cde665341fcdb8203d644544d8499050b418b\tartifacts/article-editor/storage-conflict-4395-static/resolver.command.json",
+      "worktreeBlob": "a54cde665341fcdb8203d644544d8499050b418b",
+      "bytes": 291
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/resolver.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/resolver.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/resolver.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 0dafa127da34fe24dc2a97aedc576c225ed6acfa\tartifacts/article-editor/storage-conflict-4395-static/resolver.txt",
+      "worktreeBlob": "0dafa127da34fe24dc2a97aedc576c225ed6acfa",
+      "bytes": 46
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-and-alias-proof.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 1793f81a63848a147d6181332980cce55e33c37c\tartifacts/article-editor/storage-conflict-4395-static/source-and-alias-proof.json",
+      "worktreeBlob": "1793f81a63848a147d6181332980cce55e33c37c",
+      "bytes": 14550
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-range.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 712069387861c75bd4250ed24523dd42486e01a5\tartifacts/article-editor/storage-conflict-4395-static/source-range.command.json",
+      "worktreeBlob": "712069387861c75bd4250ed24523dd42486e01a5",
+      "bytes": 257
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-range.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/source-range.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-range.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/storage-conflict-4395-static/source-range.txt",
+      "worktreeBlob": "273b7619b63dfc3b1cbc562e57efd992c8449cfe",
+      "bytes": 81
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-whitespace.command.json",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 06ba9919185a4595ddcc51d037368ab545bc707b\tartifacts/article-editor/storage-conflict-4395-static/source-whitespace.command.json",
+      "worktreeBlob": "06ba9919185a4595ddcc51d037368ab545bc707b",
+      "bytes": 218
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-whitespace.exit",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/source-whitespace.exit",
+      "worktreeBlob": "573541ac9702dd3969c9bc859d2b91ec1f7e6e56",
+      "bytes": 2
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-whitespace.txt",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/source-whitespace.txt",
+      "worktreeBlob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "src/frontend/src/components/article-vault/VaultConflictList.vue",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 65d746781b22d20a57db5dd9b3cfe985a3d620fc\tsrc/frontend/src/components/article-vault/VaultConflictList.vue",
+      "worktreeBlob": "65d746781b22d20a57db5dd9b3cfe985a3d620fc",
+      "bytes": 10017
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 1e1e52dcf04de0c5412af71c008b431c602fa2a1\tsrc/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+      "worktreeBlob": "1e1e52dcf04de0c5412af71c008b431c602fa2a1",
+      "bytes": 10894
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "src/frontend/src/components/article-vault/VaultStoredConflictReview.vue",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 364c9f2ffe8d66436aec5c577c71aca965f69dc4\tsrc/frontend/src/components/article-vault/VaultStoredConflictReview.vue",
+      "worktreeBlob": "364c9f2ffe8d66436aec5c577c71aca965f69dc4",
+      "bytes": 7700
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 709a071e3743b2add4a3dbf0bbd08d6febb74954\tsrc/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+      "worktreeBlob": "709a071e3743b2add4a3dbf0bbd08d6febb74954",
+      "bytes": 7590
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 12e23d71fee3bb1ad67b3f885a57fbd3dc956254\tsrc/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+      "worktreeBlob": "12e23d71fee3bb1ad67b3f885a57fbd3dc956254",
+      "bytes": 6524
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "src/frontend/src/components/article-vault/storedConflictReviewPresentation.ts",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob 81b2795503df22944bf22c4f078c447111b3d2bd\tsrc/frontend/src/components/article-vault/storedConflictReviewPresentation.ts",
+      "worktreeBlob": "81b2795503df22944bf22c4f078c447111b3d2bd",
+      "bytes": 9003
+    },
+    {
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "path": "src/frontend/src/fsusui/pagination.ts",
+      "baseEntry": null,
+      "sourceEntry": "100644 blob e8bf28d76b1b35b720765f6c569d5cd292640cf8\tsrc/frontend/src/fsusui/pagination.ts",
+      "worktreeBlob": "e8bf28d76b1b35b720765f6c569d5cd292640cf8",
+      "bytes": 74
+    }
+  ]
+}

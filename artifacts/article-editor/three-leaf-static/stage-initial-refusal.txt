@@ -1,0 +1,1 @@
+Initial git add (without -f) exited 1 because *.log files copied from exact source trees are ignored by the repository. No upload or automatic approval was attempted or rejected. Subsequent -f is confined to the exact 332 source input paths, including original raw logs; no ignore rule was edited.

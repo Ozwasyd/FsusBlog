@@ -1,0 +1,38 @@
+{
+  "kind": "source syntax parsing only; no product modules loaded, imported, evaluated or called",
+  "files": [
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts",
+      "scriptBlocks": 1
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/VaultConflictList.vue",
+      "scriptBlocks": 1
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+      "scriptBlocks": 1
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/VaultStoredConflictReview.vue",
+      "scriptBlocks": 1
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+      "scriptBlocks": 1
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+      "scriptBlocks": 1
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/storedConflictReviewPresentation.ts",
+      "scriptBlocks": 1
+    },
+    {
+      "path": "src/frontend/src/fsusui/pagination.ts",
+      "scriptBlocks": 1
+    }
+  ],
+  "errors": 0
+}

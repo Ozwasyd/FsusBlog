@@ -1,0 +1,1668 @@
+{
+  "sourceHead": "71175d0979dcfc590025b67d37fcafbe6f66c594",
+  "soleParent": "b302f58a9aaee9f2399d9274157a478f3c2f78fb",
+  "exactChangedPathUnion": true,
+  "allOtherBaseEntriesUnchanged": true,
+  "modeAndBlobRows": [
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/actual-alias-identities.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 33dbb76532ce355f3f38f5bcc561525d69153384\tartifacts/article-editor/graph-preflight-intake4385-static/actual-alias-identities.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 97cca6777d48b2a92a9c00239e362e62c3cd3ffb\tartifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/graph-preflight-intake4385-static/base-authoritative.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-binary.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 1e2d953ba5b78af60b5e6329bba3a245c0fc8c6f\tartifacts/article-editor/graph-preflight-intake4385-static/base-binary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-binary.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-binary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-binary.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/graph-preflight-intake4385-static/base-binary.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-boundary.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 47010ca78a3136f6358d7b29edb24deef7a3990d\tartifacts/article-editor/graph-preflight-intake4385-static/base-boundary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-boundary.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-boundary.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/graph-preflight-intake4385-static/base-boundary.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-build.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob e8dd2b66abea2bac717ffa741f08850cba5afa05\tartifacts/article-editor/graph-preflight-intake4385-static/base-build.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-build.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/base-build.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-build.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob e619c7643298df2459d041bb7e2f291cdeefc3c3\tartifacts/article-editor/graph-preflight-intake4385-static/base-build.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 01efcf1c93197eb961c7985180dfcabafe46603c\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob ad5343de4e50989ad2ac5df56dbae685ebf05e35\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-csharp.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-style.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob f711eff346f842630e206861a12a7721a622993d\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-style.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-style.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-style.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-full-style.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 59da6091e3747a49c3930cb227dc781ea5d821c7\tartifacts/article-editor/graph-preflight-intake4385-static/base-full-style.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob e986be888cf47c5161015bbc51d3b768a07a36bb\tartifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 0e05818c478530885de361e77c9da926dd2ab0ea\tartifacts/article-editor/graph-preflight-intake4385-static/base-graph-factory.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-intent.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob f11205c27a7b981cf28a8275a9553bff07f698f2\tartifacts/article-editor/graph-preflight-intake4385-static/base-intent.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-intent.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-intent.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-intent.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 193370d74f86868232a6d59cb2c41fb0545cb621\tartifacts/article-editor/graph-preflight-intake4385-static/base-intent.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob cd6a19387eb4d449c27947357eb72991ea4b8e33\tartifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/graph-preflight-intake4385-static/base-lifecycle.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-local-application-config.snapshot.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob e5c1e9e5b9969ea1469ee05cb63cbaf5eb64d06a\tartifacts/article-editor/graph-preflight-intake4385-static/base-local-application-config.snapshot.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 18916d61027a60abde8a23296ada845aec453269\tartifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob eb7a4eb3e41386b010f0f513c448725049df4f29\tartifacts/article-editor/graph-preflight-intake4385-static/base-strict-csharp.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-types.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 9f12d4e012404c3dc99de8ba1b91ca0b30d7d68d\tartifacts/article-editor/graph-preflight-intake4385-static/base-types.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-types.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/graph-preflight-intake4385-static/base-types.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/base-types.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 3d9b50d2f149326d3db6300adaf8ef227498c3c3\tartifacts/article-editor/graph-preflight-intake4385-static/base-types.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/build-diagnostic-comparison.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob c25d2571ba6b62576f5f8e8c921c323c6c89871d\tartifacts/article-editor/graph-preflight-intake4385-static/build-diagnostic-comparison.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 7b525c6769f3ee25f7ab582a40db9d4775cf82ea\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-authoritative.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 1fa81b1e8ff6a4c3aac0ad087ec28f0095992621\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-binary.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 6d8fb4769ed9741a2947302b0c8a3ee53dfcc194\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-boundary.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-build.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 3759a2946e70342465bde5d4f82d811d153b7d74\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-build.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-build.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-build.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-build.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 0642b5db72a5aa570c7f2ec39031538ac8288aa3\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-build.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 181f30e4d9d0f2a3fd1c37c23b02bd23cbed954e\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob ad5343de4e50989ad2ac5df56dbae685ebf05e35\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-csharp.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 5d6385af568c7bb627cb18299df7ed35b9e3bb34\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 59da6091e3747a49c3930cb227dc781ea5d821c7\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-full-style.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob a04e5c04238fb1cd720fe69ae35ab690b4a46636\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 0e05818c478530885de361e77c9da926dd2ab0ea\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-graph-factory.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 8fe8639e2e321dba6703b9d9260498aa985dbf8e\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 193370d74f86868232a6d59cb2c41fb0545cb621\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-intent.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 2c1cd75aecaf26989f287d73b4993d87f05d2c94\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-lifecycle.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-local-application-config.snapshot.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob e5c1e9e5b9969ea1469ee05cb63cbaf5eb64d06a\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-local-application-config.snapshot.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob a37ad6493fdc4ed7ea13810626a95f010013e47e\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob eb7a4eb3e41386b010f0f513c448725049df4f29\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-strict-csharp.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-types.command.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 239501cb4b15a307a21cb37f709b8d6fa73eec2b\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-types.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-types.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-types.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/candidate-types.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 3d9b50d2f149326d3db6300adaf8ef227498c3c3\tartifacts/article-editor/graph-preflight-intake4385-static/candidate-types.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/current-production.patch",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob c372308689f2e4b206a85a6800385b4ef3f51b69\tartifacts/article-editor/graph-preflight-intake4385-static/current-production.patch"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/delivery-map.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 7a8018a3209aeaf26947253f4ec211d302905f53\tartifacts/article-editor/graph-preflight-intake4385-static/delivery-map.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/dup4366.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 04a89948664cf657edbefacaa68c23968ff15434\tartifacts/article-editor/graph-preflight-intake4385-static/dup4366.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/exact-donor-production.patch",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob c372308689f2e4b206a85a6800385b4ef3f51b69\tartifacts/article-editor/graph-preflight-intake4385-static/exact-donor-production.patch"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/graph-preflight-intake4385-static/exact-production-diff-comparison.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/input-identities.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 7cc956ec0f9f03e2620ef683b93927b889bb8d55\tartifacts/article-editor/graph-preflight-intake4385-static/input-identities.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/pr4366.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob caa46b5e79bd36c27f77c16b57a935002f631b1b\tartifacts/article-editor/graph-preflight-intake4385-static/pr4366.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/pr4385.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 2e199a1bd32b5069c0d0bc3626d8a62f93c8626f\tartifacts/article-editor/graph-preflight-intake4385-static/pr4385.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/repository-contract.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/repository-contract.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/repository-contract.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob db097d432349b7e3da767f1ab24c3a3d81d223e0\tartifacts/article-editor/graph-preflight-intake4385-static/repository-contract.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/search__432019fcb1a4fbd4ebdbd1f2617190d8185a5990_.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 04a89948664cf657edbefacaa68c23968ff15434\tartifacts/article-editor/graph-preflight-intake4385-static/search__432019fcb1a4fbd4ebdbd1f2617190d8185a5990_.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/search_base_codex_issue_2295_history_preview_reveal_checkpoint_20261015.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 069df68590216011f9e3226cd408093e08efd99d\tartifacts/article-editor/graph-preflight-intake4385-static/search_base_codex_issue_2295_history_preview_reveal_checkpoint_20261015.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/graph-preflight-intake4385-static/source-diff-check.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 13edb3d373a5dbcb943c27e18d39a3d7d746fbac\tartifacts/article-editor/graph-preflight-intake4385-static/source-message-contract.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-message.txt",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 1c6c369e86e3595fd3a4471fc0fbb92a3bc69c79\tartifacts/article-editor/graph-preflight-intake4385-static/source-message.txt"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-preservation.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 449a3a40859e8a4d3c1f79d98d4f7ee9407a38f1\tartifacts/article-editor/graph-preflight-intake4385-static/source-preservation.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-provenance.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob cdd428ba549bcaacfa1a757915519f9fb62e7e0b\tartifacts/article-editor/graph-preflight-intake4385-static/source-provenance.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/graph-preflight-intake4385-static/source-range-contract.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/static-comparison.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 41d81f9230e3cc78cc1326ccde6e95df830de76f\tartifacts/article-editor/graph-preflight-intake4385-static/static-comparison.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/style-install.exit",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/graph-preflight-intake4385-static/style-install.exit"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/style-install.log",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 7a92edae20c1847cc3efbd6b351b81b91e21c5ee\tartifacts/article-editor/graph-preflight-intake4385-static/style-install.log"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/toolchain-and-config-identities.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob b551b0c908047136221bb0097a0d7896dfeb1bfe\tartifacts/article-editor/graph-preflight-intake4385-static/toolchain-and-config-identities.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/ui-dependency-identities.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 53249c5686d35ba066b6e267bec7bec14b5c6067\tartifacts/article-editor/graph-preflight-intake4385-static/ui-dependency-identities.json"
+    },
+    {
+      "path": "artifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 0eed0184587cfb5e449ba6ed85811c71fe4ac6e4\tartifacts/article-editor/graph-preflight-intake4385-static/ui-installed-lock-diff.patch"
+    },
+    {
+      "path": "artifacts/article-editor/issue-2474-graph-preflight-intake4385.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 249fc6c5e7605d9418929a34a732bb61380e8e85\tartifacts/article-editor/issue-2474-graph-preflight-intake4385.json"
+    },
+    {
+      "path": "artifacts/change-contract/issue-2474-bounded-memory-external-naming.json",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 11e18f46703b7056dc545116ea2e233d22c7750b\tartifacts/change-contract/issue-2474-bounded-memory-external-naming.json"
+    },
+    {
+      "path": "src/backend/Services/Authoring/ArticleGraphQueryService.cs",
+      "source": "74b75c0d1104105bf6124ae46c84e5f3d8a60387",
+      "exactModeAndBlob": "100644 blob 437c64dc14105a0d0c4d3be37d7bb376fc47d369\tsrc/backend/Services/Authoring/ArticleGraphQueryService.cs"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-application.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/intake4390-static/base-application.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-application.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 760513178d9b1ebfd283574b87bfcda2b646c9f8\tartifacts/article-editor/intake4390-static/base-application.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-authoritative.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-authoritative.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-authoritative.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/intake4390-static/base-authoritative.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-binary-boundary.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-binary-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-binary-boundary.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/intake4390-static/base-binary-boundary.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-code-intent.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-code-intent.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-code-intent.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 193370d74f86868232a6d59cb2c41fb0545cb621\tartifacts/article-editor/intake4390-static/base-code-intent.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-commands.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 07eea8148209416ddca1eefd8cb0fe73805e9737\tartifacts/article-editor/intake4390-static/base-commands.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-fsusui-boundary.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-fsusui-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-fsusui-boundary.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/intake4390-static/base-fsusui-boundary.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-full-style.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-full-style.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-full-style.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 59da6091e3747a49c3930cb227dc781ea5d821c7\tartifacts/article-editor/intake4390-static/base-full-style.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-lifecycle.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/base-lifecycle.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-lifecycle.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/intake4390-static/base-lifecycle.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/base-tsconfig.fsusui-local.app.snapshot.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 3ebfe148d78f82c6e9c4ec71f88822de04d419b1\tartifacts/article-editor/intake4390-static/base-tsconfig.fsusui-local.app.snapshot.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-application.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/intake4390-static/candidate-application.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-application.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 760513178d9b1ebfd283574b87bfcda2b646c9f8\tartifacts/article-editor/intake4390-static/candidate-application.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-ast.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/candidate-ast.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-ast.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 1b6519ce3148ef99cc43f6266199ceee219c1722\tartifacts/article-editor/intake4390-static/candidate-ast.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-authoritative.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-authoritative.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-authoritative.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/intake4390-static/candidate-authoritative.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-binary-boundary.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-binary-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-binary-boundary.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/intake4390-static/candidate-binary-boundary.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-code-intent.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-code-intent.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-code-intent.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 9548e9d881a06caa933aa06c4408066bf4b8d443\tartifacts/article-editor/intake4390-static/candidate-code-intent.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-commands.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 46c2370cbeaeb7403db343bad080e4d88a4c93c7\tartifacts/article-editor/intake4390-static/candidate-commands.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-fsusui-boundary.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-fsusui-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-fsusui-boundary.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/intake4390-static/candidate-fsusui-boundary.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-full-style.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-full-style.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-full-style.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 59da6091e3747a49c3930cb227dc781ea5d821c7\tartifacts/article-editor/intake4390-static/candidate-full-style.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-lifecycle.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/candidate-lifecycle.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-lifecycle.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/intake4390-static/candidate-lifecycle.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-strict-leaf.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/candidate-strict-leaf.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-strict-leaf.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 9f8f17027c384ddba90a4d06343b0fd3307fd420\tartifacts/article-editor/intake4390-static/candidate-strict-leaf.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/candidate-tsconfig.fsusui-local.app.snapshot.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 3ebfe148d78f82c6e9c4ec71f88822de04d419b1\tartifacts/article-editor/intake4390-static/candidate-tsconfig.fsusui-local.app.snapshot.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/corrected-source-commit.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob afc8b4dd9d468889d309d329d9e312a3ebbffe34\tartifacts/article-editor/intake4390-static/corrected-source-commit.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/corrected-source-range-contract.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/corrected-source-range-contract.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/corrected-source-range-contract.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/intake4390-static/corrected-source-range-contract.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/delivery-map.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob b40cd5ff8a0520d98e7c586d545d69ef49658e34\tartifacts/article-editor/intake4390-static/delivery-map.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/delivery-range-contract.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/delivery-range-contract.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/delivery-range-contract.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/intake4390-static/delivery-range-contract.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/delivery-range-whitespace.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/delivery-range-whitespace.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/delivery-range-whitespace.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/intake4390-static/delivery-range-whitespace.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/delivery-whitespace.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/delivery-whitespace.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/delivery-whitespace.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/intake4390-static/delivery-whitespace.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/dependency-inputs.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 526864dd9e9abbb5b4d120c9b9dbeaf06fa09065\tartifacts/article-editor/intake4390-static/dependency-inputs.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/duplicate-audit.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob f6b4c6f7172ae1b958514032f135247793003597\tartifacts/article-editor/intake4390-static/duplicate-audit.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/duplicate-recheck.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 93ce620adc49229b40998ff2f46a10e33cf5e61b\tartifacts/article-editor/intake4390-static/duplicate-recheck.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/final-delivery-whitespace.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/final-delivery-whitespace.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/final-delivery-whitespace.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/intake4390-static/final-delivery-whitespace.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/lint-install.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/lint-install.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/lint-install.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 974be6a0bee711a9aa4affae3d8886a4fe1eb4d1\tartifacts/article-editor/intake4390-static/lint-install.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/measured-source-commit.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 2b0776690e672a71782c97143bfef825fd99cc57\tartifacts/article-editor/intake4390-static/measured-source-commit.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/parse-leaf.cjs",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 4cfa5a3217c92f23c0498a0b9febdb40e5c9d1c3\tartifacts/article-editor/intake4390-static/parse-leaf.cjs"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/pr-4408-contract-initial.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/pr-4408-contract-initial.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/pr-4408-contract-initial.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 2eeca48f5063b5d0dbd09b50327f848c5cd474bf\tartifacts/article-editor/intake4390-static/pr-4408-contract-initial.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/pr-4408-rest-initial.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 16aea6d027c3798ca0c5bc56e5eeaa66cf532152\tartifacts/article-editor/intake4390-static/pr-4408-rest-initial.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/source-head.txt",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob c5f1bc0d2c6c687b2f0e34063ab28db5960897db\tartifacts/article-editor/intake4390-static/source-head.txt"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/source-inputs.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob b7edb5fba9126905b6594d4363bc2b17c290f85e\tartifacts/article-editor/intake4390-static/source-inputs.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/source-range-contract.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/intake4390-static/source-range-contract.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/source-range-contract.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob b328bb9f11ab6db1b5b26f2479fbcf8f751a3ec4\tartifacts/article-editor/intake4390-static/source-range-contract.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/source-title-contract.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/source-title-contract.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/source-title-contract.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob a91dc642978c20e9c600ea599036cf944ece61e4\tartifacts/article-editor/intake4390-static/source-title-contract.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/source-whitespace.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/source-whitespace.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/source-whitespace.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/intake4390-static/source-whitespace.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/static-comparison.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob aed967f9386324fd4303392760202239c373c977\tartifacts/article-editor/intake4390-static/static-comparison.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/trusted-parser-install.exit",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/intake4390-static/trusted-parser-install.exit"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/trusted-parser-install.log",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 5b03beda3c21975620dceac7d30a86e034cae067\tartifacts/article-editor/intake4390-static/trusted-parser-install.log"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/ui-inputs.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 8f13b27c93855570e4a19014d27268fcf14e706e\tartifacts/article-editor/intake4390-static/ui-inputs.json"
+    },
+    {
+      "path": "artifacts/article-editor/intake4390-static/unchanged-check-inputs.json",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 578e07dcb1da8dcef501e6a79990b3337b19cf3a\tartifacts/article-editor/intake4390-static/unchanged-check-inputs.json"
+    },
+    {
+      "path": "artifacts/article-editor/issue-2304-intake4390-on4385-wip.md",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob fe35e69b87a787a3d8e739df9a82ace70c613e15\tartifacts/article-editor/issue-2304-intake4390-on4385-wip.md"
+    },
+    {
+      "path": "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts",
+      "source": "625db2655aa61a01f071618ddfab683de79dc812",
+      "exactModeAndBlob": "100644 blob 8d9427320ecd553d5225e354af45d027cd21dfe6\tsrc/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts"
+    },
+    {
+      "path": "artifacts/article-editor/issue-2295-storage-conflict-4395-intake-wip.md",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob b2ecf36bedb9240d0d42fc194a5022ae0a342de7\tartifacts/article-editor/issue-2295-storage-conflict-4395-intake-wip.md"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-application.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 8a12157c73777f8178bd0a49e5b02da942843b19\tartifacts/article-editor/storage-conflict-4395-static/base-application.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-application.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/storage-conflict-4395-static/base-application.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-application.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 45ccff6dd7cb8b9749df1b899ada8b9f92fbb838\tartifacts/article-editor/storage-conflict-4395-static/base-application.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-authoritative.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 88acb52cdb091cb0b7066fea2b5852403301908c\tartifacts/article-editor/storage-conflict-4395-static/base-authoritative.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-authoritative.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-authoritative.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-authoritative.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/storage-conflict-4395-static/base-authoritative.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-binary.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 97d005e2f7e5e3304424abff72792c0562019f60\tartifacts/article-editor/storage-conflict-4395-static/base-binary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-binary.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-binary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-binary.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/storage-conflict-4395-static/base-binary.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-boundary.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f3c980f5172d3728cc607249ea80b63d4807af32\tartifacts/article-editor/storage-conflict-4395-static/base-boundary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-boundary.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-boundary.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/storage-conflict-4395-static/base-boundary.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-code-intent.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 32800efa0b958fcddc31e032c723b1bf57e4456d\tartifacts/article-editor/storage-conflict-4395-static/base-code-intent.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-code-intent.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-code-intent.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-code-intent.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 193370d74f86868232a6d59cb2c41fb0545cb621\tartifacts/article-editor/storage-conflict-4395-static/base-code-intent.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-full-style.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob aecb4b5101fc81572e5a69ca264319d8f0f110f9\tartifacts/article-editor/storage-conflict-4395-static/base-full-style.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-full-style.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-full-style.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-full-style.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/base-full-style.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-generated-config.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 4dbdee3025f8905f6aa9af7860e7a726ef326847\tartifacts/article-editor/storage-conflict-4395-static/base-generated-config.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-lifecycle.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob fc0d4e1e9355c8e4cdef85911a1c3fb5cbbb7708\tartifacts/article-editor/storage-conflict-4395-static/base-lifecycle.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-lifecycle.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/base-lifecycle.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/base-lifecycle.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/storage-conflict-4395-static/base-lifecycle.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 4414472b3da6974e990ea97b0c49d2c46e4b99f6\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 45ccff6dd7cb8b9749df1b899ada8b9f92fbb838\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-application.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob a78bc4efb521214bb34ddf3b2cec6a62a6bfce16\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 5a4fb401952f25271edba869b7edc303dda75b51\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-ast.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 89eb7ddc321a1c58c76d95fb2e6000c5766c5a98\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-authoritative.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 935bb50a4dc9500344754e1265def384c0dccd1f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-binary.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob be3752b34e2cd91edfbe6ca2b28ccbddcc9fdbdb\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 9035d36bb27009344f6a3ba39957ac400a5b00a4\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-boundary.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f756cdd09657ba43f7fa3f8fe0c7be6d2e9b3857\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 04a3909fa99283d0749e9a61f4330d82fa80a618\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-code-intent.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob c9657b71da6f7872049267f5f43db8c9b32faf20\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-full-style.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d184dede575b7a8198e54f80dcea5c49a072bfef\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-lifecycle.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob ca5c6992bbaf3aa34d8b9b9905bdcd74ce9230e2\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/after-strict-seven.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 21a6431687dcec3355f252df243eb5cac7a55a34\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 45ccff6dd7cb8b9749df1b899ada8b9f92fbb838\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-application.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 0c069ec3479e44fa910dcfb56547ff20cd756b61\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-authoritative.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 32a49748c468063f3968efdbbe533688c3be83b5\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-binary.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob b95065bff08d556e588a0e75366ea3927d6250b9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f62d8ccac66c1b25f9a3f91c922802a6b9997e9f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-boundary.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob b0824b5fb992b93bcc067b8ea0e82dd3c4541018\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f95e667ee389468a1e07f34cf0810fe1ae5d0994\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-code-intent.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 75d3dd4eba4032a68b796f150ee0db49cc35f17a\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-full-style.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d725c3ff226a75f61a9c60b7014b911778306a24\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/before-lifecycle.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 29b71efef6f342f81bc4df5ca45d31ceaf18ad3a\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 13edb3d373a5dbcb943c27e18d39a3d7d746fbac\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message-check.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d69073c6c77560a6f788aefa54ab95b212afb57e\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/commit-message.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/comparison.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d9a184f89ad3c86f0089bc7d14455ac8020c2a96\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/comparison.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/delivery-map.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 849ac3d5bb302d8a9cda66edff661092dcac5e6f\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/delivery-map.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/generated-config-snapshot.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 4dbdee3025f8905f6aa9af7860e7a726ef326847\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/generated-config-snapshot.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/parse-source.cjs.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 21ddc628aeebfe29b81fcbe005a310e5a64b14f3\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/parse-source.cjs.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/repair-inputs.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 963396a366c12412134ba1398e6e07a0f66dfe31\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/repair-inputs.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-proof.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 069302a4e275b91c258d80898713aa175aaed845\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-proof.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 715d1954741aa03699c1528989d16887fafaf6b4\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/boundary-repair/source-whitespace.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-application.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 3125dadfdfc276104f904be1cc2169c08bd6679e\tartifacts/article-editor/storage-conflict-4395-static/candidate-application.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-application.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 0cfbf08886fca9a91cb753ec8734c84fcbe52c9f\tartifacts/article-editor/storage-conflict-4395-static/candidate-application.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-application.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 45ccff6dd7cb8b9749df1b899ada8b9f92fbb838\tartifacts/article-editor/storage-conflict-4395-static/candidate-application.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-ast.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e1a76fcbc67a9e13848cdb5142094ed9cceb0cdf\tartifacts/article-editor/storage-conflict-4395-static/candidate-ast.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-ast.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/candidate-ast.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-ast.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob eb22eeca403766dfa314dfbbb82769f8c8d227a9\tartifacts/article-editor/storage-conflict-4395-static/candidate-ast.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d52b5fe5d27de3d21ffd6c78d97493bb04b02291\tartifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f5a7445bbd8167d5dcab55c3eb4fe9d5627759d9\tartifacts/article-editor/storage-conflict-4395-static/candidate-authoritative.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-binary.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob c062cce073ab0cc5dff315160ef0e54544343898\tartifacts/article-editor/storage-conflict-4395-static/candidate-binary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-binary.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-binary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-binary.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 3e106d0c23145547a3a2e00513e47225dcc94036\tartifacts/article-editor/storage-conflict-4395-static/candidate-binary.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-boundary.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob af1eeec4d76a385241cdc2b08b3a667868ab89f8\tartifacts/article-editor/storage-conflict-4395-static/candidate-boundary.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-boundary.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-boundary.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-boundary.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f62d8ccac66c1b25f9a3f91c922802a6b9997e9f\tartifacts/article-editor/storage-conflict-4395-static/candidate-boundary.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 396f426f521982dd721036cd49c96efd0768a5d7\tartifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob f95e667ee389468a1e07f34cf0810fe1ae5d0994\tartifacts/article-editor/storage-conflict-4395-static/candidate-code-intent.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-full-style.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 323bf41350f107fca475de337e5101940fc9da98\tartifacts/article-editor/storage-conflict-4395-static/candidate-full-style.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-full-style.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-full-style.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-full-style.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/candidate-full-style.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-generated-config.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 4dbdee3025f8905f6aa9af7860e7a726ef326847\tartifacts/article-editor/storage-conflict-4395-static/candidate-generated-config.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 41eca781dcf7a702a5fd373e240b1237e5cc1910\tartifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob cda5c5d83aa0c4e9f163ac8633959bcca201ce4a\tartifacts/article-editor/storage-conflict-4395-static/candidate-lifecycle.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 17eea1ba5cad5037bf0e700828973c613242c635\tartifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 04ae917950027473b3c2bd848e13aa03099587a9\tartifacts/article-editor/storage-conflict-4395-static/candidate-strict-six.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/comparison.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 69c6aff9301fb0e71ed6c9436b348cb3d3809adf\tartifacts/article-editor/storage-conflict-4395-static/comparison.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob c3b571466e1ce9f822d7b9cdf614863612ce0b44\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/create-pr.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/delivery-map.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e65bb42ac6144b2e0fad3aad3a6ccf61d41488d1\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/delivery-map.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-range.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/final-whitespace.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 188772dc7f0cc374b5bed10aeb70fcdf0b8bf9dc\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract-initial.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 812ce3591ff308b74adb00f05eea156e76facb24\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-contract.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback-unsupported-slurp.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob af61cf0cbc5a76f1ebf9b7aaa568ef9b0802cc5e\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.stderr.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-files-readback.stderr.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback-event.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob c1e189153a48e9b442054b4ed2e8e9563505caa7\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback-event.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob ce264e5fc7f4ae5c0987cf294c174746807077f1\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/pr-readback.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 9da62aeadbfe4965324fe95dcd8fc4e8df4cc434\tartifacts/article-editor/storage-conflict-4395-static/delivery-checkpoint/remote-scope-proof.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/delivery-map.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e0ddcd9e3f87abd6d3eeb39a26afdbf70f0f2be1\tartifacts/article-editor/storage-conflict-4395-static/delivery-map.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/duplicate-check.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 6d40ee4efca8076a7f4c122c322af493b959cf8a\tartifacts/article-editor/storage-conflict-4395-static/duplicate-check.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/external-callsites.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob b20e2a3b7e10c72988435bba56e8438d5f3fbd61\tartifacts/article-editor/storage-conflict-4395-static/external-callsites.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/external-callsites.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob d00491fd7e5bb6fa28c517a0bb32b8b506539d4d\tartifacts/article-editor/storage-conflict-4395-static/external-callsites.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/external-callsites.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/external-callsites.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/inputs.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 989541183f877c7efaf0b22ac0d1110315a89642\tartifacts/article-editor/storage-conflict-4395-static/inputs.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/parse-source.cjs.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e618da4265ccf3df5d92ce3cc9acee9b469a5866\tartifacts/article-editor/storage-conflict-4395-static/parse-source.cjs.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/resolver.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob a54cde665341fcdb8203d644544d8499050b418b\tartifacts/article-editor/storage-conflict-4395-static/resolver.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/resolver.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/resolver.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/resolver.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 0dafa127da34fe24dc2a97aedc576c225ed6acfa\tartifacts/article-editor/storage-conflict-4395-static/resolver.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-and-alias-proof.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 1793f81a63848a147d6181332980cce55e33c37c\tartifacts/article-editor/storage-conflict-4395-static/source-and-alias-proof.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-range.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 712069387861c75bd4250ed24523dd42486e01a5\tartifacts/article-editor/storage-conflict-4395-static/source-range.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-range.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/source-range.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-range.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 273b7619b63dfc3b1cbc562e57efd992c8449cfe\tartifacts/article-editor/storage-conflict-4395-static/source-range.txt"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-whitespace.command.json",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 06ba9919185a4595ddcc51d037368ab545bc707b\tartifacts/article-editor/storage-conflict-4395-static/source-whitespace.command.json"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-whitespace.exit",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 573541ac9702dd3969c9bc859d2b91ec1f7e6e56\tartifacts/article-editor/storage-conflict-4395-static/source-whitespace.exit"
+    },
+    {
+      "path": "artifacts/article-editor/storage-conflict-4395-static/source-whitespace.txt",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e69de29bb2d1d6434b8b29ae775ad8c2e48c5391\tartifacts/article-editor/storage-conflict-4395-static/source-whitespace.txt"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/VaultConflictList.vue",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 65d746781b22d20a57db5dd9b3cfe985a3d620fc\tsrc/frontend/src/components/article-vault/VaultConflictList.vue"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 1e1e52dcf04de0c5412af71c008b431c602fa2a1\tsrc/frontend/src/components/article-vault/VaultResolutionStatus.vue"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/VaultStoredConflictReview.vue",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 364c9f2ffe8d66436aec5c577c71aca965f69dc4\tsrc/frontend/src/components/article-vault/VaultStoredConflictReview.vue"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 709a071e3743b2add4a3dbf0bbd08d6febb74954\tsrc/frontend/src/components/article-vault/conflictEvidencePresentation.ts"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 12e23d71fee3bb1ad67b3f885a57fbd3dc956254\tsrc/frontend/src/components/article-vault/resolutionStatusPresentation.ts"
+    },
+    {
+      "path": "src/frontend/src/components/article-vault/storedConflictReviewPresentation.ts",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob 81b2795503df22944bf22c4f078c447111b3d2bd\tsrc/frontend/src/components/article-vault/storedConflictReviewPresentation.ts"
+    },
+    {
+      "path": "src/frontend/src/fsusui/pagination.ts",
+      "source": "44b94b5f717aeaae5285426eb7bbd2a98b2e67af",
+      "exactModeAndBlob": "100644 blob e8bf28d76b1b35b720765f6c569d5cd292640cf8\tsrc/frontend/src/fsusui/pagination.ts"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "cwd": "/workspace/FsusBlog-three-leaf",
+  "argv": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "src/frontend/src/services/authoring/authoringWorkspaceSnapshotRatio.ts",
+    "--file",
+    "src/frontend/src/components/article-vault/VaultConflictList.vue",
+    "--file",
+    "src/frontend/src/components/article-vault/VaultResolutionStatus.vue",
+    "--file",
+    "src/frontend/src/components/article-vault/VaultStoredConflictReview.vue",
+    "--file",
+    "src/frontend/src/components/article-vault/conflictEvidencePresentation.ts",
+    "--file",
+    "src/frontend/src/components/article-vault/resolutionStatusPresentation.ts",
+    "--file",
+    "src/frontend/src/components/article-vault/storedConflictReviewPresentation.ts",
+    "--file",
+    "src/frontend/src/fsusui/pagination.ts"
+  ],
+  "envOverrides": {
+    "PATH": "/workspace/.setup/tools/node_modules/.bin:/workspace/.setup/dotnet:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/override:/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin:/opt/codex/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/agent/.local/bin:/opt/codex/runtimes/codex-primary-runtime/dependencies/bin/fallback",
+    "DOTNET_CLI_HOME": "/workspace/.setup/dotnet-home",
+    "NUGET_PACKAGES": "/workspace/.setup/nuget",
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "FSUSBLOG_USE_LOCAL_FSUSUI": "1",
+    "FSUSBLOG_LOCAL_FSUSUI_ROOT": "/workspace/FsusUI-three-leaf-ui973"
+  },
+  "startedUTC": "2026-10-16T02:51:41.978049+00:00",
+  "exit": 1,
+  "finishedUTC": "2026-10-16T02:51:44.228566+00:00",
+  "bytes": 227,
+  "lines": 2,
+  "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+}
