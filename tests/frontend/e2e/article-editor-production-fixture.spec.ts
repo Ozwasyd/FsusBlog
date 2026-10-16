@@ -1191,8 +1191,6 @@ test.describe('article editor production fixture inspector responsive host', () 
 
 
 test.describe('article editor production outline acceptance', () => {
-  test.use({ hasTouch: true })
-
   async function settleOutlineFrames(page: Page): Promise<void> {
     await page.evaluate(async () => {
       await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
@@ -1200,72 +1198,76 @@ test.describe('article editor production outline acceptance', () => {
     })
   }
 
-  for (const theme of ['light', 'dark'] as const) {
-    for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-      test(`compact public close routes preserve the native opener in ${theme}/${reducedMotion}`, async ({ page }, testInfo) => {
-        const pageErrors: string[] = []
-        page.on('pageerror', (error) => pageErrors.push(error.message))
-        await page.emulateMedia({ reducedMotion })
-        await page.addInitScript(() => {
-          window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1')
-        })
-        for (const viewport of contract.viewports.filter(({ width }) => width <= contract.outline.drawerBreakpoint)) {
-          await page.setViewportSize({ width: viewport.width, height: viewport.height })
-          await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
-          const launcher = page.getByRole('button', { name: '打开文章大纲', exact: true })
-          const opener = await launcher.elementHandle()
-          if (!opener) throw new Error('outline_native_opener_missing')
-          for (const closeRoute of ['builtin', 'custom', 'mask', 'escape'] as const) {
-            await launcher.tap()
-            const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
-            await expect(dialog).toBeVisible()
-            await expect(dialog).toHaveAttribute('aria-modal', 'true')
-            await expect(dialog.getByRole('treeitem')).toHaveCount(10)
-            await expect(launcher).toBeVisible()
-            expect(await launcher.evaluate((current, original) => current === original, opener)).toBe(true)
-            expect(await opener.evaluate((element) => element.isConnected)).toBe(true)
-            const tabbableIndices = await dialog.evaluate((element) => Array.from(element.querySelectorAll('button'))
-              .flatMap((button, index) => button.tabIndex >= 0 && !button.disabled && button.getClientRects().length > 0 ? [index] : []))
-            expect(tabbableIndices.length).toBeGreaterThanOrEqual(3)
-            for (const key of ['Tab', 'Shift+Tab']) {
-              const visited = new Set<number>()
-              for (let index = 0; index <= tabbableIndices.length; index += 1) {
-                await page.keyboard.press(key)
-                expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
-                visited.add(await dialog.evaluate((element) => Array.from(element.querySelectorAll('button'))
-                  .findIndex((button) => button === document.activeElement)))
+  test.describe('compact touch close routes', () => {
+    test.use({ hasTouch: true })
+
+    for (const theme of ['light', 'dark'] as const) {
+      for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+        test(`compact public close routes preserve the native opener in ${theme}/${reducedMotion}`, async ({ page }, testInfo) => {
+          const pageErrors: string[] = []
+          page.on('pageerror', (error) => pageErrors.push(error.message))
+          await page.emulateMedia({ reducedMotion })
+          await page.addInitScript(() => {
+            window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1')
+          })
+          for (const viewport of contract.viewports.filter(({ width }) => width <= contract.outline.drawerBreakpoint)) {
+            await page.setViewportSize({ width: viewport.width, height: viewport.height })
+            await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+            const launcher = page.getByRole('button', { name: '打开文章大纲', exact: true })
+            const opener = await launcher.elementHandle()
+            if (!opener) throw new Error('outline_native_opener_missing')
+            for (const closeRoute of ['builtin', 'custom', 'mask', 'escape'] as const) {
+              await launcher.tap()
+              const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+              await expect(dialog).toBeVisible()
+              await expect(dialog).toHaveAttribute('aria-modal', 'true')
+              await expect(dialog.getByRole('treeitem')).toHaveCount(10)
+              await expect(launcher).toBeVisible()
+              expect(await launcher.evaluate((current, original) => current === original, opener)).toBe(true)
+              expect(await opener.evaluate((element) => element.isConnected)).toBe(true)
+              const tabbableIndices = await dialog.evaluate((element) => Array.from(element.querySelectorAll('button'))
+                .flatMap((button, index) => button.tabIndex >= 0 && !button.disabled && button.getClientRects().length > 0 ? [index] : []))
+              expect(tabbableIndices.length).toBeGreaterThanOrEqual(3)
+              for (const key of ['Tab', 'Shift+Tab']) {
+                const visited = new Set<number>()
+                for (let index = 0; index <= tabbableIndices.length; index += 1) {
+                  await page.keyboard.press(key)
+                  expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+                  visited.add(await dialog.evaluate((element) => Array.from(element.querySelectorAll('button'))
+                    .findIndex((button) => button === document.activeElement)))
+                }
+                for (const index of tabbableIndices) expect(visited.has(index)).toBe(true)
               }
-              for (const index of tabbableIndices) expect(visited.has(index)).toBe(true)
+              if (closeRoute === 'builtin') {
+                await page.screenshot({ path: testInfo.outputPath(`outline-open-${viewport.width}-${theme}-${reducedMotion}.png`), fullPage: true })
+                await dialog.getByRole('button', { name: 'Close this dialog', exact: true }).tap()
+              } else if (closeRoute === 'custom') {
+                await dialog.getByRole('button', { name: '关闭文章大纲', exact: true }).tap()
+              } else if (closeRoute === 'mask') {
+                const box = await dialog.boundingBox()
+                if (!box) throw new Error('outline_dialog_geometry_missing')
+                const maskX = viewport.width - 2
+                expect(maskX).toBeGreaterThan(box.x + box.width)
+                await page.touchscreen.tap(maskX, Math.min(viewport.height - 2, box.y + 40))
+              } else {
+                await dialog.getByRole('treeitem').first().focus()
+                await page.keyboard.press('Escape')
+              }
+              await expect(dialog).toBeHidden()
+              await expect(launcher).toBeFocused()
+              expect(await launcher.evaluate((current, original) => current === original, opener)).toBe(true)
+              const save = page.getByRole('button', { name: '保存草稿', exact: true })
+              await save.focus()
+              await settleOutlineFrames(page)
+              await expect(save).toBeFocused()
             }
-            if (closeRoute === 'builtin') {
-              await page.screenshot({ path: testInfo.outputPath(`outline-open-${viewport.width}-${theme}-${reducedMotion}.png`), fullPage: true })
-              await dialog.getByRole('button', { name: 'Close this dialog', exact: true }).tap()
-            } else if (closeRoute === 'custom') {
-              await dialog.getByRole('button', { name: '关闭文章大纲', exact: true }).tap()
-            } else if (closeRoute === 'mask') {
-              const box = await dialog.boundingBox()
-              if (!box) throw new Error('outline_dialog_geometry_missing')
-              const maskX = viewport.width - 2
-              expect(maskX).toBeGreaterThan(box.x + box.width)
-              await page.touchscreen.tap(maskX, Math.min(viewport.height - 2, box.y + 40))
-            } else {
-              await dialog.getByRole('treeitem').first().focus()
-              await page.keyboard.press('Escape')
-            }
-            await expect(dialog).toBeHidden()
-            await expect(launcher).toBeFocused()
-            expect(await launcher.evaluate((current, original) => current === original, opener)).toBe(true)
-            const save = page.getByRole('button', { name: '保存草稿', exact: true })
-            await save.focus()
-            await settleOutlineFrames(page)
-            await expect(save).toBeFocused()
+            await opener.dispose()
           }
-          await opener.dispose()
-        }
-        expect(pageErrors).toEqual([])
-      })
+          expect(pageErrors).toEqual([])
+        })
+      }
     }
-  }
+  })
 
   test('desktop keyboard navigation exposes one tree tab stop and sibling ARIA without implicit source activation', async ({ page }) => {
     const pageErrors: string[] = []
