@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix } from './parse-matrix.mjs';
-import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding, prImpactCallerContext, sourceGovernanceChildEntries, effectivePrExecutionStage, sourceRegressionArguments, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs } from './pr-impact-plan.mjs';
+import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding, prImpactCallerContext, sourceGovernanceChildEntries, effectivePrExecutionStage, sourceRegressionArguments, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, isScriptDeclarationSource, sourceStageInspectionFiles } from './pr-impact-plan.mjs';
 import { inspectReleaseFinalCommandTarget, validateReleaseFinalStaticBoundary, validateSourceGovernanceChildExecution } from './release-final-static-boundary.mjs';
 import { snapshotGitWorktree } from './scheduler.mjs';
 const { parseWorkflowJobNeeds } = await import(new URL('../yaml/workflow-structure.mjs', import.meta.url));
@@ -60,6 +60,7 @@ const results = [];
 const checkedSolutions = [];
 const checkedPython = [];
 const checkedBlame = [];
+const checkedDeclarations = [];
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
     const solutions = files.filter(file => file.endsWith('.slnx'));
@@ -219,13 +220,6 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration')
             process.exitCode = 1;
         }
     }
-    const unsupported = unsupportedSourceStageFiles(files, checkedSolutions, checkedPython, checkedBlame);
-    if (unsupported.length)
-    {
-        results.push({ checker: 'unsupported-source-stage-language', files: unsupported,
-            exitCode: null, status: 'unsupported', qualificationEligible: false });
-        process.exitCode = 1;
-    }
 }
 for (const [checker, options, applicable] of groups)
 {
@@ -239,6 +233,21 @@ for (const [checker, options, applicable] of groups)
     results.push({ checker, files: applicable, exitCode: result.status });
     if (result.error || result.status !== 0)
     {
+        process.exitCode = 1;
+    }
+    else if (checker === sourceGovernanceChildEntries.frontend && options[1] === 'strict-full')
+    {
+        checkedDeclarations.push(...applicable.filter(isScriptDeclarationSource));
+    }
+}
+if (effectivePrExecutionStage(callerContext) === 'source-integration')
+{
+    const inspectedFiles = sourceStageInspectionFiles(files, evidence.changedFiles);
+    const unsupported = unsupportedSourceStageFiles(inspectedFiles, checkedSolutions, checkedPython, checkedBlame, checkedDeclarations);
+    if (unsupported.length)
+    {
+        results.push({ checker: 'unsupported-source-stage-language', files: unsupported,
+            exitCode: null, status: 'unsupported', qualificationEligible: false });
         process.exitCode = 1;
     }
 }

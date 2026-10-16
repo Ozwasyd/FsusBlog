@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/style-toolchain/eslint.config.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve the existing external process environment spellings and Node tooling option boundaries while internal declaration-owner identifiers retain repository conventions."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/frontend-style-policy.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve existing policy and canonical execution-authority JSON field spellings while adding exact declaration suffixes and the original Node configuration data witness."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/frontend-style-enforcement.md"
+            ],
+            "reason": "Preserve the existing documented CSS class, BEM selector and custom-property contracts unchanged while documenting the additional canonical Node declaration owner."
+        }
+    ]
+}
