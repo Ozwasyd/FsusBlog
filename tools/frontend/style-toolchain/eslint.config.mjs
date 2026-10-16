@@ -30,12 +30,13 @@ const frontendNodeFiles = [
     'src/frontend/scripts/**/*.{js,mjs,cjs}',
     'src/frontend/*.{js,mjs,cjs}'
 ];
+const nodeDeclarationFiles = ['src/frontend/scripts/**/*.d.{mts,cts}'];
 const browserJavaScriptFiles = [
     'src/frontend/src/**/*.{js,mjs}',
     'src/frontend/wasm/web/**/*.{js,mjs}',
     'src/frontend/public/**/*.{js,mjs}'
 ];
-const allLintFiles = [...typedFiles, ...vueFiles, ...nodeFiles, ...frontendNodeFiles, ...browserJavaScriptFiles];
+const allLintFiles = [...typedFiles, ...vueFiles, ...nodeFiles, ...frontendNodeFiles, ...nodeDeclarationFiles, ...browserJavaScriptFiles];
 
 const mergeRules = (configs) => Object.assign({}, ...configs.map((config) => config.rules ?? {}));
 const typedRecommendedRules = mergeRules(tseslint.configs.recommendedTypeChecked);
@@ -215,6 +216,25 @@ export default [
             'no-new-func': 'error',
             'no-script-url': 'error'
         }
+    },
+    {
+        name: 'fsusblog/type-aware-node-declarations',
+        files: nodeDeclarationFiles,
+        languageOptions: {
+            parser: tseslint.parser,
+            parserOptions: {
+                ecmaVersion: 'latest',
+                projectService: false,
+                project: [path.join(frontendRoot, 'tsconfig.node.json')],
+                sourceType: 'module',
+                tsconfigRootDir: frontendRoot
+            },
+            globals: globals.node
+        },
+        plugins: {
+            '@typescript-eslint': tseslint.plugin
+        },
+        rules: typedRules
     },
     {
         name: 'fsusblog/type-aware-typescript',
