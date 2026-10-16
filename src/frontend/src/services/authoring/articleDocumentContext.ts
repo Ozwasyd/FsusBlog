@@ -236,7 +236,7 @@ let opaqueDocumentSequence = 0;
 let opaqueDraftSequence = 0;
 let opaqueEditorSessionSequence = 0;
 
-const hasExactKeys = (value: unknown, keys: readonly string[]): value is Record<string, unknown> =>
+const hasExactKeys = <K extends readonly string[]>(value: unknown, keys: K): value is Record<K[number], unknown> =>
 {
     if (!value || typeof value !== 'object' || Array.isArray(value))
     {
