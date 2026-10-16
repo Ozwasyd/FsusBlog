@@ -272,11 +272,13 @@ function validateRegistry(registry: LocaleDomainLoaderRegistry): void
 
 export class LocaleDomainBundleStore
 {
+    private readonly registry: LocaleDomainLoaderRegistry;
     private readonly artifacts = new Map<string, LocaleDomainArtifact>();
     private readonly inFlight = new Map<string, InFlight>();
 
-    constructor(private readonly registry: LocaleDomainLoaderRegistry = LOCALE_DOMAIN_LOADERS)
+    constructor(registry: LocaleDomainLoaderRegistry = LOCALE_DOMAIN_LOADERS)
     {
+        this.registry = registry;
         validateRegistry(registry);
     }
 
