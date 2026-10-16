@@ -20,6 +20,7 @@
         v-if="isCompact || isOpen"
         :is="outlineHost"
         v-bind="outlineHostProperties"
+        @close="requestClose"
         @update:model-value="handleHostVisibility"
         @closed="handleClosed"
     >
@@ -71,6 +72,7 @@ import {
     defineComponent,
     h,
     nextTick,
+    onBeforeUnmount,
     onMounted,
     ref,
     resolveComponent,
@@ -136,11 +138,50 @@ const OutlinePanelContent = defineComponent({
     {
         const treeRef = ref<HTMLElement | null>(null);
         const nodeButtons = new Map<string, HTMLButtonElement>();
+        const rovingNodeId = ref<string | null>(null);
+        let nodeFocusGeneration = 0;
+        let contentDisposed = false;
         const expanded = computed(() => props.expandedNodeIds);
         const visibleNodes = computed(() => flattenArticleOutlineTree(
             props.snapshot?.tree ?? [],
             expanded.value
         ));
+        const visibleNodeIds = computed(() => new Set(visibleNodes.value.map((node) => node.nodeId)));
+        const tabStopNodeId = computed(() =>
+        {
+            let candidate = rovingNodeId.value;
+            while (candidate)
+            {
+                if (visibleNodeIds.value.has(candidate))
+                {
+                    return candidate;
+                }
+                candidate = props.snapshot?.items.find((item) => item.nodeId === candidate)?.parentId ?? null;
+            }
+            if (props.activeHeadingId && visibleNodeIds.value.has(props.activeHeadingId))
+            {
+                return props.activeHeadingId;
+            }
+            return visibleNodes.value[0]?.nodeId ?? null;
+        });
+        const siblingMetadata = computed(() =>
+        {
+            const metadata = new Map<string, Record<string, string>>();
+            const visit = (siblings: readonly MarkdownOutlineTreeNode[], level: number): void =>
+            {
+                siblings.forEach((node, index) =>
+                {
+                    metadata.set(node.nodeId, {
+                        'aria-level': String(level),
+                        'aria-posinset': String(index + 1),
+                        'aria-setsize': String(siblings.length)
+                    });
+                    visit(node.children, level + 1);
+                });
+            };
+            visit(props.snapshot?.tree ?? [], 1);
+            return metadata;
+        });
         const hasHeadings = computed(() => (props.snapshot?.items.length ?? 0) > 0);
         const status = computed(() =>
         {
@@ -165,13 +206,52 @@ const OutlinePanelContent = defineComponent({
         // Return queued focus failures through the originating Vue event handler.
         const focusNode = async (nodeId: string | undefined): Promise<void> =>
         {
-            if (!nodeId)
+            const generation = ++nodeFocusGeneration;
+            if (!nodeId || !visibleNodeIds.value.has(nodeId))
             {
                 return;
             }
+            rovingNodeId.value = nodeId;
             await nextTick();
-            nodeButtons.get(nodeId)?.focus({ preventScroll: true });
+            if (!contentDisposed && generation === nodeFocusGeneration && visibleNodeIds.value.has(nodeId))
+            {
+                nodeButtons.get(nodeId)?.focus({ preventScroll: true });
+            }
         };
+
+        watch(() => props.snapshot, (snapshot, previous) =>
+        {
+            nodeFocusGeneration += 1;
+            if (snapshot?.articleIdentity !== previous?.articleIdentity
+                || snapshot?.documentIdentity.id !== previous?.documentIdentity.id
+                || snapshot?.documentIdentity.epoch !== previous?.documentIdentity.epoch)
+            {
+                rovingNodeId.value = null;
+            }
+        }, { flush: 'sync' });
+
+        watch(visibleNodes, async () =>
+        {
+            const current = rovingNodeId.value;
+            if (!current || visibleNodeIds.value.has(current))
+            {
+                return;
+            }
+            const ownedFocus = typeof document !== 'undefined' && nodeButtons.get(current) === document.activeElement;
+            const fallback = tabStopNodeId.value;
+            rovingNodeId.value = fallback;
+            if (ownedFocus)
+            {
+                await focusNode(fallback ?? undefined);
+            }
+        }, { flush: 'sync' });
+
+        onBeforeUnmount(() =>
+        {
+            contentDisposed = true;
+            nodeFocusGeneration += 1;
+            nodeButtons.clear();
+        });
 
         const nodeIndex = (nodeId: string | undefined): number =>
             visibleNodes.value.findIndex((node) => node.nodeId === nodeId);
@@ -282,7 +362,7 @@ const OutlinePanelContent = defineComponent({
                         role: 'tree',
                         tabindex: '-1',
                         onKeydown: handleTreeKeydown
-                    }, visibleNodes.value.map((node, index) => h('div', {
+                    }, visibleNodes.value.map((node) => h('div', {
                         key: node.nodeId,
                         class: 'article-write-outline-node',
                         'data-outline-node': node.nodeId
@@ -295,17 +375,25 @@ const OutlinePanelContent = defineComponent({
                                 { 'article-write-outline-item-selected': props.activeHeadingId === node.nodeId }
                             ],
                             role: 'treeitem',
-                            tabindex: props.activeHeadingId === node.nodeId || index === 0 ? '0' : '-1',
-                            'aria-level': String(node.depth),
-                            'aria-posinset': String(index + 1),
-                            'aria-setsize': String(visibleNodes.value.length),
+                            tabindex: tabStopNodeId.value === node.nodeId ? '0' : '-1',
+                            ...siblingMetadata.value.get(node.nodeId),
                             'aria-selected': props.activeHeadingId === node.nodeId ? 'true' : 'false',
                             'aria-expanded': node.children.length > 0 ? String(expanded.value.has(node.nodeId)) : undefined,
                             'aria-label': node.text || '无标题',
                             title: node.text || '无标题',
                             'data-outline-node-id': node.nodeId,
                             style: { '--article-outline-depth': String(Math.max(0, node.depth - 1)) },
-                            onClick: () => emit('reveal-heading', node)
+                            onFocus: () =>
+                            {
+                                nodeFocusGeneration += 1;
+                                rovingNodeId.value = node.nodeId;
+                            },
+                            onClick: () =>
+                            {
+                                nodeFocusGeneration += 1;
+                                rovingNodeId.value = node.nodeId;
+                                emit('reveal-heading', node);
+                            }
                         }, () => h('span', { class: 'article-write-outline-item-content' }, [
                             node.children.length > 0
                                 ? h('span', {
@@ -362,7 +450,10 @@ const publicDrawer = resolveComponent('ElDrawer');
 const isOpen = ref(false);
 const launcherRef = ref<OutlineButtonHandle | null>(null);
 const expandedNodeIds = ref<ReadonlySet<string>>(new Set());
-let focusReturnPending = false;
+let pendingFocusIntent: number | null = null;
+let focusGeneration = 0;
+let focusFrame: number | null = null;
+let disposed = false;
 let mounted = false;
 
 const outlineHost = computed(() => isCompact.value ? publicDrawer : 'aside');
@@ -474,14 +565,31 @@ onMounted(() =>
     isOpen.value = readRailPreference();
 });
 
+const invalidateFocusReturn = (): void =>
+{
+    focusGeneration += 1;
+    pendingFocusIntent = null;
+    if (focusFrame !== null)
+    {
+        window.cancelAnimationFrame(focusFrame);
+        focusFrame = null;
+    }
+};
+
 const focusLauncher = async (): Promise<void> =>
 {
-    if (!focusReturnPending)
+    const generation = pendingFocusIntent;
+    if (generation === null)
     {
         return;
     }
-    focusReturnPending = false;
+    pendingFocusIntent = null;
     await nextTick();
+    const isCurrent = (): boolean => !disposed && generation === focusGeneration && !isOpen.value;
+    if (!isCurrent())
+    {
+        return;
+    }
     if (!isCompact.value)
     {
         launcherRef.value?.ref?.focus({ preventScroll: true });
@@ -492,12 +600,23 @@ const focusLauncher = async (): Promise<void> =>
         launcherRef.value?.ref?.focus({ preventScroll: true });
         return;
     }
-    window.requestAnimationFrame(() => launcherRef.value?.ref?.focus({ preventScroll: true }));
+    const handle = window.requestAnimationFrame(() =>
+    {
+        if (focusFrame === handle)
+        {
+            focusFrame = null;
+        }
+        if (isCurrent())
+        {
+            launcherRef.value?.ref?.focus({ preventScroll: true });
+        }
+    });
+    focusFrame = handle;
 };
 
 const openRail = (): void =>
 {
-    focusReturnPending = false;
+    invalidateFocusReturn();
     isOpen.value = true;
 };
 
@@ -507,7 +626,8 @@ const requestClose = async (): Promise<void> =>
     {
         return;
     }
-    focusReturnPending = true;
+    invalidateFocusReturn();
+    pendingFocusIntent = focusGeneration;
     isOpen.value = false;
     if (!isCompact.value)
     {
@@ -532,6 +652,15 @@ const handleClosed = async (): Promise<void> =>
         await focusLauncher();
     }
 };
+
+watch(isCompact, invalidateFocusReturn, { flush: 'sync' });
+watch(() => props.snapshot, invalidateFocusReturn, { flush: 'sync' });
+onBeforeUnmount(() =>
+{
+    disposed = true;
+    mounted = false;
+    invalidateFocusReturn();
+});
 
 const toggleNode = (nodeId: string): void =>
 {
