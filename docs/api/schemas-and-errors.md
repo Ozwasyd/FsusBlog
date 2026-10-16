@@ -702,6 +702,7 @@ Admin authoring JSON uses the existing AEDS frame envelope; no public text fallb
 - `400 comment_moderation_claim_invalid`: lease/SLA/note/escalation or token shape is invalid.
 - `409 comment_moderation_claim_conflict`: the claim is occupied or expired, or owner/token/generation/row version supplied for renewal/release is stale.
 - `409 comment_moderation_conflict`: comment status, comment row version, or claim condition changed before the decision; the transaction writes no comment, outbox, audit, or completed-claim state.
+
 ## Plugin Admin frames and stable errors
 
 `PluginAdminSnapshot` (233) uses an authoring JSON payload and always includes summary, manifest summary, permission plan, versioned config, bounded metrics/logs/errors, and node states. `PluginPackageInstallRequest` (232) carries raw `.fspkg` bytes; `PluginAdminMutationRequest` (234) is an authoring JSON payload with `action`, `capabilities`, `confirmed`, `expectedConfigVersion`, and optional `config`.
