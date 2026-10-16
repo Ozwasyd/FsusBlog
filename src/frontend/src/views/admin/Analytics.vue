@@ -96,7 +96,7 @@ import {
     FsusUiTaskPageHeader
 } from '@/fsusui';
 
-const { loading, dashboardView, regionChartRef } = useAdminDashboard();
+const { loading, dashboardView } = useAdminDashboard();
 
 interface DistributionRow {
     label: string;
