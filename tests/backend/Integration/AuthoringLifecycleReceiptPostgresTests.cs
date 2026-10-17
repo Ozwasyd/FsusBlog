@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 
+using Npgsql;
 using SqlSugar;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
@@ -91,9 +92,11 @@ public sealed class AuthoringLifecycleReceiptPostgresTests(PostgresSchemaMigrati
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Append_ConcurrentConnectionsAcceptExactlyOneSuccessor(bool existingChain)
+    [InlineData(false, "read committed")]
+    [InlineData(true, "read committed")]
+    [InlineData(false, "repeatable read")]
+    [InlineData(true, "repeatable read")]
+    public async Task Append_ConcurrentConnectionsAcceptExactlyOneSuccessor(bool existingChain, string defaultIsolation)
     {
         string connectionString = await CreateDatabaseAsync();
         AuthoringLifecycleReceipt candidate = Receipt();
@@ -106,9 +109,12 @@ public sealed class AuthoringLifecycleReceiptPostgresTests(PostgresSchemaMigrati
 
         var outcomes = new ConcurrentBag<Exception?>();
         using var barrier = new Barrier(2);
+        var configured = new NpgsqlConnectionStringBuilder(connectionString);
+        configured.Options += $" -c default_transaction_isolation={defaultIsolation.Replace(" ", "\\ ", StringComparison.Ordinal)}";
         await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => Task.Run(async () =>
         {
-            using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+            using SqlSugarClient db = PostgresSqlSugarTestClient.Create(configured.ConnectionString);
+            Assert.Equal(defaultIsolation, await db.Ado.GetStringAsync("SHOW default_transaction_isolation;"));
             Assert.True(barrier.SignalAndWait(TimeSpan.FromSeconds(30)));
             outcomes.Add(await Record.ExceptionAsync(async () =>
                 await new PostgresAuthoringLifecycleReceiptStore(db).AppendAsync(candidate, default)));
