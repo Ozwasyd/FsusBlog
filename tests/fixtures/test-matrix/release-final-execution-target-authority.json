@@ -2160,8 +2160,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:c0d344a8aad817f8d5a92486e8f1ebf995a9c94c92aa0bf1f38c3112da4b4aee",
-            "indexDigest": "sha256:c0d344a8aad817f8d5a92486e8f1ebf995a9c94c92aa0bf1f38c3112da4b4aee"
+            "contentDigest": "sha256:5e3ed711e9729704b2d3754b3aed60c7864f096bbd5c8fe74f4778f0ceece6b5",
+            "indexDigest": "sha256:5e3ed711e9729704b2d3754b3aed60c7864f096bbd5c8fe74f4778f0ceece6b5"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -3090,8 +3090,8 @@
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
-            "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
+            "contentDigest": "sha256:74d8ec443421a2e230fcbb295ca8eb9e402531a75896192c1a4d7916c7324e54",
+            "indexDigest": "sha256:74d8ec443421a2e230fcbb295ca8eb9e402531a75896192c1a4d7916c7324e54"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
@@ -3360,13 +3360,13 @@
         },
         {
             "path": "tools/governance/change-contract-registry.mjs",
-            "contentDigest": "sha256:019a39477af6b874eb8321b29cf54f08049509829255e896f0d69ccdc490c1df",
-            "indexDigest": "sha256:019a39477af6b874eb8321b29cf54f08049509829255e896f0d69ccdc490c1df"
+            "contentDigest": "sha256:72f3319c52cd4e37eca3854e5541296daabc23e596af5002ddca6d1ee66e414c",
+            "indexDigest": "sha256:72f3319c52cd4e37eca3854e5541296daabc23e596af5002ddca6d1ee66e414c"
         },
         {
             "path": "tools/governance/change-contract.mjs",
-            "contentDigest": "sha256:fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463",
-            "indexDigest": "sha256:fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463"
+            "contentDigest": "sha256:e379b7653c7f35baea74c3d090fc80f182c64582131c8453541968d7876f56a4",
+            "indexDigest": "sha256:e379b7653c7f35baea74c3d090fc80f182c64582131c8453541968d7876f56a4"
         },
         {
             "path": "tools/governance/check-article-bulk-authorities.mjs",
@@ -3472,6 +3472,26 @@
             "path": "tools/governance/cross-repository-dependency-acceptance.mjs",
             "contentDigest": "sha256:ec6131161a3015da2cb3c2f2010b03d2c2776ef12302b840bfa4af8d2d4a9b85",
             "indexDigest": "sha256:ec6131161a3015da2cb3c2f2010b03d2c2776ef12302b840bfa4af8d2d4a9b85"
+        },
+        {
+            "path": "tools/governance/csharp-format-equivalence.mjs",
+            "contentDigest": "sha256:30602604877d55e517d6d5372a44bb5cd41206167d991b3c7432fa272e6aca8b",
+            "indexDigest": "sha256:30602604877d55e517d6d5372a44bb5cd41206167d991b3c7432fa272e6aca8b"
+        },
+        {
+            "path": "tools/governance/csharp-format-parser/global.json",
+            "contentDigest": "sha256:823c5bc6610683142fa51306b5b4f83fafadd27e628b4d1d178e788ce8ac0c62",
+            "indexDigest": "sha256:823c5bc6610683142fa51306b5b4f83fafadd27e628b4d1d178e788ce8ac0c62"
+        },
+        {
+            "path": "tools/governance/csharp-format-parser/Parser.csproj",
+            "contentDigest": "sha256:dd3080c515e82d31fb391feac413adbc2e98cf57023dd828c34b8cfc7a06da27",
+            "indexDigest": "sha256:dd3080c515e82d31fb391feac413adbc2e98cf57023dd828c34b8cfc7a06da27"
+        },
+        {
+            "path": "tools/governance/csharp-format-parser/Program.cs",
+            "contentDigest": "sha256:afd1a13c01c61ed4ad936e43f668d5210d2bc0501ed5f1394782e4c28df77f4e",
+            "indexDigest": "sha256:afd1a13c01c61ed4ad936e43f668d5210d2bc0501ed5f1394782e4c28df77f4e"
         },
         {
             "path": "tools/governance/dependency-automerge.mjs",
@@ -4425,8 +4445,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:ec8bd021189c2bc2be3de09c446cac8699a3c5a4b09ba5717154b1d4d6b44153",
-            "indexDigest": "sha256:ec8bd021189c2bc2be3de09c446cac8699a3c5a4b09ba5717154b1d4d6b44153"
+            "contentDigest": "sha256:1c559f9f9f6fa611dd4a205052c56a2e28f8ffece4abce242690a08a4ab83f96",
+            "indexDigest": "sha256:1c559f9f9f6fa611dd4a205052c56a2e28f8ffece4abce242690a08a4ab83f96"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -7051,6 +7071,10 @@
                 "tools/governance/change-contract-registry.mjs",
                 "tools/governance/change-contract.mjs",
                 "tools/governance/check-monolithic-distributed-architecture.mjs",
+                "tools/governance/csharp-format-equivalence.mjs",
+                "tools/governance/csharp-format-parser/global.json",
+                "tools/governance/csharp-format-parser/Parser.csproj",
+                "tools/governance/csharp-format-parser/Program.cs",
                 "tools/governance/generated-output-digest-repair-repository.mjs",
                 "tools/governance/generated-output-digest-repair-v2.mjs",
                 "tools/governance/generated-output-history-repair-v3.mjs",
@@ -40528,6 +40552,7 @@
                 "tools/governance/check-revision-compare-authority.mjs",
                 "tools/governance/check-rule-platform.mjs",
                 "tools/governance/cross-repository-dependency-acceptance.mjs",
+                "tools/governance/csharp-format-equivalence.mjs",
                 "tools/governance/dependency-automerge.mjs",
                 "tools/governance/dependency-blocker-checks.mjs",
                 "tools/governance/dependency-blocker-state.mjs",

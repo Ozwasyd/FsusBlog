@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/dotnet/check-csharp-style.mjs",
+        "tools/governance/change-contract.mjs",
+        "tools/governance/change-contract-registry.mjs",
+        "tools/governance/csharp-format-equivalence.mjs",
+        "tools/governance/csharp-format-parser/Parser.csproj",
+        "tools/governance/csharp-format-parser/Program.cs",
+        "tools/governance/csharp-format-parser/global.json",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tests/tools/pr-impact-plan.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "e87e5190e1b7a0029a943296fbe4a212489e52686aac2e3096f7877053393e84"
+        }
+    ]
+}
