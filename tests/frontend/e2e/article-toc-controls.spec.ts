@@ -2,6 +2,12 @@ import { fileURLToPath } from 'node:url';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 const fixtureModule = `/@fs/${fileURLToPath(new URL('../fixtures/articleTocControlsVisual.ts', import.meta.url))}`;
+const visualStates: Array<{ theme: 'light' | 'dark'; reducedMotion: 'no-preference' | 'reduce' }> = [
+    { theme: 'light', reducedMotion: 'no-preference' },
+    { theme: 'dark', reducedMotion: 'no-preference' },
+    { theme: 'light', reducedMotion: 'reduce' },
+    { theme: 'dark', reducedMotion: 'reduce' }
+];
 
 async function openFixture(page: Page, theme: string, empty = false): Promise<string[]>
 {
@@ -17,14 +23,16 @@ async function openFixture(page: Page, theme: string, empty = false): Promise<st
     return errors;
 }
 
-for (const theme of ['light', 'dark'])
+for (const { theme, reducedMotion } of visualStates)
 {
-    test(`desktop ${theme} preserves chapter identity, keyboard activation and long headings`, async ({ page }: { page: Page }) =>
+    test(`desktop ${theme} ${reducedMotion} preserves chapter identity, keyboard activation and long headings`, async ({ page }: { page: Page }) =>
     {
         await page.setViewportSize({ width: 1440, height: 900 });
+        await page.emulateMedia({ reducedMotion });
         const errors = await openFixture(page, theme);
         const buttons = page.locator('.article-toc-panel__nav button');
         await expect(buttons).toHaveCount(3);
+        await expect(buttons.first()).toHaveAccessibleName('引言 Introduction');
         await expect(buttons.first()).toHaveAttribute('type', 'button');
         await expect(buttons.first()).toHaveAttribute('aria-current', 'location');
         await buttons.first().focus();
@@ -34,6 +42,8 @@ for (const theme of ['light', 'dark'])
         await expect(buttons.nth(1)).toHaveAttribute('aria-current', 'location');
         await expect(buttons.first()).not.toHaveAttribute('aria-current', 'location');
         await expect(page.getByLabel('目录事件记录')).toHaveText('[{"event":"navigate","value":"chapter-long"}]');
+        await page.keyboard.press('Space');
+        await expect(page.getByLabel('目录事件记录')).toHaveText('[{"event":"navigate","value":"chapter-long"},{"event":"navigate","value":"chapter-long"}]');
 
         for (const zoom of [1, 2])
         {
@@ -50,7 +60,7 @@ for (const theme of ['light', 'dark'])
             expect(geometry.outline).not.toBe('none');
             expect(geometry.marker).toBe('2px');
         }
-        await page.screenshot({ path: `.tmp/pr-4403-toc-desktop-${theme}.png`, fullPage: true });
+        await page.screenshot({ path: `.tmp/pr-4403-toc-desktop-${theme}-${reducedMotion}.png`, fullPage: true });
         expect(errors).toEqual([]);
     });
 }
@@ -66,10 +76,11 @@ test('empty article has no desktop chapter controls', async ({ page }: { page: P
 test.describe('mobile coarse-pointer chapter controls', () =>
 {
     test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
-    for (const theme of ['light', 'dark'])
+    for (const { theme, reducedMotion } of visualStates)
     {
-        test(`${theme} navigates before closing and restores launcher focus`, async ({ page }: { page: Page }) =>
+        test(`${theme} ${reducedMotion} navigates before closing and restores launcher focus`, async ({ page }: { page: Page }) =>
         {
+            await page.emulateMedia({ reducedMotion });
             const errors = await openFixture(page, theme);
             const launcher = page.getByRole('button', { name: '打开文章目录' });
             await launcher.tap();
@@ -89,7 +100,7 @@ test.describe('mobile coarse-pointer chapter controls', () =>
             )).toBeLessThanOrEqual(1);
             await expect(buttons.nth(1)).toHaveAttribute('aria-current', 'location');
             expect(await buttons.nth(1).evaluate((button: HTMLButtonElement) => getComputedStyle(button, '::after').pointerEvents)).toBe('none');
-            await page.screenshot({ path: `.tmp/pr-4403-toc-mobile-${theme}.png`, fullPage: true });
+            await page.screenshot({ path: `.tmp/pr-4403-toc-mobile-${theme}-${reducedMotion}.png`, fullPage: true });
             await page.keyboard.press('Escape');
             await expect(drawer).not.toBeVisible();
             await expect(launcher).toBeFocused();
