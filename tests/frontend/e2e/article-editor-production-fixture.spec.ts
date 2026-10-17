@@ -1220,6 +1220,7 @@ test.describe('article editor production outline acceptance', () => {
               await launcher.tap()
               const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
               await expect(dialog).toBeVisible()
+              await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
               await expect(dialog).toHaveAttribute('aria-modal', 'true')
               await expect(dialog.getByRole('treeitem')).toHaveCount(10)
               await expect(launcher).toBeVisible()
@@ -1335,6 +1336,7 @@ test.describe('article editor production outline acceptance', () => {
     await launcher.click()
     const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
     await expect(dialog).toBeVisible()
+    await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
     await page.setViewportSize({ width: 1024, height: 768 })
     await expect(dialog).toHaveCount(0)
     await expect(page.locator('[data-article-outline-panel="true"]')).toHaveCount(1)
@@ -1345,6 +1347,7 @@ test.describe('article editor production outline acceptance', () => {
     await expect(editor).toBeFocused()
     await page.setViewportSize({ width: 1023, height: 768 })
     await expect(dialog).toBeVisible()
+    await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
     await dialog.getByRole('treeitem').first().focus()
     const oldNode = await dialog.getByRole('treeitem').first().elementHandle()
     if (!oldNode) throw new Error('outline_old_article_node_missing')
@@ -1361,6 +1364,7 @@ test.describe('article editor production outline acceptance', () => {
     await launcher.focus()
     await page.keyboard.press('Enter')
     await expect(dialog).toBeVisible()
+    await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
     await expect(dialog.getByRole('treeitem')).toHaveCount(10)
     await settleOutlineFrames(page)
     expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
@@ -1371,6 +1375,178 @@ test.describe('article editor production outline acceptance', () => {
     await settleOutlineFrames(page)
     await expect(editor).toBeFocused()
     expect(pageErrors).toEqual([])
+  })
+
+  test('a pending native Drawer leave transition can reopen before its close settles', async ({ page }, testInfo) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+    for (const theme of ['light', 'dark'] as const) {
+      await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+      const launcher = page.getByRole('button', { name: '打开文章大纲', exact: true })
+      await launcher.click()
+      const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+      await expect(dialog).toBeVisible()
+      await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+      await expect.poll(() => dialog.evaluate((element) => element.getAnimations({ subtree: true })
+        .every((animation) => animation.playState !== 'running'))).toBe(true)
+      const opener = await launcher.elementHandle()
+      const close = await dialog.getByRole('button', { name: '关闭文章大纲', exact: true }).elementHandle()
+      if (!opener || !close) throw new Error('outline_native_transition_controls_missing')
+      // This is native DOM activation under real motion, not a physical pointer hit
+      // through the modal overlay. Physical keyboard interaction is checked below.
+      const pending = await dialog.evaluate(async (element, controls) => {
+        if (!(controls.opener instanceof HTMLButtonElement) || !(controls.close instanceof HTMLButtonElement)) {
+          throw new Error('outline_native_transition_controls_invalid')
+        }
+        controls.close.click()
+        for (let frame = 0; frame < 60; frame += 1) {
+          await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+          const transition = element.getAnimations({ subtree: true }).find((animation) => animation instanceof CSSTransition
+            && animation.transitionProperty === 'transform' && animation.playState === 'running'
+            && (animation.effect?.getComputedTiming().progress ?? 0) > 0
+            && (animation.effect?.getComputedTiming().progress ?? 1) < 1)
+          if (transition) {
+            const timing = transition.effect?.getComputedTiming()
+            const observed = { frame, currentTime: transition.currentTime, progress: timing?.progress, duration: timing?.duration }
+            controls.opener.click()
+            return observed
+          }
+        }
+        throw new Error('outline_pending_native_leave_transition_not_observed')
+      }, { opener, close })
+      expect(pending.progress).toBeGreaterThan(0)
+      expect(pending.progress).toBeLessThan(1)
+      await testInfo.attach(`pending-native-close-${theme}`, { body: JSON.stringify(pending), contentType: 'application/json' })
+      await expect(dialog).toBeVisible()
+      await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+      await dialog.getByRole('treeitem').first().focus()
+      await page.keyboard.press('ArrowDown')
+      await expect(dialog.getByRole('treeitem').nth(1)).toBeFocused()
+      await page.keyboard.press('Escape')
+      await expect(dialog).toBeHidden()
+      await expect(launcher).toBeFocused()
+      await page.locator('#article-content').focus()
+      await settleOutlineFrames(page)
+      await expect(page.locator('#article-content')).toBeFocused()
+      await opener.dispose()
+      await close.dispose()
+    }
+    expect(pageErrors).toEqual([])
+  })
+
+  test('closing and actually unmounting the editor releases focus to the fixture owner', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    await page.addInitScript(() => {
+      if (window.location.pathname === '/__article-editor-production-fixture') {
+        const url = new URL(window.location.href)
+        url.searchParams.set('outlineLifecycle', 'unmount')
+        window.history.replaceState(null, '', url)
+        window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1')
+      }
+    })
+    for (const width of [375, 1440]) {
+      for (const theme of ['light', 'dark'] as const) {
+        await page.setViewportSize({ width, height: 900 })
+        await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+        await page.getByRole('button', { name: '打开文章大纲', exact: true }).click()
+        if (width <= contract.outline.drawerBreakpoint) {
+          const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+          await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+        }
+        const editor = await page.locator('#article-content').elementHandle()
+        const panel = await page.locator('[data-article-outline-panel="true"]').elementHandle()
+        const firstNode = await page.getByRole('treeitem').first().elementHandle()
+        const opener = width <= contract.outline.drawerBreakpoint
+          ? await page.getByRole('button', { name: '打开文章大纲', exact: true }).elementHandle()
+          : null
+        // Desktop removes its opener while open; the compact modal retains it.
+        if (!editor || !panel || !firstNode || (width <= contract.outline.drawerBreakpoint && !opener)) {
+          throw new Error('outline_owned_nodes_before_unmount_missing')
+        }
+        const navigationIdentity = await page.evaluate(() => ({ origin: performance.timeOrigin, href: window.location.href }))
+        // The fixture owner activates the real native close button, then removes
+        // the actual component in the same host call stack (not a page reload).
+        await page.getByRole('button', { name: '关闭文章大纲', exact: true }).evaluate(async (button) => {
+          if (!(button instanceof HTMLButtonElement)) throw new Error('outline_native_close_button_required')
+          const closeAndUnmount = (window as Window & {
+            __articleEditorFixtureCloseAndUnmount?: (closeButton: HTMLButtonElement) => Promise<void>
+          }).__articleEditorFixtureCloseAndUnmount
+          if (!closeAndUnmount) throw new Error('outline_fixture_lifecycle_control_missing')
+          await closeAndUnmount(button)
+        })
+        await expect(page.locator('#article-content')).toHaveCount(0)
+        for (const node of [editor, panel, firstNode, ...(opener ? [opener] : [])]) {
+          await expect.poll(() => node.evaluate((element) => element.isConnected)).toBe(false)
+        }
+        await expect(page.getByRole('dialog', { name: '文章大纲', exact: true })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: '打开文章大纲', exact: true })).toHaveCount(0)
+        expect(await page.evaluate(() => ({ origin: performance.timeOrigin, href: window.location.href }))).toEqual(navigationIdentity)
+        const target = page.locator('[data-outline-fixture-focus-target="true"]')
+        await expect(target).toBeFocused()
+        await settleOutlineFrames(page)
+        await expect(target).toBeFocused()
+        for (const node of [editor, panel, firstNode, ...(opener ? [opener] : [])]) await node.dispose()
+      }
+    }
+    expect(pageErrors).toEqual([])
+  })
+
+  test('Chrome AX exposes the actual outline hierarchy and keyboard-selected state', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+    const session = await page.context().newCDPSession(page)
+    try {
+      await session.send('Accessibility.enable')
+      for (const theme of ['light', 'dark'] as const) {
+        await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+        await page.getByRole('button', { name: '打开文章大纲', exact: true }).click()
+        const items = page.getByRole('treeitem')
+        await expect(items).toHaveCount(10)
+        await items.first().focus()
+        await page.keyboard.press('ArrowDown')
+        await expect(items.nth(1)).toBeFocused()
+        await page.keyboard.press('Enter')
+        await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true')
+        await expect.poll(async () => {
+          const current = await session.send('Accessibility.getFullAXTree')
+          return current.nodes.find((node) => !node.ignored && node.role?.value === 'treeitem'
+            && node.name?.value === '一个可访问且足够长的标题，用于验证完整 accessible name 与稳定换行行为')
+            ?.properties?.find((property) => property.name === 'selected')?.value.value
+        }).toBe(true)
+        const full = await session.send('Accessibility.getFullAXTree')
+        const exposed = full.nodes.filter((node) => !node.ignored)
+        expect(exposed.some((node) => node.role?.value === 'tree')).toBe(true)
+        const first = exposed.find((node) => node.role?.value === 'treeitem' && node.name?.value === '文章大纲与当前章节导航')
+        const second = exposed.find((node) => node.role?.value === 'treeitem'
+          && node.name?.value === '一个可访问且足够长的标题，用于验证完整 accessible name 与稳定换行行为')
+        expect(first).toBeDefined()
+        expect(second).toBeDefined()
+        expect(first?.properties?.find((property) => property.name === 'level')?.value.value).toBe(1)
+        expect(first?.properties?.find((property) => property.name === 'expanded')?.value.value).toBe(true)
+        expect(second?.properties?.find((property) => property.name === 'level')?.value.value).toBe(2)
+        expect(second?.properties?.find((property) => property.name === 'selected')?.value.value).toBe(true)
+        await testInfo.attach(`actual-chrome-outline-ax-${theme}`, { body: JSON.stringify(full), contentType: 'application/json' })
+        await items.first().focus()
+        await page.keyboard.press('ArrowLeft')
+        await expect(items).toHaveCount(7)
+        await expect.poll(async () => {
+          const current = await session.send('Accessibility.getFullAXTree')
+          return current.nodes.find((node) => !node.ignored && node.role?.value === 'treeitem'
+            && node.name?.value === '文章大纲与当前章节导航')?.properties?.find((property) => property.name === 'expanded')?.value.value
+        }).toBe(false)
+        const collapsed = await session.send('Accessibility.getFullAXTree')
+        expect(collapsed.nodes.find((node) => !node.ignored && node.role?.value === 'treeitem'
+          && node.name?.value === '文章大纲与当前章节导航')?.properties?.find((property) => property.name === 'expanded')?.value.value).toBe(false)
+        await page.keyboard.press('ArrowRight')
+        await expect(items).toHaveCount(10)
+      }
+    } finally {
+      await session.detach()
+    }
   })
 
   for (const theme of ['light', 'dark'] as const) {
@@ -1386,6 +1562,20 @@ test.describe('article editor production outline acceptance', () => {
           await page.getByRole('button', { name: '打开文章大纲', exact: true }).click()
           const panel = page.locator('[data-article-outline-panel="true"]')
           await expect(panel).toBeVisible()
+          if (viewport.width <= contract.outline.drawerBreakpoint) {
+            const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+            await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+          }
+          for (const visiblePart of [panel, panel.locator('header'), panel.getByRole('button', { name: '关闭文章大纲', exact: true })]) {
+            await expect(visiblePart).toBeVisible()
+            await expect.poll(() => visiblePart.evaluate((element) => {
+              const box = element.getBoundingClientRect()
+              return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0
+                && box.right <= window.innerWidth && box.bottom <= window.innerHeight
+            })).toBe(true)
+          }
+          await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth
+            && document.body.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
           await expect(panel.getByRole('treeitem')).toHaveCount(10)
           const opened = await editor.boundingBox()
           if (!closed || !opened) throw new Error('outline_document_geometry_missing')

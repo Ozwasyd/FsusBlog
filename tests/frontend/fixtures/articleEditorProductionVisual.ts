@@ -137,6 +137,8 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
     : 'ready'
   const outlineHeadingCount = Math.max(0, Math.min(10000, Number.parseInt(params.get('outlineCount') ?? '8', 10) || 0))
   const outlineArticle = params.get('article') === 'b' ? 'b' : 'a'
+  // Explicit fixture-owner lifecycle controls are absent from every default/geometry route.
+  const outlineLifecycleControls = surface === 'outline' && params.get('outlineLifecycle') === 'unmount'
 
   document.documentElement.classList.toggle('dark', theme === 'dark')
   document.documentElement.dataset.themeMode = theme
@@ -187,6 +189,9 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
   const app = createApp({
     setup() {
       const title = ref(contract.titles[titleKey])
+      const outlineEditorMounted = ref(true)
+      const outlineFixtureFocusTarget = ref<HTMLButtonElement | null>(null)
+      const outlineFixtureEditorRoot = ref<HTMLElement | null>(null)
       const content = ref(surface === 'outline'
         ? outlineFixtureContent(outlineHeadingCount)
         : '先写下可以验证的正文，再检查预览。')
@@ -714,10 +719,29 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
         ])
       ])
 
+      if (outlineLifecycleControls) {
+        Object.assign(window, {
+          __articleEditorFixtureCloseAndUnmount: async (closeButton: HTMLButtonElement): Promise<void> => {
+            if (!(closeButton instanceof HTMLButtonElement) || !closeButton.isConnected || closeButton.disabled
+              || !outlineFixtureEditorRoot.value?.isConnected || !outlineFixtureEditorRoot.value.contains(closeButton)
+              || closeButton.getAttribute('aria-label') !== '关闭文章大纲') {
+              throw new Error('outline_fixture_owned_native_close_required')
+            }
+            // A single host call stack runs the real native close handler before
+            // scheduling the owner unmount, without a listener-boundary DOM flush.
+            closeButton.click()
+            outlineEditorMounted.value = false
+            await nextTick()
+            outlineFixtureFocusTarget.value?.focus()
+          }
+        })
+      }
+
       const renderEditor = () => h('div', {
         class: 'write-workspace article-editor-production-fixture__editor-component',
         'data-authoring-state': authoringState.value,
-        'data-authoring-generation': authoringAuthority.current(fixtureProjection().commandId)?.lifecycleGeneration
+        'data-authoring-generation': authoringAuthority.current(fixtureProjection().commandId)?.lifecycleGeneration,
+        ref: outlineLifecycleControls ? outlineFixtureEditorRoot : undefined
       }, [
         h(ArticleWriteCommandBar, {
           pageTitle: '编辑文章',
@@ -736,7 +760,7 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
             id: 'article-body-heading',
             class: 'sr-only'
           }, '正文'),
-          h(ArticleWriteEditor, {
+          outlineEditorMounted.value ? h(ArticleWriteEditor, {
             ref: articleEditorRef,
             modelValue: content.value,
             authoringCommands: authoringCommands.value,
@@ -753,7 +777,7 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
             'onUpdate:modelValue': (value: string) => {
               content.value = value
             }
-          })
+          }) : null
         ])
       ])
 
@@ -921,7 +945,14 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
       return () => h('main', {
         class: 'article-editor-production-fixture',
         'aria-label': '文章编辑器 production fixture'
-      }, surface === 'editor' || surface === 'outline' ? [renderEditor()] : surface === 'command' ? [renderCommand()] : surface === 'inspector' ? [renderInspector()] : surface === 'recovery' ? [renderRecovery()] : [
+      }, surface === 'editor' || surface === 'outline' ? [
+        outlineLifecycleControls ? h('button', {
+          ref: outlineFixtureFocusTarget,
+          type: 'button',
+          'data-outline-fixture-focus-target': 'true'
+        }, '卸载后焦点目标') : null,
+        renderEditor()
+      ] : surface === 'command' ? [renderCommand()] : surface === 'inspector' ? [renderInspector()] : surface === 'recovery' ? [renderRecovery()] : [
         h('header', { class: 'article-editor-production-fixture__task' }, [
           h('div', [
             h('h1', '撰写文章'),
