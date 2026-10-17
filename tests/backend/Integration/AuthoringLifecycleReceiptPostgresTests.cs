@@ -44,7 +44,10 @@ public sealed class AuthoringLifecycleReceiptPostgresTests(PostgresSchemaMigrati
             }
             if (state == AuthoringLifecycleState.RollbackRequired)
             {
-                receipt = Sign(receipt with { FailureCode = "migration-failed" });
+                receipt = Sign(receipt with
+                {
+                    FailureCode = "migration-failed"
+                });
             }
             if (restoring)
             {
