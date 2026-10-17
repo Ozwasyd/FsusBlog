@@ -244,6 +244,22 @@ watch(() => props.selectedRevision?.id, () =>
     grid-column: 2;
 }
 
+@media (width <= 639px)
+{
+    .revision-row__main
+     {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .revision-row__actor
+     {
+        grid-row: auto;
+        grid-column: 1;
+        overflow-wrap: anywhere;
+        white-space: normal;
+    }
+}
+
 .revision-fields
  {
     display: grid;
