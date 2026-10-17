@@ -843,7 +843,7 @@ resolution 之外。任何 host/source/actor/runtime/authority-generation drift 
 明确调用 `ResolveProjection`，再由 `ArticleEmbedDependencyGraphPlanner.Expand` 以
 `VerifyProjection` 验证该阶段并显式展开依赖。旧入口复用整棵缓存树，新 graph stage 复用叶投影后
 重新展开，预算/时钟观察不可互换；调用方通过明确入口选择语义，不根据 candidate 内容猜测。
-旧递归核心的源码还原与静态编译不等于运行时兼容验收；冻结消费者及新旧组合行为均未执行验证。
+调用方必须分别验证所选入口的兼容性，不能将不同预算/时钟观察语义视为等价。
 
 article mode 返回整个 target body projection；heading mode 只返回 exact heading subtree；block
 mode 只返回 #289 canonical anchor target。missing/duplicate/invalid coordinate 一律 fail closed，
@@ -865,8 +865,8 @@ publication plan/freeze、relation index、cache invalidation、AOT 或 UI。
 Graph 的每个 resolved descendant 与顶层一样，必须通过 coordinate schema/digest 校验，并与
 snapshot 的 exact target、revision、target-version 和所选 article/heading/block projection identity/digest 一致。
 
-`ArticleEmbedRefreshPlanner` / `ArticleEmbedRefreshPreparation` 是 #2467 的普通非执行源码候选，
-尚未接入路由或 DI。输入必须由 canonical caller 提供真实 current host draft observation：
+`ArticleEmbedRefreshPlanner` / `ArticleEmbedRefreshPreparation` 只生成不可执行的内存计划，
+Preparation 没有路由或 DI 注册。输入必须由 canonical caller 提供真实 current host draft observation：
 actor/site/edit permission、draft key/server expected revision、document epoch、source revision/digest
 及有界完整 dependency occurrence roster；摘要只绑定结构，不能证明 reader、权限或 roster 完整性。
 显式 selection 最多 256 项，冻结 parser directive identity/range/token/mode、旧/desired exact
@@ -876,13 +876,13 @@ desired coordinate 漂移返回 `Stale`；无变化返回 `NoChange`；缺失/�
 动态刷新到 latest，也不复制 target content。
 完整选中集合验证后，pipeline 返回及后续验证/比较失败返回前会重读选中项取消状态；已观察到
 取消时优先返回 `Cancelled`，最终计划构造后也检查取消，不把跨 stage 的取消失配报告为 `Blocked`。
-这只是取消观察点的源码约定，不提供原子提交或运行时竞态验收。
+这些取消观察点不提供原子提交。
 
-该候选的 `CanExecute` 恒为 false；选中子图不是完整 host persisted graph 的提交资格。
+`ArticleEmbedRefreshPlan.CanExecute` 恒为 false；选中子图不是完整 host persisted graph 的提交资格。
 Policy/Pipeline/Graph 源码组合不提供执行能力；缺少真实 host dependency read、
 current permission/whole-host graph revalidation、expected revision CAS/idempotency 和 canonical
 no-source-change revision/outbox/audit commit 时不得启用。计划不修改 source bytes/token、target、
-existing publication 或 publication receipts，也不代表 #2467 已完成。
+existing publication 或 publication receipts。
 
 ### Article embed publication freeze contract
 
