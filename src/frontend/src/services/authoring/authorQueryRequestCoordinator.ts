@@ -18,19 +18,28 @@ export class AuthorQueryRequestCoordinator
     private sequence = 0;
     private active: Readonly<{ sequence: number; controller: AbortController; lease: PrivateRequestLease; cleanup: () => void; }> | null = null;
     private disposed = false;
+    private cleanupDepth = 0;
     private readonly unregisterCleanup: () => void;
 
     constructor()
     {
         this.unregisterCleanup = registerPrivateStateCleanupHandler('author-query-projection-runtime', () =>
         {
-            this.cancel();
+            this.cleanupDepth += 1;
+            try
+            {
+                this.cancel();
+            }
+            finally
+            {
+                this.cleanupDepth -= 1;
+            }
         });
     }
 
     begin(scopeDigest: string, callerSignal?: AbortSignal): AuthorQueryRequestLease
     {
-        if (this.disposed || !/^[a-f0-9]{64}$/.test(scopeDigest) || this.sequence >= Number.MAX_SAFE_INTEGER)
+        if (this.disposed || this.cleanupDepth > 0 || !/^[a-f0-9]{64}$/.test(scopeDigest) || this.sequence >= Number.MAX_SAFE_INTEGER)
         {
             throw new Error('author_query_request_invalid');
         }
