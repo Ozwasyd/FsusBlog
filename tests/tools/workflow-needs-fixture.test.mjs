@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
-import vm from 'node:vm';
 import { pathToFileURL } from 'node:url';
+import vm from 'node:vm';
 const root = path.resolve(import.meta.dirname, '../..');
 const checker = fs.readFileSync(path.join(root, 'tools/check-test-matrix.mjs'), 'utf8');
 // Execute the real bounded fixture helper without invoking the matrix checker's top-level CLI.
