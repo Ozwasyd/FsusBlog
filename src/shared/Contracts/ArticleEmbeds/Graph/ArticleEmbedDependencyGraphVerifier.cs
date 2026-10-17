@@ -103,6 +103,7 @@ public static class ArticleEmbedDependencyGraphVerifier
             reasons.Add("graph_depth_observation_mismatch");
         }
 
+        VerifyBudgetObservations(requests, snapshot, factsByIdentity, budgets!, candidate, reasons);
         return Finish(reasons);
     }
 
@@ -504,6 +505,8 @@ public static class ArticleEmbedDependencyGraphVerifier
             case ArticleEmbedErrorCode.SizeExceeded:
             case ArticleEmbedErrorCode.TimeExceeded:
             case ArticleEmbedErrorCode.StaleSource:
+                // The independent observation pass below verifies cost/abort evidence and refuses
+                // time failures without a clock witness; these enums alone never admit a graph.
                 return;
             default:
                 break;
@@ -531,6 +534,255 @@ public static class ArticleEmbedDependencyGraphVerifier
         if (expected?.Code != child.Error.Code || expected.SafeReasonCode != child.Error.SafeReasonCode)
         {
             reasons.Add("nested_failure_misclassified");
+        }
+    }
+
+    private static void VerifyBudgetObservations(
+        IReadOnlyList<ArticleEmbedProviderRequest> requests,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ArticleEmbedAuthoringResolution candidate,
+        List<string> reasons)
+    {
+        // Replay the two stages' meters independently; a copied projection failure performs
+        // no graph source read, while a memoized graph leaf still expands and charges its descendants.
+        var projection = new ObservationMeter();
+        var graph = new ObservationMeter();
+        long elapsed = 0;
+        try
+        {
+            for (int index = 0; index < requests.Count; index++)
+            {
+                ArticleEmbedProviderRequest request = requests[index];
+                ArticleEmbedAuthoringEmbedResult result = candidate.Results[index];
+                ArticleEmbedError? projectionFailure = ObserveProjectionRequest(
+                    request, snapshot, factsByIdentity, budgets, projection);
+                if (projectionFailure is not null)
+                {
+                    graph.ObserveNode(1);
+                    VerifyObservedOutcome(result.Result.Status, result.Result.Error, projectionFailure, reasons);
+                }
+                else
+                {
+                    VerifyObservedNode(request, request.Target, result.Result.Status, result.Result.Error,
+                        result.Children, 1, new HashSet<NodeKey>
+                        {
+                            new(snapshot.HostPortableArticleIdentity, ArticleEmbedTargetKind.Article, null, null)
+                        }, snapshot, factsByIdentity, budgets, graph, reasons);
+                }
+                ArticleEmbedBudgetObservation observed = result.Result.Budgets;
+                if (observed.Bytes != graph.Bytes || observed.Nodes != graph.Nodes || observed.Depth != graph.Depth)
+                {
+                    reasons.Add($"graph_result_budget_observation_mismatch:{request.RequestId}");
+                }
+                if (observed.ElapsedMilliseconds < elapsed)
+                {
+                    reasons.Add("graph_elapsed_observation_not_monotonic");
+                }
+                elapsed = observed.ElapsedMilliseconds;
+            }
+            if (candidate.Receipt.Observed.Bytes != graph.Bytes)
+            {
+                reasons.Add("graph_byte_observation_mismatch");
+            }
+            if (candidate.Receipt.Observed.ElapsedMilliseconds < elapsed)
+            {
+                reasons.Add("graph_elapsed_observation_not_monotonic");
+            }
+        }
+        catch (OverflowException)
+        {
+            reasons.Add("graph_byte_observation_overflow");
+        }
+    }
+
+    private static ArticleEmbedError? ObserveProjectionRequest(
+        ArticleEmbedProviderRequest request,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ObservationMeter meter)
+    {
+        if (!ArticleEmbedContractValidator.Validate(request).IsValid)
+        {
+            return new(ArticleEmbedErrorCode.InvalidTarget, "request_contract_invalid");
+        }
+        ArticleEmbedError? binding = ExpectBinding(request, snapshot);
+        if (binding is not null)
+        {
+            return binding;
+        }
+        meter.ObserveNode(1);
+        NodeKey key = NodeKeyOf(request.Target);
+        if (meter.Memo.TryGetValue(key, out ArticleEmbedError? cached))
+        {
+            return cached;
+        }
+        ArticleEmbedError? error = ObserveSource(request.Target, snapshot, factsByIdentity, budgets, meter);
+        if (error is null || IsFactStable(error.Code))
+        {
+            meter.Memo[key] = error;
+        }
+        return error;
+    }
+
+    private static ArticleEmbedError? ObserveSource(
+        ArticleEmbedTargetIdentity target,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ObservationMeter meter)
+    {
+        if (++meter.Messages > budgets.MaxAuthorityMessages)
+        {
+            return new(ArticleEmbedErrorCode.SizeExceeded, "authority_messages_exceeded");
+        }
+        NodeExpectation expectation = ExpectProjection(target, snapshot, factsByIdentity);
+        // Permission/lifecycle/revision failures precede the source read. Coordinate selection follows
+        // it, so a missing heading or block still consumes that authorized article's source bytes.
+        if (expectation.Facts is not null && (expectation.Error is null
+            || expectation.Error.Code is ArticleEmbedErrorCode.HeadingMissing or ArticleEmbedErrorCode.HeadingDuplicate
+                or ArticleEmbedErrorCode.BlockMissing or ArticleEmbedErrorCode.BlockDuplicate))
+        {
+            meter.Bytes = checked(meter.Bytes + expectation.Facts.SourceByteCount);
+            if (meter.Bytes > budgets.MaxSourceBytes)
+            {
+                return new(ArticleEmbedErrorCode.SizeExceeded, "source_bytes_exceeded");
+            }
+        }
+        return expectation.Error;
+    }
+
+    private static bool VerifyObservedNode(
+        ArticleEmbedProviderRequest request,
+        ArticleEmbedTargetIdentity target,
+        ArticleEmbedProviderResultStatus status,
+        ArticleEmbedError? error,
+        IReadOnlyList<ArticleEmbedResolvedNode> children,
+        int depth,
+        HashSet<NodeKey> path,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ObservationMeter meter,
+        List<string> reasons)
+    {
+        meter.ObserveNode(depth);
+        var key = NodeKeyOf(target);
+        ArticleEmbedError? failure = request.AbortSignal.IsCancellationRequested
+            ? new(ArticleEmbedErrorCode.StaleSource, "request_aborted")
+            : meter.Nodes > budgets.MaxExpandedNodes
+                ? new(ArticleEmbedErrorCode.SizeExceeded, "expanded_nodes_exceeded")
+                : depth > budgets.MaxDepth
+                    ? new(ArticleEmbedErrorCode.DepthExceeded, "depth_exceeded")
+                    : path.Contains(key) ? new(ArticleEmbedErrorCode.Cycle, "embed_cycle") : null;
+        if (failure is not null)
+        {
+            VerifyObservedOutcome(status, error, failure, reasons);
+            return false;
+        }
+        if (!meter.Memo.TryGetValue(key, out failure))
+        {
+            failure = ObserveSource(target, snapshot, factsByIdentity, budgets, meter);
+        }
+        if (failure is not null)
+        {
+            VerifyObservedOutcome(status, error, failure, reasons);
+            if (IsFactStable(failure.Code))
+            {
+                meter.Memo[key] = failure;
+                return true;
+            }
+            return false;
+        }
+        NodeExpectation expectation = ExpectGraph(target, snapshot, factsByIdentity);
+        VerifyObservedOutcome(status, error, expectation.Error, reasons);
+        if (expectation.Error is not null)
+        {
+            // An unbound selected projection is not memoized by ExpandChildren.
+            return true;
+        }
+        if (status != ArticleEmbedProviderResultStatus.Resolved)
+        {
+            return false;
+        }
+        ArticleEmbedDirectiveProjection[] directives = expectation.Facts!.NestedDirectives
+            .OrderBy(static directive => directive.RawRange.Start)
+            .ThenBy(static directive => directive.RawRange.End)
+            .ThenBy(static directive => directive.TargetToken, StringComparer.Ordinal)
+            .ToArray();
+        if (children.Count != directives.Length)
+        {
+            return false;
+        }
+        path.Add(key);
+        bool clean = true;
+        for (int index = 0; index < directives.Length; index++)
+        {
+            ArticleEmbedDirectiveProjection directive = directives[index];
+            ArticleEmbedResolvedNode child = children[index];
+            ArticleEmbedTargetIdentity? decoded = null;
+            if (!Enum.IsDefined(directive.Mode)
+                || !ArticleEmbedTargetCodec.TryDecode(directive.TargetToken, directive.Mode, out decoded).IsValid
+                || decoded is null)
+            {
+                meter.ObserveNode(depth + 1);
+                VerifyObservedOutcome(child.Status, child.Error,
+                    new(ArticleEmbedErrorCode.InvalidTarget, "nested_target_invalid"), reasons);
+                continue;
+            }
+            clean &= VerifyObservedNode(request, decoded, child.Status, child.Error, child.Children, depth + 1,
+                path, snapshot, factsByIdentity, budgets, meter, reasons);
+        }
+        path.Remove(key);
+        if (clean)
+        {
+            meter.Memo[key] = null;
+        }
+        return clean;
+    }
+
+    private static void VerifyObservedOutcome(
+        ArticleEmbedProviderResultStatus status, ArticleEmbedError? actual, ArticleEmbedError? expected, List<string> reasons)
+    {
+        // Neither a digest nor candidate-reported elapsed milliseconds witnesses
+        // the monotonic clock at a node's admission. This API has no independent time evidence input.
+        if (actual?.Code == ArticleEmbedErrorCode.TimeExceeded)
+        {
+            reasons.Add("graph_time_evidence_unavailable");
+        }
+        if (expected is null ? status != ArticleEmbedProviderResultStatus.Resolved || actual is not null
+            : status != ArticleEmbedProviderResultStatus.Failed || actual != expected)
+        {
+            reasons.Add("graph_budget_outcome_mismatch");
+        }
+    }
+
+    private sealed class ObservationMeter
+    {
+        public int Nodes
+        {
+            get; private set;
+        }
+        public int Depth
+        {
+            get; private set;
+        }
+        public int Messages
+        {
+            get; set;
+        }
+        public long Bytes
+        {
+            get; set;
+        }
+        public Dictionary<NodeKey, ArticleEmbedError?> Memo { get; } = new();
+
+        public void ObserveNode(int depth)
+        {
+            Nodes++;
+            Depth = Math.Max(Depth, depth);
         }
     }
 

@@ -864,6 +864,13 @@ publication plan/freeze、relation index、cache invalidation、AOT 或 UI。
 
 Graph 的每个 resolved descendant 与顶层一样，必须通过 coordinate schema/digest 校验，并与
 snapshot 的 exact target、revision、target-version 和所选 article/heading/block projection identity/digest 一致。
+Graph verifier 分别重放 projection 与 graph 的累计成本：复制 projection failure 不产生 graph
+source read；fresh authorized projection read 累计 source bytes，memo hit 只复用叶投影，
+descendant 仍重新展开计数。每个 provider result 与最终 receipt 的 byte/node/depth observation
+必须精确对应，size failure 必须符合实际 node/message/byte 检查顺序，取消必须对应当前 request token。
+result/receipt elapsed observation 必须单调，但候选自报时间与重算 digest 不是独立时钟证据。
+现有 verifier API 没有独立时间见证输入，因此即使记录了真实 timeout，也拒绝将 `TimeExceeded`
+graph 准入 relation/refresh；不得仅凭 error enum 或自报超限时间放行缺失子图。
 
 `ArticleEmbedRefreshPlanner` / `ArticleEmbedRefreshPreparation` 只生成不可执行的内存计划，
 Preparation 没有路由或 DI 注册。输入必须由 canonical caller 提供真实 current host draft observation：

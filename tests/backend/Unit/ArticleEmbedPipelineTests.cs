@@ -1,6 +1,7 @@
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 using FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Relations;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -196,7 +197,273 @@ public sealed class ArticleEmbedPipelineTests : IDisposable
         Assert.Empty(evaluated.Graph.Results[1].Children);
         Assert.True(evaluated.Graph.Receipt.Items[1].CacheHit);
         Assert.Equal(3, evaluated.Graph.Receipt.Observed.Nodes);
+        Assert.Equal(256, evaluated.Graph.Receipt.Observed.Bytes);
         Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, evaluated.Graph).Valid);
+    }
+
+    [Theory]
+    [InlineData("lower-limit")]
+    [InlineData("lower-limit-consistent")]
+    [InlineData("receipt-bytes")]
+    [InlineData("result-bytes")]
+    public void GraphRejectsResealedByteBudgetDrift(string dimension)
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        ArticleEmbedAuthoringResolution graph = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets).Graph;
+        ArticleEmbedResolutionBudgetLimits budgets = dimension.StartsWith("lower-limit", StringComparison.Ordinal)
+            ? s_budgets with
+            {
+                MaxSourceBytes = 128
+            } : s_budgets;
+        ArticleEmbedAuthoringEmbedResult root = Assert.Single(graph.Results);
+        bool changeResult = dimension is "lower-limit-consistent" or "result-bytes";
+        graph = ResealGraph(graph with
+        {
+            Results = [root with { Result = root.Result with
+            {
+                Budgets = root.Result.Budgets with { Bytes = changeResult ? 0 : 256 }
+            } }],
+            Receipt = graph.Receipt with
+            {
+                Budgets = budgets,
+                Observed = graph.Receipt.Observed with
+                {
+                    Bytes = dimension == "result-bytes" ? 256 : 0
+                }
+            }
+        });
+
+        AssertGraphRejectedEverywhere(requests, snapshot, budgets, graph);
+    }
+
+    [Theory]
+    [InlineData(ArticleEmbedErrorCode.SizeExceeded, "expanded_nodes_exceeded")]
+    [InlineData(ArticleEmbedErrorCode.SizeExceeded, "source_bytes_exceeded")]
+    [InlineData(ArticleEmbedErrorCode.SizeExceeded, "authority_messages_exceeded")]
+    [InlineData(ArticleEmbedErrorCode.StaleSource, "request_aborted")]
+    public void GraphRejectsUnobservedNestedFailures(ArticleEmbedErrorCode code, string reason)
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        ArticleEmbedAuthoringResolution graph = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets).Graph;
+        ArticleEmbedAuthoringEmbedResult root = Assert.Single(graph.Results);
+        ArticleEmbedResolvedNode child = Assert.Single(root.Children);
+        graph = ResealGraph(graph with
+        {
+            Results = [root with { Children = [child with
+            {
+                Status = ArticleEmbedProviderResultStatus.Failed,
+                Coordinate = null,
+                Error = new(code, reason),
+                Children = []
+            }] }]
+        });
+
+        Assert.False(requests[0].AbortSignal.IsCancellationRequested);
+        AssertGraphRejectedEverywhere(requests, snapshot, s_budgets, graph);
+    }
+
+    [Theory]
+    [InlineData(false, 5)]
+    [InlineData(false, 60_001)]
+    [InlineData(true, 5)]
+    [InlineData(true, 60_001)]
+    public void GraphRejectsUnwitnessedTimeoutEvenWithResealedElapsed(bool rootFailure, long elapsed)
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        ArticleEmbedAuthoringResolution graph = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets).Graph;
+        ArticleEmbedAuthoringEmbedResult root = Assert.Single(graph.Results);
+        ArticleEmbedResolvedNode child = Assert.Single(root.Children);
+        var error = new ArticleEmbedError(ArticleEmbedErrorCode.TimeExceeded, "elapsed_exceeded");
+        root = rootFailure ? root with
+        {
+            Result = root.Result with
+            {
+                Status = ArticleEmbedProviderResultStatus.Failed,
+                Coordinate = null,
+                Projection = null,
+                Attribution = null,
+                Visibility = ArticleEmbedVisibilityStatus.Unknown,
+                Lifecycle = ArticleEmbedLifecycleStatus.Unknown,
+                Permission = ArticleEmbedPermissionStatus.Unknown,
+                Error = error
+            },
+            Eligibility = ArticleEmbedPublicationEligibility.AuthoringOnly,
+            OpenSource = null,
+            UpdateAvailable = false,
+            Children = []
+        } : root with
+        {
+            Children = [child with
+        {
+            Status = ArticleEmbedProviderResultStatus.Failed, Coordinate = null, Error = error, Children = []
+        }]
+        };
+        var observed = new ArticleEmbedBudgetObservation(rootFailure ? 1 : 2, rootFailure ? 1 : 2,
+            rootFailure ? 0 : 128, elapsed);
+        graph = ResealGraph(graph with
+        {
+            Results = [root with { Result = root.Result with { Budgets = observed } }],
+            Receipt = graph.Receipt with
+            {
+                Observed = observed,
+                MaxObservedDepth = observed.Depth
+            }
+        });
+
+        AssertGraphRejectedEverywhere(requests, snapshot, s_budgets, graph);
+        Assert.Contains("graph_time_evidence_unavailable",
+            ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, graph).ReasonCodes);
+    }
+
+    [Fact]
+    public void GraphRecordsRealTimeoutButCannotAdmitItWithoutIndependentTimeEvidence()
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        ArticleEmbedResolutionBudgetLimits budgets = s_budgets with
+        {
+            MaxElapsedMilliseconds = 1
+        };
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, budgets, new StepTimeProvider());
+
+        Assert.Equal(ArticleEmbedErrorCode.TimeExceeded, Assert.Single(evaluated.Graph.Results[0].Children).Error!.Code);
+        Assert.True(evaluated.Graph.Receipt.Observed.ElapsedMilliseconds > budgets.MaxElapsedMilliseconds);
+        AssertGraphRejectedEverywhere(requests, snapshot, budgets, evaluated.Graph);
+    }
+
+    [Fact]
+    public void GraphRetainsCancellationObservedOnTheActualRequest()
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        _cancellation.Cancel();
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets);
+
+        Assert.Equal(ArticleEmbedErrorCode.StaleSource, Assert.Single(evaluated.Graph.Results).Result.Error!.Code);
+        Assert.Equal(0, evaluated.Graph.Receipt.Observed.Bytes);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, evaluated.Graph).Valid);
+    }
+
+    [Fact]
+    public void GraphChecksMonotonicResultAndReceiptElapsedObservations()
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        ArticleEmbedProviderRequest second = ArticleEmbedContractValidator.Seal(Request(ArticleB) with
+        {
+            RequestId = "request:second"
+        });
+        requests = [requests[0], second];
+        ArticleEmbedAuthoringResolution graph = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets).Graph;
+        ArticleEmbedAuthoringEmbedResult first = graph.Results[0];
+        ArticleEmbedAuthoringEmbedResult last = graph.Results[1];
+        graph = ResealGraph(graph with
+        {
+            Results = [first with { Result = first.Result with { Budgets = first.Result.Budgets with { ElapsedMilliseconds = 10 } } },
+                last with { Result = last.Result with { Budgets = last.Result.Budgets with { ElapsedMilliseconds = 5 } } }],
+            Receipt = graph.Receipt with
+            {
+                Observed = graph.Receipt.Observed with
+                {
+                    ElapsedMilliseconds = 20
+                }
+            }
+        });
+        AssertGraphRejectedEverywhere(requests, snapshot, s_budgets, graph);
+
+        graph = ResealGraph(graph with
+        {
+            Results = [graph.Results[0] with { Result = graph.Results[0].Result with
+            {
+                Budgets = graph.Results[0].Result.Budgets with { ElapsedMilliseconds = 1 }
+            } }, graph.Results[1]],
+            Receipt = graph.Receipt with
+            {
+                Observed = graph.Receipt.Observed with
+                {
+                    ElapsedMilliseconds = 4
+                }
+            }
+        });
+        AssertGraphRejectedEverywhere(requests, snapshot, s_budgets, graph);
+    }
+
+    [Fact]
+    public void GraphChargesOnlyFreshAuthorizedProjectionReadsAtTheByteBoundary()
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        ArticleEmbedProviderRequest second = ArticleEmbedContractValidator.Seal(Request(ArticleB) with
+        {
+            RequestId = "request:second"
+        });
+        requests = [requests[0], second];
+        ArticleEmbedResolutionBudgetLimits budgets = s_budgets with
+        {
+            MaxSourceBytes = 256
+        };
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, budgets);
+
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, evaluated.Graph).Valid);
+        Assert.All(evaluated.Graph.Results, result => Assert.Equal(256, result.Result.Budgets.Bytes));
+        Assert.True(evaluated.Graph.Receipt.Items[1].CacheHit);
+        Assert.Equal(256, evaluated.Graph.Receipt.Observed.Bytes);
+        Assert.True(evaluated.Relations.Accepted);
+        Assert.True(ArticleEmbedAuthoringRefreshPolicy.TryCompare(requests, snapshot, budgets, evaluated.Graph,
+            requests[0].RequestId, Coordinate(requests[0].Target, 4), out bool update).IsValid);
+        Assert.True(update);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GraphRetainsVerifiedProjectionStageBudgetFailures(bool messages)
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        if (messages)
+        {
+            requests = [requests[0], ArticleEmbedContractValidator.Seal(Request(ArticleB) with { RequestId = "request:second" })];
+        }
+        ArticleEmbedResolutionBudgetLimits budgets = messages ? s_budgets with
+        {
+            MaxAuthorityMessages = 1
+        }
+            : s_budgets with
+            {
+                MaxSourceBytes = 127
+            };
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, budgets);
+
+        Assert.Equal(ArticleEmbedErrorCode.SizeExceeded, evaluated.Graph.Results[^1].Result.Error!.Code);
+        Assert.Equal(messages ? 128 : 0, evaluated.Graph.Receipt.Observed.Bytes);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, evaluated.Graph).Valid);
+    }
+
+    [Fact]
+    public void GraphRechargesPathSensitiveParentsAndDoesNotChargeDeniedSource()
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        ArticleEmbedProviderRequest second = ArticleEmbedContractValidator.Seal(Request(ArticleA) with
+        {
+            RequestId = "request:second"
+        });
+        requests = [requests[0], second];
+        snapshot = Snapshot(snapshot.Targets[0], snapshot.Targets[1] with
+        {
+            NestedDirectives = [new(ArticleEmbedSchemas.ParserContract, Host, ArticleEmbedTargetKind.Article, new(0, 32))]
+        });
+        ArticleEmbedResolutionBudgetLimits budgets = s_budgets with
+        {
+            MaxSourceBytes = 512
+        };
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, budgets);
+        Assert.Equal(512, evaluated.Graph.Receipt.Observed.Bytes);
+        Assert.False(evaluated.Graph.Receipt.Items[1].CacheHit);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, evaluated.Graph).Valid);
+
+        snapshot = Snapshot(snapshot.Targets[0], snapshot.Targets[1] with
+        {
+            Permission = ArticleEmbedPermissionStatus.Denied
+        });
+        evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, budgets);
+        Assert.Equal(128, evaluated.Graph.Receipt.Observed.Bytes);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, evaluated.Graph).Valid);
     }
 
     [Fact]
@@ -224,6 +491,55 @@ public sealed class ArticleEmbedPipelineTests : IDisposable
     }
 
     public void Dispose() => _cancellation.Dispose();
+
+    private static void AssertGraphRejectedEverywhere(ArticleEmbedProviderRequest[] requests,
+        ArticleEmbedAuthoritySnapshot snapshot, ArticleEmbedResolutionBudgetLimits budgets, ArticleEmbedAuthoringResolution graph)
+    {
+        Assert.True(ArticleEmbedAuthoringContractValidator.Validate(graph).IsValid);
+        Assert.False(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, graph).Valid);
+        Assert.False(ArticleEmbedRelationDeriver.DeriveFromGraph(requests, snapshot, budgets, graph).Accepted);
+        Assert.False(ArticleEmbedAuthoringRefreshPolicy.TryCompare(requests, snapshot, budgets, graph,
+            requests[0].RequestId, Coordinate(requests[0].Target, 4), out bool update).IsValid);
+        Assert.False(update);
+    }
+
+    private static ArticleEmbedAuthoringResolution ResealGraph(ArticleEmbedAuthoringResolution graph)
+    {
+        ArticleEmbedAuthoringEmbedResult[] results = graph.Results.Select(result => result with
+        {
+            Result = ArticleEmbedContractValidator.Seal(result.Result)
+        }).ToArray();
+        ArticleEmbedAuthoringReceipt receipt = graph.Receipt with
+        {
+            ResolvedCount = results.Count(result => result.Result.Status == ArticleEmbedProviderResultStatus.Resolved),
+            FailedCount = results.Count(result => result.Result.Status == ArticleEmbedProviderResultStatus.Failed),
+            Items = graph.Receipt.Items.Select((item, index) => item with
+            {
+                Status = results[index].Result.Status,
+                ErrorCode = results[index].Result.Error?.Code,
+                Visibility = results[index].Result.Visibility,
+                Lifecycle = results[index].Result.Lifecycle,
+                Permission = results[index].Result.Permission,
+                ResolvedRevision = results[index].Result.Coordinate?.ResolvedRevision,
+                Eligibility = results[index].Eligibility,
+                ChildCount = results[index].Children.Count,
+                ResultDigest = results[index].Result.ResultDigest
+            }).ToArray()
+        };
+        receipt = receipt with
+        {
+            ReceiptDigest = ArticleEmbedAuthoringDigest.ComputeReceipt(receipt)
+        };
+        graph = graph with
+        {
+            Results = results,
+            Receipt = receipt
+        };
+        return graph with
+        {
+            ResolutionDigest = ArticleEmbedAuthoringDigest.ComputeResolution(graph)
+        };
+    }
 
     private (ArticleEmbedProviderRequest[] Requests, ArticleEmbedAuthoritySnapshot Snapshot) NestedGraph(ArticleEmbedTargetKind kind)
     {
@@ -300,5 +616,14 @@ public sealed class ArticleEmbedPipelineTests : IDisposable
             }
             return _observations;
         }
+    }
+
+    private sealed class StepTimeProvider : TimeProvider
+    {
+        private long _timestamp;
+
+        public override long TimestampFrequency => 1000;
+
+        public override long GetTimestamp() => ++_timestamp;
     }
 }
