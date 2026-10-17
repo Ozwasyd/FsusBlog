@@ -139,7 +139,9 @@
                         text
                         class="comment-advanced-panel__active-item"
                         @click="emit('remove-filter', filter.key)"
-                    >移除 {{ filter.label }}</FsusUiButton>
+                    >
+                        <span class="comment-advanced-panel__active-label">移除 {{ filter.label }}</span>
+                    </FsusUiButton>
                 </div>
             </div>
 
@@ -270,6 +272,7 @@ function apply(): void
 .comment-advanced-panel__active
  {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--fsus-space-2);
     margin-top: var(--fsus-space-5);
     padding-top: var(--fsus-space-4);
@@ -278,9 +281,19 @@ function apply(): void
 
 .comment-advanced-panel__active-item
  {
+    min-width: 0;
+    height: auto;
     justify-content: flex-start;
     margin: 0;
     text-align: left;
+}
+
+.comment-advanced-panel__active-label
+ {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: normal;
+    white-space: normal;
 }
 
 .comment-advanced-panel__footer
