@@ -7,6 +7,13 @@
                 "tools/test-matrix/pr-impact-plan.mjs"
             ],
             "reason": "preserve existing process environment and orchestration caller names while registering the canonical Playwright configuration as an additional SOURCE data witness"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md"
+            ],
+            "reason": "preserve the maintained frontend document's existing caller-visible aliases and path spellings while adding official declaration-resolution and runtime-entry guidance without renaming frontend contracts"
         }
     ]
 }
