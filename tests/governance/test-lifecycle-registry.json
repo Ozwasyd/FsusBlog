@@ -1067,6 +1067,24 @@
             }
         },
         {
+            "file": "tests/tools/csharp-format-contract.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "compatibility-wrapper",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "csharp-format-contract",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "host:csharp-format-contract",
+                "exclusive": true
+            }
+        },
+        {
             "file": "tests/tools/csharp-style.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

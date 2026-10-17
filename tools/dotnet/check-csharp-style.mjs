@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { inspectCsharpFormat } from '../governance/csharp-format-equivalence.mjs';
+const { inspectCsharpFormat } = await import(new URL('../governance/csharp-format-equivalence.mjs', import.meta.url));
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');

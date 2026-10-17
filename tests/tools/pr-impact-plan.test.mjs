@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration, sourceStageInspectionFiles } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceFrontendConfigurationDataInputs: sourceGovernanceDataInputs, sourceGovernanceDataInputs: boundDataInputs, sourceGovernanceParserInputs, inspectSourceFrontendConfiguration, sourceStageInspectionFiles } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
 
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });
@@ -487,6 +487,25 @@ function frontendRoutingFixture(t)
     commit();
     return { root, base, files, policy, write, commit, actual: () => readGitChangedPaths(root, base).changedFiles.filter(file => existsSync(path.join(root, file))) };
 }
+
+test('new fixed parser witnesses remain bound without requiring them at the frontend base', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    const before = inspectSourceFrontendConfiguration(fixture.root, fixture.base);
+    assert.equal(before.changed, false);
+    const beforeGroups = sourceFrontendCheckGroups(fixture.actual(), 'source-integration', fixture.base, fixture.root);
+    for (const file of sourceGovernanceParserInputs)
+    {
+        assert.ok(boundDataInputs.includes(file));
+        assert.ok(!sourceGovernanceDataInputs.includes(file));
+        fixture.write(file, 'new fixed parser input\n');
+    }
+    fixture.commit();
+    const after = inspectSourceFrontendConfiguration(fixture.root, fixture.base);
+    assert.deepEqual(after, before);
+    assert.deepEqual(sourceFrontendCheckGroups(fixture.actual(), 'source-integration', fixture.base, fixture.root),
+        beforeGroups);
+});
 
 test('SOURCE frontend routing retains source-diff only with complete unchanged actual configuration', t =>
 {

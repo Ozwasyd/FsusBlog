@@ -449,9 +449,9 @@ export function sourceShellSyntaxArguments(file)
 }
 
 
-// Fixed repository inputs of the reviewed frontend SOURCE checker/parser contract.
+// Fixed repository inputs of the reviewed SOURCE checker/parser contracts.
 // These are data/configuration witnesses, never executable child ports.
-export const sourceGovernanceDataInputs = Object.freeze([
+export const sourceFrontendConfigurationDataInputs = Object.freeze([
     'config/development/frontend-style-policy.json',
     'config/development/frontend-style-rule-registry.json',
     'tools/frontend/style-toolchain/package.json',
@@ -472,6 +472,17 @@ export function assertSourceShellSyntaxInspection(input)
         throw new Error(`shell syntax source/index inspection refused: ${(input?.errors ?? []).join('; ')}`);
     }
 }
+
+// Additional fixed parser witnesses do not belong to the frontend baseline.
+export const sourceGovernanceParserInputs = Object.freeze([
+    'tools/governance/csharp-format-parser/Parser.csproj',
+    'tools/governance/csharp-format-parser/Program.cs',
+    'tools/governance/csharp-format-parser/global.json'
+]);
+export const sourceGovernanceDataInputs = Object.freeze([
+    ...sourceFrontendConfigurationDataInputs, ...sourceGovernanceParserInputs
+]);
+
 
 export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
 {
@@ -519,7 +530,7 @@ export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
         {
             throw new Error('SOURCE frontend configuration requires the complete policy input set');
         }
-        return new Set([...sourceGovernanceDataInputs, ...policy.configurationSources,
+        return new Set([...sourceFrontendConfigurationDataInputs, ...policy.configurationSources,
             policy.ruleRegistry, policy.toolchain?.package, policy.toolchain?.lock,
             policy.eslintConfig, policy.stylelintConfig]);
     }

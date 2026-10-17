@@ -4029,6 +4029,41 @@ test('candidate pull request cannot replace the trusted change-contract policy',
     assert.ok(errors.some((error) => error.includes('cannot replace trusted change-contract policy source')));
 });
 
+test('candidate pull request cannot replace any fixed C# parser source or SDK input', () =>
+{
+    for (const policyPath of changeContract.csharpFormatPolicyFiles)
+    {
+        const authority = mkdtempSync(join(tmpdir(), 'fsusblog-policy-authority-'));
+        const candidate = mkdtempSync(join(tmpdir(), 'fsusblog-policy-candidate-'));
+        writeRepositoryFile(authority, policyPath, 'export const gate = "trusted"\n');
+        writeRepositoryFile(
+            authority,
+            'config/development/native-tooling-style-exceptions.json',
+            '{"exceptions":[]}\n'
+        );
+
+        execFileSync('git', ['init', '-q'], { cwd: candidate });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: candidate });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: candidate });
+        writeRepositoryFile(candidate, policyPath, 'export const gate = "disabled"\n');
+        execFileSync('git', ['add', '.'], { cwd: candidate });
+        execFileSync('git', ['commit', '-qm', 'fixture candidate'], { cwd: candidate });
+
+        const errors = validatePrContract({
+            title: 'feat(governance): enforce trusted policy transition',
+            body: pullRequestBody({ summary: 'enforce trusted policy transition' }),
+            labels: ['release-note:added'],
+            actor: 'maintainer',
+            changedFiles: [policyPath],
+            root: candidate,
+            authorityRoot: authority
+        });
+        assert.ok(errors.some((error) => error.includes(`cannot replace trusted change-contract policy source: ${policyPath}`)));
+        rmSync(authority, { recursive: true, force: true });
+        rmSync(candidate, { recursive: true, force: true });
+    }
+});
+
 test('repository contract sources, generated release categories, and current blame history agree', () =>
 {
     assert.deepEqual(validateRepositorySources(root), []);

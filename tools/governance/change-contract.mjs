@@ -6,11 +6,11 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { changeContract } from './change-contract-registry.mjs';
+import { csharpFormatFingerprint } from './csharp-format-equivalence.mjs';
 import { createGeneratedOutputDigestRepairRepository } from './generated-output-digest-repair-repository.mjs';
 import { verifyGeneratedOutputDigestRepairV2 } from './generated-output-digest-repair-v2.mjs';
 import { verifyGeneratedOutputHistoryRepairV3 } from './generated-output-history-repair-v3.mjs';
 import { javascriptFormatFingerprint } from './javascript-format-equivalence.mjs';
-import { csharpFormatFingerprint } from './csharp-format-equivalence.mjs';
 
 const { default: commitlintConfig } = await import(new URL('../../commitlint.config.mjs', import.meta.url));
 
@@ -3997,7 +3997,8 @@ function validateTrustedPolicyFiles({ root, head, authorityRoot, changedFiles },
     {
         return;
     }
-    const policyChanges = [...changeContract.trustedPolicyFiles, ...changeContract.generatedOutputHistoryRepairPolicyFiles]
+    const policyChanges = [...changeContract.trustedPolicyFiles, ...changeContract.generatedOutputHistoryRepairPolicyFiles,
+        ...changeContract.csharpFormatPolicyFiles]
         .filter((path) => changedFiles.includes(path));
     for (const path of policyChanges)
     {

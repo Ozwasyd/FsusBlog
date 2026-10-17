@@ -382,6 +382,14 @@ export const trustedPolicyFiles = Object.freeze([
     'tools/governance/javascript-format-parser/package-lock.json'
 ]);
 
+// Protect the new fixed C# parser without extending the historical repair seals.
+export const csharpFormatPolicyFiles = Object.freeze([
+    'tools/governance/csharp-format-equivalence.mjs',
+    'tools/governance/csharp-format-parser/Parser.csproj',
+    'tools/governance/csharp-format-parser/Program.cs',
+    'tools/governance/csharp-format-parser/global.json'
+]);
+
 // Keep the historical policy roster stable: old DAG seals include its absent
 // entries too. These additional files are protected by the shared PR gate.
 export const generatedOutputHistoryRepairPolicyFiles = Object.freeze([
@@ -460,6 +468,7 @@ export const changeContract = Object.freeze({
     generatedOutputHistoryRepairProducers,
     generatedOutputHistoryRepairPolicyFiles,
     trustedPolicyFiles,
+    csharpFormatPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
         formatIdempotence: 'fsusblog.format-idempotence-evidence.v1',

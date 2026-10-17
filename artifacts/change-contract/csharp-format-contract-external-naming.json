@@ -14,9 +14,26 @@
             "paths": [
                 "tools/dotnet/check-csharp-style.mjs",
                 "tools/governance/change-contract.mjs",
-                "tools/governance/csharp-format-equivalence.mjs"
+                "tools/governance/csharp-format-equivalence.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs"
             ],
             "reason": "Preserve existing checker CLI, diagnostics and inherited process-environment spelling while binding the fixed SDK parser; internal JavaScript identifiers retain repository naming."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve existing lifecycle, execution-authority schema keys and canonical owner IDs while adding one genuine subprocess test owner and regenerating source identities."
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/change-contract.yml"
+            ],
+            "reason": "Preserve the existing GitHub Actions workflow schema, action pins and event semantics while provisioning the fixed official parser SDK."
         }
     ]
 }

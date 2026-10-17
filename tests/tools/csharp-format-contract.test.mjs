@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { csharpFormatFingerprint as fingerprint, validateFormatOnlyDiff, validateRepositoryBlameIgnore } from '../../tools/governance/change-contract.mjs';
+const { csharpFormatFingerprint: fingerprint, validateFormatOnlyDiff, validateRepositoryBlameIgnore } = await import(new URL('../../tools/governance/change-contract.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const before = 'using System;\n\nusing FsusBlog.Contracts;\n\nusing Vendor;\n\n';
@@ -56,7 +56,7 @@ test('C# format contract preserves alias names, targets, static and global scope
 });
 
 for (const literal of ['"hello world"', '@"hello ""world"""', '$"hello {1 + 2} world"',
-    '$"{string.Join(\" \", new[] { \"a\", \"b\" })}"',
+    '$"{string.Join(" ", new[] { "a", "b" })}"',
     '"""\n        hello world\n        """', '$$"""\n        hello {{1 + 2}} world\n        """'])
 {
     test(`C# format contract protects literal text: ${JSON.stringify(literal)}`, () =>
