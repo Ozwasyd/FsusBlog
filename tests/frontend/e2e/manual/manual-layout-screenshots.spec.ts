@@ -3,12 +3,13 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import type { Browser, Page, StorageState } from '@playwright/test'
+import type { Browser, Page } from '@playwright/test'
 import { APP_ROUTE_RECORDS } from '../../../../src/frontend/src/router/appRouteRecords'
 import {
   DESKTOP_VIEWPORT,
   MOBILE_VIEWPORT,
   NARROW_MOBILE_VIEWPORT,
+  type StorageState,
   type ThemeMode,
   adminName,
   adminPassword,
@@ -464,6 +465,9 @@ async function assertThemeModeToggleStyled(page: Page, label: string): Promise<v
     expect(state.buttonDisplay, `${label} theme mode toggle segmented button should be styled`).toBe('inline-flex')
   } else {
     expect(['inline-flex', 'flex', 'inline-block', 'block'], `${label} theme mode menu button should be styled`).toContain(state.buttonDisplay)
+  }
+  if (typeof state.buttonPaddingInlineStart !== 'string') {
+    throw new Error(`${label} theme mode toggle control should expose computed component padding`)
   }
   expect(Number.parseFloat(state.buttonPaddingInlineStart), `${label} theme mode toggle control should keep component padding`).toBeGreaterThanOrEqual(8)
   expect(state.checkedBackgroundColor, `${label} theme mode toggle selected segment should have themed background`).not.toBe('')

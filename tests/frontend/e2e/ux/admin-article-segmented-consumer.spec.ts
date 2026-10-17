@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
-import type { Page, StorageState, TestInfo } from '@playwright/test'
+import type { Page, TestInfo } from '@playwright/test'
+
+import type { StorageState } from '../../support/playwright/acceptance-shared'
 
 const routePath = '/user/manage/article/list?page=1&size=10&status=2'
 const labels = ['全部', '草稿', '定时', '已发布', '归档']
