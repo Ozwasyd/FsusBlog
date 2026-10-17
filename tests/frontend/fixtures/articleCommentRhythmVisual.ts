@@ -24,7 +24,7 @@ const state: FixtureState = requestedState === 'populated'
   ? requestedState
   : 'empty'
 const requestedCount = Number(params.get('count'))
-const count = state === 'populated' && [1, 5].includes(requestedCount) ? requestedCount : 0
+const count = state === 'populated' && [1, 5, 41].includes(requestedCount) ? requestedCount : 0
 const isLoggedIn = params.get('auth') === 'logged-in'
 const theme = params.get('theme') === 'dark' ? 'dark' : 'light'
 
