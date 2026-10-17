@@ -82,7 +82,13 @@ const emit = defineEmits<{
 
 const drawerVisible = computed({
     get: () => props.mobileOpen,
-    set: (value: boolean) => emit('update:mobileOpen', value)
+    set: (value: boolean) =>
+    {
+        if (value !== props.mobileOpen)
+        {
+            emit('update:mobileOpen', value);
+        }
+    }
 });
 
 const handleDrawerNavigate = (id: string): void =>
