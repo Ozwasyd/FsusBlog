@@ -466,6 +466,87 @@ claimed as terminal acceptance. Removing the scoped registration is the rollback
 boundary; preserve existing receipt rows for audit and do not recreate an empty
 store as a recovery shortcut.
 
+The generic lifecycle/resource interfaces and orchestration do not register a
+command contribution or a second editor authority. Production receipt/grant
+stores, fenced state-store composition, and a real host registration owner remain
+required before restart recovery or atomic lifecycle/data deletion can be claimed
+as terminal acceptance.
+
+`PostgresAuthoringExtensionStateStore` supplies the state persistence leaf through
+the existing scoped `ISqlSugarClient`. Its proposed schema is
+`AuthoringExtensionStateStorageSchema.CreateTablesSql`; constructors and requests
+never create tables. The parent migration owner must register that schema in the
+current migration/inventory authority before production DI activation. This leaf
+does not configure another database or modify the lifecycle/receipt/grant owners.
+
+The host-only `IAuthoringFencedExtensionStateStore` contract requires a verified
+package and exact extension/version/site/user/optional-document/schema scope.
+The host remains responsible for caller authorization, current package trust and
+lifecycle admission. A scope is created only by explicit initialization; reads
+of an unknown scope or a different package identity fail. Writes use expected
+revision CAS. Keys compare ordinally, are unique and bounded to 256 UTF-16 code
+units; identifiers reject controls and surrogate code units. Values are opaque
+bytes, at most 1 MiB each; one scope holds at most 4096 keys and 16 MiB of values.
+Null document identity is a distinct scope, never a wildcard.
+
+State snapshot and fenced migration contract version 1 use compact UTF-8 JSON
+with camel-case property names in record declaration order, enum strings in
+camel case, System.Text.Json's default escaping and immutable byte-array
+encoding. Snapshot entries sort by ordinal key; transforms preserve declared
+order. A snapshot digest is lowercase SHA-256 of that snapshot with an empty
+`ContentSha256`. The new fenced migration digest similarly binds its complete
+record with an empty digest, including the source snapshot digest, exact scopes,
+both expected revisions, budgets, transforms, and backup/rollback references.
+Persisted snapshots must match their digest and canonical reserialization bytes;
+the caller's complete canonical plan digest must match the persisted journal. These
+hashes detect content/identity drift; they are not signatures against an attacker
+who controls both the database and the host's approved plan authority.
+
+The legacy `AuthoringStateMigrationPlan.ContentSha256` has no new interpretation.
+Legacy backup/apply/rollback/delete operations reject with a fenced-contract
+requirement; legacy measurement is read-only and includes retained backups.
+Production composition must explicitly adopt the new typed migration and delete
+contracts rather than register this leaf under the old coordinator unchanged.
+
+Backup atomically freezes the source and an explicitly initialized empty target
+under a durable plan fence, stores both exact snapshots, and advances both
+revisions. It checks limits and strict transforms before committing any fence.
+Apply copies the source into the target with the ordered transforms in one
+transaction: rename/delete require an existing source; rename refuses an existing
+destination; set-default creates `SourceKey` only if absent and requires no
+destination field. No transform merges or overwrites a collision. Limits apply
+to the source and every intermediate result. Ordinary reads/writes/deletion
+refuse an active fence. The typed apply result supplies the exact frozen target
+snapshot to the host for startup/preflight without releasing the fence; a matching
+applied retry returns the same snapshot. PostgreSQL transaction advisory locks have a stable scope
+ordering; CAS, persisted phase and plan identity remain authoritative across
+independent connections and host process death.
+
+Rollback restores both backed-up contents at newer revisions and releases the
+fences. Completion requires an applied plan and releases the fences without
+rewinding data. A matching settled retry is a no-op and cannot overwrite later
+writes; an opposite terminal operation refuses. The host must select completion
+or rollback from exact durable lifecycle evidence after restart. This port does
+not infer a successful activation, provide a cross-store commit, or repair the
+old coordinator's composition. Failed or cancelled transactions retain the
+previous phase and recovery fence; operation timeout/cancellation applies to
+database work as well as transforms.
+
+The migration journal retains only plan identity/digest, scope IDs and phase;
+it never stores transform default-value bytes. The host must retain and supply
+the exact approved typed plan for recovery; the store cannot reconstruct or guess
+transforms from a digest. This prevents a deleted default value from surviving
+as a hidden plaintext copy in journal metadata.
+
+Fenced measurement binds the exact revision, current snapshot digest and ordinal
+roster of retained backup digests, and counts current plus backup records/value
+bytes. A separate host deletion approval must match that entire measurement,
+including same-size content changes. Deletion atomically removes current and
+retained backup bytes for that exact scope only, preserves an empty scope at a
+newer revision and keeps plan metadata. Another scope's current/backup data is
+untouched. At most 32 retained backups per scope are admitted; further migration
+refuses until the host's explicit retention/deletion policy settles them.
+
 ## Resource budgets, crash isolation, and telemetry
 
 Every runtime operation is admitted against the exact resource policy from its

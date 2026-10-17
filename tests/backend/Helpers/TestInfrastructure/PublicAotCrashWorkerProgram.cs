@@ -30,6 +30,10 @@ internal static partial class PublicAotCrashWorkerProgram
 
     public static async Task<int> Main(string[] args)
     {
+        if (args.Length == 1 && string.Equals(args[0], AuthoringStateProcessWorker.Command, StringComparison.Ordinal))
+        {
+            return await AuthoringStateProcessWorker.RunAsync();
+        }
         if (args.Length > 0 && string.Equals(args[0], ChallengeV2AdmissionProcessIssue2040Worker.Command, StringComparison.Ordinal))
         {
             return await ChallengeV2AdmissionProcessIssue2040Worker.RunAsync(args.AsSpan(1).ToArray());
