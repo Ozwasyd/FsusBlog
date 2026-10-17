@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/pr-impact-plan.mjs"
+            ],
+            "reason": "preserve existing process environment and orchestration caller names while registering the canonical Playwright configuration as an additional SOURCE data witness"
+        }
+    ]
+}
