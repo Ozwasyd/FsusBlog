@@ -179,6 +179,43 @@ no implicit handler or fallback authority; absent a reviewed production owner th
 remain unavailable. This is intentionally not an HTTP, AEDS, browser, or shared
 stable ABI.
 
+## Persistent grant facts
+
+`LocalAuthoringCapabilityGrantStore` implements the existing lifecycle catalog and
+RPC grant/read-scope ports over one protected local snapshot. It stores only
+already approved records; constructing it, importing a record, or finding a
+manifest creates no consent decision or production host registration. A future
+composition must supply the existing Data Protection provider, a private owned
+root, the clock, and the same store owner to both RPC and lifecycle consumers.
+It provides no typed broker I/O approval scope; broker operations still refuse
+without that separate approved owner.
+
+Queries revalidate the closed state and every grant digest, compare exact ordinal
+coordinates, and omit revoked, expired and not-yet-issued records. Extension and
+runtime revocation update that same fact set atomically. Revoked grant identities,
+including an explicit revoke before a late store, cannot be imported again.
+The 4096-entry and 16 MiB bounds include tombstones; exhaustion refuses new facts
+rather than evicting revocation evidence. A missing initialized snapshot or missing
+ownership lock requires recovery, never an empty reconstructed grant catalog.
+
+The existing native regular-file guard limits this implementation to Linux x64
+and arm64, rejecting unavailable file identity owners. One non-thread-affine gate
+and exclusive cross-instance file lock remain held by the original read scope
+until disposal, so cooperative instances and processes refuse replacement or
+revocation while publication owns it. State bytes are protected under a dedicated
+Data Protection purpose bound to the canonical root; malformed, duplicate,
+unknown, corrupt or wrong-key state fails closed. Writes flush a private temporary
+file before atomic replacement. Tests use synthetic grants and private test keys,
+including a fresh process and a process that encounters a held read scope.
+
+This is normal same-root/key process restart persistence, not cross-node exclusion,
+power-loss durability, consent issuer qualification, or rollback-resistant storage.
+The snapshot generation is not an independent monotonic security anchor: restoring
+an old complete authenticated filesystem backup requires the separate recovery
+and revocation authority, and must not be treated as permission restoration.
+No StateStore, ReceiptStore, coordinator, migration or shared DI composition is
+introduced by this local grant owner.
+
 ## Command invocation isolation
 
 Command metadata is data, not executable UI authority. The signed closed record
@@ -238,7 +275,8 @@ service, enforce already-issued opaque network/file grants, and apply host-owned
 runtime measurement plus generation-bound quarantine. Production grant/lifecycle/
 telemetry persistence, consent UI, canonical document composition, support-bundle
 authorization, the other reserved RPC handlers, and real pressure/starvation
-evidence remain unavailable. Each later child must recheck the verified package
+evidence remain unavailable. The local protected grant store above is an
+uncomposed source implementation, not production consent or host activation. Each later child must recheck the verified package
 identity and implement its own fail-closed acceptance before any additional
 operation can occur.
 

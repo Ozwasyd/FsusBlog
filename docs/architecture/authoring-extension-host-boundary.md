@@ -271,8 +271,13 @@ string escaping, counted in bounded scratch chunks without a second document-siz
 copy. That internal size measurement is not a JSON public transport or fallback.
 
 The source component does not create a production canonical document reader or
-consent issuer or durable production grant store. The persistent package scope
-does not create a grant store, a consent policy, a production RPC registration or
+consent issuer. The separate `LocalAuthoringCapabilityGrantStore` implements the
+existing RPC read-scope and lifecycle catalog ports over one protected local fact
+set, with exact queries, persistent revocation tombstones and held cross-process
+exclusion. Its Linux file-identity, initialization, byte/count and recovery limits
+are defined by the [grant security boundary](../security/authoring-extension-capability-isolation.md#persistent-grant-facts).
+It remains uncomposed and supplies no broker I/O approval scope. The persistent
+package scope does not create a grant store, a consent policy, a production RPC registration or
 a document reader. A missing canonical read port, original resolver or either
 original store exclusion port is blocked;
 simulated public-handler controls are not actual consent, browser or native
@@ -429,7 +434,7 @@ state by default. Data deletion is a separate exact approval whose measured scop
 must still match; core documents, history, assets, and another extension's state
 are outside that authority.
 
-`PostgresAuthoringLifecycleReceiptStore` implements receipt persistence through the
+tgresAuthoringLifecycleReceiptStore` implements receipt persistence through the
 application's existing `ISqlSugarClient`. Reads validate the complete extension
 chain; appends acquire the per-extension PostgreSQL advisory transaction lock,
 validate the exact previous digest/state/sequence/generation, and insert one row
