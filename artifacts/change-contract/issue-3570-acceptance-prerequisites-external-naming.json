@@ -1,0 +1,39 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve NuGet lock schema keys, external package and project identifiers, and serialized canonical lifecycle, producer and closure authority keys while consuming the exact coordinator-supplied acceptance prerequisites. This metadata binds existing registered spellings without changing their source owners or granting compiler, runtime or qualification acceptance."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/docs/generated-fact-sections/renderers.mjs"
+            ],
+            "reason": "Preserve the existing canonical execution owner, environment interface spellings and supplied generated-document renderer source while consuming the exact coordinator-supplied acceptance prerequisites. This ordinary naming declaration does not alter either supplied source or admit generated-history, physical execution or qualification evidence."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/aeds-only-policy.md",
+                "docs/api/quick-reference.md",
+                "docs/api/schemas-and-errors.md",
+                "docs/api/stability.md",
+                "docs/architecture/comment-command-boundary.md",
+                "docs/architecture/comment-query-boundary.md",
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/architecture/overview.md",
+                "docs/releases/blue-green-deployment-runbook.md",
+                "docs/releases/release-identity.md"
+            ],
+            "reason": "Preserve the registered specification and protocol spellings inside the ten freshly generated documentation ranges. All existing declarations and exterior prose remain intact; this ordinary naming roster grants no source-policy, generated-history or runtime acceptance."
+        }
+    ]
+}

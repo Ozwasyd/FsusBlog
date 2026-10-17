@@ -2970,8 +2970,8 @@
         },
         {
             "path": "tools/docs/generated-fact-sections/renderers.mjs",
-            "contentDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37",
-            "indexDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37"
+            "contentDigest": "sha256:40c5858e17cc39f56d945de2f77e6c9b15bb75b6392c412cd33ef2c8ba31baff",
+            "indexDigest": "sha256:40c5858e17cc39f56d945de2f77e6c9b15bb75b6392c412cd33ef2c8ba31baff"
         },
         {
             "path": "tools/docs/global-claim-exactness-final.mjs",
@@ -4945,8 +4945,8 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
-            "indexDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+            "contentDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2",
+            "indexDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",
