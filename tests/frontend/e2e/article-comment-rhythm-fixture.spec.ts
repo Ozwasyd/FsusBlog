@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 
 type Theme = 'light' | 'dark'
@@ -61,7 +61,7 @@ async function openFixture(
 test.describe('article comment static rhythm fixture', () => {
   test.describe.configure({ timeout: 240_000 })
 
-  test('expands root comments with the public control through keyboard input across themes and viewports', async ({ page }, testInfo) => {
+  test('expands root comments with the public control through keyboard input across themes and viewports', async ({ page }: { page: Page }, testInfo: TestInfo) => {
     for (const theme of ['light', 'dark'] as const) {
       for (const width of [390, 1440]) {
         await page.setViewportSize({ width, height: 900 })
@@ -75,11 +75,12 @@ test.describe('article comment static rhythm fixture', () => {
         await roots.last().getByRole('button', { name: '登录后回复', exact: true }).focus()
         await page.keyboard.press('Tab')
         await expect(action).toBeFocused()
-        expect(await action.evaluate(element => element.matches(':focus-visible'))).toBe(true)
-        expect(await action.evaluate(element => {
+        expect(await action.evaluate((element: HTMLElement) => element.matches(':focus-visible'))).toBe(true)
+        expect(await action.evaluate((element: HTMLElement) => {
           const style = getComputedStyle(element)
           return style.boxShadow !== 'none' || style.outlineStyle !== 'none'
         })).toBe(true)
+        await page.evaluate(async () => { await document.fonts.ready })
         await action.screenshot({ path: testInfo.outputPath(`expansion-focus-${theme}-${width}.png`) })
 
         await page.keyboard.press('Enter')
@@ -89,7 +90,7 @@ test.describe('article comment static rhythm fixture', () => {
         await page.keyboard.press('Space')
         await expect(roots).toHaveCount(41)
         await expect(page.locator('.fsus-comments-list__more')).toHaveCount(0)
-        expect(await roots.evaluateAll(elements => elements.map(element => element.id)))
+        expect(await roots.evaluateAll((elements: Element[]) => elements.map(element => element.id)))
           .toEqual(Array.from({ length: 41 }, (_, index) => `comment-${146_400 + index}`))
         expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth))
           .toBeLessThanOrEqual(1)

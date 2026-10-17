@@ -102,7 +102,7 @@ describe('article root comment expansion', () =>
         }
     });
 
-    it.each([0, 1, COMMENT_CONTENT_CONSTRAINT.rootRenderLimit])('omits the control for %i fully visible roots', count =>
+    it.each([0, 1, COMMENT_CONTENT_CONSTRAINT.rootRenderLimit])('omits the control for %i fully visible roots', (count: number) =>
     {
         const wrapper = mountList(count);
         try
