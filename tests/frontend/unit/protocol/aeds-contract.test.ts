@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
@@ -379,11 +380,16 @@ describe('AEDS cross-stack contract fixture', () => {
       .toThrow('article_page_cursor_version_invalid')
   })
 
-  it.each([0, 1, 512, 513])('validates the current ArticleList cursor byte boundary %i', async (length) => {
+  it.each([0, 2, 512, 513, 514])('enforces the ArticleList wire cursor byte limit %i without interpreting the token', async (length) => {
     const { decode } = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
     const original = decode(readProtocolFixtureBuffer('article-list-frame.hex'))
     expect(original.ok).toBe(true)
-    const cursor = 'A'.repeat(length)
+    // Canonical anchors encode 0/1/384/385 actual bytes. The 513-byte case
+    // probes only the wire limit; this impossible canonical length is not a valid cursor.
+    const cursor = length === 513
+      ? 'A'.repeat(length)
+      : Buffer.alloc(Math.floor(length * 3 / 4)).toString('base64url')
+    expect(cursor).toHaveLength(length)
     const payload = new Uint8Array(original.payloadView.byteLength + length)
     payload.set(original.payloadView.subarray(0, 17))
     payload[8] = length > 0 ? 1 : 0
