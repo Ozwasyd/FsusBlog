@@ -78,7 +78,7 @@ render: key-value-table
 | Key | Value |
 | --- | --- |
 | boundary | exclusive-upper-on-count |
-| compare | childCount < maxChildren |
+| compare | childCount &lt; maxChildren |
 | configurationKey | CommentThreads:MaxChildrenPerNode |
 | default | 500 children |
 | enforcement | reject-new-write |
