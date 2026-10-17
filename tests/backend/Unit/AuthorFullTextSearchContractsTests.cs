@@ -147,6 +147,74 @@ public sealed class AuthorFullTextSearchContractsTests
         }
     }
 
+    [Theory]
+    [InlineData("missing", "author_search_property_unknown")]
+    [InlineData("null", "author_search_property_unknown")]
+    [InlineData("misbound", "author_search_property_identity_invalid")]
+    public void Property_Document_Rejects_Unbound_Definitions(string lookup, string expectedError)
+    {
+        const string Raw = "property text";
+        ArticlePropertyDefinition definition = PropertyDefinition(Guid.NewGuid());
+        AuthorSearchDocument document = PropertyDocument(Raw, definition);
+        IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions =
+            PropertyDefinitions(lookup, definition.DefinitionId);
+
+        AuthorSearchContractException failure = Assert.Throws<AuthorSearchContractException>(() =>
+            AuthorFullTextSearchContract.ValidateDocument(document, Raw, definitions,
+                "canonical-parse-package-v1", "article-7-epoch"));
+
+        Assert.Equal(expectedError, failure.Message);
+    }
+
+    [Fact]
+    public void Property_Document_Accepts_The_Requested_Eligible_Definition()
+    {
+        const string Raw = "property text";
+        ArticlePropertyDefinition definition = PropertyDefinition(Guid.NewGuid());
+        var definitions = new Dictionary<Guid, ArticlePropertyDefinition>
+        {
+            [definition.DefinitionId] = definition
+        };
+
+        AuthorFullTextSearchContract.ValidateDocument(PropertyDocument(Raw, definition), Raw, definitions,
+            "canonical-parse-package-v1", "article-7-epoch");
+    }
+
+    [Theory]
+    [InlineData("missing", "author_search_property_unknown")]
+    [InlineData("null", "author_search_property_unknown")]
+    [InlineData("misbound", "author_search_property_identity_invalid")]
+    public void Property_Query_Rejects_Unbound_Definitions(string lookup, string expectedError)
+    {
+        Guid requestedId = Guid.NewGuid();
+        AuthorSearchQuery query = Query(new AuthorSearchClause(AuthorSearchClauseKind.Property,
+            AuthorSearchFieldKind.Property, requestedId, "text.equals", ["property text"]));
+        IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions =
+            PropertyDefinitions(lookup, requestedId);
+
+        AuthorSearchContractException failure = Assert.Throws<AuthorSearchContractException>(() =>
+            AuthorFullTextSearchContract.ValidateQuery(query, definitions));
+
+        Assert.Equal(expectedError, failure.Message);
+    }
+
+    [Fact]
+    public void Bound_Property_Query_Retains_The_Typed_Operand_Refusal()
+    {
+        ArticlePropertyDefinition definition = PropertyDefinition(Guid.NewGuid());
+        var definitions = new Dictionary<Guid, ArticlePropertyDefinition>
+        {
+            [definition.DefinitionId] = definition
+        };
+        AuthorSearchQuery query = Query(new AuthorSearchClause(AuthorSearchClauseKind.Property,
+            AuthorSearchFieldKind.Property, definition.DefinitionId, "text.equals", ["property text"]));
+
+        AuthorSearchContractException failure = Assert.Throws<AuthorSearchContractException>(() =>
+            AuthorFullTextSearchContract.ValidateQuery(query, definitions));
+
+        Assert.Equal("author_search_typed_property_operand_unavailable", failure.Message);
+    }
+
     [Fact]
     public void Snippet_Preserves_Ordered_Ranges_And_Truthful_Truncation()
     {
@@ -212,6 +280,47 @@ public sealed class AuthorFullTextSearchContractsTests
                 || factor.ToString().Contains("Pin", StringComparison.OrdinalIgnoreCase));
         Assert.Equal("article-id-ascending", AuthorFullTextSearchContract.StableTieBreakers[1]);
     }
+
+    private static ArticlePropertyDefinition PropertyDefinition(Guid definitionId)
+    {
+        DateTime timestamp = new(2026, 10, 17, 0, 0, 0, DateTimeKind.Utc);
+        var definition = new ArticlePropertyDefinition(
+            ArticlePropertyDefinitionContract.SchemaVersion, definitionId,
+            ArticlePropertyDefinitionOwner.Site("site-a"), "property-text",
+            [new ArticlePropertyLocalizedName("en", "Property text")],
+            ArticlePropertyValueType.Text, ArticlePropertyCardinality.Single, false,
+            new(ArticlePropertyMissingBehavior.PreserveMissing, ArticlePropertyNullBehavior.AllowNull,
+                ArticlePropertyEmptyBehavior.PreserveEmpty),
+            null, new(MinLength: 0, MaxLength: 256), [], null, null, true, true, false,
+            ArticlePropertyDisplayPlacement.Metadata, ArticlePropertyVisibilityScope.AuthorOnly,
+            ArticlePropertyDefinitionStatus.Active, 1, timestamp, timestamp, string.Empty);
+        definition = definition with
+        {
+            ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition)
+        };
+        ArticlePropertyDefinitionContract.ValidateDefinition(definition);
+        return definition;
+    }
+
+    private static IReadOnlyDictionary<Guid, ArticlePropertyDefinition> PropertyDefinitions(
+        string lookup, Guid requestedId)
+        => lookup switch
+        {
+            "missing" => new Dictionary<Guid, ArticlePropertyDefinition>(),
+            "null" => new Dictionary<Guid, ArticlePropertyDefinition> { [requestedId] = null! },
+            "misbound" => new Dictionary<Guid, ArticlePropertyDefinition>
+            {
+                [requestedId] = PropertyDefinition(Guid.NewGuid())
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(lookup))
+        };
+
+    private static AuthorSearchDocument PropertyDocument(string raw, ArticlePropertyDefinition definition)
+        => AuthorFullTextSearchContract.SealDocument(Document(raw, 0, raw.Length) with
+        {
+            Field = new(AuthorSearchFieldKind.Property, AuthorFullTextSearchContract.Digest(raw), null,
+                definition.DefinitionId, definition.SchemaRevision, PropertyValueType: definition.ValueType)
+        });
 
     private static AuthorSearchSourceRange Range(string raw, int start, int end)
         => new(AuthorFullTextSearchContract.SourceCoordinateAuthority, "canonical-parse-package-v1", "article-7-epoch",

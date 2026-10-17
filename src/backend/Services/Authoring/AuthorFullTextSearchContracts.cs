@@ -201,9 +201,12 @@ public static partial class AuthorFullTextSearchContract
                         && clause.PropertyDefinitionId.HasValue && clause.Operator is not null,
                         "author_search_property_clause_invalid");
                     Require(definitions.TryGetValue(clause.PropertyDefinitionId!.Value,
-                        out ArticlePropertyDefinition? definition), "author_search_property_unknown");
-                    ValidateDefinition(definition!, query.SiteScope, query.UserId);
-                    Require(definition!.Filterable, "author_search_property_not_filterable");
+                        out ArticlePropertyDefinition? definition) && definition is not null,
+                        "author_search_property_unknown");
+                    Require(definition.DefinitionId == clause.PropertyDefinitionId.Value,
+                        "author_search_property_identity_invalid");
+                    ValidateDefinition(definition, query.SiteScope, query.UserId);
+                    Require(definition.Filterable, "author_search_property_not_filterable");
                     ArticlePropertyDefinitionContract.ValidateOperator(clause.Operator!, definition.ValueType);
                     // Definition eligibility/operator facts are usable now. Typed operands
                     // still belong to the property authority; strings are never values.
