@@ -8,6 +8,14 @@
                 "tools/test/correctness-attempt-producers.mjs"
             ],
             "reason": "Preserve caller-owned process environment spellings while deriving the exact internal producer roster from the existing canonical authorities."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing generated machine-readable keys and producer command identities while refreshing canonical source bindings."
         }
     ]
 }
