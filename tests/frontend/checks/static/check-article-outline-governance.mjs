@@ -118,6 +118,66 @@ export function outlineFocusOwnershipViolations(source)
     return violations;
 }
 
+// The rendering owner is a real runtime SFC import, not a token in a comment
+// or a type-only dependency. Keep the product tree and its scoped styles together.
+export function outlinePanelContentOwnerImport(source)
+{
+    const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/u)?.[1];
+    if (!script)
+    {
+        return null;
+    }
+    const ast = ts.createSourceFile('ArticleWriteOutlineRail.ts', script, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const declarations = ast.statements.filter((node) => ts.isImportDeclaration(node)
+        && node.importClause?.name?.text === 'OutlinePanelContent');
+    if (declarations.length !== 1)
+    {
+        return null;
+    }
+    const declaration = declarations[0];
+    if (declaration.importClause.isTypeOnly || !ts.isStringLiteral(declaration.moduleSpecifier)
+        || declaration.moduleSpecifier.text !== './ArticleWriteOutlinePanelContent.vue')
+    {
+        return null;
+    }
+    return declaration.moduleSpecifier.text;
+}
+
+// The extracted render component still owns tree navigation only. Moving it
+// out of the rail must not exempt it from the original modal-owner bans.
+export function outlinePanelContentFocusOwnershipViolations(source)
+{
+    const script = source.match(/<script(?: setup)? lang="ts">([\s\S]*?)<\/script>/u)?.[1];
+    if (!script)
+    {
+        return ['outline content ownership requires its real TypeScript script'];
+    }
+    const ast = ts.createSourceFile('ArticleWriteOutlinePanelContent.ts', script, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    const printer = ts.createPrinter({ removeComments: true });
+    const text = (node) => printer.printNode(ts.EmitHint.Unspecified, node, ast).replace(/\s+/gu, '');
+    const nodes = [];
+    const visit = (node) =>
+    {
+        nodes.push(node);
+        ts.forEachChild(node, visit);
+    };
+    visit(ast);
+    const violations = [];
+    if (nodes.some((node) => ts.isIdentifier(node) && ['requestAnimationFrame', 'cancelAnimationFrame'].includes(node.text))
+        || /@closed\s*=|onClosed\s*:/u.test(source))
+    {
+        violations.push('product content must not add a second modal frame or closed-event owner');
+    }
+    if (nodes.some((node) => ts.isCallExpression(node)
+        && ((ts.isIdentifier(node.expression) && node.expression.text === 'focusLauncher')
+            || (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'focus'
+                && text(node.expression.expression) === 'launcherRef.value'))))
+    {
+        violations.push('product content must not restore the modal launcher; tree navigation remains its only focus owner');
+    }
+    return violations;
+}
+
 const outlineAdapterPath = path.join(repoRoot, 'src/frontend/src/composables/useArticleOutline.ts');
 const outlineRailPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteOutlineRail.vue');
 const articleEditorPath = path.join(repoRoot, 'src/frontend/src/components/admin/article/ArticleWriteEditor.vue');
@@ -129,6 +189,13 @@ const fixtureSpecPath = path.join(repoRoot, 'tests/frontend/e2e/article-editor-p
 
 const outlineAdapter = read(outlineAdapterPath);
 const outlineRail = read(outlineRailPath);
+const outlineContentImport = outlinePanelContentOwnerImport(outlineRail);
+if (!outlineContentImport)
+{
+    failures.push(`${relative(outlineRailPath)}: product content must use the canonical runtime scoped SFC import`);
+}
+const outlineContentPath = path.join(path.dirname(outlineRailPath), 'ArticleWriteOutlinePanelContent.vue');
+const outlineContent = outlineContentImport ? read(outlineContentPath) : '';
 const articleEditor = read(articleEditorPath);
 const markdownAdapter = read(markdownAdapterPath);
 const markdownTextEditor = read(markdownTextEditorPath);
@@ -157,33 +224,43 @@ forbidTokens(outlineAdapterPath, outlineAdapter, [
 requireTokens(outlineRailPath, outlineRail, [
     "useMediaQuery('(max-width: 1023px)', false)",
     "resolveComponent('ElDrawer')",
-    'role: \'tree\'',
+    'RAIL_OPEN_STORAGE_KEY',
+    'localStorage.setItem'
+]);
+requireTokens(outlineContentPath, outlineContent, [
+    "role: 'tree'",
     "role: 'treeitem'",
     'aria-selected',
-    'RAIL_OPEN_STORAGE_KEY',
-    'localStorage.setItem',
     'ArrowDown',
     'ArrowUp',
     'ArrowLeft',
     'ArrowRight',
-    'Escape'
+    'Escape',
+    '<style scoped>'
 ]);
-forbidTokens(outlineRailPath, outlineRail, [
-    ':deep(',
-    '::v-deep',
-    'querySelector',
-    'getElementById',
-    'matchAll',
-    'innerWidth',
-    'titleMatch',
-    'slug',
-    'offsetMap',
-    'fsusui-token-fork'
-]);
+for (const [file, source] of [[outlineRailPath, outlineRail], [outlineContentPath, outlineContent]])
+{
+    forbidTokens(file, source, [
+        ':deep(',
+        '::v-deep',
+        'querySelector',
+        'getElementById',
+        'matchAll',
+        'innerWidth',
+        'titleMatch',
+        'slug',
+        'offsetMap',
+        'fsusui-token-fork'
+    ]);
+}
 
 for (const violation of outlineFocusOwnershipViolations(outlineRail))
 {
     failures.push(`${relative(outlineRailPath)}: ${violation}`);
+}
+for (const violation of outlinePanelContentFocusOwnershipViolations(outlineContent))
+{
+    failures.push(`${relative(outlineContentPath)}: ${violation}`);
 }
 
 requireTokens(articleEditorPath, articleEditor, [

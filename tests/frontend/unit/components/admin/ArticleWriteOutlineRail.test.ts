@@ -393,3 +393,36 @@ describe('ArticleWriteOutlineRail transient tree navigation', () => {
     expect(wrapper.find('[role="treeitem"]').attributes('tabindex')).toBe('0')
   })
 })
+
+
+describe('ArticleWriteOutlineRail owned content scoping', () => {
+    beforeEach(() => window.localStorage.clear())
+
+    it.each([false, true])('keeps the product header, actions and tree in one SFC style scope for compact=%s', async (compact) => {
+        controlCompactViewport(compact)
+        const wrapper = mount(ArticleWriteOutlineRail, {
+            props: { snapshot },
+            attachTo: document.body,
+            global: { components: { ElIcon, ElDrawer } },
+        })
+        outlineCleanups.push(() => wrapper.unmount())
+        await nextTick()
+        await wrapper.get('[data-article-outline-launcher="true"]').trigger('click')
+        await nextTick()
+        await nextTick()
+        const content = wrapper.get('.article-write-outline-content')
+        const ownedNodes = [
+            content.get('.article-write-outline-header'),
+            content.get('.article-write-outline-title'),
+            content.get('[aria-label="关闭文章大纲"]'),
+            content.get('[role="tree"]'),
+            ...content.findAll('[role="treeitem"]'),
+            ...content.findAll('[data-outline-diagnostic]'),
+        ]
+        const commonScopes = Array.from(content.element.attributes)
+            .map((attribute) => attribute.name)
+            .filter((name) => name.startsWith('data-v-')
+                && ownedNodes.every((node) => node.element.hasAttribute(name)))
+        expect(commonScopes.length).toBeGreaterThan(0)
+    })
+})
