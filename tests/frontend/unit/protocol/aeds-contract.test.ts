@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it, vi } from 'vitest'
 import { FrameType } from '@wasm/protocol/frame'
+import { encodeAedsFrame } from '@/api/binaryFrame'
 import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter'
 import { mapConversationDetailFromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload } from '@/adapters/binary/messageAdapter'
 import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload } from '@/adapters/binary/articleAdapter'
@@ -311,7 +312,7 @@ describe('AEDS cross-stack contract fixture', () => {
 
     expect(result.ok).toBe(true)
     expect(result.frameType).toBe(FrameType.ArticleList)
-    expect(result.payloadView.byteLength).toBe(301)
+    expect(result.payloadView.byteLength).toBe(345)
 
     expect(mapArticlePageFromPodPayload(result.payloadView)).toMatchObject({
       total: 17,
@@ -320,6 +321,10 @@ describe('AEDS cross-stack contract fixture', () => {
       items: [
         {
           id: 11,
+          currentRevisionId: '801',
+          revisionNo: 7,
+          currentPublicationId: '1201',
+          publicationNo: 4,
 
           title: 'Intro AEDS',
           summary: 'Binary protocol basics',
@@ -340,6 +345,10 @@ describe('AEDS cross-stack contract fixture', () => {
         },
         {
           id: 12,
+          currentRevisionId: '802',
+          revisionNo: 2,
+          currentPublicationId: '1202',
+          publicationNo: 1,
           title: 'Hydration Fixes',
           summary: '',
           views: 7,
@@ -358,6 +367,55 @@ describe('AEDS cross-stack contract fixture', () => {
         }
       ]
     })
+  })
+
+  it('rejects the retired ArticleList cursor envelope after validating the frame', async () => {
+    const { decode } = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const result = decode(readProtocolFixtureBuffer('article-list-v1-rejected-frame.hex'))
+
+    expect(result.ok).toBe(true)
+    expect(result.frameType).toBe(FrameType.ArticleList)
+    expect(() => mapArticlePageFromPodPayload(result.payloadView))
+      .toThrow('article_page_cursor_version_invalid')
+  })
+
+  it.each([0, 1, 512, 513])('validates the current ArticleList cursor byte boundary %i', async (length) => {
+    const { decode } = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const original = decode(readProtocolFixtureBuffer('article-list-frame.hex'))
+    expect(original.ok).toBe(true)
+    const cursor = 'A'.repeat(length)
+    const payload = new Uint8Array(original.payloadView.byteLength + length)
+    payload.set(original.payloadView.subarray(0, 17))
+    payload[8] = length > 0 ? 1 : 0
+    new DataView(payload.buffer).setInt32(13, length, true)
+    payload.set(new TextEncoder().encode(cursor), 17)
+    payload.set(original.payloadView.subarray(17), 17 + length)
+    const frame = decode(encodeAedsFrame(FrameType.ArticleList, payload))
+    expect(frame.ok).toBe(true)
+
+    if (length > 512) {
+      expect(() => mapArticlePageFromPodPayload(frame.payloadView)).toThrow('article_page_cursor_length_invalid')
+    } else {
+      expect(mapArticlePageFromPodPayload(frame.payloadView)).toMatchObject({
+        nextCursor: cursor || null,
+        hasMore: length > 0,
+        items: [{ currentRevisionId: '801' }, { currentRevisionId: '802' }]
+      })
+    }
+  })
+
+  it.each([
+    [4, 3, 'article_page_cursor_version_invalid'],
+    [8, 2, 'article_page_cursor_has_more_invalid'],
+    [8, 1, 'article_page_cursor_state_invalid']
+  ])('rejects ArticleList cursor metadata drift at byte %i to %i', async (offset, value, error) => {
+    const { decode } = await vi.importActual<typeof import('@wasm/aeds')>('@wasm/aeds')
+    const result = decode(readProtocolFixtureBuffer('article-list-frame.hex'))
+    expect(result.ok).toBe(true)
+    const payload = result.payloadView.slice()
+    payload[offset] = value
+
+    expect(() => mapArticlePageFromPodPayload(payload)).toThrow(error)
   })
 
   it('decodes the checked-in backend ArticleFeatured frame with the real frontend decoder', async () => {

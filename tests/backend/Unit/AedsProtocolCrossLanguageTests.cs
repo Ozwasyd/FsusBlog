@@ -529,11 +529,26 @@ public sealed class AedsProtocolCrossLanguageTests
 
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.ArticleList, PodBinaryCodec.EncodeArticlePage(page));
 
+        Assert.Equal(ReadProtocolFixtureBytes("article-list-frame.hex"), encoded);
+
         Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decodedFrame = new CoreAedsEncoder().TryDecode(encoded);
         Assert.True(decodedFrame.IsSuccess);
         Assert.True(PodBinaryCodec.TryDecodeArticlePage(decodedFrame.Value.Payload, out var decoded));
         Assert.Equal([801L, 802L], decoded.Items.Select(static item => item.CurrentRevisionId).ToArray());
         Assert.Equal([1201L, 1202L], decoded.Items.Select(static item => item.CurrentPublicationId!.Value).ToArray());
+        Assert.Equal([7, 2], decoded.Items.Select(static item => item.RevisionNo).ToArray());
+        Assert.Equal([4, 1], decoded.Items.Select(static item => item.PublicationNo!.Value).ToArray());
+    }
+
+    [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative)]
+    public void BackendDecoder_RejectsRetiredArticleListCursorEnvelope()
+    {
+        byte[] frame = ReadProtocolFixtureBytes("article-list-v1-rejected-frame.hex");
+        Result<FsusBlog.Core.Algorithms.AedsDecodeResult> decodedFrame = new CoreAedsEncoder().TryDecode(frame);
+
+        Assert.True(decodedFrame.IsSuccess);
+        Assert.False(PodBinaryCodec.TryDecodeArticlePage(decodedFrame.Value.Payload, out _));
     }
 
     [Fact]

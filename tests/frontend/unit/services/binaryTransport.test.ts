@@ -759,13 +759,13 @@ describe('binaryTransport ApiError mapping', () => {
         {
           id: 11,
 
-          currentRevisionId: '0',
+          currentRevisionId: '801',
 
-          currentPublicationId: null,
+          currentPublicationId: '1201',
 
-          revisionNo: 0,
+          revisionNo: 7,
 
-          publicationNo: null,
+          publicationNo: 4,
 
           title: 'Intro AEDS',
           summary: 'Binary protocol basics',
@@ -786,6 +786,10 @@ describe('binaryTransport ApiError mapping', () => {
         },
         {
           id: 12,
+          currentRevisionId: '802',
+          revisionNo: 2,
+          currentPublicationId: '1202',
+          publicationNo: 1,
           title: 'Hydration Fixes',
           summary: '',
           views: 7,
@@ -803,6 +807,19 @@ describe('binaryTransport ApiError mapping', () => {
           publishedAt: null
         }
       ]
+    })
+  })
+
+  it('reports a protocol failure for the retired ArticleList cursor envelope', async () => {
+    mockBinaryRequest.mockResolvedValue(readProtocolFixtureBuffer('article-list-v1-rejected-frame.hex'))
+
+    await expect(requestBinaryOnly({
+      binaryUrl: '/api/binary/article/list/home/1/10.aeds',
+      frameType: FrameType.ArticleList
+    })).rejects.toMatchObject({
+      code: AppErrorCode.ProtocolFailure,
+      kind: 'decode_failed',
+      message: 'article_page_cursor_version_invalid'
     })
   })
 
