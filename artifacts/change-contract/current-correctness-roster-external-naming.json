@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test/correctness-attempt-producers.mjs"
+            ],
+            "reason": "Preserve caller-owned process environment spellings while deriving the exact internal producer roster from the existing canonical authorities."
+        }
+    ]
+}
