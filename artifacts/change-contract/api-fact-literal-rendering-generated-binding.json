@@ -31,6 +31,30 @@
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
             "sha256": "ebf0d9729affecafd386c139ee03c33e4e3358d205c10519f7767c3e0eac87bb"
+        },
+        {
+            "path": "docs/architecture/comment-command-boundary.md",
+            "sha256": "9765e342f0a338a2733b0968babaab022b501ad5703e569a1c7e3f53ae16db18"
+        },
+        {
+            "path": "docs/architecture/monolithic-distributed-boundary.md",
+            "sha256": "56a6269f5a94d84ef6d07ef2d73129ac5f02de200c0e3131a0c33b15ba06e98b"
+        },
+        {
+            "path": "docs/architecture/overview.md",
+            "sha256": "82fcd64c5cc218ab064d76f8e7c69639be6361a0ade2bf39772b5b008998ef2b"
+        },
+        {
+            "path": "docs/releases/blue-green-deployment-runbook.md",
+            "sha256": "86dd540e7290577e719ad4f8bc0093f3b53e44ce189cb427e9abc2d8ece5ef88"
+        },
+        {
+            "path": "docs/releases/release-identity.md",
+            "sha256": "021f9eacd89b499dcd423d41846059c04d4db1449fe5a8283efc6a4e5645c4d2"
+        },
+        {
+            "path": "docs/testing.md",
+            "sha256": "3a4ad04bad25a899d97536e511b31f37cb7516c7177d3290e7237d207ee476a3"
         }
     ]
 }
