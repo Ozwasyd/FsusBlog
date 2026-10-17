@@ -5,7 +5,7 @@ namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 /// authority snapshot, re-walks the recorded expansion tree for cycle/budget legitimacy, recomputes every
 /// digest, and never calls the resolver or trusts candidate-computed fields.
 /// </summary>
-public static class ArticleEmbedAuthoringVerifier
+public static partial class ArticleEmbedAuthoringVerifier
 {
     public static ArticleEmbedAuthoringVerification Verify(
         IReadOnlyList<ArticleEmbedProviderRequest>? requests,
@@ -86,7 +86,7 @@ public static class ArticleEmbedAuthoringVerifier
         return Finish(reasons);
     }
 
-    private static void VerifyReceiptBinding(
+    internal static void VerifyReceiptBinding(
         ArticleEmbedAuthoringReceipt receipt,
         ArticleEmbedAuthoritySnapshot snapshot,
         ArticleEmbedResolutionBudgetLimits budgets,
@@ -545,7 +545,7 @@ public static class ArticleEmbedAuthoringVerifier
         };
     }
 
-    private static ArticleEmbedError? CoordinateFailure(
+    internal static ArticleEmbedError? CoordinateFailure(
         int matches,
         ArticleEmbedErrorCode missing,
         ArticleEmbedErrorCode duplicate)
@@ -557,7 +557,7 @@ public static class ArticleEmbedAuthoringVerifier
                     duplicate == ArticleEmbedErrorCode.HeadingDuplicate ? "heading_duplicate" : "block_duplicate")
                 : null;
 
-    private static void VerifyReceiptItem(
+    internal static void VerifyReceiptItem(
         ArticleEmbedAuthoringEmbedResult result,
         ArticleEmbedAuthoringReceiptItem item,
         long? expectedRevision,
@@ -578,7 +578,7 @@ public static class ArticleEmbedAuthoringVerifier
     }
 
     /// <summary>Re-derives the request-level binding failure, in the resolver's exact check order.</summary>
-    private static ArticleEmbedError? ExpectBinding(
+    internal static ArticleEmbedError? ExpectBinding(
         ArticleEmbedProviderRequest request,
         ArticleEmbedAuthoritySnapshot snapshot)
     {
@@ -608,18 +608,18 @@ public static class ArticleEmbedAuthoringVerifier
         return null;
     }
 
-    private static bool IsFactStable(ArticleEmbedErrorCode code)
+    internal static bool IsFactStable(ArticleEmbedErrorCode code)
         => !IsOrderSensitive(code) && code is not ArticleEmbedErrorCode.StaleRuntime;
 
     /// <summary>Failures the shared meter or expansion path can legitimately preempt a fact outcome with.</summary>
-    private static bool IsOrderSensitive(ArticleEmbedErrorCode code)
+    internal static bool IsOrderSensitive(ArticleEmbedErrorCode code)
         => code is ArticleEmbedErrorCode.Cycle
             or ArticleEmbedErrorCode.DepthExceeded
             or ArticleEmbedErrorCode.SizeExceeded
             or ArticleEmbedErrorCode.TimeExceeded
             or ArticleEmbedErrorCode.StaleSource;
 
-    private static NodeKey NodeKeyOf(ArticleEmbedTargetIdentity target)
+    internal static NodeKey NodeKeyOf(ArticleEmbedTargetIdentity target)
         => new(target.PortableArticleIdentity, target.Kind, target.HeadingIdentity, target.BlockAnchor);
 
     private static NodeExpectation Expect(
@@ -660,7 +660,7 @@ public static class ArticleEmbedAuthoringVerifier
             : new NodeExpectation(null, facts, projection);
     }
 
-    private static ArticleEmbedAuthoringVerification Finish(List<string> reasons)
+    internal static ArticleEmbedAuthoringVerification Finish(List<string> reasons)
     {
         var verification = new ArticleEmbedAuthoringVerification(reasons.Count == 0, reasons, string.Empty);
         return verification with
@@ -677,13 +677,13 @@ public static class ArticleEmbedAuthoringVerifier
         };
     }
 
-    private sealed record NodeKey(
+    internal sealed record NodeKey(
         string PortableArticleIdentity,
         ArticleEmbedTargetKind Kind,
         string? HeadingIdentity,
         string? BlockAnchor);
 
-    private sealed record NodeExpectation(
+    internal sealed record NodeExpectation(
         ArticleEmbedError? Error,
         ArticleEmbedTargetFacts? Facts,
         ArticleEmbedSafeProjectionReference? Projection)

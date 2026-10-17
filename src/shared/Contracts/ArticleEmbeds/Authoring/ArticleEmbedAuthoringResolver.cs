@@ -5,7 +5,7 @@ namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
 /// authority snapshot of caller-verified current facts; it never parses Markdown, never reads rendered output,
 /// never mutates targets or host source, and never persists cache state beyond one resolution.
 /// </summary>
-public static class ArticleEmbedAuthoringResolver
+public static partial class ArticleEmbedAuthoringResolver
 {
     private static readonly ArticleEmbedActorContext s_rejectedActor =
         new("rejected:unknown", "rejected:unknown", new string('0', 64));
@@ -120,7 +120,7 @@ public static class ArticleEmbedAuthoringResolver
             string.Empty));
     }
 
-    private static ArticleEmbedAuthoringResolution Rejected(
+    internal static ArticleEmbedAuthoringResolution Rejected(
         string reasonCode,
         ArticleEmbedAuthoritySnapshot? snapshot,
         ArticleEmbedResolutionBudgetLimits? budgets,
@@ -529,13 +529,13 @@ public static class ArticleEmbedAuthoringResolver
                 })
         };
 
-    private sealed record NodeKey(
+    internal sealed record NodeKey(
         string PortableArticleIdentity,
         ArticleEmbedTargetKind Kind,
         string? HeadingIdentity,
         string? BlockAnchor);
 
-    private sealed record NodeOutcome(
+    internal sealed record NodeOutcome(
         ArticleEmbedProviderResultStatus Status,
         ArticleEmbedDependencyCoordinate? Coordinate,
         ArticleEmbedSafeProjectionReference? Projection,
@@ -602,7 +602,7 @@ public static class ArticleEmbedAuthoringResolver
             => new(directive, target, Status, Coordinate, Error, Children);
     }
 
-    private sealed class Context
+    internal sealed class Context
     {
         public Context(
             ArticleEmbedAuthoritySnapshot snapshot,
@@ -643,7 +643,7 @@ public static class ArticleEmbedAuthoringResolver
         public Meter Meter { get; } = new();
     }
 
-    private sealed class Meter
+    internal sealed class Meter
     {
         public int Nodes
         {
