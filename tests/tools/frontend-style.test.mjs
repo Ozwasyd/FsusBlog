@@ -2150,3 +2150,43 @@ test('script declaration owner refuses a declaration absent from the original co
         assert.match(output(result), /not found|does not include|not included|Parsing error/u);
     });
 });
+
+test('canonical complete tests resolve the official Playwright declarations instead of its untyped runtime file', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const frontend = path.join(root, 'src/frontend');
+    const originalPath = path.join(frontend, 'tsconfig.playwright.json');
+    const generatedPath = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    const packageRoot = path.join(frontend, 'node_modules/@playwright/test');
+    const manifest = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
+    const declaredTypes = path.resolve(packageRoot, manifest.exports['.'].types);
+    const importer = path.join(root, 'tests/frontend/e2e/article-editor-production-fixture.spec.ts');
+    const read = (file) => ts.getParsedCommandLineOfConfigFile(file, {}, {
+        ...ts.sys,
+        onUnRecoverableConfigFileDiagnostic(diagnostic)
+        {
+            assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+        }
+    });
+    for (const project of [originalPath, generatedPath])
+    {
+        const parsed = read(project);
+        assert.deepEqual(parsed.errors, []);
+        const resolved = ts.resolveModuleName('@playwright/test', importer, parsed.options, ts.sys).resolvedModule;
+        assert.equal(ts.sys.realpath(resolved.resolvedFileName), ts.sys.realpath(declaredTypes));
+        assert.equal(resolved.extension, ts.Extension.Dts);
+        assert.equal(resolved.packageId.name, manifest.name);
+        assert.equal(resolved.packageId.version, manifest.version);
+        const forwarded = ts.resolveModuleName('playwright/test', resolved.resolvedFileName,
+            parsed.options, ts.sys).resolvedModule;
+        assert.equal(forwarded.extension, ts.Extension.Dts);
+        assert.equal(ts.sys.realpath(forwarded.resolvedFileName),
+            ts.sys.realpath(path.join(frontend, 'node_modules/playwright/test.d.ts')));
+        const runtimeOnly = ts.resolveModuleName('@playwright/test', importer, {
+            ...parsed.options,
+            paths: { ...parsed.options.paths, '@playwright/test': ['node_modules/@playwright/test/index.mjs'] }
+        }, ts.sys).resolvedModule;
+        assert.equal(runtimeOnly.extension, ts.Extension.Mjs);
+        assert.notEqual(runtimeOnly.resolvedFileName, declaredTypes);
+    }
+});
