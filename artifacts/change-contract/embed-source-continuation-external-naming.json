@@ -7,9 +7,7 @@
                 "src/backend/Services/Authoring/ArticleEmbedRefreshPreparation.cs",
                 "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringPipeline.cs",
                 "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringRefreshPolicy.cs",
-                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.Projection.cs",
                 "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
-                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.Projection.cs",
                 "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
                 "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanContracts.cs",
                 "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanner.cs",
@@ -18,7 +16,7 @@
                 "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
                 "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs"
             ],
-            "reason": "Preserve existing public contract, digest and reason spellings in the thirteen managed embed owners continued from PR 4352, including the independent nested-coordinate verification repair. No process environment key or naming policy is introduced."
+            "reason": "Preserve existing public contract, digest and reason spellings in the eleven managed embed owners continued from PR 4352, including the independent nested-coordinate verification repair. No process environment key or naming policy is introduced."
         },
         {
             "id": "css-like-contract",
