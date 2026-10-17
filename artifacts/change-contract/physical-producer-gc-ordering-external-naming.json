@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/physical-producer-gc-ordering.mjs"
+            ],
+            "reason": "Record the existing tools module environment-variable naming boundary while deriving only explicit filesystem overlap witnesses. Caller-owned process interfaces remain external; new ordering, access and plan locals use camelCase. No environment key is introduced or renamed."
+        }
+    ]
+}
