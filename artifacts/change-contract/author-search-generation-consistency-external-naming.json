@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchContracts.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchCursor.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchIndex.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchIndexVerifier.cs"
+            ],
+            "reason": "Preserve existing registered C# source spellings while binding complete author-search source generations and mandatory index incarnation identities. No environment key, naming rule, registration, source authority or public wire field is invented."
+        }
+    ]
+}

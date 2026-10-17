@@ -16,9 +16,9 @@ namespace FsusBlog.Server.Services.Authoring;
 /// </summary>
 public static partial class AuthorFullTextSearchContract
 {
-    public const int SchemaVersion = 2;
-    public const string DocumentSchema = "fsusblog.author-full-text-document.v2";
-    public const string QuerySchema = "fsusblog.author-full-text-query.v2";
+    public const int SchemaVersion = 3;
+    public const string DocumentSchema = "fsusblog.author-full-text-document.v3";
+    public const string QuerySchema = "fsusblog.author-full-text-query.v3";
     public const string TokenizerVersion = "fsusblog.author-full-text-tokenizer.v3";
     public const string RankingVersion = "fsusblog.author-full-text-ranking.v2";
     public const string IndexOwner = "author-full-text-index";
@@ -156,7 +156,7 @@ public static partial class AuthorFullTextSearchContract
         Require(query.SchemaVersion == SchemaVersion && query.Schema == QuerySchema
             && query.TokenizerVersion == TokenizerVersion && query.RankingVersion == RankingVersion
             && query.IndexOwner == IndexOwner, "author_search_contract_version_invalid");
-        Require(query.QueryId != Guid.Empty && query.UserId > 0 && ValidText(query.SiteScope, 128)
+        Require(query.QueryId != Guid.Empty && query.IndexInstanceId != Guid.Empty && query.UserId > 0 && ValidText(query.SiteScope, 128)
             && query.PermissionRevision > 0 && query.IndexGeneration > 0
             && IsDigest(query.PermissionPolicyDigest),
             "author_search_query_identity_invalid");
@@ -266,11 +266,16 @@ public static partial class AuthorFullTextSearchContract
             }))
         };
 
+    /// <summary>
+    /// Checks results against the current reader's generation and incarnation. Both
+    /// current values must come from the index owner, never from the incoming request.
+    /// </summary>
     public static void ValidateResult(
         AuthorSearchResult result,
         AuthorSearchQuery query,
         long currentPermissionRevision,
-        long currentIndexGeneration)
+        long currentIndexGeneration,
+        Guid currentIndexInstanceId)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(query);
@@ -280,7 +285,9 @@ public static partial class AuthorFullTextSearchContract
             && query.TokenizerVersion == TokenizerVersion && query.RankingVersion == RankingVersion
             && query.IndexOwner == IndexOwner,
             "author_search_result_version_invalid");
-        Require(result.QueryId == query.QueryId && result.QueryDigest == query.ContentDigest
+        Require(currentIndexInstanceId != Guid.Empty && result.IndexInstanceId == currentIndexInstanceId
+            && result.IndexInstanceId == query.IndexInstanceId
+            && result.QueryId == query.QueryId && result.QueryDigest == query.ContentDigest
             && result.PermissionRevision == query.PermissionRevision
             && result.PermissionRevision == currentPermissionRevision
             && result.IndexGeneration == query.IndexGeneration
@@ -532,16 +539,17 @@ public sealed record AuthorSearchClause(
     AuthorSearchClauseKind Kind, AuthorSearchFieldKind? Field, Guid? PropertyDefinitionId,
     string? Operator, ImmutableArray<string> Values);
 
+/// <summary>Version 3 queries require the exact current index incarnation as well as its local generation.</summary>
 public sealed record AuthorSearchQuery(
     int SchemaVersion, string Schema, string TokenizerVersion, string RankingVersion, string IndexOwner,
     Guid QueryId, int UserId, string SiteScope, long PermissionRevision, long IndexGeneration,
     AuthorSearchScope Scope, ImmutableArray<AuthorSearchClause> Clauses, int PageSize,
-    AuthorSearchCursor? Cursor, string ContentDigest, string PermissionPolicyDigest);
+    AuthorSearchCursor? Cursor, string ContentDigest, string PermissionPolicyDigest, Guid IndexInstanceId);
 
-/// <summary>A closed pagination coordinate, bound to the unpaginated query and current visibility facts.</summary>
+/// <summary>A closed pagination coordinate bound to the query, current visibility and exact index incarnation.</summary>
 public sealed record AuthorSearchCursor(
     int SchemaVersion, string QueryContextDigest, long PermissionRevision, long IndexGeneration,
-    int ArticleId, AuthorSearchFieldKind Field, int RawStart, string ContentDigest);
+    int ArticleId, AuthorSearchFieldKind Field, int RawStart, string ContentDigest, Guid IndexInstanceId);
 
 public sealed record AuthorSearchSnippet(
     string DocumentDigest, string SourceDigest, AuthorSearchFieldKind Field, string? HeadingIdentity,
@@ -550,9 +558,10 @@ public sealed record AuthorSearchSnippet(
 
 public sealed record AuthorSearchMatch(AuthorSearchDocument Document, AuthorSearchSnippet Snippet);
 
+/// <summary>A result bound to the query and the current index owner's exact incarnation.</summary>
 public sealed record AuthorSearchResult(
     int SchemaVersion, string TokenizerVersion, string RankingVersion, string IndexOwner,
     Guid QueryId, string QueryDigest, long PermissionRevision, long IndexGeneration,
-    long TotalMatches, ImmutableArray<AuthorSearchMatch> Matches, string ContentDigest);
+    long TotalMatches, ImmutableArray<AuthorSearchMatch> Matches, string ContentDigest, Guid IndexInstanceId);
 
 public sealed class AuthorSearchContractException(string reason) : InvalidOperationException(reason);

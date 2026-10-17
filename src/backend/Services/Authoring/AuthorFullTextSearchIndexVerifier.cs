@@ -14,7 +14,7 @@ public static class AuthorFullTextSearchIndexVerifier
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(source);
-        if (snapshot.UserId <= 0 || string.IsNullOrWhiteSpace(snapshot.SiteScope)
+        if (snapshot.IndexInstanceId == Guid.Empty || snapshot.UserId <= 0 || string.IsNullOrWhiteSpace(snapshot.SiteScope)
             || snapshot.IndexGeneration <= 0 || snapshot.SourceGeneration <= 0
             || snapshot.Articles.Count > AuthorFullTextSearchIndex.MaxArticles
             || snapshot.RegistryDigest != AuthorFullTextSearchVerifier.CaptureRegistry().ContentDigest)

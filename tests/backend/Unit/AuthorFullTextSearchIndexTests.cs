@@ -25,7 +25,7 @@ public sealed class AuthorFullTextSearchIndexTests
         Assert.Equal(Math.Max(1, (count + AuthorFullTextSearchIndex.BatchSize - 1) / AuthorFullTextSearchIndex.BatchSize), source.ReadCount);
         Assert.True(source.LargestPage <= AuthorFullTextSearchIndex.BatchSize);
         int sourceReads = source.ReadCount;
-        AuthorSearchIndexPostingPage page = await index.ReadPostingsAsync(42, "primary", 1,
+        AuthorSearchIndexPostingPage page = await index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1,
             "café", 0, AuthorFullTextSearchIndex.MaxPostingPageSize);
         Assert.Equal(Math.Min(count, AuthorFullTextSearchIndex.MaxPostingPageSize), page.Postings.Length);
         Assert.Equal(count > AuthorFullTextSearchIndex.MaxPostingPageSize, page.HasMore);
@@ -79,6 +79,7 @@ public sealed class AuthorFullTextSearchIndexTests
         var index = new AuthorFullTextSearchIndex(source, 42, "primary");
         await Rebuild(index);
         source.Sequence = 3;
+        source.Generation = 3;
         await index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit);
         int reads = source.ReadCount;
         await index.ApplyAsync(1, 3, AuthorSearchIndexLifecycleEvent.Publish);
@@ -163,9 +164,9 @@ public sealed class AuthorFullTextSearchIndexTests
         Assert.Equal(AuthorSearchIndexStatus.RebuildRequired, index.Status);
     }
 
-    private static async Task Rebuild(AuthorFullTextSearchIndex index)
+    private static async Task Rebuild(AuthorFullTextSearchIndex index, CancellationToken cancellationToken = default)
     {
-        while (await index.RebuildStepAsync() is not null)
+        while (await index.RebuildStepAsync(cancellationToken) is not null)
         {
             Assert.Throws<AuthorSearchContractException>(() => index.RequireCurrentGeneration());
         }
@@ -176,23 +177,24 @@ public sealed class AuthorFullTextSearchIndexTests
     {
         var source = new SourceFixture(1);
         var index = new AuthorFullTextSearchIndex(source, 42, "primary");
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 1));
         await Rebuild(index);
-        AuthorSearchIndexReadSnapshot snapshot = await index.ReadSnapshotAsync(42, "primary", 1);
+        AuthorSearchIndexReadSnapshot snapshot = await index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 1);
         Assert.Equal(42, snapshot.UserId);
         Assert.Equal("primary", snapshot.SiteScope);
         Assert.Single(snapshot.Articles);
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(99, "primary", 1));
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "other", 1));
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", 2));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(99, "primary", index.IndexInstanceId, 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "other", index.IndexInstanceId, 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 2));
         source.Sequence = 2;
+        source.Generation = 2;
         await index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit);
         Assert.Equal(1, snapshot.Articles[1].SourceSequence);
         Assert.Equal(2, index.RequireCurrentGeneration());
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", 1));
-        Assert.Equal(2, (await index.ReadSnapshotAsync(42, "primary", 2)).Articles[1].SourceSequence);
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 1));
+        Assert.Equal(2, (await index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 2)).Articles[1].SourceSequence);
         await Rebuild(index);
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 1));
     }
 
     [Theory]
@@ -203,7 +205,7 @@ public sealed class AuthorFullTextSearchIndexTests
         var source = new SourceFixture(2);
         using var index = new AuthorFullTextSearchIndex(source, 42, "primary");
         await Rebuild(index);
-        AuthorSearchIndexReadSnapshot before = await index.ReadSnapshotAsync(42, "primary", 1);
+        AuthorSearchIndexReadSnapshot before = await index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 1);
         source.Sequence = 2;
         source.Generation = 2;
         source.Deleted = deleted;
@@ -212,8 +214,8 @@ public sealed class AuthorFullTextSearchIndexTests
         await index.ApplyAsync(1, 2, deleted ? AuthorSearchIndexLifecycleEvent.Delete : AuthorSearchIndexLifecycleEvent.Edit);
         Assert.Equal(reads + 1, source.ReadCount);
         Assert.Equal(2, index.RequireCurrentGeneration());
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", 1));
-        AuthorSearchIndexReadSnapshot after = await index.ReadSnapshotAsync(42, "primary", 2);
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 1));
+        AuthorSearchIndexReadSnapshot after = await index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 2);
         Assert.Equal(1, before.Articles[1].SourceSequence);
         Assert.Equal(1, before.Articles[2].Documents[0].Document.Identity.IndexGeneration);
         Assert.Equal(2, after.Articles[1].SourceSequence);
@@ -235,7 +237,7 @@ public sealed class AuthorFullTextSearchIndexTests
         var source = new SourceFixture(2);
         var index = new AuthorFullTextSearchIndex(source, 42, "primary");
         await Rebuild(index);
-        AuthorSearchIndexReadSnapshot snapshot = await index.ReadSnapshotAsync(42, "primary", 1);
+        AuthorSearchIndexReadSnapshot snapshot = await index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 1);
         await AuthorFullTextSearchIndexVerifier.VerifyAsync(snapshot, source);
         AuthorSearchIndexedArticle article = snapshot.Articles[1];
         AuthorSearchTokenizedDocument document = article.Documents[0];
@@ -267,13 +269,13 @@ public sealed class AuthorFullTextSearchIndexTests
         using var index = new AuthorFullTextSearchIndex(source, 42, "primary");
         await Rebuild(index);
         int reads = source.ReadCount;
-        AuthorSearchIndexReadSnapshot snapshot = await index.ReadSnapshotAsync(42, "primary", 1);
-        AuthorSearchIndexPostingPage first = await index.ReadPostingsAsync(42, "primary", 1, "café", 0, 3);
+        AuthorSearchIndexReadSnapshot snapshot = await index.ReadSnapshotAsync(42, "primary", index.IndexInstanceId, 1);
+        AuthorSearchIndexPostingPage first = await index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, "café", 0, 3);
         Assert.Equal(snapshot.RegistryDigest, first.RegistryDigest);
         Assert.Equal(3, first.Postings.Length);
         Assert.True(first.HasMore);
         Assert.Equal(3, first.NextOffset);
-        AuthorSearchIndexPostingPage second = await index.ReadPostingsAsync(42, "primary", 1, "café", first.NextOffset, 3);
+        AuthorSearchIndexPostingPage second = await index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, "café", first.NextOffset, 3);
         Assert.Equal(3, second.Postings.Length);
         Assert.False(second.HasMore);
         Assert.Equal(6, second.NextOffset);
@@ -289,19 +291,24 @@ public sealed class AuthorFullTextSearchIndexTests
             Assert.Equal("café", AuthorFullTextSearchTokenizer.TokenizeQueryValue(raw).Single());
             Assert.Equal(Encoding.UTF8.GetByteCount(source.Text.AsSpan(0, posting.Source.Utf16Start)), posting.Source.Utf8Start);
         }
-        Assert.Empty((await index.ReadPostingsAsync(42, "primary", 1, "missing", 0, 10)).Postings);
+        Assert.Empty((await index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, "missing", 0, 10)).Postings);
         Assert.Equal(reads, source.ReadCount);
         source.Sequence = 2;
         source.Generation = 2;
+        source.ArticleOverrides[2] = (1, false);
+        source.ArticleOverrides[3] = (1, false);
+        source.ArticleTextOverrides[2] = source.Text;
+        source.ArticleTextOverrides[3] = source.Text;
         source.Text = "replacement";
         await index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit);
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", 1, "café", 0, 10));
-        Assert.Equal(new[] { 2, 2, 3, 3 }, (await index.ReadPostingsAsync(42, "primary", 2, "café", 0, 10)).Postings.Select(p => p.ArticleId));
-        Assert.Equal(1, (await index.ReadPostingsAsync(42, "primary", 2, "replacement", 0, 10)).Postings.Single().ArticleId);
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, "café", 0, 10));
+        Assert.Equal(new[] { 2, 2, 3, 3 }, (await index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 2, "café", 0, 10)).Postings.Select(p => p.ArticleId));
+        Assert.Equal(1, (await index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 2, "replacement", 0, 10)).Postings.Single().ArticleId);
         source.Sequence = 3;
+        source.Generation = 3;
         source.Deleted = true;
         await index.ApplyAsync(1, 3, AuthorSearchIndexLifecycleEvent.Delete);
-        Assert.Empty((await index.ReadPostingsAsync(42, "primary", 3, "replacement", 0, 10)).Postings);
+        Assert.Empty((await index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 3, "replacement", 0, 10)).Postings);
     }
 
     [Fact]
@@ -309,27 +316,176 @@ public sealed class AuthorFullTextSearchIndexTests
     {
         var source = new SourceFixture(1);
         using var index = new AuthorFullTextSearchIndex(source, 42, "primary");
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", 1, "café", 0, 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, "café", 0, 1));
         await Rebuild(index);
         foreach (string term in new[] { "CAFÉ", "cafe\u0301", "two words", " ", "a*" })
         {
-            await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", 1, term, 0, 1));
+            await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, term, 0, 1));
         }
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(99, "primary", 1, "café", 0, 1));
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "other", 1, "café", 0, 1));
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", 1, "café", -1, 1));
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", 1, "café", 2, 1));
-        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", 1, "café", 0, AuthorFullTextSearchIndex.MaxPostingPageSize + 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(99, "primary", index.IndexInstanceId, 1, "café", 0, 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "other", index.IndexInstanceId, 1, "café", 0, 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, "café", -1, 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, "café", 2, 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, "café", 0, AuthorFullTextSearchIndex.MaxPostingPageSize + 1));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => index.ReadPostingsAsync(42, "primary", 1, "café", 0, 1, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => index.ReadPostingsAsync(42, "primary", index.IndexInstanceId, 1, "café", 0, 1, cancellation.Token));
         Assert.Equal(AuthorSearchIndexStatus.Current, index.Status);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(101)]
+    [InlineData(10_000)]
+    public async Task Source_Generation_Transition_Publishes_The_Complete_Current_View(int count)
+    {
+        var source = new SourceFixture(count);
+        using var index = new AuthorFullTextSearchIndex(source, 42, "primary");
+        await Rebuild(index);
+        AuthorSearchIndexReadSnapshot before = await index.ReadSnapshotAsync(
+            42, "primary", index.IndexInstanceId, 1);
+        source.Sequence = 2;
+        source.Generation = 2;
+        int reads = source.ReadCount;
+
+        await index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit);
+
+        Assert.Equal(reads + (count + AuthorFullTextSearchIndex.BatchSize - 1)
+            / AuthorFullTextSearchIndex.BatchSize, source.ReadCount);
+        Assert.True(source.LargestPage <= AuthorFullTextSearchIndex.BatchSize);
+        AuthorSearchIndexReadSnapshot after = await index.ReadSnapshotAsync(
+            42, "primary", index.IndexInstanceId, 2);
+        Assert.Equal(AuthorSearchIndexStatus.Current, index.Status);
+        Assert.Equal(2, after.SourceGeneration);
+        Assert.All(after.Articles.Values, article => Assert.Equal(2, article.SourceSequence));
+        Assert.All(before.Articles.Values, article => Assert.Equal(1, article.SourceSequence));
+        await AuthorFullTextSearchIndexVerifier.VerifyAsync(after, source);
+        string incremental = index.SemanticDigest();
+        await Rebuild(index);
+        Assert.Equal(incremental, index.SemanticDigest());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Failed_Generation_Transition_Never_Admits_A_Partial_Current_View(bool drift)
+    {
+        var source = new SourceFixture(101);
+        using var index = new AuthorFullTextSearchIndex(source, 42, "primary");
+        await Rebuild(index);
+        AuthorSearchIndexReadSnapshot before = await index.ReadSnapshotAsync(
+            42, "primary", index.IndexInstanceId, 1);
+        source.Sequence = 2;
+        source.Generation = 2;
+        if (drift)
+        {
+            source.AdvanceGenerationOnRead = source.ReadCount + 2;
+            AuthorSearchContractException failure = await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
+                index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit));
+            Assert.Equal("author_search_source_generation_or_page_invalid", failure.Message);
+        }
+        else
+        {
+            source.FailOnRead = source.ReadCount + 2;
+            await Assert.ThrowsAsync<IOException>(() => index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit));
+        }
+        Assert.Equal(AuthorSearchIndexStatus.RebuildRequired, index.Status);
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => index.ReadSnapshotAsync(
+            42, "primary", index.IndexInstanceId, 1));
+        Assert.All(before.Articles.Values, article => Assert.Equal(1, article.SourceSequence));
+        await Rebuild(index);
+        AuthorSearchIndexReadSnapshot recovered = await index.ReadSnapshotAsync(
+            42, "primary", index.IndexInstanceId, index.RequireCurrentGeneration());
+        Assert.Equal(AuthorSearchIndexStatus.Current, index.Status);
+        Assert.All(recovered.Articles.Values, article => Assert.Equal(2, article.SourceSequence));
+        await AuthorFullTextSearchIndexVerifier.VerifyAsync(recovered, source);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_New_Index_Instance_Rejects_Old_Read_And_Posting_Identities(bool resumed)
+    {
+        var source = new SourceFixture(1) { Generation = 10 };
+        using var original = new AuthorFullTextSearchIndex(source, 42, "primary");
+        await Rebuild(original);
+        long previousGeneration = original.RequireCurrentGeneration();
+        source.Count = 2;
+        source.Generation = 11;
+        using var replacement = new AuthorFullTextSearchIndex(source, 42, "primary");
+        if (resumed)
+        {
+            await replacement.ResumeRebuildAsync(new(11, 0, 0));
+        }
+        else
+        {
+            await Rebuild(replacement);
+        }
+        Assert.Equal(previousGeneration, replacement.RequireCurrentGeneration());
+        Assert.NotEqual(original.IndexInstanceId, replacement.IndexInstanceId);
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => replacement.ReadSnapshotAsync(
+            42, "primary", original.IndexInstanceId, previousGeneration));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => replacement.ReadPostingsAsync(
+            42, "primary", original.IndexInstanceId, previousGeneration, "café", 0, 1));
+        AuthorSearchIndexReadSnapshot current = await replacement.ReadSnapshotAsync(
+            42, "primary", replacement.IndexInstanceId, previousGeneration);
+        Assert.Equal(11, current.SourceGeneration);
+        Assert.Equal(2, current.Articles.Count);
+        Assert.Equal(replacement.IndexInstanceId, current.IndexInstanceId);
+    }
+
+    [Fact]
+    public async Task Parallel_Index_Instances_Cannot_Exchange_Read_Identities()
+    {
+        var source = new ConcurrentSourceFixture(new SourceFixture(1));
+        using var first = new AuthorFullTextSearchIndex(source, 42, "primary");
+        using var second = new AuthorFullTextSearchIndex(source, 42, "primary");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await Task.WhenAll(Rebuild(first, timeout.Token), Rebuild(second, timeout.Token));
+        Assert.Equal(2, source.EnteredReads);
+        Assert.Equal(first.RequireCurrentGeneration(), second.RequireCurrentGeneration());
+        Assert.NotEqual(first.IndexInstanceId, second.IndexInstanceId);
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => first.ReadSnapshotAsync(
+            42, "primary", second.IndexInstanceId, 1));
+        await Assert.ThrowsAsync<AuthorSearchContractException>(() => second.ReadSnapshotAsync(
+            42, "primary", first.IndexInstanceId, 1));
+    }
+
+    private sealed class ConcurrentSourceFixture(IAuthorFullTextSearchIndexSource inner)
+        : IAuthorFullTextSearchIndexSource
+    {
+        private readonly TaskCompletionSource _bothEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _enteredReads;
+
+        public int EnteredReads => _enteredReads;
+
+        public async Task<AuthorSearchIndexSourcePage> ReadAsync(
+            int userId, string siteScope, int afterArticleId, int pageSize,
+            long? expectedSourceGeneration, CancellationToken cancellationToken)
+        {
+            if (Interlocked.Increment(ref _enteredReads) == 2)
+            {
+                _bothEntered.TrySetResult();
+            }
+            await _bothEntered.Task.WaitAsync(cancellationToken);
+            return await inner.ReadAsync(userId, siteScope, afterArticleId, pageSize,
+                expectedSourceGeneration, cancellationToken);
+        }
     }
 
     private sealed class SourceFixture(int count) : IAuthorFullTextSearchIndexSource
     {
         public AuthorSearchFieldKind FieldKind { get; set; } = AuthorSearchFieldKind.MarkdownBody;
         public Dictionary<int, (long Sequence, bool Deleted)> ArticleOverrides { get; } = [];
+        public Dictionary<int, string> ArticleTextOverrides { get; } = [];
+        public int? FailOnRead
+        {
+            get; set;
+        }
+        public int? AdvanceGenerationOnRead
+        {
+            get; set;
+        }
         public int Count { get; set; } = count;
         public long Sequence { get; set; } = 1;
         public long Generation { get; set; } = 1;
@@ -358,7 +514,11 @@ public sealed class AuthorFullTextSearchIndexTests
         {
             ReadCount++;
             cancellationToken.ThrowIfCancellationRequested();
-            if (FailNextRead)
+            if (ReadCount == AdvanceGenerationOnRead)
+            {
+                Generation++;
+            }
+            if (FailNextRead || ReadCount == FailOnRead)
             {
                 FailNextRead = false;
                 throw new IOException("simulated-algorithm-boundary-failure");
@@ -368,7 +528,7 @@ public sealed class AuthorFullTextSearchIndexTests
             {
                 (long sequence, bool deleted) = ArticleOverrides.TryGetValue(id, out var articleState)
                     ? articleState : (Sequence, Deleted);
-                string raw = Text;
+                string raw = ArticleTextOverrides.GetValueOrDefault(id, Text);
                 string digest = AuthorFullTextSearchContract.Digest(raw);
                 AuthorSearchDocument document = AuthorFullTextSearchContract.SealDocument(new(
                     AuthorFullTextSearchContract.SchemaVersion, AuthorFullTextSearchContract.DocumentSchema,
