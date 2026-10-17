@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api.md"
+            ],
+            "reason": "Preserve the existing API overview's caller-visible fragment IDs, routes and contract spellings while replacing empty HTML aliases with Markdown headings and repairing authored block spacing; generated facts and external identifiers remain unchanged."
+        }
+    ]
+}
