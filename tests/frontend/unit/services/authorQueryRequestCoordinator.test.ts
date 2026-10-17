@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { AuthorQueryRequestCoordinator } from '@/services/authoring/authorQueryRequestCoordinator';
+import { AuthorQueryRequestCoordinator, type AuthorQueryRequestLease } from '@/services/authoring/authorQueryRequestCoordinator';
 import { privateRequestRuntime } from '@/services/privateRequestRuntime';
 import { clearRegisteredPrivateState } from '@/services/privateStorageRegistry';
 
@@ -88,6 +88,129 @@ describe('author query request coordinator', () => {
         coordinator.dispose();
         expect(request.signal.aborted).toBe(true);
         expect(() => coordinator.begin(digest)).toThrow('author_query_request_invalid');
+    });
+
+    it('cancel keeps a request begun by an abort callback tracked', () => {
+        const coordinator = create();
+        const first = coordinator.begin(digest);
+        let next: AuthorQueryRequestLease | undefined;
+        first.signal.addEventListener('abort', () => {
+            next = coordinator.begin('b'.repeat(64));
+        });
+
+        coordinator.cancel();
+
+        expect(next).toBeDefined();
+        next!.assertCurrent();
+        coordinator.cancel();
+        expect(next!.signal.aborted).toBe(true);
+        expect(() => next!.assertCurrent()).toThrow('author_query_request_stale');
+    });
+
+    it('begin rejects an outer request superseded by an abort callback', () => {
+        const coordinator = create();
+        const first = coordinator.begin(digest);
+        let next: AuthorQueryRequestLease | undefined;
+        first.signal.addEventListener('abort', () => {
+            next = coordinator.begin('b'.repeat(64));
+        });
+
+        expect(() => coordinator.begin('c'.repeat(64))).toThrow('author_query_request_stale');
+
+        expect(next!.requestSequence).toBe(first.requestSequence + 2);
+        next!.assertCurrent();
+    });
+
+    it('dispose closes admission before abort callbacks run', () => {
+        const coordinator = create();
+        const first = coordinator.begin(digest);
+        let failure: unknown;
+        first.signal.addEventListener('abort', () => {
+            try {
+                coordinator.begin('b'.repeat(64));
+            } catch (error) {
+                failure = error;
+            }
+        });
+
+        coordinator.dispose();
+
+        expect(failure).toBeInstanceOf(Error);
+        expect(failure).toHaveProperty('message', 'author_query_request_invalid');
+        expect(first.signal.aborted).toBe(true);
+    });
+
+    it.each(['account-switch', 'admin-logout', 'credential-revoked', 'epoch-changed', 'panic'] as const)(
+        'closes admission during registered cleanup without permanently disposing the coordinator: %s', async (trigger) => {
+            const coordinator = create();
+            const first = coordinator.begin(digest);
+            let failure: unknown;
+            let next: AuthorQueryRequestLease | undefined;
+            first.signal.addEventListener('abort', () => {
+                try {
+                    next = coordinator.begin('b'.repeat(64));
+                } catch (error) {
+                    failure = error;
+                }
+            });
+
+            const result = await clearRegisteredPrivateState({ trigger });
+
+            expect(result.items.find((item) => item.id === 'author-query-projection-runtime')).toMatchObject({
+                status: 'cleared',
+                affected: 1
+            });
+            expect(failure).toBeInstanceOf(Error);
+            expect(failure).toHaveProperty('message', 'author_query_request_invalid');
+            expect(next).toBeUndefined();
+            expect(first.signal.aborted).toBe(true);
+            const fresh = coordinator.begin('c'.repeat(64));
+            fresh.assertCurrent();
+            coordinator.cancel();
+            expect(fresh.signal.aborted).toBe(true);
+        }
+    );
+
+    it.each([false, true])('registered cleanup closes every coordinator before abort dispatch: reverse=%s', async (reverse) => {
+        const firstCoordinator = create();
+        const secondCoordinator = create();
+        const first = firstCoordinator.begin(digest);
+        const second = secondCoordinator.begin('b'.repeat(64));
+        const source = reverse ? second : first;
+        const target = reverse ? firstCoordinator : secondCoordinator;
+        let failure: unknown;
+        let escaped: AuthorQueryRequestLease | undefined;
+        source.signal.addEventListener('abort', () => {
+            try {
+                escaped = target.begin('c'.repeat(64));
+            } catch (error) {
+                failure = error;
+            }
+        });
+
+        const result = await clearRegisteredPrivateState({ trigger: 'panic' });
+
+        expect(result.items.find((item) => item.id === 'author-query-projection-runtime')?.status).toBe('cleared');
+        expect(failure).toBeInstanceOf(Error);
+        expect(failure).toHaveProperty('message', 'author_query_request_invalid');
+        expect(escaped).toBeUndefined();
+        expect(first.signal.aborted).toBe(true);
+        expect(second.signal.aborted).toBe(true);
+        firstCoordinator.begin(digest).assertCurrent();
+        secondCoordinator.begin('b'.repeat(64)).assertCurrent();
+    });
+
+    it('disposing one coordinator keeps the remaining coordinator registered for cleanup', async () => {
+        const firstCoordinator = create();
+        const secondCoordinator = create();
+        const request = secondCoordinator.begin(digest);
+        firstCoordinator.dispose();
+
+        await clearRegisteredPrivateState({ trigger: 'admin-logout' });
+
+        expect(request.signal.aborted).toBe(true);
+        expect(() => firstCoordinator.begin(digest)).toThrow('author_query_request_invalid');
+        secondCoordinator.begin(digest).assertCurrent();
     });
 
     it.each(['', 'private query text', 'g'.repeat(64), 'a'.repeat(65)])('rejects invalid identity %s', (scope) => {
