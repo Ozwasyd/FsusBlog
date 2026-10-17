@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateStorageSchema.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionStateStore.cs"
+            ],
+            "reason": "These additions are in the registered src C# naming surface. Preserve the existing host process environment boundary without adding or renaming environment settings; internal C# identifiers follow the repository naming map while PostgreSQL and versioned canonical payload names remain explicit storage contracts."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve existing externally addressable Markdown fragments and documented host contract spellings while extending the current state ownership and recovery boundary; introduce no private DOM selectors or token aliases."
+        }
+    ]
+}
