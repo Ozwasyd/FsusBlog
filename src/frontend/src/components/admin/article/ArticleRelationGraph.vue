@@ -202,9 +202,10 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElCheckbox, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus';
+import { ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, ref, watch } from 'vue';
 
+import { FsusUiClassicOption as ElOption, FsusUiClassicSelect as ElSelect } from '@/fsusui/classicSelect';
 import { articleGraphEdgeKinds, articleGraphLimits } from '@/services/authoring/articleGraphQuery';
 import type { ArticleGraphIdentity, ArticleGraphNavigationHost, ArticleGraphQueryHost, ArticleGraphScope } from '@/services/authoring/articleGraphQuery';
 import { ArticleGraphSession } from '@/services/authoring/articleGraphSession';
