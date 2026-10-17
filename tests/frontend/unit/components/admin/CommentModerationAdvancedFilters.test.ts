@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import CommentModerationAdvancedFilters from '@/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue';
 import { CommentModerationStatus } from '@/api/authoring';
 import type { CommentModerationFilters } from '@/composables/useCommentModerationQueue';
+import { FsusUiButton } from '@/fsusui/button';
 
 const DrawerStub = defineComponent({
     props: {
@@ -42,15 +43,15 @@ const mountFilters = () => mount(CommentModerationAdvancedFilters, {
         ]
     },
     global: {
+        components: {
+            ElButton: FsusUiButton
+        },
         stubs: {
             ElDrawer: DrawerStub,
             ElInput: true,
             ElSelect: true,
             ElOption: true,
-            ElDatePicker: true,
-            ElButton: {
-                template: '<button type="button" @click="$emit(\'click\')"><slot /></button>'
-            }
+            ElDatePicker: true
         }
     }
 });
@@ -85,6 +86,47 @@ describe('CommentModerationAdvancedFilters', () => {
         await buttons[1]?.trigger('click');
         expect(wrapper.emitted('clear')?.length).toBeGreaterThan(0);
         expect(wrapper.emitted('apply')?.length).toBeGreaterThan(0);
+        wrapper.unmount();
+    });
+
+    it('keeps clear open and emits apply before closing the drawer', async () => {
+        const wrapper = mountFilters();
+        const applyOpenStates: boolean[] = [];
+        await wrapper.setProps({
+            onApply: () => applyOpenStates.push(wrapper.getComponent(DrawerStub).props('modelValue'))
+        });
+        await wrapper.get('.comment-advanced-trigger').trigger('click');
+
+        const buttons = wrapper.findAll('.comment-advanced-panel__footer button');
+        await buttons[0]?.trigger('click');
+        expect(wrapper.getComponent(DrawerStub).props('modelValue')).toBe(true);
+        await buttons[1]?.trigger('click');
+        expect(applyOpenStates).toEqual([true]);
+        expect(wrapper.getComponent(DrawerStub).props('modelValue')).toBe(false);
+        wrapper.unmount();
+    });
+
+    it('retains valid date ranges and clears incomplete ranges', async () => {
+        const wrapper = mountFilters();
+        await wrapper.get('.comment-advanced-trigger').trigger('click');
+        const picker = wrapper.getComponent({ name: 'ElDatePicker' });
+        picker.vm.$emit('update:modelValue', ['2026-07-01', '2026-07-23']);
+        picker.vm.$emit('update:modelValue', ['2026-07-01']);
+        expect(wrapper.emitted('update:dateRange')).toEqual([
+            [['2026-07-01', '2026-07-23']],
+            [null]
+        ]);
+        wrapper.unmount();
+    });
+
+    it('delegates loading disablement to the native public button', async () => {
+        const wrapper = mountFilters();
+        await wrapper.setProps({ loading: true, activeFilters: [{ key: 'status', label: '待审' }] });
+        const trigger = wrapper.get<HTMLButtonElement>('.comment-advanced-trigger');
+        expect(trigger.element.disabled).toBe(true);
+        expect(trigger.find('.comment-advanced-trigger__count').exists()).toBe(false);
+        await trigger.trigger('click');
+        expect(wrapper.getComponent(DrawerStub).props('modelValue')).toBe(false);
         wrapper.unmount();
     });
 });
