@@ -2267,3 +2267,43 @@ test('canonical Playwright projects preserve the official ESM runtime through th
         rmSync(fixtureRoot, { recursive: true, force: true });
     }
 });
+
+test('canonical complete test CLI checks real SFC props and detects their invalid values', () =>
+{
+    // Add a consumer under an original include, never a reduced compiler project.
+    const fixtureRoot = mkdtempSync(path.join(root, 'tests/frontend/typecheck/canonical-vue-project-'));
+    const consumer = path.join(fixtureRoot, 'consumer.ts');
+    const relativeConsumer = path.relative(root, consumer).replaceAll(path.sep, '/');
+    const source = `import SemanticTime from '@/components/ui/SemanticTime.vue';
+type Props = InstanceType<typeof SemanticTime>['$props'];
+type IsUntyped<T> = 0 extends (1 & T) ? true : false;
+const propsAreTyped: IsUntyped<Props> = false;
+const formatIsTyped: IsUntyped<Props['format']> = false;
+const valid: Props = { format: 'datetime', value: new Date() };
+// @ts-expect-error The real SFC accepts only its declared format literals.
+const invalid: Props = { format: 'invalid-format' };
+void [propsAreTyped, formatIsTyped, valid, invalid];
+`;
+    const run = () => spawnSync(process.execPath, [
+        path.join(root, 'src/frontend/scripts/run-local-fsusui-typecheck.mjs'), '--tests'
+    ], { cwd: root, encoding: 'utf8', timeout: 180_000, maxBuffer: 32 * 1024 * 1024 });
+    try
+    {
+        writeFileSync(consumer, source);
+        const positive = run();
+        assert.equal(positive.error, undefined, output(positive));
+        assert.ok([0, 2].includes(positive.status), output(positive));
+        assert.equal(output(positive).includes(relativeConsumer), false, output(positive));
+
+        writeFileSync(consumer, source.replace('// @ts-expect-error', '// negative control:'));
+        const negative = run();
+        assert.equal(negative.error, undefined, output(negative));
+        assert.equal(negative.status, 2, output(negative));
+        assert.ok(output(negative).split('\n').some(line => line.includes(relativeConsumer)
+            && line.includes('error TS2322:') && line.includes('invalid-format')), output(negative));
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});

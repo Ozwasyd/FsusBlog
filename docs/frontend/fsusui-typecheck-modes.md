@@ -120,10 +120,16 @@ external source types without the registry-mode ESLint content cache.
 
 Run `node src/frontend/scripts/run-local-fsusui-typecheck.mjs --tests` for the
 complete frontend test project with the same local source aliases. This mode
-uses TypeScript and extends the original `tsconfig.playwright.json`; it retains
+uses the locked `vue-tsc` compiler and extends the original
+`tsconfig.playwright.json`; it retains
 every original include, compiler option and Playwright path mapping. It does not
 substitute the application project or the focused export contracts. Its generated
 configuration is `src/frontend/.tmp/typecheck/tsconfig.fsusui-local.tests.generated.json`.
+The complete test roots import real application and FsusUI `.vue` files.
+Plain `tsc` cannot read their component declarations; the Vue compiler checks
+those SFCs and their actual props without a catch-all component declaration.
+Existing diagnostics in the complete program remain failures. Changing the
+compiler does not turn a smaller diagnostic count into acceptance.
 The existing locked TypeScript parser resolves JSONC and inherited configuration;
 complete projects retain explicit files and resolve inherited aliases relative to
 their original path origin before adding the local declarations and aliases.

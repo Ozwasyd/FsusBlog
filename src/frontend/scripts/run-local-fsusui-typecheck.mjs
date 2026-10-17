@@ -160,7 +160,9 @@ function main(args)
         fullTests: args.includes('--tests')
     });
     const frontendRoot = path.join(defaultRepositoryRoot, 'src/frontend');
-    const compiler = args.includes('--tests') ? 'tsc' : 'vue-tsc';
+    // The complete tests import real Vue SFCs as well as TypeScript sources.
+    // Use the locked Vue compiler without replacing the original test program.
+    const compiler = 'vue-tsc';
     const compilerBin = process.platform === 'win32'
         ? compiler
         : path.join(frontendRoot, 'node_modules', '.bin', compiler);
