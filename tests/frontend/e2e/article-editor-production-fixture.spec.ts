@@ -1422,6 +1422,15 @@ test.describe('article editor production outline acceptance', () => {
       await testInfo.attach(`pending-native-close-${theme}`, { body: JSON.stringify(pending), contentType: 'application/json' })
       await expect(dialog).toBeVisible()
       await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+      // Let the interrupted close and reopened entry settle before actively closing
+      // the new session, so a stale close event cannot be hidden by that action.
+      await expect.poll(() => dialog.evaluate((element) => element.getAnimations({ subtree: true })
+        .every((animation) => !animation.pending && animation.playState !== 'running'))).toBe(true)
+      await settleOutlineFrames(page)
+      await expect(dialog).toBeVisible()
+      await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+      expect(await opener.evaluate((element) => element.isConnected)).toBe(true)
+      expect(await launcher.evaluate((current, original) => current === original, opener)).toBe(true)
       await dialog.getByRole('treeitem').first().focus()
       await page.keyboard.press('ArrowDown')
       await expect(dialog.getByRole('treeitem').nth(1)).toBeFocused()
