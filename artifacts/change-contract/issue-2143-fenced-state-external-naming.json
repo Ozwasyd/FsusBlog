@@ -16,6 +16,13 @@
                 "docs/architecture/authoring-extension-host-boundary.md"
             ],
             "reason": "Preserve existing externally addressable Markdown fragments and documented host contract spellings while extending the current state ownership and recovery boundary; introduce no private DOM selectors or token aliases."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve the existing PostgreSQL collection manifest schema and consumer-defined keys while registering the state store test class and increasing only its collection count by the actual 17 PostgreSQL cases."
         }
     ]
 }
