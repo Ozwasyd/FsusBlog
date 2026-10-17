@@ -91,7 +91,8 @@ describe('ordinary graph component review regressions', () => {
             expect(wrapper.findAll('[data-graph-edge]').map(edge => edge.attributes('data-graph-edge'))).toEqual(wrapper.findAll('[data-list-edge]').map(edge => edge.attributes('data-list-edge')));
             for (const edge of wrapper.findAll('[data-list-edge]')) await edge.find('button').trigger('click');
             expect(revealSource.mock.calls.map(([edge]) => edge.relationIdentity)).toEqual(graphResult(graphRequest, 5).edges.map(edge => edge.relationIdentity));
-            expect(wrapper.find('svg').attributes('aria-hidden')).toBe('true');
+            expect(wrapper.findAll('.article-relation-graph__diagram > svg')).toHaveLength(1);
+            expect(wrapper.get('.article-relation-graph__diagram > svg').attributes('aria-hidden')).toBe('true');
         } finally {
             wrapper.unmount();
         }
