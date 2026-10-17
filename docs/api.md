@@ -12,9 +12,9 @@ See the [api/](api/) subdirectory for detailed documentation:
 
 ---
 
-<a id="图例"></a>
-
 ## Legend
+
+### 图例
 
 | Symbol | Meaning |
 | ------ | ------ |
@@ -49,28 +49,23 @@ The `toBinaryPath()` test helper only documents compatibility-layer mapping; it 
 
 ## Auth — `/api/binary/auth`
 
-<a id="pow-与账号入口"></a>
-
 ### PoW and account entry points
 
-
-<a id="当前用户"></a>
+#### PoW 与账号入口
 
 ### Current user
 
-
-<a id="会话管理"></a>
+#### 当前用户
 
 ### Session management
 
+#### 会话管理
 
 ### MFA / TOTP
-
 
 ---
 
 ## Auth — Passkey / WebAuthn — `/api/binary/auth/passkey`
-
 
 ---
 
@@ -125,20 +120,17 @@ Binary endpoints output AEDS v2 frames (`Content-Type: application/octet-stream`
 The frame format is a 16-byte header (`Magic`, `Version`, `HeaderLength`, `Flags`, `FrameType`, `PayloadLength`, `PayloadCrc16`) plus a compact POD payload. AEDS v1 is no longer supported, and old clients are rejected directly.
 Small client payloads are decoded by the TypeScript adapter on the main thread by default; large payloads use the Web Worker / C++23 Wasm decoder. Decode failures must not fall back to the text API.
 
-<a id="公开读"></a>
-
 ### Public reads
 
-
-<a id="需认证"></a>
+#### 公开读
 
 ### Authentication required
 
-
-<a id="管理端"></a>
+#### 需认证
 
 ### Admin
 
+#### 管理端
 
 ---
 
@@ -146,19 +138,17 @@ Small client payloads are decoded by the TypeScript adapter on the main thread b
 
 > The entire route group requires login.
 
-
 ---
 
 ## Admin Messages — `/api/binary/admin/messages`
 
 > The entire route group requires the `admin` role.
 
-
 ---
 
-<a id="通知与健康检查"></a>
-
 ## Notifications and health checks
+
+### 通知与健康检查
 
 | Method | Path | Description | Access |
 | ------ | ------ | ------ | ------ |
@@ -170,17 +160,17 @@ Small client payloads are decoded by the TypeScript adapter on the main thread b
 
 ---
 
-<a id="速率限制说明"></a>
-
 ## Rate-limit notes
+
+### 速率限制说明
 
 Endpoints marked 🚦 are governed by rate-limit policies: authentication/writes default to `fixed_ip`, dynamic public reads use `public_read`, and real-person reading proof uses `read_proof`. Exceeding a limit returns `429 Too Many Requests`, includes `Retry-After` in the response headers, and records a crawler risk score.
 
 The client IP is read through `context.GetClientIp()` after `ForwardedHeadersMiddleware` processing. Nginx/OpenResty must forward the actual client IP correctly; business code must not trust raw forwarded headers.
 
-<a id="aeds-帧格式"></a>
-
 ## AEDS frame format
+
+### AEDS 帧格式
 
 ```text
 Offset  Size  Field
@@ -196,6 +186,7 @@ Offset  Size  Field
 
 Offset 8 is `FrameType`, not a record count; the record count belongs to each payload's own compact layout.
 See [../src/core/Algorithms/AEDS_V2_PROTOCOL.md](../src/core/Algorithms/AEDS_V2_PROTOCOL.md) for the complete protocol specification.
+
 ## Current binary operations
 
 <!-- fsus-doc-claim
