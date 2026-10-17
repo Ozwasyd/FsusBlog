@@ -8,8 +8,9 @@
     letter-spacing: 0.015em;
     text-align: justify;
     font-weight: 400;
-    word-break: break-word;
+    word-break: normal;
     overflow-wrap: break-word;
+    overflow-wrap: anywhere;
     text-autospace: ideograph-alpha ideograph-numeric;
     text-spacing-trim: space-all;
 }
