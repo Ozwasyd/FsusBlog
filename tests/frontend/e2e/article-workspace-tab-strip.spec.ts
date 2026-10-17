@@ -134,7 +134,10 @@ test('deferred ready activation focuses the live tab and survives unmount/remoun
     await page.evaluate(() => (window as FixtureWindow).articleWorkspaceTabFixture!.release());
     await expect(trigger).toBeFocused();
     await trigger.click();
-    await page.getByRole('menu').press('Escape');
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('menuitem').first()).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
     await expect(trigger).toBeFocused();
 });
 
