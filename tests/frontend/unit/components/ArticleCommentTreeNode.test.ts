@@ -77,7 +77,8 @@ describe('comment tree public FsusUI controls', () =>
             expect(button.props('link')).toBe(true);
             expect(button.props('inlineAction')).toBe(true);
         }
-        const deletion = wrapper.getComponent('.is-danger');
+        const deletion = buttons[4];
+        expect(deletion.classes()).toContain('is-danger');
         expect(deletion.props('type')).toBe('danger');
         expect(deletion.attributes('aria-label')).toBe('删除评论');
     });
