@@ -813,7 +813,8 @@ function normalizeFixtureStorageState(storageState: StorageState): StorageState 
       cookies.push({
         name: cookie.name,
         value: cookie.value,
-        url: baseUrl.origin,
+        domain: baseUrl.hostname,
+        path: '/',
         expires: cookie.expires ?? -1,
         httpOnly: Boolean(cookie.httpOnly),
         secure: true,
