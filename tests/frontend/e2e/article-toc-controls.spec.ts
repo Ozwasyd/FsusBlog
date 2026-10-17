@@ -19,7 +19,7 @@ async function openFixture(page: Page, theme: string, empty = false): Promise<st
         body: `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="article-toc-controls-fixture"></div><script type="module" src="${fixtureModule}"></script></body></html>`
     }));
     await page.goto(`/__article-toc-controls?theme=${theme}&empty=${empty ? '1' : '0'}`);
-    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.articleTocControlsReady)).toBe('true');
+    await expect(page.locator('html[data-article-toc-controls-ready="true"]')).toHaveCount(1);
     return errors;
 }
 
