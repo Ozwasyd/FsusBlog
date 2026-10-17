@@ -57,6 +57,56 @@ and security-policy authority IDs; collisions across any extension or core
 authority fail closed. This registry validates contracts only. It does not install,
 persist, grant, activate, dispatch, or execute an extension.
 
+### Prepublish diagnostic category contract
+
+`AuthoringPrepublishDiagnosticRegistry` is a pure category join over the existing
+`AuthoringExtensionRegistrySnapshot`, not another manifest, capability registry or
+RPC entry point. Its constructor requires the exact diagnostic declarations,
+host policies and an explicit current core result collection. It revalidates the
+original extension registry and requires one category declaration per manifest
+diagnostic contribution. Category schema version 1 binds diagnostic ID/version,
+entrypoint content digest, execution class, minimal input schema, permissions,
+policy reference and diagnostic resource ceilings to that original manifest.
+
+The host supplies each code's exact severity, requiredness, inert fix command
+references and effective budgets. Unknown, duplicate, conflicting or core-owned
+identities fail closed. Runtime output cannot supply requiredness, core results,
+pass overrides, patches, executable payloads or HTML. Fact identifiers stay in
+their diagnostic namespace, ranges stay inside admitted source ranges, evidence
+is a bounded reference plus digest, and fix references carry no execution power.
+`Findings` requires nonempty facts; `NoFindings` is an explicit completion with no
+facts and says nothing about core checks passing. Host unavailability produces
+`RequiredUnavailable` or `OptionalNotEvaluable`, preserving requiredness and the
+failure reason instead of manufacturing a successful evaluation.
+
+`CreateInput` consumes host-admitted metadata and exact source ranges. It does
+not acquire permission or verify a live grant: the caller must first use the
+original canonical read/grant owners. The input binds article, document epoch,
+source revision/digest, node/range/read-model scope, configuration, grant,
+runtime/version, host API, request/deadline, category/extension/content identity,
+host policy and complete core result set digest. `ValidateResult`/`ParseResult`
+recompute that binding and enforce deadlines, payload bounds, exact code severity
+and the closed result vocabulary. Only bounded plain text facts are accepted.
+Missing, duplicate and unknown JSON members fail closed at every nesting level.
+
+Version 1 supports named metadata and partial document ranges only. Whole-document
+reads, including a whole document split across ranges, related-article queries,
+network/AI, filesystem, state and mutation capabilities are refused by this
+category contract. A diagnostic category never implies broader read authority.
+Their future admission requires the real original broker/grant policy and explicit
+disclosure rather than a boolean permission inside diagnostic metadata.
+
+These APIs provide immutable structural outcomes for later consumers. They do
+not activate a sandbox, register production services, run core publication checks,
+combine outcomes, cache results or issue publication receipts. The original core
+owner remains responsible for providing its complete current result set; the
+future integration must recheck live grants, lifecycle/current source and execution
+completion, exclude unavailable outcomes from receipts, and preserve core failures.
+The bounds checked here are admission and payload limits, not runtime CPU, memory
+or concurrency measurements. The backend contract tests cover actual category
+registration and result parsing, including malicious controls and 0/1/100/1000
+registrations; full diagnostic runtime and issue acceptance remain open.
+
 ## Verified package and atomic version switch
 
 An authoring package enters production composition only through an exact opaque
