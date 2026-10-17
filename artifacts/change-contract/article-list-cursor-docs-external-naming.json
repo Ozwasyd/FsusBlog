@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve the existing ArticleList envelope, cursor field and protocol identifiers while correcting stale v1 compatibility and 64-byte limit prose to match the current v2-only 512-byte production contract."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/api/schemas-and-errors.md"
+            ],
+            "reason": "Preserve the registered schema reference names and generated markers while correcting only the ArticleList cursor version and byte-limit explanation; current record layout and 56/76-byte read compatibility are unchanged."
+        }
+    ]
+}
