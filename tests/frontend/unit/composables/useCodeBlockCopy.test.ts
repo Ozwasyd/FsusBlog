@@ -212,12 +212,14 @@ describe('useCodeBlockCopy lifecycle with the public FsusUI Button', () =>
         try
         {
             await wrapper.vm.refresh();
+            const oldContainer = wrapper.element.querySelector<HTMLButtonElement>('button')!.parentElement!;
             wrapper.element.querySelector<HTMLButtonElement>('button')!.click();
             wrapper.element.innerHTML = '<pre><code>replacement</code></pre>';
             await wrapper.vm.refresh();
             finishCopy();
             await nextTick();
             expect(unmounted).toHaveBeenCalledTimes(1);
+            expect(oldContainer.children).toHaveLength(0);
             expect(vi.getTimerCount()).toBe(0);
             expect(wrapper.element.querySelector('button')?.getAttribute('aria-label')).toBe(translate('article.actions.copyCode'));
         }
@@ -240,6 +242,7 @@ describe('useCodeBlockCopy lifecycle with the public FsusUI Button', () =>
     it('copies the original text and resets localized feedback after the original 1400ms', async () =>
     {
         vi.useFakeTimers();
+        const schedule = vi.spyOn(globalThis, 'setTimeout');
         const writeText = vi.fn().mockResolvedValue(undefined);
         vi.stubGlobal('navigator', { clipboard: { writeText } });
         const wrapper = mountCodeCopyHarness();
@@ -258,7 +261,7 @@ describe('useCodeBlockCopy lifecycle with the public FsusUI Button', () =>
             expect(button.getAttribute('aria-label')).toBe(translate('article.actions.codeCopied'));
             await vi.advanceTimersByTimeAsync(1);
             expect(button.getAttribute('aria-label')).toBe(translate('article.actions.copyCode'));
-            expect(vi.getTimerCount()).toBe(0);
+            expect(schedule.mock.calls.filter((call) => call[1] === 1400)).toHaveLength(1);
         }
         finally
         {
