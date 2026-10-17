@@ -419,7 +419,7 @@ const handleTabListKeydown = (event: KeyboardEvent): void =>
     const activeIndex = currentIndex >= 0
         ? currentIndex
         : Math.max(0, renderedTabs.findIndex((tab) => tab.isActive));
-    let nextIndex = activeIndex;
+    let nextIndex: number;
     if (event.key === 'ArrowRight')
     {
         nextIndex = (activeIndex + 1) % buttons.length;
