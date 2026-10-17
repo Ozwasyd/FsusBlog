@@ -9,7 +9,7 @@ const presets = [
 
 for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
     test.describe(`${viewport.width}px controls`, () => {
-        test.use({ isMobile: viewport.width < 640, hasTouch: viewport.width < 640 })
+        test.use({ hasTouch: viewport.width < 640 })
         for (const theme of ['light', 'dark'] as const) {
             for (const motion of ['no-preference', 'reduce'] as const) {
                 test(`preset controls preserve native activation and row layout in ${theme} with ${motion} motion`, async ({ page }, testInfo) => {
