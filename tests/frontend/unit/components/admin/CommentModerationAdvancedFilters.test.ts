@@ -93,7 +93,7 @@ describe('CommentModerationAdvancedFilters', () => {
         const wrapper = mountFilters();
         const applyOpenStates: boolean[] = [];
         await wrapper.setProps({
-            onApply: () => applyOpenStates.push(wrapper.getComponent(DrawerStub).props('modelValue'))
+            onApply: () => applyOpenStates.push(wrapper.getComponent(DrawerStub).props('modelValue') === true)
         });
         await wrapper.get('.comment-advanced-trigger').trigger('click');
 
