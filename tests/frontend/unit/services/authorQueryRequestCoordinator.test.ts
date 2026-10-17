@@ -171,6 +171,48 @@ describe('author query request coordinator', () => {
         }
     );
 
+    it.each([false, true])('registered cleanup closes every coordinator before abort dispatch: reverse=%s', async (reverse) => {
+        const firstCoordinator = create();
+        const secondCoordinator = create();
+        const first = firstCoordinator.begin(digest);
+        const second = secondCoordinator.begin('b'.repeat(64));
+        const source = reverse ? second : first;
+        const target = reverse ? firstCoordinator : secondCoordinator;
+        let failure: unknown;
+        let escaped: AuthorQueryRequestLease | undefined;
+        source.signal.addEventListener('abort', () => {
+            try {
+                escaped = target.begin('c'.repeat(64));
+            } catch (error) {
+                failure = error;
+            }
+        });
+
+        const result = await clearRegisteredPrivateState({ trigger: 'panic' });
+
+        expect(result.items.find((item) => item.id === 'author-query-projection-runtime')?.status).toBe('cleared');
+        expect(failure).toBeInstanceOf(Error);
+        expect(failure).toHaveProperty('message', 'author_query_request_invalid');
+        expect(escaped).toBeUndefined();
+        expect(first.signal.aborted).toBe(true);
+        expect(second.signal.aborted).toBe(true);
+        firstCoordinator.begin(digest).assertCurrent();
+        secondCoordinator.begin('b'.repeat(64)).assertCurrent();
+    });
+
+    it('disposing one coordinator keeps the remaining coordinator registered for cleanup', async () => {
+        const firstCoordinator = create();
+        const secondCoordinator = create();
+        const request = secondCoordinator.begin(digest);
+        firstCoordinator.dispose();
+
+        await clearRegisteredPrivateState({ trigger: 'admin-logout' });
+
+        expect(request.signal.aborted).toBe(true);
+        expect(() => firstCoordinator.begin(digest)).toThrow('author_query_request_invalid');
+        secondCoordinator.begin(digest).assertCurrent();
+    });
+
     it.each(['', 'private query text', 'g'.repeat(64), 'a'.repeat(65)])('rejects invalid identity %s', (scope) => {
         expect(() => create().begin(scope)).toThrow('author_query_request_invalid');
     });
