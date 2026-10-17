@@ -1,0 +1,102 @@
+<template>
+    <section
+        class="vault-connection-privacy-review space-y-4"
+        :aria-labelledby="titleId"
+        :aria-describedby="disclosureId"
+    >
+        <h2 :id="titleId">审核本地 Vault 隐私与范围</h2>
+        <dl
+            class="space-y-3"
+            aria-label="待审核的连接范围"
+        >
+            <div>
+                <dt>站点 identity</dt>
+                <dd class="break-all">{{ siteIdentity ?? '尚未提供' }}</dd>
+            </div>
+            <div>
+                <dt>Vault identity</dt>
+                <dd class="break-all">{{ vaultIdentity ?? '尚未提供' }}</dd>
+            </div>
+            <div>
+                <dt>显式选择的本地目录</dt>
+                <dd class="break-all">{{ selectedRootPath ?? '尚未选择目录' }}</dd>
+            </div>
+        </dl>
+        <div
+            :id="disclosureId"
+            class="space-y-3"
+        >
+            <p>连接后，同步范围内的私有文章、草稿正文和 assets 会写入所选目录。</p>
+            <p>Vault 不会自动加密这些文件；本地副本并非天然安全。第三方编辑器、设备上的其他软件或备份服务可能读取它们。</p>
+            <p>接下来必须审核初始同步计划中的具体文章、依赖、权限、冲突和磁盘变更，并另行确认执行。本次隐私确认不会连接 Vault 或写入文件。</p>
+            <p>取消 Vault 连接流程后，仍可使用服务端文章编辑、保存、发布和恢复。</p>
+        </div>
+        <p
+            v-if="!hasReviewScope"
+            role="status"
+        >请先明确选择目录并提供站点与 Vault identity；当前不能继续审核。</p>
+        <ElCheckbox
+            v-model="acknowledged"
+            :disabled="!hasReviewScope"
+        >我已阅读并理解所选范围的本地副本隐私说明</ElCheckbox>
+        <div class="flex flex-wrap gap-3">
+            <ElButton @click="cancel">取消连接流程</ElButton>
+            <ElButton
+                type="primary"
+                :disabled="!hasReviewScope || !acknowledged"
+                @click="reviewInitialPlan"
+            >继续审核初始同步计划</ElButton>
+        </div>
+    </section>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, useId, watch } from 'vue';
+
+import { FsusUiButton as ElButton } from '@/fsusui/button';
+import { FsusUiCheckbox as ElCheckbox } from '@/fsusui/checkbox';
+
+const props = defineProps<{
+    siteIdentity: string | null;
+    vaultIdentity: string | null;
+    selectedRootPath: string | null;
+}>();
+
+// These events are review/navigation intents, never connection or machine receipts.
+const emit = defineEmits<{
+    reviewInitialPlan: [];
+    cancel: [];
+}>();
+
+const titleId = useId();
+const disclosureId = useId();
+const acknowledged = ref(false);
+const hasReviewScope = computed(() => [
+    props.siteIdentity,
+    props.vaultIdentity,
+    props.selectedRootPath
+].every(value => typeof value === 'string' && value.trim().length > 0));
+
+watch(
+    () => [props.siteIdentity, props.vaultIdentity, props.selectedRootPath],
+    () =>
+    {
+        acknowledged.value = false;
+    },
+    { flush: 'sync' }
+);
+
+function reviewInitialPlan(): void
+{
+    if (hasReviewScope.value && acknowledged.value)
+    {
+        emit('reviewInitialPlan');
+    }
+}
+
+function cancel(): void
+{
+    acknowledged.value = false;
+    emit('cancel');
+}
+</script>
