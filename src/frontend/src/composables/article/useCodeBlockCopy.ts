@@ -40,36 +40,42 @@ export function useCodeBlockCopy(
     {
         throw new Error('useCodeBlockCopy requires an owning Vue component');
     }
-    const mountedControls = new Map<HTMLElement, (() => void) | null>();
+    const mountedControls = new Map<HTMLElement, { pre: HTMLElement; stopRendering: (() => void) | null; }>();
     const resetTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
     const revealControls = useScrollReveal({ ...fsusBlogScrollRevealOptions });
     let enhancementGeneration = 0;
     let disposed = false;
 
+    const removeControl = (container: HTMLElement): void =>
+    {
+        const control = mountedControls.get(container);
+        if (!control)
+        {
+            return;
+        }
+        const resetTimer = resetTimers.get(container);
+        if (resetTimer)
+        {
+            globalThis.clearTimeout(resetTimer);
+            resetTimers.delete(container);
+        }
+        control.stopRendering?.();
+        render(null, container);
+        container.remove();
+        control.pre.removeAttribute(ENHANCED_ATTR);
+        control.pre.classList.remove('fsus-code-copy-host');
+        control.pre.removeAttribute('data-fsus-motion-surface');
+        mountedControls.delete(container);
+    };
+
     const cleanup = (): void =>
     {
         enhancementGeneration++;
         revealControls.kill();
-        for (const [container, stopRendering] of mountedControls)
+        for (const container of mountedControls.keys())
         {
-            const resetTimer = resetTimers.get(container);
-            if (resetTimer)
-            {
-                globalThis.clearTimeout(resetTimer);
-                resetTimers.delete(container);
-            }
-            stopRendering?.();
-            render(null, container);
-            container.remove();
+            removeControl(container);
         }
-        mountedControls.clear();
-        const root = toValue(contentRoot);
-        root?.querySelectorAll<HTMLElement>(`pre[${ENHANCED_ATTR}]`).forEach((pre) =>
-        {
-            pre.removeAttribute(ENHANCED_ATTR);
-            pre.classList.remove('fsus-code-copy-host');
-            pre.removeAttribute('data-fsus-motion-surface');
-        });
     };
 
     const enhance = async (): Promise<void> =>
@@ -90,6 +96,15 @@ export function useCodeBlockCopy(
         {
             cleanup();
             return;
+        }
+
+        // Markdown can replace descendants without changing the content-root ref.
+        for (const [container, control] of mountedControls)
+        {
+            if (!root.contains(container) || container.parentElement !== control.pre)
+            {
+                removeControl(container);
+            }
         }
 
         root.querySelectorAll<HTMLElement>('pre').forEach((pre) =>
@@ -139,7 +154,7 @@ export function useCodeBlockCopy(
                 }
             };
 
-            mountedControls.set(container, null);
+            mountedControls.set(container, { pre, stopRendering: null });
             pre.appendChild(container);
             const stopRendering = watchEffect(() =>
             {
@@ -155,7 +170,7 @@ export function useCodeBlockCopy(
                 button.appContext = appContext;
                 render(button, container);
             }, { flush: 'sync' });
-            mountedControls.set(container, stopRendering);
+            mountedControls.set(container, { pre, stopRendering });
             try
             {
                 revealControls.reveal(pre, fsusBlogScrollRevealOptions);
