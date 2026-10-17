@@ -769,6 +769,11 @@
             "indexDigest": "sha256:db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2"
         },
         {
+            "path": "src/frontend/tsconfig.playwright.json",
+            "contentDigest": "sha256:43325af9580e355f76fe3eab77a5529c6b17552de82a4fc415ffbac8ffb44876",
+            "indexDigest": "sha256:43325af9580e355f76fe3eab77a5529c6b17552de82a4fc415ffbac8ffb44876"
+        },
+        {
             "path": "src/frontend/wasm/build.sh",
             "contentDigest": "sha256:ab06bd0ca65960c5aa66265b73794843202abf943db1e238da8f4a4a2702aa24",
             "indexDigest": "sha256:ab06bd0ca65960c5aa66265b73794843202abf943db1e238da8f4a4a2702aa24"
@@ -4425,8 +4430,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:ec8bd021189c2bc2be3de09c446cac8699a3c5a4b09ba5717154b1d4d6b44153",
-            "indexDigest": "sha256:ec8bd021189c2bc2be3de09c446cac8699a3c5a4b09ba5717154b1d4d6b44153"
+            "contentDigest": "sha256:f6d6f520a74b8793583df5702fbf9475e0c3167ef87eed59bb5938f6c3016c73",
+            "indexDigest": "sha256:f6d6f520a74b8793583df5702fbf9475e0c3167ef87eed59bb5938f6c3016c73"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -6994,6 +6999,7 @@
                 "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
                 "src/frontend/stylelint.config.mjs",
                 "src/frontend/tsconfig.node.json",
+                "src/frontend/tsconfig.playwright.json",
                 "stylelint.config.mjs",
                 "tests/tools/native-tooling-style.test.mjs",
                 "tests/tools/package.json",
