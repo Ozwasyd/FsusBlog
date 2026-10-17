@@ -40,15 +40,21 @@ for (const width of [375, 768, 1366, 1440]) {
           const geometry = await action.evaluate((button: HTMLButtonElement) => {
             const bounds = button.getBoundingClientRect()
             const container = button.parentElement!.getBoundingClientRect()
-            const range = document.createRange()
-            range.selectNodeContents(button)
+            const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT)
+            const textRects: DOMRect[] = []
+            for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+              if (!node.textContent?.trim()) continue
+              const range = document.createRange()
+              range.selectNodeContents(node)
+              textRects.push(...range.getClientRects())
+            }
             return {
               width: bounds.width,
               containerWidth: container.width,
               horizontalOverflow: button.scrollWidth - button.clientWidth,
               verticalOverflow: button.scrollHeight - button.clientHeight,
-              lines: new Set([...range.getClientRects()].map(rect => Math.round(rect.top))).size,
-              textContained: [...range.getClientRects()].every(rect =>
+              lines: new Set(textRects.map(rect => Math.round(rect.top))).size,
+              textContained: textRects.every(rect =>
                 rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1
                 && rect.top >= bounds.top - 1 && rect.bottom <= bounds.bottom + 1),
             }
