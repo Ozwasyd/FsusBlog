@@ -12,6 +12,8 @@ public sealed record AuthorSearchIndexFieldSource(
 /// A batch projection of current facts, not a new article/value/parse snapshot authority.
 /// SourceSequence orders original lifecycle observations; deletion is an explicit tombstone.
 /// The adapter must provide the complete eligible field set and real typed-value projections.
+/// A SourceGeneration identifies one stable complete source view across every page; any
+/// article, permission, definition or taxonomy change requires a different source generation.
 /// </summary>
 public sealed record AuthorSearchIndexArticleSource(
     int ArticleId, long SourceSequence, bool Deleted,
@@ -67,7 +69,7 @@ public sealed record AuthorSearchIndexedArticle(
 /// permission/source facts and use the original source reader for snippet context.
 /// </summary>
 public sealed record AuthorSearchIndexReadSnapshot(
-    int UserId, string SiteScope, long IndexGeneration, long SourceGeneration,
+    int UserId, string SiteScope, Guid IndexInstanceId, long IndexGeneration, long SourceGeneration,
     string RegistryDigest, ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> Articles);
 
 /// <summary>One derived position in the sole index; source text is never copied into a posting.</summary>
@@ -77,10 +79,10 @@ public sealed record AuthorSearchIndexPosting(
 
 /// <summary>
 /// Bounded, immutable storage input for the separate query owner. The offset is valid only
-/// within this actor/site/index generation. It is not a query result or authorization receipt.
+/// within this actor/site/index incarnation and publication generation. It is not a query result or authorization receipt.
 /// </summary>
 public sealed record AuthorSearchIndexPostingPage(
-    int UserId, string SiteScope, long IndexGeneration, long SourceGeneration, string RegistryDigest, string Term,
+    int UserId, string SiteScope, Guid IndexInstanceId, long IndexGeneration, long SourceGeneration, string RegistryDigest, string Term,
     int NextOffset, bool HasMore, ImmutableArray<AuthorSearchIndexPosting> Postings);
 
 /// <summary>
@@ -119,6 +121,13 @@ public sealed class AuthorFullTextSearchIndex(
     private long _indexGeneration;
     private AuthorSearchIndexStatus _status = AuthorSearchIndexStatus.RebuildRequired;
 
+    /// <summary>
+    /// Identity of this immutable index incarnation, separate from its local publication
+    /// sequence. Every read and cursor must bind both; a restarted writer gets a new ID.
+    /// This identity is not a permission or durable-storage admission receipt.
+    /// </summary>
+    public Guid IndexInstanceId { get; } = Guid.NewGuid();
+
     public AuthorSearchIndexStatus Status => _status;
 
     public async Task<AuthorSearchIndexCheckpoint?> RebuildStepAsync(CancellationToken cancellationToken = default)
@@ -129,41 +138,11 @@ public sealed class AuthorFullTextSearchIndex(
             ValidateScope();
             if (_status != AuthorSearchIndexStatus.Rebuilding)
             {
-                _staged = ImmutableSortedDictionary<int, AuthorSearchIndexedArticle>.Empty;
-                _afterArticleId = 0;
-                _sourceGeneration = null;
-                _status = AuthorSearchIndexStatus.Rebuilding;
+                BeginRebuild();
             }
             AuthorSearchIndexSourcePage page = await source.ReadAsync(userId, siteScope, _afterArticleId,
                 BatchSize, _sourceGeneration, cancellationToken).ConfigureAwait(false);
-            ValidatePage(page, _afterArticleId, BatchSize);
-            cancellationToken.ThrowIfCancellationRequested();
-            long candidateGeneration = checked(_indexGeneration + 1);
-            ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> candidate = _staged;
-            foreach (AuthorSearchIndexArticleSource article in page.Articles)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                candidate = candidate.Add(article.ArticleId, Project(article, candidateGeneration));
-            }
-            ValidateBudget(candidate);
-            _staged = candidate;
-            _sourceGeneration = page.SourceGeneration;
-            if (!page.Articles.IsEmpty)
-            {
-                _afterArticleId = page.Articles[^1].ArticleId;
-            }
-            if (page.HasMore)
-            {
-                return new(page.SourceGeneration, _afterArticleId, _staged.Count);
-            }
-            ImmutableDictionary<string, ImmutableArray<AuthorSearchIndexPosting>> postings =
-                BuildPostings(_staged, cancellationToken);
-            _articles = _staged;
-            _postings = postings;
-            _staged = ImmutableSortedDictionary<int, AuthorSearchIndexedArticle>.Empty;
-            _indexGeneration = candidateGeneration;
-            _status = AuthorSearchIndexStatus.Current;
-            return null;
+            return StageRebuildPage(page, cancellationToken);
         }
         catch
         {
@@ -223,17 +202,48 @@ public sealed class AuthorFullTextSearchIndex(
             {
                 return;
             }
-            AuthorSearchIndexSourcePage page = await source.ReadAsync(userId, siteScope, articleId - 1,
-                1, null, cancellationToken).ConfigureAwait(false);
-            ValidatePage(page, articleId - 1, 1);
-            if (page.Articles.Length != 1 || page.Articles[0].ArticleId != articleId
-                || page.Articles[0].SourceSequence < eventSourceSequence)
+            // The first bounded page can also seed a complete refresh when the source
+            // generation advances. A single-article read cannot prove that other articles
+            // or permission facts stayed unchanged across that transition.
+            AuthorSearchIndexSourcePage page = await source.ReadAsync(userId, siteScope, 0,
+                BatchSize, null, cancellationToken).ConfigureAwait(false);
+            ValidatePage(page, 0, BatchSize);
+            if (page.SourceGeneration != _sourceGeneration)
             {
-                throw new AuthorSearchContractException("author_search_current_source_unavailable_or_late");
+                BeginRebuild();
+                AuthorSearchIndexArticleSource? eventArticle = null;
+                while (true)
+                {
+                    eventArticle ??= page.Articles.FirstOrDefault(article => article.ArticleId == articleId);
+                    if (!page.HasMore)
+                    {
+                        ValidateEventArticle(eventArticle, articleId, eventSourceSequence);
+                    }
+                    if (StageRebuildPage(page, cancellationToken) is null)
+                    {
+                        return;
+                    }
+                    page = await source.ReadAsync(userId, siteScope, _afterArticleId,
+                        BatchSize, _sourceGeneration, cancellationToken).ConfigureAwait(false);
+                }
             }
+            AuthorSearchIndexArticleSource? current =
+                page.Articles.FirstOrDefault(article => article.ArticleId == articleId);
+            if (current is null && page.HasMore)
+            {
+                page = await source.ReadAsync(userId, siteScope, articleId - 1,
+                    1, _sourceGeneration, cancellationToken).ConfigureAwait(false);
+                ValidatePage(page, articleId - 1, 1);
+                if (page.SourceGeneration != _sourceGeneration)
+                {
+                    throw new AuthorSearchContractException("author_search_source_generation_or_page_invalid");
+                }
+                current = page.Articles.FirstOrDefault(article => article.ArticleId == articleId);
+            }
+            ValidateEventArticle(current, articleId, eventSourceSequence);
             cancellationToken.ThrowIfCancellationRequested();
             long candidateGeneration = checked(_indexGeneration + 1);
-            AuthorSearchIndexedArticle projected = Project(page.Articles[0], candidateGeneration);
+            AuthorSearchIndexedArticle projected = Project(current!, candidateGeneration);
             ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> candidate =
                 RebindGeneration(_articles, candidateGeneration).SetItem(articleId, projected);
             ValidateBudget(candidate);
@@ -255,6 +265,56 @@ public sealed class AuthorFullTextSearchIndex(
         }
     }
 
+    private void BeginRebuild()
+    {
+        _staged = ImmutableSortedDictionary<int, AuthorSearchIndexedArticle>.Empty;
+        _afterArticleId = 0;
+        _sourceGeneration = null;
+        _status = AuthorSearchIndexStatus.Rebuilding;
+    }
+
+    private AuthorSearchIndexCheckpoint? StageRebuildPage(
+        AuthorSearchIndexSourcePage page, CancellationToken cancellationToken)
+    {
+        ValidatePage(page, _afterArticleId, BatchSize);
+        cancellationToken.ThrowIfCancellationRequested();
+        long candidateGeneration = checked(_indexGeneration + 1);
+        ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> candidate = _staged;
+        foreach (AuthorSearchIndexArticleSource article in page.Articles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            candidate = candidate.Add(article.ArticleId, Project(article, candidateGeneration));
+        }
+        ValidateBudget(candidate);
+        _staged = candidate;
+        _sourceGeneration = page.SourceGeneration;
+        if (!page.Articles.IsEmpty)
+        {
+            _afterArticleId = page.Articles[^1].ArticleId;
+        }
+        if (page.HasMore)
+        {
+            return new(page.SourceGeneration, _afterArticleId, _staged.Count);
+        }
+        ImmutableDictionary<string, ImmutableArray<AuthorSearchIndexPosting>> postings =
+            BuildPostings(_staged, cancellationToken);
+        _articles = _staged;
+        _postings = postings;
+        _staged = ImmutableSortedDictionary<int, AuthorSearchIndexedArticle>.Empty;
+        _indexGeneration = candidateGeneration;
+        _status = AuthorSearchIndexStatus.Current;
+        return null;
+    }
+
+    private static void ValidateEventArticle(
+        AuthorSearchIndexArticleSource? article, int articleId, long eventSourceSequence)
+    {
+        if (article is null || article.ArticleId != articleId || article.SourceSequence < eventSourceSequence)
+        {
+            throw new AuthorSearchContractException("author_search_current_source_unavailable_or_late");
+        }
+    }
+
     /// <summary>Returns generation facts only. Permission-safe query execution remains unimplemented.</summary>
     public long RequireCurrentGeneration()
     {
@@ -265,19 +325,25 @@ public sealed class AuthorFullTextSearchIndex(
         return _indexGeneration;
     }
 
+    /// <summary>
+    /// Reads one complete published view only when actor, site, writer incarnation and
+    /// local generation all match. Permission and current-source revalidation remain
+    /// mandatory for the separate query executor.
+    /// </summary>
     public async Task<AuthorSearchIndexReadSnapshot> ReadSnapshotAsync(
-        int queryUserId, string querySiteScope, long expectedIndexGeneration,
+        int queryUserId, string querySiteScope, Guid expectedIndexInstanceId, long expectedIndexGeneration,
         CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             long generation = RequireCurrentGeneration();
-            if (queryUserId != userId || querySiteScope != siteScope || expectedIndexGeneration != generation)
+            if (queryUserId != userId || querySiteScope != siteScope
+                || expectedIndexInstanceId != IndexInstanceId || expectedIndexGeneration != generation)
             {
                 throw new AuthorSearchContractException("author_search_index_read_scope_or_generation_stale");
             }
-            return new(userId, siteScope, generation, _sourceGeneration!.Value,
+            return new(userId, siteScope, IndexInstanceId, generation, _sourceGeneration!.Value,
                 AuthorFullTextSearchVerifier.CaptureRegistry().ContentDigest, _articles);
         }
         finally
@@ -293,7 +359,7 @@ public sealed class AuthorFullTextSearchIndex(
     /// No source corpus scan or source-provider call occurs while opening or paging a lookup.
     /// </summary>
     public async Task<AuthorSearchIndexPostingPage> ReadPostingsAsync(
-        int queryUserId, string querySiteScope, long expectedIndexGeneration, string normalizedTerm,
+        int queryUserId, string querySiteScope, Guid expectedIndexInstanceId, long expectedIndexGeneration, string normalizedTerm,
         int offset, int pageSize, CancellationToken cancellationToken = default)
     {
         if (offset is < 0 or > MaxStoredTokens || pageSize is <= 0 or > MaxPostingPageSize)
@@ -309,7 +375,8 @@ public sealed class AuthorFullTextSearchIndex(
         try
         {
             long generation = RequireCurrentGeneration();
-            if (queryUserId != userId || querySiteScope != siteScope || expectedIndexGeneration != generation)
+            if (queryUserId != userId || querySiteScope != siteScope
+                || expectedIndexInstanceId != IndexInstanceId || expectedIndexGeneration != generation)
             {
                 throw new AuthorSearchContractException("author_search_index_read_scope_or_generation_stale");
             }
@@ -327,7 +394,7 @@ public sealed class AuthorFullTextSearchIndex(
                 page.Add(all[index]);
             }
             cancellationToken.ThrowIfCancellationRequested();
-            return new(userId, siteScope, generation, _sourceGeneration!.Value,
+            return new(userId, siteScope, IndexInstanceId, generation, _sourceGeneration!.Value,
                 AuthorFullTextSearchVerifier.CaptureRegistry().ContentDigest, normalizedTerm, offset + count, offset + count < all.Length, page.MoveToImmutable());
         }
         finally
@@ -372,6 +439,15 @@ public sealed class AuthorFullTextSearchIndex(
         {
             throw new AuthorSearchContractException("author_search_article_source_invalid");
         }
+        var reusable = new Dictionary<string, AuthorSearchTokenizedDocument>(StringComparer.Ordinal);
+        if (_articles.TryGetValue(article.ArticleId, out AuthorSearchIndexedArticle? previous))
+        {
+            foreach (AuthorSearchTokenizedDocument cached in previous.Documents)
+            {
+                AuthorSearchTokenizedDocument rebound = RebindDocument(cached, generation);
+                reusable.Add(rebound.Document.ContentDigest, rebound);
+            }
+        }
         var documents = ImmutableArray.CreateBuilder<AuthorSearchTokenizedDocument>();
         foreach (AuthorSearchIndexFieldSource field in article.Fields)
         {
@@ -387,8 +463,19 @@ public sealed class AuthorFullTextSearchIndex(
                     IndexGeneration = generation
                 }
             });
-            documents.Add(AuthorFullTextSearchVerifier.CreateTokenDocument(document, field.RawSource,
-                article.Definitions, field.ParserVersion, field.DocumentEpoch));
+            if (reusable.TryGetValue(document.ContentDigest, out AuthorSearchTokenizedDocument? cached))
+            {
+                // Reuse immutable tokens only after validating the newly supplied raw,
+                // permission, definition and range facts through the original authority.
+                AuthorFullTextSearchContract.ValidateDocument(document, field.RawSource,
+                    article.Definitions, field.ParserVersion, field.DocumentEpoch);
+                documents.Add(cached);
+            }
+            else
+            {
+                documents.Add(AuthorFullTextSearchVerifier.CreateTokenDocument(document, field.RawSource,
+                    article.Definitions, field.ParserVersion, field.DocumentEpoch));
+            }
         }
         ImmutableArray<AuthorSearchTokenizedDocument> ordered =
             [.. documents.OrderBy(static document => document.Document.Field.Kind)
@@ -414,16 +501,7 @@ public sealed class AuthorFullTextSearchIndex(
         foreach (AuthorSearchIndexedArticle article in articles.Values)
         {
             ImmutableArray<AuthorSearchTokenizedDocument> documents =
-                [.. article.Documents.Select(document => AuthorFullTextSearchVerifier.SealTokenDocument(document with
-                {
-                    Document = AuthorFullTextSearchContract.SealDocument(document.Document with
-                    {
-                        Identity = document.Document.Identity with
-                        {
-                            IndexGeneration = generation
-                        }
-                    })
-                }))];
+                [.. article.Documents.Select(document => RebindDocument(document, generation))];
             rebound[article.ArticleId] = article with
             {
                 Documents = documents
@@ -431,6 +509,18 @@ public sealed class AuthorFullTextSearchIndex(
         }
         return rebound.ToImmutable();
     }
+
+    private static AuthorSearchTokenizedDocument RebindDocument(AuthorSearchTokenizedDocument document, long generation)
+        => AuthorFullTextSearchVerifier.SealTokenDocument(document with
+        {
+            Document = AuthorFullTextSearchContract.SealDocument(document.Document with
+            {
+                Identity = document.Document.Identity with
+                {
+                    IndexGeneration = generation
+                }
+            })
+        });
 
     private static ImmutableDictionary<string, ImmutableArray<AuthorSearchIndexPosting>> BuildPostings(
         ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> articles, CancellationToken cancellationToken)

@@ -26,6 +26,7 @@ public static partial class AuthorFullTextSearchContract
             && Fields.ContainsKey(cursor.Field) && cursor.RawStart >= 0
             && cursor.PermissionRevision == query.PermissionRevision
             && cursor.IndexGeneration == query.IndexGeneration
+            && cursor.IndexInstanceId == query.IndexInstanceId
             && cursor.QueryContextDigest == QueryContextDigest(query)
             && IsDigest(cursor.ContentDigest) && cursor.ContentDigest == SealCursor(cursor).ContentDigest,
             "author_search_cursor_invalid_or_stale");

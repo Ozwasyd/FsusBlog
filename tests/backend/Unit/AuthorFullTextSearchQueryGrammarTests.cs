@@ -83,5 +83,5 @@ public sealed class AuthorFullTextSearchQueryGrammarTests
             AuthorFullTextSearchContract.QuerySchema, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
             Guid.NewGuid(), 42, "primary", 1, 1, AuthorSearchScope.CurrentArticle, clauses, 20, null, string.Empty,
-            AuthorFullTextSearchContract.Digest("permission-policy")));
+            AuthorFullTextSearchContract.Digest("permission-policy"), Guid.NewGuid()));
 }

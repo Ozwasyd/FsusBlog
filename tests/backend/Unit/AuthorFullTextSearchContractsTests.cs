@@ -71,6 +71,7 @@ public sealed class AuthorFullTextSearchContractsTests
             document with { IndexOwner = "public-search-index" },
             document with { SchemaVersion = AuthorFullTextSearchContract.SchemaVersion + 1 },
             document with { SchemaVersion = 1 },
+            document with { SchemaVersion = 2 },
             document with { TokenizerVersion = "unknown" },
             document with { Field = document.Field with { Kind = (AuthorSearchFieldKind)999 } },
             document with { Identity = document.Identity with { Scope = AuthorSearchScope.HistoricalRevisionUnavailable } },
@@ -139,7 +140,9 @@ public sealed class AuthorFullTextSearchContractsTests
             query with { PageSize = AuthorFullTextSearchContract.MaxPageSize + 1 },
             query with { Scope = AuthorSearchScope.HistoricalRevisionUnavailable },
             query with { PermissionRevision = 2 },
-            query with { RankingVersion = "embedding" }
+            query with { RankingVersion = "embedding" },
+            query with { SchemaVersion = 2 },
+            query with { IndexInstanceId = Guid.Empty }
         })
         {
             Assert.Throws<AuthorSearchContractException>(() =>
@@ -248,14 +251,14 @@ public sealed class AuthorFullTextSearchContractsTests
         AuthorSearchResult result = AuthorFullTextSearchContract.SealResult(new(
             AuthorFullTextSearchContract.SchemaVersion, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
-            query.QueryId, query.ContentDigest, 1, 1, 1, [new(document, snippet)], string.Empty));
-        AuthorFullTextSearchContract.ValidateResult(result, query, 1, 1);
-        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.ValidateResult(result, query, 2, 1));
-        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.ValidateResult(result, query, 1, 2));
+            query.QueryId, query.ContentDigest, 1, 1, 1, [new(document, snippet)], string.Empty, query.IndexInstanceId));
+        AuthorFullTextSearchContract.ValidateResult(result, query, 1, 1, query.IndexInstanceId);
+        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.ValidateResult(result, query, 2, 1, query.IndexInstanceId));
+        Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.ValidateResult(result, query, 1, 2, query.IndexInstanceId));
         Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.ValidateResult(result with
         {
             QueryId = Guid.NewGuid()
-        }, query, 1, 1));
+        }, query, 1, 1, query.IndexInstanceId));
         AuthorSearchDocument otherUser = AuthorFullTextSearchContract.SealDocument(document with
         {
             Identity = document.Identity with
@@ -266,7 +269,25 @@ public sealed class AuthorFullTextSearchContractsTests
         Assert.Throws<AuthorSearchContractException>(() => AuthorFullTextSearchContract.ValidateResult(result with
         {
             Matches = [new(otherUser, snippet)]
-        }, query, 1, 1));
+        }, query, 1, 1, query.IndexInstanceId));
+    }
+
+    [Fact]
+    public void Result_Rejects_Another_Current_Index_Incarnation_With_The_Same_Generation()
+    {
+        AuthorSearchQuery query = Query(new AuthorSearchClause(
+            AuthorSearchClauseKind.PlainText, null, null, null, ["hello"]));
+        AuthorSearchResult result = AuthorFullTextSearchContract.SealResult(new(
+            AuthorFullTextSearchContract.SchemaVersion, AuthorFullTextSearchContract.TokenizerVersion,
+            AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
+            query.QueryId, query.ContentDigest, 1, 1, 0, [], string.Empty, query.IndexInstanceId));
+
+        AuthorFullTextSearchContract.ValidateResult(result, query, 1, 1, query.IndexInstanceId);
+        AuthorSearchContractException failure = Assert.Throws<AuthorSearchContractException>(() =>
+            AuthorFullTextSearchContract.ValidateResult(result, query, 1, 1, Guid.NewGuid()));
+        Assert.Equal("author_search_result_stale", failure.Message);
+        Assert.Throws<AuthorSearchContractException>(() =>
+            AuthorFullTextSearchContract.ValidateResult(result, query, 1, 1, Guid.Empty));
     }
 
     [Fact]
@@ -342,5 +363,5 @@ public sealed class AuthorFullTextSearchContractsTests
             AuthorFullTextSearchContract.QuerySchema, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
             Guid.NewGuid(), 42, "site-a", 1, 1, AuthorSearchScope.CurrentArticle,
-            clauses.ToImmutableArray(), 25, null, string.Empty, AuthorFullTextSearchContract.Digest("permission-policy")));
+            clauses.ToImmutableArray(), 25, null, string.Empty, AuthorFullTextSearchContract.Digest("permission-policy"), Guid.NewGuid()));
 }
