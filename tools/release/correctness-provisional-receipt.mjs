@@ -44,7 +44,7 @@ function identity(value, label)
 
 function digest(value, label)
 {
-    if (!isDigest(value))
+    if (typeof value !== 'string' || !isDigest(value))
     {
         fail(label, 'requires a SHA-256 digest');
     }
@@ -53,7 +53,8 @@ function digest(value, label)
 function source(value, label)
 {
     closedObject(value, ['commit', 'worktreeFingerprint'], label);
-    if (!/^[a-f0-9]{40}$/u.test(value.commit)
+    if (typeof value.commit !== 'string' || typeof value.worktreeFingerprint !== 'string'
+        || !/^[a-f0-9]{40}$/u.test(value.commit)
         || !/^[a-f0-9]{64}$/u.test(normalizeFingerprint(value.worktreeFingerprint)))
     {
         fail(label, 'requires exact commit and worktree identities');
@@ -97,7 +98,20 @@ function references(values, expected, label)
     {
         fail(label, 'requires an explicit array');
     }
-    values.forEach((value, index) => reference(value, expected, `${label}[${index}]`));
+    for (const [index, value] of values.entries())
+    {
+        const referenceLabel = `${label}[${index}]`;
+        reference(value, expected, referenceLabel);
+        if (value.targetTierId !== expected.targetTierId
+            && !Object.hasOwn(expected.dependencyAttemptIds, value.targetTierId))
+        {
+            fail(referenceLabel, 'requires a tier in the held tier roster');
+        }
+        const expectedAttemptId = value.targetTierId === expected.targetTierId
+            ? expected.targetAttemptId
+            : expected.dependencyAttemptIds[value.targetTierId];
+        equal(value.targetAttemptId, expectedAttemptId, `${referenceLabel}.current attempt`);
+    }
     const keys = values.map((value) => `${value.targetTierId}:${value.targetAttemptId}:${value.ref}`);
     equal(keys, [...new Set(keys)].sort(), `${label} sorted unique roster`);
 }

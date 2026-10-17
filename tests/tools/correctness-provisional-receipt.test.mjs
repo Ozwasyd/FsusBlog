@@ -242,3 +242,117 @@ test('existing final correctness consumer rejects provisional and resealed promo
     assert.ok(promotedErrors.some((error) => error.includes('correctness receipt authority is invalid')));
     assert.ok(promotedErrors.some((error) => error.includes('correctness receipt aggregate tier must be production-correctness')));
 });
+
+
+test('provisional source and build identities reject non-text values', () =>
+{
+    const acceptedFields = [];
+    for (const [field, value] of [
+        ['commit', ['a'.repeat(40)]],
+        ['worktreeFingerprint', ['b'.repeat(64)]],
+        ['buildReceiptDigest', [`sha256:${'c'.repeat(64)}`]]
+    ])
+    {
+        const context = fixture();
+        if (field === 'buildReceiptDigest')
+        {
+            context.buildReceiptDigest = value;
+            context.dependencyTerminalReceipts[0].receipt.buildReceiptDigest = value;
+        }
+        else
+        {
+            context.sourceState[field] = value;
+        }
+        const { receipt, reference } = context.dependencyTerminalReceipts[0];
+        reseal(receipt);
+        reference.ref = receipt.contentDigest;
+        reference.digest = receipt.contentDigest;
+        try
+        {
+            createCorrectnessProvisionalReceipt(context);
+            acceptedFields.push(field);
+        }
+        catch (error)
+        {
+            assert.match(error.message, /sourceState|buildReceiptDigest/u);
+        }
+    }
+    assert.deepEqual(acceptedFields, []);
+});
+
+
+test('provisional immutable references reject non-text digest and ref values', () =>
+{
+    for (const field of ['digest', 'ref'])
+    {
+        const context = fixture();
+        const { reference } = context.dependencyTerminalReceipts[0];
+        reference[field] = [reference[field]];
+        assert.throws(() => createCorrectnessProvisionalReceipt(context), /digest|ref/u);
+    }
+});
+
+
+test('provisional summary and physical references bind the held tier attempt roster', () =>
+{
+    const accepted = [];
+    for (const field of ['jobSummaryRefs', 'physicalExecutionRefs'])
+    {
+        const context = fixture();
+        const dependencyReference = structuredClone(context.dependencyTerminalReceipts[0].reference);
+        const aggregateReference = {
+            ref: `sha256:${'d'.repeat(64)}`,
+            digest: `sha256:${'d'.repeat(64)}`,
+            runId: context.runId,
+            targetTierId: context.targetTierId,
+            targetAttemptId: context.targetAttemptId
+        };
+        context[field] = [aggregateReference, dependencyReference];
+        const valid = createCorrectnessProvisionalReceipt(context);
+        assert.deepEqual(valid[field], context[field]);
+        assert.equal(validateCorrectnessProvisionalReceipt(valid, context), valid);
+
+        for (const [label, reference] of [
+            ['stale dependency attempt', { ...dependencyReference, targetAttemptId: 'unit-attempt-b' }],
+            ['stale aggregate attempt', { ...aggregateReference, targetAttemptId: 'aggregate-attempt-b' }],
+            ['unknown tier', { ...dependencyReference, targetTierId: 'unselected-tier' }]
+        ])
+        {
+            const invalid = { ...context, [field]: [reference] };
+            try
+            {
+                createCorrectnessProvisionalReceipt(invalid);
+                accepted.push(`${field}: ${label}`);
+            }
+            catch (error)
+            {
+                assert.match(error.message, /current attempt|tier roster/u);
+            }
+        }
+    }
+    assert.deepEqual(accepted, []);
+});
+
+
+test('provisional references reject sparse arrays before producing non-roundtrippable receipts', () =>
+{
+    const accepted = [];
+    for (const field of ['jobSummaryRefs', 'physicalExecutionRefs'])
+    {
+        const context = fixture();
+        context[field] = Array(1);
+        try
+        {
+            const receipt = createCorrectnessProvisionalReceipt(context);
+            accepted.push(field);
+            assert.throws(() => validateCorrectnessProvisionalReceipt(
+                JSON.parse(JSON.stringify(receipt)), context
+            ), /requires exactly/u);
+        }
+        catch (error)
+        {
+            assert.match(error.message, /requires exactly/u);
+        }
+    }
+    assert.deepEqual(accepted, []);
+});
