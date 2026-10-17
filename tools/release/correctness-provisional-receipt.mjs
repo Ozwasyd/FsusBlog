@@ -92,6 +92,23 @@ function reference(value, expected, label)
     equal(value.runId, expected.runId, `${label}.runId`);
 }
 
+function referenceTupleKey(value)
+{
+    return JSON.stringify([value.targetTierId, value.targetAttemptId, value.ref]);
+}
+
+function compareReferenceTuples(left, right)
+{
+    for (const field of ['targetTierId', 'targetAttemptId', 'ref'])
+    {
+        if (left[field] !== right[field])
+        {
+            return left[field] < right[field] ? -1 : 1;
+        }
+    }
+    return 0;
+}
+
 function references(values, expected, label)
 {
     if (!Array.isArray(values))
@@ -112,8 +129,9 @@ function references(values, expected, label)
             : expected.dependencyAttemptIds[value.targetTierId];
         equal(value.targetAttemptId, expectedAttemptId, `${referenceLabel}.current attempt`);
     }
-    const keys = values.map((value) => `${value.targetTierId}:${value.targetAttemptId}:${value.ref}`);
-    equal(keys, [...new Set(keys)].sort(), `${label} sorted unique roster`);
+    const keys = values.map(referenceTupleKey);
+    const sortedUniqueKeys = [...new Set([...values].sort(compareReferenceTuples).map(referenceTupleKey))];
+    equal(keys, sortedUniqueKeys, `${label} sorted unique roster`);
 }
 
 function validateIdentity(value)

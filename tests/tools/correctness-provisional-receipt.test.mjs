@@ -356,3 +356,105 @@ test('provisional references reject sparse arrays before producing non-roundtrip
     }
     assert.deepEqual(accepted, []);
 });
+
+
+function dependencyFixture(dependencyAttemptIds)
+{
+    const context = fixture();
+    const template = context.dependencyTerminalReceipts[0];
+    context.requiredDependencyTierIds = Object.keys(dependencyAttemptIds).sort();
+    context.dependencyAttemptIds = structuredClone(dependencyAttemptIds);
+    context.dependencyReceiptSchemas = Object.fromEntries(context.requiredDependencyTierIds
+        .map((tierId) => [tierId, template.receipt.schema]));
+    context.dependencyTerminalReceipts = context.requiredDependencyTierIds.map((tierId) =>
+    {
+        const receipt = reseal({
+            ...structuredClone(template.receipt),
+            targetTierId: tierId,
+            targetAttemptId: context.dependencyAttemptIds[tierId]
+        });
+        return {
+            reference: {
+                ...structuredClone(template.reference),
+                ref: receipt.contentDigest,
+                digest: receipt.contentDigest,
+                targetTierId: receipt.targetTierId,
+                targetAttemptId: receipt.targetAttemptId
+            },
+            receipt
+        };
+    });
+    context.executedTierIds = [...context.requiredDependencyTierIds, context.targetTierId].sort();
+    context.jobSummaryRefs = context.dependencyTerminalReceipts.map((entry) => structuredClone(entry.reference));
+    context.physicalExecutionRefs = structuredClone(context.jobSummaryRefs);
+    return context;
+}
+
+test('provisional closure accepts release and release-evidence in ordinal tier order', () =>
+{
+    const context = dependencyFixture({
+        release: 'release-attempt-a',
+        'release-evidence': 'release-evidence-attempt-a'
+    });
+    const before = structuredClone(context);
+    const receipt = createCorrectnessProvisionalReceipt(context);
+    assert.deepEqual(context, before);
+    assert.deepEqual(receipt.dependencyTerminalReceiptRefs.map((value) => value.targetTierId),
+        ['release', 'release-evidence']);
+    assert.deepEqual(verifyCorrectnessDependencyClosure(context).dependencyTerminalReceiptRefs,
+        receipt.dependencyTerminalReceiptRefs);
+    assert.equal(receipt.status, 'provisional');
+    assert.equal(receipt.qualificationEligible, false);
+    assert.equal(validateCorrectnessProvisionalReceipt(receipt, context), receipt);
+    assert.deepEqual(validateCorrectnessProvisionalReceipt(JSON.parse(JSON.stringify(receipt)), context), receipt);
+
+    for (const field of ['dependencyTerminalReceipts', 'jobSummaryRefs', 'physicalExecutionRefs'])
+    {
+        const reversed = structuredClone(context);
+        reversed[field].reverse();
+        assert.throws(() => createCorrectnessProvisionalReceipt(reversed), /sorted unique/u);
+        const duplicate = structuredClone(context);
+        duplicate[field].push(structuredClone(duplicate[field][0]));
+        assert.throws(() => createCorrectnessProvisionalReceipt(duplicate), /sorted unique/u);
+    }
+});
+
+test('provisional reference tuple keys distinguish colons in tier and attempt identities', () =>
+{
+    const context = dependencyFixture({ release: 'tools:attempt-a', 'release:tools': 'attempt-a' });
+    const sharedDigest = `sha256:${'d'.repeat(64)}`;
+    for (const field of ['jobSummaryRefs', 'physicalExecutionRefs'])
+    {
+        context[field] = context[field].map((value) => ({ ...value, ref: sharedDigest, digest: sharedDigest }));
+    }
+    const receipt = createCorrectnessProvisionalReceipt(context);
+    assert.equal(validateCorrectnessProvisionalReceipt(receipt, context), receipt);
+    for (const field of ['jobSummaryRefs', 'physicalExecutionRefs'])
+    {
+        assert.deepEqual(receipt[field], context[field]);
+        const duplicate = structuredClone(context);
+        duplicate[field].push(structuredClone(duplicate[field][0]));
+        assert.throws(() => createCorrectnessProvisionalReceipt(duplicate), /sorted unique/u);
+    }
+});
+
+test('provisional reference tuples sort distinct refs within the same current attempt', () =>
+{
+    const context = fixture();
+    const reference = context.dependencyTerminalReceipts[0].reference;
+    const refs = ['a', 'd'].map((character) =>
+    {
+        const digest = `sha256:${character.repeat(64)}`;
+        return { ...reference, ref: digest, digest };
+    });
+    context.jobSummaryRefs = structuredClone(refs);
+    context.physicalExecutionRefs = structuredClone(refs);
+    const receipt = createCorrectnessProvisionalReceipt(context);
+    assert.equal(validateCorrectnessProvisionalReceipt(receipt, context), receipt);
+    for (const field of ['jobSummaryRefs', 'physicalExecutionRefs'])
+    {
+        const reversed = structuredClone(context);
+        reversed[field].reverse();
+        assert.throws(() => createCorrectnessProvisionalReceipt(reversed), /sorted unique/u);
+    }
+});
