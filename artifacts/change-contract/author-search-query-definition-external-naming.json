@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchContracts.cs"
+            ],
+            "reason": "Preserve the registered C# source surface while validating property-query dictionary values against the requested definition identity; no environment key, public schema, reason code or source authority is introduced."
+        }
+    ]
+}
