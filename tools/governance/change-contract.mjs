@@ -9,10 +9,12 @@ import { createGeneratedOutputDigestRepairRepository } from './generated-output-
 import { verifyGeneratedOutputDigestRepairV2 } from './generated-output-digest-repair-v2.mjs';
 import { verifyGeneratedOutputHistoryRepairV3 } from './generated-output-history-repair-v3.mjs';
 import { javascriptFormatFingerprint } from './javascript-format-equivalence.mjs';
+import { csharpFormatFingerprint } from './csharp-format-equivalence.mjs';
 
 const { default: commitlintConfig } = await import(new URL('../../commitlint.config.mjs', import.meta.url));
 
 export { javascriptFormatFingerprint };
+export { csharpFormatFingerprint };
 
 const genericSummaries = new Set([
     'apply fixes',
@@ -4662,6 +4664,10 @@ function preprocessorFingerprint(source)
 
 function formatFingerprint(source, path)
 {
+    if (/\.cs$/u.test(path))
+    {
+        return csharpFormatFingerprint(source);
+    }
     if (/\.(?:mjs|cjs|js)$/u.test(path))
     {
         return javascriptFormatFingerprint(source, path);

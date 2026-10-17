@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { inspectCsharpFormat } from '../governance/csharp-format-equivalence.mjs';
+
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');
 const defaultPolicyPath = 'config/development/csharp-style-policy.json';
@@ -37,6 +39,7 @@ let policy = null;
 let policyFile = null;
 let baseline = new Map();
 let importCompatibility = new Set();
+let motherStandardImports = false;
 const failures = [];
 
 function fail(message)
@@ -65,7 +68,7 @@ function parseArgs(argv)
             parsed.fix = true;
             continue;
         }
-        if (!['--root', '--policy', '--mode', '--base', '--file'].includes(argument))
+        if (!['--root', '--policy', '--mode', '--base', '--file', '--import-order'].includes(argument))
         {
             throw new Error(`unknown argument ${argument}`);
         }
@@ -745,6 +748,12 @@ function usesImportCompatibility(file)
     {
         return false;
     }
+    requireCanonicalImportSource(file);
+    return true;
+}
+
+function requireCanonicalImportSource(file)
+{
     let directory = root;
     const parts = file.split('/');
     for (let index = 0; index < parts.length; index += 1)
@@ -762,12 +771,11 @@ function usesImportCompatibility(file)
         }
         directory = target;
     }
-    return true;
 }
 
 function compareUsingDirectives(left, right, repositoryLast = false)
 {
-    // This exact-file compatibility changes only ordinary FsusBlog imports, not alias/static groups or other files.
+    // Repository-last ordering changes only ordinary imports; alias/static ranks stay intact.
     const rank = (directive) => repositoryLast && directive.rank === 1 && directive.groupKey === 'FsusBlog'
         ? 1.5 : directive.rank;
     return rank(left) - rank(right)
@@ -779,6 +787,34 @@ function compareUsingDirectives(left, right, repositoryLast = false)
 
 function normalizeUsingDirectives(file)
 {
+    if (motherStandardImports)
+    {
+        requireCanonicalImportSource(file);
+        const absolute = path.join(root, file);
+        const text = fs.readFileSync(absolute, 'utf8');
+        const { imports } = inspectCsharpFormat(text);
+        if (imports === null)
+        {
+            throw new Error(`mother-standard import fix requires an uncommented ordinary file-level using region: ${file}`);
+        }
+        const directives = imports.names.map(name => parseUsingDirective(`using ${name};`,
+            sharedThirdPartyGroupOwners.has(file)));
+        if (directives.some(directive => directive === null))
+        {
+            throw new Error(`mother-standard import fix cannot normalize this name syntax: ${file}`);
+        }
+        directives.sort((left, right) => compareUsingDirectives(left, right, true));
+        const replacement = directives.map((directive, index) => (
+            index > 0 && directive.groupKey !== directives[index - 1].groupKey ? '\n' : ''
+        ) + directive.rendered).join('\n');
+        const updated = text.slice(0, imports.start) + replacement + text.slice(imports.end);
+        if (updated === text)
+        {
+            return false;
+        }
+        fs.writeFileSync(absolute, updated);
+        return true;
+    }
     const repositoryLast = usesImportCompatibility(file);
     const sharedThirdPartyGroup = repositoryLast && sharedThirdPartyGroupOwners.has(file);
     const absolute = path.join(root, file);
@@ -1199,7 +1235,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
         violations.push(makeViolation(file, 0, 'file-exists', file, 'selected C# file does not exist'));
         return violations;
     }
-    const repositoryLast = usesImportCompatibility(file);
+    const repositoryLast = usesImportCompatibility(file) || motherStandardImports;
     const sharedThirdPartyGroup = repositoryLast && sharedThirdPartyGroupOwners.has(file);
     const buffer = fs.readFileSync(absolute);
     if (!isUtf8(buffer))
@@ -1677,6 +1713,15 @@ function main()
     const args = parseArgs(process.argv.slice(2));
     root = path.resolve(args.root ?? defaultRoot);
     args.mode ??= 'changed';
+    if (args['import-order'] !== undefined && args['import-order'] !== 'mother-standard')
+    {
+        throw new Error('import-order must be mother-standard; omit it for the historical migration comparator');
+    }
+    motherStandardImports = args['import-order'] === 'mother-standard';
+    if (motherStandardImports && (args.updateBaseline || args.rebindBaselinePolicy))
+    {
+        throw new Error('mother-standard import checking cannot rewrite historical baseline or policy bindings');
+    }
     if (!validModes.has(args.mode))
     {
         throw new Error(`invalid mode ${args.mode}`);
@@ -1729,7 +1774,8 @@ function main()
         : violations.filter((violation) =>
 {
         const entry = baseline.get(violation.file);
-        return !entry || entry.sourceSha256 !== sourceDigests.get(violation.file);
+        return (motherStandardImports && violation.rule.startsWith('using-'))
+            || !entry || entry.sourceSha256 !== sourceDigests.get(violation.file);
       });
     for (const violation of unexpected)
     {
