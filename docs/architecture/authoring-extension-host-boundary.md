@@ -402,8 +402,10 @@ validate the exact previous digest/state/sequence/generation, and insert one row
 inside an owned read-committed transaction. The initial receipt starts at sequence
 and generation one with `Installed` as its previous state and a zero previous
 digest. The existing coordinator owns the allowed transition registry. Duplicate,
-stale, malformed, broken-chain, or cancelled-before-commit appends fail without
-advancing the head. Independent connections and recreated stores use that same
+stale, malformed, broken-chain appends and cancellation observed at the pre-commit
+checkpoint fail without advancing the head. ADO lock/insert waits retain the
+existing database command timeout; cancellation is checked around those awaits,
+not passed into the underlying command. Independent connections and recreated stores use that same
 database authority. The client must be scoped to an operation; ambient transactions
 are refused so an append cannot report success before its owner commits.
 
