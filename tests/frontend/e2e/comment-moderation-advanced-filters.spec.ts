@@ -1,4 +1,5 @@
 import { expect, test, type ConsoleMessage, type Page, type Route, type TestInfo } from '@playwright/test'
+import { writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
 const fixtureModule = `/@fs/${fileURLToPath(
@@ -57,7 +58,10 @@ for (const width of [375, 768, 1366, 1440]) {
           expect(geometry.verticalOverflow, JSON.stringify(geometry)).toBeLessThanOrEqual(1)
           expect(geometry.textContained, JSON.stringify(geometry)).toBe(true)
           if (content.id !== 'short-article') expect(geometry.lines).toBeGreaterThan(1)
-          await testInfo.attach('complete-label', { body: await page.screenshot(), contentType: 'image/png' })
+          await writeFile(testInfo.outputPath('label-geometry.json'), JSON.stringify(geometry, null, 2))
+          const screenshotPath = testInfo.outputPath('complete-label.png')
+          await page.screenshot({ path: screenshotPath })
+          await testInfo.attach('complete-label', { path: screenshotPath, contentType: 'image/png' })
           await action.focus()
           await expect(action).toBeFocused()
           await page.keyboard.press('Enter')
