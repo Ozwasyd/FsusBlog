@@ -10,7 +10,7 @@ import { commentModerationStatusOptions, type CommentModerationFilters } from '@
 import { FsusUiSegmentedControl } from '@/fsusui/segmentedControl';
 
 const wrappers: VueWrapper[] = [];
-const createFilters = (status = CommentModerationStatus.Pending): CommentModerationFilters => ({
+const createFilters = (status: CommentModerationStatus = CommentModerationStatus.Pending): CommentModerationFilters => ({
     status,
     keyword: 'review me',
     article: '',
@@ -21,7 +21,7 @@ const createFilters = (status = CommentModerationStatus.Pending): CommentModerat
     modelProvider: '',
     dateRange: null
 });
-const mountToolbar = (status = CommentModerationStatus.Pending) =>
+const mountToolbar = (status: CommentModerationStatus = CommentModerationStatus.Pending) =>
 {
     const wrapper = mount(CommentModerationToolbar, {
         attachTo: document.body,
@@ -42,7 +42,7 @@ afterEach(() =>
 
 describe('CommentModerationToolbar with genuine FsusUI controls', () =>
 {
-    it.each(commentModerationStatusOptions)('emits numeric status $value through the real option', async ({ value }) =>
+    it.each(commentModerationStatusOptions)('emits numeric status $value through the real option', async ({ value }: { value: CommentModerationStatus }) =>
     {
         const initial = value === CommentModerationStatus.Pending
             ? CommentModerationStatus.Approved
