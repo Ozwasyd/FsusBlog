@@ -1,3 +1,4 @@
+import { isUtf8 } from 'node:buffer';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
@@ -4495,7 +4496,8 @@ export function validateFormatOnlyDiff(root, base, head, { ignoredPaths = [] } =
         {
             const before = readFileAtRevision(root, base, path);
             const after = readFileAtRevision(root, head, path);
-            if (before.includes(0) || after.includes(0))
+            if (before.includes(0) || after.includes(0)
+                || (/\.cs$/u.test(path) && (!isUtf8(before) || !isUtf8(after))))
             {
                 changedTokens.push(path);
                 continue;

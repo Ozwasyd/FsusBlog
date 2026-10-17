@@ -168,6 +168,24 @@ test('explicit formatter refuses invalid UTF-8 without changing bytes outside im
     });
 });
 
+test('C# real diff rejects distinct invalid UTF-8 bytes before decoding', () =>
+{
+    withFixture(({ directory, write }) =>
+    {
+        const git = args => execFileSync('git', args, { cwd: directory, encoding: 'utf8' }).trim();
+        git(['init', '-q']);
+        for (const byte of [0xff, 0xfe])
+        {
+            write('src/Reader.cs', Buffer.concat([Buffer.from('// license '), Buffer.from([byte]),
+                Buffer.from('\n' + before + body)]));
+            git(['add', '.']);
+            git(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+                'commit', '-qm', 'fixture invalid source bytes']);
+        }
+        assert.match(validateFormatOnlyDiff(directory, 'HEAD^', 'HEAD').join('\n'), /src\/Reader\.cs/u);
+    });
+});
+
 test('cached C# parser rejects changed executable bytes on the next classification', () =>
 {
     const directory = mkdtempSync(join(tmpdir(), 'fsusblog-csharp-parser-tamper-'));
