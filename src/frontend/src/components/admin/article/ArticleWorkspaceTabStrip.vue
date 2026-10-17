@@ -21,7 +21,7 @@
             >
                 <FsusUiButton
                     :id="tabButtonId(tab.tabId)"
-                    :ref="(instance) => registerTabElement(tab.tabId, (instance as WorkspaceButtonInstance | null)?.ref ?? null)"
+                    :ref="(instance) => registerTabElement(tab.tabId, (instance as WorkspaceButtonHandle | null)?.ref ?? null)"
                     native-type="button"
                     text
                     :auto-insert-space="false"
@@ -213,7 +213,10 @@ import type {
 
 defineOptions({ name: 'ArticleWorkspaceTabStrip' });
 
-type WorkspaceButtonInstance = InstanceType<typeof FsusUiButton>;
+/** Consume only Button's documented native ref; tab registration stays element-only. */
+interface WorkspaceButtonHandle {
+    readonly ref?: HTMLButtonElement;
+}
 
 const props = defineProps<{
     coordinator?: ArticleWorkspaceTabRouter;
@@ -223,7 +226,7 @@ const props = defineProps<{
 const isCompact = useMediaQuery('(max-width: 1023px)', false);
 const overflowOpen = ref(false);
 const tabListRef = ref<HTMLElement | null>(null);
-const overflowTriggerRef = ref<WorkspaceButtonInstance | null>(null);
+const overflowTriggerRef = ref<WorkspaceButtonHandle | null>(null);
 const tabElements = new Map<string, HTMLElement>();
 const {
     tabs,
