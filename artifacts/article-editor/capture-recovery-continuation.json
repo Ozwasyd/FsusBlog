@@ -139,5 +139,115 @@
     },
     "delivery": "single draft PR; no merge/issue closure/package publication; unique Blog merge owner decides integration after current review",
     "rollback": "omit/revert isolated source/test/privacy-document/WIP/naming-manifest increment; no runtime host activation, server call or migration",
-    "changeContract": "Existing css-like-contract registration requires artifacts/change-contract/capture-recovery-external-naming.json for the changed security document. This is a per-PR manifest; no registry, policy, authority or naming migration changes."
+    "changeContract": "Existing css-like-contract registration requires artifacts/change-contract/capture-recovery-external-naming.json for the changed security document. This is a per-PR manifest; no registry, policy, authority or naming migration changes.",
+    "testTypeFollowup": {
+        "sourceHead": "ab80c003f709acbcbf104fb06558a86c7c4b06fe",
+        "sourceAndOriginalTestsChanged": false,
+        "toolchainCorrection": {
+            "node": "official24.16.0",
+            "typescript": "locked6.0.3",
+            "vitest": "locked4.1.11",
+            "fakeIndexedDB": "locked6.2.5",
+            "vue": "locked3.5.33",
+            "vueTsc": "locked3.2.7",
+            "earlierVitest": "preinstalled4.1.5; original historical executions retain that identity",
+            "install": "unmodified repository prepare-local-fsusui-install.mjs prepare, then npm ci --ignore-scripts against its existing public-only locked projection; checked-in manifest/lock unchanged; no installed FsusUI package",
+            "initialRefusal": "direct original-lock npm ci attempted private FsusUI package and returned401; refusal preserved, no credential changes or private-package retry; canonical local-source producer excludes that package"
+        },
+        "canonicalFullProgram": {
+            "base": "6321f1f3f0f71353fbee1a28ad852166c9eb75ac",
+            "candidate": "ab80c003f709acbcbf104fb06558a86c7c4b06fe",
+            "baseExit": 2,
+            "candidateExit": 2,
+            "baseDiagnosticHeaders": 2234,
+            "candidateDiagnosticHeaders": 2238,
+            "baseOriginalRoots": 901,
+            "candidateOriginalRoots": 903,
+            "baseActualInputs": 2578,
+            "candidateActualInputs": 2580,
+            "publishedFsusUIInputs": 0,
+            "compiler": "actual locked TypeScript --noEmit --listFiles --pretty false -p canonical generated complete tests project",
+            "configuration": "original producer and tsconfig.playwright.json, all includes/options preserved; original inherited skipLibCheck=true was not added or changed"
+        },
+        "exactNewDiagnostics": [
+            {
+                "file": "tests/frontend/unit/services/articleCaptureRecovery.test.ts",
+                "line": 1,
+                "code": "TS2307",
+                "cause": "fake-indexeddb not visible from tests/frontend ancestor node_modules search"
+            },
+            {
+                "file": "tests/frontend/unit/services/articleCaptureRecovery.test.ts",
+                "line": 2,
+                "code": "TS2307",
+                "cause": "vitest not visible from tests/frontend ancestor node_modules search"
+            },
+            {
+                "file": "tests/frontend/unit/services/articleCaptureRecovery.test.ts",
+                "line": 145,
+                "code": "TS7006",
+                "cause": "lost it.each contextual type after unresolved vitest import"
+            },
+            {
+                "file": "tests/frontend/unit/services/articleCaptureRecovery.test.ts",
+                "line": 176,
+                "code": "TS7006",
+                "cause": "same lost it.each contextual type"
+            }
+        ],
+        "resolverEvidence": "locked TS resolves both installed official package declarations when importer is real src/frontend/vitest.config.ts, but resolves neither from new capture test nor original journal/privateStorageRegistry tests. Failed lookups ascend tests/frontend/unit/services -> tests/frontend -> tests -> repository -> workspace; never descend into src/frontend/node_modules. This is package visibility, not missing declaration files or capture API mismatch.",
+        "controlledAvailabilityProof": {
+            "method": "task-only real ignored tests/frontend/node_modules directory with exactly two symlinks to installed locked public vitest/fake-indexeddb packages in base and candidate; no source/config/options/include/path-map edits; all temporary links removed after the experiment",
+            "baseExit": 2,
+            "candidateExit": 2,
+            "baseDiagnosticHeaders": 1671,
+            "candidateDiagnosticHeaders": 1671,
+            "baseActualInputs": 2625,
+            "candidateActualInputs": 2627,
+            "publishedFsusUIInputs": 0,
+            "captureTestDiagnostics": 0,
+            "completeDiagnosticOutputIdenticalAfterOnlyExactRootReplacement": true,
+            "canonicalConfigSnapshotsByteIdenticalBeforeAndDuringControl": true,
+            "callbackTypes": [
+                {
+                    "line": 145,
+                    "type": "\"journal-unavailable\" | \"locks-absent\" | \"locks-throw\""
+                },
+                {
+                    "line": 176,
+                    "type": "\"journal-unavailable\" | \"locks-absent\" | \"locks-throw\""
+                }
+            ],
+            "status": "causal diagnostic experiment only; no canonical PASS or qualification claim"
+        },
+        "ownerRouting": {
+            "originalCanonicalProducer": "issue4471 / PR4472, implementationd087aa421c3df12b74beaf7eb5a480411ff1bcc7 (originalb86210b4b7cc22088dd1e8d7621358ff8179b353)",
+            "currentCanonicalConfigLane": "issue4475 / PR4476, tsconfig.playwright.json official-declaration owner; coordinate complete-tests package visibility through that existing lane",
+            "notWritten": [
+                "src/frontend/tsconfig.playwright.json",
+                "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+                "shared kernel",
+                "articleRecoveryJournal.ts"
+            ],
+            "blocking": "canonical complete tests still FAIL with four new diagnostics until owning producer/config lane supplies a real test-root dependency binding; no test annotation, private import, stub, any, narrowed include or new skipLibCheck hides it"
+        },
+        "lockedOriginalUnit": "PASS0,28/28,no skipped after exact4.1.11 restore",
+        "localEvidence": "raw compiler output, full actual input rosters, effective config snapshots, resolver failed-lookups and real callback type inspection kept task-local; no logs/private metadata uploaded",
+        "lockedConsumerCombination": "PASS0,46/46,zero skipped, original4508+recovery+journal files with exact lockedVitest4.1.11 and real local FsusUI",
+        "lockedNegativeControls": [
+            {
+                "mutation": "remove early request pin and conflict guard",
+                "exit": 1,
+                "passed": 5,
+                "failed": 6
+            },
+            {
+                "mutation": "remove only early conflict guard",
+                "exit": 1,
+                "passed": 7,
+                "failed": 4
+            }
+        ],
+        "negativeRestoration": "exact donor blob restored in isolated negative-control tree; task source/test bytes unchanged"
+    }
 }
