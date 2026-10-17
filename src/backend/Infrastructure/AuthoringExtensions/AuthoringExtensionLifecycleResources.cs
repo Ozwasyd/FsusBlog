@@ -74,7 +74,7 @@ public sealed class AuthoringExtensionLifecycleResources(
             lock (_lock)
             {
                 _targetHistory[historyKey] = [.. targets];
-                _active.Add(package.Contract.Manifest.Id, new ActiveResources(generation));
+                _active.Add(package.Contract.Manifest.Id, new ActiveResources(generation, historyKey));
             }
         }
         finally
@@ -151,93 +151,171 @@ public sealed class AuthoringExtensionLifecycleResources(
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
-            IAuthoringWorkerSandboxInstance[] workers;
-            IAuthoringServiceProcess[] services;
-            lock (_lock)
-            {
-                if (!_active.TryGetValue(extensionId, out ActiveResources? resources))
-                {
-                    workers = [];
-                    services = [];
-                }
-                else if (generation < 1 || resources.Generation > generation)
-                {
-                    throw new AuthoringExtensionContractException(
-                        "Lifecycle resource revocation generation is older than the active generation.");
-                }
-                else
-                {
-                    resources.Revoking = true;
-                    workers = [.. resources.Workers];
-                    services = [.. resources.Services];
-                    resources.Workers.Clear();
-                    resources.Services.Clear();
-                }
-            }
-
-            List<IAuthoringWorkerSandboxInstance> workerFailures = [];
-            List<IAuthoringServiceProcess> serviceFailures = [];
-            foreach (IAuthoringWorkerSandboxInstance worker in workers)
-            {
-                try
-                {
-                    await TerminateAndDisposeWorkerAsync(worker, "lifecycle-revoked");
-                }
-                catch
-                {
-                    workerFailures.Add(worker);
-                }
-            }
-
-            foreach (IAuthoringServiceProcess service in services)
-            {
-                try
-                {
-                    await TerminateAndDisposeServiceAsync(service, "lifecycle-revoked");
-                }
-                catch
-                {
-                    serviceFailures.Add(service);
-                }
-            }
-
-            if (workerFailures.Count > 0 || serviceFailures.Count > 0)
-            {
-                lock (_lock)
-                {
-                    if (_active.TryGetValue(extensionId, out ActiveResources? resources))
-                    {
-                        resources.Workers.AddRange(workerFailures);
-                        resources.Services.AddRange(serviceFailures);
-                    }
-                }
-            }
-
-            AuthoringLifecycleHostResourceReport host = await hostResources.RevokeAllAsync(
-                extensionId,
-                CancellationToken.None);
-            var report = new AuthoringLifecycleResourceReport(
-                host.ContributionRegistrations,
-                workerFailures.Count,
-                serviceFailures.Count,
-                host.RpcRequests,
-                host.Grants,
-                host.ScheduledJobs,
-                host.HostSurfaces);
-            if (report.IsEmpty)
-            {
-                lock (_lock)
-                {
-                    _active.Remove(extensionId);
-                }
-            }
-
-            return report;
+            return await RevokeAllCoreAsync(extensionId, generation);
         }
         finally
         {
             _lifecycleGate.Release();
         }
+    }
+
+    internal async ValueTask<(string? ResourceFailure, string? GrantFailure)> RevokeOnInvalidReceiptAsync(
+        VerifiedAuthoringPackage package,
+        IAuthoringCapabilityGrantCatalog grants)
+    {
+        await _lifecycleGate.WaitAsync(CancellationToken.None);
+        try
+        {
+            long generation;
+            lock (_lock)
+            {
+                if (!_active.TryGetValue(package.Contract.Manifest.Id, out ActiveResources? active) ||
+                    !string.Equals(active.PackageScopeKey, HistoryKey(package), StringComparison.Ordinal))
+                {
+                    throw new AuthoringExtensionContractException("Emergency revocation has no exact current owned package mapping.");
+                }
+
+                generation = active.Generation;
+                active.GrantRevocationPending = true;
+                _quarantined[package.Contract.Manifest.Id] = "lifecycle-receipt-invalid";
+            }
+
+            string? resourceFailure = null;
+            string? grantFailure = null;
+            try
+            {
+                AuthoringLifecycleResourceReport remaining = await RevokeAllCoreAsync(package.Contract.Manifest.Id, generation);
+                if (!remaining.IsEmpty)
+                {
+                    resourceFailure = "cleanup-incomplete";
+                }
+            }
+            catch
+            {
+                resourceFailure = "cleanup-failed";
+            }
+
+            try
+            {
+                await grants.RevokeExtensionAsync(package.Contract.Manifest.Id, CancellationToken.None);
+            }
+            catch
+            {
+                grantFailure = "cleanup-failed";
+            }
+
+            if (grantFailure is null)
+            {
+                lock (_lock)
+                {
+                    if (_active.TryGetValue(package.Contract.Manifest.Id, out ActiveResources? active))
+                    {
+                        active.GrantRevocationPending = false;
+                        if (resourceFailure is null)
+                        {
+                            _active.Remove(package.Contract.Manifest.Id);
+                        }
+                    }
+                }
+            }
+
+            return (resourceFailure, grantFailure);
+        }
+        finally
+        {
+            _lifecycleGate.Release();
+        }
+    }
+
+    private async ValueTask<AuthoringLifecycleResourceReport> RevokeAllCoreAsync(
+        string extensionId,
+        long generation)
+    {
+        IAuthoringWorkerSandboxInstance[] workers;
+        IAuthoringServiceProcess[] services;
+        lock (_lock)
+        {
+            if (!_active.TryGetValue(extensionId, out ActiveResources? resources))
+            {
+                workers = [];
+                services = [];
+            }
+            else if (generation < 1 || resources.Generation > generation)
+            {
+                throw new AuthoringExtensionContractException(
+                    "Lifecycle resource revocation generation is older than the active generation.");
+            }
+            else
+            {
+                resources.Revoking = true;
+                workers = [.. resources.Workers];
+                services = [.. resources.Services];
+                resources.Workers.Clear();
+                resources.Services.Clear();
+            }
+        }
+
+        List<IAuthoringWorkerSandboxInstance> workerFailures = [];
+        List<IAuthoringServiceProcess> serviceFailures = [];
+        foreach (IAuthoringWorkerSandboxInstance worker in workers)
+        {
+            try
+            {
+                await TerminateAndDisposeWorkerAsync(worker, "lifecycle-revoked");
+            }
+            catch
+            {
+                workerFailures.Add(worker);
+            }
+        }
+
+        foreach (IAuthoringServiceProcess service in services)
+        {
+            try
+            {
+                await TerminateAndDisposeServiceAsync(service, "lifecycle-revoked");
+            }
+            catch
+            {
+                serviceFailures.Add(service);
+            }
+        }
+
+        if (workerFailures.Count > 0 || serviceFailures.Count > 0)
+        {
+            lock (_lock)
+            {
+                if (_active.TryGetValue(extensionId, out ActiveResources? resources))
+                {
+                    resources.Workers.AddRange(workerFailures);
+                    resources.Services.AddRange(serviceFailures);
+                }
+            }
+        }
+
+        AuthoringLifecycleHostResourceReport host = await hostResources.RevokeAllAsync(
+            extensionId,
+            CancellationToken.None);
+        var report = new AuthoringLifecycleResourceReport(
+            host.ContributionRegistrations,
+            workerFailures.Count,
+            serviceFailures.Count,
+            host.RpcRequests,
+            host.Grants,
+            host.ScheduledJobs,
+            host.HostSurfaces);
+        if (report.IsEmpty)
+        {
+            lock (_lock)
+            {
+                if (_active.TryGetValue(extensionId, out ActiveResources? resources) && !resources.GrantRevocationPending)
+                {
+                    _active.Remove(extensionId);
+                }
+            }
+        }
+
+        return report;
     }
 
     public async ValueTask<bool> RebindGenerationAsync(
@@ -446,11 +524,19 @@ public sealed class AuthoringExtensionLifecycleResources(
             package.Contract.Manifest.Id,
             package.Contract.Manifest.Version,
             package.Contract.Manifest.PackageSha256,
-            package.Contract.Manifest.ContentSha256);
+            package.Contract.Manifest.ContentSha256,
+            package.PackageIdentity);
 
-    private sealed class ActiveResources(long generation)
+    private sealed class ActiveResources(long generation, string packageScopeKey)
     {
         public long Generation { get; set; } = generation;
+
+        public string PackageScopeKey { get; } = packageScopeKey;
+
+        public bool GrantRevocationPending
+        {
+            get; set;
+        }
 
         public List<IAuthoringWorkerSandboxInstance> Workers { get; } = [];
 

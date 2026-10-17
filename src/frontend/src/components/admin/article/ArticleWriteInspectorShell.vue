@@ -75,6 +75,72 @@
                     @scroll="handleScroll(view.id, $event)"
                 >
                     <slot :name="view.id" />
+                    <template v-if="view.id === 'check' && activeInspector === 'check'">
+                        <section
+                            v-for="entry in inspectorModels"
+                            :key="entry.result.binding.viewId"
+                            :aria-label="entry.session.authority.localize(entry.result.model.titleReference)"
+                            data-authoring-inspector-model
+                        >
+                            <h3>{{ entry.session.authority.localize(entry.result.model.titleReference) }}</h3>
+                            <p
+                                v-if="entry.result.model.state !== 'ready'"
+                                role="status"
+                            >
+                                {{ inspectorStateLabels[entry.result.model.state] }}
+                            </p>
+                            <template
+                                v-for="node in entry.result.model.nodes"
+                                :key="node.id"
+                            >
+                                <ElDescriptions
+                                    v-if="node.kind === 'values'"
+                                    :column="1"
+                                    responsive="auto"
+                                >
+                                    <ElDescriptionsItem
+                                        v-for="row in node.rows"
+                                        :key="row.id"
+                                        :label="entry.session.authority.localize(row.labelReference)"
+                                    >{{ row.value }}</ElDescriptionsItem>
+                                </ElDescriptions>
+                                <ul v-else-if="node.kind === 'list'">
+                                    <li
+                                        v-for="(item, index) in node.items"
+                                        :key="index"
+                                    >{{ item }}</li>
+                                </ul>
+                                <ElTable
+                                    v-else-if="node.kind === 'table'"
+                                    :data="node.rows"
+                                    row-key="id"
+                                >
+                                    <ElTableColumn
+                                        v-for="(column, index) in node.columns"
+                                        :key="column.id"
+                                        :label="entry.session.authority.localize(column.labelReference)"
+                                    >
+                                        <template #default="scope">{{ scope.row.cells[index] }}</template>
+                                    </ElTableColumn>
+                                </ElTable>
+                                <p
+                                    v-else-if="node.kind === 'status'"
+                                    role="status"
+                                >
+                                    {{ entry.session.authority.localize(node.messageReference) }}
+                                </p>
+                                <p v-else-if="node.kind === 'diagnostic'">
+                                    {{ node.severity }}: {{ entry.session.authority.localize(node.messageReference) }} ({{ node.code }})
+                                </p>
+                            </template>
+                            <ElButton
+                                v-for="command in entry.result.model.commands"
+                                :key="command.commandId"
+                                :disabled="!entry.session.authority.commandEnabled(entry.result.binding, command.commandId)"
+                                @click="requestInspectorCommand(entry.session, command.commandId)"
+                            >{{ entry.session.authority.localize(command.labelReference) }}</ElButton>
+                        </section>
+                    </template>
                 </section>
             </div>
         </component>
@@ -82,12 +148,15 @@
 </template>
 
 <script setup lang="ts">
+import { ElButton, ElDescriptions, ElDescriptionsItem, ElTable, ElTableColumn } from '@ozwasyd/element-plus';
 import {
     computed,
     nextTick,
     onMounted,
     onUnmounted,
+    ref,
     resolveComponent,
+    watch,
     type ComponentPublicInstance
 } from 'vue';
 
@@ -97,12 +166,15 @@ import {
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
 import { useMediaQuery } from '@/composables/useMediaQuery';
+import { authoringInspectorBudgets, inspectorBindingIsCurrent } from '@/fsusui/authoringInspector';
+import type { AuthoringInspectorBinding, AuthoringInspectorSession } from '@/fsusui/authoringInspector';
 import { Checked, Close } from '@/fsusui/icons';
 
 const props = defineProps<{
     activeInspector: ArticleWriteInspectorView | null;
     registerTriggerElement?: (view: ArticleWriteInspectorView, element: HTMLElement | null) => void;
     registerScrollElement?: (view: ArticleWriteInspectorView, element: HTMLElement | null) => void;
+    inspectorSessions?: readonly AuthoringInspectorSession[];
 }>();
 
 const emit = defineEmits<{
@@ -111,7 +183,102 @@ const emit = defineEmits<{
     (event: 'close'): void;
     (event: 'closed'): void;
     (event: 'scroll', view: ArticleWriteInspectorView, scrollTop: number): void;
+    (event: 'inspector-command', binding: AuthoringInspectorBinding, commandId: string): void;
 }>();
+
+const inspectorStateLabels = {
+    loading: '加载中', empty: '暂无结果', error: '检查器请求失败',
+    permission: '缺少读取权限', unsupported: '不支持此检查器'
+};
+const inspectorGeneration = ref(0);
+let detachInspectorSessions: (() => void)[] = [];
+watch(() => props.inspectorSessions, (sessions, previousSessions) =>
+{
+    for (const detach of detachInspectorSessions)
+    {
+        detach();
+    }
+    detachInspectorSessions = [];
+    for (const session of previousSessions ?? [])
+    {
+        if (!sessions?.includes(session))
+        {
+            session.cancel();
+        }
+    }
+    if ((sessions?.length ?? 0) > authoringInspectorBudgets.active)
+    {
+        for (const session of sessions ?? [])
+        {
+            session.cancel();
+        }
+        return;
+    }
+    detachInspectorSessions = (sessions ?? []).map((session) => session.subscribe(() => inspectorGeneration.value++));
+    if (props.activeInspector !== 'check')
+    {
+        for (const session of sessions ?? [])
+        {
+            session.cancel();
+        }
+    }
+}, { immediate: true });
+watch(() => props.activeInspector, (view) =>
+{
+    if (view !== 'check')
+    {
+        for (const session of props.inspectorSessions ?? [])
+        {
+            session.cancel();
+        }
+    }
+});
+const inspectorModels = computed(() =>
+{
+    void inspectorGeneration.value;
+    const sessions = props.inspectorSessions ?? [];
+    if (sessions.length > authoringInspectorBudgets.active)
+    {
+        return [];
+    }
+    const entries = sessions.flatMap((session) =>
+    {
+        const result = session.current;
+        return result ? [{ session, result }] : [];
+    });
+    if (new Set(entries.map((entry) => entry.result.binding.viewId)).size !== entries.length)
+    {
+        return [];
+    }
+    return entries;
+});
+const requestInspectorCommand = (session: AuthoringInspectorSession, commandId: string): void =>
+{
+    const result = session.current;
+    if (props.activeInspector !== 'check' || !result ||
+        !inspectorBindingIsCurrent(result.binding, session.authority) ||
+        !result.model.commands.some((command) => command.commandId === commandId) ||
+        !session.authority.commandEnabled(result.binding, commandId))
+    {
+        return;
+    }
+    if (props.activeInspector !== 'check' || session.current !== result)
+    {
+        return;
+    }
+    emit('inspector-command', result.binding, commandId);
+};
+onUnmounted(() =>
+{
+    for (const detach of detachInspectorSessions)
+    {
+        detach();
+    }
+    for (const session of props.inspectorSessions ?? [])
+    {
+        session.cancel();
+    }
+});
 
 const inspectorViews = articleWriteInspectorRegistry;
 

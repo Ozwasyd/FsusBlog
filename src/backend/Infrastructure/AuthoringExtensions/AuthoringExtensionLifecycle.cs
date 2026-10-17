@@ -187,7 +187,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         CancellationToken cancellationToken = default)
     {
         ValidateTargets(package, targets);
-        AuthoringLifecycleReceipt? previous = await receiptStore.GetLatestAsync(package.Contract.Manifest.Id, cancellationToken);
+        AuthoringLifecycleReceipt? previous = await ReadLatestReceiptAsync(package.Contract.Manifest.Id, cancellationToken);
         if (previous?.State is AuthoringLifecycleState.Uninstalling or AuthoringLifecycleState.Removed)
         {
             throw new AuthoringExtensionContractException("Removed extension cannot self-enable.");
@@ -262,7 +262,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         VerifiedAuthoringPackage package,
         CancellationToken cancellationToken = default)
     {
-        AuthoringLifecycleReceipt? previous = await receiptStore.GetLatestAsync(package.Contract.Manifest.Id, cancellationToken);
+        AuthoringLifecycleReceipt? previous = await ReadReceiptForShutdownAsync(package, cancellationToken);
         AuthoringLifecycleResourceReport remaining = await resources.RevokeAllAsync(
             package.Contract.Manifest.Id,
             previous?.Generation ?? 0,
@@ -291,7 +291,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
     {
         ValidateMigration(oldPackage, newPackage, plan);
         ValidateTargets(newPackage, newTargets);
-        AuthoringLifecycleReceipt? previous = await receiptStore.GetLatestAsync(oldPackage.Contract.Manifest.Id, cancellationToken);
+        AuthoringLifecycleReceipt? previous = await ReadLatestReceiptAsync(oldPackage.Contract.Manifest.Id, cancellationToken);
         AuthoringLifecycleReceipt updating = await RecordAsync(
             oldPackage,
             previous,
@@ -429,7 +429,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         CancellationToken cancellationToken = default)
     {
         ValidateOwnedScope(package, ownedState);
-        AuthoringLifecycleReceipt? previous = await receiptStore.GetLatestAsync(package.Contract.Manifest.Id, cancellationToken);
+        AuthoringLifecycleReceipt? previous = await ReadReceiptForShutdownAsync(package, cancellationToken);
         AuthoringLifecycleReceipt uninstalling = await RecordAsync(
             package,
             previous,
@@ -466,7 +466,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         CancellationToken cancellationToken = default)
     {
         ValidateOwnedScope(package, approval.Scope);
-        AuthoringLifecycleReceipt? receipt = await receiptStore.GetLatestAsync(package.Contract.Manifest.Id, cancellationToken);
+        AuthoringLifecycleReceipt? receipt = await ReadLatestReceiptAsync(package.Contract.Manifest.Id, cancellationToken);
         if (receipt?.State != AuthoringLifecycleState.RetainedData ||
             !string.Equals(approval.ExtensionId, package.Contract.Manifest.Id, StringComparison.Ordinal) ||
             !string.Equals(approval.PackageSha256, package.Contract.Manifest.PackageSha256, StringComparison.Ordinal) ||
@@ -530,14 +530,95 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         long generation,
         CancellationToken cancellationToken = default)
     {
-        AuthoringLifecycleReceipt? receipt = await receiptStore.GetLatestAsync(extensionId, cancellationToken);
+        AuthoringLifecycleReceipt? receipt = await ReadLatestReceiptAsync(extensionId, cancellationToken);
         return receipt?.State == AuthoringLifecycleState.Running && receipt.Generation == generation;
     }
 
     public ValueTask<AuthoringLifecycleReceipt?> RestoreFromReceiptAsync(
         string extensionId,
         CancellationToken cancellationToken = default) =>
-        receiptStore.GetLatestAsync(extensionId, cancellationToken);
+        ReadLatestReceiptAsync(extensionId, cancellationToken);
+
+    private async ValueTask<AuthoringLifecycleReceipt?> ReadReceiptForShutdownAsync(
+        VerifiedAuthoringPackage package,
+        CancellationToken cancellationToken)
+    {
+        VerifiedAuthoringExtensionContract current = AuthoringExtensionContractValidator.Verify(package.Contract.Manifest);
+        if (!string.Equals(current.ContractIdentity, package.Contract.ContractIdentity, StringComparison.Ordinal) ||
+            !IsSha256(package.PackageIdentity))
+        {
+            throw new AuthoringExtensionContractException("Shutdown package identity is not verified.");
+        }
+
+        AuthoringLifecycleReceipt? receipt;
+        try
+        {
+            receipt = await ReadLatestReceiptAsync(package.Contract.Manifest.Id, cancellationToken);
+        }
+        catch (AuthoringExtensionContractException primary)
+        {
+            try
+            {
+                if (resources is AuthoringExtensionLifecycleResources ownedResources)
+                {
+                    (string? resourceFailure, string? grantFailure) = await ownedResources.RevokeOnInvalidReceiptAsync(package, grants);
+                    if (resourceFailure is not null)
+                    {
+                        primary.Data["AuthoringResourceCleanup"] = resourceFailure;
+                    }
+                    if (grantFailure is not null)
+                    {
+                        primary.Data["AuthoringGrantCleanup"] = grantFailure;
+                    }
+                }
+                else
+                {
+                    primary.Data["AuthoringResourceCleanup"] = "canonical-owned-resources-unavailable";
+                }
+            }
+            catch
+            {
+                primary.Data["AuthoringResourceCleanup"] = "current-owned-package-mapping-unavailable";
+            }
+
+            throw;
+        }
+
+        if (receipt is not null &&
+            (!string.Equals(receipt.PackageSha256, package.Contract.Manifest.PackageSha256, StringComparison.Ordinal) ||
+                !string.Equals(receipt.Version, package.Contract.Manifest.Version, StringComparison.Ordinal) ||
+                !string.Equals(receipt.ScopeDigest, package.PackageIdentity, StringComparison.Ordinal) ||
+                receipt.StateSchemaVersion != package.Contract.Manifest.StateSchemaVersion ||
+                receipt.DataSchemaVersion != package.Contract.Manifest.DataSchemaVersion))
+        {
+            throw new AuthoringExtensionContractException("Shutdown package does not own the current lifecycle receipt.");
+        }
+
+        return receipt;
+    }
+
+    private async ValueTask<AuthoringLifecycleReceipt?> ReadLatestReceiptAsync(
+        string extensionId,
+        CancellationToken cancellationToken)
+    {
+        AuthoringLifecycleReceipt? receipt = await receiptStore.GetLatestAsync(extensionId, cancellationToken);
+        if (receipt is not null &&
+            (receipt.SchemaVersion != 1 || receipt.Sequence < 1 || receipt.Generation < 1 ||
+                receipt.Sequence != receipt.Generation ||
+                !string.Equals(receipt.ExtensionId, extensionId, StringComparison.Ordinal) ||
+                !IsBoundedField(receipt.ExtensionId, 256) || !IsBoundedField(receipt.Version, 256) ||
+                receipt.StateSchemaVersion < 1 || receipt.DataSchemaVersion < 1 ||
+                !Enum.IsDefined(receipt.PreviousState) || !Enum.IsDefined(receipt.State) ||
+                !IsSha256(receipt.PackageSha256) || !IsSha256(receipt.ScopeDigest) ||
+                !IsSha256(receipt.PreviousReceiptSha256) || !IsSha256(receipt.ReceiptSha256) ||
+                receipt.FailureCode is not null && !IsBoundedField(receipt.FailureCode, 128) ||
+                !string.Equals(receipt.ReceiptSha256, ComputeReceiptSha256(receipt), StringComparison.Ordinal)))
+        {
+            throw new AuthoringExtensionContractException("Stored lifecycle receipt is malformed, identity-drifted, or tampered.");
+        }
+
+        return receipt;
+    }
 
     private static void ValidateTargets(
         VerifiedAuthoringPackage package,
@@ -653,7 +734,7 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(package);
-        AuthoringLifecycleReceipt? previous = await receiptStore.GetLatestAsync(
+        AuthoringLifecycleReceipt? previous = await ReadLatestReceiptAsync(
             package.Contract.Manifest.Id,
             cancellationToken);
         if (previous is null || previous.Generation != expectedGeneration ||

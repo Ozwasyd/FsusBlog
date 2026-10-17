@@ -7,6 +7,65 @@ plugin system. The C# declarations under
 not a stable shared ABI. This boundary adds no HTTP route, AEDS frame, browser API,
 or `src/shared/Contracts/` authority.
 
+## Architecture decision and contribution ownership
+
+The architecture decision in [the authoring extension design issue](https://github.com/Ozwasyd/FsusBlog/issues/1873)
+is Hybrid by capability class: checked-in trusted host adapters, isolated
+Worker/Wasm extension logic, and an out-of-process service for explicit I/O or
+heavy compute. These are fixed authority boundaries, not deployment choices.
+Third-party code never runs in the Vue or Server main process. Pure computation
+uses Worker/Wasm; explicit I/O uses an exact host broker grant. The package cannot
+select a different class at runtime or fall back to a more privileged class after
+failure. A trusted host adapter is host-owned reviewed code, not a plugin-supplied
+function or component.
+
+A single in-process runtime, a single Worker/Wasm runtime, and a single service
+runtime are rejected alternatives: none replaces the capability-class mapping.
+Iframe, WebView, Shadow DOM, and a worker name alone do not prove isolation. The
+runtime, broker, lifecycle, and terminal matrix owners must demonstrate their
+actual boundaries before a contribution can become stable support.
+
+All nine categories have the fixed disposition `allowed-with-adapter`:
+
+| Category | Disposition | Implementation owner |
+| --- | --- | --- |
+| Author commands | `allowed-with-adapter` | #1915 |
+| Command palette metadata | `allowed-with-adapter` | #1915 |
+| Read-only article inspector | `allowed-with-adapter` | #1916 (#2505) |
+| Article library and saved-view filters | `allowed-with-adapter` | #1916 (#2507) |
+| Article property types and validators | `allowed-with-adapter` | #1917 |
+| Import and export providers | `allowed-with-adapter` | #1918 (#2513, #2515) |
+| Prepublish diagnostics | `allowed-with-adapter` | #1918 (#2517) |
+| Markdown features and providers | `allowed-with-adapter` | #1919 |
+| Workspace panels | `allowed-with-adapter` | #1916 (#2509) |
+
+The table groups import/export as one category; the closed contribution enum
+retains their two distinct kinds. This owner map documents the existing decision,
+and does not create another runtime registry. `allowed-with-adapter` means closed,
+versioned, identity-bound declarations or typed requests/results. The host owns
+permission, lifecycle, rendering, query, transaction, stale rejection, broker, and
+resource enforcement. No category has direct access. Missing adapter authority
+leaves that category blocked or partial; it cannot justify arbitrary Vue, HTML,
+CSS, private selectors, editor instances, database objects, or generic payloads.
+New categories require a closed-registry and architecture change plus #1920
+conformance rather than a generic `register(any)` entrypoint.
+
+The implementation DAG has one host owner (#1914, with #2137–#2145 children), then
+the category owners #1915–#1919, and the final #1920 conformance owner. The tracking
+owner #1916 aggregates inspector/filter/panel children and #1918 aggregates
+import/export/diagnostic children; they do not create parallel host authorities.
+Each child consumes the exact implemented upstream capability while preserving
+any unfinished acceptance gates. Source integration or an open upstream alone is
+neither proof of stable support nor a reason to invent a second owner.
+
+The design requires a minimal read-only diagnostic and transaction-command
+prototype. The current command projection fixture and package/contract tests
+provide bounded component evidence; they do not establish a current end-to-end
+prototype across isolated execution, the canonical document transaction, and the
+diagnostic adapter. That prototype remains unqualified until those original
+owners supply actual current-candidate execution evidence. It must remain
+test-only and must not become a production loader or fallback.
+
 ## Closed contract registry
 
 `AuthoringExtensionManifest` schema version 1 is the only authoring-extension
@@ -367,6 +426,35 @@ extension commands and this slice remains Draft/Refs rather than production
 activation evidence. No HTTP, AEDS, or second editor authority may be added to
 fill that gap implicitly.
 
+## Bounded frontend contribution consumers
+
+The internal `authoringInspector.ts` consumer accepts a closed read-only model:
+values, lists, tables, status, and diagnostics with bounded text, rows, columns,
+and command references. Its binding includes package/runtime and lifecycle
+identity, article/document epoch and revision, view/request, deadline, and an
+exact read grant and scope. Plain data snapshots reject accessors, unknown fields,
+foreign prototypes, and sparse or executable collections. The host-owned session
+owns cancellation and accepted results; a string digest does not grant read
+authority. The existing article inspector check slot renders these records with
+public FsusUI controls and text interpolation. It creates no second inspector
+renderer, editable property model, or arbitrary component/HTML/CSS channel.
+
+The internal `authoringMarkdownProviders.ts` consumer adapts only the existing
+public FsusUI embed slot and safe result gateway. It introduces no syntax, parser,
+renderer, direct document write, network client, or privileged fallback. Requests
+bind the exact source range, package/runtime/configuration/lifecycle, read grant,
+document epoch/revision, and node identity. Pending operations and cache entries
+have independent bounds; concurrent replacement charges only the live cache
+entry. Results are rechecked after host callbacks and before publication.
+
+These consumers require a real host authority and isolated dispatch composition.
+Their controlled component and browser fixtures do not supply production grants,
+register contribution packages, or qualify native execution. Neither consumer is
+a stable AEDS or browser API. Property, filter, panel, import/export, and prepublish
+diagnostic adapters remain separate owners; their enum declarations alone are not
+implementations. Full accessibility, scale, current-run receipts, production
+composition, and independent conformance remain acceptance gates.
+
 ## Closed lifecycle and generation ownership
 
 The lifecycle coordinator is the sole internal state machine for install/enable,
@@ -375,6 +463,30 @@ uninstall, retained data, and separately approved removal. Every transition is a
 closed enum edge and advances a hash-chained receipt generation. Restore reads the
 latest receipt authority; it never scans package directories, timestamps, or a
 last-active marker to infer enabled state.
+
+Every stored receipt is checked for its closed schema and states, exact extension
+identity, bounded metadata, positive matching sequence and generation, and existing
+content digest before restore, late-result acceptance, or another transition can
+consume it. Malformed, identity-drifted, and tampered values refuse. This local
+content check does not authenticate the store or independently verify a durable
+receipt chain, backup, or restart recovery.
+
+An explicit disable or uninstall still attempts resource and grant cleanup when
+that stored receipt is invalid. Only the original lifecycle resource owner can
+capture its current active generation under its existing lifecycle gate; the
+corrupt receipt cannot select a generation or a different active package mapping.
+After confirming that exact mapping, the same gate protects resource cleanup and
+an attempt to revoke the original grant catalog, including when termination fails.
+If resources settle but grant revocation fails, the original owner retains that
+exact package and generation in revoking custody. Ordinary resource revocation
+cannot discard it; a matching explicit shutdown can retry without issuing a
+receipt or touching a different package.
+That cleanup quarantines the extension, preserves the original receipt refusal
+and separate bounded cleanup diagnostics, and publishes no replacement receipt.
+A missing canonical resource owner or mismatched current package refuses cleanup
+authority for both resources and grants. A valid stored receipt must also match
+the shutdown package version, digest, schemas, and package identity; an older
+package cannot consume a newer package's receipt generation.
 
 Activation is all-or-nothing across the complete verified target set. Worker and
 service instances are registered against the exact active generation. A stale

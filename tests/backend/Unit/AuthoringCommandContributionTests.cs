@@ -406,6 +406,11 @@ public sealed class AuthoringCommandContributionTests
                     RequestId = "other-request"
                 },
                 transaction.Approval));
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await adapter.ApplyAsync(
+                transaction.Envelope,
+                response,
+                transaction.Approval with { PreviewDigest = new string('d', 64) }));
         Assert.Equal(0, transaction.Port.CallCount);
     }
 
@@ -855,7 +860,7 @@ public sealed class AuthoringCommandContributionTests
             plan.PlanId,
             true,
             "approval-1",
-            new string('d', 64));
+            AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope));
         return new TransactionFixture(rpc, envelope, approval, port);
     }
 

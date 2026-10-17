@@ -171,6 +171,296 @@ public sealed class AuthoringExtensionLifecycleTests
         Assert.Equal(0, fixture.State.DirectoryScanCount);
     }
 
+    [Theory]
+    [InlineData("digest")]
+    [InlineData("identity")]
+    [InlineData("schema")]
+    [InlineData("generation")]
+    [InlineData("sequence")]
+    [InlineData("state")]
+    public async Task StoredReceipt_TamperCannotAuthorizeRestoreOrLateResult(string field)
+    {
+        LifecycleFixture fixture = CreateFixture();
+        AuthoringLifecycleReceipt receipt = await fixture.Coordinator.EnableAsync(fixture.Package, fixture.Targets);
+        AuthoringLifecycleReceipt changed = field switch
+        {
+            "digest" => receipt with { ReceiptSha256 = new string('0', 64) },
+            "identity" => receipt with { ExtensionId = "other.plugin" },
+            "schema" => receipt with { SchemaVersion = 2 },
+            "generation" => receipt with { Generation = 0 },
+            "sequence" => receipt with { Sequence = 0 },
+            "state" => receipt with { State = (AuthoringLifecycleState)999 },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+        if (field != "digest")
+        {
+            changed = changed with
+            {
+                ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(changed)
+            };
+        }
+        fixture.Receipts.ReplaceStoredReceipt(changed);
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.RestoreFromReceiptAsync(fixture.Package.Contract.Manifest.Id));
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Coordinator.AcceptResultAsync(fixture.Package.Contract.Manifest.Id, receipt.Generation));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShutdownAsync_TamperedReceiptStillRevokesOwnedResourcesWithoutPublishingAuthority(bool uninstall)
+    {
+        VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
+        var host = new HostResources();
+        var resources = new AuthoringExtensionLifecycleResources(host);
+        var receipts = new ReceiptStore();
+        var state = new StateStore();
+        var grants = new ShutdownGrantCatalog();
+        var coordinator = new AuthoringExtensionLifecycleCoordinator(
+            resources, new Preflight(true), state, receipts, grants);
+        AuthoringLifecycleReceipt receipt = await coordinator.EnableAsync(package, CreateTargets(package));
+        var worker = new TrackedWorker();
+        var service = new TrackedService();
+        await resources.TrackWorkerAsync(package.Contract.Manifest.Id, receipt.Generation, worker);
+        await resources.TrackServiceAsync(package.Contract.Manifest.Id, receipt.Generation, service);
+        receipts.ReplaceStoredReceipt(receipt with
+        {
+            Generation = long.MaxValue,
+            ReceiptSha256 = new string('0', 64)
+        });
+        int receiptCount = receipts.All.Count;
+
+        AuthoringExtensionContractException failure = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+        {
+            if (uninstall)
+            {
+                await coordinator.UninstallAsync(package, CreateScope(package));
+            }
+            else
+            {
+                await coordinator.DisableAsync(package);
+            }
+        });
+
+        Assert.Contains("Stored lifecycle receipt", failure.Message, StringComparison.Ordinal);
+        Assert.True(worker.Terminated);
+        Assert.True(worker.Disposed);
+        Assert.True(service.Terminated);
+        Assert.True(service.Disposed);
+        Assert.Equal(1, host.RevocationCount);
+        Assert.Equal(1, grants.RevocationCount);
+        Assert.Equal(receiptCount, receipts.All.Count);
+        Assert.False(state.DeleteCalled);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await resources.ActivateAtomicallyAsync(package, CreateTargets(package), receipt.Generation + 1, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShutdownAsync_CleanupFailurePreservesReceiptRefusalAndAttemptsGrantRevocation(bool grantFailure)
+    {
+        VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
+        var host = new HostResources();
+        var resources = new AuthoringExtensionLifecycleResources(host);
+        var receipts = new ReceiptStore();
+        var grants = new ShutdownGrantCatalog { FailRevocation = grantFailure };
+        var coordinator = new AuthoringExtensionLifecycleCoordinator(
+            resources, new Preflight(true), new StateStore(), receipts, grants);
+        AuthoringLifecycleReceipt receipt = await coordinator.EnableAsync(package, CreateTargets(package));
+        var worker = new FailingTerminationWorker();
+        var service = new TrackedService();
+        await resources.TrackWorkerAsync(package.Contract.Manifest.Id, receipt.Generation, worker);
+        await resources.TrackServiceAsync(package.Contract.Manifest.Id, receipt.Generation, service);
+        receipts.ReplaceStoredReceipt(receipt with
+        {
+            ReceiptSha256 = new string('0', 64)
+        });
+        int receiptCount = receipts.All.Count;
+
+        AuthoringExtensionContractException failure = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await coordinator.DisableAsync(package));
+
+        Assert.Contains("Stored lifecycle receipt", failure.Message, StringComparison.Ordinal);
+        Assert.Equal("cleanup-incomplete", failure.Data["AuthoringResourceCleanup"]);
+        Assert.Equal(grantFailure ? "cleanup-failed" : null, failure.Data["AuthoringGrantCleanup"]);
+        Assert.True(worker.Disposed);
+        Assert.True(service.Terminated);
+        Assert.True(service.Disposed);
+        Assert.Equal(1, host.RevocationCount);
+        Assert.Equal(1, grants.RevocationCount);
+        Assert.Equal(receiptCount, receipts.All.Count);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ShutdownAsync_GrantRecoveryRetriesOnlyTheRetainedOwnedPackage(bool uninstall)
+    {
+        VerifiedAuthoringPackage package = CreatePackage("1.0.0", 1);
+        ImmutableArray<AuthoringExecutionTarget> targets = CreateTargets(package);
+        AuthoringContributionDeclaration contribution = package.Contract.Manifest.Contributions[0];
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var grant = new AuthoringCapabilityGrant(
+            "grant-recovery-1", targets[0].RuntimeIdentity!, package.Contract.Manifest.Id,
+            package.Contract.Manifest.Version, contribution.Id, contribution.ExecutionClass,
+            AuthoringCapability.DocumentRangeRead, "document-1", "site-1", "read-range", null, null,
+            now, now.AddMinutes(1), "approval-1", "request-1", new string('a', 64));
+        var grants = new RecoveringShutdownGrantCatalog(grant);
+        var host = new HostResources();
+        var resources = new AuthoringExtensionLifecycleResources(host);
+        var receipts = new ReceiptStore();
+        var state = new StateStore();
+        var coordinator = new AuthoringExtensionLifecycleCoordinator(
+            resources, new Preflight(true), state, receipts, grants);
+        AuthoringLifecycleReceipt receipt = await coordinator.EnableAsync(package, targets);
+        var worker = new TrackedWorker();
+        var service = new TrackedService();
+        await resources.TrackWorkerAsync(package.Contract.Manifest.Id, receipt.Generation, worker);
+        await resources.TrackServiceAsync(package.Contract.Manifest.Id, receipt.Generation, service);
+        receipts.ReplaceStoredReceipt(receipt with
+        {
+            ReceiptSha256 = new string('0', 64)
+        });
+        int receiptCount = receipts.All.Count;
+
+        async Task<AuthoringExtensionContractException> ShutdownAsync() =>
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            {
+                if (uninstall)
+                {
+                    await coordinator.UninstallAsync(package, CreateScope(package));
+                }
+                else
+                {
+                    await coordinator.DisableAsync(package);
+                }
+            });
+
+        AuthoringExtensionContractException first = await ShutdownAsync();
+        Assert.Contains("Stored lifecycle receipt", first.Message, StringComparison.Ordinal);
+        Assert.Equal("cleanup-failed", first.Data["AuthoringGrantCleanup"]);
+        Assert.True(worker.Terminated);
+        Assert.True(worker.Disposed);
+        Assert.True(service.Terminated);
+        Assert.True(service.Disposed);
+        Assert.Single(await grants.FindActiveAsync(grant.ExtensionId, grant.ContributionId, grant.RuntimeIdentity, CancellationToken.None));
+
+        VerifiedAuthoringPackage otherPackage = CreatePackage("2.0.0", 1);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await coordinator.DisableAsync(otherPackage));
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await resources.ActivateAtomicallyAsync(otherPackage, CreateTargets(otherPackage), receipt.Generation + 1, CancellationToken.None));
+        Assert.Equal(1, grants.RevocationCount);
+        Assert.Equal(1, host.RevocationCount);
+        Assert.True((await resources.RevokeAllAsync(package.Contract.Manifest.Id, receipt.Generation, CancellationToken.None)).IsEmpty);
+
+        AuthoringExtensionContractException second = await ShutdownAsync();
+        Assert.Contains("Stored lifecycle receipt", second.Message, StringComparison.Ordinal);
+        Assert.Null(second.Data["AuthoringGrantCleanup"]);
+        Assert.Equal(2, grants.RevocationCount);
+        Assert.Empty(await grants.FindActiveAsync(grant.ExtensionId, grant.ContributionId, grant.RuntimeIdentity, CancellationToken.None));
+        Assert.Equal(3, host.RevocationCount);
+        Assert.Equal(receiptCount, receipts.All.Count);
+        Assert.False(state.DeleteCalled);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await coordinator.AcceptResultAsync(package.Contract.Manifest.Id, receipt.Generation + 1));
+    }
+
+    [Fact]
+    public async Task ShutdownAsync_MissingCanonicalResourceOwnerDoesNotInventRevocationAuthority()
+    {
+        var grants = new ShutdownGrantCatalog();
+        LifecycleFixture fixture = CreateFixture();
+        var coordinator = new AuthoringExtensionLifecycleCoordinator(
+            fixture.Resources, new Preflight(true), fixture.State, fixture.Receipts, grants);
+        AuthoringLifecycleReceipt receipt = await coordinator.EnableAsync(fixture.Package, fixture.Targets);
+        fixture.Receipts.ReplaceStoredReceipt(receipt with
+        {
+            ReceiptSha256 = new string('0', 64)
+        });
+        int receiptCount = fixture.Receipts.All.Count;
+
+        AuthoringExtensionContractException failure = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await coordinator.DisableAsync(fixture.Package));
+
+        Assert.Equal("canonical-owned-resources-unavailable", failure.Data["AuthoringResourceCleanup"]);
+        Assert.Equal(0, fixture.Resources.RevocationCount);
+        Assert.Equal(0, grants.RevocationCount);
+        Assert.Equal(receiptCount, fixture.Receipts.All.Count);
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, true)]
+    public async Task ShutdownAsync_OlderPackageCannotRevokeNewerRuntimeOrGrants(bool tampered, bool uninstall, bool identityOnly)
+    {
+        VerifiedAuthoringPackage oldPackage = CreatePackage("1.0.0", 1);
+        VerifiedAuthoringPackage newPackage = CreatePackage("2.0.0", 1);
+        newPackage = newPackage with
+        {
+            Contract = AuthoringExtensionContractValidator.Verify(newPackage.Contract.Manifest with
+            {
+                PackageSha256 = new string('e', 64),
+                ContentSha256 = new string('f', 64)
+            })
+        };
+        if (identityOnly)
+        {
+            oldPackage = newPackage with
+            {
+                PackageIdentity = new string('c', 64)
+            };
+        }
+        var host = new HostResources();
+        var resources = new AuthoringExtensionLifecycleResources(host);
+        var receipts = new ReceiptStore();
+        var grants = new ShutdownGrantCatalog();
+        var state = new StateStore();
+        var coordinator = new AuthoringExtensionLifecycleCoordinator(
+            resources, new Preflight(true), state, receipts, grants);
+        AuthoringLifecycleReceipt receipt = await coordinator.EnableAsync(newPackage, CreateTargets(newPackage));
+        var worker = new TrackedWorker();
+        var service = new TrackedService();
+        await resources.TrackWorkerAsync(newPackage.Contract.Manifest.Id, receipt.Generation, worker);
+        await resources.TrackServiceAsync(newPackage.Contract.Manifest.Id, receipt.Generation, service);
+        if (tampered)
+        {
+            receipts.ReplaceStoredReceipt(receipt with
+            {
+                ReceiptSha256 = new string('0', 64)
+            });
+        }
+        int receiptCount = receipts.All.Count;
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+        {
+            if (uninstall)
+            {
+                await coordinator.UninstallAsync(oldPackage, CreateScope(oldPackage));
+            }
+            else
+            {
+                await coordinator.DisableAsync(oldPackage);
+            }
+        });
+
+        Assert.False(worker.Terminated);
+        Assert.False(worker.Disposed);
+        Assert.False(service.Terminated);
+        Assert.False(service.Disposed);
+        Assert.Equal(0, host.RevocationCount);
+        Assert.Equal(0, grants.RevocationCount);
+        Assert.Equal(receiptCount, receipts.All.Count);
+        Assert.False(state.DeleteCalled);
+    }
+
     [Fact]
     public async Task RuntimeResources_RevokeTrackedWorkerServiceAndEveryHostAuthority()
     {
@@ -868,6 +1158,8 @@ public sealed class AuthoringExtensionLifecycleTests
             get; set;
         }
 
+        public void ReplaceStoredReceipt(AuthoringLifecycleReceipt receipt) => Latest = receipt;
+
         public ValueTask<AuthoringLifecycleReceipt?> GetLatestAsync(
             string extensionId,
             CancellationToken cancellationToken) => ValueTask.FromResult(Latest);
@@ -888,5 +1180,75 @@ public sealed class AuthoringExtensionLifecycleTests
             All.Add(receipt);
             return ValueTask.CompletedTask;
         }
+    }
+
+    private sealed class ShutdownGrantCatalog : IAuthoringCapabilityGrantCatalog
+    {
+        public int RevocationCount
+        {
+            get; private set;
+        }
+
+        public bool FailRevocation
+        {
+            get; init;
+        }
+
+        public ValueTask<ImmutableArray<AuthoringCapabilityGrant>> FindActiveAsync(
+            string extensionId, string contributionId, string runtimeIdentity, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(ImmutableArray<AuthoringCapabilityGrant>.Empty);
+
+        public ValueTask<ImmutableArray<AuthoringCapabilityGrant>> FindActiveExactAsync(
+            string extensionId, string extensionVersion, string contributionId, string runtimeIdentity,
+            AuthoringExecutionClass executionClass, string documentId, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(ImmutableArray<AuthoringCapabilityGrant>.Empty);
+
+        public ValueTask<int> RevokeExtensionAsync(string extensionId, CancellationToken cancellationToken)
+        {
+            RevocationCount++;
+            if (FailRevocation)
+            {
+                throw new IOException("grant revocation failed");
+            }
+            return ValueTask.FromResult(0);
+        }
+
+        public ValueTask<int> RevokeRuntimesAsync(
+            string extensionId, ImmutableHashSet<string> runtimeIdentities, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(0);
+    }
+
+    private sealed class RecoveringShutdownGrantCatalog(AuthoringCapabilityGrant grant) : IAuthoringCapabilityGrantCatalog
+    {
+        private readonly AuthoringCapabilityGrantCatalogStub _catalog = new([grant]);
+
+        public int RevocationCount
+        {
+            get; private set;
+        }
+
+        public ValueTask<ImmutableArray<AuthoringCapabilityGrant>> FindActiveAsync(
+            string extensionId, string contributionId, string runtimeIdentity, CancellationToken cancellationToken) =>
+            _catalog.FindActiveAsync(extensionId, contributionId, runtimeIdentity, cancellationToken);
+
+        public ValueTask<ImmutableArray<AuthoringCapabilityGrant>> FindActiveExactAsync(
+            string extensionId, string extensionVersion, string contributionId, string runtimeIdentity,
+            AuthoringExecutionClass executionClass, string documentId, CancellationToken cancellationToken) =>
+            _catalog.FindActiveExactAsync(extensionId, extensionVersion, contributionId, runtimeIdentity,
+                executionClass, documentId, cancellationToken);
+
+        public ValueTask<int> RevokeExtensionAsync(string extensionId, CancellationToken cancellationToken)
+        {
+            RevocationCount++;
+            if (RevocationCount == 1)
+            {
+                throw new IOException("grant store temporarily unavailable");
+            }
+            return _catalog.RevokeExtensionAsync(extensionId, cancellationToken);
+        }
+
+        public ValueTask<int> RevokeRuntimesAsync(
+            string extensionId, ImmutableHashSet<string> runtimeIdentities, CancellationToken cancellationToken) =>
+            _catalog.RevokeRuntimesAsync(extensionId, runtimeIdentities, cancellationToken);
     }
 }
