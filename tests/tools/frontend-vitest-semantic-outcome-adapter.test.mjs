@@ -131,6 +131,37 @@ test('native title, line, duration, path and completion order do not define sema
     assert.equal(second.outcome.semanticPayloadDigest, first.outcome.semanticPayloadDigest);
 });
 
+test('canonically equivalent Unicode assertion IDs preserve raw identity and semantic order under permutation', () =>
+{
+    const values = failure(fixture(), 0);
+    const assertionIds = ['assert:\u00e9', 'assert:e\u0301'];
+    values.manifest.suites[0].tests[0].assertionIds = [...assertionIds];
+    const event = values.evidence.tests[0];
+    const original = event.assertions[0];
+    event.assertions = assertionIds.map((id) => ({ ...original, id,
+        failure: { ...original.failure, identity: { ...original.failure.identity, assertionId: id } } }));
+    const permuted = structuredClone(values);
+    permuted.evidence.tests.reverse();
+    permuted.evidence.tests.forEach((item) => item.assertions.reverse());
+    permuted.manifest.suites[0].tests.reverse();
+    permuted.manifest.suites[0].tests.forEach((item) => item.assertionIds.reverse());
+    const first = adaptFrontendVitestSemanticOutcome(bind(values));
+    const second = adaptFrontendVitestSemanticOutcome(bind(permuted));
+    const expectedIds = ['assert:e\u0301', 'assert:\u00e9'];
+    const diagnosticRefs = (candidate) => candidate.inputAuthorityRefs.filter((reference) => reference.kind.startsWith('raw-failure:'));
+    assert.notEqual(assertionIds[0], assertionIds[1]);
+    assert.deepEqual(first.outcome.membership.assertions.filter((item) => item.testId === event.testId).map((item) => item.id), expectedIds);
+    assert.deepEqual(first.outcome.membership.failures.map((item) => item.assertionId), expectedIds);
+    assert.deepEqual(first.outcome.reasons.map((item) => item.identity.assertionId), expectedIds);
+    assert.deepEqual(diagnosticRefs(first).map((reference) => reference.kind), expectedIds.map((id) => `raw-failure:${id}`));
+    assert.deepEqual(second.outcome.membership, first.outcome.membership);
+    assert.equal(second.outcome.semanticPayloadDigest, first.outcome.semanticPayloadDigest);
+    assert.deepEqual(second.outcome.reasons, first.outcome.reasons);
+    assert.deepEqual(diagnosticRefs(second), diagnosticRefs(first));
+    assert.equal(verifyFrontendVitestSemanticOutcomeCandidate(first, values), first);
+    assert.equal(verifyFrontendVitestSemanticOutcomeCandidate(second, permuted), second);
+});
+
 test('semantic parameter values remain distinct even when native display titles collide', () =>
 {
     const values = fixture();

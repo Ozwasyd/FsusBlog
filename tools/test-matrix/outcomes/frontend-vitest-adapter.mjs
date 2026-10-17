@@ -38,6 +38,12 @@ function digest(value, label)
     requireValue(typeof value === 'string' && digestPattern.test(value), `${label} must be SHA-256`);
 }
 
+// Preserve distinct raw IDs with the same string order used by exactIds.
+function compareOrdinal(left, right)
+{
+    return left === right ? 0 : left < right ? -1 : 1;
+}
+
 // Validate descriptors before hashing external JSON; never invoke getters/toJSON.
 function inspectJson(value, limits)
 {
@@ -394,8 +400,8 @@ export function adaptFrontendVitestSemanticOutcome(inputs)
     {
         membership[`${status}SuiteIds`].sort();
     }
-    membership.assertions.sort((left, right) => left.id.localeCompare(right.id));
-    membership.failures.sort((left, right) => left.assertionId.localeCompare(right.assertionId));
+    membership.assertions.sort((left, right) => compareOrdinal(left.id, right.id));
+    membership.failures.sort((left, right) => compareOrdinal(left.assertionId, right.assertionId));
     const reasons = membership.failures.map((failure) => ({ kind: failure.failureKind,
         producerId: frontendVitestOutcomeProducerId, identity: failure.identity }));
     return sealProducerSemanticOutcomeCandidate({ producerId: frontendVitestOutcomeProducerId, producerAuthorityId: authorityId,
@@ -405,7 +411,7 @@ export function adaptFrontendVitestSemanticOutcome(inputs)
             { kind: 'command-manifest', path: 'held:frontend-manifest', digest: manifest.contentDigest },
             { kind: 'native-report', path: 'held:vitest-report', digest: expectedInputs.reportDigest },
             { kind: 'runner-evidence', path: 'held:frontend-evidence', digest: evidence.contentDigest },
-            ...diagnosticRefs.sort((left, right) => left.kind.localeCompare(right.kind))
+            ...diagnosticRefs.sort((left, right) => compareOrdinal(left.kind, right.kind))
         ], outcome: { status: reasons.length === 0 ? 'success' : 'failed', requiredMembershipVerified: reasons.length === 0,
             reasons, membership, semanticPayloadDigest: digestCanonical(membership) } });
 }
