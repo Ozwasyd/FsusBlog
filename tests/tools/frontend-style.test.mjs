@@ -2307,3 +2307,51 @@ void [propsAreTyped, formatIsTyped, valid, invalid];
         rmSync(fixtureRoot, { recursive: true, force: true });
     }
 });
+
+test('canonical complete tests bind real public declarations outside the frontend install ancestry', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const frontend = path.join(root, 'src/frontend');
+    const project = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    const parsed = ts.getParsedCommandLineOfConfigFile(project, {}, {
+        ...ts.sys,
+        onUnRecoverableConfigFileDiagnostic(diagnostic)
+        {
+            assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+        }
+    });
+    assert.deepEqual(parsed.errors, []);
+    const original = ts.getParsedCommandLineOfConfigFile(path.join(frontend, 'tsconfig.playwright.json'), {}, {
+        ...ts.sys,
+        onUnRecoverableConfigFileDiagnostic(diagnostic)
+        {
+            assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+        }
+    });
+    assert.deepEqual(original.errors, []);
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-public-test-importer-'));
+    try
+    {
+        const importer = path.join(fixtureRoot, 'consumer.ts');
+        writeFileSync(importer, "import { expect } from 'vitest';\nvoid expect;\n");
+        for (const specifier of [
+            'vitest', 'fake-indexeddb', 'happy-dom', 'pinia', 'pinia-plugin-persistedstate',
+            'vue-router', '@vue/test-utils', '@noble/hashes/sha2.js', '@noble/hashes/utils.js'
+        ])
+        {
+            const expected = ts.resolveModuleName(specifier, path.join(frontend, 'typecheck.ts'),
+                original.options, ts.sys).resolvedModule;
+            const actual = ts.resolveModuleName(specifier, importer, parsed.options, ts.sys).resolvedModule;
+            assert.ok(expected && actual, `missing installed declaration for ${specifier}`);
+            assert.equal(ts.sys.realpath(actual.resolvedFileName), ts.sys.realpath(expected.resolvedFileName));
+            assert.ok([ts.Extension.Dts, ts.Extension.Dmts, ts.Extension.Dcts].includes(actual.extension));
+        }
+        const withoutBinding = { ...parsed.options,
+            paths: Object.fromEntries(Object.entries(parsed.options.paths).filter(([specifier]) => specifier !== 'vitest')) };
+        assert.equal(ts.resolveModuleName('vitest', importer, withoutBinding, ts.sys).resolvedModule, undefined);
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});

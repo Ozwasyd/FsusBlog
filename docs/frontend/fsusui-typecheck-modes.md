@@ -130,6 +130,13 @@ Plain `tsc` cannot read their component declarations; the Vue compiler checks
 those SFCs and their actual props without a catch-all component declaration.
 Existing diagnostics in the complete program remain failures. Changing the
 compiler does not turn a smaller diagnostic count into acceptance.
+The test sources sit outside the frontend dependency directory's ancestry.
+For their public test/runtime imports, the producer asks the original locked
+TypeScript resolver for the installed package's actual declaration entry and
+binds that exact specifier in the generated project. It preserves existing
+explicit aliases and package-export selection; it does not require per-leaf
+dependency links or expose arbitrary package subpaths. Missing declarations fail
+closed rather than selecting a published FsusUI package or a stub.
 The existing locked TypeScript parser resolves JSONC and inherited configuration;
 complete projects retain explicit files and resolve inherited aliases relative to
 their original path origin before adding the local declarations and aliases.
