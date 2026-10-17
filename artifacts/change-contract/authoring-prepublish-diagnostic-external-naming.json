@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringPrepublishDiagnosticContracts.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringPrepublishDiagnosticRegistry.cs"
+            ],
+            "reason": "Retain existing caller-visible process environment spelling at the authoring host boundary. These additive diagnostic contracts introduce no environment keys; their C# identifiers retain the normal internal naming map. The declaration covers the original registry's path-based requirement without granting new environment authority."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve the existing host-boundary document's caller-visible references and scope names. The diagnostic contract description introduces no CSS selector or token and changes no DOM contract; this declaration covers the original documentation path registration without exempting internal identifier naming."
+        }
+    ]
+}
