@@ -602,7 +602,7 @@ Paging metadata within AEDS frames:
 | | Total | int32 | Current total number of filters |
 | | NextCursor | bytes | length-prefixed UTF-8 opaque cursor，最大 512B；无更多时为空 |
 
-`ArticleList` writer 和 decoder 只使用 cursor envelope v2；v1 的 `nextCursorUnixMs:int64 + hasMore:byte + total:int32` envelope 被拒绝。v2 必须满足 `hasMore` 与 cursor 是否非空完全一致，cursor 必须是 canonical base64url 字符串；未知版本、非法 UTF-8、尾随数据或状态不一致均按 protocol failure 拒绝。
+`ArticleList` writer 和 decoder 只使用 cursor envelope v2；v1 的 `nextCursorUnixMs:int64 + hasMore:byte + total:int32` envelope 被拒绝。v2 必须满足 `hasMore` 与 cursor 是否非空完全一致，服务端签发的 cursor 必须是 canonical base64url 字符串。POD wire reader 将其作为 opaque 文本保留，只检查 UTF-8、base64url 字符集合、512B 上限与 envelope 状态；wire 往返成功不代表该 cursor 可用于分页。生产 `ArticleListCursorCodec.TryDecode` 在 `Unprotect` 前执行 base64url 解码/重编码等价检查，再验证认证、版本、query binding 和过期时间；`ArticleEndpointService` 在访问 frame cache 或文章查询前调用它。未知 envelope 版本、非法 UTF-8、尾随数据或状态不一致均按 protocol failure 拒绝。
 | `CursorEnvelope` | NextCursor | long | 下一页游标值（-1 表示无更多） |
 | | HasMore | bool | 是否有更多 |
 
