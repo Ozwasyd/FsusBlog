@@ -75,7 +75,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
                     }))
                     for (const box of boxes) {
                         expect(box.width).toBeGreaterThan(0)
-                        expect(box.height).toBeGreaterThanOrEqual(40)
+                        expect(box.height).toBeGreaterThanOrEqual(44)
                         expect(Math.abs(box.left - boxes[0].left)).toBeLessThanOrEqual(1)
                         expect(Math.abs(box.width - boxes[0].width)).toBeLessThanOrEqual(1)
                         expect(box.left).toBeGreaterThanOrEqual(box.panelLeft - 1)
