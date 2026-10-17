@@ -66,6 +66,31 @@ test('revision rows retain keyboard activation, busy suppression and rollback co
     expect(errors).toEqual([]);
 });
 
+test.describe('touch revision controls', () =>
+{
+    test.use({ hasTouch: true, isMobile: true, viewport: { width: 375, height: 900 } });
+
+    test('delegates native taps and suppresses them while rollback is pending', async ({ page }) =>
+    {
+        await openPanel(page);
+        const rows = page.locator('button.revision-row');
+        await rows.first().tap();
+        await expect(rows.first()).toHaveAttribute('aria-current', 'true');
+        await page.evaluate(() => { window.revisionPanelFixture.state.rollbacking = true; });
+        await expect(rows.last()).toBeDisabled();
+        const bounds = await rows.last().boundingBox();
+        expect(bounds).not.toBeNull();
+        await page.touchscreen.tap(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+        expect(await page.evaluate(() => window.revisionPanelFixture.events)).toEqual([{ event: 'select', id: 'revision-3' }]);
+        await page.evaluate(() => { window.revisionPanelFixture.state.rollbacking = false; });
+        await rows.last().tap();
+        await expect(rows.last()).toHaveAttribute('aria-current', 'true');
+        expect(await page.evaluate(() => window.revisionPanelFixture.events)).toEqual([
+            { event: 'select', id: 'revision-3' }, { event: 'select', id: 'revision-2' }
+        ]);
+    });
+});
+
 for (const theme of ['light', 'dark'] as const)
 {
     test(`revision rows preserve long content inside the button at narrow widths and 200% zoom (${theme})`, async ({ page }) =>
