@@ -317,7 +317,10 @@ const activate = async (tabId: string): Promise<void> =>
     const receipt = await activateTab(tabId);
     if (receipt.sessionState === 'blocked')
     {
-        overflowOpen.value = false;
+        if (overflowOpen.value)
+        {
+            closeOverflowAndReturnFocus();
+        }
         return;
     }
     await nextTick();
@@ -496,7 +499,7 @@ const handleTabListKeydown = (event: KeyboardEvent): void =>
     display: flex;
     min-width: 9rem;
     max-width: 18rem;
-    flex: 0 1 15rem;
+    flex: 0 0 15rem;
     align-items: stretch;
     border-bottom: 2px solid transparent;
 }
