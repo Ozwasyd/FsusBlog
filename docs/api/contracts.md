@@ -600,9 +600,9 @@ Paging metadata within AEDS frames:
 | | Version | int32 | `2` |
 | | HasMore | byte | `0` 或 `1` |
 | | Total | int32 | Current total number of filters |
-| | NextCursor | bytes | length-prefixed UTF-8 opaque cursor，最大 64B；无更多时为空 |
+| | NextCursor | bytes | length-prefixed UTF-8 opaque cursor，最大 512B；无更多时为空 |
 
-`ArticleList` writer 只写 v2；decoder 只读兼容 v1 的 `nextCursorUnixMs:int64 + hasMore:byte + total:int32`。v2 必须满足 `hasMore` 与 cursor 是否非空完全一致，cursor 必须是 canonical base64url 字符串；未知版本、非法 UTF-8、尾随数据或状态不一致均按 protocol failure 拒绝。
+`ArticleList` writer 和 decoder 只使用 cursor envelope v2；v1 的 `nextCursorUnixMs:int64 + hasMore:byte + total:int32` envelope 被拒绝。v2 必须满足 `hasMore` 与 cursor 是否非空完全一致，cursor 必须是 canonical base64url 字符串；未知版本、非法 UTF-8、尾随数据或状态不一致均按 protocol failure 拒绝。
 | `CursorEnvelope` | NextCursor | long | 下一页游标值（-1 表示无更多） |
 | | HasMore | bool | 是否有更多 |
 
