@@ -95,7 +95,6 @@
                                     class="ops-evidence__copy"
                                     native-type="button"
                                     text
-                                    inline-action
                                     aria-label="复制证据"
                                     @click="copyEvidence(incident)"
                                 >
@@ -105,7 +104,6 @@
                                     class="ops-evidence__disclosure"
                                     native-type="button"
                                     text
-                                    inline-action
                                     data-ops-evidence-disclosure
                                     :aria-expanded="expandedEvidence.has(incident.key)"
                                     :aria-controls="`ops-evidence-${incident.key}`"
