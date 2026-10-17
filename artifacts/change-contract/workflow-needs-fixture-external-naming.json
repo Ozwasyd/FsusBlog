@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/check-test-matrix.mjs"
+            ],
+            "reason": "Preserve the existing FSUSBLOG_DOCS_EVIDENCE_DIR process environment spelling and all current workflow job identifiers while extending only the original needs fixture mutation helper."
+        }
+    ]
+}
