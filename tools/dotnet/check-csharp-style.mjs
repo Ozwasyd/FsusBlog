@@ -791,7 +791,12 @@ function normalizeUsingDirectives(file)
     {
         requireCanonicalImportSource(file);
         const absolute = path.join(root, file);
-        const text = fs.readFileSync(absolute, 'utf8');
+        const buffer = fs.readFileSync(absolute);
+        if (!isUtf8(buffer))
+        {
+            throw new Error(`mother-standard import fix requires valid UTF-8 without decoding replacements: ${file}`);
+        }
+        const text = buffer.toString('utf8');
         const { imports } = inspectCsharpFormat(text);
         if (imports === null)
         {

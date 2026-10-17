@@ -154,6 +154,20 @@ test('explicit formatter retains the existing shared-third-party owner grouping'
     });
 });
 
+test('explicit formatter refuses invalid UTF-8 without changing bytes outside imports', () =>
+{
+    withFixture(({ directory, write, run }) =>
+    {
+        const source = Buffer.concat([Buffer.from('// license '), Buffer.from([0xff]),
+            Buffer.from('\n' + before + body)]);
+        write('src/Reader.cs', source);
+        const result = run('--fix');
+        assert.notEqual(result.status, 0);
+        assert.match(result.stderr, /requires valid UTF-8/u);
+        assert.deepEqual(readFileSync(join(directory, 'src/Reader.cs')), source);
+    });
+});
+
 test('cached C# parser rejects changed executable bytes on the next classification', () =>
 {
     const directory = mkdtempSync(join(tmpdir(), 'fsusblog-csharp-parser-tamper-'));
