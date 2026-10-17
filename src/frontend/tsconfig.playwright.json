@@ -18,7 +18,8 @@
                 "wasm/web/*"
             ],
             "@playwright/test": [
-                "node_modules/@playwright/test/index"
+                "node_modules/@playwright/test/index",
+                "node_modules/@playwright/test/index.mjs"
             ],
             "@playwright/test/*": [
                 "node_modules/@playwright/test/*"

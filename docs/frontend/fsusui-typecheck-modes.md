@@ -128,12 +128,16 @@ The existing locked TypeScript parser resolves JSONC and inherited configuration
 complete projects retain explicit files and resolve inherited aliases relative to
 their original path origin before adding the local declarations and aliases.
 
-The canonical `@playwright/test` mapping uses the installed package's
-extensionless `index` target so TypeScript resolves its official `index.d.ts`
-and forwarded `playwright/test` declarations. Playwright's path transform selects
-the official `index.js` runtime entry for this target instead of pinning
-`index.mjs`. Declaration resolution does not establish runtime compatibility;
-verify the original Playwright collection and affected runtime checks as well.
+The canonical `@playwright/test` mapping lists the installed package's
+extensionless `index` target first and its official `index.mjs` import entry last.
+TypeScript selects the first declaration candidate, preserving the official
+`index.d.ts` package identity and forwarded `playwright/test` declarations.
+The locked Playwright 1.59.1 path transform selects the last existing candidate,
+so its runtime keeps the official ESM entry rather than the extensionless target's
+CommonJS `index.js`. This ordering depends on that runner implementation;
+the original and generated configuration regression controls verify both owners.
+Runner upgrades must also pass original collection and affected runtime checks;
+declaration resolution alone does not establish runtime compatibility.
 
 Local source projects resolve `@ozwasyd/element-plus/es/*` through the checkout's
 `vue/packages/*`, including the original deep-import boundary fixture and the

@@ -2182,11 +2182,88 @@ test('canonical complete tests resolve the official Playwright declarations inst
         assert.equal(forwarded.extension, ts.Extension.Dts);
         assert.equal(ts.sys.realpath(forwarded.resolvedFileName),
             ts.sys.realpath(path.join(frontend, 'node_modules/playwright/test.d.ts')));
-        const runtimeOnly = ts.resolveModuleName('@playwright/test', importer, {
-            ...parsed.options,
-            paths: { ...parsed.options.paths, '@playwright/test': ['node_modules/@playwright/test/index.mjs'] }
-        }, ts.sys).resolvedModule;
-        assert.equal(runtimeOnly.extension, ts.Extension.Mjs);
-        assert.notEqual(runtimeOnly.resolvedFileName, declaredTypes);
+        for (const targets of [
+            ['node_modules/@playwright/test/index.mjs'],
+            ['node_modules/@playwright/test/index.mjs', 'node_modules/@playwright/test/index.d.ts']
+        ])
+        {
+            const runtimeOnly = ts.resolveModuleName('@playwright/test', importer, {
+                ...parsed.options,
+                paths: { ...parsed.options.paths, '@playwright/test': targets }
+            }, ts.sys).resolvedModule;
+            assert.equal(runtimeOnly.extension, ts.Extension.Mjs);
+            assert.notEqual(runtimeOnly.resolvedFileName, declaredTypes);
+        }
+    }
+});
+
+test('canonical Playwright projects preserve the official ESM runtime through the locked runner transform', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot } = await localFsusUiTypecheckProbe();
+    const frontend = path.join(root, 'src/frontend');
+    const originalPath = path.join(frontend, 'tsconfig.playwright.json');
+    const generatedPath = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    const importer = path.join(root, 'tests/frontend/e2e/article-editor-production-fixture.spec.ts');
+    const probe = `
+        import assert from 'node:assert/strict';
+        import { realpathSync, readFileSync } from 'node:fs';
+        import { createRequire } from 'node:module';
+        import path from 'node:path';
+        import { pathToFileURL } from 'node:url';
+
+        const [frontend, project, importer] = process.argv.slice(1);
+        const packageRoot = path.join(frontend, 'node_modules/@playwright/test');
+        const manifest = JSON.parse(readFileSync(path.join(packageRoot, 'package.json'), 'utf8'));
+        const expected = path.resolve(packageRoot, manifest.exports['.'].import);
+        const require = createRequire(path.join(frontend, 'package.json'));
+        const { resolveHook, setSingleTSConfig } = require(
+            path.join(frontend, 'node_modules/playwright/lib/transform/transform.js')
+        );
+        setSingleTSConfig(project);
+        const actual = resolveHook(importer, '@playwright/test');
+        assert.equal(realpathSync(actual), realpathSync(expected));
+        const actualModule = await import(pathToFileURL(actual).href);
+        const officialModule = await import(pathToFileURL(expected).href);
+        assert.equal(typeof actualModule.test, 'function');
+        assert.equal(typeof actualModule.expect, 'function');
+        assert.equal(actualModule.test, officialModule.test);
+        assert.equal(actualModule.expect, officialModule.expect);
+    `;
+    const runProbe = (project, source) => spawnSync(process.execPath, ['--input-type=module', '-e', probe,
+        frontend, project, source], { cwd: frontend, encoding: 'utf8' });
+    for (const project of [originalPath, generatedPath])
+    {
+        for (const source of [path.join(frontend, 'playwright.config.ts'), importer])
+        {
+            const result = runProbe(project, source);
+            assert.equal(result.status, 0, result.stdout + result.stderr);
+        }
+    }
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-playwright-runtime-entry-'));
+    try
+    {
+        const original = JSON.parse(readFileSync(originalPath, 'utf8'));
+        for (const targets of [
+            ['node_modules/@playwright/test/index'],
+            ['node_modules/@playwright/test/index.d.ts'],
+            ['node_modules/@playwright/test/index.mjs', 'node_modules/@playwright/test/index.d.ts']
+        ])
+        {
+            const project = path.join(fixtureRoot, 'tsconfig.json');
+            writeFileSync(project, JSON.stringify({
+                extends: originalPath,
+                compilerOptions: {
+                    baseUrl: frontend,
+                    paths: { ...original.compilerOptions.paths, '@playwright/test': targets }
+                }
+            }));
+            const result = runProbe(project, importer);
+            assert.notEqual(result.status, 0, result.stdout + result.stderr);
+            assert.match(result.stderr, /ERR_ASSERTION/u);
+        }
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
     }
 });
