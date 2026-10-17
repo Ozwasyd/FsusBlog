@@ -1,15 +1,15 @@
-using FsusBlog.Contracts.Articles;
 using System.Data.Common;
 using System.Diagnostics;
 
+using SqlSugar;
+
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
-
-using SqlSugar;
 
 namespace FsusBlog.Server.Services.Background;
 
