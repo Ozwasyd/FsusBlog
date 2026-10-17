@@ -24,24 +24,21 @@ export class AuthorQueryRequestCoordinator
 
     constructor()
     {
-        if (!AuthorQueryRequestCoordinator.unregisterCleanup)
+        AuthorQueryRequestCoordinator.unregisterCleanup ??= registerPrivateStateCleanupHandler('author-query-projection-runtime', () =>
         {
-            AuthorQueryRequestCoordinator.unregisterCleanup = registerPrivateStateCleanupHandler('author-query-projection-runtime', () =>
+            AuthorQueryRequestCoordinator.cleanupDepth += 1;
+            try
             {
-                AuthorQueryRequestCoordinator.cleanupDepth += 1;
-                try
+                for (const coordinator of [...AuthorQueryRequestCoordinator.instances])
                 {
-                    for (const coordinator of [...AuthorQueryRequestCoordinator.instances])
-                    {
-                        coordinator.cancel();
-                    }
+                    coordinator.cancel();
                 }
-                finally
-                {
-                    AuthorQueryRequestCoordinator.cleanupDepth -= 1;
-                }
-            });
-        }
+            }
+            finally
+            {
+                AuthorQueryRequestCoordinator.cleanupDepth -= 1;
+            }
+        });
         AuthorQueryRequestCoordinator.instances.add(this);
     }
 
