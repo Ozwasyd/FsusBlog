@@ -96,7 +96,7 @@
                 type="danger"
                 link
                 inline-action
-                class="fsus-comment-tree-node__action"
+                class="fsus-comment-tree-node__action is-danger"
                 :aria-label="depth === 0 ? '删除评论' : '删除回复'"
                 @click="$emit('delete', { id: node.id, rootId: node.rootId, parentId: node.parentId ?? null, content: node.content })"
             >
