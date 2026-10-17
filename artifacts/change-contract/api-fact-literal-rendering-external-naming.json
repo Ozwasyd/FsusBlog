@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "tools/docs/generated-fact-sections/renderers.mjs",
+                "docs/api/schemas-and-errors.md"
+            ],
+            "reason": "Preserve the existing renderer, typed claim, frame and error identifiers while safely serializing current observations and regenerating their canonical schema sections."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/aeds-only-policy.md",
+                "docs/api/quick-reference.md",
+                "docs/api/stability.md",
+                "docs/architecture/comment-query-boundary.md"
+            ],
+            "reason": "Preserve existing external Markdown markers, fragment targets and protocol spellings while the original producer refreshes its current owned sections."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the canonical execution-target schema and exact current declaration/index fields while its unchanged original producer refreshes the real changed source closure hashes."
+        }
+    ]
+}

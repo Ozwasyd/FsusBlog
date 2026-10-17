@@ -1,0 +1,36 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/docs/generated-fact-sections/renderers.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "docs/api.md",
+            "sha256": "636164d3e80f828fd8699ef726a2bd1e5cb9a446202bab5e7a54df580acafdf2"
+        },
+        {
+            "path": "docs/api/aeds-only-policy.md",
+            "sha256": "bb753d315074c29e5ebc7d9ace2eafb09a2210599e6da47fb94b94b09e0bdfe6"
+        },
+        {
+            "path": "docs/api/quick-reference.md",
+            "sha256": "356d2949a894a15fd7c59ee074728e4b5e9a35a5fb2caccc7d10bbc533b5762b"
+        },
+        {
+            "path": "docs/api/schemas-and-errors.md",
+            "sha256": "0ae7619fe0a35b6295ffad0b52c9eefd3f62eeca09e50f1aa4e68b1f9fd73754"
+        },
+        {
+            "path": "docs/api/stability.md",
+            "sha256": "7e15df4aeafa9ef9b5f2415d552ae44b77d7cbd360ae3824e893b24225ff9345"
+        },
+        {
+            "path": "docs/architecture/comment-query-boundary.md",
+            "sha256": "123ba8364aa7379f2a2651af0e6f7a9e724433202ecefc0001e5436d27561975"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "ebf0d9729affecafd386c139ee03c33e4e3358d205c10519f7767c3e0eac87bb"
+        }
+    ]
+}
