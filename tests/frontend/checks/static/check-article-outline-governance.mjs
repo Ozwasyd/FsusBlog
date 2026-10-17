@@ -9,20 +9,27 @@ const failures = [];
 
 const relative = (file) => path.relative(repoRoot, file).replaceAll(path.sep, '/');
 const read = (file) => fs.readFileSync(file, 'utf8');
-const lineOf = (source, token) => {
+const lineOf = (source, token) =>
+{
     const index = source.indexOf(token);
     return index < 0 ? 1 : source.slice(0, index).split(/\r?\n/u).length;
 };
-const requireTokens = (file, source, tokens) => {
-    for (const token of tokens) {
-        if (!source.includes(token)) {
+const requireTokens = (file, source, tokens) =>
+{
+    for (const token of tokens)
+    {
+        if (!source.includes(token))
+        {
             failures.push(`${relative(file)}:${lineOf(source, token)}: missing ${token}`);
         }
     }
 };
-const forbidTokens = (file, source, tokens) => {
-    for (const token of tokens) {
-        if (source.includes(token)) {
+const forbidTokens = (file, source, tokens) =>
+{
+    for (const token of tokens)
+    {
+        if (source.includes(token))
+        {
             failures.push(`${relative(file)}:${lineOf(source, token)}: forbidden ${token}`);
         }
     }
@@ -214,7 +221,8 @@ requireTokens(fixturePath, fixture, [
     'articleIdentity: outlineArticleIdentity.value'
 ]);
 const headingCounts = fixtureContract.outline?.headingCounts;
-if (JSON.stringify(headingCounts) !== JSON.stringify([0, 1, 10, 100, 1000, 10000])) {
+if (JSON.stringify(headingCounts) !== JSON.stringify([0, 1, 10, 100, 1000, 10000]))
+{
     failures.push(`${relative(fixtureContractPath)}: outline heading-count matrix must cover 0,1,10,100,1000,10000`);
 }
 requireTokens(fixtureSpecPath, fixtureSpec, [
@@ -227,9 +235,12 @@ requireTokens(fixtureSpecPath, fixtureSpec, [
     'toBeFocused()'
 ]);
 
-if (failures.length > 0) {
+if (failures.length > 0)
+{
     console.error(failures.join('\n'));
     process.exitCode = 1;
-} else {
+}
+else
+{
     console.log('article outline governance: ok');
 }
