@@ -29,6 +29,11 @@ type Resources = Readonly<{
     modelBytes: number; observers: number; timers: number;
     networkRequests: number; workers: number; processes: number;
 }>;
+type PhysicalSpace = Readonly<{
+    status: 'available'; availableSize: Size;
+    rect: DOMRect; editor: DOMRect; rootRect: DOMRect;
+    viewport: 0 | 1; minimumEditorInline: number; browserZoomPercent: number;
+}>;
 
 /** A readonly space query projected from v1 requirements, not a wire DTO or verified declaration. */
 export interface AuthoringWorkspacePanelSpaceQuery
@@ -122,10 +127,13 @@ export interface AuthoringWorkspacePanelHost
 // timer/network/worker/process. Backend manifest/identity/model admission is separate.
 const maximumResources: Resources = Object.freeze({ modelBytes: 65536, observers: 0, timers: 0,
     networkRequests: 0, workers: 0, processes: 0 });
-const coreRegions = '[data-editor-panel], [data-active-inspector], [data-group-ref], [data-workspace-tab-strip]';
+// Original AccountRouteFrame owns both before-content chrome and routed Write.
+const coreOwnerSelector = '.account-route-frame.admin-workspace-frame';
+const coreRegions = '[data-editor-panel], [data-active-inspector], [data-group-ref], [data-workspace-tab-strip], '
+    + '[data-article-workspace-tab-strip], [data-article-library-rail], .account-route-frame__sidebar';
 const regionOwners = new WeakMap<HTMLElement, object>();
 
-function block(reason: AuthoringWorkspacePanelHostBlockReason): AuthoringWorkspacePanelHostResult
+function block(reason: AuthoringWorkspacePanelHostBlockReason): Extract<AuthoringWorkspacePanelHostResult, { status: 'blocked'; }>
 {
     return Object.freeze({ status: 'blocked', reason, commandsEnabled: false });
 }
@@ -202,6 +210,7 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
 }>): AuthoringWorkspacePanelHost
 {
     const { root, region, signal, readBinding } = options;
+    const coreOwner = root.closest<HTMLElement>(coreOwnerSelector);
     const token = Object.freeze({});
     const lease = privateRequestRuntime.open('admin', signal);
     const lifetime = new AbortController();
@@ -302,12 +311,135 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
 
     function regionAvailable(binding: CapturedBinding): boolean
     {
-        return regionOwners.get(region) === token && region.isConnected && root.contains(region)
+        return !!coreOwner?.isConnected && coreOwner.ownerDocument === root.ownerDocument && coreOwner.contains(root)
+            && root.closest(coreOwnerSelector) === coreOwner
+            && regionOwners.get(region) === token && region.isConnected && root.contains(region)
             && region.ownerDocument === root.ownerDocument && region !== binding.owner.editorElement
             && !region.contains(binding.owner.editorElement) && !binding.owner.editorElement.contains(region)
             && region.getAttribute('data-authoring-workspace-extension-region') === authoringWorkspacePanelSlotId
             && root.querySelectorAll(`[data-authoring-workspace-extension-region="${authoringWorkspacePanelSlotId}"]`).length === 1
             && !region.closest('[hidden], [inert], [aria-hidden="true"]');
+    }
+
+    function visibleRect(view: Window, rect: DOMRect): { left: number; top: number; right: number; bottom: number; } | null
+    {
+        const visible = { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+        for (let element: HTMLElement | null = region; element; element = element.parentElement)
+        {
+            const style = view.getComputedStyle(element);
+            if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse'
+                || style.contentVisibility === 'hidden' || style.opacity !== '' && Number(style.opacity) === 0)
+            {
+                return null;
+            }
+            if (element === region)
+            {
+                continue;
+            }
+            const clips = (overflow: string): boolean => ['hidden', 'clip', 'auto', 'scroll', 'overlay'].includes(overflow);
+            const clipInline = clips(style.overflowX || style.overflow);
+            const clipBlock = clips(style.overflowY || style.overflow);
+            if (!clipInline && !clipBlock)
+            {
+                continue;
+            }
+            const bounds = Element.prototype.getBoundingClientRect.call(element);
+            // Client dimensions describe the padding clip box. Convert its
+            // local dimensions to the current measured CSS coordinate space.
+            const scaleInline = element.offsetWidth > 0 ? bounds.width / element.offsetWidth : 1;
+            const scaleBlock = element.offsetHeight > 0 ? bounds.height / element.offsetHeight : 1;
+            const left = bounds.left + element.clientLeft * scaleInline;
+            const top = bounds.top + element.clientTop * scaleBlock;
+            if (clipInline)
+            {
+                visible.left = Math.max(visible.left, left);
+                visible.right = Math.min(visible.right, left + element.clientWidth * scaleInline);
+            }
+            if (clipBlock)
+            {
+                visible.top = Math.max(visible.top, top);
+                visible.bottom = Math.min(visible.bottom, top + element.clientHeight * scaleBlock);
+            }
+        }
+        return visible;
+    }
+
+    /** Native DOM/pure geometry only: no producer callback may follow the final read. */
+    function readPhysical(binding: CapturedBinding, query: AuthoringWorkspacePanelSpaceQuery,
+        measured: ReturnType<AuthoringWorkspaceLayoutSource['measure']>,
+        frame: ReturnType<AuthoringWorkspaceLayoutPort['readFrameRect']>,
+        projection: ReturnType<AuthoringTabGroupRegistry['exportProjection']>): PhysicalSpace
+        | Extract<AuthoringWorkspacePanelHostResult, { status: 'blocked'; }>
+    {
+        if (!resize || !mutation || !regionAvailable(binding))
+        {
+            return block('region-unavailable');
+        }
+        const cores = [...coreOwner!.querySelectorAll(coreRegions)];
+        if (region.closest(coreRegions) || cores.some(element => region.contains(element)))
+        {
+            return block('core-region-conflict');
+        }
+        const geometry = calculateAuthoringWorkspaceGeometry({ ...measured,
+            requestedLayout: projection.state.layoutState, splitRatioPermille: projection.state.splitRatio.splitRatioPermille });
+        const view = root.ownerDocument.defaultView;
+        if (!view || !frame || geometry.status !== 'planned'
+            || [frame.left, frame.top, frame.width, frame.height].some((value, index) =>
+                value !== [measured.frame.left, measured.frame.top, measured.frame.width, measured.frame.height][index]))
+        {
+            return block('binding-unavailable');
+        }
+        if (!query.platforms.includes(0))
+        {
+            return block('unsupported-platform');
+        }
+        if (measured.mobile)
+        {
+            return block('unsupported-viewport');
+        }
+        const viewport = measured.layoutViewportWidthCssPx >= 1024 ? 0 : 1;
+        if (!query.viewports.includes(viewport))
+        {
+            return block('unsupported-viewport');
+        }
+        const rect = Element.prototype.getBoundingClientRect.call(region);
+        const editor = Element.prototype.getBoundingClientRect.call(binding.owner.editorElement);
+        const rootRect = Element.prototype.getBoundingClientRect.call(root);
+        if (cores.some(element =>
+        {
+            const core = Element.prototype.getBoundingClientRect.call(element);
+            return core.width > 0 && core.height > 0 && rect.left < core.right && rect.right > core.left
+                && rect.top < core.bottom && rect.bottom > core.top;
+        }))
+        {
+            return block('core-region-conflict');
+        }
+        const visible = visibleRect(view, rect);
+        if (!visible)
+        {
+            return block('size-unavailable');
+        }
+        const clip = measured.visualViewport;
+        const availableSize = Object.freeze({
+            inline: Math.floor(Math.min(visible.right, rootRect.right, clip.left + clip.width,
+                geometry.available.left + geometry.available.width) - Math.max(visible.left, rootRect.left, clip.left, geometry.available.left)),
+            block: Math.floor(Math.min(visible.bottom, rootRect.bottom, clip.top + clip.height) - Math.max(visible.top, rootRect.top, clip.top))
+        });
+        if (!validSize(availableSize) || !fits(query.preferredSize, availableSize)
+            || measured.browserZoomPercent < 50 || measured.browserZoomPercent > 400)
+        {
+            return block('size-unavailable');
+        }
+        if (editor.width < geometry.minimumUsableWidthCssPx)
+        {
+            return block('editor-width-unavailable');
+        }
+        if (Object.entries(maximumResources).some(([key, value]) => query.budget[key as keyof Resources] > value))
+        {
+            return block('resource-limit');
+        }
+        return { status: 'available' as const, availableSize, rect, editor, rootRect, viewport,
+            minimumEditorInline: geometry.minimumUsableWidthCssPx, browserZoomPercent: measured.browserZoomPercent };
     }
 
     async function refreshAuthority(): Promise<boolean>
@@ -401,10 +533,6 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
             {
                 return block('region-unavailable');
             }
-            if (region.closest(coreRegions) || [...root.querySelectorAll(coreRegions)].some(element => region.contains(element)))
-            {
-                return block('core-region-conflict');
-            }
             if (!connection || !server)
             {
                 return block('authority-unavailable');
@@ -424,67 +552,18 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
             const projection = before.owner.layoutSource.groups.exportProjection();
             const measured = before.owner.layoutSource.measure(projection);
             const frame = before.owner.layoutPort.readFrameRect();
-            const geometry = calculateAuthoringWorkspaceGeometry({ ...measured,
-                requestedLayout: projection.state.layoutState, splitRatioPermille: projection.state.splitRatio.splitRatioPermille });
-            const view = root.ownerDocument.defaultView;
-            if (!view || !frame || geometry.status !== 'planned'
-                || [frame.left, frame.top, frame.width, frame.height].some((value, index) =>
-                    value !== [measured.frame.left, measured.frame.top, measured.frame.width, measured.frame.height][index]))
+            const physical = readPhysical(before, query, measured, frame, projection);
+            if (physical.status !== 'available')
             {
-                return block('binding-unavailable');
+                return physical;
             }
-            if (!query.platforms.includes(0))
-            {
-                return block('unsupported-platform');
-            }
-            if (measured.mobile)
-            {
-                return block('unsupported-viewport');
-            }
-            const viewport = measured.layoutViewportWidthCssPx >= 1024 ? 0 : 1;
-            if (!query.viewports.includes(viewport))
-            {
-                return block('unsupported-viewport');
-            }
-            const style = view.getComputedStyle(region);
-            const rect = Element.prototype.getBoundingClientRect.call(region);
-            const editor = Element.prototype.getBoundingClientRect.call(before.owner.editorElement);
-            const rootRect = Element.prototype.getBoundingClientRect.call(root);
-            const clip = measured.visualViewport;
-            if ([...root.querySelectorAll(coreRegions)].some(element =>
-            {
-                const core = Element.prototype.getBoundingClientRect.call(element);
-                return core.width > 0 && core.height > 0 && rect.left < core.right && rect.right > core.left
-                    && rect.top < core.bottom && rect.bottom > core.top;
-            }))
-            {
-                return block('core-region-conflict');
-            }
-            const availableSize = Object.freeze({
-                inline: Math.floor(Math.min(rect.right, rootRect.right, clip.left + clip.width,
-                    geometry.available.left + geometry.available.width) - Math.max(rect.left, rootRect.left, clip.left, geometry.available.left)),
-                block: Math.floor(Math.min(rect.bottom, rootRect.bottom, clip.top + clip.height) - Math.max(rect.top, rootRect.top, clip.top))
-            });
-            if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse'
-                || style.opacity === '0' || !validSize(availableSize) || !fits(query.preferredSize, availableSize)
-                || measured.browserZoomPercent < 50 || measured.browserZoomPercent > 400)
-            {
-                return block('size-unavailable');
-            }
-            if (editor.width < geometry.minimumUsableWidthCssPx)
-            {
-                return block('editor-width-unavailable');
-            }
-            if (Object.entries(maximumResources).some(([key, value]) => query.budget[key as keyof Resources] > value))
-            {
-                return block('resource-limit');
-            }
+            const { availableSize, rect, editor, rootRect, viewport } = physical;
             const controller = new AbortController();
             const observation: AuthoringWorkspacePanelSpaceObservation = Object.freeze({ status: 'observed', commandsEnabled: false,
                 slotId: authoringWorkspacePanelSlotId, availableSize,
                 regionRect: Object.freeze({ left: rect.left, top: rect.top, width: rect.width, height: rect.height }),
                 editorInline: Math.floor(editor.width),
-                minimumEditorInline: geometry.minimumUsableWidthCssPx, browserZoomPercent: measured.browserZoomPercent,
+                minimumEditorInline: physical.minimumEditorInline, browserZoomPercent: physical.browserZoomPercent,
                 platform: 0, viewport, role: 0, maximumActivePanels: 1, maximumResources,
                 scope: Object.freeze({ ...server.receipt.scope, workspaceId: 'default', sourceDigest: server.receipt.sourceDigest,
                     receiptDigest: server.receipt.contentDigest, snapshotDigest: snapshot.contentDigest }),
@@ -495,28 +574,35 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
                     groupRevision: before.groupRevision }),
                 authGeneration, requestGeneration: lease.generation!,
                 signal: AbortSignal.any([lifetimeSignal, controller.signal]) });
+            // Revoking the previous observation invokes caller-held abort
+            // listeners. Finish those callbacks BEFORE the last owner/DOM checks.
+            if (!keepPrevious)
+            {
+                const previous = [...active];
+                active.clear();
+                previous.forEach(value => value.abort());
+            }
             connection.assertCurrent();
             requireWorkspaceServerObservation(server);
-            // Native owner reads may synchronously invalidate custody or change
-            // layout. Recheck physical facts AFTER the last producer callback.
             const after = capture();
-            const finalRect = Element.prototype.getBoundingClientRect.call(region);
-            const finalEditor = Element.prototype.getBoundingClientRect.call(before.owner.editorElement);
-            const finalRoot = Element.prototype.getBoundingClientRect.call(root);
+            const finalPhysical = readPhysical(after, query, measured, frame, projection);
+            if (finalPhysical.status !== 'available')
+            {
+                controller.abort();
+                return finalPhysical;
+            }
             const sameRect = (left: DOMRect, right: DOMRect): boolean =>
                 left.left === right.left && left.top === right.top && left.width === right.width && left.height === right.height;
             check();
-            if (!sameBinding(before, after) || !regionAvailable(before)
-                || !sameRect(rect, finalRect) || !sameRect(editor, finalEditor) || !sameRect(rootRect, finalRoot)
+            if (!sameBinding(before, after) || !sameRect(rect, finalPhysical.rect)
+                || !sameRect(editor, finalPhysical.editor) || !sameRect(rootRect, finalPhysical.rootRect)
+                || availableSize.inline !== finalPhysical.availableSize.inline || availableSize.block !== finalPhysical.availableSize.block
+                || physical.minimumEditorInline !== finalPhysical.minimumEditorInline
+                || physical.browserZoomPercent !== finalPhysical.browserZoomPercent || viewport !== finalPhysical.viewport
                 || epoch !== generation)
             {
                 controller.abort();
                 return block('changed');
-            }
-            if (!keepPrevious)
-            {
-                active.forEach(previous => previous.abort());
-                active.clear();
             }
             active.add(controller);
             issued.set(observation, { binding: before, query, controller, generation: epoch });
