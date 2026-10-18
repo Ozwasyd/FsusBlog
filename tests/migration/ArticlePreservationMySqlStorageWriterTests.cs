@@ -24,7 +24,10 @@ public sealed class ArticlePreservationMySqlStorageWriterTests
     public void MySqlInsertPreservesValuesAndEscapesIdentifiersWithoutPgIdentitySyntax()
     {
         using var command = new MySqlCommand();
-        ArticlePreservationStorageRow row = Probe("exact\r\nMarkdown ' ; --", true) with { Table = "probe`name" };
+        ArticlePreservationStorageRow row = Probe("exact\r\nMarkdown ' ; --", true) with
+        {
+            Table = "probe`name"
+        };
         ArticlePreservationStorageWriter.ConfigureMySqlInsert(command, [row, row]);
         Assert.StartsWith("INSERT INTO `probe``name`", command.CommandText);
         Assert.DoesNotContain("public.", command.CommandText);
@@ -73,8 +76,17 @@ public sealed class ArticlePreservationMySqlStorageWriterTests
         using var command = new MySqlCommand();
         ArticlePreservationStorageRow row = Article(7);
         ArticlePreservationStorageRow broken = fault == 1
-            ? row with { Columns = row.Columns.SetItem(1, row.Columns[1] with { Value = null }) }
-            : row with { EntityOwner = ProbeOwner };
+            ? row with
+            {
+                Columns = row.Columns.SetItem(1, row.Columns[1] with
+                {
+                    Value = null
+                })
+            }
+            : row with
+            {
+                EntityOwner = ProbeOwner
+            };
         Assert.Throws<InvalidOperationException>(() => ArticlePreservationStorageWriter.ConfigureMySqlPointerBatch(
             command, fault == 0 ? Array.Empty<ArticlePreservationStorageRow>() : [row, broken]));
     }
@@ -119,9 +131,12 @@ public sealed class ArticlePreservationMySqlStorageWriterTests
             fault == "boolean-two" ? (object)(sbyte)2 : fault == "signed-boolean-two" ? (object)2L : true,
             fault == "null-empty" ? string.Empty : DBNull.Value,
             fault == "value" ? 12L : 11L);
-        if (fault == "extra") actual.Rows.Add(18L, DBNull.Value, 2, true, "original\r\nMarkdown", DBNull.Value, 11L);
-        if (fault == "duplicate") actual.Rows.Add(18L, DBNull.Value, 1, true, "original\r\nMarkdown", DBNull.Value, 11L);
-        if (fault == "missing") actual.Rows.Clear();
+        if (fault == "extra")
+            actual.Rows.Add(18L, DBNull.Value, 2, true, "original\r\nMarkdown", DBNull.Value, 11L);
+        if (fault == "duplicate")
+            actual.Rows.Add(18L, DBNull.Value, 1, true, "original\r\nMarkdown", DBNull.Value, 11L);
+        if (fault == "missing")
+            actual.Rows.Clear();
         using var connection = new CommandConnection(actual);
         using DbTransaction transaction = connection.BeginTransaction(IsolationLevel.RepeatableRead);
         ImmutableArray<ArticlePreservationStorageRow> rows = [Probe("original\r\nMarkdown", true)];
@@ -153,9 +168,19 @@ public sealed class ArticlePreservationMySqlStorageWriterTests
         connection.AffectedCounts.Enqueue(1);
         using DbTransaction transaction = connection.BeginTransaction(IsolationLevel.RepeatableRead);
         ArticlePreservationStorageRow first = Probe("text", true);
-        ArticlePreservationStorageRow second = first with { Columns = first.Columns.SetItem(0, first.Columns[0] with { Value = 2 }) };
+        ArticlePreservationStorageRow second = first with
+        {
+            Columns = first.Columns.SetItem(0, first.Columns[0] with
+            {
+                Value = 2
+            })
+        };
         bool resumed = await ArticlePreservationStorageWriter.StageRowsAsync([first, second], connection, transaction,
-            Limits() with { MaximumBatchRows = 1, MaximumBatchParameters = 5 }, CancellationToken.None, SchemaProviderKind.MySql);
+            Limits() with
+            {
+                MaximumBatchRows = 1,
+                MaximumBatchParameters = 5
+            }, CancellationToken.None, SchemaProviderKind.MySql);
         Assert.False(resumed);
         Assert.Equal(2, connection.NonQueryCount);
         Assert.All(connection.ParameterCounts, count => Assert.Equal(5, count));
@@ -175,10 +200,15 @@ public sealed class ArticlePreservationMySqlStorageWriterTests
         actual.Rows.Add(7, 72L, 71L);
         actual.Rows.Add(8, 82L, 81L);
         using var connection = new CommandConnection(actual);
-        foreach (int affected in new[] { 1, 1, 1, 1 }) connection.AffectedCounts.Enqueue(affected);
+        foreach (int affected in new[] { 1, 1, 1, 1 })
+            connection.AffectedCounts.Enqueue(affected);
         using DbTransaction transaction = connection.BeginTransaction(IsolationLevel.RepeatableRead);
         Assert.False(await ArticlePreservationStorageWriter.StageRowsAsync([Article(7), Article(8)], connection, transaction,
-            Limits() with { MaximumBatchRows = 1, MaximumBatchParameters = 3 }, CancellationToken.None, SchemaProviderKind.MySql));
+            Limits() with
+            {
+                MaximumBatchRows = 1,
+                MaximumBatchParameters = 3
+            }, CancellationToken.None, SchemaProviderKind.MySql));
         Assert.Equal(2, connection.WriteSql.Count(sql => sql.StartsWith("INSERT", StringComparison.Ordinal)));
         Assert.Equal(2, connection.WriteSql.Count(sql => sql.StartsWith("UPDATE", StringComparison.Ordinal)));
         Assert.All(connection.ParameterCounts, count => Assert.Equal(3, count));
@@ -275,8 +305,10 @@ public sealed class ArticlePreservationMySqlStorageWriterTests
                 new("timestamp", ProbeOwner + ".Timestamp", expected, false, false, "timestamp", false)])];
         Task read = ArticlePreservationStorageWriter.VerifyRowsAsync(rows.GroupBy(row => row.Table), connection, transaction,
             Limits(), CancellationToken.None, SchemaProviderKind.MySql);
-        if (accepted) await read;
-        else await Assert.ThrowsAsync<InvalidOperationException>(() => read);
+        if (accepted)
+            await read;
+        else
+            await Assert.ThrowsAsync<InvalidOperationException>(() => read);
         Assert.Equal(0, connection.CloseCount);
     }
 
@@ -405,16 +437,46 @@ public sealed class ArticlePreservationMySqlStorageWriterTests
 
     private sealed class CommandConnection(DataTable rows) : DbConnection
     {
-        public long ExistingCount { get; init; }
-        public string? LastSql { get; private set; }
-        public DbTransaction? LastTransaction { get; private set; }
-        public int DisposedCommands { get; private set; }
-        public int NonQueryCount { get; private set; }
-        public int CloseCount { get; private set; }
-        public int CommitCount { get; private set; }
-        public int RollbackCount { get; private set; }
-        public Action? OnOracleDisposal { get; init; }
-        public Exception? DisposalFailure { get; init; }
+        public long ExistingCount
+        {
+            get; init;
+        }
+        public string? LastSql
+        {
+            get; private set;
+        }
+        public DbTransaction? LastTransaction
+        {
+            get; private set;
+        }
+        public int DisposedCommands
+        {
+            get; private set;
+        }
+        public int NonQueryCount
+        {
+            get; private set;
+        }
+        public int CloseCount
+        {
+            get; private set;
+        }
+        public int CommitCount
+        {
+            get; private set;
+        }
+        public int RollbackCount
+        {
+            get; private set;
+        }
+        public Action? OnOracleDisposal
+        {
+            get; init;
+        }
+        public Exception? DisposalFailure
+        {
+            get; init;
+        }
         public Queue<int> AffectedCounts { get; } = new();
         public List<int> ParameterCounts { get; } = [];
         public List<string> WriteSql { get; } = [];
@@ -443,12 +505,27 @@ public sealed class ArticlePreservationMySqlStorageWriterTests
             private readonly MySqlCommand _parameters = new();
             [AllowNull]
             public override string CommandText { get; set; } = string.Empty;
-            public override int CommandTimeout { get; set; }
-            public override CommandType CommandType { get; set; }
-            public override bool DesignTimeVisible { get; set; }
-            public override UpdateRowSource UpdatedRowSource { get; set; }
+            public override int CommandTimeout
+            {
+                get; set;
+            }
+            public override CommandType CommandType
+            {
+                get; set;
+            }
+            public override bool DesignTimeVisible
+            {
+                get; set;
+            }
+            public override UpdateRowSource UpdatedRowSource
+            {
+                get; set;
+            }
             protected override DbConnection? DbConnection { get; set; } = owner;
-            protected override DbTransaction? DbTransaction { get; set; }
+            protected override DbTransaction? DbTransaction
+            {
+                get; set;
+            }
             protected override DbParameterCollection DbParameterCollection => _parameters.Parameters;
             public override void Cancel() => throw new NotSupportedException();
             public override void Prepare() => throw new NotSupportedException();
@@ -481,7 +558,8 @@ public sealed class ArticlePreservationMySqlStorageWriterTests
             {
                 owner.DisposedCommands++;
                 _parameters.Dispose();
-                if (CommandText.StartsWith("SELECT OCTET_LENGTH", StringComparison.Ordinal)) owner.OnOracleDisposal?.Invoke();
+                if (CommandText.StartsWith("SELECT OCTET_LENGTH", StringComparison.Ordinal))
+                    owner.OnOracleDisposal?.Invoke();
                 return owner.DisposalFailure is null ? ValueTask.CompletedTask : ValueTask.FromException(owner.DisposalFailure);
             }
         }

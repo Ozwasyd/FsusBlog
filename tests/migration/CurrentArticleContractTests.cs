@@ -44,14 +44,20 @@ public sealed class CurrentArticleContractTests
 
         Assert.NotEqual(
             ArticleCanonicalHashV1.ComputeHashHex(source),
-            ArticleCanonicalHashV1.ComputeHashHex(source with { MarkdownContent = "body\n" }));
+            ArticleCanonicalHashV1.ComputeHashHex(source with
+            {
+                MarkdownContent = "body\n"
+            }));
     }
 
     [Fact]
     public void WriterAndWireNormalization_PreserveTheirDifferentNegativeExcerptContracts()
     {
         ArticleRightsRequestCoreModel source = ArticleProductionNormalizers.NormalizeWireArticleRights(null)
-            with { MaxExcerptChars = -1 };
+            with
+        {
+            MaxExcerptChars = -1
+        };
 
         Assert.Throws<ArgumentOutOfRangeException>(
             () => ArticleProductionNormalizers.NormalizeArticleRights(source));
@@ -62,7 +68,11 @@ public sealed class CurrentArticleContractTests
     public void WriterAndWireNormalization_PreserveTheirDifferentWhitespaceContracts()
     {
         ArticleRightsRequestCoreModel source = ArticleProductionNormalizers.NormalizeWireArticleRights(null)
-            with { LicenseType = "  CC-BY-4.0  ", CopyrightHolder = "  Owner  " };
+            with
+        {
+            LicenseType = "  CC-BY-4.0  ",
+            CopyrightHolder = "  Owner  "
+        };
 
         ArticleRightsNormalizedModel writer = ArticleProductionNormalizers.NormalizeArticleRights(source);
         ArticleRightsRequestCoreModel wire = ArticleProductionNormalizers.NormalizeWireArticleRights(source);
@@ -182,6 +192,9 @@ public sealed class CurrentArticleContractTests
         Assert.Equal(JsonSerializer.Serialize(draft.Sources, originalOptions), encoded.SourcesJson);
         Assert.False(draft.ResponsiblePersonConfirmed);
         Assert.Contains(ArticleResponsibilityGovernance.Evaluate(draft), static issue => issue.Severity == "error");
-        Assert.Null(ArticleResponsibilityStorageEncoding.Encode(draft with { Reviewer = null }).ReviewerJson);
+        Assert.Null(ArticleResponsibilityStorageEncoding.Encode(draft with
+        {
+            Reviewer = null
+        }).ReviewerJson);
     }
 }
