@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 
 import contract from '../fixtures/article-editor-production-contract.json' with { type: 'json' }
@@ -1606,9 +1606,9 @@ test.describe('article editor production outline acceptance', () => {
 // Inspect actual layout and keyboard focus instead of relying on source markers.
 test.describe('article editor production outline content styles', () => {
   for (const theme of ['light', 'dark'] as const) {
-    test(`inline content keeps layout and keyboard focus styles in ${theme}`, async ({ page }, testInfo) => {
+    test(`inline content keeps layout and keyboard focus styles in ${theme}`, async ({ page }: { page: Page }, testInfo: TestInfo) => {
       const pageErrors: string[] = []
-      page.on('pageerror', (error) => pageErrors.push(error.message))
+      page.on('pageerror', (error: Error) => pageErrors.push(error.message))
       await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
       for (const width of [375, 1440]) {
         await page.setViewportSize({ width, height: 900 })
@@ -1623,22 +1623,22 @@ test.describe('article editor production outline content styles', () => {
         await item.focus()
         await expect(item).toBeFocused()
         await page.screenshot({ path: testInfo.outputPath(`outline-content-${width}-${theme}.png`), fullPage: true })
-        expect(await content.evaluate((element) => getComputedStyle(element).display)).toBe('grid')
-        expect(await header.evaluate((element) => getComputedStyle(element).display)).toBe('flex')
-        expect(await item.evaluate((element) => getComputedStyle(element).display)).toBe('flex')
-        expect(await item.evaluate((element) => ({
+        expect(await content.evaluate((element: HTMLElement) => getComputedStyle(element).display)).toBe('grid')
+        expect(await header.evaluate((element: HTMLElement) => getComputedStyle(element).display)).toBe('flex')
+        expect(await item.evaluate((element: HTMLElement) => getComputedStyle(element).display)).toBe('flex')
+        expect(await item.evaluate((element: HTMLElement) => ({
           style: getComputedStyle(element).outlineStyle,
           width: getComputedStyle(element).outlineWidth,
           offset: getComputedStyle(element).outlineOffset,
           visible: element.matches(':focus-visible')
         }))).toEqual({ style: 'solid', width: '2px', offset: '-2px', visible: true })
         const text = item.locator('.article-write-outline-item-text')
-        expect(await text.evaluate((element) => ({
+        expect(await text.evaluate((element: HTMLElement) => ({
           overflow: getComputedStyle(element).overflow,
           ellipsis: getComputedStyle(element).textOverflow,
           whiteSpace: getComputedStyle(element).whiteSpace
         }))).toEqual({ overflow: 'hidden', ellipsis: 'ellipsis', whiteSpace: 'nowrap' })
-        expect(await item.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+        expect(await item.evaluate((element: HTMLElement) => element.scrollWidth <= element.clientWidth)).toBe(true)
         await panel.getByRole('button', { name: '关闭文章大纲', exact: true }).click()
         await expect(page.getByRole('button', { name: '打开文章大纲', exact: true })).toBeFocused()
       }

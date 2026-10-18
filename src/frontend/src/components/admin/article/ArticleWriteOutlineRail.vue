@@ -822,7 +822,8 @@ const revealRange = (item: MarkdownEditorOutlineItem): void =>
 .article-write-outline-drawer-content
  {
     display: grid;
-    min-height: 100%;
+    height: 100%;
+    min-height: 0;
     grid-template-rows: minmax(0, 1fr);
 }
 
