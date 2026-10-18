@@ -109,6 +109,65 @@ function aggregateFixture(member = fixture())
     return { value, options, members: [member] };
 }
 
+function failurePairContractFixture(pairs)
+{
+    const member = fixture();
+    const ids = pairs.map(([testId]) => testId).sort();
+    member.outcome = mutate(member.outcome, (value) =>
+    {
+        Object.assign(value, { plannedTestIds: ids, executedTestIds: ids, passedTestIds: [], failedTestIds: ids,
+            qualificationEligible: false, producerStatus: 'failed' });
+        value.assertions = pairs.map(([testId, id]) => ({ id, testId, status: 'failed',
+            failureClass: 'product', failureKind: 'product.assertion',
+            failureIdentity: { producerId: value.producerId, testId, assertionId: id } }))
+            .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+        value.failures = pairs.map(([testId, assertionId]) => ({ producerId: value.producerId, testId, assertionId,
+            failureClass: 'product', failureKind: 'product.assertion',
+            identity: { producerId: value.producerId, testId, assertionId } }));
+    });
+    member.options.expected.plannedTestIds = ids;
+    member.options.expected.assertionIds = member.outcome.assertions.map((entry) => entry.id);
+    return member;
+}
+
+test('contracts distinguish slash tuples while refusing duplicate unsorted and unsealed failure data', () =>
+{
+    const member = failurePairContractFixture([['a', 'b/c'], ['a/b', 'c']]);
+    assert.equal(validateProducerSemanticOutcomeData(member.outcome, member.options), member.outcome);
+    assert.throws(() => validateProducerSemanticOutcomeData(mutate(member.outcome, (value) =>
+    {
+        value.failures.push(value.failures[0]);
+    }), member.options), /duplicate member|sorted and unique/u);
+    assert.throws(() => validateProducerSemanticOutcomeData(mutate(member.outcome, (value) =>
+    {
+        value.failures.reverse();
+    }), member.options), /sorted and unique/u);
+    assert.throws(() => validateProducerSemanticOutcomeData({ ...member.outcome, contentDigest: digest('f') },
+        member.options), /content digest/u);
+    const aggregate = aggregateFixture(member);
+    assert.equal(validateAggregateRunOutcomeData(aggregate.value, aggregate.options, aggregate.members), aggregate.value);
+    for (const change of [
+        (value) => value.failureTopology.reverse(),
+        (value) => value.failureTopology.push(value.failureTopology[0])
+    ])
+    {
+        assert.throws(() => validateAggregateRunOutcomeData(mutate(aggregate.value, change),
+            aggregate.options, aggregate.members), /failure topology|duplicate member/u);
+    }
+});
+
+test('contract failure ordering retains the legacy slash key before tuple tie breaking', () =>
+{
+    const member = failurePairContractFixture([['a/b', 'c'], ['a', 'z']]);
+    assert.equal(validateProducerSemanticOutcomeData(member.outcome, member.options), member.outcome);
+    assert.throws(() => validateProducerSemanticOutcomeData(mutate(member.outcome, (value) =>
+    {
+        value.failures.reverse();
+    }), member.options), /sorted and unique/u);
+    const aggregate = aggregateFixture(member);
+    assert.equal(validateAggregateRunOutcomeData(aggregate.value, aggregate.options, aggregate.members), aggregate.value);
+});
+
 test('complete producer and legitimate catalog subset aggregate are DATA_ONLY contracts', () =>
 {
     const member = fixture();

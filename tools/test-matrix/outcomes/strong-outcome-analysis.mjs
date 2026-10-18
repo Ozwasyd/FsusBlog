@@ -4,6 +4,8 @@ const { digestCanonical, sealContentDigest } = await import(new URL('../../test/
 import { validateOutcomeFieldDispositions } from './outcome-contract.mjs';
 import {
     aggregateRunOutcomeSchema,
+    compareFailureTopology,
+    failureTopologyIdentity,
     producerSemanticOutcomeSchema,
     validateAggregateRunOutcomeData,
     validateProducerSemanticOutcomeData
@@ -112,11 +114,6 @@ function compare(left, right)
     return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function topologyKey(value)
-{
-    return `${value.producerId}/${value.testId}/${value.assertionId}/${value.failureKind}`;
-}
-
 function normalize(value, schemaPath, declarations, semanticOnly)
 {
     const entry = declarations.get(schemaPath);
@@ -150,12 +147,13 @@ function normalize(value, schemaPath, declarations, semanticOnly)
         {
             const normalized = normalize(item, `${schemaPath}[]`, declarations, semanticOnly);
             const key = rule === 'ids' ? normalized : rule === 'canonical-record-set'
-                ? topologyKey(item) : item[recordKeys[rule]];
+                ? failureTopologyIdentity(item) : item[recordKeys[rule]];
             require(typeof key === 'string' && key.length > 0, `${schemaPath} record identity missing`);
             return { key, value: normalized };
         });
         require(new Set(records.map((item) => item.key)).size === records.length, `${schemaPath} duplicate identity`);
-        result = records.sort((left, right) => compare(left.key, right.key)).map((item) => item.value);
+        result = records.sort((left, right) => rule === 'canonical-record-set'
+            ? compareFailureTopology(left.value, right.value) : compare(left.key, right.key)).map((item) => item.value);
     }
     else if (['text', 'digest', 'exact', 'positive-integer', 'boolean', 'content-seal', 'derived-digest'].includes(rule))
     {

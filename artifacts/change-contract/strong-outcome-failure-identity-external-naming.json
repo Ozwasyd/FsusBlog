@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/outcomes/aggregate-outcome-analysis.mjs",
+                "tools/test-matrix/outcomes/semantic-outcome-contract.mjs",
+                "tools/test-matrix/outcomes/strong-outcome-analysis.mjs"
+            ],
+            "reason": "Preserve the original registered Node tooling boundary and external outcome field and schema identifiers while changing only internal failure tuple identity and collision ordering."
+        }
+    ]
+}
