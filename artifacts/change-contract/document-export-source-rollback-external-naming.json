@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/DocumentExport/Sources/DocumentExportSourceCatalogStore.cs"
+            ],
+            "reason": "The existing environment-variable registry glob governs all src C# files. Preserve the original external names and add no environment access; this repair only retains the first source transaction failure and records a fixed safe rollback diagnostic."
+        }
+    ]
+}
