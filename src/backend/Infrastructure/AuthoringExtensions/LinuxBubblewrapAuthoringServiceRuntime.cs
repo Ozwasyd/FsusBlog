@@ -78,7 +78,10 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
                     true,
                     true,
                     isolationIdentity),
-                stderrDrain);
+                stderrDrain)
+            {
+                StateSnapshotSupported = readyLine?.EndsWith("\tstate-snapshot-v1", StringComparison.Ordinal) == true
+            };
             instance.IssueIncarnation();
             return instance;
         }
@@ -150,7 +153,8 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
     private static AuthoringServiceHealthReport ParseHealth(string? line)
     {
         string[] fields = (line ?? string.Empty).Split('\t');
-        if (fields.Length != 4 || !string.Equals(fields[0], "READY", StringComparison.Ordinal) ||
+        if ((fields.Length != 4 && fields.Length != 5) ||
+            fields.Length == 5 && fields[4] != "state-snapshot-v1" || !string.Equals(fields[0], "READY", StringComparison.Ordinal) ||
             fields[1].Length != 64 || fields[2].Length != 64 ||
             !string.Equals(fields[3], "authoring-service-transport/v1", StringComparison.Ordinal))
         {
@@ -450,6 +454,24 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
         owner is LinuxBubblewrapServiceProcess native &&
         native.OwnsNativeCustody(descriptor, authority, custody, sandbox, startTicks, profileIdentity);
 
+    internal static bool OwnsSnapshotLoad(object owner, object authority, AuthoringNativeStateSnapshotBinding binding) =>
+        owner is LinuxBubblewrapServiceProcess native && native.OwnsSnapshotLoad(authority, binding);
+
+    internal static ValueTask VerifySnapshotAcceptanceAsync(object owner, AuthoringNativeStateSnapshotAcceptance acceptance,
+        AuthoringNativeStateSnapshotBinding binding, CancellationToken cancellationToken) =>
+        owner is LinuxBubblewrapServiceProcess native
+            ? native.VerifySnapshotAcceptanceAsync(acceptance, binding, cancellationToken)
+            : ValueTask.FromException(new AuthoringExtensionContractException("Original native snapshot owner is required."));
+
+    internal static void ReleaseSnapshotAcceptance(object owner, AuthoringNativeStateSnapshotAcceptance acceptance)
+    {
+        if (owner is not LinuxBubblewrapServiceProcess native)
+        {
+            throw new AuthoringExtensionContractException("Original native snapshot owner is required.");
+        }
+        native.ReleaseSnapshotAcceptance(acceptance);
+    }
+
     private sealed class LinuxBubblewrapServiceProcess(
         Process process,
         int serviceProcessId,
@@ -502,6 +524,212 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
                 })
                 : ValueTask.FromResult(health);
 
+        public bool StateSnapshotSupported { private get; init; }
+        private readonly Lock _snapshotGate = new();
+        private bool _snapshotTransportHeld;
+        private bool _snapshotIoActive;
+        private AuthoringNativeStateSnapshotBinding? _pendingSnapshot;
+        private AuthoringNativeStateSnapshotAcceptance? _snapshotAcceptance;
+
+        public bool OwnsSnapshotLoad(object authority, AuthoringNativeStateSnapshotBinding binding) =>
+            ReferenceEquals(authority, _incarnationOwner) && ReferenceEquals(_pendingSnapshot, binding) &&
+            _snapshotAcceptance is null && !_terminated && _incarnation is not null &&
+            _incarnation.IsCurrentOwner(this) && _transportLock.CurrentCount == 0;
+
+        public async ValueTask<AuthoringNativeStateSnapshotAcceptance> AcceptStateSnapshotAsync(
+            VerifiedAuthoringPackage package,
+            AuthoringExecutionTarget target,
+            AuthoringStateSnapshot appliedSnapshot,
+            long runningGeneration,
+            string operationSha256,
+            CancellationToken cancellationToken)
+        {
+            AuthoringNativeStateSnapshotBinding binding = AuthoringNativeStateSnapshotBinding.Create(
+                package, target, appliedSnapshot, runningGeneration, operationSha256, descriptor);
+            await _transportLock.WaitAsync(cancellationToken);
+            lock (_snapshotGate)
+            {
+                _snapshotTransportHeld = true;
+                _snapshotIoActive = true;
+            }
+            bool transportStarted = false;
+            bool handedOff = false;
+            AuthoringNativeStateSnapshotAcceptance? issued = null;
+            try
+            {
+                RequireSnapshotOwner();
+                if (!StateSnapshotSupported || !health.ProtocolHandshakeComplete ||
+                    health.RuntimeIdentity != descriptor.RuntimeIdentity || health.ExecutableSha256 != descriptor.ExecutableSha256 ||
+                    health.TransportSchemaReference != descriptor.TransportSchemaReference)
+                {
+                    throw new AuthoringExtensionContractException("Native module has no actual snapshot storage protocol.");
+                }
+
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                deadline.CancelAfter(binding.MaximumWallClock);
+                DateTimeOffset cutoff = DateTimeOffset.UtcNow + binding.MaximumWallClock;
+                transportStarted = true;
+                await ExchangeSnapshotAsync(binding, true, deadline.Token);
+                // A load response alone cannot establish adoption. This request sends no state
+                // bytes or expected digest: read the original instance's retained state afresh.
+                await ExchangeSnapshotAsync(binding, false, deadline.Token);
+                CheckSnapshotBoundary(deadline.Token, cutoff);
+                _pendingSnapshot = binding;
+                issued = AuthoringNativeStateSnapshotAcceptance.Issue(this, _incarnationOwner, _incarnation!, binding);
+                _snapshotAcceptance = issued;
+                _pendingSnapshot = null;
+                CheckSnapshotBoundary(deadline.Token, cutoff);
+                handedOff = true;
+                return issued;
+            }
+            catch
+            {
+                try
+                {
+                    if (transportStarted)
+                    {
+                        _incarnation?.Revoke(this, _incarnationOwner);
+                        _terminated = true;
+                        EndSnapshotIo();
+                        await TerminateTreeAsync("snapshot-acceptance-failed", CancellationToken.None);
+                    }
+                }
+                finally
+                {
+                    if (issued is not null)
+                    {
+                        await issued.DisposeAsync();
+                    }
+                }
+                throw;
+            }
+            finally
+            {
+                _pendingSnapshot = null;
+                EndSnapshotIo();
+                if (!handedOff && issued is null)
+                {
+                    ReleaseSnapshotTransport();
+                }
+            }
+        }
+
+        public async ValueTask VerifySnapshotAcceptanceAsync(
+            AuthoringNativeStateSnapshotAcceptance acceptance,
+            AuthoringNativeStateSnapshotBinding binding,
+            CancellationToken cancellationToken)
+        {
+            lock (_snapshotGate)
+            {
+                if (!ReferenceEquals(_snapshotAcceptance, acceptance) || !_snapshotTransportHeld || _snapshotIoActive)
+                {
+                    throw new AuthoringExtensionContractException("Snapshot lifetime does not belong to this native owner.");
+                }
+                RequireSnapshotOwner();
+                _snapshotIoActive = true;
+            }
+            try
+            {
+                RequireSnapshotOwner();
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                deadline.CancelAfter(binding.MaximumWallClock);
+                DateTimeOffset cutoff = DateTimeOffset.UtcNow + binding.MaximumWallClock;
+                await ExchangeSnapshotAsync(binding, false, deadline.Token);
+                CheckSnapshotBoundary(deadline.Token, cutoff);
+            }
+            catch
+            {
+                _incarnation?.Revoke(this, _incarnationOwner);
+                _terminated = true;
+                EndSnapshotIo();
+                await TerminateTreeAsync("snapshot-custody-changed", CancellationToken.None);
+                throw;
+            }
+            finally
+            {
+                EndSnapshotIo();
+            }
+        }
+
+        public void ReleaseSnapshotAcceptance(AuthoringNativeStateSnapshotAcceptance acceptance)
+        {
+            lock (_snapshotGate)
+            {
+                if (!ReferenceEquals(_snapshotAcceptance, acceptance) || _snapshotIoActive)
+                {
+                    throw new AuthoringExtensionContractException("Foreign or in-flight snapshot lifetime cannot release native exclusion.");
+                }
+                _snapshotAcceptance = null;
+                ReleaseSnapshotTransport();
+            }
+        }
+
+        private void ReleaseSnapshotTransport()
+        {
+            lock (_snapshotGate)
+            {
+                if (_snapshotTransportHeld && !_snapshotIoActive)
+                {
+                    _snapshotTransportHeld = false;
+                    _transportLock.Release();
+                }
+            }
+        }
+
+        private void EndSnapshotIo()
+        {
+            lock (_snapshotGate)
+            {
+                _snapshotIoActive = false;
+                if (_terminated)
+                {
+                    ReleaseSnapshotTransport();
+                }
+            }
+        }
+
+        private void RequireSnapshotOwner()
+        {
+            if (_terminated || _incarnation is null || !_incarnation.IsCurrentOwner(this))
+            {
+                throw new AuthoringExtensionContractException("Native snapshot owner is terminated or revoked.");
+            }
+        }
+
+        private void CheckSnapshotBoundary(CancellationToken token, DateTimeOffset cutoff)
+        {
+            token.ThrowIfCancellationRequested();
+            if (DateTimeOffset.UtcNow >= cutoff)
+            {
+                throw new TimeoutException("Native snapshot operation exceeded its exclusive deadline.");
+            }
+            RequireSnapshotOwner();
+        }
+
+        private async ValueTask ExchangeSnapshotAsync(
+            AuthoringNativeStateSnapshotBinding binding, bool load, CancellationToken cancellationToken)
+        {
+            string nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+            string frame = load
+                ? string.Join('\t', "STATE_APPLY", "1", nonce, binding.TransportBinding, Convert.ToBase64String(binding.Bytes))
+                : string.Join('\t', "STATE_VERIFY", "1", nonce);
+            if (Encoding.UTF8.GetByteCount(frame) > descriptor.MaximumRequestBytes * 2 + 4096)
+            {
+                throw new AuthoringExtensionContractException("Native snapshot request exceeds the original transport budget.");
+            }
+            await process.StandardInput.WriteLineAsync(frame.AsMemory(), cancellationToken);
+            await process.StandardInput.FlushAsync(cancellationToken);
+            string? response = await ReadClosedLineAsync(process.StandardOutput,
+                descriptor.MaximumResponseBytes * 2 + 4096, cancellationToken);
+            string[] fields = response?.Split('\t') ?? [];
+            if (fields.Length != 5 || fields[0] != (load ? "STATE_ACCEPTED" : "STATE_CURRENT") ||
+                fields[1] != "1" || fields[2] != nonce)
+            {
+                throw new AuthoringExtensionContractException("Native service did not attest a fresh stored-state readback.");
+            }
+            binding.VerifyReadback(fields[3], fields[4]);
+        }
+
         public async ValueTask<AuthoringServiceResponse> ExecuteAsync(
             AuthoringServiceRequest request,
             CancellationToken cancellationToken)
@@ -535,6 +763,7 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
             // Revocation precedes every await, including failed or cancelled cleanup attempts.
             _incarnation?.Revoke(this, _incarnationOwner);
             _terminated = true;
+            ReleaseSnapshotTransport();
             await _lifecycleLock.WaitAsync(CancellationToken.None);
             try
             {
@@ -554,6 +783,7 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
         {
             _incarnation?.Revoke(this, _incarnationOwner);
             _terminated = true;
+            ReleaseSnapshotTransport();
             await _lifecycleLock.WaitAsync(CancellationToken.None);
             try
             {
