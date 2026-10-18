@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 418,
+      "estimatedFacts": 431,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -182,8 +182,13 @@
           "class": "AuthoringExtensionApprovalPostgresTests"
         },
         {
+<<<<<<< HEAD
           "path": "Integration/AuthoringExtensionStateCustodyPostgresTests.cs",
           "class": "AuthoringExtensionStateCustodyPostgresTests"
+=======
+          "path": "Integration/AuthoringApprovedProductionCompositionTests.cs",
+          "class": "AuthoringApprovedProductionCompositionTests"
+>>>>>>> faabe6f4f (feat(backend): bind preflight to original approval claims)
         }
       ]
     },
