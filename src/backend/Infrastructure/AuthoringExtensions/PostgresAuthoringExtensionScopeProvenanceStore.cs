@@ -9,8 +9,8 @@ namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 /// <summary>
 /// Owns provenance connections and transactions. SHARE (not KEY SHARE) excludes every ordinary
 /// UPDATE/DELETE, including direct SQL revocation. No admin FK or independently held actor lock
-/// is introduced. Original insertion/delete triggers acquire state then provenance: integration
-/// must account for that real writer order, not assume provenance-before-state is globally safe.
+/// is introduced. Original insertion/delete triggers acquire state then provenance: canonical
+/// approval composition must supply genuine original state custody before acquiring provenance.
 /// </summary>
 public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
     NpgsqlDataSource dataSource, IConfiguration configuration)
@@ -71,9 +71,10 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
         long owner, string session, VerifiedAuthoringPackage package, Action verifyRequest, CancellationToken token)
     {
         await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(token);
+        // Activation owns its principal/session custody on this same transaction, before any
+        // state/provenance resource. Approval scope acquisition never takes these actor locks.
+        await AuthoringExtensionStateScopeIssuer.RequireLiveActorAsync(connection, owner, session, token, holdRows: true);
         string scopeId = ScopeId(registration.Scope);
-        // Match the real original writer order. A state DELETE holds the state row before its
-        // provenance tombstone trigger; never wait on that row while holding provenance here.
         await using (var stateLock = new NpgsqlCommand(
             "SELECT pg_advisory_xact_lock(hashtextextended($1, 2143));", connection))
         {
@@ -93,7 +94,7 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
             revision = reader.GetInt64(1);
             unfenced = reader.GetBoolean(2);
         }
-        Stored stored = await ReadAsync(connection, "registration_id", registration.RegistrationId, true, token);
+        Stored stored = await ReadAsync(connection, "registration_id", registration.RegistrationId, true, token, update: true);
         Require(stored.Owner == owner && stored.Scope == registration.Scope && stored.PackageIdentity == package.PackageIdentity &&
             stored.CreationSeen && stored.Status is 0 or 1, "scope_exact_original_creation_unproven");
         verifyRequest();
@@ -111,6 +112,12 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
             activate.Parameters.AddWithValue(registration.RegistrationId);
             Require(await activate.ExecuteNonQueryAsync(token) == 1, "scope_activation_cas_failed");
         }
+        // The UPDATE itself can wait (including inside real database triggers). Time and the
+        // configured request site can change during that wait even though actor rows are held.
+        // A failed final check rolls the UPDATE back, retaining the same non-authorizing Pending.
+        verifyRequest();
+        AuthoringExtensionStateScopeIssuer.ValidatePackage(package, stored.Scope);
+        await AuthoringExtensionStateScopeIssuer.RequireLiveActorAsync(connection, owner, session, token);
         await transaction.CommitAsync(token);
     }
 
@@ -134,12 +141,29 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    internal async ValueTask<IAuthoringExtensionApprovalScope> AcquireAsync(HttpContext context,
-        AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destination, CancellationToken token)
+    internal async ValueTask<IAsyncDisposable> AcquireIssuanceSourceAsync(HttpContext context,
+        AuthoringStateScope source, CancellationToken token) =>
+        await AcquireCoreAsync(context, AuthoringApprovalOperation.Deletion, source, null, null, token);
+
+    internal ValueTask<IAuthoringExtensionApprovalScope> AcquireWithStateCustodyAsync(HttpContext context,
+        AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destination,
+        IAuthoringExtensionStateObservation stateCustody, CancellationToken token)
+    {
+        ArgumentNullException.ThrowIfNull(stateCustody);
+        return AcquireCoreAsync(context, operation, scope, destination, stateCustody, token);
+    }
+
+    private async ValueTask<IAuthoringExtensionApprovalScope> AcquireCoreAsync(HttpContext context,
+        AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destination,
+        IAuthoringExtensionStateObservation? stateCustody, CancellationToken token)
     {
         var actor = AuthoringExtensionStateScopeIssuer.Actor(context, configuration);
         Require(scope.SiteId == actor.SiteId && scope.DocumentId is null &&
             (destination is null || destination.SiteId == actor.SiteId && destination.DocumentId is null), "scope_site_or_document_mismatch");
+        if (stateCustody is not null)
+        {
+            await VerifyStateCustodyAsync(stateCustody, scope, destination, token);
+        }
         NpgsqlConnection connection = await dataSource.OpenConnectionAsync(token);
         NpgsqlTransaction? transaction = null;
         try
@@ -152,9 +176,15 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
                 Stored stored = await ReadAsync(connection, "scope_id", ScopeId(item), true, token);
                 Require(stored.Scope == item && stored.Owner == actor.Id && stored.Status == 1 && stored.CreationSeen &&
                     stored.Scope.DocumentId is null, "scope_active_exact_owner_required");
+                if (stateCustody is not null)
+                {
+                    AuthoringStateObservation actual = stateCustody.State;
+                    AuthoringObservedState observed = actual.From.Snapshot.Scope == item ? actual.From : actual.To!;
+                    Require(stored.PackageIdentity == observed.Snapshot.PackageIdentity, "scope_original_state_package_mismatch");
+                }
                 witnesses.Add(stored);
             }
-            var held = new Held(connection, transaction, context, configuration, actor, operation, scope, destination, witnesses);
+            var held = new Held(connection, transaction, context, configuration, actor, operation, scope, destination, witnesses, stateCustody);
             await held.VerifyCurrentAsync(token);
             return held;
         }
@@ -169,14 +199,28 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
         }
     }
 
-    private static async ValueTask<Stored> ReadAsync(NpgsqlConnection connection, string column, string id, bool hold, CancellationToken token)
+    private static async ValueTask VerifyStateCustodyAsync(IAuthoringExtensionStateObservation stateCustody,
+        AuthoringStateScope source, AuthoringStateScope? destination, CancellationToken token)
+    {
+        string[] exact = (destination is null ? new[] { source } : new[] { source, destination })
+            .Select(ScopeId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        Require(!stateCustody.AcquiredScopeIds.IsDefault && stateCustody.AcquiredScopeIds.SequenceEqual(exact),
+            "scope_original_state_custody_mismatch");
+        await stateCustody.VerifyCurrentAsync(token);
+        AuthoringStateObservation actual = stateCustody.State;
+        Require(actual.From.Snapshot.Scope == source && actual.To?.Snapshot.Scope == destination,
+            "scope_original_state_observation_mismatch");
+    }
+
+    private static async ValueTask<Stored> ReadAsync(NpgsqlConnection connection, string column, string id, bool hold, CancellationToken token,
+        bool update = false)
     {
         // column comes only from the two fixed internal call sites, never caller input.
         Require(column is "scope_id" or "registration_id", "scope_lookup_invalid");
         await using var command = new NpgsqlCommand($"""
             SELECT registration_id,scope_id,owner_admin_principal_id,policy_version,status,revision,
                 scope_payload,package_identity,initial_payload,creation_seen
-            FROM authoring_extension_scope_provenance WHERE {column}=$1{(hold ? " FOR SHARE" : "")};
+            FROM authoring_extension_scope_provenance WHERE {column}=$1{(hold ? update ? " FOR UPDATE" : " FOR SHARE" : "")};
             """, connection);
         command.Parameters.AddWithValue(id);
         await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(token);
@@ -195,7 +239,7 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
     private sealed class Held(NpgsqlConnection connection, NpgsqlTransaction transaction, HttpContext context,
         IConfiguration configuration, (long Id, string SessionId, string SiteId) actor,
         AuthoringApprovalOperation operation, AuthoringStateScope source, AuthoringStateScope? destination,
-        List<Stored> witnesses) : IAuthoringExtensionApprovalScope
+        List<Stored> witnesses, IAuthoringExtensionStateObservation? stateCustody) : IAuthoringExtensionApprovalScope
     {
         private bool _disposed;
         public string AuthorizationSha256
@@ -217,15 +261,15 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
                 "scope_connection_custody_lost");
             Require(AuthoringExtensionStateScopeIssuer.Actor(context, configuration) == actor, "scope_request_actor_or_site_changed");
             await AuthoringExtensionStateScopeIssuer.RequireLiveActorAsync(connection, actor.Id, actor.SessionId, cancellationToken);
+            if (stateCustody is not null)
+            {
+                await VerifyStateCustodyAsync(stateCustody, source, destination, cancellationToken);
+            }
             foreach (Stored expected in witnesses)
             {
                 Stored current = await ReadAsync(connection, "scope_id", expected.ScopeId, false, cancellationToken);
                 Require(current.Authorization == expected.Authorization && current.Status == 1 && current.CreationSeen,
                     "scope_provenance_no_longer_current");
-                await using var exists = new NpgsqlCommand(
-                    "SELECT EXISTS(SELECT 1 FROM authoring_extension_state_scope WHERE scope_id=$1);", connection);
-                exists.Parameters.AddWithValue(expected.ScopeId);
-                Require(await exists.ExecuteScalarAsync(cancellationToken) is true, "scope_original_deleted");
             }
         }
 

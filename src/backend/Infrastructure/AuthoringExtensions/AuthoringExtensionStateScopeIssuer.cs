@@ -35,8 +35,10 @@ public sealed class AuthoringExtensionStateScopeIssuer(
         string userId = RandomId();
         if (migrationSource is not null)
         {
-            await using IAuthoringExtensionApprovalScope held = await provenance.AcquireAsync(
-                context, AuthoringApprovalOperation.Deletion, migrationSource, null, cancellationToken);
+            // Issuance reads the durable server-issued owner relation only. This lifetime is not
+            // approval authority and cannot replace ordered, original state custody for approval.
+            await using IAsyncDisposable held = await provenance.AcquireIssuanceSourceAsync(
+                context, migrationSource, cancellationToken);
             Require(migrationSource.ExtensionId == package.Contract.Manifest.Id, "scope_issuance_extension_mismatch");
             userId = migrationSource.UserId;
             // The relation has the same durable owner and opaque user. The destination still
@@ -119,10 +121,29 @@ public sealed class AuthoringExtensionStateScopeIssuer(
         Require(scope.DocumentId is null, "scope_document_authority_unavailable");
     }
 
-    internal static async ValueTask RequireLiveActorAsync(NpgsqlConnection connection, long id, string session, CancellationToken token)
+    internal static async ValueTask RequireLiveActorAsync(NpgsqlConnection connection, long id, string session, CancellationToken token,
+        bool holdRows = false)
     {
-        // Read only: final admin/session exclusion belongs exclusively to the approval transaction.
-        // In particular this leaf must not hold SHARE and cause a same-actor step-up UPDATE deadlock.
+        // Only the original activation transaction requests row custody, on THIS connection.
+        // Approval scope lifetimes remain read-only for actor rows: final approval custody belongs
+        // to its transaction, so a second connection must never hold these same actor locks.
+        if (holdRows)
+        {
+            await using (var principal = new NpgsqlCommand(
+                "SELECT id FROM admin_principal WHERE id=$1 AND status='active' FOR SHARE;", connection))
+            {
+                principal.Parameters.AddWithValue(id);
+                Require(await principal.ExecuteScalarAsync(token) is long, "scope_actor_or_session_inactive");
+            }
+            await using var heldSession = new NpgsqlCommand("""
+                SELECT sessionid FROM admin_session WHERE adminprincipalid=$1 AND sessionid=$2 AND revokedatutc IS NULL
+                    AND idleexpiresatutc > clock_timestamp() AND absoluteexpiresatutc > clock_timestamp() FOR SHARE;
+                """, connection);
+            heldSession.Parameters.AddWithValue(id);
+            heldSession.Parameters.AddWithValue(session);
+            Require(await heldSession.ExecuteScalarAsync(token) is string, "scope_actor_or_session_inactive");
+            return;
+        }
         await using var command = new NpgsqlCommand("""
             SELECT EXISTS(SELECT 1 FROM admin_principal p JOIN admin_session s ON s.adminprincipalid=p.id
                 WHERE p.id=$1 AND p.status='active' AND s.sessionid=$2 AND s.revokedatutc IS NULL
