@@ -19,6 +19,34 @@ public sealed class UserLocaleSourceEnrollmentIntegrationTests(PostgresSchemaMig
     private static readonly DateTimeOffset s_now = new(2026, 10, 18, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task OriginalReleasedSavepointUpdateAndCompensationRollBackWithTheirOwnerGroup()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        db.Ado.BeginTran();
+        var original = db.Ado.Transaction;
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT mutation_group; SAVEPOINT update_step;");
+        UserLocalePreferenceUpdateResult result = await Service(db).UpdateAsync(1, new("fixed", "ja-JP", 0));
+        Assert.True(result.Success);
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT update_step; SAVEPOINT compensation_step;");
+        Assert.True(await Service(db).CompensateAsync(1, result.Preference!.Value,
+            result.PreviousPreference!.Value, result.PreviousPreferenceExisted));
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT compensation_step;");
+        Assert.Same(original, db.Ado.Transaction);
+        Assert.Equal(2, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        await db.Ado.ExecuteCommandAsync("ROLLBACK TO SAVEPOINT mutation_group; RELEASE SAVEPOINT mutation_group;");
+        Assert.Equal(0, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM user_locale_mutation_receipt;"));
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        db.Ado.CommitTran();
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Assert.Equal(0, await observer.Queryable<UserLocalePreference>().CountAsync());
+        Assert.Equal(0, await observer.Queryable<ArticleSourceObservation>().CountAsync());
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+        Assert.True((await Service(observer).UpdateAsync(1, new("fixed", "ja-JP", 0))).Success);
+        Assert.Equal(1, await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+    }
+
+    [Fact]
     public async Task BorrowedUpdateAndCompensationStayInOriginalGroupAndRollbackAllReceipts()
     {
         using SqlSugarClient db = await DatabaseAsync();

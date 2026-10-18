@@ -14,7 +14,9 @@ namespace FsusBlog.Server.Services.Taxonomy;
 /// <summary>
 /// Captures original taxonomy facts before DML and persists immutable receipts before the
 /// original owner commits. Borrows its native transaction; never allocates source counters.
-/// Every exception requires the owner to roll back the original transaction.
+/// The original DML owner declares the operation and supplies its native result; this is not
+/// a SQL-statement auditor. The owner rolls back a failed mutation scope, including receipts,
+/// to its savepoint or original transaction boundary. Live same-transaction savepoints are supported.
 /// </summary>
 public static class TaxonomyMutationReceiptPersistence
 {
@@ -85,13 +87,23 @@ public static class TaxonomyMutationReceiptPersistence
         }
     }
 
-    /// <summary>Supply the actual returned identity and affected-row count from the original DML.</summary>
+    /// <summary>
+    /// Supply the identity and affected-row count returned by the exact original DML paired
+    /// with this capture. The trusted owner must match its actual INSERT/UPDATE/DELETE kind;
+    /// native writer ownership and before/after facts cannot authenticate the SQL statement kind.
+    /// </summary>
     public sealed record Completion(Capture Capture, int TargetId, int AffectedRows);
 
     /// <summary>
     /// Call before the original insert. The intended unique name must be absent. The returned
     /// ID is supplied only after the insert; no identity or deleted-row tombstone is invented.
     /// Acquires the existing family lock before any taxonomy row locks.
+    /// The trusted original owner must pair this capture only with its actual INSERT into the
+    /// declared table, use that INSERT's native returned ID and affected-row count, and persist
+    /// before ending its mutation scope. Pairing an UPDATE of an existing row with this capture
+    /// violates the caller contract even if it writes the intended name in the same transaction:
+    /// the producer verifies native writer ownership, not INSERT provenance. No claim about an
+    /// untrusted caller's statement kind follows from a create receipt's null Before value.
     /// </summary>
     public static async Task<Capture> CaptureCreateAsync(ISqlSugarClient db, TargetKind kind,
         string name, CancellationToken cancellationToken = default)
@@ -114,6 +126,8 @@ public static class TaxonomyMutationReceiptPersistence
     /// <summary>
     /// Call before update/delete. Locks and captures the real target and all linked article IDs
     /// on the original native transaction. Missing targets cannot produce deletion receipts.
+    /// The trusted owner must execute the declared operation on this exact captured target;
+    /// recreating or substituting it is outside this contract.
     /// </summary>
     public static async Task<Capture> CaptureExistingAsync(ISqlSugarClient db, TargetKind kind,
         MutationOperation operation, int targetId, CancellationToken cancellationToken = default)
@@ -134,7 +148,10 @@ public static class TaxonomyMutationReceiptPersistence
             connection, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>Persist after successful original DML, before enrollment and original commit.</summary>
+    /// <summary>
+    /// Persist the trusted owner's paired original DML result before enrollment and commit.
+    /// DML and receipts may use active or released savepoints of the same native transaction.
+    /// </summary>
     public static async Task<Receipt> PersistAsync(ISqlSugarClient db, Capture capture,
         int targetId, int affectedRows, CancellationToken cancellationToken = default)
         => (await PersistBatchAsync(db, [new Completion(capture, targetId, affectedRows)], cancellationToken)
@@ -144,6 +161,8 @@ public static class TaxonomyMutationReceiptPersistence
     /// Validates the complete batch before one atomic INSERT. Repeating an unchanged capture
     /// returns the same receipt; changed facts or duplicate captures fail closed. Rollback also
     /// rolls back receipts; a retried transaction must take fresh captures.
+    /// A capture retained before a savepoint may be reused after rolling back that savepoint's
+    /// DML and receipts; rolling back past capture acquisition invalidates the capture itself.
     /// </summary>
     public static async Task<ImmutableArray<Receipt>> PersistBatchAsync(ISqlSugarClient db,
         IReadOnlyList<Completion> completions, CancellationToken cancellationToken = default)
@@ -199,11 +218,18 @@ public static class TaxonomyMutationReceiptPersistence
             }
             if (after is not null)
             {
-                // xmin authenticates native DML ownership only. It is never a cursor or counter.
-                // Top-level original DML is required; subtransaction DML is refused.
+                // A visible row with an in-progress writer belongs to this native transaction
+                // or its live/subcommitted children; another transaction's pending row is invisible.
+                // Reconstruct the writer's full XID near the root XID across 32-bit wraparound.
+                // This authenticates writer ownership, never INSERT kind, a cursor or a counter.
                 await using NpgsqlCommand ownership = new($"""
-                    SELECT xmin::text = (pg_current_xact_id()::text::numeric % 4294967296)::text
-                    FROM {Table(capture.Kind)} WHERE id = @Id;
+                    WITH root AS (SELECT pg_current_xact_id()::text::numeric AS xid),
+                    writer AS (
+                        SELECT root.xid + mod(taxonomy.xmin::text::numeric - mod(root.xid, 4294967296)
+                            + 6442450944, 4294967296) - 2147483648 AS xid
+                        FROM {Table(capture.Kind)} taxonomy CROSS JOIN root WHERE taxonomy.id = @Id
+                    )
+                    SELECT pg_xact_status(writer.xid::text::xid8) = 'in progress' FROM writer;
                     """, connection, transaction);
                 ownership.Parameters.AddWithValue("Id", completion.TargetId);
                 if (await ownership.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not true)

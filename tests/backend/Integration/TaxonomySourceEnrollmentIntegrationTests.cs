@@ -12,6 +12,43 @@ public sealed partial class ArticleSourceMutationHooksIntegrationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task LiveTaxonomy_OriginalSavepointGroupRollsBackReleasedCreateUpdateAndDelete(bool tag)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        db.Ado.BeginTran();
+        var original = db.Ado.Transaction;
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT mutation_group; SAVEPOINT create_step;");
+        int id = tag
+            ? await BinaryEndpoints.CreateTagAsync(db, "savepoint target", null, default)
+            : await BinaryEndpoints.CreateCategoryAsync(db, "savepoint target", null, default);
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT create_step; SAVEPOINT update_step;");
+        var updated = tag
+            ? await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(db, id, "savepoint target", "updated", false, default)
+            : await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(db, id, "savepoint target", "updated", false, default);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, updated.Outcome);
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT update_step; SAVEPOINT delete_step;");
+        if (tag)
+            Assert.Equal(BinaryEndpoints.TagDeleteOutcome.Deleted, await BinaryEndpoints.DeleteTagIfUnlinkedAsync(db, id));
+        else
+            Assert.Equal(BinaryEndpoints.CategoryDeleteOutcome.Deleted, await BinaryEndpoints.DeleteCategoryIfUnlinkedAsync(db, id));
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT delete_step;");
+        Assert.Same(original, db.Ado.Transaction);
+        Assert.Equal(3, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        await db.Ado.ExecuteCommandAsync("ROLLBACK TO SAVEPOINT mutation_group; RELEASE SAVEPOINT mutation_group;");
+        Assert.Equal(0, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM taxonomy_mutation_receipt;"));
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        db.Ado.CommitTran();
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Assert.Equal(0, await observer.Queryable<ArticleSourceObservation>().CountAsync());
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+        Assert.True(await BinaryEndpoints.CreateCategoryAsync(observer, "fresh original retry", null, default) > 0);
+        Assert.Equal(1, await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task LiveTaxonomy_BorrowedCreateUpdateDeleteBatchKeepsOriginalTransactionAndRollsBack(bool tag)
     {
         using SqlSugarClient db = await DatabaseAsync();
