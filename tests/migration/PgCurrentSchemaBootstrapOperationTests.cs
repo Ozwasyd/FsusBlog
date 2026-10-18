@@ -28,7 +28,10 @@ public sealed class PgCurrentSchemaBootstrapOperationTests
         Assert.True(SchemaExpressionIdentity.Equal(PgCurrentSchemaBootstrapOperation.ExpectedKey(integer, numeric),
             PgCurrentSchemaBootstrapOperation.ActualKey(integer, 1000L)));
         Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaBootstrapOperation.ActualKey(integer, "1000"));
-        var uuid = integer with { DataType = "uuid" };
+        var uuid = integer with
+        {
+            DataType = "uuid"
+        };
         Guid identity = Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
         SchemaExpressionNode literal = PgCurrentSchemaExpressionParser.Parse("'00112233-4455-6677-8899-AABBCCDDEEFF'::uuid",
             new Dictionary<string, SchemaColumnModel>());

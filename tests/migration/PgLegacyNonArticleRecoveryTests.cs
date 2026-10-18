@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 
 using Npgsql;
+
 using Xunit;
 
 using FsusBlog.Contracts.Migration;
@@ -17,7 +18,10 @@ public sealed class PgLegacyNonArticleRecoveryTests
     {
         var programs = Programs();
         PgLegacyNonArticleRecoveryData data = Data(programs);
-        PgLegacyNonArticlePreparation.RequireCompleteRecoveryData(data with { Tables = data.Tables.Reverse().ToImmutableArray() }, programs);
+        PgLegacyNonArticlePreparation.RequireCompleteRecoveryData(data with
+        {
+            Tables = data.Tables.Reverse().ToImmutableArray()
+        }, programs);
     }
 
     [Theory]
@@ -81,7 +85,11 @@ public sealed class PgLegacyNonArticleRecoveryTests
             "invalid-digest" => facts.SetItem(1, facts[1] with { Value = "invalid" }),
             _ => throw new InvalidOperationException()
         };
-        observation = observation with { ActualFacts = facts, ExpectedFacts = change == "different-actual" ? observation.ExpectedFacts : facts };
+        observation = observation with
+        {
+            ActualFacts = facts,
+            ExpectedFacts = change == "different-actual" ? observation.ExpectedFacts : facts
+        };
         Assert.Throws<InvalidOperationException>(() => PgLegacyNonArticlePreparation.ArtifactFromCommittedObservation(observation));
     }
 
