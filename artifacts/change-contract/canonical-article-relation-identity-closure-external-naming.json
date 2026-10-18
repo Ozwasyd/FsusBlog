@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/CanonicalArticleRelationParserBridge.cs"
+            ],
+            "reason": "Bind the original registry source-path scope while retaining the trusted host process configuration and existing public runtime spellings. The source-bound identity closure introduces no caller-visible environment keys and copies no public identity algorithm into internal C# identifiers."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/block-anchor-contract.md"
+            ],
+            "reason": "Bind the original maintained-document naming scope and preserve caller-visible public-runtime and coordinate names while documenting independent identity closure. No DOM/CSS spelling or observable UI behavior is introduced."
+        }
+    ]
+}

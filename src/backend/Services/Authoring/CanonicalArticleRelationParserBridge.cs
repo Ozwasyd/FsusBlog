@@ -67,6 +67,7 @@ internal sealed class CanonicalArticleRelationParserBridge(
     CanonicalArticleRelationParserRuntime runtime)
 {
     internal const string Schema = "fsusblog.canonical-article-relation-parse.v1";
+    private const string IdentityClosureSchema = "fsusblog.canonical-article-relation-identity-closure.v1";
     internal const int MaxSourceUtf16Length = 200_000;
     internal const int MaxNodes = 4096;
     private static readonly SemaphoreSlim s_processGate = new(1, 1);
@@ -124,9 +125,10 @@ internal sealed class CanonicalArticleRelationParserBridge(
             throw new ArticleRelationIndexException("canonical_article_relation_utf8_invalid");
         }
         Require(rawSource.Length <= MaxSourceUtf16Length, "canonical_article_relation_source_budget_exceeded");
-        byte[] input = JsonSerializer.SerializeToUtf8Bytes(new
+        byte[] CreateInput(string operation) => JsonSerializer.SerializeToUtf8Bytes(new
         {
             Schema,
+            Operation = operation,
             SourceBase64 = Convert.ToBase64String(package.RawMarkdown.AsSpan()),
             package.SourceDigest,
             DocumentId = request.MountedDocumentId,
@@ -136,7 +138,9 @@ internal sealed class CanonicalArticleRelationParserBridge(
             runtime.WasmModuleDigest,
             RuntimeVersion = runtime.Version
         }, s_json);
+        byte[] input = CreateInput("parse");
         Require(input.Length <= runtime.MaxInputBytes, "canonical_article_relation_input_budget_exceeded");
+        long parseStarted = Stopwatch.GetTimestamp();
         byte[] bytes = await RunAsync(input, cancellationToken).ConfigureAwait(false);
         ParserOutput output;
         try
@@ -149,6 +153,31 @@ internal sealed class CanonicalArticleRelationParserBridge(
             throw new ArticleRelationIndexException("canonical_article_relation_output_invalid");
         }
         ValidateOutput(output, request, package, rawSource.Length);
+        byte[] authorityInput = CreateInput("identity-closure");
+        Require(authorityInput.Length <= runtime.MaxInputBytes, "canonical_article_relation_input_budget_exceeded");
+        TimeSpan remaining = TimeSpan.FromMilliseconds(runtime.TimeoutMilliseconds) - Stopwatch.GetElapsedTime(parseStarted);
+        Require(remaining > TimeSpan.Zero, "canonical_article_relation_process_timeout");
+        byte[] authorityBytes = await RunAsync(authorityInput, cancellationToken, remaining).ConfigureAwait(false);
+        IdentityClosureOutput? closure;
+        try
+        {
+            closure = JsonSerializer.Deserialize<IdentityClosureOutput>(authorityBytes, s_json);
+        }
+        catch (JsonException)
+        {
+            throw new ArticleRelationIndexException("canonical_article_relation_identity_closure_invalid");
+        }
+        Require(closure?.Schema == IdentityClosureSchema && closure.Canonical is not null,
+            "canonical_article_relation_identity_closure_invalid");
+        ValidateOutput(closure!.Canonical!, request, package, rawSource.Length);
+        // Both values use the same closed DTO serialization. Expected facts come from
+        // a separate public-runtime invocation over frozen bytes, not asserted IDs,
+        // an identity prefix/hash implementation, or a child-supplied verification flag.
+        Require(JsonSerializer.SerializeToUtf8Bytes(output, s_json).AsSpan()
+            .SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(closure.Canonical, s_json)),
+            "canonical_article_relation_identity_closure_invalid");
+        Require(Stopwatch.GetElapsedTime(parseStarted) <= TimeSpan.FromMilliseconds(runtime.TimeoutMilliseconds),
+            "canonical_article_relation_process_timeout");
         RevisionComparePackage current = await ReadPackageAsync(request, cancellationToken).ConfigureAwait(false);
         Require(current.PackageDigest == package.PackageDigest, "canonical_article_relation_source_stale");
         cancellationToken.ThrowIfCancellationRequested();
@@ -202,10 +231,10 @@ internal sealed class CanonicalArticleRelationParserBridge(
             "canonical_article_relation_runtime_unavailable");
     }
 
-    private async Task<byte[]> RunAsync(byte[] input, CancellationToken cancellationToken)
+    private async Task<byte[]> RunAsync(byte[] input, CancellationToken cancellationToken, TimeSpan? remainingBudget = null)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(runtime.TimeoutMilliseconds);
+        timeout.CancelAfter(remainingBudget ?? TimeSpan.FromMilliseconds(runtime.TimeoutMilliseconds));
         using var process = new Process
         {
             StartInfo = new ProcessStartInfo(runtime.NodeExecutable)
@@ -398,6 +427,8 @@ internal sealed class CanonicalArticleRelationParserBridge(
         int SourceUtf16Length, int NormalizedUtf16Length, string DocumentId, long DocumentEpoch,
         int ProjectionNodeCount, ImmutableArray<CanonicalArticleRelationParserNode> Nodes,
         ImmutableArray<CanonicalArticleRelationParserDiagnostic> Diagnostics);
+
+    private sealed record IdentityClosureOutput(string Schema, ParserOutput? Canonical);
 
     // Closed owner envelope: only ReadAsync constructs it after real process + original reread.
     // It carries no source-generation, rights, target-identity or mounted-epoch receipt.

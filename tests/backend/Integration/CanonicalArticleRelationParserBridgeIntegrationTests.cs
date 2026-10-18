@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Models.Dtos;
@@ -26,6 +28,190 @@ public sealed class CanonicalArticleRelationParserBridgeIntegrationTests
     private const string WasmModuleDigest = "f2f2c9ce3babd60852c008fd683161143c99ed4968a418902c615c1b0f8ac842";
     private static readonly string s_permission = new('a', 64);
     private static readonly ArticleRelationActorContext s_actor = new("actor:bridge-test", "site:primary", s_permission);
+
+    [Theory]
+    [InlineData("sourceIdentity")]
+    [InlineData("nodeIdentity")]
+    [InlineData("blockIdentity")]
+    public async Task CapturedRealEnvelope_RejectsIndependentIdentityOutputDriftBeforeBinding(string field)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new PlatformNotSupportedException("The executable output-fault control requires Linux.");
+        }
+        string source = "[go](/posts/post-a#anchor-a)\n";
+        var original = Fixture(source);
+        var real = await original.Bridge.ReadAsync(original.Request);
+        Assert.True(ArticleBlockRelationProducer.Produce(Bind(real, original.Request.Source)).Produced);
+        JsonObject candidate = JsonSerializer.SerializeToNode(real.Projection,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })!.AsObject();
+        if (field == "sourceIdentity")
+        {
+            candidate[field] = "markdown:synthetic-drift";
+        }
+        else
+        {
+            candidate["nodes"]!.AsArray()[0]![field] = "synthetic-drift";
+        }
+        string directory = Path.Combine(Path.GetTempPath(), "canonical-identity-control-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string executable = Path.Combine(directory, "captured-output.mjs");
+            CanonicalArticleRelationParserRuntime runtime = Runtime();
+            string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(candidate.ToJsonString()));
+            await File.WriteAllTextAsync(executable, $$"""
+                #!{{runtime.NodeExecutable}}
+                import { spawnSync } from 'node:child_process';
+                const chunks = [];
+                for await (const chunk of process.stdin) chunks.push(chunk);
+                const bytes = Buffer.concat(chunks);
+                const input = JSON.parse(bytes.toString('utf8'));
+                if (input.operation === 'identity-closure') {
+                    const result = spawnSync({{JsonSerializer.Serialize(runtime.NodeExecutable)}}, process.argv.slice(2), {
+                        input: bytes, maxBuffer: 2 * 1024 * 1024, timeout: 10000, env: {},
+                    });
+                    process.stdout.write(result.stdout ?? Buffer.alloc(0));
+                    process.stderr.write(result.stderr ?? Buffer.alloc(0));
+                    process.exitCode = result.status ?? 1;
+                } else {
+                    process.stdout.write(Buffer.from('{{encoded}}', 'base64'));
+                }
+                """ + "\n");
+            File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var mutated = Fixture(source, runtime with
+            {
+                NodeExecutable = executable
+            });
+            ArticleRelationIndexException error = await Assert.ThrowsAsync<ArticleRelationIndexException>(async () =>
+            {
+                var admitted = await mutated.Bridge.ReadAsync(mutated.Request);
+                // The old head reaches this real producer binding after accepting the forged identity.
+                Assert.True(ArticleBlockRelationProducer.Produce(Bind(admitted, mutated.Request.Source)).Produced);
+            });
+            Assert.Equal("canonical_article_relation_identity_closure_invalid", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("delegate", null)]
+    [InlineData("replay", "canonical_article_relation_identity_closure_invalid")]
+    [InlineData("delay", "canonical_article_relation_process_timeout")]
+    public async Task AuthorityBoundary_AdmitsUnchangedCaptureRefusesReplayAndSharesDeadline(string behavior, string? reason)
+    {
+        string source = "[go](/posts/post-a#anchor-a)\n";
+        var original = Fixture(source);
+        var real = await original.Bridge.ReadAsync(original.Request);
+        string directory = Path.Combine(Path.GetTempPath(), "canonical-authority-control-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string executable = await CreateAuthorityControlExecutableAsync(directory, real.Projection, behavior);
+            var controlled = Fixture(source, Runtime() with
+            {
+                NodeExecutable = executable,
+                TimeoutMilliseconds = behavior == "delay" ? 500 : 10_000
+            });
+            var processes = new List<int>();
+            controlled.Bridge.ProcessStarted += processes.Add;
+            if (reason is null)
+            {
+                var parsed = await controlled.Bridge.ReadAsync(controlled.Request);
+                Assert.True(ArticleBlockRelationProducer.Produce(Bind(parsed, controlled.Request.Source)).Produced);
+            }
+            else
+            {
+                var error = await Assert.ThrowsAsync<ArticleRelationIndexException>(() => controlled.Bridge.ReadAsync(controlled.Request));
+                Assert.Equal(reason, error.Message);
+                await controlled.Authority.Received(1).GetRevisionAsync(7, 11, Arg.Any<CancellationToken>());
+            }
+            Assert.Equal(2, processes.Count);
+            Assert.All(processes, AssertExited);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10)]
+    [InlineData(30)]
+    [InlineData(75)]
+    public async Task CancellationDuringAuthority_AwaitsEveryStartedProcess(int delayMilliseconds)
+    {
+        string source = "[go](/posts/post-a#anchor-a)\n";
+        var original = Fixture(source);
+        var real = await original.Bridge.ReadAsync(original.Request);
+        string directory = Path.Combine(Path.GetTempPath(), "canonical-authority-cancel-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string executable = await CreateAuthorityControlExecutableAsync(directory, real.Projection, "delay");
+            var controlled = Fixture(source, Runtime() with
+            {
+                NodeExecutable = executable
+            });
+            using var cancellation = new CancellationTokenSource();
+            var processes = new List<int>();
+            controlled.Bridge.ProcessStarted += processId =>
+            {
+                processes.Add(processId);
+                if (processes.Count == 2)
+                {
+                    cancellation.CancelAfter(delayMilliseconds);
+                }
+            };
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => controlled.Bridge.ReadAsync(controlled.Request, cancellation.Token));
+            Assert.Equal(2, processes.Count);
+            Assert.All(processes, AssertExited);
+            await controlled.Authority.Received(1).GetRevisionAsync(7, 11, Arg.Any<CancellationToken>());
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private static async Task<string> CreateAuthorityControlExecutableAsync(
+        string directory, CanonicalArticleRelationParserBridge.ParserOutput captured, string behavior)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new PlatformNotSupportedException("The authority process control requires Linux.");
+        }
+        CanonicalArticleRelationParserRuntime runtime = Runtime();
+        string encoded = Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(captured,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+        string executable = Path.Combine(directory, "authority-control.mjs");
+        await File.WriteAllTextAsync(executable, $$"""
+            #!{{runtime.NodeExecutable}}
+            import { spawnSync } from 'node:child_process';
+            const behavior = {{JsonSerializer.Serialize(behavior)}};
+            const chunks = [];
+            for await (const chunk of process.stdin) chunks.push(chunk);
+            const bytes = Buffer.concat(chunks);
+            const input = JSON.parse(bytes.toString('utf8'));
+            let output = Buffer.from('{{encoded}}', 'base64');
+            if (input.operation === 'identity-closure' && behavior !== 'replay') {
+                const result = spawnSync({{JsonSerializer.Serialize(runtime.NodeExecutable)}}, process.argv.slice(2), {
+                    input: bytes, maxBuffer: 2 * 1024 * 1024, timeout: 10000, env: {},
+                });
+                output = result.stdout ?? Buffer.alloc(0);
+                process.stderr.write(result.stderr ?? Buffer.alloc(0));
+                process.exitCode = result.status ?? 1;
+            }
+            if (behavior === 'delay') await new Promise((resolve) => setTimeout(resolve, 250));
+            process.stdout.write(output);
+            """ + "\n");
+        File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        return executable;
+    }
 
     [Fact]
     public async Task RealWasm_PreservesRawCoordinatesAndSeparatesLinksAnchorsEmbeds()
@@ -268,18 +454,28 @@ public sealed class CanonicalArticleRelationParserBridgeIntegrationTests
     public async Task ProcessAdmission_RejectsConcurrentMaterializationBeforeAnotherReadOrChild()
     {
         var fixture = Fixture("[go](/posts/post-a#anchor-a)\n");
-        Task<CanonicalArticleRelationParserBridge.ParsedSource>? concurrent = null;
+        var concurrent = new List<Task<CanonicalArticleRelationParserBridge.ParsedSource>>();
+        int? previousChild = null;
         int children = 0;
-        fixture.Bridge.ProcessStarted += _ =>
+        fixture.Bridge.ProcessStarted += processId =>
         {
             children++;
-            concurrent = fixture.Bridge.ReadAsync(fixture.Request);
+            if (previousChild.HasValue)
+            {
+                AssertExited(previousChild.Value);
+            }
+            previousChild = processId;
+            concurrent.Add(fixture.Bridge.ReadAsync(fixture.Request));
         };
         await fixture.Bridge.ReadAsync(fixture.Request);
-        Assert.NotNull(concurrent);
-        ArticleRelationIndexException error = await Assert.ThrowsAsync<ArticleRelationIndexException>(() => concurrent!);
-        Assert.Equal("canonical_article_relation_busy", error.Message);
-        Assert.Equal(1, children);
+        Assert.Equal(2, concurrent.Count);
+        foreach (var attempt in concurrent)
+        {
+            ArticleRelationIndexException error = await Assert.ThrowsAsync<ArticleRelationIndexException>(() => attempt);
+            Assert.Equal("canonical_article_relation_busy", error.Message);
+        }
+        Assert.Equal(2, children);
+        AssertExited(previousChild!.Value);
         await fixture.Authority.Received(2).GetRevisionAsync(7, 11, Arg.Any<CancellationToken>());
     }
 
