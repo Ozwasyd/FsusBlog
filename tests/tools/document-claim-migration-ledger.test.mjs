@@ -13,7 +13,7 @@ test('repository migration ledger exactly covers catalog current documents', () 
         entryCount: 43,
         requiredBehaviorCount: 9,
         generatedClaimCount: 84,
-        proseClaimCount: 35
+        proseClaimCount: 37
     });
 });
 
