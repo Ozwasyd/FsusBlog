@@ -66,14 +66,29 @@ export const candidateIdentityPolicy = Object.freeze({
 export const candidateSchemaDigest = digestCanonical(candidateIdentityFields);
 export const candidatePolicyDigest = digestCanonical(candidateIdentityPolicy);
 
-export function exactKeys(value, keys, label)
+function enumerableDataKeys(value, label)
 {
     if (!value || Object.getPrototypeOf(value) !== Object.prototype)
     {
         throw new Error(`${label} must be a plain object`);
     }
-    const missing = keys.filter((key) => !Object.hasOwn(value, key));
-    const unknown = Object.keys(value).filter((key) => !keys.includes(key));
+    const ownKeys = Reflect.ownKeys(value);
+    for (const key of ownKeys)
+    {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (typeof key !== 'string' || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))
+        {
+            throw new Error(`${label}.${String(key)} must be an enumerable string data property`);
+        }
+    }
+    return ownKeys;
+}
+
+export function exactKeys(value, keys, label)
+{
+    const ownKeys = enumerableDataKeys(value, label);
+    const missing = keys.filter((key) => !ownKeys.includes(key));
+    const unknown = ownKeys.filter((key) => !keys.includes(key));
     if (missing.length || unknown.length)
     {
         throw new Error(`${label}: missing [${missing.join(', ')}]; unknown [${unknown.join(', ')}]`);
@@ -104,25 +119,25 @@ function validateField(value, kind, field)
     }
     else if (kind.endsWith('digest-map'))
     {
-        if (!value || Object.getPrototypeOf(value) !== Object.prototype
-            || (kind === 'nonempty-digest-map' && Object.keys(value).length === 0))
+        const keys = enumerableDataKeys(value, field);
+        if (kind === 'nonempty-digest-map' && keys.length === 0)
         {
             throw new Error(`${field} must be an explicit semantic-ID digest map`);
         }
-        for (const [id, digest] of Object.entries(value))
+        for (const id of keys)
         {
             if (!/^[a-z][a-z0-9._-]*$/u.test(id))
             {
                 throw new Error(`${field}: invalid semantic ID ${id}`);
             }
-            requireDigest(digest, `${field}.${id}`);
+            requireDigest(value[id], `${field}.${id}`);
         }
     }
-    else if (kind === 'commit' && !/^[0-9a-f]{40}$/u.test(value ?? ''))
+    else if (kind === 'commit' && (typeof value !== 'string' || !/^[0-9a-f]{40}$/u.test(value)))
     {
         throw new Error(`${field} must be a full lowercase 40-hex commit`);
     }
-    else if (kind === 'seed' && !/^[0-9a-f]{64}$/u.test(value ?? ''))
+    else if (kind === 'seed' && (typeof value !== 'string' || !/^[0-9a-f]{64}$/u.test(value)))
     {
         throw new Error(`${field} must be an explicit 256-bit root seed`);
     }
@@ -176,6 +191,7 @@ export function createCandidateIdentity(payload)
 {
     verifyPayload(payload);
     const copied = JSON.parse(canonicalJson(payload));
+    verifyPayload(copied);
     return { ...copied, candidateIdentityDigest: digestCanonical(copied) };
 }
 

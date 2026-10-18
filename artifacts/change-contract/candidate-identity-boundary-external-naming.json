@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release-candidate/identity-contract.mjs"
+            ],
+            "reason": "preserve the registered tooling naming surface and existing candidate field spellings while enforcing scalar types and complete own-property validation; no environment input or identity schema is added"
+        }
+    ]
+}
