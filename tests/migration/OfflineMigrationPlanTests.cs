@@ -14,7 +14,7 @@ public sealed class OfflineMigrationPlanTests
     // The real provider/backup owners must supply complete observations before CLI admission.
     private const string DigestA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string DigestB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    private static readonly DateTimeOffset AdmissionTime = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset s_admissionTime = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
 
     [Theory]
     [InlineData(CurrentSchemaProviderKind.PostgreSql, false)]
@@ -45,7 +45,7 @@ public sealed class OfflineMigrationPlanTests
             Dag = fixture.Dag with { Steps = fixture.Dag.Steps.Reverse().ToImmutableArray() },
             Backup = fixture.Backup with { ArtifactDigests = fixture.Backup.ArtifactDigests.Reverse().ToImmutableArray() }
         };
-        Assert.Equal(OfflineMigrationPlanValidation.Serialize(first), OfflineMigrationPlanValidation.Serialize(reordered.Build(AdmissionTime.AddMinutes(1))));
+        Assert.Equal(OfflineMigrationPlanValidation.Serialize(first), OfflineMigrationPlanValidation.Serialize(reordered.Build(s_admissionTime.AddMinutes(1))));
     }
 
     [Fact]
@@ -57,19 +57,19 @@ public sealed class OfflineMigrationPlanTests
         var artifact = new CurrentSchemaArtifactReference("contract-plan", Convert.ToHexStringLower(SHA256.HashData(bytes)));
         Assert.NotEqual(plan.ContentDigest, artifact.Sha256);
         Assert.Equal(plan, OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan, bytes, artifact,
-            fixture.Backup, fixture.Target, fixture.Tool, fixture.Registry, fixture.Dag, AdmissionTime, TimeSpan.FromHours(24)).Plan);
+            fixture.Backup, fixture.Target, fixture.Tool, fixture.Registry, fixture.Dag, s_admissionTime, TimeSpan.FromHours(24)).Plan);
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan,
             bytes.Concat(new byte[] { 10 }).ToArray(), artifact, fixture.Backup, fixture.Target, fixture.Tool,
-            fixture.Registry, fixture.Dag, AdmissionTime, TimeSpan.FromHours(24)));
+            fixture.Registry, fixture.Dag, s_admissionTime, TimeSpan.FromHours(24)));
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan,
             bytes, artifact with { Sha256 = plan.ContentDigest }, fixture.Backup, fixture.Target, fixture.Tool,
-            fixture.Registry, fixture.Dag, AdmissionTime, TimeSpan.FromHours(24)));
+            fixture.Registry, fixture.Dag, s_admissionTime, TimeSpan.FromHours(24)));
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan,
             bytes, artifact, fixture.Backup with { SourceAtCapture = fixture.Source with { ContentDigest = DigestB } },
-            fixture.Target, fixture.Tool, fixture.Registry, fixture.Dag, AdmissionTime, TimeSpan.FromHours(24)));
+            fixture.Target, fixture.Tool, fixture.Registry, fixture.Dag, s_admissionTime, TimeSpan.FromHours(24)));
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan,
             bytes, artifact, fixture.Backup, fixture.Target, fixture.Tool, fixture.Registry, fixture.Dag,
-            AdmissionTime.AddDays(2), TimeSpan.FromHours(24)));
+            s_admissionTime.AddDays(2), TimeSpan.FromHours(24)));
     }
 
     [Fact]
@@ -145,8 +145,8 @@ public sealed class OfflineMigrationPlanTests
         Fixture fixture = CreateFixture(CurrentSchemaProviderKind.PostgreSql, true);
         var backup = fixture.Backup with
         {
-            CapturedAt = AdmissionTime.AddHours(capturedHours),
-            RestoreVerifiedAt = AdmissionTime.AddHours(restoredHours)
+            CapturedAt = s_admissionTime.AddHours(capturedHours),
+            RestoreVerifiedAt = s_admissionTime.AddHours(restoredHours)
         };
         Assert.Equal("offline_backup_stale_or_unverified", Assert.Throws<InvalidOperationException>(() => (fixture with { Backup = backup }).Build()).Message);
     }
@@ -351,7 +351,7 @@ public sealed class OfflineMigrationPlanTests
         OfflineMigrationSourceObservation source = Source(provider, old);
         var backup = new OfflineMigrationBackupObservation(
             new("package", DigestA), new("manifest", DigestA), new("drill", DigestA),
-            "contract-test-only", "v1", AdmissionTime.AddHours(-1), AdmissionTime.AddMinutes(-1),
+            "contract-test-only", "v1", s_admissionTime.AddHours(-1), s_admissionTime.AddMinutes(-1),
             "contract-snapshot", DigestA, DigestA, source,
             source with { Database = new(provider, "isolated-instance", "restore-database") },
             [new("database", DigestA), new("uploads", DigestA), new("dataProtectionKeyRing", DigestA),
@@ -376,9 +376,9 @@ public sealed class OfflineMigrationPlanTests
         OfflineMigrationDag Dag)
     {
         internal OfflineMigrationPlan Build(DateTimeOffset? time = null)
-            => OfflineMigrationPlanBuilder.Create(Source, Backup, Target, Tool, Registry, Dag, time ?? AdmissionTime, TimeSpan.FromHours(24));
+            => OfflineMigrationPlanBuilder.Create(Source, Backup, Target, Tool, Registry, Dag, time ?? s_admissionTime, TimeSpan.FromHours(24));
 
         internal VerifiedOfflineMigrationPlan Verify(OfflineMigrationPlan plan)
-            => OfflineMigrationPlanVerifier.Verify(plan, Source, Backup, Target, Tool, Registry, Dag, AdmissionTime, TimeSpan.FromHours(24));
+            => OfflineMigrationPlanVerifier.Verify(plan, Source, Backup, Target, Tool, Registry, Dag, s_admissionTime, TimeSpan.FromHours(24));
     }
 }
