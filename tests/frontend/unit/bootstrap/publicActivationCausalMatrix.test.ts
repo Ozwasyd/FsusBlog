@@ -45,7 +45,7 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
   const prepareFullApp = vi.fn(async (intent: PublicActivationIntent): Promise<Prepared> => ({
     target: intent.target
   }))
-  const commit = vi.fn(async () => {})
+  const commit = vi.fn<PublicActivationPorts<Prepared>['fullAppPort']['commit']>(async () => {})
   const navigate = vi.fn(async () => {})
   const fallback = vi.fn()
   const markBusy = vi.fn()
@@ -73,11 +73,7 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
   const defaultFeedbackPort = { markBusy, show, hide }
 
   const ports: PublicActivationPorts<Prepared> = {
-    routePreparationPort: { prepare: prepareRoute },
-    fullAppPort: defaultFullAppPort,
-    feedbackPort: defaultFeedbackPort,
     fallbackPort: { navigate: fallback },
-    telemetryPort: defaultTelemetryPort,
     clock: {
       now: () => now,
       // Use real microtasks so Promise-based activation barriers settle without

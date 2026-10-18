@@ -32,45 +32,55 @@ const originalGlobals = {
 
 function installIsolatedWindow(): void {
   const unitWindow = new HappyDomWindow()
-  ;(globalThis as { window?: Window }).window = unitWindow
-  ;(globalThis as { document?: Document }).document = unitWindow.document
-  ;(globalThis as { Element?: typeof Element }).Element = unitWindow.Element
-  ;(globalThis as { HTMLElement?: typeof HTMLElement }).HTMLElement = unitWindow.HTMLElement
-  ;(globalThis as { SVGElement?: typeof SVGElement }).SVGElement = unitWindow.SVGElement
-  ;(globalThis as { localStorage?: Storage }).localStorage = unitWindow.localStorage
-  ;(globalThis as { sessionStorage?: Storage }).sessionStorage = unitWindow.sessionStorage
-  ;(globalThis as { requestAnimationFrame?: (cb: FrameRequestCallback) => number }).requestAnimationFrame =
-    (cb: FrameRequestCallback): number => setTimeout(() => cb(Date.now()), 0) as unknown as number
-  ;(globalThis as { cancelAnimationFrame?: (id: number) => void }).cancelAnimationFrame =
-    (id: number): void => clearTimeout(id)
+  Object.assign(globalThis, {
+    window: unitWindow,
+    document: unitWindow.document,
+    Element: unitWindow.Element,
+    HTMLElement: unitWindow.HTMLElement,
+    SVGElement: unitWindow.SVGElement,
+    localStorage: unitWindow.localStorage,
+    sessionStorage: unitWindow.sessionStorage,
+    requestAnimationFrame: (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0),
+    cancelAnimationFrame: (id: ReturnType<typeof setTimeout>) => clearTimeout(id)
+  })
 }
 
 function restoreOriginalWindow(): void {
-  ;(globalThis as { window?: Window }).window = originalGlobals.window
-  ;(globalThis as { document?: Document }).document = originalGlobals.document
-  ;(globalThis as { Element?: typeof Element }).Element = originalGlobals.Element
-  ;(globalThis as { HTMLElement?: typeof HTMLElement }).HTMLElement = originalGlobals.HTMLElement
-  ;(globalThis as { SVGElement?: typeof SVGElement }).SVGElement = originalGlobals.SVGElement
-  ;(globalThis as { localStorage?: Storage }).localStorage = originalGlobals.localStorage
-  ;(globalThis as { sessionStorage?: Storage }).sessionStorage = originalGlobals.sessionStorage
-  ;(globalThis as { requestAnimationFrame?: (cb: FrameRequestCallback) => number }).requestAnimationFrame =
-    originalGlobals.requestAnimationFrame
-  ;(globalThis as { cancelAnimationFrame?: (id: number) => void }).cancelAnimationFrame =
-    originalGlobals.cancelAnimationFrame
+  Object.assign(globalThis, originalGlobals)
 }
 
-class FakeIntersectionObserver {
+class FakeIntersectionObserver implements IntersectionObserver {
   static instances: FakeIntersectionObserver[] = []
 
+  readonly root = null
+  readonly rootMargin = '0px'
+  readonly thresholds = [0]
   readonly observe = vi.fn()
   readonly disconnect = vi.fn()
+  readonly unobserve = vi.fn()
+  readonly takeRecords = vi.fn((): IntersectionObserverEntry[] => [])
+  private readonly callback: IntersectionObserverCallback
 
-  constructor(private readonly callback: IntersectionObserverCallback) {
+  constructor(callback: IntersectionObserverCallback) {
+    this.callback = callback
     FakeIntersectionObserver.instances.push(this)
   }
 
   trigger(entries: Partial<IntersectionObserverEntry>[]): void {
-    this.callback(entries as IntersectionObserverEntry[], this as unknown as IntersectionObserver)
+    this.callback(entries.map((entry) => {
+      const target = entry.target ?? document.createElement('div')
+      const bounds = target.getBoundingClientRect()
+      return {
+        time: 0,
+        target,
+        rootBounds: null,
+        boundingClientRect: bounds,
+        intersectionRect: bounds,
+        isIntersecting: false,
+        intersectionRatio: 0,
+        ...entry
+      }
+    }), this)
   }
 }
 
@@ -233,10 +243,10 @@ describe.sequential('public comments island activation', () => {
     vi.stubGlobal('HTMLLinkElement', window.HTMLLinkElement)
     vi.stubGlobal('HTMLAnchorElement', window.HTMLAnchorElement)
     vi.stubGlobal('IntersectionObserver', undefined)
-    vi.spyOn(window, 'setTimeout').mockImplementation((handler: TimerHandler, timeout?: number, ...args: unknown[]) =>
-      globalThis.setTimeout(handler, timeout, ...args) as unknown as number
+    vi.spyOn(window, 'setTimeout').mockImplementation((handler, timeout, ...args) =>
+      globalThis.setTimeout(handler, timeout, ...args)
     )
-    vi.spyOn(window, 'clearTimeout').mockImplementation((handle?: number) => {
+    vi.spyOn(window, 'clearTimeout').mockImplementation((handle) => {
       globalThis.clearTimeout(handle)
     })
     vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
