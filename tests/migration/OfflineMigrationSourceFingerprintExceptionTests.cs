@@ -58,11 +58,18 @@ public sealed class OfflineMigrationSourceFingerprintExceptionTests
     {
         OfflineMigrationSourceShape expected = Shape() with
         {
-            History = [new("history.state", "absent")], BusinessShape = [new("overflow", "0")]
+            History = [new("history.state", "absent")],
+            BusinessShape = [new("overflow", "0")]
         };
         OfflineMigrationSourceShape actual = category == OfflineMigrationFingerprintCategory.History
-            ? expected with { History = [new("history.state", "partial")] }
-            : expected with { BusinessShape = [new("overflow", "1")] };
+            ? expected with
+            {
+                History = [new("history.state", "partial")]
+            }
+            : expected with
+            {
+                BusinessShape = [new("overflow", "1")]
+            };
         OfflineMigrationFingerprintDifference difference = Assert.Single(Unknown(expected, actual).Differences);
         Assert.Equal(category, difference.Category);
         Assert.Equal(OfflineMigrationFingerprintDifferenceKind.Changed, difference.Kind);
@@ -75,7 +82,11 @@ public sealed class OfflineMigrationSourceFingerprintExceptionTests
     {
         OfflineMigrationSourceShape expected = Shape();
         OfflineMigrationSourceFingerprintException error = Unknown(expected,
-            expected with { ExtractorId = "other", ExtractorVersion = "2" });
+            expected with
+            {
+                ExtractorId = "other",
+                ExtractorVersion = "2"
+            });
         Assert.Equal(2, error.Differences.Length);
         Assert.All(error.Differences, difference => Assert.Equal(OfflineMigrationFingerprintCategory.Extractor, difference.Category));
         Assert.Contains(error.Differences, difference => difference.FactNameSha256 == Hash("id"));
@@ -85,8 +96,14 @@ public sealed class OfflineMigrationSourceFingerprintExceptionTests
     [Fact]
     public void CanonicalOrderingPreservesEveryBaselineAndDoesNotSelectNearest()
     {
-        OfflineMigrationSourceShape expected = Shape() with { Schema = [new("b", "0"), new("a", "0")] };
-        OfflineMigrationSourceShape actual = expected with { Schema = [new("a", "1"), new("b", "1")] };
+        OfflineMigrationSourceShape expected = Shape() with
+        {
+            Schema = [new("b", "0"), new("a", "0")]
+        };
+        OfflineMigrationSourceShape actual = expected with
+        {
+            Schema = [new("a", "1"), new("b", "1")]
+        };
         OfflineMigrationSourceFingerprintException one = OfflineMigrationSourceFingerprintException.Unknown(
             [("second", expected), ("first", expected)], actual);
         OfflineMigrationSourceFingerprintException two = OfflineMigrationSourceFingerprintException.Unknown(
@@ -145,7 +162,10 @@ public sealed class OfflineMigrationSourceFingerprintExceptionTests
     [Fact]
     public void ActualTerminalProjectionPropagatesOnlyTypedSafeFailureAfterCleanupReturned()
     {
-        OfflineMigrationSourceFingerprintException original = Unknown(Shape(), Shape() with { Schema = [new("extra", "secret")] });
+        OfflineMigrationSourceFingerprintException original = Unknown(Shape(), Shape() with
+        {
+            Schema = [new("extra", "secret")]
+        });
         OfflineMigrationSourceFingerprintException error = Assert.Throws<OfflineMigrationSourceFingerprintException>(() =>
             OfflineMigrationPostgreSqlNativeSession.ThrowAfterCleanup(original, Returned, Returned, Returned, CancellationToken.None));
         Assert.Same(original, error);
@@ -162,7 +182,10 @@ public sealed class OfflineMigrationSourceFingerprintExceptionTests
     [InlineData(2)]
     public void CleanupUnverifiedTakesPriorityOverTypedPayloadAndCancellation(int resource)
     {
-        OfflineMigrationSourceFingerprintException original = Unknown(Shape(), Shape() with { Schema = [new("extra", "secret")] });
+        OfflineMigrationSourceFingerprintException original = Unknown(Shape(), Shape() with
+        {
+            Schema = [new("extra", "secret")]
+        });
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var states = new[] { Returned, Returned, Returned };
@@ -185,5 +208,10 @@ public sealed class OfflineMigrationSourceFingerprintExceptionTests
     private static string Hash(string value) => OfflineMigrationSourceFingerprintException.HashText(value);
 
     private static string Serialize(OfflineMigrationSourceFingerprintException error)
-        => JsonSerializer.Serialize(new { error.Code, error.Differences, error.AmbiguousBaselineIdSha256s });
+        => JsonSerializer.Serialize(new
+        {
+            error.Code,
+            error.Differences,
+            error.AmbiguousBaselineIdSha256s
+        });
 }

@@ -33,10 +33,13 @@ public sealed class OfflineMigrationOwnedPlanningAuthorityReaderTests
     public void MissingProviderCannotBecomeACompleteCompiledRoute(CurrentSchemaProviderKind omitted)
     {
         OfflineMigrationDag dag = Dag();
-        dag = dag with { Steps = dag.Steps.SetItem(0, dag.Steps[0] with
+        dag = dag with
         {
-            Operations = dag.Steps[0].Operations.Where(value => value.Provider != omitted).ToImmutableArray()
-        }) };
+            Steps = dag.Steps.SetItem(0, dag.Steps[0] with
+            {
+                Operations = dag.Steps[0].Operations.Where(value => value.Provider != omitted).ToImmutableArray()
+            })
+        };
         var registry = new RecordingRegistry();
         Assert.Throws<InvalidOperationException>(() =>
             OfflineMigrationOwnedPlanningAuthorityReader.ValidateDeclaredDagOwners(dag, registry, CancellationToken.None));
@@ -71,7 +74,13 @@ public sealed class OfflineMigrationOwnedPlanningAuthorityReaderTests
     public void IndependentSourceEntriesCannotBeCombinedIntoOneRoute()
     {
         OfflineMigrationDag dag = Dag();
-        dag = dag with { Steps = dag.Steps.SetItem(1, dag.Steps[1] with { Dependencies = [] }) };
+        dag = dag with
+        {
+            Steps = dag.Steps.SetItem(1, dag.Steps[1] with
+            {
+                Dependencies = []
+            })
+        };
         var registry = new RecordingRegistry();
         InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() =>
             OfflineMigrationOwnedPlanningAuthorityReader.ValidateDeclaredDagOwners(dag, registry, CancellationToken.None));
@@ -115,11 +124,23 @@ public sealed class OfflineMigrationOwnedPlanningAuthorityReaderTests
 
     private sealed class RecordingRegistry : IOfflineMigrationApplyOperationRegistry
     {
-        internal CurrentSchemaProviderKind? Changed { get; init; }
-        internal CurrentSchemaProviderKind? Missing { get; init; }
-        internal Action? AfterResolve { get; init; }
+        internal CurrentSchemaProviderKind? Changed
+        {
+            get; init;
+        }
+        internal CurrentSchemaProviderKind? Missing
+        {
+            get; init;
+        }
+        internal Action? AfterResolve
+        {
+            get; init;
+        }
         internal List<(string Step, CurrentSchemaProviderKind Provider)> Resolved { get; } = [];
-        internal int NativeCalls { get; private set; }
+        internal int NativeCalls
+        {
+            get; private set;
+        }
 
         public OfflineMigrationApplyOperation Resolve(OfflineMigrationStep step, OfflineMigrationProviderOperation identity)
         {
@@ -130,7 +151,10 @@ public sealed class OfflineMigrationOwnedPlanningAuthorityReaderTests
             }
             AfterResolve?.Invoke();
             return new Descriptor(this, identity.Provider == Changed
-                ? identity with { OperationSourceDigest = new string('b', 64) } : identity);
+                ? identity with
+                {
+                    OperationSourceDigest = new string('b', 64)
+                } : identity);
         }
 
         private sealed class Descriptor(RecordingRegistry registry, OfflineMigrationProviderOperation identity)
