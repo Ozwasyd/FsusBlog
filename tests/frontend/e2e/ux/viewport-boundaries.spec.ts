@@ -851,7 +851,7 @@ async function runUxSafeAreaGroup(
         ? await timing.measure(
             'fixture.article-lightbox-production-surface',
             group.id,
-            () => installArticleLightboxProductionSurface(pageSession.page, fixtures.articleId)
+            () => installArticleLightboxProductionSurface(pageSession.page, Number(fixtures.articleId))
           )
         : null
       await timing.measure('safe-area.apply-profile', group.id, async () => {
