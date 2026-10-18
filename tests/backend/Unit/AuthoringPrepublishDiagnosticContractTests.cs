@@ -850,6 +850,125 @@ public sealed class AuthoringPrepublishDiagnosticContractTests
         Assert.Throws<AuthoringExtensionContractException>(() => registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics, [changed], s_now));
     }
 
+    [Theory]
+    [InlineData("extension", false)]
+    [InlineData("extension", true)]
+    [InlineData("contribution", false)]
+    [InlineData("contribution", true)]
+    public void Registry_CoreCheckCannotAliasManifestIdentityThroughDiagnosticAlias(string identity, bool useAlias)
+    {
+        Fixture fixture = CreateFixture();
+        string diagnosticId = useAlias ? "acme.check.alias" : fixture.Contribution.DiagnosticId;
+        fixture = fixture with
+        {
+            Contribution = fixture.Contribution with
+            {
+                DiagnosticId = diagnosticId
+            },
+            Policy = fixture.Policy with
+            {
+                DiagnosticId = diagnosticId
+            },
+            Core = fixture.Core with
+            {
+                CheckId = identity == "extension" ? fixture.Contribution.ExtensionId : fixture.Contribution.ContributionId
+            }
+        };
+
+        Assert.Throws<AuthoringExtensionContractException>(() => fixture.Registry());
+    }
+
+    [Theory]
+    [InlineData("same-extension-contribution")]
+    [InlineData("other-extension")]
+    [InlineData("other-extension-contribution")]
+    [InlineData("no-diagnostic-extension")]
+    public void Registry_CoreCheckCannotOverlapAnyIdentityInTheCompleteManifestRoster(string identity)
+    {
+        Fixture fixture = CreateFixture();
+        AuthoringExtensionManifest manifest = fixture.Extensions.Contracts[0].Manifest;
+        AuthoringContributionDeclaration command = manifest.Contributions[0] with
+        {
+            Id = "other.command",
+            Kind = AuthoringContributionKind.Command
+        };
+        AuthoringExtensionManifest other = manifest with
+        {
+            Id = "other.extension",
+            Contributions = [command]
+        };
+        ImmutableArray<VerifiedAuthoringExtensionContract> contracts = identity switch
+        {
+            "same-extension-contribution" => [AuthoringExtensionContractValidator.Verify(manifest with
+            {
+                Contributions = [.. manifest.Contributions, command]
+            })],
+            "no-diagnostic-extension" => [AuthoringExtensionContractValidator.Verify(other)],
+            _ => [.. fixture.Extensions.Contracts, AuthoringExtensionContractValidator.Verify(other)]
+        };
+        AuthoringExtensionRegistrySnapshot extensions = AuthoringExtensionContractValidator.CreateRegistry(
+            contracts, fixture.Extensions.CoreAuthorities);
+        string coreId = identity is "other-extension" or "no-diagnostic-extension" ? other.Id : command.Id;
+
+        Assert.Throws<AuthoringExtensionContractException>(() => new AuthoringPrepublishDiagnosticRegistry(extensions,
+            identity == "no-diagnostic-extension" ? [] : [fixture.Contribution],
+            identity == "no-diagnostic-extension" ? [] : [fixture.Policy],
+            [fixture.Core with { CheckId = coreId }]));
+    }
+
+    [Theory]
+    [InlineData("ACME.AUTHOR-TOOLS")]
+    [InlineData("ACME.CHECK.LINKS")]
+    [InlineData("acme.author-tools-extra")]
+    [InlineData("acme.check.links-extra")]
+    public void Registry_DistinctOrdinalCoreReferencesKeepTheirExactIdentity(string coreId)
+    {
+        Fixture fixture = CreateFixture();
+        AuthoringPrepublishDiagnosticRegistry registry = (fixture with
+        {
+            Core = fixture.Core with
+            {
+                CheckId = coreId
+            }
+        }).Registry();
+        Assert.Equal(coreId, Assert.Single(registry.CoreResults).CheckId);
+        AuthoringPrepublishDiagnosticResult outcome = NoFindings(registry, fixture.Contribution.DiagnosticId);
+        AuthoringDiagnosticOutcomeCoverage coverage = registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics, [outcome], s_now);
+        Assert.True(coverage.HasAllOutcomes);
+        Assert.True(Assert.Single(coverage.Slots).Registration.Required);
+        Assert.Equal(AuthoringDiagnosticOutcomeStatus.NoFindings, coverage.Slots[0].Status);
+    }
+
+    [Theory]
+    [InlineData(" acme.author-tools")]
+    [InlineData("acme.author-tools ")]
+    [InlineData("acme.check.links\n")]
+    [InlineData("ＡＣＭＥ.author-tools")]
+    public void Registry_NonCanonicalCoreReferencesAreRejectedWithoutNormalization(string coreId)
+    {
+        Fixture fixture = CreateFixture();
+        Assert.Throws<AuthoringExtensionContractException>(() => (fixture with
+        {
+            Core = fixture.Core with
+            {
+                CheckId = coreId
+            }
+        }).Registry());
+    }
+
+    [Theory]
+    [InlineData("Acme.author-tools")]
+    [InlineData("acme.author-tools ")]
+    public void Registry_ManifestIdentityRetainsTheOriginalStrictLowercaseGrammar(string extensionId)
+    {
+        Fixture fixture = CreateFixture();
+        AuthoringExtensionManifest manifest = fixture.Extensions.Contracts[0].Manifest with
+        {
+            Id = extensionId
+        };
+        Assert.Throws<AuthoringExtensionContractException>(() => ExtensionRegistry(manifest));
+    }
+
     private static AuthoringPrepublishDiagnosticRegistry CreateRosterRegistry(bool reverse = false)
     {
         Fixture fixture = CreateFixture();
