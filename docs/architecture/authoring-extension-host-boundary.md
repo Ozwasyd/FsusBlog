@@ -475,11 +475,14 @@ inside an owned read-committed transaction. The initial receipt starts at sequen
 and generation one with `Installed` as its previous state and a zero previous
 digest. The existing coordinator owns the allowed transition registry. Duplicate,
 stale, malformed, broken-chain appends and cancellation observed at the pre-commit
-checkpoint fail without advancing the head. ADO lock/insert waits retain the
-existing database command timeout; cancellation is checked around those awaits,
-not passed into the underlying command. Independent connections and recreated stores use that same
-database authority. The client must be scoped to an operation; ambient transactions
-are refused so an append cannot report success before its owner commits.
+checkpoint fail without advancing the head. Each operation temporarily binds its
+caller token to `Ado.CancellationToken` for lock, reader, and insert commands,
+awaits driver completion and owned transaction cleanup, then restores the previous
+ADO token. Reader disposal and rollback complete before cancellation returns; the
+existing database command timeout is unchanged. Independent connections and
+recreated stores use that same database authority. The client must be scoped to an
+operation; ambient transactions are refused so an append cannot report success
+before its owner commits.
 
 Host composition must provide the migration and scoped registration before using
 this adapter. Its table contract is `authoring_lifecycle_receipt`, with primary key

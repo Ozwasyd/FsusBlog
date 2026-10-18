@@ -305,6 +305,207 @@ public sealed class AuthoringLifecycleReceiptPostgresTests(PostgresSchemaMigrati
         Assert.Null(await store.GetLatestAsync("acme.tools", default));
     }
 
+    [Theory]
+    [InlineData(false, "advisory", false)]
+    [InlineData(true, "advisory", false)]
+    [InlineData(false, "reader", false)]
+    [InlineData(true, "reader", false)]
+    [InlineData(true, "insert", false)]
+    [InlineData(false, "advisory", true)]
+    [InlineData(true, "advisory", true)]
+    [InlineData(false, "reader", true)]
+    [InlineData(true, "reader", true)]
+    [InlineData(true, "insert", true)]
+    public async Task Operations_CancelBlockedSqlAndAwaitCleanupBeforeReturning(
+        bool append, string stage, bool autoClose)
+    {
+        string connectionString = await CreateDatabaseAsync();
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        db.CurrentConnectionConfig.IsAutoCloseConnection = autoClose;
+        var store = new PostgresAuthoringLifecycleReceiptStore(db);
+        AuthoringLifecycleReceipt first = Receipt();
+        AuthoringLifecycleReceipt next = Next(first, AuthoringLifecycleState.Starting);
+        await store.AppendAsync(first, default);
+        await db.Ado.OpenAsync();
+        int waiterPid = ((NpgsqlConnection)db.Ado.Connection).ProcessID;
+        int commandTimeout = db.Ado.CommandTimeOut;
+        using var priorCancellation = new CancellationTokenSource();
+        db.Ado.CancellationToken = priorCancellation.Token;
+        using var cancellation = new CancellationTokenSource();
+        using var watchdog = new CancellationTokenSource();
+        await using var holder = new NpgsqlConnection(connectionString);
+        await holder.OpenAsync();
+        await using NpgsqlTransaction held = await holder.BeginTransactionAsync();
+        await using var blocker = holder.CreateCommand();
+        blocker.CommandText = stage switch
+        {
+            "advisory" => "SELECT pg_advisory_xact_lock(hashtextextended('authoring-lifecycle-receipt:acme.tools', 0));",
+            "reader" => "LOCK TABLE authoring_lifecycle_receipt IN ACCESS EXCLUSIVE MODE;",
+            "insert" => "LOCK TABLE authoring_lifecycle_receipt IN SHARE MODE;",
+            _ => throw new ArgumentOutOfRangeException(nameof(stage))
+        };
+        await blocker.ExecuteNonQueryAsync();
+        Task operation = append
+            ? store.AppendAsync(next, cancellation.Token).AsTask()
+            : store.GetLatestAsync(first.ExtensionId, cancellation.Token).AsTask();
+        try
+        {
+            string queryPrefix = stage switch
+            {
+                "advisory" => "SELECT pg_advisory_xact_lock",
+                "reader" => "SELECT schema_version",
+                "insert" => "INSERT INTO authoring_lifecycle_receipt",
+                _ => throw new ArgumentOutOfRangeException(nameof(stage))
+            };
+            await AssertBlockedAsync(holder, waiterPid, queryPrefix);
+            cancellation.Cancel();
+            // This watchdog only bounds the assertion. Failure releases the blocker and
+            // still awaits the original operation in finally; it never detaches SQL work.
+            Task deadline = Task.Delay(TimeSpan.FromSeconds(15), watchdog.Token);
+            Assert.Same(operation, await Task.WhenAny(operation, deadline));
+            OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                async () => await operation);
+            Assert.Equal(cancellation.Token, error.CancellationToken);
+            PostgresException driverError = Assert.IsType<PostgresException>(error.InnerException);
+            Assert.Equal(PostgresErrorCodes.QueryCanceled, driverError.SqlState);
+            Assert.Null(db.Ado.Transaction);
+            Assert.Equal(priorCancellation.Token, db.Ado.CancellationToken);
+            Assert.Equal(commandTimeout, db.Ado.CommandTimeOut);
+            Assert.Equal(autoClose, db.CurrentConnectionConfig.IsAutoCloseConnection);
+            await ClearActivitySnapshotAsync(holder);
+            await using var cleanup = holder.CreateCommand();
+            cleanup.CommandText = """
+                SELECT NOT EXISTS (
+                    SELECT FROM pg_stat_activity WHERE pid = @Waiter
+                    AND (state <> 'idle' OR xact_start IS NOT NULL)
+                ) AND NOT EXISTS (SELECT FROM pg_locks WHERE pid = @Waiter);
+                """;
+            cleanup.Parameters.AddWithValue("Waiter", waiterPid);
+            Assert.True((bool)(await cleanup.ExecuteScalarAsync())!);
+            Assert.Equal(holder, held.Connection);
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+        }
+        finally
+        {
+            watchdog.Cancel();
+            cancellation.Cancel();
+            await held.RollbackAsync();
+            _ = await Record.ExceptionAsync(async () => await operation);
+        }
+
+        Assert.Equal(first, await store.GetLatestAsync(first.ExtensionId, default));
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM authoring_lifecycle_receipt;"));
+        await store.AppendAsync(next, default);
+        Assert.Equal(next, await store.GetLatestAsync(first.ExtensionId, default));
+        Assert.Equal(2, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM authoring_lifecycle_receipt;"));
+        Assert.Equal(priorCancellation.Token, db.Ado.CancellationToken);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Operations_RestorePriorAdoTokenOnSuccessAndFailure(bool cancelPrior)
+    {
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await CreateDatabaseAsync());
+        using var priorCancellation = new CancellationTokenSource();
+        if (cancelPrior)
+        {
+            priorCancellation.Cancel();
+        }
+        db.Ado.CancellationToken = priorCancellation.Token;
+        var store = new PostgresAuthoringLifecycleReceiptStore(db);
+        await store.AppendAsync(Receipt(), default);
+        Assert.Equal(priorCancellation.Token, db.Ado.CancellationToken);
+        Assert.Equal(Receipt(), await store.GetLatestAsync("acme.tools", default));
+        Assert.Equal(priorCancellation.Token, db.Ado.CancellationToken);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await store.AppendAsync(Receipt(), default));
+        Assert.Null(db.Ado.Transaction);
+        Assert.Equal(priorCancellation.Token, db.Ado.CancellationToken);
+        await db.Ado.BeginTranAsync();
+        try
+        {
+            var ambient = Assert.IsAssignableFrom<System.Data.IDbTransaction>(db.Ado.Transaction);
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await store.GetLatestAsync("acme.tools", default));
+            Assert.Same(ambient, db.Ado.Transaction);
+            Assert.Equal(priorCancellation.Token, db.Ado.CancellationToken);
+        }
+        finally
+        {
+            await db.Ado.RollbackTranAsync();
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Operations_PreCancelledCallerDoesNotStartSql(bool append)
+    {
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(await CreateDatabaseAsync());
+        var store = new PostgresAuthoringLifecycleReceiptStore(db);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        int commands = 0;
+        db.Aop.OnLogExecuting = (_, _) => commands++;
+        try
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            {
+                if (append)
+                {
+                    await store.AppendAsync(Receipt(), cancellation.Token);
+                }
+                else
+                {
+                    await store.GetLatestAsync("acme.tools", cancellation.Token);
+                }
+            });
+            Assert.Equal(0, commands);
+            Assert.Null(db.Ado.Transaction);
+            Assert.Null(db.Ado.CancellationToken);
+        }
+        finally
+        {
+            db.Aop.OnLogExecuting = null;
+        }
+        await store.AppendAsync(Receipt(), default);
+        Assert.Equal(Receipt(), await store.GetLatestAsync("acme.tools", default));
+    }
+
+    private static async Task AssertBlockedAsync(NpgsqlConnection holder, int waiterPid, string queryPrefix)
+    {
+        await using var observer = holder.CreateCommand();
+        observer.CommandText = """
+            SELECT EXISTS (
+                SELECT FROM pg_stat_activity WHERE pid = @Waiter AND state = 'active'
+                AND wait_event_type = 'Lock' AND query LIKE @Query || '%'
+                AND @Holder = ANY(pg_blocking_pids(pid))
+            );
+            """;
+        observer.Parameters.AddWithValue("Waiter", waiterPid);
+        observer.Parameters.AddWithValue("Query", queryPrefix);
+        observer.Parameters.AddWithValue("Holder", holder.ProcessID);
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (System.Diagnostics.Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(15))
+        {
+            await ClearActivitySnapshotAsync(holder);
+            if ((bool)(await observer.ExecuteScalarAsync())!)
+            {
+                return;
+            }
+            await Task.Delay(25);
+        }
+        Assert.Fail($"PostgreSQL did not observe the receipt command blocked at {queryPrefix}.");
+    }
+
+    private static async Task ClearActivitySnapshotAsync(NpgsqlConnection connection)
+    {
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT pg_stat_clear_snapshot();";
+        await command.ExecuteNonQueryAsync();
+    }
+
     private async Task<string> CreateDatabaseAsync()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
