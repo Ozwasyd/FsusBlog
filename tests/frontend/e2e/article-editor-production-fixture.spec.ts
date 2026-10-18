@@ -1601,3 +1601,48 @@ test.describe('article editor production outline acceptance', () => {
     }
   }
 })
+
+// Inline render functions have no SFC-generated scope attributes on descendants.
+// Inspect actual layout and keyboard focus instead of relying on source markers.
+test.describe('article editor production outline content styles', () => {
+  for (const theme of ['light', 'dark'] as const) {
+    test(`inline content keeps layout and keyboard focus styles in ${theme}`, async ({ page }, testInfo) => {
+      const pageErrors: string[] = []
+      page.on('pageerror', (error) => pageErrors.push(error.message))
+      await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+      for (const width of [375, 1440]) {
+        await page.setViewportSize({ width, height: 900 })
+        await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+        await page.getByRole('button', { name: '打开文章大纲', exact: true }).click()
+        const panel = page.locator('[data-article-outline-panel="true"]')
+        const content = panel.locator('.article-write-outline-content')
+        const header = panel.locator('header')
+        const item = panel.getByRole('treeitem').nth(1)
+        await expect(panel).toBeVisible()
+        await page.keyboard.press('Tab')
+        await item.focus()
+        await expect(item).toBeFocused()
+        await page.screenshot({ path: testInfo.outputPath(`outline-content-${width}-${theme}.png`), fullPage: true })
+        expect(await content.evaluate((element) => getComputedStyle(element).display)).toBe('grid')
+        expect(await header.evaluate((element) => getComputedStyle(element).display)).toBe('flex')
+        expect(await item.evaluate((element) => getComputedStyle(element).display)).toBe('flex')
+        expect(await item.evaluate((element) => ({
+          style: getComputedStyle(element).outlineStyle,
+          width: getComputedStyle(element).outlineWidth,
+          offset: getComputedStyle(element).outlineOffset,
+          visible: element.matches(':focus-visible')
+        }))).toEqual({ style: 'solid', width: '2px', offset: '-2px', visible: true })
+        const text = item.locator('.article-write-outline-item-text')
+        expect(await text.evaluate((element) => ({
+          overflow: getComputedStyle(element).overflow,
+          ellipsis: getComputedStyle(element).textOverflow,
+          whiteSpace: getComputedStyle(element).whiteSpace
+        }))).toEqual({ overflow: 'hidden', ellipsis: 'ellipsis', whiteSpace: 'nowrap' })
+        expect(await item.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+        await panel.getByRole('button', { name: '关闭文章大纲', exact: true }).click()
+        await expect(page.getByRole('button', { name: '打开文章大纲', exact: true })).toBeFocused()
+      }
+      expect(pageErrors).toEqual([])
+    })
+  }
+})

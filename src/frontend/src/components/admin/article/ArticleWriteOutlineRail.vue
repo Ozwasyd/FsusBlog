@@ -439,7 +439,7 @@ const outlineHostProperties = computed(() => isCompact.value
         modelValue: isOpen.value,
         title: '文章大纲',
         direction: 'ltr',
-        size: 'min(86vw, 22rem)',
+        size: 'min(86%, 22rem)',
         modal: true,
         lockScroll: true,
         closeOnClickModal: true,
@@ -630,7 +630,8 @@ const revealRange = (item: MarkdownEditorOutlineItem): void =>
 };
 </script>
 
-<style scoped>
+<!-- Inline OutlinePanelContent descendants share these product-namespaced rules. -->
+<style>
 .article-write-outline-launcher
  {
     position: fixed;
@@ -684,6 +685,7 @@ const revealRange = (item: MarkdownEditorOutlineItem): void =>
 .article-write-outline-content
  {
     display: grid;
+    min-width: 0;
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
 }
@@ -700,6 +702,7 @@ const revealRange = (item: MarkdownEditorOutlineItem): void =>
 
 .article-write-outline-title
  {
+    min-width: 0;
     margin: 0;
     font-size: var(--fsus-typography-heading-sm-size);
     font-weight: 700;
@@ -709,6 +712,7 @@ const revealRange = (item: MarkdownEditorOutlineItem): void =>
 .article-write-outline-close
  {
     display: inline-grid;
+    flex-shrink: 0;
     width: var(--fsus-control-height);
     height: var(--fsus-control-height);
     cursor: pointer;
