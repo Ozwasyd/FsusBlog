@@ -59,6 +59,12 @@ function countViewportMetas(html)
     return [...html.matchAll(/name\s*=\s*["']viewport["']/giu)].length;
 }
 
+/**
+ * @param {string} label
+ * @param {string} html
+ * @param {(message: string) => void} [sink]
+ * @returns {void}
+ */
 function assertUniqueCanonicalViewport(label, html, sink = fail)
 {
     const count = countViewportMetas(html);
@@ -129,6 +135,11 @@ function relative(filePath)
 }
 
 /** Pure validators used by live checks and mutation proofs. */
+/**
+ * @param {string} html
+ * @param {string} [label]
+ * @returns {string[]}
+ */
 export function validateIndexHtml(html, label = 'src/frontend/index.html')
 {
     /** @type {string[]} */
