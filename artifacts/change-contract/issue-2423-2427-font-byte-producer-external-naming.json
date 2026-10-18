@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Fonts/FontAssetFile.cs",
+                "src/backend/Infrastructure/Fonts/IFontByteSource.cs",
+                "src/backend/Infrastructure/Fonts/LocalFontRegistry.FontBytes.cs",
+                "src/backend/Infrastructure/Fonts/LocalFontRegistry.cs",
+                "src/backend/Services/DocumentExport/DocumentExportFontMapper.cs"
+            ],
+            "reason": "The existing src/**/*.cs registration governs these C# files. Preserve installed package identities, hash-owned WOFF2 names and export media contracts while internal members retain repository naming; this change adds no process environment access."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/fonts/fsfont-package.md"
+            ],
+            "reason": "Preserve existing documented font-display and font package contract spellings. The maintained documentation adds byte ownership and refusal semantics without renaming DOM, CSS or typography token contracts."
+        }
+    ]
+}
