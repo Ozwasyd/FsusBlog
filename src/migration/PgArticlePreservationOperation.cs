@@ -63,10 +63,17 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         RetainedTool = tool;
         string semantic = ArticlePreservationSemanticReceipt.Digest("pg-article-preservation-operation-v1", new
         {
-            Source = SourcePredicate, Target = TargetPredicate, CurrentTarget = owned.Target,
-            SourceArtifact = source, CurrentArtifact = current,
-            configuration.MediaRunId, configuration.SourceAssetRoot, configuration.TargetParent,
-            configuration.TrustedSiteOrigin, configuration.PublicPathPrefix, configuration.TargetDirectoryName
+            Source = SourcePredicate,
+            Target = TargetPredicate,
+            CurrentTarget = owned.Target,
+            SourceArtifact = source,
+            CurrentArtifact = current,
+            configuration.MediaRunId,
+            configuration.SourceAssetRoot,
+            configuration.TargetParent,
+            configuration.TrustedSiteOrigin,
+            configuration.PublicPathPrefix,
+            configuration.TargetDirectoryName
         });
         Identity = new(CurrentSchemaProviderKind.PostgreSql, "compiled-pg:" + StepReference,
             assembly.Sha256, semantic, OfflineMigrationExecutionMode.Transaction);
@@ -75,9 +82,18 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
             new("article-preservation-transaction-resume.v1", 0, "no-partial-transaction-watermark", TargetPredicate), [Identity]);
     }
 
-    internal override OfflineMigrationProviderOperation Identity { get; }
-    internal OfflineMigrationStep Step { get; }
-    internal CurrentSchemaVerifierIdentity RetainedTool { get; }
+    internal override OfflineMigrationProviderOperation Identity
+    {
+        get;
+    }
+    internal OfflineMigrationStep Step
+    {
+        get;
+    }
+    internal CurrentSchemaVerifierIdentity RetainedTool
+    {
+        get;
+    }
 
     // Data-only prerequisite for the source owner's eventual shared producer export.
     // Retain the exact original batch across restart. No generation hook or default
@@ -146,7 +162,8 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
 
     private async Task MaterializePublishedAsync(CancellationToken cancellationToken)
     {
-        if (_publishedRead) return;
+        if (_publishedRead)
+            return;
         OwnedCurrentSchemaTarget owned = _owned;
         PgArticlePreservationMediaConfiguration configuration = _configuration;
         CurrentSchemaArtifactReference sourceArtifact = _sourceReference;
@@ -185,7 +202,8 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
     private async Task MaterializeOriginalAsync(DbConnection connection, DbTransaction transaction, CancellationToken token)
     {
         await MaterializePublishedAsync(token).ConfigureAwait(false);
-        if (_nativeCaptured) return;
+        if (_nativeCaptured)
+            return;
         OfflineMigrationSourceObserver.RequirePostgreSqlStageSession(connection, transaction);
         ArticlePreservationSourceReadResult actual = await ArticlePreservationSourceReader.ReadApplyAsync(
             connection, transaction, new OfflineMigrationSourceObserver(), _source.Data.OriginArtifact,
@@ -231,7 +249,8 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
     {
         OfflineMigrationApplyJournalEntry? unit = progress.PendingUnit?.StepId == stepId ? progress.PendingUnit
             : progress.StepProofs.SingleOrDefault(entry => entry.StepId == stepId);
-        if (unit is null) return false;
+        if (unit is null)
+            return false;
         if (!progress.RequiresMedia(stepId) || progress.First is null || unit.OperationReference != identity.OperationReference
             || unit.Mode != identity.Mode || !unit.UnitComplete || unit.Media?.GenerationIdentity is null
             || unit.After?.PredicateReference != TargetPredicate || unit.After.OperationSourceDigest != identity.OperationSourceDigest
@@ -379,12 +398,16 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
                     }))
                     .OrderBy(static fact => fact.Name, StringComparer.Ordinal).ToImmutableArray();
         }
-        else throw new InvalidOperationException("article_preservation_operation_unknown_predicate");
+        else
+            throw new InvalidOperationException("article_preservation_operation_unknown_predicate");
         // Facts are emitted only after complete native readback. A failure throws before an
         // observation exists; expected values are never substituted for unobserved rows.
         var observation = new OfflineMigrationPredicateObservation(predicateReference, Identity.OperationReference,
             Identity.OperationSourceDigest, Identity.SemanticDigest, facts, facts, string.Empty);
-        return observation with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation) };
+        return observation with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation)
+        };
     }
 
     private async Task RequireOriginalSourceAsync(DbConnection connection, DbTransaction transaction, CancellationToken token)
@@ -577,7 +600,8 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         }
         await Require(source.Artifact, source.Bytes).ConfigureAwait(false);
         await Require(current.Artifact, current.Bytes).ConfigureAwait(false);
-        if (current.DefaultPolicy is null) throw new InvalidOperationException("article_preservation_operation_default_policy_required");
+        if (current.DefaultPolicy is null)
+            throw new InvalidOperationException("article_preservation_operation_default_policy_required");
         await Require(current.DefaultPolicy.Artifact, current.DefaultPolicy.Bytes).ConfigureAwait(false);
         foreach (ArticlePreservationCurrentPackage package in current.Articles)
             await Require(package.Artifact, package.Bytes).ConfigureAwait(false);
@@ -619,15 +643,25 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
     {
         Exception? first = null;
         T result = default!;
-        try { result = await body().ConfigureAwait(false); }
-        catch (Exception failure) { first = failure; }
-        try { await resource.DisposeAsync().ConfigureAwait(false); }
+        try
+        {
+            result = await body().ConfigureAwait(false);
+        }
+        catch (Exception failure)
+        {
+            first = failure;
+        }
+        try
+        {
+            await resource.DisposeAsync().ConfigureAwait(false);
+        }
         catch (Exception cleanup)
         {
             first ??= cleanup;
             first.Data["FsusBlog.ArticlePreservation.OperationCleanupFailure"] = "article_preservation_operation_resource_disposal_failed";
         }
-        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+        if (first is not null)
+            ExceptionDispatchInfo.Capture(first).Throw();
         return result;
     }
 
@@ -652,7 +686,10 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
             _transaction = transaction;
             _publication = publication;
         }
-        internal PgLegacyCurrentSchemaPreparation OriginalStage { get; }
+        internal PgLegacyCurrentSchemaPreparation OriginalStage
+        {
+            get;
+        }
         internal CurrentSchemaDatabaseIdentity Database => _operation._observation.Database;
         internal CurrentSchemaArtifactReference SourceArtifact => _operation._source.Artifact;
         internal CurrentSchemaArtifactReference CurrentArtifact => _operation._current.Artifact;

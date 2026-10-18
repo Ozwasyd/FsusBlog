@@ -380,7 +380,13 @@ internal static class ArticlePreservationStorageWriter
                 for (int index = 0; index < row.Columns.Length; index++)
                 {
                     ArticlePreservationStorageColumn column = row.Columns[index];
-                    if ((column with { Value = null }) != (first.Columns[index] with { Value = null })
+                    if ((column with
+                    {
+                        Value = null
+                    }) != (first.Columns[index] with
+                    {
+                        Value = null
+                    })
                         || string.IsNullOrWhiteSpace(column.Name) || column.Name.Any(char.IsControl)
                         || !column.PropertyOwner.StartsWith(row.EntityOwner + ".", StringComparison.Ordinal)
                         || !ArticlePreservationStorageProgram.ValueMatches(column.DataType, column.Value)
@@ -426,7 +432,8 @@ internal static class ArticlePreservationStorageWriter
         }
         if (anyExisting)
         {
-            if (!allComplete) throw new InvalidOperationException("article_preservation_native_partial_target_refused");
+            if (!allComplete)
+                throw new InvalidOperationException("article_preservation_native_partial_target_refused");
             await VerifyRowsAsync(groups, connection, transaction, limits, token, provider, originalWrite).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             return true;
@@ -590,7 +597,8 @@ internal static class ArticlePreservationStorageWriter
                             object? wanted = values[columns[index].Name];
                             if (await ReadOwnedNullAsync(reader, ordinal, command, token, originalWrite).ConfigureAwait(false))
                             {
-                                if (wanted is not null) throw new InvalidOperationException("article_preservation_native_row_value_changed");
+                                if (wanted is not null)
+                                    throw new InvalidOperationException("article_preservation_native_row_value_changed");
                             }
                             else if (wanted is string text)
                             {
@@ -600,7 +608,8 @@ internal static class ArticlePreservationStorageWriter
                                 throw new InvalidOperationException("article_preservation_native_row_value_changed");
                         }
                     }
-                    if (expected.Count != 0) throw new InvalidOperationException("article_preservation_native_row_missing");
+                    if (expected.Count != 0)
+                        throw new InvalidOperationException("article_preservation_native_row_missing");
                     return true;
                 }, originalWrite).ConfigureAwait(false);
                 return true;
@@ -628,16 +637,27 @@ internal static class ArticlePreservationStorageWriter
             while ((read = await input.ReadAsync(buffer.AsMemory(), token).ConfigureAwait(false)) != 0)
             {
                 total = checked(total + read);
-                if (total > expected.Length) throw new InvalidOperationException("article_preservation_native_original_artifact_changed");
+                if (total > expected.Length)
+                    throw new InvalidOperationException("article_preservation_native_original_artifact_changed");
                 hash.AppendData(buffer.AsSpan(0, read));
             }
             if (total != expected.Length || Convert.ToHexStringLower(hash.GetHashAndReset()) != artifact.Sha256)
                 throw new InvalidOperationException("article_preservation_native_original_artifact_changed");
         }
-        catch (Exception failure) { first = failure; }
-        try { await input.DisposeAsync().ConfigureAwait(false); }
-        catch (Exception cleanup) { RememberCleanup(ref first, cleanup, "article_preservation_native_artifact_disposal_failed"); }
-        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+        catch (Exception failure)
+        {
+            first = failure;
+        }
+        try
+        {
+            await input.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            RememberCleanup(ref first, cleanup, "article_preservation_native_artifact_disposal_failed");
+        }
+        if (first is not null)
+            ExceptionDispatchInfo.Capture(first).Throw();
     }
 
     private static async Task RequireSiteAuthorAsync(ArticlePreservationSourceExport source, SchemaModelSnapshot schema,
@@ -721,8 +741,11 @@ internal static class ArticlePreservationStorageWriter
         parameter.ParameterName = "@p" + command.Parameters.Count.ToString(CultureInfo.InvariantCulture);
         parameter.DbType = column.DataType switch
         {
-            "string" => DbType.String, "int32" => DbType.Int32, "int64" => DbType.Int64,
-            "boolean" => DbType.Boolean, "timestamp" => DbType.DateTime2,
+            "string" => DbType.String,
+            "int32" => DbType.Int32,
+            "int64" => DbType.Int64,
+            "boolean" => DbType.Boolean,
+            "timestamp" => DbType.DateTime2,
             _ => throw new InvalidOperationException("article_preservation_native_parameter_type_unavailable")
         };
         parameter.Value = value ?? DBNull.Value;
@@ -749,11 +772,26 @@ internal static class ArticlePreservationStorageWriter
             result = await body(command).ConfigureAwait(false);
             RequireOwnedIoActive(originalWrite, connection, transaction, token);
         }
-        catch (Exception failure) { first = failure; }
-        try { RequireOwnedIoActive(originalWrite, connection, transaction, token); }
-        catch (Exception failure) { RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed"); }
-        try { await command.DisposeAsync().ConfigureAwait(false); }
-        catch (Exception cleanup) { RememberCleanup(ref first, cleanup, "article_preservation_native_command_disposal_failed"); }
+        catch (Exception failure)
+        {
+            first = failure;
+        }
+        try
+        {
+            RequireOwnedIoActive(originalWrite, connection, transaction, token);
+        }
+        catch (Exception failure)
+        {
+            RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed");
+        }
+        try
+        {
+            await command.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            RememberCleanup(ref first, cleanup, "article_preservation_native_command_disposal_failed");
+        }
         try
         {
             RequireOwnedIoActive(originalWrite, connection, transaction, token);
@@ -769,8 +807,12 @@ internal static class ArticlePreservationStorageWriter
             }
             RequireOwnedIoActive(originalWrite, connection, transaction, token);
         }
-        catch (Exception failure) { RememberCleanup(ref first, failure, "article_preservation_native_owned_boundary_revalidation_failed"); }
-        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+        catch (Exception failure)
+        {
+            RememberCleanup(ref first, failure, "article_preservation_native_owned_boundary_revalidation_failed");
+        }
+        if (first is not null)
+            ExceptionDispatchInfo.Capture(first).Throw();
         return result;
     }
 
@@ -788,14 +830,36 @@ internal static class ArticlePreservationStorageWriter
             result = await body(reader).ConfigureAwait(false);
             RequireActive();
         }
-        catch (Exception failure) { first = failure; }
-        try { RequireActive(); }
-        catch (Exception failure) { RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed"); }
-        try { await reader.DisposeAsync().ConfigureAwait(false); }
-        catch (Exception cleanup) { RememberCleanup(ref first, cleanup, "article_preservation_native_reader_disposal_failed"); }
-        try { RequireActive(); }
-        catch (Exception failure) { RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed"); }
-        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+        catch (Exception failure)
+        {
+            first = failure;
+        }
+        try
+        {
+            RequireActive();
+        }
+        catch (Exception failure)
+        {
+            RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed");
+        }
+        try
+        {
+            await reader.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            RememberCleanup(ref first, cleanup, "article_preservation_native_reader_disposal_failed");
+        }
+        try
+        {
+            RequireActive();
+        }
+        catch (Exception failure)
+        {
+            RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed");
+        }
+        if (first is not null)
+            ExceptionDispatchInfo.Capture(first).Throw();
         return result;
     }
 
@@ -819,21 +883,45 @@ internal static class ArticlePreservationStorageWriter
                 requireActive?.Invoke();
                 read = await actual.ReadAsync(chunk.AsMemory(), token).ConfigureAwait(false);
                 requireActive?.Invoke();
-                if (read == 0) break;
+                if (read == 0)
+                    break;
                 if (read > text.Length - offset || !chunk.AsSpan(0, read).SequenceEqual(text.AsSpan(offset, read)))
                     throw new InvalidOperationException("article_preservation_native_row_value_changed");
                 offset += read;
             }
-            if (offset != text.Length) throw new InvalidOperationException("article_preservation_native_row_value_changed");
+            if (offset != text.Length)
+                throw new InvalidOperationException("article_preservation_native_row_value_changed");
         }
-        catch (Exception failure) { first = failure; }
-        try { requireActive?.Invoke(); }
-        catch (Exception failure) { RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed"); }
-        try { actual.Dispose(); }
-        catch (Exception cleanup) { RememberCleanup(ref first, cleanup, "article_preservation_native_text_disposal_failed"); }
-        try { requireActive?.Invoke(); }
-        catch (Exception failure) { RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed"); }
-        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+        catch (Exception failure)
+        {
+            first = failure;
+        }
+        try
+        {
+            requireActive?.Invoke();
+        }
+        catch (Exception failure)
+        {
+            RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed");
+        }
+        try
+        {
+            actual.Dispose();
+        }
+        catch (Exception cleanup)
+        {
+            RememberCleanup(ref first, cleanup, "article_preservation_native_text_disposal_failed");
+        }
+        try
+        {
+            requireActive?.Invoke();
+        }
+        catch (Exception failure)
+        {
+            RememberCleanup(ref first, failure, "article_preservation_native_owned_scope_revalidation_failed");
+        }
+        if (first is not null)
+            ExceptionDispatchInfo.Capture(first).Throw();
     }
     private static bool IsPointer(ArticlePreservationStorageColumn column)
         => column.PropertyOwner == ArticleOwner + ".CurrentRevisionId" || column.PropertyOwner == ArticleOwner + ".CurrentPublicationId";
@@ -845,7 +933,8 @@ internal static class ArticlePreservationStorageWriter
     private static void RequireOwnedIoActive(OfflineMigrationApplyNativeSession.OwnedReadContext? originalWrite,
         DbConnection connection, DbTransaction transaction, CancellationToken token)
     {
-        if (originalWrite is null) return; // Low-level command fixtures grant no native capability.
+        if (originalWrite is null)
+            return; // Low-level command fixtures grant no native capability.
         token.ThrowIfCancellationRequested();
         if (originalWrite.Provider is not (CurrentSchemaProviderKind.MySql or CurrentSchemaProviderKind.PostgreSql)
             || !ReferenceEquals(originalWrite.OriginalConnection, connection)
@@ -919,7 +1008,8 @@ internal static class ArticlePreservationStorageWriter
 
     internal static void ConfigureMySqlPointerBatch(DbCommand command, IReadOnlyList<ArticlePreservationStorageRow> rows)
     {
-        if (rows.Count == 0) throw new InvalidOperationException("article_preservation_native_pointer_shape_changed");
+        if (rows.Count == 0)
+            throw new InvalidOperationException("article_preservation_native_pointer_shape_changed");
         ArticlePreservationStorageRow first = rows[0];
         ArticlePreservationStorageColumn[] pointers = first.Columns.Where(static column => IsPointer(column)).ToArray();
         ArticlePreservationStorageColumn[] keys = first.Columns.Where(static column => column.IsPrimaryKey).ToArray();
@@ -935,7 +1025,13 @@ internal static class ArticlePreservationStorageWriter
             foreach (ArticlePreservationStorageColumn column in shape)
             {
                 ArticlePreservationStorageColumn actual = row.Columns.Single(value => value.Name == column.Name);
-                if ((actual with { Value = null }) != (column with { Value = null }) || actual.Value is null)
+                if ((actual with
+                {
+                    Value = null
+                }) != (column with
+                {
+                    Value = null
+                }) || actual.Value is null)
                     throw new InvalidOperationException("article_preservation_native_pointer_shape_changed");
                 fields.Add(Parameter(command, actual, actual.Value) + " AS " + DataQuote(column.Name, SchemaProviderKind.MySql));
             }
