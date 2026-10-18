@@ -1,0 +1,5 @@
+Test run for /tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /tmp/mem-disk-validation-results/source-tests-bound.trx
+
+Passed!  - Failed:     0, Passed:    44, Skipped:     0, Total:    44, Duration: 122 ms - MemoryDiskSourceTests.dll (net10.0)

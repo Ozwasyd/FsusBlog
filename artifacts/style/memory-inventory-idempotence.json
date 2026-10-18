@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0",
+        "command": "node tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js --config tools/frontend/style-toolchain/eslint.config.mjs --fix tests/tools/memory-allocation-inventory.test.mjs"
+    },
+    "revision": "2f352742921c372281785c508aa0daf1d8a9a771",
+    "paths": [
+        "tests/tools/memory-allocation-inventory.test.mjs"
+    ],
+    "firstPassTreeSha256": "8fa657d91f6a69160e1d894098d23c75cbfb92cb6c3d16d4aa4e727b62b560c1",
+    "secondPassTreeSha256": "8fa657d91f6a69160e1d894098d23c75cbfb92cb6c3d16d4aa4e727b62b560c1",
+    "idempotent": true
+}

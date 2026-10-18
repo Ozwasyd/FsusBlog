@@ -1,0 +1,21 @@
+{
+  "candidate": "0e67524af031db4f4e8e4744950619cf2476c4c9",
+  "sourceAfter": "0e67524af031db4f4e8e4744950619cf2476c4c9",
+  "runId": "mem-0e67524af-20261008-real-linux-scope-capture",
+  "startedAt": "2026-10-08T13:41:30.611472+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~LinuxCgroupScopeResolverTests|FullyQualifiedName~LinuxProcMemoryPressureTests|FullyQualifiedName~PortableMemoryPressureTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests",
+    "--logger",
+    "trx;LogFileName=memory-0e67524af.trx",
+    "--results-directory",
+    ".tmp/memory-integration/0e67524af/test-results"
+  ],
+  "exitCode": 0,
+  "artifact": ".tmp/memory-integration/0e67524af/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/0e67524af/data"
+}

@@ -1,0 +1,479 @@
+{
+    "issue": 3464,
+    "deliveryLevel": "source implementation with ordinary isolated verification; no product/runtime acceptance receipt",
+    "source": {
+        "baseCommit": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+        "candidateCommit": "bc3dadbb325dcbcff5c22fb2e7e270d2a1514136",
+        "candidateTree": "644afc1c9a1f1989a78cc1708348a464fff662ba",
+        "branch": "codex/mem-3464-flat-index",
+        "commits": [
+            "6f0f6bbec4f4142e64d72d7149db81528c80b42d",
+            "717aa5bdd8aeb74861002d4cee4499c91f28a76a",
+            "bc3dadbb325dcbcff5c22fb2e7e270d2a1514136"
+        ],
+        "files": [
+            {
+                "path": "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+                "gitBlob": "b2ea20b5fa483dc0edc5d1329170285d7d807713",
+                "sha256": "a79c6992412fc3a3b7387efe41b4880d1c15af594997106e7556edee0b555b0a"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs",
+                "gitBlob": "a12c9dc1cafc87efc6085bb86fed508b5ae95181",
+                "sha256": "a98d8cf906d6e6a696e07d54b9585b0b2f93a3610b93adfff59f41e801a62a9f"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Host/ReferenceArtifactIndex.cs",
+                "gitBlob": "0c803a9e3de23420bbc7fec7213a4f1bf4b66a78",
+                "sha256": "f20dd063a6ff8788b3a04c20c07fec709b961e385cd6fed037089e39cc1d8a0c"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs",
+                "gitBlob": "d9667fed6a480b3a378ff20da99f6b45a4a25018",
+                "sha256": "abd37945c9adf2d2e38e7b346765424eda2dc2e5fad7519415d827b5e651c3ac"
+            },
+            {
+                "path": "tests/backend/Unit/FlatArtifactIndexTests.cs",
+                "gitBlob": "7074fff49a0dbed69d3eae50d5ccdee6b74c80c4",
+                "sha256": "1be8426fbdb343baa05f47b6a1c6467bdefe138aeeeab0182d344d97775df955"
+            }
+        ],
+        "workingTreeBeforeEvidence": "clean after source push; subsequently only task-owned evidence additions",
+        "fullSourceDiff": "source.diff",
+        "fullSourceDiffSha256": "e2ac9e26025c5bb312effc4b30a79cdebdc21583a0e14204724dee30f3a3cd9a",
+        "externalNamingManifest": "external-naming.json",
+        "externalNamingInterpretation": "Narrow changed-file declaration under existing environment-variable path-based gate; no new naming authority or environment keys"
+    },
+    "prerequisites": {
+        "checkpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+        "originalOwnerIssue": 3444,
+        "originalOwnerPR": 3845,
+        "sourceImportedIntoHistory": false,
+        "mode": "six exact compatible prerequisite blobs injected into backend compilation by a task-owned external targets file; not committed or merged",
+        "files": [
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "sourceCommit": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+                "gitBlob": "b0af8166af5ea20a29a308a98e73e40ef760815c",
+                "sha256": "906eb4f8e7a6bf4a335ff381917282e846c1cc88e1a4f1c7e28cffba12bc747b",
+                "compilePath": "/tmp/mem-3464-contracts/Contracts/MemoryIdentity.cs"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+                "sourceCommit": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+                "gitBlob": "a0c4d9c403400a2a9cb152e159752a1b50844add",
+                "sha256": "738c50a12419495f231fd38b7055a5aaac0203379d0b3227c240913d7c14d7d4",
+                "compilePath": "/tmp/mem-3464-contracts/Contracts/MemoryOperationResult.cs"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+                "sourceCommit": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+                "gitBlob": "cabde5a50c397d321824b95eb1e224ebdb73ab06",
+                "sha256": "ce7a955cb7a81d99f6282b3951540a9fe1422caf69f161b2d56478d1431422bf",
+                "compilePath": "/tmp/mem-3464-contracts/Contracts/MemoryResourceDomain.cs"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "sourceCommit": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+                "gitBlob": "63477bad24069ef0ae0e549af558d368e4e6aa6a",
+                "sha256": "a3fa7fce58ce87e67a92035c1a88b49f1e16d3f1729da59ec84a483c420b669d",
+                "compilePath": "/tmp/mem-3464-contracts/Contracts/MemoryHostAccess.cs"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "sourceCommit": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+                "gitBlob": "bb78e6dd58df6a199d511b2e60e3786172c146a7",
+                "sha256": "d8d47143c58250148320fef1323a4834c397a749698187b33cbb74261817a15c",
+                "compilePath": "/tmp/mem-3464-contracts/Contracts/MemoryAllocationLayout.cs"
+            },
+            {
+                "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "sourceCommit": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+                "gitBlob": "e96a5080cde2d94e2d1a60aee25759e9a5719e52",
+                "sha256": "1fae0075d1420aefcf38a963d4e4b38c0f612916b5bae6e6698439778914d331",
+                "compilePath": "/tmp/mem-3464-contracts/Accounting/MemoryReservationCoordinator.cs"
+            }
+        ],
+        "compileTarget": "prerequisite-compile-targets.txt"
+    },
+    "environment": {
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "os": "Linux-6.18.44-x86_64-with-glibc2.41",
+        "architecture": "x86_64",
+        "backendConfiguration": "Debug",
+        "fixture": "tests/backend/Unit/FlatArtifactIndexTests.cs",
+        "offlinePackageSource": "/workspace/.setup/nuget",
+        "packages": {
+            "Microsoft.NET.Test.Sdk": "18.5.1",
+            "xunit": "2.9.3",
+            "xunit.runner.visualstudio": "3.1.5"
+        },
+        "policyRevisionInFixtures": 1,
+        "deviceDriver": "none: ordinary CPU-native allocation only; no OS/GPU capability qualification"
+    },
+    "implementation": {
+        "families": [
+            "104-byte unmanaged artifact descriptors containing stable content/location values",
+            "bounded pooled UTF-8 canonical-route bytes",
+            "16-byte fixed-width ID slots",
+            "16-byte fixed-width route slots"
+        ],
+        "build": "bounded snapshot; reserve worst-case destination and estimated managed build workspace through the common coordinator before allocation; initialize one aligned native block; reject duplicate IDs/canonical aliases; commit the actual physical capacity only after complete sealing",
+        "updates": "bounded full copy-on-write with simultaneous source, destination and estimated workspace reservations; no relocation/rehash of a live block",
+        "lookup": "existing PublicHotReadRouteKeys.HtmlPath normalization; stable full hash followed by complete key comparison; bounded probes; descriptor/offset/length/identity checks before native reads",
+        "lifetime": "simple reference counted readers with immutable leases across awaits; close prevents new acquisitions; actual last reader releases the one physical charge; no epoch/sharded substitution",
+        "publication": "local generation ownership holder for the existing publication authority; one ownership transfer; selection/acquisition and swap serialized by the same lock; not registered or activated in production",
+        "payloadOwnership": "descriptors do not themselves own payload backing or grant serving/revocation authority; the original snapshot adapter must retain and validate actual backing leases",
+        "storageFormat": "process-local native layout only; no disk encoding or raw-struct persistence API",
+        "limits": "caller-supplied finite entry/reader/native-byte limits and key bound at most 4096 bytes; no invented performance threshold",
+        "managedOverhead": "build/update estimates and observed lease allocations are explicitly not exact GC/object-header control"
+    },
+    "checks": [
+        {
+            "name": "backend-build",
+            "command": [
+                "dotnet",
+                "build",
+                "src/backend/FsusBlog.Server.csproj",
+                "--no-restore",
+                "-p:PublishClientAssets=false",
+                "-p:CustomAfterMicrosoftCommonTargets=/tmp/mem-3464-contracts/contracts.targets"
+            ],
+            "cwd": "/workspace/FsusBlog-3464",
+            "exitCode": 0,
+            "raw": "backend-build.log",
+            "rawSha256": "cc8f476973db01b91842a826c53fb3b6be9d83635f99e17960b7b84f0de48be7"
+        },
+        {
+            "name": "isolated-tests",
+            "command": [
+                "dotnet",
+                "test",
+                "/tmp/mem-3464-tests/IsolatedTests.csproj",
+                "--no-restore",
+                "--logger",
+                "trx;LogFileName=flat-index.trx",
+                "--results-directory",
+                "/tmp/mem-3464-tests/results"
+            ],
+            "cwd": "/workspace/FsusBlog-3464",
+            "exitCode": 0,
+            "raw": "isolated-tests.log",
+            "rawSha256": "88c953dc07ce52dc632883a4ab6362a3d41bf87056982c4924dc40c91025c77f"
+        },
+        {
+            "name": "csharp-style",
+            "command": [
+                "node",
+                "tools/dotnet/check-csharp-style.mjs",
+                "--mode",
+                "changed",
+                "--base",
+                "b9c076e4b763130075218ff9d50f9a6c36784f59",
+                "--file",
+                "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+                "--file",
+                "src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs",
+                "--file",
+                "src/backend/Infrastructure/Memory/Host/ReferenceArtifactIndex.cs",
+                "--file",
+                "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs",
+                "--file",
+                "tests/backend/Unit/FlatArtifactIndexTests.cs"
+            ],
+            "cwd": "/workspace/FsusBlog-3464",
+            "exitCode": 0,
+            "raw": "csharp-style.log",
+            "rawSha256": "1916eeadbab216303f355fa5353f4e52439a7b796c6ff89352edd0fb60b00f32"
+        },
+        {
+            "name": "entrypoint-ownership",
+            "command": [
+                "node",
+                "tools/check-csharp-entrypoint-ownership.mjs"
+            ],
+            "cwd": "/workspace/FsusBlog-3464",
+            "exitCode": 0,
+            "raw": "entrypoint-ownership.log",
+            "rawSha256": "93e72529d0e916b18b15aa7638890ed6e2fa250c7da64d7b897bdabb3ae9b026"
+        },
+        {
+            "name": "change-contract",
+            "command": [
+                "node",
+                "tools/governance/check-change-contract.mjs",
+                "--range",
+                "b9c076e4b763130075218ff9d50f9a6c36784f59..bc3dadbb325dcbcff5c22fb2e7e270d2a1514136"
+            ],
+            "cwd": "/workspace/FsusBlog-3464",
+            "exitCode": 0,
+            "raw": "change-contract.log",
+            "rawSha256": "c580f95934e07ca4838a335f27803bc6b8bad667ffb83512286157a64a059346"
+        },
+        {
+            "name": "code-intent",
+            "command": [
+                "node",
+                "tools/governance/check-code-intent.mjs"
+            ],
+            "cwd": "/workspace/FsusBlog-3464",
+            "exitCode": 1,
+            "raw": "code-intent.log",
+            "rawSha256": "66ebcaccf6d8e43a47a08feeb2b24c28a79ccbd05801801e6a9676777adce795"
+        },
+        {
+            "name": "baseline-code-intent",
+            "command": [
+                "node",
+                "tools/governance/check-code-intent.mjs"
+            ],
+            "cwd": "/tmp/mem-3464-master",
+            "exitCode": 1,
+            "raw": "baseline-code-intent.log",
+            "rawSha256": "7370e1128cfbb8f3caa1b94b462ba13e15bc252b47f61820d7dcacfaf9700260"
+        },
+        {
+            "name": "source-integration",
+            "command": [
+                "node",
+                "tools/run-test-matrix.mjs",
+                "ci-pr-smart",
+                "--stage",
+                "source-integration",
+                "--base-ref",
+                "b9c076e4b763130075218ff9d50f9a6c36784f59"
+            ],
+            "cwd": "/workspace/FsusBlog-3464",
+            "exitCode": 1,
+            "raw": "source-integration.log",
+            "rawSha256": "d706b5b74491da6032e474300939c0f826cf45a473274a00f24ea5a140d3c93b"
+        },
+        {
+            "name": "baseline-source-integration",
+            "command": [
+                "node",
+                "tools/run-test-matrix.mjs",
+                "ci-pr-smart",
+                "--stage",
+                "source-integration",
+                "--base-ref",
+                "ee808392b54d690d5f99a1e95140bc975a76d5d4"
+            ],
+            "cwd": "/tmp/mem-3464-master",
+            "exitCode": 1,
+            "raw": "baseline-source-integration.log",
+            "rawSha256": "48907b9a55f11ab2054c1e3bae80e36c0bf6fe9912fc97978553d0e0500990ce"
+        },
+        {
+            "name": "baseline-owning-restore",
+            "command": [
+                "dotnet",
+                "restore",
+                "tests/backend/FsusBlog.Server.Tests.csproj",
+                "--source",
+                "/workspace/.setup/nuget",
+                "--ignore-failed-sources",
+                "--locked-mode"
+            ],
+            "cwd": "/tmp/mem-3464-master",
+            "exitCode": 1,
+            "raw": "baseline-owning-restore.log",
+            "rawSha256": "9dd77a4311e3a9944d6ff735099fb6636ad9abcebb66814e99a70f614de38663"
+        }
+    ],
+    "isolatedTests": {
+        "total": 14,
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "raw": "flat-index.trx",
+        "sha256": "6cfc424a553b006b0ede858e111c97357ff6b472f393f51477d8a575eb4d2b2d",
+        "owningProjectExecution": "NotRun: baseline NU1004 prevents the complete owning test project; this isolated assembly links the actual owning fixture and actual backend assembly, not a rewritten implementation"
+    },
+    "baselineFailures": {
+        "lockedRestore": "NU1004 in clean master and candidate, same configured offline environment; lockfiles untouched",
+        "sourceIntegration": "independent release-final Node parser identity drift plus execution authority schema/source index/parser rejection, reproduced on clean master; no gate bypass or ProjectXML/semantic-adapter/cohort audit substitutions",
+        "codeIntent": "existing font_theme_admin_pods.hpp:338 unbounded no-allocation claim reproduced on clean master"
+    },
+    "introducedIntegrationBlockers": [
+        {
+            "owner": 3444,
+            "registry": "tests/governance/code-intent-registry.json",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+                "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs"
+            ],
+            "problem": "two new ownership markers require exact source-path registration; shared registry was intentionally not edited concurrently"
+        }
+    ],
+    "autoAndDisable": {
+        "default": "delegated to the existing common Auto policy/governor; this module introduces no second flag or selection authority",
+        "activation": "NotVerified and not wired; parent must supply release/runtime/workload qualification and explicit reference-path reason when unsuitable",
+        "disableSourceResult": "local holder retirement stops new acquisitions while retained leases remain valid, charged and drain at actual completion; production Disabled integration not verified"
+    },
+    "acceptance": {
+        "MEM-P15-AC01": {
+            "status": "Partial",
+            "evidence": "T55 local differential cases passed including real full-hash collision 3711975695, canonical aliases, non-ASCII input, maximum key, absent and ineligible entries, 192 mutations, deletion and replacement; complete serving eligibility integration remains open"
+        },
+        "MEM-P15-AC02": {
+            "status": "Passed at local source-contract level",
+            "evidence": "unmanaged record checks, checked finite layout planning, BigInteger range oracle, invalid offsets/lengths/alignment/overflow and malformed descriptor fixtures pass before native access; raw disk structs excluded"
+        },
+        "MEM-P15-AC03": {
+            "status": "Partial",
+            "evidence": "actual canonical owner and complete collision-key comparison tested; actual payload backing identity/serving integration remains original-owner work"
+        },
+        "MEM-P15-AC04": {
+            "status": "Partial",
+            "evidence": "Linux x64 concurrent old/new fully sealed generation oracle passes; every other supported architecture/platform row remains NotVerified"
+        },
+        "MEM-P15-AC05": {
+            "status": "Partial",
+            "evidence": "multiple retained generations, counted readers, copy-on-write peak reservations and 32 competing final-budget builds pass locally; no payload/transport integration or shared-block overlay release claim"
+        },
+        "MEM-P15-AC06": {
+            "status": "NotVerified",
+            "evidence": "qualified Auto strategy selection is original-owner integration; no activation/manual flag added"
+        },
+        "MEM-P15-AC07": {
+            "status": "Reference protocol implemented; optimized substitution not introduced",
+            "evidence": "acquire/retire/idempotent disposal/stale token/actual async completion/cancelled outer wait pass; no fixed grace, thread vacancy or AsyncLocal release inference"
+        },
+        "MEM-P15-AC08": {
+            "status": "NotVerified",
+            "evidence": "informational inline baseline sizes and counted-reader cost only; frozen CPU, latency, delivered-result-mix and peak-memory gates are absent from this partition and were not invented"
+        },
+        "MEM-P15-AC09": {
+            "status": "Partial",
+            "evidence": "source retirement preserves existing leases and payload identity values; production Disabled/new-generation strategy routing remains original-owner integration"
+        }
+    },
+    "supportRows": [
+        {
+            "rid": "linux-musl-x64",
+            "os": "Linux",
+            "architecture": "x64",
+            "sourceDeclaration": "Docker shipping default",
+            "qualification": "NotVerified",
+            "localSourceTests": "NotRun"
+        },
+        {
+            "rid": "linux-x64",
+            "os": "Linux",
+            "architecture": "x64",
+            "sourceDeclaration": "additional candidate row; no release support claim",
+            "qualification": "NotVerified",
+            "localSourceTests": "Passed (ordinary isolated tests only)"
+        },
+        {
+            "rid": "linux-arm64",
+            "os": "Linux",
+            "architecture": "ARM64",
+            "sourceDeclaration": "additional candidate row; no release support claim",
+            "qualification": "NotVerified",
+            "localSourceTests": "NotRun"
+        },
+        {
+            "rid": "win-x64",
+            "os": "Windows",
+            "architecture": "x64",
+            "sourceDeclaration": "additional candidate row; no release support claim",
+            "qualification": "NotVerified",
+            "localSourceTests": "NotRun"
+        },
+        {
+            "rid": "win-arm64",
+            "os": "Windows",
+            "architecture": "ARM64",
+            "sourceDeclaration": "additional candidate row; no release support claim",
+            "qualification": "NotVerified",
+            "localSourceTests": "NotRun"
+        },
+        {
+            "rid": "osx-x64",
+            "os": "macOS",
+            "architecture": "x64",
+            "sourceDeclaration": "additional candidate row; no release support claim",
+            "qualification": "NotVerified",
+            "localSourceTests": "NotRun"
+        },
+        {
+            "rid": "osx-arm64",
+            "os": "macOS",
+            "architecture": "ARM64",
+            "sourceDeclaration": "additional candidate row; no release support claim",
+            "qualification": "NotVerified",
+            "localSourceTests": "NotRun"
+        }
+    ],
+    "notRun": [
+        "Docker-related tests (project restriction)",
+        "ARM64/Windows/macOS platform executions",
+        "OS-protected write rejection T17",
+        "full public-serving byte/header/status/revocation oracle T18",
+        "full owning backend test project after baseline locked-restore rejection",
+        "frozen CPU/latency/peak-memory performance qualification",
+        "production Auto/Disabled activation and integrations",
+        "independent review, merge and issue closure"
+    ],
+    "performance": {
+        "raw": "lease-cost.json",
+        "source": "lease-cost-program.txt",
+        "project": "lease-cost-project.txt",
+        "command": [
+            "dotnet",
+            "run",
+            "--project",
+            "/tmp/mem-3464-lease-cost/LeaseCost.csproj",
+            "--no-restore",
+            "--configuration",
+            "Release"
+        ],
+        "exitCode": 0,
+        "interpretation": "single-thread informational lease-counter cost; Release measurement harness references Debug backend; measurement is not production performance acceptance and has no threshold",
+        "accessPatterns": {
+            "artifactDescriptors": "baseline FrozenDictionary<int, PublicBinaryArtifact> snapshots and FrozenDictionary<string, PublicHtmlArtifact> base/overlay route lookups; inline sizes exclude managed references/payloads/index tables",
+            "utf8Pool": "baseline canonical path string keys and immutable read lookup; native keys are block-local bytes with bounded complete comparison",
+            "idRoutingIndexes": "baseline fixed article IDs and canonical route keys with immutable snapshot publication and HTML copy/compaction; no route normalization change"
+        },
+        "layoutCostFormula": "aligned(N*104 + 2*nextPowerOfTwo(max(1,2*N))*16 + totalCanonicalUtf8Bytes, 8), with temporary conservative build/update workspace reservations and source overlap reported separately"
+    },
+    "github": {
+        "sourcePush": "Succeeded",
+        "pullRequest": "NotCreated: central coordinator instructed stop content creation during secondary rate limit; draft text preserved locally",
+        "reservationComment": "Failed once with GitHub HTTP403 secondary content-creation limit; intended text preserved; no subsequent creation/comment retry",
+        "retryAfter": "not exposed by connector result; await coordinator release",
+        "draftBody": "draft-pr.md",
+        "draftTitle": "feat(backend): add sealed native artifact indexes with counted leases",
+        "draftReleaseLabel": "release-note:internal"
+    },
+    "integrationRequests": [
+        {
+            "owner": "original3444",
+            "request": "consume the six exact source blobs above through the approved common-contract PR/history before integrating this branch; do not merge broad WIP source indiscriminately"
+        },
+        {
+            "owner": "original3444",
+            "request": "register the two exact new code-intent ownership paths and inventory these allocation/test surfaces through the existing owners/producers; preserve unrelated baseline failures"
+        },
+        {
+            "owner": "original3444",
+            "request": "provide the authoritative PublicHotReadSnapshot adapter for stable metadata descriptors and actual payload-role/backing lease retention, publication/revocation qualification and logical async-operation completion"
+        },
+        {
+            "owner": "original3444",
+            "request": "bind flat/reference strategy selection to the existing default Auto policy and workload qualification; route Disabled future generations to reference while old index/payload leases drain"
+        },
+        {
+            "owner": "original3444 and baseline/oracle owners",
+            "request": "supply frozen finite workload/CPU/latency/peak-memory gates and platform rows; no performance or architecture qualification is claimed by this source partition"
+        },
+        {
+            "owner": "parent coordinator",
+            "request": "create the preserved narrow draft PR after the content-creation rate-limit hold is released; arrange independent review/merge and justified closure"
+        }
+    ],
+    "rollback": "withdraw future flat generation construction/selection via the existing owner; retire the local holder; keep existing index/payload leases until actual completion; remove the isolated source adapter only after drain; do not alter payload identity, public protocols or content authority"
+}

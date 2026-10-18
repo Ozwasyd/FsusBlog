@@ -1,0 +1,91 @@
+[
+  {
+    "name": "owned-style",
+    "candidate": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "sourceAfter": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "startedAt": "2026-10-08T14:52:42.681387+00:00",
+    "command": [
+      "node",
+      "tools/dotnet/check-csharp-style.mjs",
+      "--file",
+      "src/backend/Infrastructure/Memory/Platform/LinuxCgroupDirectoryReader.cs",
+      "--file",
+      "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupCounterParser.cs",
+      "--file",
+      "tests/backend/Unit/LinuxCgroupCounterParserTests.cs"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/89dded9a9/owned-style.log"
+  },
+  {
+    "name": "docs",
+    "candidate": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "sourceAfter": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "startedAt": "2026-10-08T14:52:57.313497+00:00",
+    "command": [
+      "node",
+      "tools/docs/generate-document-lifecycle.mjs",
+      "--check"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/89dded9a9/docs.log"
+  },
+  {
+    "name": "commit-contract",
+    "candidate": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "sourceAfter": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "startedAt": "2026-10-08T14:52:57.717535+00:00",
+    "command": [
+      "node",
+      "tools/governance/check-change-contract.mjs",
+      "--range",
+      "origin/master..HEAD"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/89dded9a9/commit-contract.log"
+  },
+  {
+    "name": "inventory-produce",
+    "candidate": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "sourceAfter": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "startedAt": "2026-10-08T14:52:59.550818+00:00",
+    "command": [
+      "node",
+      "tools/governance/memory-allocation-inventory.mjs",
+      "produce",
+      ".tmp/memory-integration/89dded9a9/intake.json",
+      "mem-89dded9a9-20261008-real-cgroup-counters"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/89dded9a9/inventory-produce.log"
+  },
+  {
+    "name": "inventory-replay",
+    "candidate": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "sourceAfter": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "startedAt": "2026-10-08T14:53:04.504602+00:00",
+    "command": [
+      "node",
+      "tools/governance/memory-allocation-inventory.mjs",
+      "verify",
+      ".tmp/memory-integration/89dded9a9/intake.json"
+    ],
+    "exitCode": 0,
+    "artifact": ".tmp/memory-integration/89dded9a9/inventory-replay.log"
+  },
+  {
+    "name": "inventory-strict",
+    "candidate": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "sourceAfter": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+    "startedAt": "2026-10-08T14:53:12.067787+00:00",
+    "command": [
+      "node",
+      "tools/governance/memory-allocation-inventory.mjs",
+      "verify",
+      ".tmp/memory-integration/89dded9a9/intake.json",
+      "--require-complete"
+    ],
+    "exitCode": 1,
+    "artifact": ".tmp/memory-integration/89dded9a9/inventory-strict.log"
+  }
+]

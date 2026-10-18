@@ -1,0 +1,11 @@
+{
+  "candidate": "7738d5d0c2efbb37c8e05c07a4bbfbcd4feb4172",
+  "files": [
+    "src/backend/Infrastructure/Memory/Platform/LinuxCgroupDirectoryReader.cs",
+    "tests/backend/Unit/LinuxCgroupDirectoryReaderTests.cs"
+  ],
+  "command": "original checkCodeIntent({root,files}); full registry validation retained",
+  "errors": [],
+  "checkedFiles": 2,
+  "scopedFiles": 0
+}

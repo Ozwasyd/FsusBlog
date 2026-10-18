@@ -1,0 +1,190 @@
+[frontend-style] ok files=4 eslint=4 stylelint=0 violations=0 new=0
+[csharp-style] src/backend/Infrastructure/Memory/Devices/GpuPeerMapping.cs:8 enum-name: non-flags enum must use a singular name [GpuMappedAccess]
+[csharp-style] src/backend/Infrastructure/Memory/Devices/GpuPeerTransfer.cs:6 enum-name: non-flags enum must use a singular name [GpuPeerAllocationAccess]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:169 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:171 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:173 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:175 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:177 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:179 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:181 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:183 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:185 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:187 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:189 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:191 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:193 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:195 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:197 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:199 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:201 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:203 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:205 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:157 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:159 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:161 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:163 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:165 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:167 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:169 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:171 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:173 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:175 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:177 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:179 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:181 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:183 type-name: type must use PascalCase [int]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:245 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:247 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:249 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:251 type-name: type must use PascalCase [void]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:253 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:255 type-name: type must use PascalCase [ulong]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:257 type-name: type must use PascalCase [byte]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:259 type-name: type must use PascalCase [byte]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:261 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:263 type-name: type must use PascalCase [nint]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:265 type-name: type must use PascalCase [void]
+[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:267 type-name: type must use PascalCase [void]
+[csharp-style] tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs:9 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.AuthoringExtensions]
+[csharp-style] tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs:3 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.Security]
+[csharp-style] tests/backend/Unit/TaxonomyExactMetadataTests.cs:3 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Core.Algorithms]
+[csharp-style] tests/backend/Unit/TaxonomyExactMetadataTests.cs:9 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.PublicAot]
+[native-tooling-style] ok operation=lint domain=docs mode=full selected=3 checked=3 baseline=0 violations=0
+[document-lifecycle] ok documents=372
+fatal: Needed a single revision
+✔ ordinary documentation and normal naming metadata perform source checks without unrelated SDK/runtime (2.068396ms)
+✔ affected source retains fixed-job members and complete original admission/build prerequisites (0.513105ms)
+✔ unknown paths and shared selection authority retain complete checks (0.459347ms)
+✔ full mode preserves every original declaration including unrelated runtime (0.189601ms)
+✔ evidence producers remain prerequisites rather than being mistaken for skipped success (0.238895ms)
+✔ workflow-only prerequisite is retained and undeclared prerequisite fails closed (0.460727ms)
+✔ unknown dependency, dependency cycle and phase inversion fail before any execution (0.22531ms)
+✔ actual Git diff includes deleted paths and both sides of a rename, and missing base never becomes empty impact (67.381743ms)
+✔ the original indexed dependency selects every actual consumer beyond broad path declarations (0.621009ms)
+✔ consumers reject self-authored selection, stale source fingerprint and changed path evidence (1.316532ms)
+✔ ordinary PR dependency owners do not automatically promote manual/nightly/local lanes (16.039065ms)
+✔ CI cannot consume a re-sealed file in place of the original planner output authority (0.507184ms)
+✔ local complete workflow cannot start compiled matrix setup before successful BehaviorDoc admission (1.760557ms)
+✔ explicit local full intent survives the real child caller environment (0.128925ms)
+✔ compiled matrix prerequisite rejects absent admission before any command starts (1875.027707ms)
+✔ actual source checker dependency changes select the mandatory source governance owner (22.106048ms)
+✔ explicit source integration executes source gates and real declared regressions without issuing product qualification (0.5652ms)
+✔ full, push and release callers cannot be downgraded by source stage or mixed caller authority (0.208218ms)
+✔ re-sealing stage, regression or deferred qualification claims cannot change the independent source plan (0.751526ms)
+✔ the real stage option parser refuses malformed explicit intent before any execution (10.43964ms)
+✔ source integration explicitly refuses every unregistered source surface rather than silently skipping unknown languages (0.377751ms)
+✔ flat solution checker and its refusal controls are explicit source execution ports (0.214526ms)
+✔ existing plan reuse receives independent explicit caller options instead of defaulting stage from the plan (1.32119ms)
+✔ the fixed shell source port checks syntax without executing the script and refuses command-shaped inputs (96.794197ms)
+✔ shell syntax cannot treat refused or missing source identities as stable input proof (0.311597ms)
+✔ SOURCE frontend routing retains strict original checks for every non-module frontend kind (0.364695ms)
+✔ Python SOURCE syntax uses the existing isolated checker and only verified inputs escape unsupported (0.23122ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2449.765339
+✔ applicable exact target and dependency remain bound without certifying unrelated targets (5.553413ms)
+✔ the original Markdown adapter has an exact source-only declaration and five actual repository inputs (791.460825ms)
+✔ changed applicable source, index, owner and argv each refuse (0.50013ms)
+✔ missing applicable target/dependency, parser or independent index binding refuses (0.252337ms)
+✔ duplicate authority records cannot mint an applicable binding by last-entry overwrite (0.144823ms)
+✔ omitting a required applicable dependency cannot become an empty successful closure (0.109392ms)
+✔ actual target or selected owner omissions cannot self-authorize an empty subset (0.244135ms)
+✔ source governance owns all four actual child entries and recursive indexed source, with independent cache vectors (428.006249ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1489.183208
+✔ materializes recursive static imports and package inputs from exact base blobs instead of candidate bytes (86.675451ms)
+✔ preserves a genuinely missing base dependency instead of filling it from the current candidate (38.052446ms)
+✔ resolves a tracked package main and a literal CommonJS import without executing either (87.531463ms)
+✔ import context proves the same actual repository and builtin inputs and rejects candidate working-byte drift (404.808513ms)
+✔ independent candidate resolver witnesses a changed package main rather than reusing the base target (213.6835ms)
+✔ rejects escape base inputs without replacing them with candidate data (57.469549ms)
+✔ rejects symlink base inputs without replacing them with candidate data (38.001144ms)
+✔ rejects invalid-utf8 base inputs without replacing them with candidate data (85.122986ms)
+✔ inherits an exact unique complete function after an unrelated line shift (16.836266ms)
+✔ rejects an unchanged diagnostic inside a changed complete function (1.089084ms)
+✔ rejects copied or ambiguous complete functions in either source (1.439449ms)
+✔ requires identical rule message severity and relative start and end (2.557754ms)
+✔ consumes each base diagnostic at most once and refuses ambiguous base findings (1.438014ms)
+✔ rejects parser fatal global and unsupported findings even in an exact file (24.516319ms)
+✔ a new file strictly retains all 122 findings as unexpected (5.336554ms)
+✔ never inherits a real top-level const regex finding from a supported rule (0.542776ms)
+✔ local layout requires complete diagnostic lines and the enclosing statement (1.678872ms)
+✔ control regex inheritance requires a static literal and unchanged module bindings (4.212732ms)
+✔ finite layout proofs inherit local original statements across an unrelated allocation change (14.361204ms)
+✔ layout rejects changed lexical owners bindings lines and duplicate statement identities (7.947992ms)
+✔ missing semicolons bind line terminators and preserve ASI neighbours (1.304552ms)
+✔ unused bindings require original definition zero reads and unchanged lexical scope (11.671651ms)
+✔ import ordering requires the exact full roster and actual dependency context (3.28223ms)
+✔ base diagnostics are located once per invocation and no candidate cache is reused (7.294824ms)
+✔ module layout proves only unique complete declarations and unchanged physical neighbours (24.038945ms)
+✔ module declarations preserve ASI syntax and reject unsupported global owners and rules (16.750368ms)
+✔ parent import findings require the original full roster and actual resolver identities (3.310248ms)
+✔ mechanical try boundaries retain layout while binding headers lexical owners and ASI syntax (9.787773ms)
+✔ adjacent function layout context keeps its complete header and lexical boundary (8.958706ms)
+✔ empty loop body tokens cannot become optional ancestor statement terminators (1.528617ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1399.491852
+✔ native fragment mock span transport refuses column-only without parser qualification (220.963849ms)
+✔ native fragment mock span transport refuses wrong-length without parser qualification (147.137036ms)
+✔ native fragment mock span transport refuses wrong-line without parser qualification (199.736151ms)
+✔ native fragment mock span transport refuses missing-finding without parser qualification (127.038005ms)
+✔ native fragment mock span transport refuses duplicate-finding without parser qualification (147.589614ms)
+✔ native fragment mock span transport refuses foreign-file without parser qualification (156.477217ms)
+✔ native fragment mock span transport refuses duplicate-report without parser qualification (154.242193ms)
+✔ native fragment mock span transport refuses raw-mismatch without parser qualification (165.100107ms)
+✔ native fragment mock span transport refuses abnormal-terminal without parser qualification (191.961645ms)
+✔ original Markdown adapter package boundary accepts equivalent bins and refuses foreign package authority (816.275398ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2448.486154
+✔ flat solution inspection binds actual project source without evaluating it (131.503386ms)
+✔ malformed XML and declarations or external entities are refused (339.39591ms)
+✔ numeric predefined entity aliases and processing instructions cannot become literal project paths (558.421678ms)
+✔ source admission compares the closed complete receipt against independent current HEAD and bindings (1286.89172ms)
+✔ unknown elements attributes nested structures and text remain unsupported (488.082048ms)
+✔ escaping substituted and duplicate project paths cannot receive source coverage (1012.704979ms)
+✔ missing linked and uncommitted project sources are refused (519.234538ms)
+✔ linked ancestors and hardlinked project aliases are refused (453.87549ms)
+✔ the solution itself and exact caller arguments cannot be replaced by declarations (121.187278ms)
+✔ a source change during the final Git binding recheck is refused through the held descriptor (125.365462ms)
+✔ Python AST syntax does not execute imports bodies bytecode or lifecycle (443.252446ms)
+✔ Python AST refuses malformed UTF-8 syntax and bounded input overflow (359.39787ms)
+✔ Python AST reuses regular single-link source HEAD index and path refusals (347.073962ms)
+✔ Python AST receipt cannot substitute HEAD source parser version limits or extra output (1178.797643ms)
+✔ Python AST held descriptor refuses input replacement during the final index recheck (239.008256ms)
+✔ Python AST fixed worker refuses added fields and ignores caller Python import paths (283.463226ms)
+✔ Python AST bounded FD reader refuses growth after the small initial stat without reading beyond cap plus one (126.101181ms)
+✔ Python AST batch budget refuses the next committed source before reading or parsing beyond eight MiB (692.24294ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8814.797076
+[source-governance] failure; no runtime or release qualification
+[matrix] applicable source governance failed; qualification remains unrun

@@ -1,0 +1,311 @@
+{
+    "kind": "task-local-disk-owned-drain-source-continuation",
+    "qualification": false,
+    "sourceCommit": "fa255376f7b25721b12860279bf444899852373a",
+    "sourceTree": "0705d7b5c7e91c78ca56af443911ec98f20e1bf4",
+    "previousDelivery": "840b4ed56421177adfdf00029c14b2fc4ecc3248",
+    "baseCommit": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+    "latestFetchedMaster": "dbb373071db1ad21aaa665f4a1512bfb43f59950",
+    "masterOverlap": "No disk source/owning test overlap; no merge or shared tracked edits.",
+    "commonCheckpoint": "4b1971ca3d5b6d6a645d2ce98c09407136c3e4df",
+    "sourceFiles": [
+        {
+            "path": "artifacts/change-contract/mem-disk-external-naming.json",
+            "gitBlob": "c0065868eac7d0ee9a486d1aa52f97248faf37e1",
+            "sha256": "d105d5438e70617fda0102319d98e90032f0d98c9f40a651008ccc66e5db7058"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskBudgetAdmission.cs",
+            "gitBlob": "7094e3fb6def1f08e152a063aed65b089677356f",
+            "sha256": "8ede048663aa2a33770ca4729efca370d8d93c6650a4578b01fe9181b92d92c9"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskFileFootprint.cs",
+            "gitBlob": "4a108d7f55e095946b3986c869ad47c5c7580b4f",
+            "sha256": "e9822d5cefcea4cde509df681b62dffd7c187ccbca152fd6e747888f305500c5"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskFileSystemException.cs",
+            "gitBlob": "531a8df42289a5973d505737175ee90d78b6082c",
+            "sha256": "90af4157e45f21feb3c5d8676e5358ce89d1395820a0177b6cb8378229d3648b"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskPhysicalAllocationPolicy.cs",
+            "gitBlob": "aa8718d447428da4b23b5d87cccd521b5a593cb9",
+            "sha256": "02875704de70f1c5a31bf464208869b30ddd43844c0eead95bd4b39d1d4a3ff2"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentFormat.cs",
+            "gitBlob": "524b423bc0daa28a32586a0bf61cef798eded83b",
+            "sha256": "249168e42b6bf63726b73809bda8d111dbd3d4fe93198505ee769ddcb6d581e5"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
+            "gitBlob": "47c057363732dd197e3b9b3c25579b6d15b2957a",
+            "sha256": "9e97acee66637cf906145f354ece0160c863545b29d4e01758fa384e400d06f6"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs",
+            "gitBlob": "2784a4a83767b5fab7e17474a2cd41d2ef44cfcc",
+            "sha256": "abd16892e9f663ea3a22e870b183246e53067e7fcee614213d52132fb0ec197a"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSpillEligibility.cs",
+            "gitBlob": "b9d36e45c10d155a87e65d32597477d9dbb73ffd",
+            "sha256": "426f9617c32a7ada1275e09968dd0691f0413432a929ade3b49deafc0c4e10b3"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSpillInventoryObservation.cs",
+            "gitBlob": "b03c9ceb5c2c04571d31bd0c714f02b66aff115b",
+            "sha256": "db21c50be824253b15578139432128feaa339b67943a1478517b1aa485f9116c"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/OwnedSpillRoot.cs",
+            "gitBlob": "ffe3d776efd871d230b33a1bcb8b496a4471c3a1",
+            "sha256": "07b69033902ea2e9a6a4a5665dcdc6db2b8ab58d4c4e1b869c9277ba4c75457f"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs",
+            "gitBlob": "f06ed6ba61ca5d04ccb463837c5132f765d9a9b6",
+            "sha256": "cc64df493017430c72c48f05c4f6e43e800054032ac00decef2c55a0f3b58431"
+        },
+        {
+            "path": "tests/backend/Unit/DiskBudgetAdmissionTests.cs",
+            "gitBlob": "7dc1812e6955cc65b62ee7159fc30556f4f5b0f6",
+            "sha256": "bb52ac0dfb661a1cead194a93638ec85ca2048c60283c12bc1d6c2a303571028"
+        },
+        {
+            "path": "tests/backend/Unit/DiskSegmentStoreTests.cs",
+            "gitBlob": "a12ee543bd799f1a5335ed912b56143f7aee80f0",
+            "sha256": "ce84eefb3e2a850a1a502043cffec3ad56909bda435fba2de700bfc9fdbd7495"
+        },
+        {
+            "path": "tests/backend/Unit/DiskSpillEligibilityTests.cs",
+            "gitBlob": "3e6f0af862d5c7de905a9bd010e3cf59b0379ea8",
+            "sha256": "8a37b83ab2d6f626993f5a111db7d6b348f7535db96a9a5033b433be1ed21556"
+        },
+        {
+            "path": "tests/backend/Unit/OwnedSpillRootTests.cs",
+            "gitBlob": "ec3cba465ee1dc0b37dd3570e9c9e678da9af346",
+            "sha256": "04a49e79484e4d9404d898d8b66734163442a27ce8a3cf5be690b2c987f67047"
+        }
+    ],
+    "commonInputs": [
+        {
+            "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+            "gitBlob": "67f555d83081b16e35567bb0f95b00108dc14a2e",
+            "sha256": "09cac6f45bcfcf9f250d7e9dec9d0bb9ebc0dc8fcd726fa4ac2d264dae59c535"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+            "gitBlob": "7947a604ddfa427e95e991a35b7d4af919e81312",
+            "sha256": "589d105d884d5aac11f06d846254ceb4170579bae8d782b05d0aede523088368"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+            "gitBlob": "bb78e6dd58df6a199d511b2e60e3786172c146a7",
+            "sha256": "d8d47143c58250148320fef1323a4834c397a749698187b33cbb74261817a15c"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+            "gitBlob": "63477bad24069ef0ae0e549af558d368e4e6aa6a",
+            "sha256": "a3fa7fce58ce87e67a92035c1a88b49f1e16d3f1729da59ec84a483c420b669d"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+            "gitBlob": "b0af8166af5ea20a29a308a98e73e40ef760815c",
+            "sha256": "906eb4f8e7a6bf4a335ff381917282e846c1cc88e1a4f1c7e28cffba12bc747b"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+            "gitBlob": "a0c4d9c403400a2a9cb152e159752a1b50844add",
+            "sha256": "738c50a12419495f231fd38b7055a5aaac0203379d0b3227c240913d7c14d7d4"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+            "gitBlob": "6dd3db5d42aadd04cc9e4c2f044703c830a37c66",
+            "sha256": "7ff95f5bf330d4a3268a6ff2f8f71ac0af2409f1aaca4edd5a7c115010e8174a"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Accounting/FrozenDiskPhysicalAllocationPolicy.cs",
+            "gitBlob": "c9deb23a6e4ade00645a1d1629ad9672a651505d",
+            "sha256": "abf86301d7d885e7832c3307eca71f8691ff84c68025239fab95f6d86ae70e09"
+        }
+    ],
+    "publicApi": "DiskSegmentStore: public Task Drained { get; }; existing Disable() initiates retirement.",
+    "successCondition": "Disabled AND whole store operations=0 AND temporary resources=0 AND bounded segment roster empty after successful release. Not merely empty roster.",
+    "ownedLifetime": "Whole admitted ObserveInventory/Publish/Recover/Acquire/Compact scopes; real scan iterators, scan/probe/index reservations and file handles; existing lease/file/scratch/IO reservation holds; staging and published full byte/inode charges. Existing sole coordinator remains authority.",
+    "failureBehavior": "Missing/replaced/unresolved unlink preserves charge/roster and keeps pending. Temporary Dispose failure faults task, stops growth and conservatively retains cleanup/charges; no physical release inference. Existing lease/charge release exceptions preserve holds/roster.",
+    "excludedLifetime": "Caller-owned OwnedSpillRoot, shared budget/coordinator, caller-owned copy targets and unadopted files; no implicit root close or unauthorized deletion.",
+    "tests": {
+        "passed": 17,
+        "failed": 0,
+        "skipped": 0,
+        "results": [
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CallerExceptionStillReleasesAReentrantlyDisposedFinalOperationHold",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ReplacedStagingInodeIsNeitherPublishedNorDeletedAndOriginalChargeSurvivesUntilRestoredCleanup",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryApprovalDefersCandidateDeletionUntilOperationExit",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringCompactionWaitsForExistingSourceLeaseAndWholeCompactionOperation",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringIndexAdmissionStopsRecoveryBeforeExistingOwnershipRegistration",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain(disableAtObservation: 1)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DrainedWaitsForDisableEvenWhenEmptyAndLeavesCallerOwnedRootUsable",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.MovedWriterStagingWithoutReplacementRetainsReservationUntilOriginalInodeIsUnlinked",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableBlocksNewOperationsAndDrainsExistingReaderBeforeDeletion",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryApprovalMovingOriginalWithoutReplacementRetainsOwnershipUntilProvenUnlink",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringPayloadReadRetainsWriterReservationUntilOperationExitThenDrains",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain(acquireReader: False)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CanceledDrainedWaiterCannotReleaseLiveReaderOrCompleteSharedDrain",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryOwnerApprovalReplacementPreservesReplacementAndRetainsOriginalRegisteredCharge",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain(disableAtObservation: 2)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain(acquireReader: True)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ReentrantDisposeKeepsCopyOperationAliveUntilItsFinalHoldEnds",
+                "outcome": "Passed"
+            }
+        ],
+        "kind": "ordinary isolated affected lifecycle source tests",
+        "historical106": "Preserved immutable ADOPTION_REPORT.json/source89fe3fcb77d123f85a8c94ccb9048545577aad4d; not borrowed for this source.",
+        "testIds": {
+            "preservedMarkedMethods": 48,
+            "newMarkedMethods": [
+                "CanceledDrainedWaiterCannotReleaseLiveReaderOrCompleteSharedDrain",
+                "DisableDuringCompactionWaitsForExistingSourceLeaseAndWholeCompactionOperation",
+                "DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain",
+                "DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain",
+                "DrainedWaitsForDisableEvenWhenEmptyAndLeavesCallerOwnedRootUsable"
+            ],
+            "newInstances": 7,
+            "enhancedExistingInstances": 10
+        },
+        "notRun": "96 unaffected previous cases not rerun; full original owning-project/full113 matrix/native/Auto/crash/quota/mapping/physical baselines not run. Temporary Dispose exception branch lacks public ordinary injection path and is not runtime-exercised; no synthetic evidence."
+    },
+    "checks": {
+        "lockedOfflineRestore": "PASS",
+        "csharpStyle": "PASS15 files0violations; final exact committed source check in drain-style-final.log",
+        "changeContractRange": "PASS",
+        "diffCheck": "PASS",
+        "candidateCompilerWarnings": 0,
+        "preliminaryBuild": "PASS0warnings0errors but predates final cleanup-failure guard/tests; final test invocation compiled exact candidate.",
+        "firstStyleRun": "Preserved preliminary style log; final rerun binds exact completed test edits."
+    },
+    "environment": {
+        "sdk": "10.0.401",
+        "runtime": "10.0.12",
+        "architecture": "x86_64",
+        "kernel": "6.18.44",
+        "temporaryFilesystem": "tmpfs 1021994",
+        "fixturePolicy": "Existing bounded source fixture observations/bounds; no filesystem qualification or native capability claim."
+    },
+    "toolchain": {
+        "sdkHostSha256": "01d89e0a0191052bfea616cd4ce624c8faf13b05bbddf7f64499c23e2a9d9269",
+        "compilerSha256": "28a84f96c8d4c768fd3b620b3e312c281316d3392390b609b03dd9356ae098df",
+        "assemblySha256": "7fae4d9a3f8e9b7a8b82c513370be48a37d08e3a0967dfbca7dcd7b068e72c69",
+        "pdbSha256": "a781b47bbe0505cd1f0016172fd56f807390493075e4f47f45e2778da7fdfee6",
+        "testRunnerSha256": "384aba4bad96399a7fd2205a5a3517b643a16f4d7e843bd0b92e1e42f81fce2a"
+    },
+    "configHashes": {
+        "Directory.Build.props": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+        "Directory.Packages.props": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+        ".editorconfig": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+    },
+    "temporaryContextHashes": {
+        "MemoryDiskSourceTests.csproj": "00a1bdc4a65ceed761b041f24d9e0793202b0fb62bcdd3e30df0a7bcd31232d2",
+        "NuGet.config": "a790bd60d1f6774b10c633ce64ca645192e123a3d8681e2d5e7dd60949dfda4d",
+        "packages.lock.json": "b8ba886e77c47ccf4eb20c58cc9d455f899487e3c1e5040e1e7b7d494567c6dd"
+    },
+    "rawEvidence": [
+        {
+            "path": "artifacts/memory/disk-delivery/drain-build.log",
+            "sha256": "bdcff657082e8e5acb2122823e5ffa4ef04bd0189efe6469d01f8b6ef31e497c"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/drain-change-contract.log",
+            "sha256": "629777a497c8cc705a98e357f01958bbfe851e3ee8ebdc0816c452e2b14afef5"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/drain-diff-check.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/drain-lifecycle.trx",
+            "sha256": "7897483ebdc72e084eb5ce997e9264ffe485de2e33b13de6f3a7230dee578b96"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/drain-restore.log",
+            "sha256": "e810b83a492940e0bccf3297319aa74dd049784396ed8c75542e9f8dec6f51da"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/drain-style.log",
+            "sha256": "92186a8d44307083e40af05d3c42ad78896c504d1eacc2fadf67934d56fbe6c8"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/drain-tests.log",
+            "sha256": "6b6486a3c706897c95866c217e4d045b59cce13950fcb8ed741ae293ceb2f4e1"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/drain-style-final.log",
+            "sha256": "92186a8d44307083e40af05d3c42ad78896c504d1eacc2fadf67934d56fbe6c8"
+        }
+    ],
+    "context": {
+        "path": "artifacts/memory/disk-delivery/DRAIN_CONTEXT.txt",
+        "sha256": "cb3412f9877bd579df2721b7d357c5b966db4f728909a3f4a45bce1c24ac8695"
+    },
+    "acceptance": "All19 MEM-P10/P11 ACs remain NotVerified; no held QA scope bypass.",
+    "integrationRequest": "3444 may consume exact owned Drained API now; MemoryCapabilityOwner.FromDisk must compose caller-owned root shutdown separately after its exact ownership contract is resolved. No duplicate controller/coordinator.",
+    "publication": {
+        "sourcePush": "Succeeded fa255376f7b25721b12860279bf444899852373a",
+        "PR": "NotCreated: central content queue hold; local draft preserved",
+        "productionActivation": "none",
+        "issueClosure": "none"
+    },
+    "cleanup": "Only enumerated task-owned temporary context/home/results removed after source/hash/raw capture; installed SDK/cache/original locks unchanged."
+}
