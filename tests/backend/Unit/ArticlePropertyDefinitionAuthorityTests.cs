@@ -617,8 +617,8 @@ public sealed class ArticlePropertyDefinitionAuthorityTests
         UpdateArticlePropertyDefinitionCommand right = UpdateCommandFor(definition, 1, 1);
         Task<ArticlePropertyDefinitionWriteReceipt>[] tasks = [store.UpdateAsync(left), store.UpdateAsync(right)];
         await Assert.ThrowsAsync<ArticlePropertyDefinitionConflictException>(() => Task.WhenAll(tasks));
-        Assert.Single(tasks, static task => task.IsCompletedSuccessfully);
-        Assert.Single(tasks, static task => task.IsFaulted);
+        _ = Assert.Single(tasks, static task => task.IsCompletedSuccessfully);
+        _ = Assert.Single(tasks, static task => task.IsFaulted);
         Assert.Equal(2, persistence.Receipts.Count);
         ArticlePropertyDefinitionConflictException stale = await Assert.ThrowsAsync<ArticlePropertyDefinitionConflictException>(
             () => store.UpdateAsync(UpdateCommandFor(definition, 2, 1)));
