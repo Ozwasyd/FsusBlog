@@ -14,11 +14,11 @@
             "reason": "The trusted registry broadly governs all managed src files as process-environment surfaces. This original admin lifetime producer preserves existing claim, database, token and environment spellings and introduces no process key or internal naming exemption."
         },
         {
-            "id": "css-like-contract",
+            "id": "auth-security-doc-exactness-authority",
             "paths": [
                 "docs/security.md"
             ],
-            "reason": "The trusted registry broadly governs docs Markdown as external CSS/token surfaces. These security semantics preserve all existing caller-visible spelling and introduce no selector, custom property, CSS adapter or internal naming exemption."
+            "reason": "The existing trusted auth-security documentation authority explicitly includes docs/security.md. The producer description preserves its existing claim identifiers, configuration spellings and generated-section ownership; it does not alter fact-extractor inputs, policy identifiers or naming rules."
         }
     ]
 }
