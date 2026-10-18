@@ -411,7 +411,6 @@ describe('comment API', () => {
       parentId: '100',
       rootId: '90',
       replyToCommentId: '80',
-      credentialEpoch: 20260618,
       circuitNumericId: 7,
       publicInputLayoutVersion: 6,
       anonymousScope: 'article:42',
