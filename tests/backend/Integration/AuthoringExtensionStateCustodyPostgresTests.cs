@@ -626,6 +626,317 @@ public sealed class AuthoringExtensionStateCustodyPostgresTests(PostgresSchemaMi
         Assert.Equal("state_observation_custody_lost", error.Message);
     }
 
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task SettledRecoveryReacquiresAfterProcessExitWithoutRepeatingEffects(bool rollback, bool apply)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var original = new PostgresAuthoringExtensionStateStore(db);
+        AuthoringFencedStateMigration plan = await SeedAsync(original);
+        await original.BackupAsync(s_old, s_new, plan, default);
+        if (apply)
+        {
+            _ = await original.ApplyAsync(s_old, s_new, plan, default);
+        }
+        // This independent process commits and exits without returning a terminal observation.
+        await RunSettlementProcessAsync(db.CurrentConnectionConfig.ConnectionString, rollback ? "rollback" : "complete", plan);
+        AuthoringStateSnapshot actualFrom = await original.ReadAsync(s_old, s_from, default);
+        AuthoringStateSnapshot actualTo = await original.ReadAsync(s_new, s_to, default);
+        string before = await PersistentStateDigestAsync(db);
+        await db.Ado.ExecuteCommandAsync("""
+            CREATE FUNCTION refuse_recovery_effects() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'read-only recovery attempted a state effect'; END; $$;
+            CREATE TRIGGER refuse_scope_effects BEFORE INSERT OR UPDATE OR DELETE ON authoring_extension_state_scope
+                FOR EACH ROW EXECUTE FUNCTION refuse_recovery_effects();
+            CREATE TRIGGER refuse_migration_effects BEFORE INSERT OR UPDATE OR DELETE ON authoring_extension_state_migration
+                FOR EACH ROW EXECUTE FUNCTION refuse_recovery_effects();
+            CREATE TRIGGER refuse_backup_effects BEFORE INSERT OR UPDATE OR DELETE ON authoring_extension_state_backup
+                FOR EACH ROW EXECUTE FUNCTION refuse_recovery_effects();
+            CREATE TRIGGER refuse_settlement_effects BEFORE INSERT OR UPDATE OR DELETE ON authoring_extension_state_settlement
+                FOR EACH ROW EXECUTE FUNCTION refuse_recovery_effects();
+            """);
+        AuthoringStateMigrationPhase phase = rollback ? AuthoringStateMigrationPhase.RolledBack : AuthoringStateMigrationPhase.Completed;
+        for (int restart = 0; restart < 2; restart++)
+        {
+            using SqlSugarClient restartedDb = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+            var restarted = new PostgresAuthoringExtensionStateStore(restartedDb);
+            await using IAuthoringExtensionStateObservation held = await restarted.ObserveSettledMigrationAsync(s_old, s_new, plan, phase, default);
+            Assert.Equal(actualFrom.ContentSha256, held.State.From.Snapshot.ContentSha256);
+            Assert.Equal(actualTo.ContentSha256, held.State.To!.Snapshot.ContentSha256);
+            Assert.Equal(actualFrom.Revision, held.State.From.Snapshot.Revision);
+            Assert.Equal(actualTo.Revision, held.State.To.Snapshot.Revision);
+            Assert.Equal(phase, held.State.Phase);
+            Assert.Null(held.State.From.Fence);
+            Assert.Null(held.State.To.Fence);
+            Assert.Equal(new[] { ScopeId(s_from), ScopeId(s_to) }.Order(StringComparer.Ordinal), held.AcquiredScopeIds);
+            await held.VerifyCurrentAsync(default);
+            Assert.Equal(Digest(held.State), Convert.ToString(await db.Ado.GetScalarAsync(
+                "SELECT observation_sha256 FROM authoring_extension_state_settlement WHERE plan_id = @id;", new SugarParameter("@id", PlanId(plan)))));
+        }
+        Assert.Equal(before, await PersistentStateDigestAsync(db));
+    }
+
+    [Theory]
+    [InlineData("source")]
+    [InlineData("destination")]
+    [InlineData("backup")]
+    [InlineData("revision")]
+    [InlineData("backup-purge")]
+    [InlineData("binding")]
+    [InlineData("fence")]
+    public async Task SettledRecoveryRefusesDriftWithoutRepairingOrRepeatingEffects(string drift)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var store = new PostgresAuthoringExtensionStateStore(db);
+        AuthoringFencedStateMigration plan = await SeedAsync(store);
+        await store.BackupAsync(s_old, s_new, plan, default);
+        _ = await store.ApplyAsync(s_old, s_new, plan, default);
+        await store.CompleteAsync(s_old, s_new, plan, default);
+        if (drift is "source" or "backup")
+        {
+            await ChangeBytesAsync(db, backup: drift == "backup");
+        }
+        else if (drift is "destination" or "revision")
+        {
+            AuthoringStateSnapshot current = await store.ReadAsync(s_new, s_to, default);
+            if (drift == "revision")
+            {
+                await store.WriteAsync(s_new, s_to, current.Revision, Assert.Single(current.Entries), default);
+            }
+            else
+            {
+                AuthoringStateSnapshot changed = Snapshot(s_to, s_new.PackageIdentity, current.Revision, [new("new", [8, 9])]);
+                await db.Ado.ExecuteCommandAsync("UPDATE authoring_extension_state_scope SET payload = @payload WHERE scope_id = @id;",
+                    new SugarParameter("@payload", Encode(changed)), new SugarParameter("@id", ScopeId(s_to)));
+            }
+        }
+        else if (drift == "backup-purge")
+        {
+            await db.Ado.ExecuteCommandAsync("DELETE FROM authoring_extension_state_backup WHERE scope_id = @id;", new SugarParameter("@id", ScopeId(s_from)));
+        }
+        else if (drift == "binding")
+        {
+            await db.Ado.ExecuteCommandAsync("UPDATE authoring_extension_state_settlement SET observation_sha256 = @digest;", new SugarParameter("@digest", new string('c', 64)));
+        }
+        else
+        {
+            await db.Ado.ExecuteCommandAsync("UPDATE authoring_extension_state_scope SET fence = @fence WHERE scope_id = @id;",
+                new SugarParameter("@fence", plan.ContentSha256), new SugarParameter("@id", ScopeId(s_to)));
+        }
+        string drifted = await PersistentStateDigestAsync(db);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => store.ObserveSettledMigrationAsync(s_old, s_new, plan, AuthoringStateMigrationPhase.Completed, default).AsTask());
+        Assert.Equal(drifted, await PersistentStateDigestAsync(db));
+        // Original settled retry remains a no-op; it cannot reset the journal binding to this drift.
+        await store.CompleteAsync(s_old, s_new, plan, default);
+        Assert.Equal(drifted, await PersistentStateDigestAsync(db));
+    }
+
+    [Theory]
+    [InlineData("plan")]
+    [InlineData("journal-digest")]
+    [InlineData("journal-scopes")]
+    [InlineData("package")]
+    [InlineData("missing-binding")]
+    [InlineData("nonterminal")]
+    public async Task SettledRecoveryRequiresExactOriginalPlanJournalAndRecordedObservation(string mismatch)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var store = new PostgresAuthoringExtensionStateStore(db);
+        AuthoringFencedStateMigration plan = await SeedAsync(store);
+        await store.BackupAsync(s_old, s_new, plan, default);
+        _ = await store.ApplyAsync(s_old, s_new, plan, default);
+        await store.CompleteAsync(s_old, s_new, plan, default);
+        VerifiedAuthoringPackage owner = s_old;
+        AuthoringStateMigrationPhase phase = AuthoringStateMigrationPhase.Completed;
+        if (mismatch == "plan")
+        {
+            plan = plan with
+            {
+                MaximumRecords = plan.MaximumRecords - 1
+            };
+            plan = plan with
+            {
+                ContentSha256 = ComputeContentSha256(plan)
+            };
+        }
+        else if (mismatch == "journal-digest")
+        {
+            await db.Ado.ExecuteCommandAsync("UPDATE authoring_extension_state_migration SET plan_sha256 = @digest;", new SugarParameter("@digest", new string('c', 64)));
+        }
+        else if (mismatch == "journal-scopes")
+        {
+            await db.Ado.ExecuteCommandAsync("UPDATE authoring_extension_state_migration SET from_scope_id = to_scope_id, to_scope_id = from_scope_id;");
+        }
+        else if (mismatch == "package")
+        {
+            owner = s_old with
+            {
+                PackageIdentity = new string('c', 64)
+            };
+        }
+        else if (mismatch == "missing-binding")
+        {
+            await db.Ado.ExecuteCommandAsync("DELETE FROM authoring_extension_state_settlement;");
+            // Simulates a pre-binding settled operation. Retrying completion must never backfill it.
+            await store.CompleteAsync(s_old, s_new, plan, default);
+        }
+        else
+        {
+            phase = AuthoringStateMigrationPhase.Applied;
+        }
+        string before = await PersistentStateDigestAsync(db);
+        AuthoringExtensionContractException error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => store.ObserveSettledMigrationAsync(owner, s_new, plan, phase, default).AsTask());
+        if (mismatch == "missing-binding")
+        {
+            Assert.Equal("state_settled_observation_not_recorded", error.Message);
+        }
+        Assert.Equal(before, await PersistentStateDigestAsync(db));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SettledRecoveryRefusesOppositeRollbackOutcome(bool rollback)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var store = new PostgresAuthoringExtensionStateStore(db);
+        AuthoringFencedStateMigration plan = await SeedAsync(store);
+        await store.BackupAsync(s_old, s_new, plan, default);
+        _ = await store.ApplyAsync(s_old, s_new, plan, default);
+        if (rollback)
+        {
+            await store.RollbackAsync(s_old, s_new, plan, default);
+        }
+        else
+        {
+            await store.CompleteAsync(s_old, s_new, plan, default);
+        }
+        string before = await PersistentStateDigestAsync(db);
+        AuthoringStateMigrationPhase opposite = rollback ? AuthoringStateMigrationPhase.Completed : AuthoringStateMigrationPhase.RolledBack;
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => store.ObserveSettledMigrationAsync(s_old, s_new, plan, opposite, default).AsTask());
+        Assert.Equal(before, await PersistentStateDigestAsync(db));
+    }
+
+    [Fact]
+    public async Task RecordingActualSettlementFailureRollsBackOriginalEffectsAndRetainsAppliedFence()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var store = new PostgresAuthoringExtensionStateStore(db);
+        AuthoringFencedStateMigration plan = await SeedAsync(store);
+        await store.BackupAsync(s_old, s_new, plan, default);
+        AuthoringStateSnapshot applied = await store.ApplyAsync(s_old, s_new, plan, default);
+        string before = await PersistentStateDigestAsync(db);
+        await db.Ado.ExecuteCommandAsync("""
+            CREATE FUNCTION reject_settlement_record() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'synthetic settlement-record fault'; END; $$;
+            CREATE TRIGGER reject_settlement_record BEFORE INSERT ON authoring_extension_state_settlement
+                FOR EACH ROW EXECUTE FUNCTION reject_settlement_record();
+            """);
+        await Assert.ThrowsAsync<PostgresException>(() => store.CompleteAsync(s_old, s_new, plan, default).AsTask());
+        Assert.Equal(before, await PersistentStateDigestAsync(db));
+        await using (IAuthoringExtensionStateObservation held = await store.ObserveFencedAsync(s_old, s_new, plan, AuthoringStateMigrationPhase.Applied, default))
+        {
+            Assert.Equal(applied.ContentSha256, held.State.To!.Snapshot.ContentSha256);
+            await held.VerifyCurrentAsync(default);
+        }
+        await db.Ado.ExecuteCommandAsync("DROP TRIGGER reject_settlement_record ON authoring_extension_state_settlement;");
+        await store.CompleteAsync(s_old, s_new, plan, default);
+        await using IAuthoringExtensionStateObservation recovered = await store.ObserveSettledMigrationAsync(s_old, s_new, plan, AuthoringStateMigrationPhase.Completed, default);
+        await recovered.VerifyCurrentAsync(default);
+    }
+
+    [Fact]
+    public async Task ReacquiredCustodyUsesReadOnlyTransactionAndBlocksOriginalWriterUntilInvalidation()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var store = new PostgresAuthoringExtensionStateStore(db);
+        AuthoringFencedStateMigration plan = await SeedAsync(store);
+        await store.BackupAsync(s_old, s_new, plan, default);
+        _ = await store.ApplyAsync(s_old, s_new, plan, default);
+        await store.CompleteAsync(s_old, s_new, plan, default);
+        await db.Ado.ExecuteCommandAsync("""
+            CREATE FUNCTION require_read_only_recovery() RETURNS boolean LANGUAGE plpgsql AS $$
+            BEGIN
+                IF current_setting('transaction_read_only') <> 'on' THEN
+                    RAISE EXCEPTION 'recovery observation must use a read-only transaction';
+                END IF;
+                RETURN true;
+            END; $$;
+            ALTER TABLE authoring_extension_state_settlement RENAME TO original_state_settlement;
+            CREATE VIEW authoring_extension_state_settlement AS SELECT * FROM original_state_settlement WHERE require_read_only_recovery();
+            """);
+        await Assert.ThrowsAsync<PostgresException>(() => db.Ado.GetScalarAsync("SELECT observation_sha256 FROM authoring_extension_state_settlement;"));
+        using var lifetime = new CancellationTokenSource();
+        await using IAuthoringExtensionStateObservation held = await store.ObserveSettledMigrationAsync(s_old, s_new, plan, AuthoringStateMigrationPhase.Completed, lifetime.Token);
+        await held.VerifyCurrentAsync(default);
+        using SqlSugarClient writerDb = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Task writer = new PostgresAuthoringExtensionStateStore(writerDb).WriteAsync(s_old, s_from, held.State.From.Snapshot.Revision, new("after-recovery", [7]), default).AsTask();
+        try
+        {
+            await WaitForBlockedAsync(db);
+            await held.VerifyCurrentAsync(default);
+            Assert.False(writer.IsCompleted);
+            lifetime.Cancel();
+            AssertStateUnavailable(held);
+            await writer.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.NotNull(await Record.ExceptionAsync(() => held.VerifyCurrentAsync(default).AsTask()));
+        }
+        finally
+        {
+            await held.DisposeAsync();
+            await writer.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => store.ObserveSettledMigrationAsync(s_old, s_new, plan, AuthoringStateMigrationPhase.Completed, default).AsTask());
+    }
+
+    private static async Task RunSettlementProcessAsync(string connection, string operation, AuthoringFencedStateMigration plan)
+    {
+        var info = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        info.ArgumentList.Add(typeof(AuthoringExtensionStateCustodyPostgresTests).Assembly.Location);
+        info.ArgumentList.Add(AuthoringStateProcessWorker.Command);
+        using Process process = Process.Start(info) ?? throw new InvalidOperationException("state_recovery_worker_start_failed");
+        await process.StandardInput.WriteAsync(System.Text.Json.JsonSerializer.Serialize(
+            new AuthoringStateProcessWorker.Request(connection, operation, plan), AuthoringStateProcessWorker.s_jsonOptions));
+        process.StandardInput.Close();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        try
+        {
+            await process.WaitForExitAsync(deadline.Token);
+            Assert.Equal(0, process.ExitCode);
+        }
+        finally
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync();
+            }
+        }
+    }
+
+    private static async Task<string> PersistentStateDigestAsync(SqlSugarClient db) =>
+        Convert.ToString(await db.Ado.GetScalarAsync("""
+            SELECT md5(string_agg(record, E'\n' ORDER BY record COLLATE "C")) FROM (
+                SELECT 'scope:' || scope_id || ':' || revision || ':' || COALESCE(fence, '') || ':' || encode(payload, 'hex') AS record
+                    FROM authoring_extension_state_scope
+                UNION ALL
+                SELECT 'migration:' || plan_id || ':' || plan_sha256 || ':' || from_scope_id || ':' || to_scope_id || ':' || phase
+                    FROM authoring_extension_state_migration
+                UNION ALL
+                SELECT 'backup:' || plan_id || ':' || scope_id || ':' || encode(payload, 'hex') FROM authoring_extension_state_backup
+                UNION ALL
+                SELECT 'settlement:' || plan_id || ':' || observation_sha256 FROM authoring_extension_state_settlement
+            ) records;
+            """))!;
+
     private async Task<SqlSugarClient> DatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);

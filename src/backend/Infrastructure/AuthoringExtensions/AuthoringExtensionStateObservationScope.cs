@@ -29,6 +29,18 @@ public sealed partial class PostgresAuthoringExtensionStateStore
             (store, token) => store.ReadMigrationObservationAsync(oldPackage, newPackage, plan, phase, token), null, cancellationToken);
     }
 
+    public ValueTask<IAuthoringExtensionStateObservation> ObserveSettledMigrationAsync(
+        VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan,
+        AuthoringStateMigrationPhase expectedTerminalPhase, CancellationToken cancellationToken)
+    {
+        plan = FreezePlan(oldPackage, newPackage, plan);
+        Require(expectedTerminalPhase is AuthoringStateMigrationPhase.Completed or AuthoringStateMigrationPhase.RolledBack,
+            "state_observation_phase_invalid");
+        return HoldAsync([plan.From, plan.To],
+            (store, token) => store.ReadSettledMigrationObservationAsync(oldPackage, newPackage, plan, expectedTerminalPhase, token),
+            null, cancellationToken, readOnly: true);
+    }
+
     public ValueTask<IAuthoringExtensionStateObservation> CompleteAndObserveAsync(
         VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken) =>
         SettleAndObserveAsync(oldPackage, newPackage, plan, rollback: false, cancellationToken);
@@ -45,7 +57,7 @@ public sealed partial class PostgresAuthoringExtensionStateStore
         AuthoringStateObservation actual = (await SettleAsync(oldPackage, newPackage, plan, rollback, capture: true, cancellationToken)
             .ConfigureAwait(false))!;
         return await HoldAsync([plan.From, plan.To],
-            (store, token) => store.ReadMigrationObservationAsync(oldPackage, newPackage, plan, actual.Phase, token), actual, cancellationToken)
+            (store, token) => store.ReadSettledMigrationObservationAsync(oldPackage, newPackage, plan, actual.Phase!.Value, token), actual, cancellationToken, readOnly: true)
             .ConfigureAwait(false);
     }
 
@@ -116,13 +128,27 @@ public sealed partial class PostgresAuthoringExtensionStateStore
             await ObserveScopeAsync(to, activePlanId, token).ConfigureAwait(false), phase);
     }
 
+    private async Task<AuthoringStateObservation> ReadSettledMigrationObservationAsync(
+        VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan,
+        AuthoringStateMigrationPhase phase, CancellationToken token)
+    {
+        AuthoringStateObservation actual = await ReadMigrationObservationAsync(oldPackage, newPackage, plan, phase, token).ConfigureAwait(false);
+        using var reader = (System.Data.Common.DbDataReader)await db.Ado.GetDataReaderAsync(
+            "SELECT observation_sha256 FROM authoring_extension_state_settlement WHERE plan_id = @PlanId;",
+            new SugarParameter("@PlanId", PlanId(plan))).ConfigureAwait(false);
+        Require(await reader.ReadAsync(token).ConfigureAwait(false), "state_settled_observation_not_recorded");
+        string recorded = reader.GetString(0);
+        Require(IsDigest(recorded) && recorded == Digest(actual), "state_settled_observation_drift_requires_recovery");
+        return actual;
+    }
+
     private async Task<AuthoringObservedState> ObserveScopeAsync(StoredScope scope, string? activePlanId, CancellationToken token) =>
         new(scope.Snapshot, scope.Fence, await MeasureCoreAsync(scope.Snapshot, token, activePlanId).ConfigureAwait(false));
 
     private async ValueTask<IAuthoringExtensionStateObservation> HoldAsync(
         AuthoringStateScope[] scopes,
         Func<PostgresAuthoringExtensionStateStore, CancellationToken, Task<AuthoringStateObservation>> read,
-        AuthoringStateObservation? expected, CancellationToken cancellationToken)
+        AuthoringStateObservation? expected, CancellationToken cancellationToken, bool readOnly = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         Require(db.Ado.Transaction is null, "state_ambient_transaction_not_supported");
@@ -149,6 +175,10 @@ public sealed partial class PostgresAuthoringExtensionStateStore
                 await owned.Ado.BeginTranAsync(IsolationLevel.ReadCommitted).ConfigureAwait(false);
                 held.BindConnection();
                 owned.Ado.CancellationToken = cancellationToken;
+                if (readOnly)
+                {
+                    _ = await owned.Ado.ExecuteCommandAsync("SET TRANSACTION READ ONLY;").ConfigureAwait(false);
+                }
                 _ = await owned.Ado.GetScalarAsync("SELECT set_config('statement_timeout', '30000', true);").ConfigureAwait(false);
                 foreach (string id in ids)
                 {

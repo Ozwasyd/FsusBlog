@@ -191,7 +191,13 @@ public sealed partial class PostgresAuthoringExtensionStateStore(ISqlSugarClient
             await SaveAsync(from, Advance(rollback ? backupFrom : from.Snapshot, from.Snapshot.Revision), null).ConfigureAwait(false);
             await SaveAsync(to, Advance(rollback ? backupTo : to.Snapshot, to.Snapshot.Revision), null).ConfigureAwait(false);
             await ChangePhaseAsync(plan, migration.Phase, terminal).ConfigureAwait(false);
-            return capture ? await ReadMigrationObservationAsync(oldPackage, newPackage, plan, (AuthoringStateMigrationPhase)terminal, token).ConfigureAwait(false) : null;
+            // Bind actual persisted terminal data in the effects transaction, without retaining value copies.
+            AuthoringStateObservation actual = await ReadMigrationObservationAsync(oldPackage, newPackage, plan,
+                (AuthoringStateMigrationPhase)terminal, token).ConfigureAwait(false);
+            _ = await db.Ado.ExecuteCommandAsync(
+                "INSERT INTO authoring_extension_state_settlement(plan_id, observation_sha256) VALUES (@PlanId, @Digest);",
+                new SugarParameter("@PlanId", PlanId(plan)), new SugarParameter("@Digest", Digest(actual))).ConfigureAwait(false);
+            return capture ? actual : null;
         }, cancellationToken, prepared.Remaining).ConfigureAwait(false);
     }
 
