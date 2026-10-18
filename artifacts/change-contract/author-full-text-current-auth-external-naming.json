@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/SqlAuthorRecentArticleHistoryPermissionAuthority.FullTextQueryObservation.cs"
+            ],
+            "reason": "Preserve the registered C# environment surface while consuming the original SITE_BASEURL resolver and existing PostgreSQL identities. Internal actor and article facts use C# names; no environment key, SQL column, public contract or authority alias is introduced."
+        }
+    ]
+}
