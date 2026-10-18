@@ -18,6 +18,8 @@ const contractsPath =
     "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs";
 const resolverPath =
     "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs";
+const graphPlannerPath = "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphPlanner.cs";
+const graphVerifierPath = "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphVerifier.cs";
 const verifierPath =
     "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs";
 
@@ -137,12 +139,13 @@ test("missing cycle, budget, scope, staleness or binding guards fail closed", ()
     ];
     for (const [removed, expected] of guards)
     {
+        const targetPath = removed === "path.Contains" || removed === "MaxDepth" ? graphPlannerPath : resolverPath;
         assert.match(
             diagnostics((fixture) =>
                 fixture.set(
-                    resolverPath,
+                    targetPath,
                     fixture
-                        .get(resolverPath)
+                        .get(targetPath)
                         .replaceAll(removed, "removed_guard")
                 )
             ),
@@ -213,4 +216,26 @@ test("verifier must re-validate, re-decode and recompute independently", () =>
         ),
         /re-validate contracts, re-decode targets and recompute digests/u
     );
+});
+
+test("projection cannot regain nested expansion and graph cannot skip source re-verification", () =>
+{
+    for (const injected of [" ResolveNode(context);", " var children = facts.NestedDirectives;", " ResolveNested(context);"])
+    {
+        assert.match(diagnostics((fixture) => fixture.set(resolverPath, `${fixture.get(resolverPath)}\n${injected}`)), /dependency expansion is forbidden/u);
+    }
+    for (const removed of ["ArticleEmbedAuthoringVerifier.Verify", "ArticleEmbedAuthoringResolver.ProjectCurrent"])
+    {
+        assert.match(diagnostics((fixture) => fixture.set(graphPlannerPath, fixture.get(graphPlannerPath).replaceAll(removed, "removed_stage_guard"))), /missing/u);
+    }
+    assert.match(diagnostics((fixture) => fixture.set(graphVerifierPath, `${fixture.get(graphVerifierPath)}\nArticleEmbedDependencyGraphPlanner.Expand();`)), /must not call the production stages/u);
+    assert.match(diagnostics((fixture) => fixture.set("src/backend/DuplicateGraph.cs", "public class OtherArticleEmbedDependencyGraphPlanner {}")), /exact-one dependency graph stage/u);
+});
+
+test("graph root path failures require an independently observed cause", () =>
+{
+    for (const token of ["root_cycle_without_host_ancestor", "root_depth_failure_unjustified"])
+    {
+        assert.match(diagnostics((fixture) => fixture.set(graphVerifierPath, fixture.get(graphVerifierPath).replaceAll(token, "removed_path_proof"))), /complete-graph verification missing/u);
+    }
 });

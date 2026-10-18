@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleBlockAnchorImpactContracts.cs",
+                "src/backend/Services/Authoring/ArticleBlockAnchorImpactPlanner.cs",
+                "src/backend/Services/Authoring/ArticleBlockRelationIndexSource.cs",
+                "src/backend/Services/Authoring/ArticleBlockRelationProducer.cs",
+                "src/backend/Services/Authoring/ArticleBlockRelationProducerContracts.cs",
+                "src/backend/Services/Authoring/ArticleBlockTargetQueryService.cs",
+                "src/backend/Services/Authoring/ArticleBlockTargetQuerySourceContracts.cs",
+                "src/backend/Services/Authoring/ArticleRelationIndex.cs",
+                "src/backend/Services/Authoring/ArticleRelationIndexContracts.cs",
+                "src/backend/Services/Authoring/ArticleRelationIndexEmbedAdmission.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "src/shared/Contracts/BlockLinks/BlockTargetQueryContracts.cs",
+                "src/shared/Contracts/BlockLinks/BlockTargetQueryDigest.cs",
+                "src/shared/Contracts/BlockLinks/BlockTargetQueryValidator.cs",
+                "tools/governance/check-article-relations.mjs"
+            ],
+            "reason": "Bind the trusted registry source-path naming scope. Preserve existing public contract and process-facing spellings; these changes add no environment variables or environment access, and internal identifiers retain the C# mother-style mapping."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/article-relation-contract.schema.json"
+            ],
+            "reason": "Preserve existing relation JSON schema field spellings and wire bytes while inheriting the exact canonical block-anchor grammar constraint from the original owner."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md",
+                "docs/architecture/block-anchor-contract.md"
+            ],
+            "reason": "Bind the trusted registry maintained-document scope. Preserve existing documented caller-visible spellings while describing actual canonical identity and query contracts; no DOM/CSS identifiers or UI behavior are introduced."
+        }
+    ]
+}

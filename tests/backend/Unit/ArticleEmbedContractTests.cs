@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
 
@@ -149,6 +150,85 @@ public sealed class ArticleEmbedContractTests
         ArticleEmbedValidationResult rejected = ArticleEmbedContractValidator.Validate(draftInPublication, publication);
         Assert.False(rejected.IsValid);
         Assert.Equal("article_embed_publication_target_not_frozen_public", rejected.ReasonCode);
+    }
+
+    [Fact]
+    public void ProviderResult_RoundTripsWithoutLosingBoundAttribution()
+    {
+        using var cancellation = new CancellationTokenSource();
+        ArticleEmbedProviderRequest request = ValidRequest(ArticleEmbedRequestedScope.Authoring, cancellation.Token);
+        ArticleEmbedProviderResult original = ValidResult(request, ArticleEmbedVisibilityStatus.Public, ArticleEmbedLifecycleStatus.Published);
+        ArticleEmbedProviderResult restored = JsonSerializer.Deserialize<ArticleEmbedProviderResult>(JsonSerializer.Serialize(original))!;
+
+        Assert.Equal(original, restored);
+        Assert.True(ArticleEmbedContractValidator.Validate(restored, request).IsValid);
+    }
+
+    [Theory]
+    [InlineData("", "Html")]
+    [InlineData("", "Component")]
+    [InlineData("", "Service")]
+    [InlineData("Coordinate", "Latest")]
+    [InlineData("Coordinate.Target", "DatabaseId")]
+    [InlineData("Projection", "Dom")]
+    [InlineData("Attribution", "Url")]
+    [InlineData("Budgets", "FutureBudget")]
+    public void ProviderResult_RejectsUnknownFieldsAtEveryNestedBoundary(string path, string field)
+    {
+        using var cancellation = new CancellationTokenSource();
+        ArticleEmbedProviderRequest request = ValidRequest(ArticleEmbedRequestedScope.Authoring, cancellation.Token);
+        JsonObject json = JsonSerializer.SerializeToNode(ValidResult(request,
+            ArticleEmbedVisibilityStatus.Public, ArticleEmbedLifecycleStatus.Published))!.AsObject();
+        JsonObject boundary = json;
+        foreach (string property in path.Split('.', StringSplitOptions.RemoveEmptyEntries))
+        {
+            boundary = boundary[property]!.AsObject();
+        }
+        boundary[field] = new JsonObject { ["payload"] = "untrusted" };
+
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<ArticleEmbedProviderResult>(json.ToJsonString()));
+    }
+
+    [Theory]
+    [InlineData("", "Latest")]
+    [InlineData("HostDocument", "DatabaseId")]
+    [InlineData("Directive", "Html")]
+    [InlineData("Directive.RawRange", "DomPath")]
+    [InlineData("Target", "Slug")]
+    [InlineData("Actor", "Service")]
+    [InlineData("Runtime", "Component")]
+    public void ProviderRequest_RejectsUnknownFieldsAtEveryNestedBoundary(string path, string field)
+    {
+        using var cancellation = new CancellationTokenSource();
+        JsonObject json = JsonSerializer.SerializeToNode(ValidRequest(ArticleEmbedRequestedScope.Authoring, cancellation.Token))!.AsObject();
+        JsonObject boundary = json;
+        foreach (string property in path.Split('.', StringSplitOptions.RemoveEmptyEntries))
+        {
+            boundary = boundary[property]!.AsObject();
+        }
+        boundary[field] = "untrusted";
+
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<ArticleEmbedProviderRequest>(json.ToJsonString()));
+    }
+
+    [Fact]
+    public void ProviderResult_RejectsResealedAttributionTamper()
+    {
+        using var cancellation = new CancellationTokenSource();
+        ArticleEmbedProviderRequest request = ValidRequest(ArticleEmbedRequestedScope.Authoring, cancellation.Token);
+        ArticleEmbedProviderResult original = ValidResult(request, ArticleEmbedVisibilityStatus.Public, ArticleEmbedLifecycleStatus.Published);
+        foreach (ArticleEmbedAttribution changed in new[]
+        {
+            original.Attribution! with { DisplayText = "Different title" },
+            original.Attribution! with { AttributionDigest = DigestB }
+        })
+        {
+            ArticleEmbedProviderResult tampered = ArticleEmbedContractValidator.Seal(original with
+            {
+                Attribution = changed
+            });
+            Assert.Equal("article_embed_resolved_payload_mismatch", ArticleEmbedContractValidator.Validate(tampered, request).ReasonCode);
+        }
     }
 
     [Fact]
@@ -389,7 +469,8 @@ public sealed class ArticleEmbedContractTests
             ArticleEmbedProviderResultStatus.Resolved,
             coordinate,
             new(ArticleEmbedProjectionKind.Markdown, coordinate.ProjectionIdentity, coordinate.ProjectionDigest),
-            new(request.Target.PortableArticleIdentity, coordinate.ResolvedRevision, "Target title", DigestB),
+            new(request.Target.PortableArticleIdentity, coordinate.ResolvedRevision, "Target title",
+                ArticleEmbedContractDigest.ComputeAttribution(request.Target.PortableArticleIdentity, coordinate.ResolvedRevision, "Target title")),
             visibility,
             lifecycle,
             ArticleEmbedPermissionStatus.Allowed,
