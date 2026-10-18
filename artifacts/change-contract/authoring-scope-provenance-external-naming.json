@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionScopeProvenanceAuthority.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionScopeProvenanceStorageSchema.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateScopeIssuer.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionScopeProvenanceStore.cs"
+            ],
+            "reason": "Preserve the existing configured-site and authenticated-admin claim names, original state SQL identities and the server issuance session-setting spelling while mapping persisted fields to C# names. The unchanged trusted registry assigns these C# source paths to environment-variable; this declaration changes no policy, shared registration, production composition or document mapping."
+        }
+    ]
+}
