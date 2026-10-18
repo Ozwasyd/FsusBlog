@@ -262,11 +262,9 @@ function createClient(
         routeKey: context.routeKey,
         issuedAtUnixMs: 1,
         expiresAtUnixMs: 60_000,
-        attemptLimit: 1,
-        providerKey: '',
-        providerVersion: '',
-        providerPayloadRef: '',
-        metadata: {}
+        subjectHash: '',
+        clientIpHash: '',
+        deviceFpHash: ''
       },
       providerPayload: null,
       proof: null,
