@@ -246,13 +246,14 @@ public sealed class PortableMemoryPressureSource
 
     /// <summary>
     /// Captures raw platform rows in caller-admitted storage using this observation owner's clock.
-    /// The caller owns output lifetime and the finite Job query duration. These rows retain
+    /// The caller owns output lifetime and the finite macOS and Job query durations. These rows retain
     /// their native scopes, failures and qualification; they are not domain-bound history,
     /// admission headroom or comparable Job samples. No scheduler or probe budget is supplied.
     /// </summary>
     public (MacOsSysctlMemoryCapture MacOs, WindowsJobMemoryCapture WindowsJob) CapturePlatformObservations(
         Span<MacOsSysctlMemoryObservation> admittedMacOsOutput,
         Span<WindowsJobMemoryObservation> admittedWindowsJobOutput,
+        TimeSpan maximumMacOsCaptureDuration,
         TimeSpan maximumJobCaptureDuration,
         MemoryCapabilityMode mode = MemoryCapabilityMode.Auto)
     {
@@ -263,12 +264,12 @@ public sealed class PortableMemoryPressureSource
             MemoryCapabilityPolicy.Validate(mode);
             if (macOsOutput.Length != MacOsSysctlMemoryReader.ObservationCount
                 || windowsJobOutput.Length != WindowsCurrentJobMemoryReader.ObservationCount
-                || maximumJobCaptureDuration <= TimeSpan.Zero)
+                || maximumMacOsCaptureDuration <= TimeSpan.Zero || maximumJobCaptureDuration <= TimeSpan.Zero)
             {
-                throw new ArgumentException("Platform capture requires complete admitted output and a finite positive Job duration.");
+                throw new ArgumentException("Platform capture requires complete admitted output and finite positive macOS and Job durations.");
             }
 
-            MacOsSysctlMemoryCapture macOs = MacOsSysctlMemoryReader.Capture(_clock, macOsOutput, mode);
+            MacOsSysctlMemoryCapture macOs = MacOsSysctlMemoryReader.Capture(_clock, maximumMacOsCaptureDuration, macOsOutput, mode);
             WindowsJobMemoryCapture windowsJob = WindowsCurrentJobMemoryReader.Capture(_clock, maximumJobCaptureDuration, windowsJobOutput, mode);
             return (macOs, windowsJob);
         }
