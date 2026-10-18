@@ -72,7 +72,7 @@ public sealed class AuthorFullTextSearchCursorTests
     }
 
     private static AuthorSearchQuery Query(string text)
-        => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.SchemaVersion,
+        => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.QuerySchemaVersion,
             AuthorFullTextSearchContract.QuerySchema, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
             Guid.NewGuid(), 42, "primary", 1, 1, AuthorSearchScope.CurrentArticle,

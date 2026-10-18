@@ -215,7 +215,7 @@ public sealed class AuthorFullTextSearchPropertyConsumerTests
     }
 
     private static AuthorSearchQuery Query(AuthorFullTextSearchIndex index, string text = "needle")
-        => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.SchemaVersion,
+        => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.QuerySchemaVersion,
             AuthorFullTextSearchContract.QuerySchema, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
             Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), 42, "primary", 1, 1,

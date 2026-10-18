@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using FsusBlog.Server.Entities;
 
@@ -18,7 +19,10 @@ public static partial class AuthorFullTextSearchContract
 {
     public const int SchemaVersion = 3;
     public const string DocumentSchema = "fsusblog.author-full-text-document.v3";
-    public const string QuerySchema = "fsusblog.author-full-text-query.v3";
+    // Query v4 changes only the clause wire shape; document/result/cursor shapes
+    // retain v3 and bind this query version through their existing context digests.
+    public const int QuerySchemaVersion = 4;
+    public const string QuerySchema = "fsusblog.author-full-text-query.v4";
     public const string TokenizerVersion = "fsusblog.author-full-text-tokenizer.v3";
     public const string RankingVersion = "fsusblog.author-full-text-ranking.v2";
     public const string IndexOwner = "author-full-text-index";
@@ -158,7 +162,7 @@ public static partial class AuthorFullTextSearchContract
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentNullException.ThrowIfNull(definitions);
-        Require(query.SchemaVersion == SchemaVersion && query.Schema == QuerySchema
+        Require(query.SchemaVersion == QuerySchemaVersion && query.Schema == QuerySchema
             && query.TokenizerVersion == TokenizerVersion && query.RankingVersion == RankingVersion
             && query.IndexOwner == IndexOwner, "author_search_contract_version_invalid");
         Require(query.QueryId != Guid.Empty && query.IndexInstanceId != Guid.Empty && query.UserId > 0 && ValidText(query.SiteScope, 128)
@@ -178,8 +182,10 @@ public static partial class AuthorFullTextSearchContract
         foreach (AuthorSearchClause clause in query.Clauses)
         {
             Require(clause is not null, "author_search_clause_invalid");
-            Require(Enum.IsDefined(clause.Kind) && !clause.Values.IsDefaultOrEmpty
-                && clause.Values.Length <= MaxQueryClauses, "author_search_clause_invalid");
+            Require(Enum.IsDefined(clause.Kind) && !clause.Values.IsDefault
+                && clause.Values.Length <= MaxQueryClauses
+                && (clause.Kind == AuthorSearchClauseKind.Property
+                    || clause.PropertyOperand is null && !clause.Values.IsEmpty), "author_search_clause_invalid");
             foreach (string value in clause.Values)
             {
                 Require(ValidText(value, MaxQueryCharacters), "author_search_query_value_invalid");
@@ -213,9 +219,14 @@ public static partial class AuthorFullTextSearchContract
                     ValidateDefinition(definition, query.SiteScope, query.UserId);
                     Require(definition.Filterable, "author_search_property_not_filterable");
                     ArticlePropertyDefinitionContract.ValidateOperator(clause.Operator!, definition.ValueType);
-                    // Definition eligibility/operator facts are usable now. Typed operands
-                    // still belong to the property authority; strings are never values.
-                    throw new AuthorSearchContractException("author_search_typed_property_operand_unavailable");
+                    Require(clause.PropertyOperand is not null, "author_search_typed_property_operand_unavailable");
+                    Require(clause.Values.IsEmpty
+                        && clause.PropertyOperand.DefinitionId == clause.PropertyDefinitionId
+                        && clause.PropertyOperand.OperatorId == clause.Operator, "author_search_property_clause_invalid");
+                    totalCharacters = checked(totalCharacters + PropertyOperandCharacters(clause.PropertyOperand));
+                    Require(totalCharacters <= MaxQueryCharacters, "author_search_query_budget_invalid");
+                    ValidatePropertyOperand(clause.PropertyOperand, definition);
+                    break;
                 case AuthorSearchClauseKind.Status:
                     ValidateSystemFilter(clause);
                     foreach (string value in clause.Values)
@@ -262,6 +273,10 @@ public static partial class AuthorFullTextSearchContract
             }))
         };
 
+    /// <summary>
+    /// Hashes the ordered sole AST, including each original typed payload through its
+    /// closed JSON binding. Borrowing an operand's old digest cannot hide a value change.
+    /// </summary>
     public static AuthorSearchQuery SealQuery(AuthorSearchQuery query)
         => query with
         {
@@ -286,7 +301,7 @@ public static partial class AuthorFullTextSearchContract
         ArgumentNullException.ThrowIfNull(query);
         Require(result.SchemaVersion == SchemaVersion && result.IndexOwner == IndexOwner
             && result.TokenizerVersion == TokenizerVersion && result.RankingVersion == RankingVersion
-            && query.SchemaVersion == SchemaVersion && query.Schema == QuerySchema
+            && query.SchemaVersion == QuerySchemaVersion && query.Schema == QuerySchema
             && query.TokenizerVersion == TokenizerVersion && query.RankingVersion == RankingVersion
             && query.IndexOwner == IndexOwner,
             "author_search_result_version_invalid");
@@ -545,11 +560,17 @@ public sealed record AuthorSearchDocument(
     AuthorSearchDocumentIdentity Identity, AuthorSearchFieldReference Field,
     AuthorSearchSourceRange Source, string ContentDigest);
 
+/// <summary>
+/// One conjunct in the sole query AST. Property nodes require the original typed
+/// operand and an empty string Values array; all other nodes forbid that operand.
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record AuthorSearchClause(
-    AuthorSearchClauseKind Kind, AuthorSearchFieldKind? Field, Guid? PropertyDefinitionId,
-    string? Operator, ImmutableArray<string> Values);
+    [property: JsonRequired] AuthorSearchClauseKind Kind, AuthorSearchFieldKind? Field, Guid? PropertyDefinitionId,
+    string? Operator, [property: JsonRequired] ImmutableArray<string> Values, AuthorSearchPropertyOperand? PropertyOperand = null);
 
-/// <summary>Version 3 queries require the exact current index incarnation as well as its local generation.</summary>
+/// <summary>Version 4 binds ordered typed clauses and the exact current index incarnation plus local generation.</summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record AuthorSearchQuery(
     int SchemaVersion, string Schema, string TokenizerVersion, string RankingVersion, string IndexOwner,
     Guid QueryId, int UserId, string SiteScope, long PermissionRevision, long IndexGeneration,

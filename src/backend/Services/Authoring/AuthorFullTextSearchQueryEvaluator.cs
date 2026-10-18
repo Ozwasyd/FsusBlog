@@ -33,7 +33,8 @@ public sealed record AuthorSearchTokenEvaluation(
 public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSearchIndex index)
 {
     /// <summary>
-    /// Computes bounded token candidates. Indexed Allowed facts are never a fresh grant.
+    /// Computes bounded token candidates after the canonical AST predicates. Indexed
+    /// Allowed facts are never a fresh grant; this does not return an admitted result.
     /// Date predicates and pagination remain unavailable without complete current facts.
     /// Cancellation and an index reread reject work on a superseded source snapshot.
     /// Property token fields additionally revalidate their canonical typed binding and
@@ -45,6 +46,7 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
     {
         cancellationToken.ThrowIfCancellationRequested();
         AuthorFullTextSearchContract.ValidateQuery(query, definitions);
+        ValidatePropertyPredicates(query, definitions);
         if (query.Cursor is not null)
         {
             throw new AuthorSearchContractException("author_search_complete_ranking_cursor_unavailable");
@@ -62,6 +64,8 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         {
             throw new AuthorSearchContractException("author_search_registry_tampered_or_stale");
         }
+        AuthorFullTextSearchContract.ValidateQuery(query, definitions);
+        ValidatePropertyPredicates(query, definitions);
         ImmutableArray<CompiledClause> clauses = Compile(query.Clauses);
         var candidates = new List<AuthorSearchTokenCandidate>();
         foreach (AuthorSearchIndexedArticle article in snapshot.Articles.Values)
@@ -77,7 +81,8 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
                 ValidateIndexedFacts(tokenized, query, article.ArticleId, snapshot.RegistryDigest);
                 ValidatePropertyDocument(tokenized.Document, article, definitions);
             }
-            if (!SystemFiltersMatch(article, query.Clauses))
+            if (!SystemFiltersMatch(article, query.Clauses)
+                || !PropertyPredicatesMatch(article, query, definitions))
             {
                 continue;
             }
@@ -152,6 +157,8 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         {
             throw new AuthorSearchContractException("author_search_index_source_snapshot_stale");
         }
+        AuthorFullTextSearchContract.ValidateQuery(query, definitions);
+        ValidatePropertyPredicates(query, definitions);
         // Definitions are supplied through a potentially changing collection. Recheck
         // canonical property bindings after the final actual index await as well.
         foreach (AuthorSearchIndexedArticle article in current.Articles.Values)
@@ -172,7 +179,7 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         AuthorSearchQuery query, AuthorSearchTokenEvaluation evaluation, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (query.SchemaVersion != AuthorFullTextSearchContract.SchemaVersion
+        if (query.SchemaVersion != AuthorFullTextSearchContract.QuerySchemaVersion
             || query.Schema != AuthorFullTextSearchContract.QuerySchema
             || query.ContentDigest != AuthorFullTextSearchContract.SealQuery(query).ContentDigest
             || evaluation.QueryDigest != query.ContentDigest || evaluation.IndexInstanceId != query.IndexInstanceId
@@ -307,6 +314,47 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
             }
         }
         return clause.Phrase || clause.Terms.All(termsFound.Contains) ? ranges.ToImmutable() : [];
+    }
+
+    private static ArticlePropertyDefinition PropertyDefinition(
+        AuthorSearchClause clause, IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions)
+    {
+        if (!definitions.TryGetValue(clause.PropertyDefinitionId!.Value, out var definition) || definition is null)
+        {
+            throw new AuthorSearchContractException("author_search_property_unknown");
+        }
+        // Reuse query validation for owner/eligibility/schema checks at every await
+        // boundary; the value owner independently checks the exact entry digest.
+        return definition;
+    }
+
+    private static void ValidatePropertyPredicates(
+        AuthorSearchQuery query, IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions)
+    {
+        foreach (AuthorSearchClause clause in query.Clauses.Where(static clause => clause.Kind == AuthorSearchClauseKind.Property))
+        {
+            AuthorFullTextSearchContract.ValidatePropertyPredicate(clause.PropertyOperand!, PropertyDefinition(clause, definitions));
+        }
+    }
+
+    private static bool PropertyPredicatesMatch(
+        AuthorSearchIndexedArticle article, AuthorSearchQuery query,
+        IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions)
+    {
+        foreach (AuthorSearchClause clause in query.Clauses.Where(static clause => clause.Kind == AuthorSearchClauseKind.Property))
+        {
+            if (article.PropertyCoordinates is null || article.PropertySnapshotDigest is null
+                || !article.PropertyValues.TryGetValue(clause.PropertyDefinitionId!.Value, out var value))
+            {
+                // An absent indexed entry is unavailable input, not canonical Missing.
+                throw new AuthorSearchContractException("author_search_property_snapshot_unavailable");
+            }
+            if (!AuthorSearchPropertyValueProjection.Matches(PropertyDefinition(clause, definitions), value, clause.PropertyOperand!))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static bool SystemFiltersMatch(AuthorSearchIndexedArticle article, ImmutableArray<AuthorSearchClause> clauses)
