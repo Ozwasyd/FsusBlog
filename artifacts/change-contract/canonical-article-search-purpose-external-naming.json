@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/CanonicalArticleRelationParserBridge.cs"
+            ],
+            "reason": "Bind the existing trusted host process configuration path scope while adding purpose-specific canonical Search facts. Preserve public runtime field spellings and Node process interfaces; no new environment key, alternate parser or mounted UI identity is introduced."
+        }
+    ]
+}
