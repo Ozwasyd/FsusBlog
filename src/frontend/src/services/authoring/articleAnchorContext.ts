@@ -14,11 +14,15 @@ import {
     validateArticleDocumentContext,
     type ArticleDocumentContext,
     type ArticleDocumentContextAdapter,
+    type ArticleDocumentContextAuthority,
+    type ArticleDocumentRetainedBinding,
+    type ArticleDocumentRetainedScopeReaders,
     type ArticleDocumentEditorSessionAssociation
 } from './articleDocumentContext';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
 
 import type { ArticleEditorMountedSessionPort } from './articleEditorContinuity';
+import type { OpenArticleDocumentEntry, OpenArticleDocumentRegistry } from './openArticleDocumentRegistry';
 
 export const articleAnchorContextSchema = 'fsusblog.article-anchor-context.v1' as const;
 export const articleAnchorCommandSchema = 'fsusblog.article-anchor-command.v1' as const;
@@ -78,6 +82,16 @@ export interface ArticleAnchorCaptureReference {
     readonly document: Pick<ArticleDocumentContext, 'articleId' | 'draftId' | 'documentId' | 'documentEpoch'
         | 'sourceRevision' | 'draftRevision' | 'siteScope' | 'userScope' | 'sourceIdentityDigest' | 'contentDigest' | 'contextDigest'>;
     readonly anchorContextDigest: string;
+}
+
+/** A mount loan over genuine original retained ownership. Release retires this Anchor issuer, not retained work. */
+export interface ArticleAnchorPrimaryRetainedAdmission {
+    readonly binding: ArticleDocumentRetainedBinding;
+    readonly association: ArticleDocumentEditorSessionAssociation;
+    readonly anchors: ArticleAnchorContextAdapter;
+    readonly signal: AbortSignal;
+    isCurrent(): boolean;
+    release(): void;
 }
 
 /** Only this controlled call path records native dispatch maps; no caller-result-array admission exists. */
@@ -263,6 +277,8 @@ export class ArticleAnchorContextAdapter
     readonly #ownedCaptures = new Map<string, ArticleAnchorContext>();
     #positionProducer: ArticleAnchorPositionProducer | null = null;
     #ownedDisposed = false;
+    #primaryAdmissionPending = false;
+    #primaryAdmission: ArticleAnchorPrimaryRetainedAdmission | null = null;
 
     public constructor(owner: ArticleDocumentContextAdapter)
     {
@@ -354,7 +370,129 @@ export class ArticleAnchorContextAdapter
         }
         this.#ownedDisposed = true;
         this.#ownedCaptures.clear();
+        this.#primaryAdmission?.release();
         this.#positionProducer?.dispose();
+    }
+
+    /**
+     * Host entrypoint on the existing bound.binding.anchors. Resolve the private primary through
+     * its original authority, preserve this Anchor instance and revoke this mount loan on real lifetime loss.
+     * Surface/tool/manual-scroll capture and viewport facts must still come from their original owners.
+     */
+    public admitCurrentPrimaryRetainedDocument(authority: ArticleDocumentContextAuthority, registry: OpenArticleDocumentRegistry,
+        entry: OpenArticleDocumentEntry, expectedRegistryRevision: number, scope: ArticleDocumentRetainedScopeReaders, lifetime: AbortSignal): ArticleAnchorPrimaryRetainedAdmission
+    {
+        if (!this.#ownedCurrent() || this.#primaryAdmissionPending || this.#primaryAdmission)
+        {
+            throw new Error('article-anchor-primary-host-admission-unavailable');
+        }
+        this.#primaryAdmissionPending = true;
+        const stops: (() => void)[] = [];
+        const controller = new AbortController();
+        let closed = false;
+        const release = (): void =>
+        {
+            if (closed)
+            {
+                return;
+            }
+            closed = true;
+            this.dispose();
+            controller.abort();
+            for (const stop of stops.splice(0).reverse())
+            {
+                stop();
+            }
+        };
+        const keep = (stop: () => void): void =>
+        {
+            if (closed)
+            {
+                stop();
+            }
+            else
+            {
+                stops.push(stop);
+            }
+        };
+        try
+        {
+            const isAborted = (): boolean => Reflect.get(AbortSignal.prototype, 'aborted', lifetime) === true;
+            if (isAborted())
+            {
+                throw new Error('article-anchor-primary-host-aborted');
+            }
+            const binding = authority.admitCurrentPrimaryRetainedDocument(registry, entry, expectedRegistryRevision, this.owner, scope, lifetime);
+            if (isAborted() || !this.#ownedCurrent())
+            {
+                throw new Error('article-anchor-primary-host-aborted');
+            }
+            const association = authority.issueEditorSessionAssociation(binding);
+            if (!association || binding.adapter !== this.owner)
+            {
+                throw new Error('article-anchor-primary-host-association-unavailable');
+            }
+            const initial = this.owner.context;
+            const isCurrent = (): boolean =>
+            {
+                if (closed)
+                {
+                    return false;
+                }
+                if (isAborted() || !this.#ownedCurrent())
+                {
+                    release();
+                    return false;
+                }
+                const observation = inspectArticleDocumentEditorSessionAssociation(association, this.owner);
+                return !closed && !isAborted() && observation?.registry === registry && observation.handle === binding.handle
+                    && observation.document === this.owner.context && sameDocument(initial, observation.document);
+            };
+            const loan: ArticleAnchorPrimaryRetainedAdmission = Object.freeze({ binding, association, anchors: this,
+                signal: controller.signal, isCurrent, release });
+            this.#primaryAdmission = loan;
+            EventTarget.prototype.addEventListener.call(lifetime, 'abort', release, { once: true });
+            keep(() => EventTarget.prototype.removeEventListener.call(lifetime, 'abort', release));
+            keep(binding.subscribeLifetime(observation =>
+            {
+                if (observation.admissionClosed || observation.registry.state !== 'live')
+                {
+                    release();
+                }
+            }));
+            keep(this.owner.subscribeContext(context =>
+            {
+                if (!context || !sameDocument(initial, context))
+                {
+                    release();
+                }
+            }));
+            if (!isCurrent())
+            {
+                throw new Error('article-anchor-primary-host-loan-changed');
+            }
+            return loan;
+        }
+        catch (error)
+        {
+            // Before publication this is just a failed attempt; after a loan exists, retire its real issuer.
+            if (this.#primaryAdmission)
+            {
+                release();
+            }
+            else
+            {
+                for (const stop of stops.splice(0).reverse())
+                {
+                    stop();
+                }
+            }
+            throw error;
+        }
+        finally
+        {
+            this.#primaryAdmissionPending = false;
+        }
     }
 
     /** Borrow the real public native session using the original two-issuer relation, never string equality. */
