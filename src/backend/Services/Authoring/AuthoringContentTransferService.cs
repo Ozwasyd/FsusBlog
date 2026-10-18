@@ -404,12 +404,18 @@ fsusMetadataJson: {encodedMetadata}
             return 0;
         }
 
+        if (metadata.Revisions.Any(static revision => revision.RevisionNo <= 0)
+            || metadata.Revisions.Select(static revision => revision.RevisionNo).Distinct().Count() != metadata.Revisions.Count)
+        {
+            throw new InvalidOperationException("Imported revision numbers must be positive and unique.");
+        }
+
         var revisions = metadata.Revisions
             .OrderBy(static revision => revision.RevisionNo)
             .Select(revision => new ArticleRevision
             {
                 ArticleId = articleId,
-                RevisionNo = Math.Max(1, revision.RevisionNo),
+                RevisionNo = revision.RevisionNo,
                 Title = AuthoringNormalization.Normalize(revision.Title, 256),
                 Summary = TextHelpers.NormalizeNullable(revision.Summary, 512),
                 CoverImageUrl = TextHelpers.NormalizeNullable(revision.CoverImageUrl, 512),
@@ -445,9 +451,21 @@ fsusMetadataJson: {encodedMetadata}
                 }
             }
 
-            await db.Deleteable<ArticleRevision>().Where(it => it.ArticleId == articleId).ExecuteCommandAsync(cancellationToken);
+            // The create transaction has already issued immutable current/publication
+            // coordinates. Import adds history; it cannot replace those referenced rows.
+            // Map an overlapping source number range after the existing destination range,
+            // retaining source order and gaps without promoting an imported row to current.
+            int lastRevisionNo = await db.Queryable<ArticleRevision>()
+                .Where(revision => revision.ArticleId == articleId)
+                .OrderByDescending(revision => revision.RevisionNo)
+                .Select(revision => revision.RevisionNo)
+                .FirstAsync(cancellationToken).ConfigureAwait(false);
+            int offset = revisions[0].RevisionNo <= lastRevisionNo
+                ? checked(lastRevisionNo + 1 - revisions[0].RevisionNo)
+                : 0;
             foreach (ArticleRevision revision in revisions)
             {
+                revision.RevisionNo = checked(revision.RevisionNo + offset);
                 revision.ContentBlockId = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
                     db,
                     revision.MarkdownContent,

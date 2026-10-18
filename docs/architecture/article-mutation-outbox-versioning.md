@@ -35,12 +35,20 @@ unenrolled old writers. That activation has not been qualified. Empty tables rem
 uninitialized, and schema expansion does not backfill a clock from historical IDs,
 timestamps, hashes or `xmin`.
 
+Import history adds revisions without deleting or updating any previously issued
+immutable revision. Positive, unique source revision numbers retain their order
+and gaps; an overlapping range is shifted after the destination's existing range
+while holding the original article row lock. Imported history never replaces the
+current/publication pointers or invents origin rights, responsibility or actor
+facts. The original current-event factory supplies the actual retained coordinates;
+its event and enrollment commit with the imported rows. Failure rolls that restore
+transaction back. The preceding article create remains a separate original
+transaction; the original immutable content-block store independently retains
+unreachable blocks on rollback, so this is not a whole-import atomicity claim.
+
 Integration for [#2237](https://github.com/Ozwasyd/FsusBlog/issues/2237) and
-[#3735](https://github.com/Ozwasyd/FsusBlog/issues/3735) remains incomplete. The
-import history replacement deletes the immutable current revision without repairing
-its coordinates; the synchronous current-event hook refuses and rolls back that
-restore transaction. The preceding article create is a separate original
-transaction. Offline migration requires RepeatableRead/Serializable and emits no
+[#3735](https://github.com/Ozwasyd/FsusBlog/issues/3735) remains incomplete.
+Offline migration requires RepeatableRead/Serializable and emits no
 article outbox event, so it cannot borrow this ReadCommitted-only authority without
 an original-owner transaction/event design. Direct demo/public fixture seeding and
 cleanup also remain outside the enrolled lifecycle path.
