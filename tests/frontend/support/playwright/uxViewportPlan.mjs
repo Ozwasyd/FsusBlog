@@ -1,3 +1,20 @@
+/**
+ * @typedef {import('./acceptance-shared.js').UxViewport} UxViewport
+ * @typedef {import('./acceptance-shared.js').UxViewportMatrix} UxViewportMatrix
+ * @typedef {import('./acceptance-shared.js').UxViewportMode} UxViewportMode
+ * @typedef {import('./acceptance-shared.js').UxSafeAreaProfile} UxSafeAreaProfile
+ * @typedef {import('./acceptance-shared.js').UxViewportMediaMode} UxViewportMediaMode
+ * @typedef {import('./acceptance-shared.js').ThemeMode} ThemeMode
+ * @typedef {{ id: string; storage: 'anonymous' | 'user' | 'admin'; }} ViewportRoute
+ * @typedef {{ routeIds?: string | readonly string[]; themes?: string | readonly string[]; viewportIds?: string | readonly string[]; media?: string | readonly string[]; riskMatrix?: boolean; skipSafeArea?: boolean; safeAreaSurfaceIds?: string | readonly string[]; safeAreaProfileIds?: string | readonly string[]; safeAreaBrowsers?: string | readonly string[]; }} UxViewportFilters
+ * @typedef {{ id: string; routeId: string; theme: ThemeMode; viewportId: string; media: UxViewportMediaMode; screenshot: boolean; safeArea?: boolean; profileId?: string; surfaceId?: string; browser?: string; open?: string; }} UxViewportStep
+ * @template {ViewportRoute} [R=ViewportRoute]
+ * @typedef {{ id: string; kind: 'route-theme' | 'safe-area'; route: R; theme: ThemeMode; storage: R['storage']; browser?: string; surface?: { id: string; surface: string; open: string; overlayRisk: true; }; profile?: UxSafeAreaProfile; viewports: { id: string; viewport: UxViewport; steps: UxViewportStep[]; }[]; }} UxViewportGroup
+ * @template {ViewportRoute} [R=ViewportRoute]
+ * @typedef {{ version: string; matrixVersion: string; safeAreaVersion: string | null; mode: UxViewportMode; groups: UxViewportGroup<R>[]; selection: { routeIds: string[]; themes: ThemeMode[]; viewportIds: string[]; media: UxViewportMediaMode[]; safeAreaProfileIds: string[]; safeAreaSurfaceIds: string[]; safeAreaBrowsers: string[]; safeAreaCaseIds: string[]; }; counts: { routes: number; routeThemeGroups: number; safeAreaGroups: number; navigations: number; cases: number; safeAreaCases: number; }; fingerprint: string; }} UxViewportPlan
+ * @typedef {UxViewportStep & { groupId: string; navigationId: string; kind: 'route-theme' | 'safe-area'; }} UxViewportCase
+ */
+
 import { createHash } from 'node:crypto';
 
 const UX_VIEWPORT_PLAN_VERSION = 'fsusblog-ux-viewport-plan-v1';
@@ -36,6 +53,11 @@ export const UX_SAFE_AREA_ASSERTION_NAMES = Object.freeze([
     'assertOverlayCloseRestoresFocusAndScroll'
 ]);
 
+/**
+ * @template {ViewportRoute} R
+ * @param {{ matrix: UxViewportMatrix; routes: readonly R[]; mode: UxViewportMode; filters?: UxViewportFilters; }} options
+ * @returns {UxViewportPlan<R>}
+ */
 export function buildUxViewportPlan({ matrix, routes, mode, filters = {} })
 {
     const config = matrix?.modes?.[mode];
@@ -165,6 +187,11 @@ export function buildUxViewportPlan({ matrix, routes, mode, filters = {} })
     };
 }
 
+/**
+ * @template {ViewportRoute} R
+ * @param {{ matrix: UxViewportMatrix; routes: Map<string, R> | Record<string, R>; mode: UxViewportMode; filters?: UxViewportFilters; }} options
+ * @returns {UxViewportGroup<R>[]}
+ */
 export function buildSafeAreaGroups({ matrix, routes, mode, filters = {} })
 {
     const safeArea = matrix?.safeArea;
@@ -297,6 +324,10 @@ export function buildSafeAreaGroups({ matrix, routes, mode, filters = {} })
     return groups;
 }
 
+/**
+ * @param {{ groups: readonly UxViewportGroup[]; }} plan
+ * @returns {UxViewportCase[]}
+ */
 export function listUxViewportCases(plan)
 {
     return plan.groups.flatMap((group) => (
@@ -309,11 +340,19 @@ export function listUxViewportCases(plan)
     ));
 }
 
+/**
+ * @param {{ groups: readonly UxViewportGroup[]; }} plan
+ * @returns {UxViewportCase[]}
+ */
 export function listUxViewportSafeAreaCases(plan)
 {
     return listUxViewportCases(plan).filter((entry) => entry.safeArea === true || entry.kind === 'safe-area');
 }
 
+/**
+ * @param {UxSafeAreaProfile} profile
+ * @returns {Record<'--fsus-safe-area-inset-top' | '--fsus-safe-area-inset-right' | '--fsus-safe-area-inset-bottom' | '--fsus-safe-area-inset-left' | '--fsus-viewport-block-size', string>}
+ */
 export function safeAreaProfileCssOverrides(profile)
 {
     return {
@@ -325,6 +364,10 @@ export function safeAreaProfileCssOverrides(profile)
     };
 }
 
+/**
+ * @param {UxSafeAreaProfile} profile
+ * @returns {{ left: number; top: number; right: number; bottom: number; width: number; height: number; }}
+ */
 export function safeRectFromProfile(profile)
 {
     return {
@@ -337,6 +380,10 @@ export function safeRectFromProfile(profile)
     };
 }
 
+/**
+ * @param {NonNullable<UxViewportMatrix['safeArea']>} safeArea
+ * @returns {void}
+ */
 export function validateSafeAreaMatrix(safeArea)
 {
     if (!safeArea || typeof safeArea !== 'object')
