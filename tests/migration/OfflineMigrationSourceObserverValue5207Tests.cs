@@ -43,9 +43,21 @@ public sealed class OfflineMigrationSourceObserverValue5207Tests
         OfflineMigrationSourceObservation accepted = Observation(provider, true);
         int column = Array.FindIndex(accepted.Schema.ToArray(), fact => fact.Name == "column/article/title");
         Assert.True(column >= 0);
-        AssertUnknown(accepted with { Schema = accepted.Schema.SetItem(column, accepted.Schema[column] with { Value = "changed" }) });
-        AssertUnknown(accepted with { Schema = accepted.Schema.RemoveAt(column) });
-        AssertUnknown(accepted with { Schema = accepted.Schema.Add(new("column/article/unknown", "present")) });
+        AssertUnknown(accepted with
+        {
+            Schema = accepted.Schema.SetItem(column, accepted.Schema[column] with
+            {
+                Value = "changed"
+            })
+        });
+        AssertUnknown(accepted with
+        {
+            Schema = accepted.Schema.RemoveAt(column)
+        });
+        AssertUnknown(accepted with
+        {
+            Schema = accepted.Schema.Add(new("column/article/unknown", "present"))
+        });
         foreach (OfflineMigrationFact fact in accepted.BusinessShape.Where(fact => fact.Name != "business.profile"))
         {
             AssertUnknown(accepted with
@@ -107,7 +119,12 @@ public sealed class OfflineMigrationSourceObserverValue5207Tests
                 }
                 Match column = Regex.Match(line, @"^([a-z_]+) (integer|bigint|varchar\([0-9]+\)|text|timestamp|boolean)(.*)$", RegexOptions.CultureInvariant);
                 Assert.True(column.Success, line);
-                string type = column.Groups[2].Value switch { "integer" => "int", "boolean" => "bool", var value => value };
+                string type = column.Groups[2].Value switch
+                {
+                    "integer" => "int",
+                    "boolean" => "bool",
+                    var value => value
+                };
                 string remainder = column.Groups[3].Value;
                 bool inlineKey = remainder.Contains("PRIMARY KEY", StringComparison.Ordinal);
                 if (inlineKey)
@@ -322,7 +339,9 @@ public sealed class OfflineMigrationSourceObserverValue5207Tests
             // A real test-owned dialect realization, not a claimed historical production dump.
             await using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder
             {
-                DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false
+                DataSource = path,
+                Mode = SqliteOpenMode.ReadWriteCreate,
+                Pooling = false
             }.ToString()))
             {
                 await connection.OpenAsync(cancellation.Token);
@@ -345,7 +364,9 @@ public sealed class OfflineMigrationSourceObserverValue5207Tests
     {
         await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
-            DataSource = path, Mode = SqliteOpenMode.ReadWrite, Pooling = false
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false
         }.ToString());
         await connection.OpenAsync(cancellationToken);
         await using SqliteCommand command = connection.CreateCommand();
@@ -361,7 +382,10 @@ public sealed class OfflineMigrationSourceObserverValue5207Tests
     {
         await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
-            DataSource = path, Mode = SqliteOpenMode.ReadOnly, Cache = SqliteCacheMode.Private, Pooling = false
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadOnly,
+            Cache = SqliteCacheMode.Private,
+            Pooling = false
         }.ToString());
         await connection.OpenAsync(cancellationToken);
         await using (SqliteCommand readOnly = connection.CreateCommand())

@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "formatter": {
+        "identity": "dotnet-format-whitespace",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "tools/test/run-with-dotnet-release-build-lock.sh dotnet format whitespace tests/migration/FsusBlog.Migration.Tests.csproj --no-restore --include tests/migration/OfflineMigrationExpandSafetyTests.cs tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs tests/migration/OfflineMigrationSourceFingerprintExceptionTests.cs tests/migration/OfflineMigrationSourceObserverTests.cs tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs --verbosity minimal"
+    },
+    "paths": [
+        "tests/migration/OfflineMigrationExpandSafetyTests.cs",
+        "tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs",
+        "tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs",
+        "tests/migration/OfflineMigrationSourceFingerprintExceptionTests.cs",
+        "tests/migration/OfflineMigrationSourceObserverTests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs"
+    ],
+    "firstPassTreeSha256": "9ebdd047bd4e3b23a91a8af147ce62c20ae3283f2ed5425d485f0cf975a81d2a",
+    "secondPassTreeSha256": "9ebdd047bd4e3b23a91a8af147ce62c20ae3283f2ed5425d485f0cf975a81d2a",
+    "idempotent": true,
+    "revision": "abe6947ede900fc7643cf2f8049bf7054ba20087"
+}
