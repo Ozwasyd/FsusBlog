@@ -67,7 +67,7 @@ const ctx = self as Pick<MessagePort, 'onmessage' | 'postMessage'>;
 ctx.onmessage = async (event: MessageEvent<PoSpaceWorkerRequest>) =>
 {
     const request = event.data;
-    if (!request || request.v !== 1)
+    if (request ? request.v !== 1 : true)
     {
         return;
     }
