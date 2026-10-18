@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using MySqlConnector;
+
 using Npgsql;
 
 using FsusBlog.Contracts.Migration;
