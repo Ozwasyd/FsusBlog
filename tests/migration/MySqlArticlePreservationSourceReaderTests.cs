@@ -131,13 +131,13 @@ public sealed class MySqlArticlePreservationSourceReaderTests
     [Fact]
     public async Task InvalidDriverSettingsCannotEscapeAsCredentialOrDriverErrorPayload()
     {
-        const string secret = "source-reader-private-fixture";
+        const string Secret = "source-reader-private-fixture";
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
             () => MySqlArticlePreservationSourceReader.ReadAsync(
-                "Password=" + secret + ";UnsupportedNativeSessionFixtureOption=1", s_origin,
+                "Password=" + Secret + ";UnsupportedNativeSessionFixtureOption=1", s_origin,
                 s_documentBase, s_limits, TimeSpan.FromSeconds(1), default));
         Assert.Equal("offline_source_mysql_native_operation_failed", failure.Message);
-        Assert.DoesNotContain(secret, failure.Message);
+        Assert.DoesNotContain(Secret, failure.Message);
         Assert.Null(failure.InnerException);
     }
 

@@ -360,20 +360,20 @@ public sealed class CurrentSchemaStorageProjectionTests
     [Fact]
     public void MySqlOwnedNativeKeys_PreserveNonconflictingOriginalCaseAndTargetIdentity()
     {
-        const string name = "MiXeD_Key";
+        const string Name = "MiXeD_Key";
         SchemaTableModel original = PortableRecipe();
-        var index = new SchemaIndexModel(name, true, [new("counter", "asc", "first", "default", "default")], [], "btree", null, false);
-        SchemaTableModel recipe = new(original.Name, original.Columns, [name], new Dictionary<string, SchemaIndexModel> { [name] = index });
+        var index = new SchemaIndexModel(Name, true, [new("counter", "asc", "first", "default", "default")], [], "btree", null, false);
+        SchemaTableModel recipe = new(original.Name, original.Columns, [Name], new Dictionary<string, SchemaIndexModel> { [Name] = index });
         CurrentSchemaRequiredRecipeReference[] references = [Reference(recipe)];
         CurrentSchemaIdentity identity = CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references);
         CurrentSchemaCompletePhysicalProjection result = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
             PortableEntity(), references, SchemaProviderKind.MySql);
         SchemaTableModel native = result.Tables.Tables[recipe.Name];
-        Assert.Equal(name, Assert.Single(native.IndexDefinitions.Keys));
-        Assert.Equal(name, Assert.Single(native.IndexDefinitions.Values).Name);
-        Assert.Equal(name, Assert.Single(native.Constraints.Keys));
-        Assert.Equal(name, Assert.Single(native.Constraints.Values).Name);
-        Assert.Equal(name, Assert.Single(recipe.IndexDefinitions.Keys));
+        Assert.Equal(Name, Assert.Single(native.IndexDefinitions.Keys));
+        Assert.Equal(Name, Assert.Single(native.IndexDefinitions.Values).Name);
+        Assert.Equal(Name, Assert.Single(native.Constraints.Keys));
+        Assert.Equal(Name, Assert.Single(native.Constraints.Values).Name);
+        Assert.Equal(Name, Assert.Single(recipe.IndexDefinitions.Keys));
         Assert.Empty(recipe.Constraints);
         Assert.Equal(identity, result.Tables.Identity);
         Assert.Equal(identity, CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references));

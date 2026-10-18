@@ -373,17 +373,17 @@ public sealed class ArticlePreservationProjectionTests
         cancelled.Cancel();
         // No writable directory is supplied. A pre-cancelled request must fail in preparation,
         // before the sole file publisher can consider this deliberately relative reference.
-        const string output = "not-an-absolute-output";
+        const string Output = "not-an-absolute-output";
         Task publication = artifact switch
         {
             "source" => ArticlePreservationPolicyExporter.PublishSourceAsync(
-                new(fixture.Source.Data, null!, [], null), output, cancelled.Token),
-            "policy" => ArticlePreservationPolicyExporter.PublishDefaultPolicyAsync(fixture.Source, output, cancelled.Token),
+                new(fixture.Source.Data, null!, [], null), Output, cancelled.Token),
+            "policy" => ArticlePreservationPolicyExporter.PublishDefaultPolicyAsync(fixture.Source, Output, cancelled.Token),
             "package" => ArticlePreservationPolicyExporter.PublishCurrentPackageAsync(fixture.Source,
                 fixture.Source.Data.Articles[0], policy, 1, [1], fixture.Current.Articles[0].Data.Coordinates,
-                output, cancelled.Token),
+                Output, cancelled.Token),
             "current" => ArticlePreservationPolicyExporter.PublishCurrentExportAsync(fixture.Source, policy,
-                fixture.Current.Categories, fixture.Current.Tags, fixture.Current.Articles, output, cancelled.Token),
+                fixture.Current.Categories, fixture.Current.Tags, fixture.Current.Articles, Output, cancelled.Token),
             _ => throw new ArgumentOutOfRangeException(nameof(artifact))
         };
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => publication);

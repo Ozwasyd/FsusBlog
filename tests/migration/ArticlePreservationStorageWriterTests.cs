@@ -13,7 +13,7 @@ namespace FsusBlog.Migration.Tests;
 public sealed class ArticlePreservationStorageWriterTests
 {
     private const string Owner = "FsusBlog.Server.Entities.Article";
-    private static readonly ArticlePreservationWriteLimits Limits = new(100, 10, 100, 1_000_000, TimeSpan.FromSeconds(1));
+    private static readonly ArticlePreservationWriteLimits s_limits = new(100, 10, 100, 1_000_000, TimeSpan.FromSeconds(1));
 
     [Fact]
     public void InsertUsesOwnedNamesAndParametersWithInitialNullPointers()
@@ -52,12 +52,12 @@ public sealed class ArticlePreservationStorageWriterTests
     {
         ArticlePreservationWriteLimits changed = missing switch
         {
-            "rows" => Limits with { MaximumRows = 0 },
-            "batch" => Limits with { MaximumBatchRows = 0 },
-            "parameters" => Limits with { MaximumBatchParameters = 0 },
-            "bytes" => Limits with { MaximumArtifactBytes = 0 },
-            "budget" => Limits with { OperationBudget = TimeSpan.Zero },
-            "infinite-budget" => Limits with { OperationBudget = Timeout.InfiniteTimeSpan },
+            "rows" => s_limits with { MaximumRows = 0 },
+            "batch" => s_limits with { MaximumBatchRows = 0 },
+            "parameters" => s_limits with { MaximumBatchParameters = 0 },
+            "bytes" => s_limits with { MaximumArtifactBytes = 0 },
+            "budget" => s_limits with { OperationBudget = TimeSpan.Zero },
+            "infinite-budget" => s_limits with { OperationBudget = Timeout.InfiniteTimeSpan },
             _ => throw new ArgumentOutOfRangeException(nameof(missing))
         };
         Assert.Throws<InvalidOperationException>(() => ArticlePreservationStorageWriter.RequireLimits(changed));
@@ -71,7 +71,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ArticlePreservationStorageWriter.StageRowsAsync(
-            [Row()], connection, transaction, Limits, cancelled.Token));
+            [Row()], connection, transaction, s_limits, cancelled.Token));
         Assert.Empty(connection.Commands);
         Assert.Equal(0, transaction.Commits);
         Assert.Equal(0, transaction.Rollbacks);
@@ -88,7 +88,7 @@ public sealed class ArticlePreservationStorageWriterTests
         ArticlePreservationStorageRow row = Row();
         row = row with { Columns = row.Columns.SetItem(1, row.Columns[1] with { DataType = "uuid" }) };
         await Assert.ThrowsAsync<InvalidOperationException>(() => ArticlePreservationStorageWriter.StageRowsAsync(
-            [row], connection, transaction, Limits, default));
+            [row], connection, transaction, s_limits, default));
         Assert.Empty(connection.Commands);
     }
 
@@ -98,7 +98,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection();
         using var transaction = new TestTransaction(connection);
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            ArticlePreservationStorageWriter.StageRowsAsync([Row(), Row()], connection, transaction, Limits, default));
+            ArticlePreservationStorageWriter.StageRowsAsync([Row(), Row()], connection, transaction, s_limits, default));
         Assert.Equal("article_preservation_native_primary_key_duplicate", failure.Message);
         Assert.Empty(connection.Commands);
     }
@@ -111,7 +111,7 @@ public sealed class ArticlePreservationStorageWriterTests
         ArticlePreservationStorageRow row = Row();
         row = row with { Columns = row.Columns.RemoveAt(3) };
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, Limits, default));
+            ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, s_limits, default));
         Assert.Equal("article_preservation_native_initial_pointer_shape_invalid", failure.Message);
         Assert.Empty(connection.Commands);
     }
@@ -122,7 +122,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection { ExistingCount = 2 };
         using var transaction = new TestTransaction(connection);
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            ArticlePreservationStorageWriter.StageRowsAsync([Row()], connection, transaction, Limits, default));
+            ArticlePreservationStorageWriter.StageRowsAsync([Row()], connection, transaction, s_limits, default));
         Assert.Equal("article_preservation_native_partial_target_refused", failure.Message);
         Assert.All(connection.Commands, command => Assert.Same(transaction, command.Transaction));
         Assert.Equal(0, connection.Writes);
@@ -136,7 +136,7 @@ public sealed class ArticlePreservationStorageWriterTests
         ArticlePreservationStorageRow row = Row();
         using var connection = new TestConnection { ExistingCount = 1, ReaderRows = [row] };
         using var transaction = new TestTransaction(connection);
-        Assert.True(await ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, Limits, default));
+        Assert.True(await ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, s_limits, default));
         Assert.Equal(0, connection.Writes);
         Assert.All(connection.Commands, command => Assert.Same(transaction, command.Transaction));
         Assert.Equal(0, transaction.Commits);
@@ -153,7 +153,7 @@ public sealed class ArticlePreservationStorageWriterTests
         }] };
         using var transaction = new TestTransaction(connection);
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            ArticlePreservationStorageWriter.StageRowsAsync([Row()], connection, transaction, Limits, default));
+            ArticlePreservationStorageWriter.StageRowsAsync([Row()], connection, transaction, s_limits, default));
         Assert.Equal("article_preservation_native_row_value_changed", failure.Message);
         Assert.Equal(0, connection.Writes);
     }
@@ -164,7 +164,7 @@ public sealed class ArticlePreservationStorageWriterTests
         ArticlePreservationStorageRow row = Row();
         using var connection = new TestConnection { ReaderRows = [row] };
         using var transaction = new TestTransaction(connection);
-        Assert.False(await ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, Limits, default));
+        Assert.False(await ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, s_limits, default));
         Assert.Equal(2, connection.Writes);
         TestCommand insert = Assert.Single(connection.Commands, static command => command.CommandText.StartsWith("INSERT", StringComparison.Ordinal));
         TestCommand cas = Assert.Single(connection.Commands, static command => command.CommandText.StartsWith("UPDATE", StringComparison.Ordinal));
@@ -186,7 +186,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection { CancelOnWrite = cancelled };
         using var transaction = new TestTransaction(connection);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ArticlePreservationStorageWriter.StageRowsAsync(
-            [Row()], connection, transaction, Limits, cancelled.Token));
+            [Row()], connection, transaction, s_limits, cancelled.Token));
         Assert.Equal(1, connection.Writes);
         Assert.DoesNotContain(connection.Commands, static command => command.CommandText.StartsWith("UPDATE", StringComparison.Ordinal));
         Assert.Equal(0, transaction.Commits);
@@ -201,7 +201,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var transaction = new TestTransaction(connection);
         var first = new OperationCanceledException("fixture_main_cancel");
         OperationCanceledException actual = await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            ArticlePreservationStorageWriter.CommandAsync<bool>(connection, transaction, Limits, _ => Task.FromException<bool>(first)));
+            ArticlePreservationStorageWriter.CommandAsync<bool>(connection, transaction, s_limits, _ => Task.FromException<bool>(first)));
         Assert.Same(first, actual);
         Assert.Equal(new[] { "article_preservation_native_command_disposal_failed" },
             Assert.IsType<ImmutableArray<string>>(actual.Data[ArticlePreservationStorageWriter.CleanupFailuresKey]).ToArray());
