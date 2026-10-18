@@ -1,10 +1,9 @@
 using System.Text.Json;
 
-using FsusBlog.Server.Infrastructure.Auth;
-
 using Microsoft.AspNetCore.DataProtection;
-
 using Npgsql;
+
+using FsusBlog.Server.Infrastructure.Auth;
 
 using static FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionStateContract;
 

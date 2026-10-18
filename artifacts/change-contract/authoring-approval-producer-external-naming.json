@@ -23,7 +23,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "Register only the added approval PostgreSQL class and its actual 28 cases in the existing collection manifest without changing existing test membership or hiding pre-existing collection drift."
+            "reason": "Register only the added approval PostgreSQL class and its actual 29 cases in the existing collection manifest without changing existing test membership or hiding pre-existing collection drift."
         }
     ]
 }

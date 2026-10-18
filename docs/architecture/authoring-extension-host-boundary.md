@@ -567,8 +567,8 @@ The host must display this preview and submit its exact digest through the
 operation-specific confirmation method. The existing `admin-sensitive` one-time
 proof is consumed through `IAdminPrincipalService`; it establishes recent identity,
 not consent to a plan. There is no generic plugin confirmation or approved boolean.
-The store enforces one decision for the same package/scope/revision/lifecycle effect;
-changing a plan ID or actor cannot create another approval after a lost response.
+The store enforces one decision for the same package/scope/revision/content effect;
+changing a plan ID, actor or lifecycle head cannot create another approval after a lost response.
 An ID locates a durable decision. It cannot authorize an operation by itself.
 
 The producer requires an authenticated admin principal from `HttpContext`, its
