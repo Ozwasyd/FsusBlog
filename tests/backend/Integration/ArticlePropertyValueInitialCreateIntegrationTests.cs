@@ -4,6 +4,7 @@ using System.Text;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.ArticleProperties;
@@ -78,14 +79,14 @@ public sealed class ArticlePropertyValueInitialCreateIntegrationTests(PostgresSc
     [InlineData("head")]
     [InlineData("after-participant")]
     [InlineData("create-receipt")]
-    public async Task FailureAtRealWriteStage_RollsBackWholeCreateAndSameRequestCanRetry(string stage)
+    public async Task FailureAtRealWriteStage_RollsBackArticleAndPropertyFactsAndSameRequestCanRetry(string stage)
     {
         using Seed data = await SeedAsync();
         long[] before = await CountsAsync(data.Db);
         InstallParticipant(data, data.Db, data.Command, after: stage == "after-participant"
             ? () => throw new IOException("isolated participant failure") : null, failureStage: stage);
         await Assert.ThrowsAsync<IOException>(() => ExecuteAsync(data, data.Db, data.Command));
-        Assert.Equal(before, await CountsAsync(data.Db));
+        await AssertArticleTransactionRollbackAsync(data, before);
         InstallParticipant(data, data.Db, data.Command);
         ArticleCreateReceipt retry = await ExecuteAsync(data, data.Db, data.Command);
         Assert.True(await ReceiptMatchesWrittenAggregateAsync(data, retry, data.Command));
@@ -111,7 +112,7 @@ public sealed class ArticlePropertyValueInitialCreateIntegrationTests(PostgresSc
         var error = await Assert.ThrowsAsync<ArticlePropertyDefinitionConflictException>(
             () => ExecuteAsync(data, data.Db, data.Command));
         Assert.Equal("article_property_value_revision_conflict", error.Code);
-        Assert.Equal(before, await CountsAsync(data.Db));
+        await AssertArticleTransactionRollbackAsync(data, before);
     }
 
     [Fact]
@@ -165,7 +166,7 @@ public sealed class ArticlePropertyValueInitialCreateIntegrationTests(PostgresSc
             Exception? error = await Record.ExceptionAsync(() => ExecuteAsync(data, data.Db, data.Command));
             Assert.NotNull(error);
             Assert.True(error is ArticlePropertyDefinitionIntegrityException or OperationCanceledException, error.ToString());
-            Assert.Equal(before, await CountsAsync(data.Db));
+            await AssertArticleTransactionRollbackAsync(data, before);
         }
         finally
         {
@@ -216,7 +217,7 @@ public sealed class ArticlePropertyValueInitialCreateIntegrationTests(PostgresSc
         long[] before = await CountsAsync(data.Db);
         InstallParticipant(data, data.Db, command);
         await Assert.ThrowsAsync<ArticlePropertyDefinitionIntegrityException>(() => ExecuteAsync(data, data.Db, command));
-        Assert.Equal(before, await CountsAsync(data.Db));
+        await AssertArticleTransactionRollbackAsync(data, before);
     }
 
     [Fact]
@@ -232,7 +233,7 @@ public sealed class ArticlePropertyValueInitialCreateIntegrationTests(PostgresSc
         var error = await Assert.ThrowsAsync<ArticlePropertyDefinitionIntegrityException>(
             () => ExecuteAsync(data, data.Db, data.Command));
         Assert.Equal("article_property_value_initial_create_plan_stale", error.Code);
-        Assert.Equal(before, await CountsAsync(data.Db));
+        await AssertArticleTransactionRollbackAsync(data, before);
     }
 
     [Theory]
@@ -290,6 +291,25 @@ public sealed class ArticlePropertyValueInitialCreateIntegrationTests(PostgresSc
         long[] before = await CountsAsync(data.Db);
         await Assert.ThrowsAsync<ArticleTemplateReferenceException>(
             () => data.References.ValidateAndPinAsync(data.Actor, data.Plan.Scope, defaults));
+        Assert.Equal(before, await CountsAsync(data.Db));
+    }
+
+    [Fact]
+    public async Task OriginalBlankCreate_StrictWholeGraphRollbackRequiresContentBlockOwnerResolution()
+    {
+        using Seed data = await SeedAsync();
+        long[] before = await CountsAsync(data.Db);
+        var store = new ArticleCreateStore(new PostgresArticleCreatePersistence(data.Db, data.Configuration), data.Verifier);
+        data.Db.Aop.OnLogExecuting = (sql, parameters) =>
+        {
+            if (IsWrite(sql, "article_mutation_outbox"))
+            {
+                throw new IOException("isolated original blank-create rollback probe");
+            }
+        };
+        // This unchanged strict oracle deliberately remains FAIL on the original CopyNew
+        // content-block path. No property participant or template command is invoked here.
+        await Assert.ThrowsAsync<IOException>(() => store.CreateAsync(new(data.Actor, Guid.CreateVersion7(), ArticleCreateMode.Blank)));
         Assert.Equal(before, await CountsAsync(data.Db));
     }
 
@@ -527,6 +547,22 @@ public sealed class ArticlePropertyValueInitialCreateIntegrationTests(PostgresSc
             counts.Add(await CountAsync(db, table));
         }
         return counts.ToArray();
+    }
+
+    private static async Task AssertArticleTransactionRollbackAsync(Seed data, long[] before)
+    {
+        long[] after = await CountsAsync(data.Db);
+        // The original content-addressed block owner explicitly commits using CopyNew.
+        // Observe that retained orphan independently; do not silently drop its delta or
+        // claim whole-graph rollback. The separate strict original-create oracle stays FAIL.
+        int blockIndex = Array.IndexOf(s_tables, "article_revision_content_block");
+        Assert.Equal(before[blockIndex] + 1, after[blockIndex]);
+        ArticleRevisionContentReachability reachability = await ArticleRevisionContentBlockStore.CheckReachabilityAsync(data.Db);
+        Assert.Equal(1, reachability.OrphanContentBlockCount);
+        Assert.Equal(0, reachability.RevisionCount);
+        Assert.Equal(0, reachability.MissingReferenceCount);
+        Assert.Equal(before.Where((value, index) => index != blockIndex).ToArray(),
+            after.Where((value, index) => index != blockIndex).ToArray());
     }
 
     private sealed record Seed(SqlSugarClient Db, IConfiguration Configuration, TimeProvider Clock,
