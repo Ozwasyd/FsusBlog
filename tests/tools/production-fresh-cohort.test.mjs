@@ -15,6 +15,159 @@ function capture(f, locators, expectedHead = ledgerGenesis, outputLocator = 'coh
     return captureCohort({ root: f.root, ledgerLocator: 'ledger.jsonl', runLocators: locators, expectedHead, outputLocator });
 }
 
+function assertAliasRefusal(t, outputLocator, ledgerState, linkTarget = null)
+{
+    const f = fixture(t);
+    const original = ledgerState === 'anchored' ? f.baseline() : null;
+    const ledger = path.join(f.root, 'ledger.jsonl');
+    if (ledgerState === 'empty')
+    {
+        fs.writeFileSync(ledger, '');
+    }
+    const previousBytes = fs.existsSync(ledger) ? fs.readFileSync(ledger) : null;
+    const expectedHead = original?.ledger.head ?? ledgerGenesis;
+    const locators = (original ? ['d'] : ['a', 'b', 'c']).map(id => f.run(id).locator);
+    if (linkTarget)
+    {
+        fs.symlinkSync(path.join(f.root, linkTarget), path.join(f.root, outputLocator));
+    }
+    const open = t.mock.method(fs, 'openSync');
+    let refusal;
+    try
+    {
+        capture(f, locators, expectedHead, outputLocator);
+    }
+    catch (error)
+    {
+        refusal = error;
+    }
+    finally
+    {
+        open.mock.restore();
+    }
+    const observedBytes = fs.existsSync(ledger) ? fs.readFileSync(ledger) : null;
+    const observedHead = observedBytes?.length
+        ? JSON.parse(observedBytes.toString('utf8').trim().split('\n').at(-1)).digest : ledgerGenesis;
+    assert.deepEqual({
+        writeFlags: open.mock.calls.map(call => call.arguments[1]).filter(flags => flags !== 'r'),
+        ledgerUnchanged: previousBytes === null ? observedBytes === null : observedBytes?.equals(previousBytes),
+        head: observedHead
+    }, { writeFlags: [], ledgerUnchanged: true, head: expectedHead },
+    `alias refusal must precede mutation (received ${refusal?.code ?? refusal?.message})`);
+    assert.ok(refusal instanceof Error, 'conflicting output must be refused');
+    assert.deepEqual(fs.existsSync(ledger) ? fs.readFileSync(ledger) : null, previousBytes);
+    assert.equal(fs.lstatSync(`${ledger}.lock`, { throwIfNoEntry: false }), undefined);
+    if (linkTarget)
+    {
+        assert.equal(fs.readlinkSync(path.join(f.root, outputLocator)), path.join(f.root, linkTarget));
+    }
+    const accepted = capture(f, locators, expectedHead, 'independent.json');
+    assert.equal(accepted.runs.length, original ? 4 : 3);
+    assert.deepEqual(inspectCohort(f.root, 'independent.json').cohort, accepted);
+    if (original)
+    {
+        assert.deepEqual(inspectCohort(f.root, 'cohort.json').cohort, original);
+    }
+}
+
+test('absent ledger rejects its own snapshot alias before any write', t =>
+{
+    assertAliasRefusal(t, 'ledger.jsonl', 'absent');
+});
+
+test('absent ledger rejects its lock as snapshot output before any write', t =>
+{
+    assertAliasRefusal(t, 'ledger.jsonl.lock', 'absent');
+});
+
+test('empty ledger rejects both snapshot aliases without consuming its genesis anchor', t =>
+{
+    for (const locator of ['ledger.jsonl', 'ledger.jsonl.lock'])
+    {
+        assertAliasRefusal(t, locator, 'empty');
+    }
+});
+
+test('anchored ledger rejects both snapshot aliases without changing bytes or head', t =>
+{
+    for (const locator of ['ledger.jsonl', 'ledger.jsonl.lock'])
+    {
+        assertAliasRefusal(t, locator, 'anchored');
+    }
+});
+
+test('dangling snapshot symlinks cannot alias the absent ledger or its lock', t =>
+{
+    for (const target of ['ledger.jsonl', 'ledger.jsonl.lock'])
+    {
+        assertAliasRefusal(t, 'alias.json', 'absent', target);
+    }
+});
+
+test('snapshot aliases through symlink parents remain refused before ledger creation', t =>
+{
+    const f = fixture(t);
+    const locators = ['a', 'b', 'c'].map(id => f.run(id).locator);
+    fs.mkdirSync(path.join(f.root, 'nested'));
+    fs.symlinkSync(path.join(f.root, 'nested'), path.join(f.root, 'alias'));
+    assert.throws(() => capture(f, locators, ledgerGenesis, 'alias/cohort.json'), /regular directory/u);
+    assert.equal(fs.existsSync(path.join(f.root, 'ledger.jsonl')), false);
+    assert.equal(fs.existsSync(path.join(f.root, 'ledger.jsonl.lock')), false);
+    assert.deepEqual(capture(f, locators).runs.map(ref => ref.locator), locators);
+});
+
+test('a dangling ledger symlink toward the snapshot is refused without following it', t =>
+{
+    const f = fixture(t);
+    const locators = ['a', 'b', 'c'].map(id => f.run(id).locator);
+    const ledger = path.join(f.root, 'ledger.jsonl');
+    const output = path.join(f.root, 'cohort.json');
+    fs.symlinkSync(output, ledger);
+    const open = t.mock.method(fs, 'openSync');
+    try
+    {
+        assert.throws(() => capture(f, locators));
+    }
+    finally
+    {
+        open.mock.restore();
+    }
+    assert.deepEqual(open.mock.calls.map(call => call.arguments[1]).filter(flags => flags !== 'r'), []);
+    assert.equal(fs.readlinkSync(ledger), output);
+    assert.equal(fs.existsSync(output), false);
+    assert.equal(fs.existsSync(`${ledger}.lock`), false);
+});
+
+test('existing hard-link snapshot aliases preserve anchored ledger bytes', t =>
+{
+    const f = fixture(t);
+    const original = f.baseline();
+    const ledger = path.join(f.root, 'ledger.jsonl');
+    const previousBytes = fs.readFileSync(ledger);
+    fs.linkSync(ledger, path.join(f.root, 'alias.json'));
+    const locators = [f.run('d').locator];
+    assert.throws(() => capture(f, locators, original.ledger.head, 'alias.json'), /already exists/u);
+    assert.deepEqual(fs.readFileSync(ledger), previousBytes);
+    assert.equal(fs.existsSync(`${ledger}.lock`), false);
+    assert.equal(capture(f, locators, original.ledger.head, 'independent.json').runs.length, 4);
+});
+
+test('alias rejection and ordinary contention never delete another owner lock', t =>
+{
+    const f = fixture(t);
+    const locators = ['a', 'b', 'c'].map(id => f.run(id).locator);
+    const lock = path.join(f.root, 'ledger.jsonl.lock');
+    const owner = Buffer.from('foreign-owner');
+    fs.writeFileSync(lock, owner);
+    for (const locator of ['ledger.jsonl', 'ledger.jsonl.lock', 'independent.json'])
+    {
+        assert.throws(() => capture(f, locators, ledgerGenesis, locator));
+        assert.deepEqual(fs.readFileSync(lock), owner);
+        assert.equal(fs.existsSync(path.join(f.root, 'ledger.jsonl')), false);
+        assert.equal(fs.existsSync(path.join(f.root, 'independent.json')), false);
+    }
+});
+
 test('cohort retains all clean samples and independently recomputes identity/statistics', t =>
 {
     const f = fixture(t);
