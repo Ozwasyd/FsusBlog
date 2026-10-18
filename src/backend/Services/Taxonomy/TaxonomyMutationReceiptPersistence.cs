@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Text.Json;
 
@@ -5,7 +6,8 @@ using Npgsql;
 
 using SqlSugar;
 
-using FsusBlog.Server.Services.Articles;
+using ArticleSourceGenerationAuthority = FsusBlog.Server.Services.Articles.ArticleSourceGenerationAuthority;
+using ArticleSourceGenerationPersistence = FsusBlog.Server.Services.Articles.ArticleSourceGenerationPersistence;
 
 namespace FsusBlog.Server.Services.Taxonomy;
 
@@ -16,9 +18,18 @@ namespace FsusBlog.Server.Services.Taxonomy;
 /// </summary>
 public static class TaxonomyMutationReceiptPersistence
 {
-    public enum TargetKind { Category, Tag }
+    public enum TargetKind
+    {
+        Category,
+        Tag
+    }
 
-    public enum MutationOperation { Create, Update, Delete }
+    public enum MutationOperation
+    {
+        Create,
+        Update,
+        Delete
+    }
 
     /// <summary>The actual persisted identity, including the description before physical deletion.</summary>
     public sealed record Identity(int Id, string Name, string? Description);
@@ -43,13 +54,35 @@ public static class TaxonomyMutationReceiptPersistence
         }
 
         internal Guid ReceiptId { get; } = Guid.NewGuid();
-        internal ISqlSugarClient Db { get; }
-        internal NpgsqlTransaction Transaction { get; }
-        internal TargetKind Kind { get; }
-        internal MutationOperation Operation { get; }
-        internal Identity? Before { get; }
-        internal string? CreateName { get; }
-        internal ImmutableArray<int> ArticleIds { get; }
+        internal long LockKey => BinaryPrimitives.ReadInt64BigEndian(ReceiptId.ToByteArray());
+        internal ISqlSugarClient Db
+        {
+            get;
+        }
+        internal NpgsqlTransaction Transaction
+        {
+            get;
+        }
+        internal TargetKind Kind
+        {
+            get;
+        }
+        internal MutationOperation Operation
+        {
+            get;
+        }
+        internal Identity? Before
+        {
+            get;
+        }
+        internal string? CreateName
+        {
+            get;
+        }
+        internal ImmutableArray<int> ArticleIds
+        {
+            get;
+        }
     }
 
     /// <summary>Supply the actual returned identity and affected-row count from the original DML.</summary>
@@ -74,7 +107,8 @@ public static class TaxonomyMutationReceiptPersistence
         {
             throw new InvalidOperationException("taxonomy_receipt_create_identity_exists");
         }
-        return new Capture(db, transaction, kind, MutationOperation.Create, null, name, []);
+        return await ProtectCaptureAsync(new Capture(db, transaction, kind, MutationOperation.Create, null, name, []),
+            connection, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -96,7 +130,8 @@ public static class TaxonomyMutationReceiptPersistence
             .ConfigureAwait(false) ?? throw new InvalidOperationException("taxonomy_receipt_target_missing");
         ImmutableArray<int> articleIds = await ReadArticleIdsAsync(connection, transaction, kind, targetId, cancellationToken)
             .ConfigureAwait(false);
-        return new Capture(db, transaction, kind, operation, before, null, articleIds);
+        return await ProtectCaptureAsync(new Capture(db, transaction, kind, operation, before, null, articleIds),
+            connection, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Persist after successful original DML, before enrollment and original commit.</summary>
@@ -139,6 +174,20 @@ public static class TaxonomyMutationReceiptPersistence
             }
             await ArticleSourceGenerationPersistence.RequireLockAsync(connection, transaction, cancellationToken)
                 .ConfigureAwait(false);
+            await using (NpgsqlCommand captureLock = new("""
+                SELECT EXISTS (SELECT 1 FROM pg_locks
+                    WHERE pid = pg_backend_pid() AND locktype = 'advisory' AND granted
+                        AND mode = 'ExclusiveLock' AND objsubid = 1
+                        AND classid = ((@Key::bigint >> 32) & 4294967295)::oid
+                        AND objid = (@Key::bigint & 4294967295)::oid);
+                """, connection, transaction))
+            {
+                captureLock.Parameters.AddWithValue("Key", capture.LockKey);
+                if (await captureLock.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not true)
+                {
+                    throw new InvalidOperationException("taxonomy_receipt_capture_rolled_back");
+                }
+            }
             Identity? after = await ReadIdentityAsync(connection, transaction, capture.Kind, completion.TargetId, cancellationToken)
                 .ConfigureAwait(false);
             if ((capture.Operation == MutationOperation.Delete && after is not null)
@@ -202,6 +251,17 @@ public static class TaxonomyMutationReceiptPersistence
         TargetKind.Tag => "tag",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
+
+    private static async Task<Capture> ProtectCaptureAsync(Capture capture, NpgsqlConnection connection,
+        CancellationToken cancellationToken)
+    {
+        // A private transaction lock makes a capture unusable after rolling back past its
+        // row locks, even if the original family lock is subsequently acquired again.
+        await using NpgsqlCommand command = new("SELECT pg_advisory_xact_lock(@Key::bigint);", connection, capture.Transaction);
+        command.Parameters.AddWithValue("Key", capture.LockKey);
+        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        return capture;
+    }
 
     private static async Task<Identity?> ReadIdentityAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         TargetKind kind, int targetId, CancellationToken cancellationToken)
