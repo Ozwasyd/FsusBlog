@@ -14,6 +14,7 @@ import {
 
 import type {
     OpenArticleDocumentRegistry,
+    OpenArticleDocumentEntry,
     RetainedArticleDocumentHandle,
     RetainedArticleDocumentMembershipSeal,
     RetainedNotificationSubscription,
@@ -372,6 +373,55 @@ export interface ArticleDocumentRetainedBinding {
     hasLifetimeAuthorityCustody(seal: ArticleDocumentLifetimeSeal): boolean;
     cancelLifetimeAuthority(seal: ArticleDocumentLifetimeSeal): boolean;
     retryInvalidation(): void;
+}
+
+declare const editorSessionAssociationBrand: unique symbol;
+
+/** Original Document/Registry identity relation only, not a native session, permission or navigation grant. */
+export interface ArticleDocumentEditorSessionAssociation {
+    readonly [editorSessionAssociationBrand]: true;
+}
+
+export interface ArticleDocumentEditorSessionObservation {
+    readonly documentEditorSessionId: string;
+    readonly registryEditorSessionRef: string;
+    readonly document: ArticleDocumentContext;
+    readonly entry: OpenArticleDocumentEntry;
+    readonly registry: OpenArticleDocumentRegistry;
+    readonly handle: RetainedArticleDocumentHandle;
+}
+
+const editorSessionAssociations = new WeakMap<ArticleDocumentEditorSessionAssociation, {
+    readonly adapter: ArticleDocumentContextAdapter;
+    readonly read: () => ArticleDocumentEditorSessionObservation | null;
+    reading: boolean;
+}>();
+
+/** Resolve the issuing owner's original opaque relation; strings, copied objects and foreign adapters refuse. */
+export function inspectArticleDocumentEditorSessionAssociation(association: ArticleDocumentEditorSessionAssociation,
+    adapter: ArticleDocumentContextAdapter): ArticleDocumentEditorSessionObservation | null
+{
+    const record = editorSessionAssociations.get(association);
+    if (record?.adapter !== adapter || record.reading)
+    {
+        return null;
+    }
+    record.reading = true;
+    try
+    {
+        return record.read();
+    }
+    finally
+    {
+        record.reading = false;
+    }
+}
+
+function sameEditorSessionLifetime(left: ArticleDocumentContext, right: ArticleDocumentContext): boolean
+{
+    return left.articleId === right.articleId && left.draftId === right.draftId && left.documentId === right.documentId
+        && left.documentEpoch === right.documentEpoch && left.editorSessionId === right.editorSessionId
+        && left.siteScope === right.siteScope && left.userScope === right.userScope;
 }
 
 interface ArticleDocumentRetainedOwner {
@@ -2641,6 +2691,8 @@ export class ArticleDocumentContextAuthority
     #primaryHandovers = new WeakMap<ArticleDocumentRetainedPreparation, ArticleDocumentPrimaryHandover>();
     #retainedOwners = new WeakMap<RetainedArticleDocumentHandle, ArticleDocumentRetainedOwner>();
     #ownersByAdapter = new WeakMap<ArticleDocumentContextAdapter, ArticleDocumentRetainedOwner>();
+    #ownersByBinding = new WeakMap<ArticleDocumentRetainedBinding, ArticleDocumentRetainedOwner>();
+    #editorSessionAssociations = new WeakMap<ArticleDocumentRetainedBinding, ArticleDocumentEditorSessionAssociation>();
     #lifetimeSeals = new WeakMap<ArticleDocumentLifetimeSeal, {
         readonly owner: ArticleDocumentRetainedOwner;
         readonly binding: ArticleDocumentRetainedBinding;
@@ -2661,6 +2713,90 @@ export class ArticleDocumentContextAuthority
     #scopeRetirementQueue: { siteScope: string; principalIdentityId: string; }[] = [];
     #currentScopeRetirement: { siteScope: string; principalIdentityId: string; } | null = null;
     #ownerRetirementDepth = 0;
+
+    /** Issue only after the original retained binding has joined the two real issuers; never equate or normalize their IDs. */
+    public issueEditorSessionAssociation(binding: ArticleDocumentRetainedBinding): ArticleDocumentEditorSessionAssociation | null
+    {
+        const owner = this.#ownersByBinding.get(binding);
+        if (owner?.binding !== binding)
+        {
+            return null;
+        }
+        const existing = this.#editorSessionAssociations.get(binding);
+        if (existing)
+        {
+            return inspectArticleDocumentEditorSessionAssociation(existing, owner.adapter) ? existing : null;
+        }
+        const initial = owner.adapter.context;
+        const association = Object.freeze({}) as ArticleDocumentEditorSessionAssociation;
+        editorSessionAssociations.set(association, { adapter: owner.adapter, reading: false,
+            read: () => this.#readEditorSessionAssociation(owner, binding, initial) });
+        let admitted = false;
+        try
+        {
+            admitted = inspectArticleDocumentEditorSessionAssociation(association, owner.adapter) !== null;
+            if (admitted)
+            {
+                this.#editorSessionAssociations.set(binding, association);
+            }
+            return admitted ? association : null;
+        }
+        finally
+        {
+            if (!admitted)
+            {
+                editorSessionAssociations.delete(association);
+            }
+        }
+    }
+
+    #readEditorSessionAssociation(owner: ArticleDocumentRetainedOwner, binding: ArticleDocumentRetainedBinding,
+        initial: ArticleDocumentContext): ArticleDocumentEditorSessionObservation | null
+    {
+        const handle = owner.handle;
+        if (!handle || owner.binding !== binding || this.#ownersByBinding.get(binding) !== owner
+            || this.#ownersByAdapter.get(owner.adapter) !== owner || this.#retainedOwners.get(handle) !== owner
+            || owner.scopeRetired || owner.invalidationFailed || owner.attachingConsumer || owner.retirementPending
+            || owner.retirementActivityDepth !== 0 || owner.listenerNotificationDepth !== 0 || this.#ownerRetirementDepth !== 0
+            || owner.consumerInvalidationState !== 'not-requested')
+        {
+            return null;
+        }
+        const before = this.#inspectRetainedOwner(owner);
+        if (before.admissionClosed || !sameEditorSessionLifetime(initial, before.context))
+        {
+            return null;
+        }
+        const membership = sealRetainedArticleDocumentMembership(handle);
+        if (!membership)
+        {
+            return null;
+        }
+        try
+        {
+            const after = this.#inspectRetainedOwner(owner);
+            const context = after.context;
+            const entry = after.registry.entry;
+            const native = nativeDocumentLifetimePorts.get(owner.adapter);
+            const publication = native?.seal();
+            if (!entry || after.admissionClosed || before.context !== context || !sameEditorSessionLifetime(initial, context)
+                || entry.identity.articleId !== context.articleId || entry.identity.draftId !== context.draftId
+                || entry.identity.documentId !== context.documentId || entry.documentContext.documentEpoch !== context.documentEpoch
+                || before.registry.registryRevision !== after.registry.registryRevision || publication?.context !== context
+                || native?.retirementActive() || native?.notificationActive()
+                || owner.scopeRetired || owner.invalidationFailed || owner.binding !== binding
+                || !hasSealedRetainedArticleDocumentMembershipCustody(membership) || !native?.has(publication))
+            {
+                return null;
+            }
+            return Object.freeze({ documentEditorSessionId: context.editorSessionId, registryEditorSessionRef: entry.editorSessionRef,
+                document: context, entry, registry: owner.registry, handle });
+        }
+        finally
+        {
+            cancelRetainedArticleDocumentMembershipSeal(membership);
+        }
+    }
 
     public acquire(input: ArticleDocumentAuthorityInput): ArticleDocumentContextBinding
     {
@@ -3448,6 +3584,7 @@ export class ArticleDocumentContextAuthority
         owner.binding = binding;
         this.#retainedOwners.set(handle, owner);
         this.#ownersByAdapter.set(owner.adapter, owner);
+        this.#ownersByBinding.set(binding, owner);
         this.#scopedOwners.add(owner);
         retainedAdapterGuards.set(owner.adapter, {
             isAdmitted: () => !owner.scopeRetired && !owner.invalidationFailed,
@@ -3485,6 +3622,7 @@ export class ArticleDocumentContextAuthority
                 stopNativeRetirement?.();
                 this.#retainedOwners.delete(handle);
                 this.#ownersByAdapter.delete(owner.adapter);
+                this.#ownersByBinding.delete(binding);
                 this.#scopedOwners.delete(owner);
                 retainedAdapterGuards.delete(owner.adapter);
                 owner.handle = null;
