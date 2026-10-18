@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionWorkerSandbox.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceBroker.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRuntimeMeasurements.cs"
+            ],
+            "reason": "Preserve registered external process-environment spellings while adding bounded native state acceptance to the original worker/service owners; no environment binding or existing external identifier is renamed."
+        }
+    ]
+}

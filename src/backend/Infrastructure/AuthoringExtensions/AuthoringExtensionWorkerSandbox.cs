@@ -117,6 +117,19 @@ public interface IAuthoringWorkerSandboxInstance : IAsyncDisposable
         AuthoringWorkerRequest request,
         CancellationToken cancellationToken);
 
+    /// <summary>Load the original applied snapshot into native storage and retain same-owner readback custody.
+    /// This confers no approval; unsupported runtimes fail closed.</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("linux")]
+    ValueTask<AuthoringNativeStateSnapshotAcceptance> AcceptStateSnapshotAsync(
+        VerifiedAuthoringPackage package,
+        AuthoringExecutionTarget target,
+        AuthoringStateSnapshot appliedSnapshot,
+        long runningGeneration,
+        string operationSha256,
+        CancellationToken cancellationToken) =>
+        ValueTask.FromException<AuthoringNativeStateSnapshotAcceptance>(
+            new AuthoringExtensionContractException("Runtime cannot accept the actual applied state snapshot."));
+
     ValueTask TerminateAsync(string reason, CancellationToken cancellationToken);
 }
 
@@ -253,6 +266,16 @@ public sealed class AuthoringExtensionWorkerSandbox(
                     request.Payload.Length);
             }
 
+            if (cancellationToken.IsCancellationRequested || deadline.IsCancellationRequested ||
+                timeProvider.GetUtcNow() >= request.Deadline)
+            {
+                await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
+                AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
+                    ? AuthoringWorkerResultStatus.Cancelled
+                    : AuthoringWorkerResultStatus.TimedOut;
+                return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
+            }
+
             if (response is null || !IsResponseBound(response, request) ||
                 response.Payload.IsDefault ||
                 response.Payload.Length > package.Contract.Manifest.Limits.MaximumResponseBytes)
@@ -266,11 +289,35 @@ public sealed class AuthoringExtensionWorkerSandbox(
                     request.Payload.Length);
             }
 
-            if (!await revisionGate.IsCurrentAsync(
+            bool currentRevision;
+            try
+            {
+                currentRevision = await revisionGate.IsCurrentAsync(
                     request.DocumentId,
                     request.DocumentEpoch,
                     request.SourceRevision,
-                    cancellationToken))
+                    deadline.Token);
+            }
+            catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+            {
+                await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
+                AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
+                    ? AuthoringWorkerResultStatus.Cancelled
+                    : AuthoringWorkerResultStatus.TimedOut;
+                return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
+            }
+
+            if (cancellationToken.IsCancellationRequested || deadline.IsCancellationRequested ||
+                timeProvider.GetUtcNow() >= request.Deadline)
+            {
+                await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
+                AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
+                    ? AuthoringWorkerResultStatus.Cancelled
+                    : AuthoringWorkerResultStatus.TimedOut;
+                return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
+            }
+
+            if (!currentRevision)
             {
                 await instance.TerminateAsync("stale-document", CancellationToken.None);
                 return Rejected(
