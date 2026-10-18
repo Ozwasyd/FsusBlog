@@ -18,9 +18,15 @@ public sealed class AuthoringProductionRuntimeProviders
         Service = service;
     }
 
-    public IAuthoringWorkerSandboxRuntime? Worker { get; }
+    public IAuthoringWorkerSandboxRuntime? Worker
+    {
+        get;
+    }
 
-    public IAuthoringServiceProcessRuntime? Service { get; }
+    public IAuthoringServiceProcessRuntime? Service
+    {
+        get;
+    }
 }
 
 /// <summary>
@@ -72,21 +78,39 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         Coordinator = new(this, Preflight, stateStore, receipts, grants);
     }
 
-    public AuthoringExtensionProductionPreflight Preflight { get; }
+    public AuthoringExtensionProductionPreflight Preflight
+    {
+        get;
+    }
 
-    public AuthoringExtensionApprovalAuthority.ApprovedClaim? ApprovalClaim { get; }
+    public AuthoringExtensionApprovalAuthority.ApprovedClaim? ApprovalClaim
+    {
+        get;
+    }
 
-    public IAuthoringExtensionApprovalAuthority? Approvals { get; }
+    public IAuthoringExtensionApprovalAuthority? Approvals
+    {
+        get;
+    }
 
     public AuthoringExtensionOperationContext? OperationContext => ApprovalClaim?.OperationContext;
 
-    public AuthoringProductionRuntimeProviders Providers { get; }
+    public AuthoringProductionRuntimeProviders Providers
+    {
+        get;
+    }
 
-    public AuthoringExtensionHostResourceAuthority HostResources { get; }
+    public AuthoringExtensionHostResourceAuthority HostResources
+    {
+        get;
+    }
 
     public IAuthoringFencedLifecycleResourceAuthorityV1 Resources => this;
 
-    public AuthoringExtensionLifecycleCoordinator Coordinator { get; }
+    public AuthoringExtensionLifecycleCoordinator Coordinator
+    {
+        get;
+    }
 
     public async ValueTask<IAuthoringPreparedLifecycleGenerationV1> PrepareAsync(
         VerifiedAuthoringPackage package,
@@ -106,7 +130,7 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         PreparedGeneration? prepared = null;
         try
         {
-            // Known unsafe issuer input cannot start a process or receive state.
+            // Unqualified original scope/result custody cannot start a process or receive state.
             // There is no caller-supplied flag to skip this qualification boundary.
             Preflight.RequireQualifiedEffects();
             stage = HostResources.StageHeldPackage(held, orderedTargets);
@@ -215,6 +239,7 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         private readonly AuthoringExtensionLifecycleResources _nativeResources;
         private readonly ImmutableArray<AuthoringExecutionTarget> _targets;
         private readonly AuthoringStateSnapshot _snapshot;
+        private readonly AuthoringExtensionApprovalExecutionResult _executionResult;
         private readonly SemaphoreSlim _gate = new(1, 1);
         private readonly List<WorkerCustody> _workers = [];
         private readonly List<ServiceCustody> _services = [];
@@ -233,13 +258,33 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
             _targets = [.. targets];
             _snapshot = snapshot;
             Generation = generation;
+            _executionResult = owner.Preflight.FreezeExecutionResult(snapshot, _targets, generation);
             _nativeResources = new(stage, stage.Filters);
         }
 
         internal VerifiedAuthoringPackage Package => _stage.Package;
-        internal long Generation { get; }
+        internal long Generation
+        {
+            get;
+        }
 
         internal async ValueTask StartAsync(CancellationToken cancellationToken)
+        {
+            // Abort cannot settle an empty generation while its first native
+            // launch is still entering custody. Use the same gate as all later
+            // verification, publication and cleanup across every startup await.
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await StartCoreAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private async ValueTask StartCoreAsync(CancellationToken cancellationToken)
         {
             if (!OperatingSystem.IsLinux())
             {
@@ -351,7 +396,7 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
                     && running.PackageSha256 == Package.Contract.Manifest.PackageSha256
                     && running.StateSchemaVersion == Package.Contract.Manifest.StateSchemaVersion
                     && running.DataSchemaVersion == Package.Contract.Manifest.DataSchemaVersion
-                    && running.ScopeDigest == _owner.Preflight.RequireClaimDigest() && running.FailureCode is null
+                    && running.ScopeDigest == _executionResult.ContentSha256 && running.FailureCode is null
                     && running.ReceiptSha256 == AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(running),
                     "production_running_receipt_not_exact");
             }
@@ -509,17 +554,29 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         private sealed class WorkerCustody(IAuthoringWorkerSandboxInstance owner, AuthoringWorkerLaunchDescriptor descriptor)
         {
             internal IAuthoringWorkerSandboxInstance Owner => owner;
-            internal AuthoringRuntimeIncarnationLease? Lease { get; set; }
+            internal AuthoringRuntimeIncarnationLease? Lease
+            {
+                get; set;
+            }
             internal AuthoringWorkerLaunchDescriptor Descriptor => descriptor;
-            internal bool Tracked { get; set; }
+            internal bool Tracked
+            {
+                get; set;
+            }
         }
 
         private sealed class ServiceCustody(IAuthoringServiceProcess owner, AuthoringServiceLaunchDescriptor descriptor)
         {
             internal IAuthoringServiceProcess Owner => owner;
-            internal AuthoringRuntimeIncarnationLease? Lease { get; set; }
+            internal AuthoringRuntimeIncarnationLease? Lease
+            {
+                get; set;
+            }
             internal AuthoringServiceLaunchDescriptor Descriptor => descriptor;
-            internal bool Tracked { get; set; }
+            internal bool Tracked
+            {
+                get; set;
+            }
         }
     }
 

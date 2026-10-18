@@ -162,9 +162,18 @@ public sealed class AuthoringExtensionHostResourceAuthority : IAuthoringLifecycl
         internal VerifiedAuthoringPackage Package { get; } = packageScope.ActivePackage;
         internal ImmutableArray<AuthoringCommandContribution> Commands => commands;
         internal AuthoringFilterRegistryAuthority Filters => filters;
-        internal bool Active { get; private set; }
-        internal bool Published { get; set; }
-        internal long Generation { get; set; }
+        internal bool Active
+        {
+            get; private set;
+        }
+        internal bool Published
+        {
+            get; set;
+        }
+        internal long Generation
+        {
+            get; set;
+        }
         internal bool PackageScopeRetained => Volatile.Read(ref _packageScope) is not null;
 
         public ValueTask ActivateAtomicallyAsync(VerifiedAuthoringPackage package,
