@@ -549,12 +549,93 @@ owner are still required before restart recovery or atomic data deletion can be
 claimed as terminal acceptance. Removing the scoped registration is the rollback
 boundary; preserve existing receipt rows for audit and do not recreate an empty
 store as a recovery shortcut.
-This commit defines the generic lifecycle/resource interfaces and orchestration;
-it does not register a command contribution or a second editor authority. Durable
-production receipt/state stores and a real host registration owner are still
-required. The local grant store's synthetic same-root/key restart tests do not
-qualify whole lifecycle restart recovery or atomic data deletion as terminal
-acceptance.
+
+## Durable authoring state approval producer (WIP consumers)
+
+`AuthoringExtensionApprovalAuthority` owns the single host approval contract in
+`AuthoringExtensionApprovalContract`. Decision/preview version 2 freezes the original
+`AuthoringFencedStateMigration`, actual source/target observations, both exact ordered
+`AuthoringExecutionTarget` rosters, package bindings, expected lifecycle head, scope
+authorization and closed retention policy. It reuses original `FreezePlan`, `ReadAsync`
+and `MeasureAsync`; deletion uses the full original `AuthoringStateMeasurement`,
+including retained backups and same-size content changes. Prepare never fabricates
+an applied snapshot. Pending is not approval. The existing `admin-sensitive` one-time
+proof establishes recent identity only; exact preview confirmation is separate.
+
+Package identity fields retain their original meanings. Lifecycle receipt and target
+`PackageSha256` equal `Manifest.PackageSha256`, the package payload hash. Manifest
+`ContentSha256` is the original entry-path/content-hash tree. The verifier's
+`VerifiedAuthoringPackage.PackageIdentity` additionally binds verified manifest,
+archive/signature/trust/keyset/source/provenance facts. State snapshot
+`PackageIdentity` uses that composite identity. Neither field substitutes for the
+other. Ordinary coordinator receipts retain `ScopeDigest = PackageIdentity`.
+
+The producer requires the authenticated admin from `HttpContext` `admin_id` /
+`admin_sid`, configured `AuthoringExtensions:SiteId`, and current SQL principal and
+session status, permissions, xmin, validation versions, both expiry bounds and
+revocation. SQL `system.config` alone does not authorize caller-selected opaque
+user/document scopes. No admin ID to state `UserId` mapping is inferred. A mandatory
+`IAuthoringExtensionApprovalScopeAuthority` must acquire the canonical owner's exact
+actor/operation/site/user/document scope authorization, bind its version/revocation
+facts, and hold original exclusion through the decision transaction. There is no
+production implementation or permissive adapter in this leaf. Missing scope owner
+refuses before state access/decision creation; changed scope authority refuses
+confirmation, claim, inspection and completion. The former site-admin-wide policy
+is not retained. `OperationContext` version 2 describes these exact bindings and is
+not a credential by itself.
+
+`PostgresAuthoringExtensionApprovalStore` protects the exact decision and every event
+with the application's Data Protection provider. Version 2 does not reinterpret
+version-1 protected records. Production rollout must account for retained old
+records through the migration/recovery owner; it must not discard them or silently
+mint replacement approvals. The unique frozen-effect key excludes plan ID, actor
+and lifecycle head so progress after a lost response cannot create another approval
+for unchanged state. Journal rollback, replay, actor/scope/plan/roster drift, expired
+or revoked authority and stale lifecycle generations refuse.
+
+`AuthoringExtensionApprovalExecutionResult` is the single canonical post-effect host
+data contract in the same approval source. Its domain-separated digest binds the
+claim/operation, exact package payload and composite identity plus version/schemas,
+original frozen-plan digest, the actual original `ApplyAsync` snapshot, exact ordered
+old/new targets and final generation. Deletion binds the actual post-delete original
+measurement instead. Result `ScopeDigest` is this execution-result digest, not bare
+`claim.Digest`. It excludes the final receipt hash, avoiding a circular dependency.
+The result factory validates data; it neither issues approval nor attests native
+readiness, snapshot acceptance or a published generation. Snapshot bytes are not
+written into plaintext receipts/events or exposed by a new transport.
+
+`CompleteAsync` requires that execution result and an exact latest Running
+(migration) or Removed (deletion) receipt, including matching payload hash, version,
+state/data schemas, state, failure absence, generation/sequence and result digest.
+The canonical execution-result source must hold actual original state exclusion
+and, for migration, original native/resource-generation custody through final CAS.
+It supplies original settled snapshots/measurement; separate ordinary state rereads
+cannot manufacture this lifetime. The producer supplies no source implementation:
+current state/receipt methods own their own transactions, and the native/staged
+publication ports are not supplied here. Both migration and deletion completion
+therefore fail closed when that real custody is missing, even if metadata hashes
+look valid. Data-codec tests and internal SQL-CAS component tests do not qualify
+whole runtime or user admission.
+
+Terminal success holds the existing lifecycle advisory key inside the approval
+store transaction and checks the complete actual latest receipt immediately before
+its status/event CAS, retaining the lock until commit. A newer legal head while the
+approval-row lock is blocked refuses; an earlier transaction's GetLatest is only a
+precheck. Exact package metadata is also rechecked against the protected decision
+inside this final transaction. No existing receipt/state store is enlisted in an
+ambient transaction, and no cross-store effect atomicity is claimed.
+
+The leaf schema supplies only DDL; runtime methods do not create tables, alter
+existing state/receipt schemas, or register production migrations/DI. Lifecycle,
+preflight, canonical scope/state/native custody, HTTP/AEDS/UI and same-operation
+recovery consumers remain separately owned WIP. The old receipt-only Complete and
+migration overloads are not success adapters. Shared wire frames remain with the
+protocol owner. Tests use isolated PostgreSQL/Redis, explicit synthetic exact-scope
+SQL ACL custody, original state/receipt owners and existing admin proof consumption;
+they do not establish production scope policy, real consent, Passkey ceremony,
+native acceptance or full issue qualification. Rollback preserves decisions/events
+and exact state/receipt recovery facts; never reset the store to erase a claimed
+operation or restore revoked authority.
 
 ## Resource budgets, crash isolation, and telemetry
 

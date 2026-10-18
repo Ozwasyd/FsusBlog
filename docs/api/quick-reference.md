@@ -459,7 +459,15 @@ render: enum-set
 - `GET /api/binary/author/moderation/runtime/status`
 - `GET /api/binary/author/ops/backup`
 - `GET /api/binary/author/ops/dangerous-operations/policy`
+- `GET /api/binary/author/ops/fonts/activations`
+- `GET /api/binary/author/ops/fonts/registry`
+- `GET /api/binary/author/ops/fonts/registry/{fontId}`
 - `GET /api/binary/author/ops/health`
+- `GET /api/binary/author/ops/themes/activations`
+- `GET /api/binary/author/ops/themes/activations/{scope}`
+- `GET /api/binary/author/ops/themes/activations/{scope}/history`
+- `GET /api/binary/author/ops/themes/registry`
+- `GET /api/binary/author/ops/themes/registry/{themeId}`
 - `GET /api/binary/author/plugins`
 - `GET /api/binary/author/plugins/{pluginId}`
 - `GET /api/binary/author/taxonomy/categories`
