@@ -16,6 +16,8 @@ public interface IAdminSessionValidationService
 
 public sealed record AdminSessionValidationResult(bool IsValid, string Reason)
 {
+    internal AdminAuthenticatedRequestLifetime? RequestLifetime { get; init; }
+
     public static readonly AdminSessionValidationResult Valid = new(true, "ok");
 
     public static AdminSessionValidationResult Invalid(string reason) => new(false, reason);
@@ -63,7 +65,7 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
         }
 
         byte[] tokenHash = SHA256.HashData(Encoding.UTF8.GetBytes(accessToken));
-        AdminSessionProjectionValidationResult validation = _projection.Validate(sessionId, adminId, tokenHash);
+        AdminSessionProjectionValidationResult validation = _projection.ValidateForRequest(sessionId, adminId, tokenHash, out AdminAuthenticatedRequestLifetime? lifetime);
         AdminSessionProjectionSnapshot snapshot = _projection.Snapshot();
         FsusObservability.RecordAdminSessionProjectionValidation(
             validation.Source,
@@ -76,12 +78,20 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
             return Task.FromResult(AdminSessionValidationResult.Invalid(validation.Reason));
         }
 
-        _touchScheduler.TrySchedule(new AdminSessionTouchRequest(
+        try
+        {
+            _touchScheduler.TrySchedule(new AdminSessionTouchRequest(
             sessionId,
             validation.SessionVersion,
             tokenHash,
             validation.IdleExpiresAtUtc,
             validation.AbsoluteExpiresAtUtc));
-        return Task.FromResult(AdminSessionValidationResult.Valid);
+        }
+        catch
+        {
+            lifetime?.Dispose();
+            throw;
+        }
+        return Task.FromResult(new AdminSessionValidationResult(true, "ok") { RequestLifetime = lifetime });
     }
 }
