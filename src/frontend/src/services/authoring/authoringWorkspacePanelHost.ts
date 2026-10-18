@@ -309,6 +309,32 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
             groupDigest: projection.state.contentDigest, nativeEditor };
     }
 
+    // Original context/registry/group reads only; no native/layout producer callback.
+    function bindingCurrent(binding: CapturedBinding): boolean
+    {
+        const { owner, document } = binding;
+        const projection = owner.layoutSource.groups.exportProjection();
+        return articleDocumentContextAuthority.context === document && owner.adapter.isCurrentContext(document)
+            && owner.registry.getRevision() === binding.registryRevision
+            && calculateOpenArticleDocumentDigest(owner.registry.getEntry(owner.tabId)) === binding.entryDigest
+            && owner.layoutSource.groups.verifyBinding(owner.registry)
+            && owner.layoutSource.sessions?.groups === owner.layoutSource.groups
+            && projection.state.revision === binding.groupRevision && projection.state.contentDigest === binding.groupDigest;
+    }
+
+    function readGeometry(binding: CapturedBinding)
+    {
+        const projection = binding.owner.layoutSource.groups.exportProjection();
+        // Copy at each producer boundary: a later callback must not rewrite an
+        // earlier sample through a shared frame/viewport/measurement object.
+        const measured = structuredClone(binding.owner.layoutSource.measure(projection));
+        check();
+        const frame = structuredClone(binding.owner.layoutPort.readFrameRect());
+        check();
+        return { projection, measured, frame,
+            digest: calculateOpenArticleDocumentDigest({ measured, frame, state: projection.state }) };
+    }
+
     function regionAvailable(binding: CapturedBinding): boolean
     {
         return !!coreOwner?.isConnected && coreOwner.ownerDocument === root.ownerDocument && coreOwner.contains(root)
@@ -549,10 +575,8 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
             {
                 return block('snapshot-document-mismatch');
             }
-            const projection = before.owner.layoutSource.groups.exportProjection();
-            const measured = before.owner.layoutSource.measure(projection);
-            const frame = before.owner.layoutPort.readFrameRect();
-            const physical = readPhysical(before, query, measured, frame, projection);
+            const initialGeometry = readGeometry(before);
+            const physical = readPhysical(before, query, initialGeometry.measured, initialGeometry.frame, initialGeometry.projection);
             if (physical.status !== 'available')
             {
                 return physical;
@@ -582,27 +606,42 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
                 active.clear();
                 previous.forEach(value => value.abort());
             }
-            connection.assertCurrent();
-            requireWorkspaceServerObservation(server);
-            const after = capture();
-            const finalPhysical = readPhysical(after, query, measured, frame, projection);
-            if (finalPhysical.status !== 'available')
+            // Two fixed confirmation passes, never a retry-until-stable loop.
+            // Every capture may invoke native callbacks, so obtain NEW geometry
+            // afterwards and refuse the first changed input or physical result.
+            for (let remaining = 2; remaining > 0; remaining -= 1)
             {
-                controller.abort();
-                return finalPhysical;
-            }
-            const sameRect = (left: DOMRect, right: DOMRect): boolean =>
-                left.left === right.left && left.top === right.top && left.width === right.width && left.height === right.height;
-            check();
-            if (!sameBinding(before, after) || !sameRect(rect, finalPhysical.rect)
-                || !sameRect(editor, finalPhysical.editor) || !sameRect(rootRect, finalPhysical.rootRect)
-                || availableSize.inline !== finalPhysical.availableSize.inline || availableSize.block !== finalPhysical.availableSize.block
-                || physical.minimumEditorInline !== finalPhysical.minimumEditorInline
-                || physical.browserZoomPercent !== finalPhysical.browserZoomPercent || viewport !== finalPhysical.viewport
-                || epoch !== generation)
-            {
-                controller.abort();
-                return block('changed');
+                connection.assertCurrent();
+                requireWorkspaceServerObservation(server);
+                const after = capture();
+                const currentGeometry = readGeometry(after);
+                if (!sameBinding(before, after) || initialGeometry.digest !== currentGeometry.digest || epoch !== generation)
+                {
+                    controller.abort();
+                    return block('changed');
+                }
+                const finalPhysical = readPhysical(after, query, currentGeometry.measured, currentGeometry.frame, currentGeometry.projection);
+                if (finalPhysical.status !== 'available')
+                {
+                    controller.abort();
+                    return finalPhysical;
+                }
+                const sameRect = (left: DOMRect, right: DOMRect): boolean =>
+                    left.left === right.left && left.top === right.top && left.width === right.width && left.height === right.height;
+                check();
+                // No external callback follows these original-owner and native
+                // DOM checks. Geometry producers must retain their existing
+                // synchronous invalidation contract; this issues no admission.
+                if (!bindingCurrent(after) || !sameRect(rect, finalPhysical.rect)
+                    || !sameRect(editor, finalPhysical.editor) || !sameRect(rootRect, finalPhysical.rootRect)
+                    || availableSize.inline !== finalPhysical.availableSize.inline || availableSize.block !== finalPhysical.availableSize.block
+                    || physical.minimumEditorInline !== finalPhysical.minimumEditorInline
+                    || physical.browserZoomPercent !== finalPhysical.browserZoomPercent || viewport !== finalPhysical.viewport
+                    || epoch !== generation)
+                {
+                    controller.abort();
+                    return block('changed');
+                }
             }
             active.add(controller);
             issued.set(observation, { binding: before, query, controller, generation: epoch });

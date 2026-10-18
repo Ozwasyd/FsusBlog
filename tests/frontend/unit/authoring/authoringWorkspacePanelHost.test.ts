@@ -550,4 +550,166 @@ describe('authoring workspace live panel host', () =>
         expect(first.signal.aborted).toBe(true);
         expect(f.host.observe({ ...createQuery(), AvailableSize: { inline: 9000, block: 9000 } } as AuthoringWorkspacePanelSpaceQuery).status).toBe('blocked');
     });
+    // Review5561808683: fresh producer snapshots must be sampled after callbacks.
+    it.each(['mobile', 'viewport', 'space', 'frame', 'abort-snapshot'])(
+        'refuses a replaced final %s geometry snapshot', async kind =>
+        {
+            const f = createFixture();
+            expect(await f.host.refreshAuthority()).toBe(true);
+            let current = structuredClone(f.measured);
+            let frame = { ...current.frame };
+            vi.spyOn(f.binding.layoutSource, 'measure').mockImplementation(() => structuredClone(current));
+            vi.spyOn(f.binding.layoutPort, 'readFrameRect').mockImplementation(() => ({ ...frame }));
+            const change = () =>
+            {
+                if (kind === 'mobile') current = { ...current, mobile: true };
+                if (kind === 'viewport') current = { ...current, layoutViewportWidthCssPx: 900 };
+                if (kind === 'space' || kind === 'abort-snapshot')
+                {
+                    current = { ...current, visualViewport: { ...current.visualViewport, width: 150 } };
+                }
+                if (kind === 'frame') frame = { ...frame, width: 150 };
+            };
+            const first = f.host.observe(createQuery());
+            expect(first.status).toBe('observed');
+            if (first.status !== 'observed') throw new Error('positive observation required');
+            if (kind === 'abort-snapshot') first.signal.addEventListener('abort', change, { once: true });
+            else
+            {
+                let reads = 0;
+                f.setCurrent({ ...f.binding, readNativeEditor: () =>
+                {
+                    reads += 1;
+                    if (reads === 3) change();
+                    return f.binding.nativeEditor;
+                } });
+            }
+            expect(f.host.observe(createQuery({ viewports: [0] })).status).toBe('blocked');
+            expect(first.signal.aborted).toBe(true);
+        }
+    );
+
+    it.each(['stable', 'fresh-equal', 'aborted', 'request', 'auth', 'remove', 'reparent',
+        'owner', 'region-marker', 'duplicate', 'hidden', 'core', 'unknown-scope', 'clone'])(
+        'retains final geometry boundary %s control', async kind =>
+        {
+            const f = createFixture(kind === 'unknown-scope' ? 'unknown' : 'user:7');
+            const ready = await f.host.refreshAuthority();
+            if (kind === 'unknown-scope')
+            {
+                expect(ready).toBe(false);
+                expect(f.host.observe(createQuery()).status).toBe('blocked');
+                return;
+            }
+            expect(ready).toBe(true);
+            if (kind === 'fresh-equal')
+            {
+                vi.spyOn(f.binding.layoutSource, 'measure').mockImplementation(() => structuredClone(f.measured));
+                vi.spyOn(f.binding.layoutPort, 'readFrameRect').mockImplementation(() => ({ ...f.measured.frame }));
+            }
+            const first = f.host.observe(createQuery());
+            expect(first.status).toBe('observed');
+            if (first.status !== 'observed') throw new Error('positive observation required');
+            if (kind === 'clone')
+            {
+                expect(f.host.assertCurrent({ ...first })).toBe(false);
+                return;
+            }
+            if (kind === 'aborted') f.lifetime.abort();
+            if (kind === 'request') privateRequestRuntime.advance('admin');
+            if (kind === 'auth') await privateSurfaceRuntime.invalidate('account-switch', () => undefined);
+            if (kind === 'remove') f.region.remove();
+            if (kind === 'reparent') f.root.parentElement!.append(f.region);
+            if (kind === 'owner') f.root.parentElement!.className = 'different-owner';
+            if (kind === 'region-marker') f.region.removeAttribute('data-authoring-workspace-extension-region');
+            if (kind === 'duplicate') f.root.append(f.region.cloneNode(true));
+            if (kind === 'hidden') f.root.hidden = true;
+            if (kind === 'core') f.region.setAttribute('data-active-inspector', 'details');
+            expect(f.host.observe(createQuery()).status).toBe(['stable', 'fresh-equal'].includes(kind) ? 'observed' : 'blocked');
+        }
+    );
+    it('uses three bounded value samples and accepts fresh equal producer objects', async () =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        const measure = vi.spyOn(f.binding.layoutSource, 'measure').mockImplementation(() => structuredClone(f.measured));
+        const frame = vi.spyOn(f.binding.layoutPort, 'readFrameRect').mockImplementation(() => ({ ...f.measured.frame }));
+        expect(f.host.observe(createQuery()).status).toBe('observed');
+        expect(measure).toHaveBeenCalledTimes(3);
+        expect(frame).toHaveBeenCalledTimes(3);
+    });
+
+    it.each(['second-sample', 'third-sample', 'last-native', 'shared-measured', 'shared-frame', 'restore-next'])(
+        'refuses %s geometry drift without retrying', async kind =>
+        {
+            const f = createFixture();
+            expect(await f.host.refreshAuthority()).toBe(true);
+            const current = structuredClone(f.measured);
+            const frame = { ...current.frame };
+            let reads = 0;
+            const measure = vi.spyOn(f.binding.layoutSource, 'measure').mockImplementation(() =>
+            {
+                reads += 1;
+                // A changed height need not change the offered panel rectangle.
+                if (kind === 'second-sample' && reads === 2 || kind === 'third-sample' && reads === 3)
+                {
+                    current.layoutViewportHeightCssPx -= 1;
+                }
+                if (kind === 'restore-next') return { ...structuredClone(current), mobile: reads === 2 };
+                return kind === 'shared-measured' ? current : structuredClone(current);
+            });
+            vi.spyOn(f.binding.layoutPort, 'readFrameRect').mockImplementation(() => kind === 'shared-frame' ? frame : { ...frame });
+            let nativeReads = 0;
+            f.setCurrent({ ...f.binding, readNativeEditor: () =>
+            {
+                nativeReads += 1;
+                if (nativeReads === (kind === 'last-native' ? 5 : 3))
+                {
+                    if (kind === 'last-native' || kind === 'shared-measured') current.layoutViewportHeightCssPx -= 1;
+                    if (kind === 'shared-frame') frame.height -= 1;
+                }
+                return f.binding.nativeEditor;
+            } });
+            expect(f.host.observe(createQuery()).status).toBe('blocked');
+            expect(measure.mock.calls.length).toBeLessThanOrEqual(3);
+            if (kind === 'restore-next') expect(measure).toHaveBeenCalledTimes(2);
+        }
+    );
+
+    it.each([2, 3])('rechecks final producer callbacks on sample %s', async changedAt =>
+    {
+        for (const kind of ['core', 'opacity', 'owner', 'document', 'request'])
+        {
+            const f = createFixture();
+            expect(await f.host.refreshAuthority()).toBe(true);
+            let frames = 0;
+            vi.spyOn(f.binding.layoutPort, 'readFrameRect').mockImplementation(() =>
+            {
+                frames += 1;
+                if (frames === changedAt)
+                {
+                    if (kind === 'core') f.region.setAttribute('data-active-inspector', 'details');
+                    if (kind === 'opacity') f.root.style.opacity = '0';
+                    if (kind === 'owner') f.root.parentElement!.className = 'different-owner';
+                    if (kind === 'document') f.adapter.updateSource('changed after geometry', 1);
+                    if (kind === 'request') privateRequestRuntime.advance('admin');
+                }
+                return { ...f.measured.frame };
+            });
+            expect(f.host.observe(createQuery()).status, kind).toBe('blocked');
+            f.host.dispose();
+        }
+    });
+
+    it('copies an earlier measurement before a later frame callback mutates it', async () =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        vi.spyOn(f.binding.layoutPort, 'readFrameRect').mockImplementation(() =>
+        {
+            f.measured.layoutViewportHeightCssPx -= 1;
+            return { ...f.measured.frame };
+        });
+        expect(f.host.observe(createQuery()).status).toBe('blocked');
+    });
 });
