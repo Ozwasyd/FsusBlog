@@ -1,0 +1,65 @@
+{
+    "schema": "fsusblog.authoring-approval-source-custody.v1",
+    "frozenPropertyCheckpoint": "b3ce7e385ed4e11528f4845ec159277e228b78a5",
+    "originalIssuerHead": "1647fc9535664ada98b7eccdffe09db240d91acd",
+    "originalIssuerPullRequest": 4610,
+    "productionRegistration": false,
+    "authorizationAcceptance": "pending independent scope/state/native generation/snapshot custody; all absent owners retain refusal",
+    "sources": [
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalAuthority.cs",
+            "sha256": "9c2dfe2b31de9a863912b46869cde8b9a94ba21667bcb61af56b93601326cbfd",
+            "originalGitBlob": "075b47591932130dc197ae45bc8f9c1d0cf2f470"
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalContract.cs",
+            "sha256": "2c1bfe4d58536d8eae2ddae4b36de557e9fa18efdc1463cb2d2198a80a2bb7d2",
+            "originalGitBlob": "bef286619b4fde123c9591fddc1a0cc901c9921d"
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalStorageSchema.cs",
+            "sha256": "d2561b7438795cff105e15a5eb3dc549c5b35960eddf22c23eca29092d7fb2f5",
+            "originalGitBlob": "85766bb81893cbc1ba838af9b57262eed47214bf"
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionApprovalStore.cs",
+            "sha256": "a18afa428a7104b25f4b1eef73c7d595e6330677df34c6b3152c16cb96740323",
+            "originalGitBlob": "d323a0062287bd288c86bd6b6b29293e467fa805"
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs",
+            "sha256": "74fa534ad58aacec6468bcf48b96a21327ae2c7f55957ac837ee9568fbe4e1b5",
+            "originalGitBlob": "cca0c5589a4234ae542c994745f7fab9aa8f5c24"
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateStorageSchema.cs",
+            "sha256": "4464ef02d7e7f45bdabf538b7b825518a6d8ac9e90aff89026043df71d2cd549",
+            "originalGitBlob": "591ca0c0a06e44d386761d638b918dc07281cd04"
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionStateStore.cs",
+            "sha256": "f409393a293d7305431d5ea5ed968ee59a326c9fc6d713219607c31c08178db0",
+            "originalGitBlob": "28c739b801737246c4c490bf1174d82fb8c2c751"
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringLifecycleReceiptStore.cs",
+            "sha256": "508982373367f2ce4f33eb780d3d6901ca1e1d90c2363479a0b414f5b5951bfb",
+            "originalGitBlob": "31828133ff71905c1ca43cf54249994ff06f94f0"
+        },
+        {
+            "path": "tests/backend/Unit/AuthoringExtensionApprovalAuthorityTests.cs",
+            "sha256": "7dfd49ae8eb78f5d28a4a3fbcc81f5bd771e4f87e23f52d52cb2d5077d94115d",
+            "originalGitBlob": "1f3c430efde38b4d94598b995ad0962bc380ecf0"
+        },
+        {
+            "path": "tests/backend/Integration/AuthoringExtensionApprovalPostgresTests.cs",
+            "sha256": "bc760455834d4c82c988cafd7c94e52765aa8f8e5063b798ad2b63830027dfaa",
+            "originalGitBlob": "1406237baeebfc1cb28364175010d43df50f8a77"
+        },
+        {
+            "path": "tests/backend/Helpers/TestInfrastructure/AuthoringStateProcessWorker.cs",
+            "sha256": "989bec8b8646601ab3eb66725b506786a8784ee41ebdfec720953e1b7ca521f4",
+            "originalGitBlob": "cc2abc08dc1b518266f5dd1764543c7100942b21"
+        }
+    ]
+}

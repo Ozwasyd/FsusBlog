@@ -1746,6 +1746,24 @@
             "value": 290,
             "goldenFamily": "article-property-historical-read",
             "goldenOrder": 281
+        },
+        {
+            "name": "AuthoringExtensionApprovalDecisionRequest",
+            "value": 291,
+            "goldenOrder": 282,
+            "goldenFamily": "authoring-extension-approval"
+        },
+        {
+            "name": "AuthoringExtensionApprovalConfirmationRequest",
+            "value": 292,
+            "goldenOrder": 283,
+            "goldenFamily": "authoring-extension-approval"
+        },
+        {
+            "name": "AuthoringExtensionApprovalPreviewResponse",
+            "value": 293,
+            "goldenOrder": 284,
+            "goldenFamily": "authoring-extension-approval"
         }
     ],
     "goldenCatalog": {
@@ -1757,7 +1775,8 @@
             "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
             "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
             "tests/backend/Unit/WritingAidPreferenceWireTests.cs",
-            "tests/backend/Unit/UploadAssetPreviewCodecTests.cs"
+            "tests/backend/Unit/UploadAssetPreviewCodecTests.cs",
+            "tests/backend/Unit/AuthoringExtensionApprovalTransportWireTests.cs"
         ]
     }
 }

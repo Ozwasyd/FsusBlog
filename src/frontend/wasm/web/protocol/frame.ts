@@ -283,6 +283,9 @@ export const FrameType = {
   ArticlePropertyDefinitionDeleteRequest: 288,
   ArticlePropertyDefinitionMutationReceipt: 289,
   ArticlePropertyValueHistoricalReadResponse: 290,
+  AuthoringExtensionApprovalDecisionRequest: 291,
+  AuthoringExtensionApprovalConfirmationRequest: 292,
+  AuthoringExtensionApprovalPreviewResponse: 293,
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];

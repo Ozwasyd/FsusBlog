@@ -13,7 +13,11 @@
     "src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs",
     "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
     "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
-    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs"
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalContract.cs",
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs",
+    "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs"
   ],
   "typedValueOwner": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
   "records": {
@@ -1245,6 +1249,504 @@
           "type": "ArticlePropertyValueReadScope"
         }
       ]
+    },
+    "AuthoringExtensionApprovalDecisionRequest": {
+      "fields": [
+        {
+          "name": "ContractVersion",
+          "type": "int32",
+          "min": 2,
+          "max": 2
+        },
+        {
+          "name": "DecisionId",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        }
+      ]
+    },
+    "AuthoringExtensionApprovalConfirmationRequest": {
+      "fields": [
+        {
+          "name": "ContractVersion",
+          "type": "int32",
+          "min": 2,
+          "max": 2
+        },
+        {
+          "name": "DecisionId",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "DisplayedDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "StepUpProof",
+          "type": "string",
+          "maxChars": 4096
+        }
+      ]
+    },
+    "AuthoringApprovalScopeView": {
+      "fields": [
+        {
+          "name": "ExtensionId",
+          "type": "string",
+          "maxChars": 128
+        },
+        {
+          "name": "ExtensionVersion",
+          "type": "string",
+          "maxChars": 64
+        },
+        {
+          "name": "SiteId",
+          "type": "string",
+          "maxChars": 256
+        },
+        {
+          "name": "UserId",
+          "type": "string",
+          "maxChars": 256
+        },
+        {
+          "name": "DocumentId",
+          "type": "string",
+          "maxChars": 256,
+          "nullable": true
+        },
+        {
+          "name": "SchemaVersion",
+          "type": "int32",
+          "min": 1,
+          "max": 2147483647
+        }
+      ]
+    },
+    "AuthoringApprovalOperationContextView": {
+      "fields": [
+        {
+          "name": "ContractVersion",
+          "type": "int32",
+          "min": 2,
+          "max": 2
+        },
+        {
+          "name": "ActorBindingSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "AuthorizationPolicy",
+          "type": "string",
+          "maxChars": 128
+        },
+        {
+          "name": "SiteId",
+          "type": "string",
+          "maxChars": 256
+        },
+        {
+          "name": "StateUserId",
+          "type": "string",
+          "maxChars": 256
+        },
+        {
+          "name": "DocumentId",
+          "type": "string",
+          "maxChars": 256,
+          "nullable": true
+        },
+        {
+          "name": "SourceScopeSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "DestinationScopeSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true,
+          "nullable": true
+        },
+        {
+          "name": "LifecycleGeneration",
+          "type": "int64",
+          "min": 0,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "LifecycleReceiptSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "ScopeAuthorizationSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        }
+      ]
+    },
+    "AuthoringApprovalPlanSummary": {
+      "fields": [
+        {
+          "name": "ContractVersion",
+          "type": "int32",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "name": "PlanId",
+          "type": "string",
+          "maxChars": 256
+        },
+        {
+          "name": "ExpectedFromRevision",
+          "type": "int64",
+          "min": 0,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "ExpectedToRevision",
+          "type": "int64",
+          "min": 0,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "SourceContentSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "MaximumRecords",
+          "type": "int64",
+          "min": 0,
+          "max": 4096
+        },
+        {
+          "name": "MaximumBytes",
+          "type": "int64",
+          "min": 0,
+          "max": 16777216
+        },
+        {
+          "name": "MaximumDurationTicks",
+          "type": "int64",
+          "min": 1,
+          "max": 3000000000
+        },
+        {
+          "name": "TransformCount",
+          "type": "int32",
+          "min": 0,
+          "max": 1000
+        },
+        {
+          "name": "BackupReference",
+          "type": "string",
+          "maxChars": 256
+        },
+        {
+          "name": "RollbackReference",
+          "type": "string",
+          "maxChars": 256
+        },
+        {
+          "name": "ContentSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        }
+      ]
+    },
+    "AuthoringApprovalMeasurementView": {
+      "fields": [
+        {
+          "name": "Scope",
+          "type": "AuthoringApprovalScopeView"
+        },
+        {
+          "name": "Revision",
+          "type": "int64",
+          "min": 0,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "Records",
+          "type": "int64",
+          "min": 0,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "Bytes",
+          "type": "int64",
+          "min": 0,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "ContentSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        }
+      ]
+    },
+    "AuthoringApprovalLifecycleReceiptView": {
+      "fields": [
+        {
+          "name": "SchemaVersion",
+          "type": "int32",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "name": "Sequence",
+          "type": "int64",
+          "min": 1,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "ExtensionId",
+          "type": "string",
+          "maxChars": 128
+        },
+        {
+          "name": "PackageSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "Version",
+          "type": "string",
+          "maxChars": 64
+        },
+        {
+          "name": "StateSchemaVersion",
+          "type": "int32",
+          "min": 1,
+          "max": 2147483647
+        },
+        {
+          "name": "DataSchemaVersion",
+          "type": "int32",
+          "min": 1,
+          "max": 2147483647
+        },
+        {
+          "name": "PreviousState",
+          "type": "byte",
+          "enum": "AuthoringLifecycleState"
+        },
+        {
+          "name": "State",
+          "type": "byte",
+          "enum": "AuthoringLifecycleState"
+        },
+        {
+          "name": "Generation",
+          "type": "int64",
+          "min": 1,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "ScopeDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "FailureCode",
+          "type": "string",
+          "maxChars": 4096,
+          "nullable": true
+        },
+        {
+          "name": "PreviousReceiptSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "ReceiptSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        }
+      ]
+    },
+    "AuthoringApprovalExecutionTargetView": {
+      "fields": [
+        {
+          "name": "Status",
+          "type": "byte",
+          "enum": "AuthoringExecutionResolutionStatus"
+        },
+        {
+          "name": "ExecutionClass",
+          "type": "byte",
+          "enum": "AuthoringExecutionClass"
+        },
+        {
+          "name": "ExtensionId",
+          "type": "string",
+          "maxChars": 128
+        },
+        {
+          "name": "ExtensionVersion",
+          "type": "string",
+          "maxChars": 64
+        },
+        {
+          "name": "PackageSha256",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "ContributionId",
+          "type": "string",
+          "maxChars": 256
+        },
+        {
+          "name": "ContributionKind",
+          "type": "byte",
+          "enum": "AuthoringContributionKind"
+        },
+        {
+          "name": "EntrypointIdentity",
+          "type": "string",
+          "maxChars": 4096
+        },
+        {
+          "name": "TrustedAdapterId",
+          "type": "string",
+          "maxChars": 256,
+          "nullable": true
+        },
+        {
+          "name": "RuntimeIdentity",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "BlockedReason",
+          "type": "string",
+          "maxChars": 4096,
+          "nullable": true
+        },
+        {
+          "name": "TrustedAdapterIdentity",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true,
+          "nullable": true
+        }
+      ]
+    },
+    "AuthoringExtensionApprovalPreviewResponse": {
+      "fields": [
+        {
+          "name": "ContractVersion",
+          "type": "int32",
+          "min": 2,
+          "max": 2
+        },
+        {
+          "name": "OperationContext",
+          "type": "AuthoringApprovalOperationContextView"
+        },
+        {
+          "name": "DecisionId",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "Operation",
+          "type": "byte",
+          "enum": "AuthoringApprovalOperation"
+        },
+        {
+          "name": "Status",
+          "type": "byte",
+          "enum": "AuthoringApprovalStatus"
+        },
+        {
+          "name": "Scope",
+          "type": "AuthoringApprovalScopeView"
+        },
+        {
+          "name": "DestinationScope",
+          "type": "AuthoringApprovalScopeView",
+          "nullable": true
+        },
+        {
+          "name": "Records",
+          "type": "int64",
+          "min": 0,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "Bytes",
+          "type": "int64",
+          "min": 0,
+          "max": "9223372036854775807"
+        },
+        {
+          "name": "Retention",
+          "type": "string",
+          "maxChars": 128
+        },
+        {
+          "name": "Digest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "FrozenPlan",
+          "type": "AuthoringApprovalPlanSummary",
+          "nullable": true
+        },
+        {
+          "name": "Measurement",
+          "type": "AuthoringApprovalMeasurementView",
+          "nullable": true
+        },
+        {
+          "name": "ExpectedLifecycleReceipt",
+          "type": "AuthoringApprovalLifecycleReceiptView"
+        },
+        {
+          "name": "ExpiresAtUtc",
+          "type": "utcTicks"
+        },
+        {
+          "name": "OrderedOldTargets",
+          "type": "AuthoringApprovalExecutionTargetView",
+          "array": true,
+          "maxCount": 1000
+        },
+        {
+          "name": "OrderedNewTargets",
+          "type": "AuthoringApprovalExecutionTargetView",
+          "array": true,
+          "maxCount": 1000
+        }
+      ]
     }
   },
   "definitionContractOwner": "src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs",
@@ -1252,7 +1754,8 @@
     "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs",
     "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
     "src/shared/Contracts/ArticleProperties/ArticlePropertyDefinitionMutationContracts.cs",
-    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs"
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+    "src/shared/Contracts/AuthoringExtensions/AuthoringExtensionApprovalTransportContracts.cs"
   ],
   "mutationRoots": [
     "ArticlePropertyValueMutationCommand",
@@ -1262,9 +1765,16 @@
     "ArticlePropertyDefinitionRenameRequest",
     "ArticlePropertyDefinitionDeprecateRequest",
     "ArticlePropertyDefinitionDeleteRequest",
-    "ArticlePropertyDefinitionMutationReceipt"
+    "ArticlePropertyDefinitionMutationReceipt",
+    "AuthoringExtensionApprovalDecisionRequest",
+    "AuthoringExtensionApprovalConfirmationRequest"
   ],
   "readRoots": [
-    "ArticlePropertyValueHistoricalReadResponse"
+    "ArticlePropertyValueHistoricalReadResponse",
+    "AuthoringExtensionApprovalPreviewResponse"
+  ],
+  "contractNamespaces": [
+    "FsusBlog.Shared.Contracts.ArticleProperties",
+    "FsusBlog.Shared.Contracts.AuthoringExtensions"
   ]
 }

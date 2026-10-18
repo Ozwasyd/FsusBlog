@@ -107456,7 +107456,7 @@
         "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
         "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
     },
-    "x-fsus-observation-digest": "c8f1a33720f8837b496b5604248bbb3939b809ecbe3abb1dbc93ef67ced7ea7d",
+    "x-fsus-observation-digest": "0f6b5abd5c44051d6dcb06362efcab7f59e6cb764fbf6a1afa4ed5d48f506a90",
     "x-fsus-protocol-states": {
         "SupportedVersions": [
             2
@@ -107559,6 +107559,9 @@
             "AuthoringCanvasResolveRequest",
             "AuthoringCanvasUndoRedoRequest",
             "AuthoringCanvasWriteReceipt",
+            "AuthoringExtensionApprovalConfirmationRequest",
+            "AuthoringExtensionApprovalDecisionRequest",
+            "AuthoringExtensionApprovalPreviewResponse",
             "AuthoringWorkspaceSnapshotRequest",
             "AuthoringWorkspaceSnapshotResponse",
             "BackupStatus",

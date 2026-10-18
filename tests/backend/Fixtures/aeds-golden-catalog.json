@@ -8,7 +8,8 @@
     "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
     "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
     "tests/backend/Unit/WritingAidPreferenceWireTests.cs",
-    "tests/backend/Unit/UploadAssetPreviewCodecTests.cs"
+    "tests/backend/Unit/UploadAssetPreviewCodecTests.cs",
+    "tests/backend/Unit/AuthoringExtensionApprovalTransportWireTests.cs"
   ],
   "retiredFrameValues": [
     { "value": 40, "reason": "legacy-admin-password-reset" },
@@ -301,6 +302,9 @@
     { "name": "ArticlePropertyDefinitionDeprecateRequest", "value": 287, "family": "article-property-mutation" },
     { "name": "ArticlePropertyDefinitionDeleteRequest", "value": 288, "family": "article-property-mutation" },
     { "name": "ArticlePropertyDefinitionMutationReceipt", "value": 289, "family": "article-property-mutation" },
-    { "name": "ArticlePropertyValueHistoricalReadResponse", "value": 290, "family": "article-property-historical-read" }
+    { "name": "ArticlePropertyValueHistoricalReadResponse", "value": 290, "family": "article-property-historical-read" },
+    { "name": "AuthoringExtensionApprovalDecisionRequest", "value": 291, "family": "authoring-extension-approval" },
+    { "name": "AuthoringExtensionApprovalConfirmationRequest", "value": 292, "family": "authoring-extension-approval" },
+    { "name": "AuthoringExtensionApprovalPreviewResponse", "value": 293, "family": "authoring-extension-approval" }
   ]
 }

@@ -35,7 +35,7 @@ function retainedManifest()
     const source = structuredClone(manifest);
     source.frameTypes = source.frameTypes.filter((frame) => frame.goldenOrder < 236);
     source.goldenCatalog.defaultEvidence = source.goldenCatalog.defaultEvidence.filter((entry) =>
-        !entry.endsWith('/ArticlePropertyValueReadWireTests.cs') && !entry.endsWith('/AuthoringWorkspaceSnapshotWireTests.cs')
+        !entry.endsWith('/AuthoringExtensionApprovalTransportWireTests.cs') && !entry.endsWith('/ArticlePropertyValueReadWireTests.cs') && !entry.endsWith('/AuthoringWorkspaceSnapshotWireTests.cs')
         && !entry.endsWith('/WritingAidPreferenceWireTests.cs') && !entry.endsWith('/UploadAssetPreviewCodecTests.cs'));
     return source;
 }
@@ -58,7 +58,7 @@ test('the original producer owns five products with manifest-derived identities 
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
     assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
-    assert.equal(golden.frames.length, 282);
+    assert.equal(golden.frames.length, 285);
 });
 
 test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
@@ -243,4 +243,17 @@ test('historical property read uses the next sole-owner allocation and retains t
     const source = JSON.parse(readFileSync(path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
     assert.equal(source.frameTypes.find(frame => frame.name === 'ArticlePropertyValueHistoricalReadResponse').value, 290);
     assert.equal(source.frameTypes.find(frame => frame.name === 'ArticlePropertyValueReadResponse').value, 269);
+});
+
+
+test('the serialized approval allocation preserves all existing frames and has no execution-result frame', () =>
+{
+    const source = manifest;
+    assert.deepEqual(source.frameTypes.filter(frame => frame.goldenFamily === 'authoring-extension-approval')
+        .map(frame => [frame.name, frame.value]), [
+        ['AuthoringExtensionApprovalDecisionRequest', 291],
+        ['AuthoringExtensionApprovalConfirmationRequest', 292],
+        ['AuthoringExtensionApprovalPreviewResponse', 293]
+    ]);
+    assert.equal(source.frameTypes.some(frame => /ApprovedClaim|ApprovalExecutionResult/.test(frame.name)), false);
 });

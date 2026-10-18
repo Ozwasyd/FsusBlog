@@ -286,5 +286,8 @@ public enum AedsFrameType : ushort
     ArticlePropertyDefinitionDeprecateRequest = 287,
     ArticlePropertyDefinitionDeleteRequest = 288,
     ArticlePropertyDefinitionMutationReceipt = 289,
-    ArticlePropertyValueHistoricalReadResponse = 290
+    ArticlePropertyValueHistoricalReadResponse = 290,
+    AuthoringExtensionApprovalDecisionRequest = 291,
+    AuthoringExtensionApprovalConfirmationRequest = 292,
+    AuthoringExtensionApprovalPreviewResponse = 293
 }

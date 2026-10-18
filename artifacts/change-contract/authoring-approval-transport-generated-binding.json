@@ -1,0 +1,53 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/contracts/generate-article-property-value-read-wire.mjs",
+        "tools/contracts/generate-article-property-value-read-golden.mjs",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "src/shared/Contracts/Validation/article-property-value-read-wire.json",
+        "src/shared/Contracts/AuthoringExtensions/AuthoringExtensionApprovalTransportContracts.cs",
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalContract.cs"
+    ],
+    "outputs": [
+        {
+            "path": "src/core/Algorithms/AedsFrameType.cs",
+            "sha256": "6bfe1216ac7f10665186f7eb12e3b0d880a50eaa4ee5424044c8562c3ec1a16a"
+        },
+        {
+            "path": "src/shared/AedsFrameHeader.cs",
+            "sha256": "de2d303f64aef9175745cee020453ddd81437a652f5abe3843c2de7905c48394"
+        },
+        {
+            "path": "src/frontend/wasm/web/protocol/frame.ts",
+            "sha256": "a15250e83846ba0d2d2bc57a3c75844ee6f4703dc3f764121cd033afe41df5bd"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+            "sha256": "fdc5c0ed35cedd005c4f4c0a7821942a017335ee4d8bb55c7b8036876d7feba1"
+        },
+        {
+            "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "sha256": "d5d5252416acfb0fb996e1e002514cfab2645bfe6d40b44d23c7114280cea980"
+        },
+        {
+            "path": "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+            "sha256": "a84878743361a704627a5f47593cdb575532049cd1d942523a0e042b759f9cf0"
+        },
+        {
+            "path": "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+            "sha256": "31075bf490936a3605ff8292c9834feb1180e17e0ad206beb98b6e655b4137ef"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/property_value_read.generated.hpp",
+            "sha256": "2569d912c649e6d35f2b64a8ba533c16e3aa55b73059be1555a117f9a59a2acf"
+        },
+        {
+            "path": "tests/fixtures/protocol/authoring-extension-approval-wire-golden.json",
+            "sha256": "e9c86da172b75bec5c233b3f3ef562790581468436bb78f0c896fc58811a34d5"
+        },
+        {
+            "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "sha256": "45cff65b48914d681dc2fd982eeb8b4ee9e652b7e4649b9b86faa0c2acb7ce8f"
+        }
+    ]
+}
