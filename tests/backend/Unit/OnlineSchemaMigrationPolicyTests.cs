@@ -148,6 +148,14 @@ public sealed class OnlineSchemaMigrationPolicyTests
 
         Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
         Assert.Equal(descriptors.Count, metadata.Count);
+        OnlineSchemaMigrationMetadata articleSource =
+            metadata[ArticleSourceGenerationMigrationDefinitions.MigrationId];
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, articleSource.Phase);
+        Assert.False(articleSource.Destructive);
+        Assert.False(articleSource.RequiresExclusiveMode);
+        Assert.False(articleSource.LegacyBootstrapOnly);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, articleSource.RollbackMode);
+        Assert.Equal(new[] { "descriptor_policy", "n_minus_one_read_write" }, articleSource.Validators);
         OnlineSchemaMigrationMetadata passkeyExpand =
             metadata["20260711-post-recovery-passkey-completion-idempotency"];
         OnlineSchemaMigrationMetadata publicArticleProjectionExpand =
@@ -338,7 +346,8 @@ public sealed class OnlineSchemaMigrationPolicyTests
             AdminSessionProjectionMigrationDefinitions.MigrationId,
             AuthorRecentArticleHistoryMigrationDefinitions.MigrationId,
             ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId,
-            ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId
+            ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId,
+            ArticleSourceGenerationMigrationDefinitions.MigrationId
         };
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>
