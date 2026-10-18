@@ -475,6 +475,42 @@ retained backup bytes for that exact scope only, preserves an empty scope at a
 newer revision and keeps plan metadata. Another scope's current/backup data is
 untouched. At most 32 retained backups per scope are admitted; further migration
 refuses until the host's explicit retention/deletion policy settles them.
+`PostgresAuthoringLifecycleReceiptStore` implements receipt persistence through the
+application's existing `ISqlSugarClient`. Reads validate the complete extension
+chain; appends acquire the per-extension PostgreSQL advisory transaction lock,
+validate the exact previous digest/state/sequence/generation, and insert one row
+inside an owned read-committed transaction. The initial receipt starts at sequence
+and generation one with `Installed` as its previous state and a zero previous
+digest. The existing coordinator owns the allowed transition registry. Duplicate,
+stale, malformed, broken-chain appends and cancellation observed at the pre-commit
+checkpoint fail without advancing the head. ADO lock/insert waits retain the
+existing database command timeout; cancellation is checked around those awaits,
+not passed into the underlying command. Independent connections and recreated stores use that same
+database authority. The client must be scoped to an operation; ambient transactions
+are refused so an append cannot report success before its owner commits.
+
+Host composition must provide the migration and scoped registration before using
+this adapter. Its table contract is `authoring_lifecycle_receipt`, with primary key
+`(extension_id, sequence)`: `extension_id` is ordinal `VARCHAR(256) COLLATE "C"`;
+`sequence` and `generation` are `BIGINT`; `schema_version`, `state_schema_version`,
+`data_schema_version`, `previous_state`, and `state` are `INTEGER`; `version` is
+`VARCHAR(256)`; `package_sha256`, `scope_digest`, `previous_receipt_sha256`, and
+`receipt_sha256` are `VARCHAR(64)`; `failure_code` is nullable `VARCHAR(128)`.
+All other columns are required. The adapter does not create tables or configure a
+second database. The integration fixture materializes this schema only in its
+owned synthetic PostgreSQL database.
+
+The receipt interface identifies a chain by extension only; it does not provide
+site/user tenancy, consent, or a signature authority. Hash-chain validation detects
+corruption and broken predecessors, but cannot detect privileged deletion of an
+entire chain or a valid tail without an independent trusted witness. Database
+access and retention remain host responsibilities. Failure codes must remain
+closed operational identifiers and must never carry secrets or state plaintext.
+Durable state/grant stores, migration/DI integration, and a real host registration
+owner are still required before restart recovery or atomic data deletion can be
+claimed as terminal acceptance. Removing the scoped registration is the rollback
+boundary; preserve existing receipt rows for audit and do not recreate an empty
+store as a recovery shortcut.
 
 ## Resource budgets, crash isolation, and telemetry
 
