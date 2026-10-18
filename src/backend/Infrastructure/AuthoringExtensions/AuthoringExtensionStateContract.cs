@@ -96,15 +96,24 @@ public sealed record AuthoringStateObservation(
 /// <summary>
 /// Exclusive state observation lifetime. VerifyCurrentAsync reads through the same held
 /// connection and fails closed on drift. Cancellation or any verification failure releases
-/// custody; all later use must fail. The caller must dispose after its terminal CAS.
+/// custody; all later State access and verification must fail. Disposal invalidates State
+/// before awaiting ongoing verification/cleanup. Racing State reads linearize with
+/// invalidation; a snapshot copied earlier is data, never proof of continuing custody.
+/// The caller must verify within the live lifetime and dispose after its terminal CAS.
 /// This is neither approval nor native execution-result authority.
 /// </summary>
 public interface IAuthoringExtensionStateObservation : IAsyncDisposable
 {
+    /// <summary>
+    /// Returns captured data only while the lifetime is live. Throws
+    /// state_observation_custody_lost after invalidation, cancellation or known connection
+    /// loss. This local guard performs no SQL and does not replace VerifyCurrentAsync.
+    /// </summary>
     AuthoringStateObservation State
     {
         get;
     }
+    /// <summary>Diagnostic key metadata retained after release; it attests no live custody.</summary>
     ImmutableArray<string> AcquiredScopeIds
     {
         get;
