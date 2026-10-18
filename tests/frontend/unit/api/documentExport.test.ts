@@ -150,7 +150,7 @@ describe('document export command coordination', () => {
         const response = deferred<string>();
         const states: DocumentExportCallState<string>[] = [];
         const revoked = vi.fn();
-        const execute = vi.fn().mockImplementationOnce(() => response.promise).mockRejectedValueOnce('denied');
+        const execute = vi.fn<(request: string) => Promise<string>>().mockImplementationOnce(() => response.promise).mockRejectedValueOnce('denied');
         const call = createDocumentExportCall({
             captureRequest: (request) => request,
             execute,

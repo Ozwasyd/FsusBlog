@@ -51,13 +51,32 @@ describe('auth API binary base session flow', () => {
 
     await enrollmentPasskeyRegisterComplete({
       sessionKey: 'challenge',
-      id: 'credential',
-      rawId: new Uint8Array([1]),
-      clientDataBytes: new Uint8Array([2]),
-      attestationObject: new Uint8Array([3]),
-      transports: []
+      attestation: {
+        id: 'credential',
+        rawId: 'AQ',
+        response: {
+          clientDataJSON: 'Ag',
+          attestationObject: 'Aw',
+          transports: []
+        }
+      }
     })
     expectBinaryRoute('binary_post_auth_enrollment_passkey_register_complete', FrameType.AuthLoginFlow)
+    const body = findBinaryRouteCall('binary_post_auth_enrollment_passkey_register_complete')?.requestOptions?.body
+    expect(body).toBeInstanceOf(ArrayBuffer)
+    if (!(body instanceof ArrayBuffer)) throw new TypeError('expected passkey request frame')
+    const payload = new Uint8Array(body, 16)
+    const view = new DataView(body, 16)
+    expect(view.getInt32(4, true)).toBe(0)
+    const blob = payload.subarray(124)
+    const readSlice = (offset: number) => blob.subarray(
+      view.getInt32(offset, true),
+      view.getInt32(offset, true) + view.getInt32(offset + 4, true)
+    )
+    expect(new TextDecoder().decode(readSlice(72))).toBe('credential')
+    expect([...readSlice(80)]).toEqual([1])
+    expect([...readSlice(88)]).toEqual([2])
+    expect([...readSlice(96)]).toEqual([3])
 
     await getEnrollmentStatus()
     expectBinaryRoute('binary_get_auth_enrollment_status', FrameType.AuthLoginFlow)

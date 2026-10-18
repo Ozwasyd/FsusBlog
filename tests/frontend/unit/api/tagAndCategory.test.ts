@@ -53,6 +53,7 @@ describe('tag API', () => {
     }))
     const query = mockBinary.mock.calls.at(-1)?.[0]?.binaryRoute?.query
     expect(query).toBeInstanceOf(URLSearchParams)
+    if (!(query instanceof URLSearchParams)) throw new TypeError('expected URLSearchParams query')
     expect(query.get('name')).toBe('C#')
   })
 
