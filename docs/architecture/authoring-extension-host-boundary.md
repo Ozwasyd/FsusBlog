@@ -434,7 +434,7 @@ state by default. Data deletion is a separate exact approval whose measured scop
 must still match; core documents, history, assets, and another extension's state
 are outside that authority.
 
-tgresAuthoringLifecycleReceiptStore` implements receipt persistence through the
+`PostgresAuthoringLifecycleReceiptStore` implements receipt persistence through the
 application's existing `ISqlSugarClient`. Reads validate the complete extension
 chain; appends acquire the per-extension PostgreSQL advisory transaction lock,
 validate the exact previous digest/state/sequence/generation, and insert one row
