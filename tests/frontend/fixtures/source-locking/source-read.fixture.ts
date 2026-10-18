@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import './another-source-lock.test.ts'
+import '../../unit/view-contracts/aboutPage.test.ts'
 
 const repoFile = (path: string): string => path
 const readRepoFile = (path: string): string => readFileSync(repoFile(path), 'utf8')
