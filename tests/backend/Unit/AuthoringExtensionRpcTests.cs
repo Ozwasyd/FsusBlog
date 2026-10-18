@@ -316,7 +316,10 @@ public sealed class AuthoringExtensionRpcTests
     {
         RpcFixture fixture = await CreateFixtureAsync();
         var clock = new AdmissionTimeProvider(fixture.Envelope.Deadline.AddMinutes(-1));
-        AuthoringRpcEnvelope envelope = fixture.Envelope with { Deadline = clock.GetUtcNow().AddMinutes(10) };
+        AuthoringRpcEnvelope envelope = fixture.Envelope with
+        {
+            Deadline = clock.GetUtcNow().AddMinutes(10)
+        };
         var gate = new SuspendedAdmissionRevisionGate();
         var grants = new AuthoringCapabilityGrantAuthority(fixture.Store, clock);
         var authority = new AuthoringExtensionRpcAuthority(grants, fixture.Transaction, gate, clock);
@@ -355,7 +358,10 @@ public sealed class AuthoringExtensionRpcTests
 
         AuthoringCapabilityGrant renewed = await grants.IssueAsync(CreateGrantRequest());
         Assert.NotEqual(original.GrantDigest, renewed.GrantDigest);
-        AuthoringRpcEnvelope retry = envelope with { GrantDigest = renewed.GrantDigest };
+        AuthoringRpcEnvelope retry = envelope with
+        {
+            GrantDigest = renewed.GrantDigest
+        };
         Assert.Equal(envelope.RequestId, retry.RequestId);
         AuthoringMutationApproval retryApproval = PreviewFor(retry, fixture.Approval);
         AuthoringTransactionReceipt receipt = await authority.ApplyMutationAsync(retry, retryApproval);
@@ -407,7 +413,10 @@ public sealed class AuthoringExtensionRpcTests
             }
         }
 
-        AuthoringRpcEnvelope retry = fixture.Envelope with { Deadline = clock.GetUtcNow().AddMinutes(1) };
+        AuthoringRpcEnvelope retry = fixture.Envelope with
+        {
+            Deadline = clock.GetUtcNow().AddMinutes(1)
+        };
         Assert.Equal(fixture.Envelope.RequestId, retry.RequestId);
         AuthoringMutationApproval retryApproval = PreviewFor(retry, fixture.Approval);
         AuthoringTransactionReceipt receipt = await authority.ApplyMutationAsync(retry, retryApproval);
@@ -473,7 +482,10 @@ public sealed class AuthoringExtensionRpcTests
     {
         private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
 
         public void Release() => _released.TrySetResult();
 
@@ -496,9 +508,15 @@ public sealed class AuthoringExtensionRpcTests
     {
         private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public int FindCallCount { get; private set; }
+        public int FindCallCount
+        {
+            get; private set;
+        }
 
-        public CancellationToken LastLookupToken { get; private set; }
+        public CancellationToken LastLookupToken
+        {
+            get; private set;
+        }
 
         public void Release() => _released.TrySetResult();
 
@@ -611,7 +629,10 @@ public sealed class AuthoringExtensionRpcTests
 
     private sealed class AdmissionRevisionGate(Action<CancellationToken> onCurrent) : IAuthoringDocumentRevisionGate
     {
-        public int CallCount { get; private set; }
+        public int CallCount
+        {
+            get; private set;
+        }
 
         public ValueTask<bool> IsCurrentAsync(
             string documentId,
@@ -772,7 +793,10 @@ public sealed class AuthoringExtensionRpcTests
             "revision" => plan with { ExpectedSourceRevision = changed.SourceRevision },
             _ => plan
         };
-        changed = changed with { Payload = new AuthoringRpcPayload(MutationPlan: plan) };
+        changed = changed with
+        {
+            Payload = new AuthoringRpcPayload(MutationPlan: plan)
+        };
         fixture.Authority.ValidateEnvelope(changed);
         await fixture.Grants.RequireAsync(changed.GrantDigest, changed, AuthoringCapability.DocumentMutationRequest);
         Assert.Equal(fixture.Envelope.Payload.MutationPlan!.PlanId, plan.PlanId);
@@ -816,12 +840,21 @@ public sealed class AuthoringExtensionRpcTests
             "grant" => fixture.Envelope with { GrantDigest = new string('3', 64) },
             _ => fixture.Envelope
         };
-        AuthoringMutationPlan plan = changed.Payload.MutationPlan! with { DocumentId = changed.DocumentId };
+        AuthoringMutationPlan plan = changed.Payload.MutationPlan! with
+        {
+            DocumentId = changed.DocumentId
+        };
         if (field == "planId")
         {
-            plan = plan with { PlanId = "plan-2" };
+            plan = plan with
+            {
+                PlanId = "plan-2"
+            };
         }
-        changed = changed with { Payload = new AuthoringRpcPayload(MutationPlan: plan) };
+        changed = changed with
+        {
+            Payload = new AuthoringRpcPayload(MutationPlan: plan)
+        };
         Assert.NotEqual(fixture.Approval.PreviewDigest, AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(changed));
     }
 
@@ -837,11 +870,17 @@ public sealed class AuthoringExtensionRpcTests
                 new(AuthoringMutationOperation.Replace, new(2, 3), "third")
             ]
         };
-        AuthoringRpcEnvelope envelope = fixture.Envelope with { Payload = new AuthoringRpcPayload(MutationPlan: plan) };
+        AuthoringRpcEnvelope envelope = fixture.Envelope with
+        {
+            Payload = new AuthoringRpcPayload(MutationPlan: plan)
+        };
         AuthoringMutationApproval approval = PreviewFor(envelope, fixture.Approval);
         AuthoringRpcEnvelope reordered = envelope with
         {
-            Payload = new AuthoringRpcPayload(MutationPlan: plan with { Mutations = [plan.Mutations[1], plan.Mutations[0]] })
+            Payload = new AuthoringRpcPayload(MutationPlan: plan with
+            {
+                Mutations = [plan.Mutations[1], plan.Mutations[0]]
+            })
         };
         AuthoringRpcEnvelope reframed = envelope with
         {
@@ -888,7 +927,10 @@ public sealed class AuthoringExtensionRpcTests
         try
         {
             Assert.False(pending.IsCompleted);
-            callerArray[0] = callerArray[0] with { Text = "caller alias changed after preview validation" };
+            callerArray[0] = callerArray[0] with
+            {
+                Text = "caller alias changed after preview validation"
+            };
             Assert.NotEqual(fixture.Approval.PreviewDigest, AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope));
             gate.Release();
             store.Release();
@@ -921,7 +963,10 @@ public sealed class AuthoringExtensionRpcTests
             Mutations = [.. Enumerable.Range(0, count).Select(index =>
                 new AuthoringMutation(AuthoringMutationOperation.Replace, new AuthoringTextRange(index * 2, index * 2 + 1), "x"))]
         };
-        AuthoringRpcEnvelope envelope = fixture.Envelope with { Payload = new AuthoringRpcPayload(MutationPlan: plan) };
+        AuthoringRpcEnvelope envelope = fixture.Envelope with
+        {
+            Payload = new AuthoringRpcPayload(MutationPlan: plan)
+        };
         if (!accepted)
         {
             Assert.Throws<AuthoringExtensionContractException>(() =>
@@ -1051,7 +1096,10 @@ public sealed class AuthoringExtensionRpcTests
         ReadFixture fixture = await CreateReadFixtureAsync();
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await fixture.Authority.ReadDocumentAsync(fixture.Package, AuthoringHostPlatform.ServerLinux,
-                fixture.Envelope with { Payload = new AuthoringRpcPayload(DocumentRange: new AuthoringTextRange(start, end)) }));
+                fixture.Envelope with
+                {
+                    Payload = new AuthoringRpcPayload(DocumentRange: new AuthoringTextRange(start, end))
+                }));
         Assert.Equal(0, fixture.Reader.ReadCalls);
     }
 
@@ -1357,7 +1405,10 @@ public sealed class AuthoringExtensionRpcTests
         ReadFixture fixture = await CreateReadFixtureAsync(trustLifetime: trust ? TimeSpan.FromMinutes(2) : null);
         DateTimeOffset expiry = trust ? fixture.Package.Trust.ValidUntil
             : (await fixture.Lookup.FindAsync(fixture.Envelope.GrantDigest, default))!.ExpiresAt;
-        AuthoringRpcEnvelope envelope = fixture.Envelope with { Deadline = expiry.AddMinutes(1) };
+        AuthoringRpcEnvelope envelope = fixture.Envelope with
+        {
+            Deadline = expiry.AddMinutes(1)
+        };
         fixture.Reader.ExpectedEnvelope = envelope;
         fixture.Reader.OnCurrentCheck = count =>
         {
@@ -1425,7 +1476,11 @@ public sealed class AuthoringExtensionRpcTests
                 Entrypoint = template.Contributions[0].Entrypoint with { ContentSha256 = entries[0].ContentSha256 },
                 Capabilities = [declaredCapability ?? capability]
             }],
-            Limits = template.Limits with { MaximumRequestBytes = requestBytes, MaximumResponseBytes = responseBytes }
+            Limits = template.Limits with
+            {
+                MaximumRequestBytes = requestBytes,
+                MaximumResponseBytes = responseBytes
+            }
         };
         var clock = new AdmissionTimeProvider(original.Envelope.Deadline.AddMinutes(-1));
         var verifier = new AuthoringPackageVerifier(new ReadTrustVerifier(clock, trustLifetime ?? TimeSpan.FromHours(1)),
@@ -1442,10 +1497,19 @@ public sealed class AuthoringExtensionRpcTests
         active.Calls = 0;
         var lookup = new ReadGrantLookup();
         var grants = new AuthoringCapabilityGrantAuthority(lookup, clock);
-        AuthoringGrantRequest request = CreateGrantRequest() with { Capability = capability, RuntimeIdentity = target.RuntimeIdentity };
+        AuthoringGrantRequest request = CreateGrantRequest() with
+        {
+            Capability = capability,
+            RuntimeIdentity = target.RuntimeIdentity
+        };
         if (capability == AuthoringCapability.DocumentFullRead)
         {
-            request = request with { DocumentEpoch = 1, SourceRevision = 2, SnapshotSha256 = original.Envelope.SnapshotSha256 };
+            request = request with
+            {
+                DocumentEpoch = 1,
+                SourceRevision = 2,
+                SnapshotSha256 = original.Envelope.SnapshotSha256
+            };
         }
         AuthoringCapabilityGrant grant = await grants.IssueAsync(request);
         var reader = new ReadCanonicalTransaction();
@@ -1478,13 +1542,31 @@ public sealed class AuthoringExtensionRpcTests
         public string Document { get; set; } = "before SELECTED after";
         public AuthoringTextRange Selection { get; set; } = new(7, 15);
         public long Revision { get; set; } = 2;
-        public int ReadCalls { get; private set; }
-        public int TransactionCalls { get; private set; }
-        public int CurrentChecks { get; private set; }
+        public int ReadCalls
+        {
+            get; private set;
+        }
+        public int TransactionCalls
+        {
+            get; private set;
+        }
+        public int CurrentChecks
+        {
+            get; private set;
+        }
         public AuthoringRpcEnvelope ExpectedEnvelope { get; set; } = null!;
-        public Func<ValueTask>? OnRead { get; set; }
-        public Action<int>? OnCurrentCheck { get; set; }
-        public Func<AuthoringCanonicalDocumentRead, AuthoringCanonicalDocumentRead>? ChangeObservation { get; set; }
+        public Func<ValueTask>? OnRead
+        {
+            get; set;
+        }
+        public Action<int>? OnCurrentCheck
+        {
+            get; set;
+        }
+        public Func<AuthoringCanonicalDocumentRead, AuthoringCanonicalDocumentRead>? ChangeObservation
+        {
+            get; set;
+        }
 
         public async ValueTask<AuthoringCanonicalDocumentRead> ReadSnapshotAsync(
             AuthoringRpcEnvelope envelope, CancellationToken cancellationToken)
@@ -1527,10 +1609,22 @@ public sealed class AuthoringExtensionRpcTests
         private readonly Dictionary<string, AuthoringCapabilityGrant> _grants = new(StringComparer.Ordinal);
         private bool _scopeHeld;
         public bool ScopeHeld => _scopeHeld;
-        public int ScopeReleases { get; private set; }
-        public Exception? DisposeFailure { get; set; }
-        public int Calls { get; private set; }
-        public Func<int, ValueTask>? OnLookup { get; set; }
+        public int ScopeReleases
+        {
+            get; private set;
+        }
+        public Exception? DisposeFailure
+        {
+            get; set;
+        }
+        public int Calls
+        {
+            get; private set;
+        }
+        public Func<int, ValueTask>? OnLookup
+        {
+            get; set;
+        }
         public async ValueTask<AuthoringCapabilityGrant?> FindAsync(string grantId, CancellationToken cancellationToken)
         {
             Calls++;
@@ -1608,11 +1702,23 @@ public sealed class AuthoringExtensionRpcTests
         private bool _active = true;
         private bool _scopeHeld;
         public bool ScopeHeld => _scopeHeld;
-        public int ScopeReleases { get; private set; }
-        public Exception? DisposeFailure { get; set; }
+        public int ScopeReleases
+        {
+            get; private set;
+        }
+        public Exception? DisposeFailure
+        {
+            get; set;
+        }
         public bool Active
         {
-            get { lock (_gate) { return _active; } }
+            get
+            {
+                lock (_gate)
+                {
+                    return _active;
+                }
+            }
             set
             {
                 lock (_gate)
@@ -1625,7 +1731,10 @@ public sealed class AuthoringExtensionRpcTests
                 }
             }
         }
-        public int Calls { get; set; }
+        public int Calls
+        {
+            get; set;
+        }
         public ValueTask<bool> IsActiveExactAsync(VerifiedAuthoringPackage candidate, CancellationToken cancellationToken)
         {
             Calls++;
@@ -1703,7 +1812,10 @@ public sealed class AuthoringExtensionRpcTests
     }
 
     private static AuthoringMutationApproval PreviewFor(AuthoringRpcEnvelope envelope, AuthoringMutationApproval approval)
-        => approval with { PreviewDigest = AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope) };
+        => approval with
+        {
+            PreviewDigest = AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope)
+        };
 
     private static async ValueTask<RpcFixture> CreateFixtureAsync(
         bool storeGrant = true,
@@ -1821,7 +1933,10 @@ public sealed class AuthoringExtensionRpcTests
 
     private sealed class TransactionPort(bool tamperReceipt = false) : IAuthoringCanonicalDocumentTransaction
     {
-        public AuthoringMutationPlan? LastPlan { get; private set; }
+        public AuthoringMutationPlan? LastPlan
+        {
+            get; private set;
+        }
 
         public int CallCount
         {

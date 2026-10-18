@@ -77,7 +77,10 @@ public sealed class AuthoringExtensionRpcBrokerTests
     {
         using Fixture fixture = await CreateAsync();
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
-            await fixture.ExecuteAsync(fixture.Envelope with { SchemaVersion = version }));
+            await fixture.ExecuteAsync(fixture.Envelope with
+            {
+                SchemaVersion = version
+            }));
         Assert.Equal(0, fixture.Network.Calls);
         _ = await fixture.ExecuteAsync();
         Assert.Equal(1, fixture.Network.Calls);
@@ -304,7 +307,13 @@ public sealed class AuthoringExtensionRpcBrokerTests
             _ => throw new InvalidOperationException()
         };
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () => await fixture.ExecuteAsync(
-            fixture.Envelope with { Payload = fixture.Envelope.Payload with { FileBroker = proposal } }));
+            fixture.Envelope with
+            {
+                Payload = fixture.Envelope.Payload with
+                {
+                    FileBroker = proposal
+                }
+            }));
         Assert.Empty(Directory.EnumerateFiles(fixture.Staging));
         Assert.Equal(0, fixture.Transaction.Calls);
     }
@@ -315,13 +324,16 @@ public sealed class AuthoringExtensionRpcBrokerTests
         using Fixture fixture = await CreateAsync(AuthoringFileGrantOperation.ProposeWrite);
         byte[] mutable = [1, 2, 3];
         fixture.Store.OnFind = () => mutable[0] = 99;
-        AuthoringRpcEnvelope envelope = fixture.Envelope with { Payload = fixture.Envelope.Payload with
+        AuthoringRpcEnvelope envelope = fixture.Envelope with
         {
-            FileBroker = fixture.Envelope.Payload.FileBroker! with
+            Payload = fixture.Envelope.Payload with
             {
-                ProposedBytes = ImmutableCollectionsMarshal.AsImmutableArray(mutable)
+                FileBroker = fixture.Envelope.Payload.FileBroker! with
+                {
+                    ProposedBytes = ImmutableCollectionsMarshal.AsImmutableArray(mutable)
+                }
             }
-        } };
+        };
         AuthoringRpcBrokerResult result = await fixture.ExecuteAsync(envelope);
         Assert.Equal("write-staged-for-host-approval", result.Receipt.IoReceipt.Outcome);
         Assert.Empty(result.Payload);
@@ -476,8 +488,13 @@ public sealed class AuthoringExtensionRpcBrokerTests
                 Entrypoint = template.Contributions[0].Entrypoint with { ContentSha256 = entries[0].ContentSha256 },
                 Capabilities = [capability]
             }],
-            Limits = template.Limits with { MaximumRequestBytes = requestBytes, MaximumResponseBytes = responseBytes,
-                MaximumNetworkBytes = 65536, MaximumFileBytes = 65536 }
+            Limits = template.Limits with
+            {
+                MaximumRequestBytes = requestBytes,
+                MaximumResponseBytes = responseBytes,
+                MaximumNetworkBytes = 65536,
+                MaximumFileBytes = 65536
+            }
         };
         byte[] archive = "broker-component-archive"u8.ToArray();
         var verifier = new AuthoringPackageVerifier(new Trust(clock), new Archive(new(
@@ -518,7 +535,11 @@ public sealed class AuthoringExtensionRpcBrokerTests
                 NetworkBroker = operation is null ? new("example.org", 443, "/private-query") : null,
                 FileBroker = operation is null ? null : new("value.bin", operation.Value,
                     operation == AuthoringFileGrantOperation.ProposeWrite ? [1, 2, 3] : default)
-            }) { SiteIdentity = approved.SiteIdentity, Purpose = approved.Purpose };
+            })
+        {
+            SiteIdentity = approved.SiteIdentity,
+            Purpose = approved.Purpose
+        };
         return new(taskRoot, root, staging, package, envelope, store, active, clock, network, transaction, revision,
             resolver, broker, new(grants, transaction, revision, clock, resolver, broker));
     }
@@ -581,11 +602,26 @@ public sealed class AuthoringExtensionRpcBrokerTests
                 }
             }
         }
-        internal bool Held { get; private set; }
-        internal int Releases { get; private set; }
-        internal Action? OnFind { get; set; }
-        internal Action? OnRelease { get; set; }
-        internal Exception? ReleaseFailure { get; set; }
+        internal bool Held
+        {
+            get; private set;
+        }
+        internal int Releases
+        {
+            get; private set;
+        }
+        internal Action? OnFind
+        {
+            get; set;
+        }
+        internal Action? OnRelease
+        {
+            get; set;
+        }
+        internal Exception? ReleaseFailure
+        {
+            get; set;
+        }
         public ValueTask<AuthoringCapabilityGrant?> FindAsync(string id, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
@@ -676,9 +712,18 @@ public sealed class AuthoringExtensionRpcBrokerTests
         private readonly object _gate = new();
         private bool _active = true;
         private bool _held;
-        internal Exception? ReleaseFailure { get; set; }
-        internal bool SynchronousOnly { get; set; }
-        internal Func<ValueTask>? OnPrepared { get; set; }
+        internal Exception? ReleaseFailure
+        {
+            get; set;
+        }
+        internal bool SynchronousOnly
+        {
+            get; set;
+        }
+        internal Func<ValueTask>? OnPrepared
+        {
+            get; set;
+        }
         internal bool Held
         {
             get
@@ -773,9 +818,18 @@ public sealed class AuthoringExtensionRpcBrokerTests
 
     private sealed class Network : IAuthoringPinnedNetworkTransport
     {
-        internal int Calls { get; private set; }
-        internal bool Completed { get; private set; }
-        internal Func<ValueTask>? OnFetch { get; set; }
+        internal int Calls
+        {
+            get; private set;
+        }
+        internal bool Completed
+        {
+            get; private set;
+        }
+        internal Func<ValueTask>? OnFetch
+        {
+            get; set;
+        }
         public async ValueTask<AuthoringPinnedNetworkResponse> GetAsync(AuthoringPinnedNetworkRequest request, CancellationToken token)
         {
             Calls++;
@@ -797,7 +851,10 @@ public sealed class AuthoringExtensionRpcBrokerTests
     private sealed class Revision : IAuthoringDocumentRevisionGate
     {
         internal bool Current { get; set; } = true;
-        internal Action? OnCheck { get; set; }
+        internal Action? OnCheck
+        {
+            get; set;
+        }
         public ValueTask<bool> IsCurrentAsync(string id, long epoch, long revision, CancellationToken token)
         {
             OnCheck?.Invoke();
@@ -807,7 +864,10 @@ public sealed class AuthoringExtensionRpcBrokerTests
 
     private sealed class NoTransaction : IAuthoringCanonicalDocumentTransaction
     {
-        internal int Calls { get; private set; }
+        internal int Calls
+        {
+            get; private set;
+        }
         public ValueTask<AuthoringTransactionReceipt> ApplyAsync(AuthoringMutationPlan plan, CancellationToken token)
         {
             Calls++;
