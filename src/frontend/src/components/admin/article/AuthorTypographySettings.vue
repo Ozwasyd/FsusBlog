@@ -94,6 +94,8 @@ const emit = defineEmits<{
 const id = useId();
 const view = computed(() => props.view);
 const validProfile = computed(() => resolveMarkdownEditorTypography(view.value.profile).status !== 'invalid');
+const validObservation = computed(() => validProfile.value && Number.isSafeInteger(view.value.revision)
+    && view.value.revision !== null && view.value.revision >= 0);
 const block = computed(() => authorTypographySettingsBlock(view.value));
 const dimensionLabels = {
     fontFamily: '字体', fontSize: '字号', lineHeight: '行高', canvasWidth: '画布宽度', paragraphSpacing: '段落间距'
@@ -115,7 +117,7 @@ const fontText = {
 };
 const statusText = computed(() =>
 {
-    if (block.value === 'observation' && (view.value.status === 'current' || view.value.status === 'saved'))
+    if (!validObservation.value && (view.value.status === 'current' || view.value.status === 'saved'))
     {
         return '尚无已验证偏好，不能确认保存。';
     }

@@ -139,6 +139,53 @@ describe('AuthorTypographySettings with the real local FsusUI', () =>
         expect(wrapper.emitted('change')).toBeUndefined();
     });
 
+    it.each(([
+        ['permission denied', { permission: 'denied' }, '作者权限尚未确认'],
+        ['permission denied before device/default', { permission: 'denied', device: 'unavailable', designDefault: 'unavailable' }, '作者权限尚未确认'],
+        ['permission unavailable', { permission: 'unavailable', device: 'unavailable', designDefault: 'unavailable' }, '作者权限尚未确认'],
+        ['device unavailable', { device: 'unavailable', designDefault: 'unavailable' }, '设备验证暂不可用'],
+        ['default unavailable', { designDefault: 'unavailable' }, '当前默认排版尚未确认']
+    ] as const).flatMap(([reason, denial, message]) => (['saved', 'current'] as const).map(status => [reason, status, denial, message] as const)))(
+        'refuses false confirmation under %s for %s without changing denial priority or control guards', async (_reason, status, denial, message) =>
+    {
+        const wrapper = open({ ...observation, ...denial, status: 'saved', profile: null, revision: null });
+        const invalidObservations = [
+            { profile: null, revision: null },
+            { profile: null, revision: 17 },
+            { profile: { ...observation.profile!, schemaVersion: 2 } as unknown as AuthorTypographySettingsView['profile'], revision: 17 },
+            { revision: null }, { revision: -1 }, { revision: 1.5 }, { revision: Number.NaN },
+            { revision: Number.POSITIVE_INFINITY }, { revision: Number.MAX_SAFE_INTEGER + 1 }
+        ];
+        for (const invalid of invalidObservations)
+        {
+            await wrapper.setProps({ view: { ...observation, ...denial, ...invalid, status } });
+            expect(wrapper.text()).not.toContain('服务端已确认偏好');
+            expect(wrapper.text()).toContain('尚无已验证偏好，不能确认保存');
+            expect(wrapper.text()).not.toContain('当前偏好版本');
+            expect(wrapper.findAll('[role="status"]')[1].text()).toContain(message);
+            expect(wrapper.getComponent(ElForm).props('disabled')).toBe(true);
+            for (const select of wrapper.findAllComponents(ElSelect))
+            {
+                expect(select.get('input[role="combobox"]').attributes('disabled')).toBeDefined();
+                select.vm.$emit('update:modelValue', 'standard');
+            }
+            const reset = wrapper.getComponent(ElButton);
+            expect(reset.attributes('disabled')).toBeDefined();
+            reset.vm.$emit('click', new MouseEvent('click'));
+            expect(wrapper.emitted('change')).toBeUndefined();
+            expect(wrapper.emitted('reset')).toBeUndefined();
+            expect(wrapper.emitted('reload')).toBeUndefined();
+        }
+        for (const revision of [0, 17, Number.MAX_SAFE_INTEGER])
+        {
+            await wrapper.setProps({ view: { ...observation, ...denial, revision, status: 'saved' } });
+            expect(wrapper.text()).toContain('服务端已确认偏好');
+            expect(wrapper.text()).not.toContain('不能确认保存');
+            expect(wrapper.findAll('[role="status"]')[1].text()).toContain(message);
+            expect(wrapper.getComponent(ElForm).props('disabled')).toBe(true);
+        }
+    });
+
     it('distinguishes an exhausted valid revision from a missing observation', () =>
     {
         const wrapper = open({ ...observation, revision: Number.MAX_SAFE_INTEGER });
