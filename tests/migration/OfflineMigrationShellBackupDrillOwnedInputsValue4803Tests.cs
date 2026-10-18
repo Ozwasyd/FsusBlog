@@ -232,6 +232,10 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsValue4803Tests
 
         internal InputsFixture(Action<string>? afterToolRead = null)
         {
+            if (!OperatingSystem.IsLinux())
+            {
+                throw new PlatformNotSupportedException("The original owned shell input fixture requires Linux.");
+            }
             Directory.CreateDirectory(Root);
             string repository = Path.Combine(Root, "repository");
             string operations = Path.Combine(repository, "tools", "operations");

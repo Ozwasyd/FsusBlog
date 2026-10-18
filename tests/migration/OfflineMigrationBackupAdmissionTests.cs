@@ -380,6 +380,10 @@ public sealed class OfflineMigrationBackupAdmissionTests
             string privateRoot, string invocation, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
+            if (!OperatingSystem.IsLinux())
+            {
+                throw new PlatformNotSupportedException("The original backup evidence fixture requires Linux.");
+            }
             Calls++;
             Directory.CreateDirectory(privateRoot, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             string digest = new('a', 64);

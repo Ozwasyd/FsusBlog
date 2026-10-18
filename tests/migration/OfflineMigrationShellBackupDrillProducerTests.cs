@@ -16,6 +16,10 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
     [Fact]
     public async Task ActualInvocationUsesOriginalArgumentsFreshPathsAndRemainingDeadline()
     {
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new PlatformNotSupportedException("The original backup shell invocation fixture requires Linux.");
+        }
         using var fixture = new ShellFixture("printf '%s\\n' \"$*\" \"$FSUSBLOG_DRILL_OUTPUT_DIR\" \"$FSUSBLOG_DRILL_WORK_DIR\" \"$FSUSBLOG_DRILL_RUN_ID\" \"$FSUSBLOG_SITE_BACKUP_PACKAGE\" \"$FSUSBLOG_MIGRATION_SERVER_DLL\"\n");
         fixture.Clock.Seconds = 7;
         OfflineMigrationBackupDrillTerminal terminal = await fixture.RunAsync();
@@ -286,6 +290,10 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
 
         internal ShellFixture(string fakeBody)
         {
+            if (!OperatingSystem.IsLinux())
+            {
+                throw new PlatformNotSupportedException("The original backup shell invocation fixture requires Linux.");
+            }
             Directory.CreateDirectory(Parent, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             string repository = Path.Combine(Parent, "repository");
             string scripts = Path.Combine(repository, "tools/operations");
@@ -313,14 +321,21 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
                 : new OfflineMigrationShellBackupDrillProducer(configuration ?? Configuration, createRaw))
                 .RunAsync(options ?? Options, OutputRoot, Invocation, token);
 
-        internal static FileStream CreateRaw(string path) => new(path, new FileStreamOptions
+        internal static FileStream CreateRaw(string path)
         {
-            Mode = FileMode.CreateNew,
-            Access = FileAccess.ReadWrite,
-            Share = FileShare.None,
-            Options = FileOptions.Asynchronous,
-            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
-        });
+            if (!OperatingSystem.IsLinux())
+            {
+                throw new PlatformNotSupportedException("The original backup shell raw-file fixture requires Linux.");
+            }
+            return new(path, new FileStreamOptions
+            {
+                Mode = FileMode.CreateNew,
+                Access = FileAccess.ReadWrite,
+                Share = FileShare.None,
+                Options = FileOptions.Asynchronous,
+                UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+            });
+        }
 
         internal void AssertNotStarted()
         {
