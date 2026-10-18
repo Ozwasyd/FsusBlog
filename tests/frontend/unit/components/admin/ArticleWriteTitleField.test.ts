@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { mount } from '@vue/test-utils'
+import { DOMWrapper, mount } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { describe, expect, it } from 'vitest'
 
@@ -108,7 +108,8 @@ describe('ArticleWriteTitleField', () => {
       },
     })
 
-    expect(wrapper.get('.write-title-field').exists()).toBe(true)
+    const titleField = new DOMWrapper(wrapper.get('.write-title-field').element)
+    expect(titleField.exists()).toBe(true)
     expect(wrapper.getComponent(ElInputStub).props('type')).toBe('textarea')
     expect(wrapper.getComponent(ElInputStub).props('autosize')).toEqual({ minRows: 1, maxRows: 5 })
     wrapper.unmount()
