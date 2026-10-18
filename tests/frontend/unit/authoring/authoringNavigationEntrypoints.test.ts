@@ -499,3 +499,153 @@ describe('authoring navigation entrypoints (#2308), genuine Registry/Group/Ancho
         }
     });
 });
+
+describe('independent review 5561706360 admission controls on exact a18 input', () =>
+{
+    it('rejects a retired mounted loan before reveal or append (P1)', async () =>
+    {
+        const f = await fixture();
+        f.setWait(async entry =>
+        {
+            const old = f.current(entry);
+            f.hosts.splice(f.hosts.findIndex(host => host.identity.documentId === entry.identity.documentId), 1);
+            return old;
+        });
+        const reveal = vi.spyOn(f.first.port, 'reveal');
+        const result = await f.adapter.navigate(f.intent(1));
+        expect(f.current(f.registry.getEntry('tab:1')!)).toBeNull();
+        expect(result.status).not.toBe('completed');
+        expect(reveal).not.toHaveBeenCalled();
+        expect(f.adapter.history.exportState().cursor).toBe(-1);
+    });
+
+    it('rejects a cross-document public map before anchorless reveal (P2)', async () =>
+    {
+        const f = await fixture();
+        const original = f.first.port.binding;
+        f.first.port.binding = () => ({ document: original().document, map: f.second.port.binding().map });
+        const reveal = vi.spyOn(f.first.port, 'reveal');
+        const result = await f.adapter.navigate(f.intent(1));
+        expect(result.status).toBe('invalid');
+        expect(reveal).not.toHaveBeenCalled();
+    });
+
+    it('rejects a same-document stale public map before anchorless reveal (P2)', async () =>
+    {
+        const f = await fixture();
+        const staleMap = f.first.port.binding().map;
+        f.first.dispatch([{ from: 0, to: 0, insert: 'new-source' }]);
+        f.first.port.binding = () => ({ document: f.first.port.document.context, map: staleMap });
+        const reveal = vi.spyOn(f.first.port, 'reveal');
+        const result = await f.adapter.navigate(f.intent(1));
+        expect(result.status).toBe('invalid');
+        expect(reveal).not.toHaveBeenCalled();
+    });
+
+    it('does not settle a traversal whose acknowledged native revision changes during route await (P1)', async () =>
+    {
+        const f = await fixture();
+        await f.adapter.navigate(f.intent(1));
+        await f.adapter.navigate(f.intent(2, f.second));
+        f.setRoute(async () => { f.first.dispatch([{ from: 0, to: 0, insert: 'route-time-edit' }]); });
+        const result = await f.adapter.traverse('back', 'independent:route-edit', 3);
+        expect(result.status).not.toBe('completed');
+        expect(f.adapter.history.exportState()).toMatchObject({ cursor: 1, pending: null });
+    });
+
+    it('rejects an original full Anchor from a different document', async () =>
+    {
+        const f = await fixture();
+        const saved = f.second.capture();
+        f.first.port.resolveAnchor = () => saved;
+        expect((await f.adapter.navigate(f.intent(1, f.first, { anchor: projectAuthoringNavigationAnchor(saved) }))).status).toBe('invalid');
+    });
+
+    it('rejects stale binding context before effects', async () =>
+    {
+        const f = await fixture();
+        const binding = f.first.port.binding();
+        f.first.dispatch([{ from: 0, to: 0, insert: 'new-source' }]);
+        f.first.port.binding = () => binding;
+        const reveal = vi.spyOn(f.first.port, 'reveal');
+        expect((await f.adapter.navigate(f.intent(1))).status).toBe('invalid');
+        expect(reveal).not.toHaveBeenCalled();
+    });
+
+    it.each(['missing', 'reverse', 'cross-document'] as const)('rejects %s public dispatch maps', async kind =>
+    {
+        const f = await fixture();
+        const saved = f.first.capture();
+        const first = f.first.dispatch([{ from: 0, to: 0, insert: 'X' }]);
+        const second = f.first.dispatch([{ from: 0, to: 0, insert: 'Y' }]);
+        const foreign = f.second.dispatch([{ from: 0, to: 0, insert: 'Z' }]);
+        f.first.port.transactions = () => kind === 'missing' ? [] : kind === 'reverse' ? [second, first] : [foreign];
+        const result = await f.adapter.navigate(f.intent(1, f.first, { anchor: projectAuthoringNavigationAnchor(saved) }));
+        expect(result.status).toBe('invalid');
+        expect(f.adapter.history.exportState().cursor).toBe(-1);
+    });
+
+    it.each(['focusAcknowledged', 'viewportAcknowledged'] as const)('requires actual %s', async field =>
+    {
+        const f = await fixture();
+        const original = f.first.port.reveal;
+        f.first.port.reveal = async (...args) => ({ ...await original(...args), [field]: false });
+        expect((await f.adapter.navigate(f.intent(1))).status).toBe('invalid');
+        expect(f.adapter.history.exportState().cursor).toBe(-1);
+    });
+
+    it('rejects cancellation and late reveal completion', async () =>
+    {
+        const f = await fixture();
+        const controller = new AbortController();
+        const original = f.first.port.reveal;
+        f.first.port.reveal = async (...args) =>
+        {
+            const ack = await original(...args);
+            controller.abort();
+            return ack;
+        };
+        expect((await f.adapter.navigate(f.intent(1), controller.signal)).status).toBe('cancelled');
+        expect(f.adapter.history.exportState()).toMatchObject({ cursor: -1, pending: null });
+    });
+
+    it('keeps original route tokens distinct from copied and older tokens', async () =>
+    {
+        const f = await fixture();
+        expect((await f.adapter.navigate(f.intent(1))).status).toBe('completed');
+        expect(f.adapter.observeRoute(f.tokens[0]).status).toBe('ignored');
+        expect(f.adapter.observeRoute({ ...f.tokens[0] }).status).toBe('invalid');
+        expect((await f.adapter.navigate(f.intent(2, f.second))).status).toBe('completed');
+        expect(f.adapter.observeRoute(f.tokens[0]).status).toBe('stale');
+    });
+});
+
+describe('mounted admission across all effect boundaries', () =>
+{
+    it.each(['reveal', 'route'] as const)('fails a traversal when its loan is retired during %s', async phase =>
+    {
+        const f = await fixture();
+        await f.adapter.navigate(f.intent(1));
+        await f.adapter.navigate(f.intent(2, f.second));
+        const retire = () => f.hosts.splice(f.hosts.indexOf(f.first), 1);
+        if (phase === 'reveal')
+        {
+            const original = f.first.port.reveal;
+            f.first.port.reveal = async (...args) => { const ack = await original(...args); retire(); return ack; };
+        }
+        else f.setRoute(async () => { retire(); });
+        expect((await f.adapter.traverse('back', `boundary:${phase}`, 3)).status).not.toBe('completed');
+        expect(f.adapter.history.exportState()).toMatchObject({ cursor: 1, pending: null });
+    });
+
+    it('checks the map again after the route callback before settlement', async () =>
+    {
+        const f = await fixture();
+        await f.adapter.navigate(f.intent(1));
+        await f.adapter.navigate(f.intent(2, f.second));
+        const binding = f.first.port.binding;
+        f.setRoute(async () => { f.first.port.binding = () => ({ document: binding().document, map: f.second.port.binding().map }); });
+        expect((await f.adapter.traverse('back', 'boundary:route-map', 3)).status).not.toBe('completed');
+        expect(f.adapter.history.exportState()).toMatchObject({ cursor: 1, pending: null });
+    });
+});
