@@ -101,7 +101,8 @@ export function validateModelBundle(model, identity)
         requireCondition(Number.isSafeInteger(cpuRow.recommendedMinCpuUnits), 'invalid-minimum', previous.producerId);
         finite(memoryRow.recommendedMemoryGiB, 'model.memoryGiB', 0.001);
         requireCondition(cpuRow.decision === (cpuRow.recommendedCpuWeight === previous.cpuWeight
-            && cpuRow.recommendedMinCpuUnits === previous.minCpuUnits ? 'no-change' : 'recommend')
+            && cpuRow.recommendedMinCpuUnits === previous.minCpuUnits
+            && cpuRow.recommendedCpuUnits === previous.cpuUnits ? 'no-change' : 'recommend')
             && memoryRow.decision === (memoryRow.recommendedMemoryGiB === previous.memoryGiB ? 'no-change' : 'recommend'),
         'false-no-change', previous.producerId);
         totalCpu += cpuRow.recommendedCpuUnits;

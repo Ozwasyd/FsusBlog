@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/resource-model/cpu-recommendations.mjs",
+                "tools/resource-model/model-lifecycle.mjs"
+            ],
+            "reason": "Preserve the two existing adaptive module spellings under the unchanged tools/**/*.mjs naming surface while comparing final CPU grants with held defaults. No environment key, CPU topology writer, scheduler, shared policy or native authority is introduced."
+        }
+    ]
+}
