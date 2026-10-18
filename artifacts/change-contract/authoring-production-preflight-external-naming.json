@@ -5,28 +5,15 @@
             "id": "environment-variable",
             "paths": [
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionHostResourceAuthority.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycleResources.cs",
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionProductionComposition.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionProductionPreflight.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRuntimeMeasurements.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateStorageSchema.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/AuthoringFilterContributionContracts.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/AuthoringFilterContributionQueryMapper.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/AuthoringFilterRegistryAuthority.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/LocalAuthoringCapabilityGrantStore.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionStateStore.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringLifecycleReceiptStore.cs"
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionProductionPreflight.cs"
             ],
-            "reason": "Preserve the registered .NET infrastructure naming boundary across the exact producer dependency files and the three isolated production preflight consumers; no process environment or trust policy is changed."
+            "reason": "Preserve the registered .NET infrastructure naming boundary for only the three new production preflight consumers. No process environment, runtime producer or trust policy is changed by this candidate."
         },
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/architecture/authoring-extension-host-boundary.md",
-                "docs/security/authoring-extension-capability-isolation.md"
+                "docs/architecture/authoring-extension-host-boundary.md"
             ],
             "reason": "Preserve existing external DOM, path and protocol spellings in the current architecture and security boundary while documenting the unfinished Starting, approval and publication ports."
         },
