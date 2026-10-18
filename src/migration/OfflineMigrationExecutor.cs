@@ -39,7 +39,7 @@ internal static class OfflineMigrationExecutor
         VerifiedOfflineMigrationPlan verified, CurrentSchemaArtifactReference artifact,
         OfflineMigrationApplyRequest request, DbConnection connection,
         IOfflineMigrationPlanAdmission admission, IOfflineMigrationApplyOperationRegistry registry,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, OfflineMigrationPostgreSqlWriteLock? postgreSqlWriteLock = null)
     {
         OfflineMigrationPlan plan = verified.Plan;
         OfflineMigrationApplyJournalVerifier progress;
@@ -113,7 +113,7 @@ internal static class OfflineMigrationExecutor
             return cleanupCancellation.Token;
         }
         var native = new OfflineMigrationApplyNativeSession(connection, plan.Source.Database.Provider,
-            cancellationToken, CleanupToken);
+            cancellationToken, CleanupToken, postgreSqlWriteLock);
 
         Task RevalidateAdmissionAsync(DbTransaction transaction)
             => native.SupportsOwnedReadContext
@@ -268,12 +268,24 @@ internal static class OfflineMigrationExecutor
                                     verified, artifact, request.InvocationId, connection, transaction, cancellationToken).ConfigureAwait(false);
                                 if (binding != progress.PendingMedia?.Media)
                                     throw new InvalidOperationException("offline_apply_media_binding_changed");
-                                var journal = new OfflineMigrationArticleMediaJournal(progress, staged, connection, transaction, request.Attempt);
-                                unit = await actualMedia.ExecuteMediaAsync(step, previousUnit, connection, transaction,
-                                    journal, cancellationToken).ConfigureAwait(false);
-                                if (!unit.Complete)
-                                    throw new InvalidOperationException("offline_apply_media_transaction_incomplete");
-                                mediaEvidence = journal.RequirePublished();
+                                OfflineMigrationApplyUnit? mediaUnit = null;
+                                async Task ExecuteOriginalMediaAsync(
+                                    OfflineMigrationApplyNativeSession.OwnedReadContext? context, CancellationToken token)
+                                {
+                                    var journal = new OfflineMigrationArticleMediaJournal(progress, staged, connection,
+                                        transaction, request.Attempt, context);
+                                    mediaUnit = await actualMedia.ExecuteMediaAsync(step, previousUnit, connection,
+                                        transaction, journal, token).ConfigureAwait(false);
+                                    if (!mediaUnit.Complete)
+                                        throw new InvalidOperationException("offline_apply_media_transaction_incomplete");
+                                    mediaEvidence = journal.RequirePublished();
+                                }
+                                if (native.SupportsOwnedReadContext)
+                                    await native.WithOwnedReadScopeAsync(transaction, (context, token) =>
+                                        ExecuteOriginalMediaAsync(context, token), cancellationToken).ConfigureAwait(false);
+                                else
+                                    await ExecuteOriginalMediaAsync(null, cancellationToken).ConfigureAwait(false);
+                                unit = mediaUnit ?? throw new InvalidOperationException("offline_apply_media_transaction_incomplete");
                             }
                             else
                                 unit = await operation.ExecuteAsync(step, previousUnit,
