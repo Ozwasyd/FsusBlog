@@ -35,7 +35,7 @@ describe('article body command configuration', () => {
     expect(articleBodyForbiddenCommandKeys).toEqual(expect.arrayContaining(['h1', 'heading-1']))
     expect(articleBodyPrimaryCommandKeys).not.toContain('h1')
     expect(articleBodyExtraCommandKeys).not.toContain('h1')
-    expect(markdownEditorCommands.some((command) => command.key === 'h1' || command.key === 'heading-1')).toBe(false)
+    expect(markdownEditorCommands.some((command: { readonly key: string }) => command.key === 'h1' || command.key === 'heading-1')).toBe(false)
     expect(isArticleBodyForbiddenCommandKey('h1')).toBe(true)
     expect(isArticleBodyForbiddenCommandKey('heading')).toBe(false)
   })

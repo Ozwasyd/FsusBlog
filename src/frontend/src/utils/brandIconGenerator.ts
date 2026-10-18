@@ -61,7 +61,7 @@ export function getSafeBrandIconBaseName(fileName: string): string
     return safe || 'brand-icon';
 }
 
-export function encodeIcoFromPngEntries(entries: readonly IcoPngEntry[]): Uint8Array
+export function encodeIcoFromPngEntries(entries: readonly IcoPngEntry[]): Uint8Array<ArrayBuffer>
 {
     if (entries.length === 0 || entries.length > 16)
     {
@@ -168,7 +168,8 @@ function blobToDataUrl(blob: Blob): Promise<string>
     {
         const reader = new FileReader();
         reader.onerror = () => reject(reader.error ?? new Error('blob_read_failed'));
-        reader.onload = () => resolve(String(reader.result ?? ''));
+        // readAsDataURL completes with a string result rather than an ArrayBuffer.
+        reader.onload = () => resolve(String((reader.result as string | null) ?? ''));
         reader.readAsDataURL(blob);
     });
 }
@@ -201,7 +202,7 @@ async function renderSourceToPngBytes(
     source: { bitmap?: ImageBitmap; image?: HTMLImageElement; width: number; height: number; },
     size: number,
     maskable: boolean
-): Promise<Uint8Array>
+): Promise<Uint8Array<ArrayBuffer>>
 {
     const blob = await renderSourceToPngBlob(source, size, maskable);
     return new Uint8Array(await blob.arrayBuffer());
