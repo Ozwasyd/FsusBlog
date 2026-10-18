@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.cs"
+            ],
+            "reason": "Preserve original evaluator reason names and canonical producer identity/digest names while revalidating actual Property token candidates. No process environment name, typed AST, permission authority or second parser is added."
+        }
+    ]
+}

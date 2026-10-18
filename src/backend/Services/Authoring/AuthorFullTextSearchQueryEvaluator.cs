@@ -1,8 +1,10 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 
 using FsusBlog.Server.Entities;
+using FsusBlog.Shared.Contracts.ArticleProperties;
 
 namespace FsusBlog.Server.Services.Authoring;
 
@@ -34,6 +36,8 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
     /// Computes bounded token candidates. Indexed Allowed facts are never a fresh grant.
     /// Date predicates and pagination remain unavailable without complete current facts.
     /// Cancellation and an index reread reject work on a superseded source snapshot.
+    /// Property token fields additionally revalidate their canonical typed binding and
+    /// supplied definitions before and after the final await. This grants no fresh access.
     /// </summary>
     public async Task<AuthorSearchTokenEvaluation> InspectIndexAsync(
         AuthorSearchQuery query, IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions,
@@ -69,7 +73,9 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
             }
             foreach (AuthorSearchTokenizedDocument tokenized in article.Documents)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateIndexedFacts(tokenized, query, article.ArticleId, snapshot.RegistryDigest);
+                ValidatePropertyDocument(tokenized.Document, article, definitions);
             }
             if (!SystemFiltersMatch(article, query.Clauses))
             {
@@ -146,6 +152,16 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         {
             throw new AuthorSearchContractException("author_search_index_source_snapshot_stale");
         }
+        // Definitions are supplied through a potentially changing collection. Recheck
+        // canonical property bindings after the final actual index await as well.
+        foreach (AuthorSearchIndexedArticle article in current.Articles.Values)
+        {
+            foreach (AuthorSearchTokenizedDocument document in article.Documents)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidatePropertyDocument(document.Document, article, definitions);
+            }
+        }
         cancellationToken.ThrowIfCancellationRequested();
         return new(query.ContentDigest, snapshot.IndexInstanceId, snapshot.IndexGeneration, snapshot.SourceGeneration, SnapshotDigest(snapshot, cancellationToken),
             [.. Order(candidates)]);
@@ -200,6 +216,11 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
             facts.Append('|').Append(article.ArticleId.ToString(CultureInfo.InvariantCulture))
                 .Append(':').Append(article.SourceSequence.ToString(CultureInfo.InvariantCulture))
                 .Append(':').Append(article.Deleted ? '1' : '0');
+            if (article.PropertyCoordinates is not null || article.PropertySnapshotDigest is not null)
+            {
+                facts.Append('|').Append(article.PropertySnapshotDigest)
+                    .Append(':').Append(JsonSerializer.Serialize(article.PropertyCoordinates));
+            }
             foreach (AuthorSearchTokenizedDocument document in article.Documents)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -310,6 +331,39 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
             }
         }
         return true;
+    }
+
+    private static void ValidatePropertyDocument(
+        AuthorSearchDocument document, AuthorSearchIndexedArticle article,
+        IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions)
+    {
+        if (document.Field.Kind != AuthorSearchFieldKind.Property)
+        {
+            return;
+        }
+        if (!document.Field.PropertyDefinitionId.HasValue
+            || !article.PropertyValues.TryGetValue(document.Field.PropertyDefinitionId.Value, out var value)
+            || !definitions.TryGetValue(document.Field.PropertyDefinitionId.Value, out var definition)
+            || definition is null || article.PropertyCoordinates is null || article.PropertySnapshotDigest is null
+            || document.Field.DefinitionDigest != value.Entry.DefinitionDigest
+            || document.Field.PropertyValueDigest != value.Entry.ValueDigest)
+        {
+            throw new AuthorSearchContractException("author_search_property_field_binding_invalid");
+        }
+        // Reuse the sole canonical entry/definition policy and string payloads.
+        // This is indexed evidence revalidation, never fresh permission/parse admission.
+        if (AuthorSearchPropertyValueProjection.Project(definition, value.Entry) != value)
+        {
+            throw new AuthorSearchContractException("author_search_property_projection_stale");
+        }
+        string raw = value.Entry.Value switch
+        {
+            ArticlePropertyTextValue text => text.Text,
+            ArticlePropertyUrlValue url => url.Url,
+            _ => throw new AuthorSearchContractException("author_search_property_field_serialization_unavailable")
+        };
+        AuthorFullTextSearchContract.ValidateDocument(document, raw, definitions,
+            document.Source.ParserVersion, document.Source.DocumentEpoch);
     }
 
     private static void ValidateIndexedFacts(
