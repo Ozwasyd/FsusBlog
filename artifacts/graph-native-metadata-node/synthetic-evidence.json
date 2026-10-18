@@ -1,0 +1,524 @@
+{
+    "schema": "fsusblog.graph-native-metadata-node.synthetic-evidence.v1",
+    "kind": "historical-task-owned-synthetic-evidence",
+    "qualification": "WIP source continuation only; no full Graph, host, privacy, release or merge acceptance",
+    "sourceCommit": "97e25792436de0d484958602d21236fe243367db",
+    "baseCommit": "c9d0a4e85741c1eb730418e2cfececb5a9442af9",
+    "inputs": [
+        {
+            "pr": 4165,
+            "commit": "043d2ed684de91eb26d2eaf6ddbaab31175e441f",
+            "metadataBlob": "9a6a6e82339a8cbe7b1b76fb73d2aac2ad7f0b08"
+        },
+        {
+            "pr": 4562,
+            "commit": "c9d0a4e85741c1eb730418e2cfececb5a9442af9",
+            "permissionBlob": "c9dd7cae73d28de9c5fa6a720fb7c699f90e497b"
+        },
+        {
+            "pr": 4163,
+            "commit": "bb9d974b2559d6a3cf5eec32da176b2eb6353138",
+            "nodeBlob": "5c3efb284be50e741f44e1af898af603ac6d269b"
+        },
+        {
+            "coordinateProductionOrigin": "348c6853d6bcec900734274440fe8f34c1dd7b55",
+            "batchOwner": "#4165; unchanged in this continuation"
+        }
+    ],
+    "sourceBindings": [
+        {
+            "path": "src/backend/Services/Authoring/ArticleGraphNodeProjectionConsumer.cs",
+            "gitBlob": "8bc816babbe59f89f6d0282cba432f78a5962b2a",
+            "sha256": "5ec6992d26626720dc77e8355d0e2a87f3551990c30924f2858badc9ad602319"
+        },
+        {
+            "path": "src/backend/Services/Authoring/GraphNativePermissionRead.cs",
+            "gitBlob": "4d18a5ea2e020aca524ea4c06e837a60baf36595",
+            "sha256": "bf6bcc6c5aaed3b8418812fb3281cd02ea2d22ef90a474f3fd822254d183bcc4"
+        },
+        {
+            "path": "src/backend/Services/Authoring/SqlArticleGraphPersistedMetadataReader.cs",
+            "gitBlob": "96c39db37fb74a1c75f2071fc4bdf15752b579b1",
+            "sha256": "69c6bded15c8a3b390213a85b84ffd4284784a84fe5d13ca6f71e0ca96387141"
+        },
+        {
+            "path": "src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs",
+            "gitBlob": "5328b60e902b4a74df971669acca87c2e24d3215",
+            "sha256": "9ac6eabef3d1f3b4f795d1847adc24c8e0596423b1a47559c68647a8f1883b36"
+        },
+        {
+            "path": "tests/backend/Integration/GraphNativeMetadataNodeIntegrationTests.cs",
+            "gitBlob": "9a2bb182a30d0867f954572b8badc1d74b058bb5",
+            "sha256": "47d91c5afda87791b3261d34348ea2b08a1058136e7d6b160faa1ea3a935c2db"
+        },
+        {
+            "path": "tests/backend/Unit/ArticleGraphNodeProjectionConsumerTests.cs",
+            "gitBlob": "4ab0f20bef81af833766632b906208ed87a30372",
+            "sha256": "a91850cd8520695952c01a2ae0729a510cf6a1f16795cbaeb42ef1ed4e1b98f6"
+        },
+        {
+            "path": "tests/backend/Unit/GraphNativeMetadataCaptureTests.cs",
+            "gitBlob": "39c2745ae4e246d31d53f4a54d7923071008e8b1",
+            "sha256": "9b9b0c6a46cdba4b881512aee7cf17844f776807fe57c8403ab9b6adbb5e64c9"
+        },
+        {
+            "path": "tests/backend/Unit/SqlArticleGraphPersistedMetadataReaderTests.cs",
+            "gitBlob": "81e0803e325233ad9149857f7c6bd3b15ce4bb8a",
+            "sha256": "cc475972baf24b3037e38c882a5d857ba2e4c526325c84c5c371550b553c267d"
+        }
+    ],
+    "preservation": {
+        "pinCaptureByteIdentical": true,
+        "pinSqlLiteralsByteIdentical": true,
+        "originalNode48Blob": "4ab0f20bef81af833766632b906208ed87a30372",
+        "metadataMethods": 24,
+        "metadataOriginalCases": 48,
+        "projectAndLockFilesChanged": false,
+        "protectedHostQueryServiceAdmissionSharedFiltersDiRoutesGovernanceChanged": false,
+        "localFsusUiAliasChanged": false
+    },
+    "environment": {
+        "dotnetSdk": "10.0.401",
+        "node": "24.19.0",
+        "database": "genuine original disposable PostgreSQL fixture",
+        "image": "postgres:18-alpine",
+        "imageDigest": "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+        "auditEnabled": true,
+        "lockedRestore": true,
+        "originalBuildLock": true
+    },
+    "execution": {
+        "testProject": "tests/backend/FsusBlog.Server.Tests.csproj",
+        "nativeFilter": "FullyQualifiedName~SqlArticleGraphPersistedMetadataReaderTests|FullyQualifiedName~ArticleGraphNodeProjectionConsumerTests|FullyQualifiedName~GraphNativeMetadata",
+        "pinCoordinateFilter": "FullyQualifiedName~AuthorArticlePin|FullyQualifiedName~ArticleRelationSourceCoordinate",
+        "admissionRegressionFilter": "FullyQualifiedName~SqlArticleGraphAdmissionReader|FullyQualifiedName~ArticleRelationSourceCoordinate",
+        "nativeCommand": "./tools/test/run-with-dotnet-release-build-lock.sh dotnet test tests/backend/FsusBlog.Server.Tests.csproj -c Release --no-restore -p:NuGetAudit=true --filter <nativeFilter> --logger trx",
+        "finalPinCoordinateSource": "97e25792436de0d484958602d21236fe243367db",
+        "admissionRegressionSource": "677b20cf572aaae84da2b66306e5a01fff84712d",
+        "nativeAssemblySha256": "3b2e12c5f71a3e074913973447234af942725bf0f44a0395062376f2921de10d"
+    },
+    "testRuns": [
+        {
+            "path": "admission-regression/admission-122.trx",
+            "sha256": "944ca1266270ef176f5738f7f21b674d948b3fb702bff1a0c0c77dcf61b9adad",
+            "counts": {
+                "Passed": 122
+            },
+            "classes": {
+                "SqlArticleGraphAdmissionReaderIntegrationTests": {
+                    "Passed": 70
+                },
+                "SqlArticleGraphAdmissionReaderTests": {
+                    "Passed": 32
+                },
+                "ArticleRelationSourceCoordinateAuthorityIntegrationTests": {
+                    "Passed": 13
+                },
+                "ArticleRelationSourceCoordinateAuthorityTests": {
+                    "Passed": 6
+                },
+                "ArticleRelationSourceCoordinateMigrationDefinitionTests": {
+                    "Passed": 1
+                }
+            }
+        },
+        {
+            "path": "committed/native-committed.trx",
+            "sha256": "0b7f9a3d89a3a3e7de1811d9b02c03d1d9985828b0f9e622c125caaa85cf8868",
+            "counts": {
+                "Passed": 145,
+                "Failed": 1
+            },
+            "classes": {
+                "SqlArticleGraphPersistedMetadataReaderTests": {
+                    "Passed": 48
+                },
+                "GraphNativeMetadataNodeIntegrationTests": {
+                    "Passed": 45,
+                    "Failed": 1
+                },
+                "ArticleGraphNodeProjectionConsumerTests": {
+                    "Passed": 48
+                },
+                "GraphNativeMetadataCaptureTests": {
+                    "Passed": 4
+                }
+            }
+        },
+        {
+            "path": "current/native-current.trx",
+            "sha256": "d755ed3c6e3e102fd2e5f04dfca370022fceeae797fbb4883f3faf846c96773c",
+            "counts": {
+                "Passed": 141
+            },
+            "classes": {
+                "SqlArticleGraphPersistedMetadataReaderTests": {
+                    "Passed": 48
+                },
+                "ArticleGraphNodeProjectionConsumerTests": {
+                    "Passed": 48
+                },
+                "GraphNativeMetadataNodeIntegrationTests": {
+                    "Passed": 41
+                },
+                "GraphNativeMetadataCaptureTests": {
+                    "Passed": 4
+                }
+            }
+        },
+        {
+            "path": "current/pin-coordinate-current.trx",
+            "sha256": "bae4a7c7dbda59dbf1b2ca3272cfde157f7f96b3a43483f3788e5eed9a80134a",
+            "counts": {
+                "Passed": 94
+            },
+            "classes": {
+                "AuthorArticlePinPermissionInputBoundaryTests": {
+                    "Passed": 24
+                },
+                "AuthorArticlePinProjectionTests": {
+                    "Passed": 15
+                },
+                "ArticleRelationSourceCoordinateAuthorityIntegrationTests": {
+                    "Passed": 19
+                },
+                "ArticleRelationSourceCoordinateAuthorityTests": {
+                    "Passed": 9
+                },
+                "AuthorArticlePinServiceRegistrationTests": {
+                    "Passed": 3
+                },
+                "AuthorArticlePinStoreIntegrationTests": {
+                    "Passed": 4
+                },
+                "AuthorArticlePinProjectionIntegrationTests": {
+                    "Passed": 16
+                },
+                "AuthorArticlePinContractTests": {
+                    "Passed": 3
+                },
+                "ArticleRelationSourceCoordinateMigrationDefinitionTests": {
+                    "Passed": 1
+                }
+            }
+        },
+        {
+            "path": "final/pin-coordinate-final.trx",
+            "sha256": "385ac7d8c5e28962fe7995af88e174303fecf9bbf5a98c9324c108e982718c97",
+            "counts": {
+                "Passed": 94
+            },
+            "classes": {
+                "AuthorArticlePinPermissionInputBoundaryTests": {
+                    "Passed": 24
+                },
+                "AuthorArticlePinContractTests": {
+                    "Passed": 3
+                },
+                "ArticleRelationSourceCoordinateAuthorityIntegrationTests": {
+                    "Passed": 19
+                },
+                "AuthorArticlePinProjectionIntegrationTests": {
+                    "Passed": 16
+                },
+                "ArticleRelationSourceCoordinateMigrationDefinitionTests": {
+                    "Passed": 1
+                },
+                "AuthorArticlePinProjectionTests": {
+                    "Passed": 15
+                },
+                "ArticleRelationSourceCoordinateAuthorityTests": {
+                    "Passed": 9
+                },
+                "AuthorArticlePinServiceRegistrationTests": {
+                    "Passed": 3
+                },
+                "AuthorArticlePinStoreIntegrationTests": {
+                    "Passed": 4
+                }
+            }
+        },
+        {
+            "path": "incarnation/native-incarnation.trx",
+            "sha256": "4da30abf33791860de013d14a7454dcd70b0a254594b0740da77decfa83f6eac",
+            "counts": {
+                "Passed": 146
+            },
+            "classes": {
+                "SqlArticleGraphPersistedMetadataReaderTests": {
+                    "Passed": 48
+                },
+                "ArticleGraphNodeProjectionConsumerTests": {
+                    "Passed": 48
+                },
+                "GraphNativeMetadataNodeIntegrationTests": {
+                    "Passed": 46
+                },
+                "GraphNativeMetadataCaptureTests": {
+                    "Passed": 4
+                }
+            }
+        },
+        {
+            "path": "initial/native-initial.trx",
+            "sha256": "3c18dfc7346105b745ddee86c647c0de86f2f559f53ced51d9d16503669b9caa",
+            "counts": {
+                "Failed": 59,
+                "Passed": 151
+            },
+            "classes": {
+                "GraphNativeMetadataNodeIntegrationTests": {
+                    "Failed": 20
+                },
+                "AuthorArticlePinServiceRegistrationTests": {
+                    "Passed": 3
+                },
+                "SqlArticleGraphPersistedMetadataReaderTests": {
+                    "Passed": 48
+                },
+                "ArticleGraphNodeProjectionConsumerTests": {
+                    "Passed": 48
+                },
+                "ArticleRelationSourceCoordinateAuthorityTests": {
+                    "Passed": 9
+                },
+                "AuthorArticlePinProjectionTests": {
+                    "Passed": 15
+                },
+                "AuthorArticlePinProjectionIntegrationTests": {
+                    "Failed": 16
+                },
+                "AuthorArticlePinPermissionInputBoundaryTests": {
+                    "Passed": 24
+                },
+                "ArticleRelationSourceCoordinateAuthorityIntegrationTests": {
+                    "Failed": 19
+                },
+                "AuthorArticlePinStoreIntegrationTests": {
+                    "Failed": 4
+                },
+                "ArticleRelationSourceCoordinateMigrationDefinitionTests": {
+                    "Passed": 1
+                },
+                "AuthorArticlePinContractTests": {
+                    "Passed": 3
+                }
+            }
+        },
+        {
+            "path": "negative/drift-checks-negative.trx",
+            "sha256": "9f35dddcf557c021445262335c33c30cf5bffeb9fce62f6313033f42125e1551",
+            "counts": {
+                "Failed": 8,
+                "Passed": 1
+            },
+            "classes": {
+                "GraphNativeMetadataNodeIntegrationTests": {
+                    "Failed": 6,
+                    "Passed": 1
+                },
+                "GraphNativeMetadataCaptureTests": {
+                    "Failed": 2
+                }
+            }
+        },
+        {
+            "path": "negative/old-node-negative.trx",
+            "sha256": "70335401a97fb0a800a06e63c541008244a28cbec152c80012ce124cb748fcfb",
+            "counts": {
+                "Failed": 5
+            },
+            "classes": {
+                "GraphNativeMetadataNodeIntegrationTests": {
+                    "Failed": 5
+                }
+            }
+        },
+        {
+            "path": "pg18/native-pg18.trx",
+            "sha256": "ac4a5ac37eeaf6b4fce1564f150e87d565de10df1acf3c10d81093b80c984768",
+            "counts": {
+                "Passed": 125,
+                "Failed": 3
+            },
+            "classes": {
+                "ArticleGraphNodeProjectionConsumerTests": {
+                    "Passed": 48
+                },
+                "GraphNativeMetadataCaptureTests": {
+                    "Passed": 4
+                },
+                "SqlArticleGraphPersistedMetadataReaderTests": {
+                    "Passed": 48
+                },
+                "GraphNativeMetadataNodeIntegrationTests": {
+                    "Passed": 25,
+                    "Failed": 3
+                }
+            }
+        },
+        {
+            "path": "second/native-pg18-second.trx",
+            "sha256": "2b1afc9c7625746c0ab44b8c7410aa42df893e8ca91db2c0ad296bcfe9c49117",
+            "counts": {
+                "Passed": 37,
+                "Failed": 1
+            },
+            "classes": {
+                "GraphNativeMetadataNodeIntegrationTests": {
+                    "Passed": 33,
+                    "Failed": 1
+                },
+                "GraphNativeMetadataCaptureTests": {
+                    "Passed": 4
+                }
+            }
+        }
+    ],
+    "runInterpretation": {
+        "initial/native-initial.trx": "151 pass / 59 failure: default image launch blocked; task-owned Docker clients terminated, then official image finished downloading. Retained, not PG qualification.",
+        "pg18/native-pg18.trx": "125 pass / 3 failure: source mutation occurred before its first source observation; helper temporal SQL contaminated a no-dispatch assertion; successful-1000 expectation exceeded the actual admission contract. Original failures retained.",
+        "second/native-pg18-second.trx": "37 pass / 1 failure: retained overstrong successful-1000 expectation.",
+        "committed/native-committed.trx": "145 pass / 1 failure on cade9ee07: real Npgsql transaction-object reuse crossed the lease. Fixed by retaining server virtual transaction identity across batches and Verify.",
+        "incarnation/native-incarnation.trx": "146 pass / 0 failure / 0 skip on sourceCommit: original metadata48, Node48, 4 new ordinary cases, 46 genuine PG cases.",
+        "final/pin-coordinate-final.trx": "94 pass / 0 failure / 0 skip on the same source assembly, including original #4562 PG cancellation/capture and coordinate PG suites.",
+        "admission-regression/admission-122.trx": "122 pass / 0 failure / 0 skip on untouched #4578, including all 83 original genuine PG cases. Separate source, not imported.",
+        "negative/old-node-negative.trx": "5 expected assertion failures on genuine PG, substituting exact original node blob only in the control checkout.",
+        "negative/drift-checks-negative.trx": "8 expected assertion failures and 1 preserved session-denial pass on genuine PG/original unit project, removing only the metadata same-row/source and final permission comparison checks in the control checkout."
+    },
+    "verifiedInvariants": [
+        "Same concrete supplier/client and open non-auto-closing Npgsql session; caller retains connection and transaction lifecycle.",
+        "ReadCommitted and persistent virtual transaction identity, including real transaction-object reuse negative.",
+        "Per metadata authorized batch: 21 actual SQL/probe operations within original conservative 26 reservation; denied batch reads zero metadata/source rows.",
+        "0/1/64/65/1000 candidate boundaries; exact <=64 source batches; native title projection bypasses old Pin title source.",
+        "Real title/pointer/category/tags/exact source/session revocation/permission-version drift across two passes, cross-batch sweeps and Verify reject all staged facts.",
+        "Real SQL lock cancellation for request/prior/deadline and transaction/no-transaction; reader/command completion barrier rejects late facts while awaiting cleanup.",
+        "Published and nonempty string category/tag filters refuse; no guessed numeric mapping; Graph host remains unavailable."
+    ],
+    "limits": [
+        "Pin article.write remains its existing global policy; foreign/private Graph authorization is not complete and no new Graph permission is asserted.",
+        "1000 candidates exceeded the unchanged 250ms admission window in local attempts. The boundary test requires complete exact facts or actual-deadline whole-read refusal, bounded multi-batch SQL and reusable connection; no successful-1000 or latency guarantee is claimed.",
+        "250ms is fact admission/cancellation request only. All borrowed command/reader cleanup is awaited and may exceed it.",
+        "The caller must serialize borrowed-client use. No commit, rollback, replacement or disposal ownership is acquired by readers."
+    ],
+    "checks": [
+        {
+            "localLog": "style-incarnation.log",
+            "sha256": "c0f9ff505fbc32b8d5feeef837e1851647189d603ead096534554f91783007b9",
+            "status": "PASS",
+            "meaning": "Owned strict-full: 6 files, zero violations."
+        },
+        {
+            "localLog": "source-size.log",
+            "sha256": "9d1d216058d4f8f3d108ae3d95bfbfae186ee98c6d8b2733ac4cb3810d6a2912",
+            "status": "PASS",
+            "meaning": "Original source-size checker: 8 components."
+        },
+        {
+            "localLog": "pin-governance.log",
+            "sha256": "4ae58c7567399fe5973697e45a55602560505c11f78c996a43c72dbbb2cca966",
+            "status": "PASS",
+            "meaning": "Original Pin projection governance."
+        },
+        {
+            "localLog": "trusted-pr-contract-corrected.log",
+            "sha256": "e369562d603bd6cd5716c0d67fcc535018cf892b0e2696c4de50d3cf81e86bc6",
+            "status": "PASS",
+            "meaning": "Unchanged frozen-base PR-event checker on the 9-path code delta."
+        },
+        {
+            "localLog": "repository-contract.log",
+            "sha256": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885",
+            "status": "PASS",
+            "meaning": "Original repository change contract."
+        },
+        {
+            "localLog": "postgres-registration-final.log",
+            "sha256": "f3c68005ffaf0075fff71d99d332783aada5ff47e258767728fb6d01e1204757",
+            "status": "FAIL",
+            "meaning": "New PG class lacks shared-manifest registration; shared governance is outside this task."
+        },
+        {
+            "localLog": "backend-test-governance.log",
+            "sha256": "9b3ffba496dd072c1d22f1030cd53ada4e358021158e2b74255a1d6609c726f9",
+            "status": "FAIL",
+            "meaning": "Diagnostics byte-identical to untouched required base; no waiver."
+        },
+        {
+            "localLog": "base-backend-test-governance.log",
+            "sha256": "9b3ffba496dd072c1d22f1030cd53ada4e358021158e2b74255a1d6609c726f9",
+            "status": "FAIL",
+            "meaning": "Untouched c9d0a4e baseline reproduction."
+        },
+        {
+            "localLog": "code-intent.log",
+            "sha256": "10fbee28a8f59bbbf340b699ac5742a1a044cf6e62863e0cf47d18f3db9dd435",
+            "status": "FAIL",
+            "meaning": "Existing font_theme_admin_pods.hpp:338 unbounded claim; same diagnostic on untouched base, differing file-count headers."
+        },
+        {
+            "localLog": "base-code-intent.log",
+            "sha256": "10f6ca199d5a79aa9986e796a86539d69fdb6139bc84f7f276ac02529faf2d6b",
+            "status": "FAIL",
+            "meaning": "Untouched c9d0a4e baseline reproduction."
+        },
+        {
+            "localLog": "matrix.log",
+            "sha256": "1593a350445bf0d09c3d8a4494bef3c3d6c4b6103123e40d5832c7470437d274",
+            "status": "FAIL",
+            "meaning": "Installed Node 24.19.0 fails the original Node parser identity/closure guard."
+        },
+        {
+            "localLog": "source-integration.log",
+            "sha256": "48907b9a55f11ab2054c1e3bae80e36c0bf6fe9912fc97978553d0e0500990ce",
+            "status": "FAIL",
+            "meaning": "Original SOURCE refuses Node parser/execution authority identity; no policy or runtime qualification bypass."
+        },
+        {
+            "localLog": "style-initial.log",
+            "sha256": "b55ee3c42b22811abebb4a7e9b04e0e4a1b5bdb24761ca75b7737632691ab504",
+            "status": "FAIL",
+            "meaning": "Initial owned whitespace/group diagnostics; corrected using original projects."
+        },
+        {
+            "localLog": "style-second.log",
+            "sha256": "21102598b8d13ee03985bd333ba9916f4b5112350f11f8a26489d0bfe2522c62",
+            "status": "FAIL",
+            "meaning": "Retained intermediate whitespace diagnostics; corrected."
+        },
+        {
+            "localLog": "negative-launch-127.log",
+            "sha256": "aedf4fb7cdc8a9f7f1a648d38d9760cdda2cb98ac719e1f46a677741f8ef9018",
+            "status": "FAIL",
+            "meaning": "First negative launch raced worktree materialization, exit 127; not a runtime control."
+        },
+        {
+            "localLog": "trusted-pr-contract-usage-unrun.log",
+            "sha256": "56ba7c601384a0b02a9361fdd571ceaa4a93a53f12509802e61145c5ff9109ef",
+            "status": "UNRUN",
+            "meaning": "First metadata CLI invocation printed usage; no validation was performed."
+        },
+        {
+            "localLog": "trusted-pr-contract-checklist-fail.log",
+            "sha256": "9719bc681648647ad171caab2f1cdd85eba3c15f57951813a1d5e517827a0f34",
+            "status": "FAIL",
+            "meaning": "Exact checklist text mismatch; corrected without policy changes."
+        }
+    ],
+    "unrunOrOpen": [
+        "Shared PG manifest owner registration",
+        "Full backend/solution/full matrix",
+        "Authenticated host/Graph/HTTP/editor/browser integration",
+        "Fine-grained foreign/private Graph privacy",
+        "Published selection and canonical string-to-numeric taxonomy mapping",
+        "Independent acceptance and remote required-check qualification",
+        "Native/release/Vault/receipt qualification"
+    ],
+    "delivery": {
+        "draftPr": 4606,
+        "merge": false,
+        "packagePublication": false,
+        "privateDataPublished": false,
+        "rawLogs": "Retained in task-owned local evidence; not uploaded. TestRun paths are local evidence references, not repository files."
+    }
+}
