@@ -26,10 +26,16 @@ public sealed class AuthoringExtensionProductionPreflight(
     AuthoringHostPlatform platform,
     AuthoringStateScope scope,
     string purpose,
-    AuthoringProductionRuntimeProviders providers) : IAuthoringLifecyclePreflight, IAuthoringLifecyclePermissionPreflight
+    AuthoringProductionRuntimeProviders providers,
+    AuthoringExtensionApprovalAuthority? approvalAuthority = null,
+    AuthoringExtensionApprovalAuthority.ApprovedClaim? approvedClaim = null)
+    : IAuthoringLifecyclePreflight, IAuthoringLifecyclePermissionPreflight
 {
     private readonly IAuthoringInstalledPackageReadScopeAuthority _installedPackages =
         new ActiveAuthoringInstalledPackageAuthority(packages.Store);
+
+    /// <summary>The sole issuer's context; an independently supplied context is never accepted.</summary>
+    public AuthoringExtensionOperationContext? OperationContext => approvedClaim?.OperationContext;
 
     public async ValueTask<bool> VerifyAsync(
         VerifiedAuthoringPackage package,
@@ -79,7 +85,13 @@ public sealed class AuthoringExtensionProductionPreflight(
             "production_state_budget_or_revision_drift");
         AuthoringLifecycleReceipt? receipt = await receipts.GetLatestAsync(
             active.Contract.Manifest.Id, cancellationToken).ConfigureAwait(false);
-        if (receipt is not null)
+        if (approvedClaim is not null)
+        {
+            // Before effects/Starting, the exact original head is still required.
+            // Its ScopeDigest belongs to the issuer, not a consumer-side codec.
+            Require(receipt == approvedClaim.ExpectedLifecycleReceipt, "production_approval_lifecycle_head_drift");
+        }
+        else if (receipt is not null)
         {
             Require(receipt.SchemaVersion == 1 && receipt.Generation > 0 && receipt.Sequence == receipt.Generation
                 && receipt.ExtensionId == active.Contract.Manifest.Id
@@ -103,7 +115,18 @@ public sealed class AuthoringExtensionProductionPreflight(
         {
             blockers.Add("production_lifecycle_receipt_missing");
         }
-        blockers.Add("production_approval_contract_unavailable");
+        if (approvedClaim is null)
+        {
+            blockers.Add("production_approval_claim_missing");
+        }
+        else
+        {
+            // This claim approves a state operation. Its original contract does
+            // not bind a runtime grant purpose, enable consent or publication.
+            blockers.Add("production_grant_operation_binding_unavailable");
+            blockers.Add("production_approval_qualification_pending");
+        }
+        blockers.Add("production_starting_publication_ports_unavailable");
         blockers.Add("production_launch_capability_admission_unavailable");
         foreach (AuthoringExecutionTarget target in targets)
         {
@@ -131,6 +154,7 @@ public sealed class AuthoringExtensionProductionPreflight(
         acquisition.CancelAfter(TimeSpan.FromSeconds(5));
         cancellationToken = acquisition.Token;
         cancellationToken.ThrowIfCancellationRequested();
+        await VerifyApprovedOperationAsync(package, cancellationToken).ConfigureAwait(false);
         Require(OperatingSystem.IsLinux() && platform == AuthoringHostPlatform.ServerLinux,
             "production_platform_unsupported");
         AuthoringExtensionManifest manifest = package.Contract.Manifest;
@@ -150,12 +174,13 @@ public sealed class AuthoringExtensionProductionPreflight(
 
         // The resolver reenters the store. Resolve before taking the original
         // store's exclusion lifetime; reacquiring it while held would deadlock.
-        foreach (AuthoringContributionDeclaration declaration in manifest.Contributions)
+        for (int index = 0; index < manifest.Contributions.Length; index++)
         {
+            AuthoringContributionDeclaration declaration = manifest.Contributions[index];
             AuthoringExecutionTarget expected = await packages.ExecutionResolver.ResolveAsync(
                 package, declaration.Id, platform, cancellationToken: cancellationToken).ConfigureAwait(false);
             Require(expected.Status == AuthoringExecutionResolutionStatus.Ready
-                && targets.SingleOrDefault(target => target.ContributionId == declaration.Id) == expected,
+                && targets[index] == expected,
                 "production_target_exact_mapping_required");
             Require(declaration.ExecutionClass is AuthoringExecutionClass.IsolatedWorkerWasm
                 or AuthoringExecutionClass.OutOfProcessService, "production_runtime_readiness_unsupported");
@@ -187,6 +212,51 @@ public sealed class AuthoringExtensionProductionPreflight(
             AuthoringTerminalReadScopes.Release(failure, held);
             throw;
         }
+    }
+
+    private async ValueTask VerifyApprovedOperationAsync(
+        VerifiedAuthoringPackage package, CancellationToken cancellationToken)
+    {
+        if (approvedClaim is null)
+        {
+            Require(approvalAuthority is null, "production_approval_claim_missing");
+            return;
+        }
+        Require(approvalAuthority is not null, "production_approval_read_owner_missing");
+        Require(approvedClaim.ExpiresAt > timeProvider.GetUtcNow(), "production_approval_claim_expired");
+        Require(approvedClaim.ResultPackageIdentity == package.PackageIdentity,
+            "production_approval_result_package_drift");
+        if (approvedClaim.FrozenPlan is { } plan)
+        {
+            Require(plan.MaximumBytes <= package.Contract.Manifest.Limits.MaximumStateBytes
+                && plan.MaximumDuration <= package.Contract.Manifest.Limits.WallClock,
+                "production_approval_plan_budget_exceeded");
+        }
+        AuthoringStateScope boundScope = ScopeFor(approvedClaim);
+        Require(boundScope == scope, "production_approval_scope_drift");
+        // ReadAsync is the original concrete issuer's authenticated SQL read:
+        // real actor/session/permissions/xmin and the protected journal are checked.
+        // It is a point-in-time observation, not a held publication capability.
+        AuthoringExtensionApprovalPreview current = await approvalAuthority!.ReadAsync(
+            approvedClaim.DecisionId, cancellationToken).ConfigureAwait(false);
+        Require(current.Status == AuthoringApprovalStatus.Claimed
+            && current.DecisionId == approvedClaim.DecisionId && current.Digest == approvedClaim.Digest
+            && current.Operation == approvedClaim.Operation && current.Scope == approvedClaim.Scope
+            && current.ExpiresAt == approvedClaim.ExpiresAt
+            && current.OperationContext == approvedClaim.OperationContext
+            && current.ExpectedLifecycleReceipt == approvedClaim.ExpectedLifecycleReceipt,
+            "production_approval_claim_not_current");
+    }
+
+    internal static AuthoringStateScope ScopeFor(AuthoringExtensionApprovalAuthority.ApprovedClaim claim)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+        return claim.Operation switch
+        {
+            AuthoringApprovalOperation.Migration when claim.FrozenPlan is not null => claim.FrozenPlan.To,
+            AuthoringApprovalOperation.Deletion when claim.FencedDeletion is not null => claim.Scope,
+            _ => throw new AuthoringExtensionContractException("production_approval_operation_unsupported")
+        };
     }
 
     private async ValueTask<bool> HasGrantsAsync(
