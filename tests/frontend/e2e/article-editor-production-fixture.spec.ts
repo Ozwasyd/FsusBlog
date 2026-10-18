@@ -1703,6 +1703,14 @@ test.describe('article editor production command bar narrow zoom', () => {
                   return element.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2))
                 })).toBe(true)
               }
+              expect(await bar.locator('.article-write-command-bar__actions').evaluate((element: Element) => {
+                const container = element.getBoundingClientRect()
+                return Array.from(element.querySelectorAll('button')).every((button) => {
+                  const box = button.getBoundingClientRect()
+                  return box.left >= container.left && box.right <= container.right
+                    && box.top >= container.top && box.bottom <= container.bottom
+                })
+              })).toBe(true)
               const boxes = await buttons.evaluateAll((elements: Element[]) => elements.map((element) => {
                 const box = element.getBoundingClientRect()
                 return { left: box.left, right: box.right, top: box.top, bottom: box.bottom }
@@ -1744,6 +1752,10 @@ test.describe('article editor production command bar narrow zoom', () => {
                 (window as Window & { __articleEditorFixtureSetState?: (state: 'failed') => void }).__articleEditorFixtureSetState?.('failed')
               })
               await verifyCommands(true)
+              const barBox = await bar.boundingBox()
+              const inputBox = await page.getByLabel('缺失标题').boundingBox()
+              if (!barBox || !inputBox) throw new Error('command_validation_geometry_missing')
+              expect(inputBox.y).toBeGreaterThanOrEqual(barBox.y + barBox.height)
             }
             await page.screenshot({ path: testInfo.outputPath(`command-${surface}-${width}-${theme}-scale-${scale}.png`), fullPage: true })
           }

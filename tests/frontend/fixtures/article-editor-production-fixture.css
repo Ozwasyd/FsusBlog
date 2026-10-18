@@ -175,6 +175,11 @@ body {
     min-height: 64px;
     padding: 0.75rem 1rem;
   }
+
+  .article-editor-production-fixture__command-surface .article-write-command-bar .article-write-command-bar__actions {
+    height: auto;
+    min-height: 64px;
+  }
 }
 
 .article-editor-production-fixture__command-surface .write-validation-form {
