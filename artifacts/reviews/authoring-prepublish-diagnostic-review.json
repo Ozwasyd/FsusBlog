@@ -1,4 +1,5 @@
 {
+    "finalReviewedHead": "9c1ac40204aa3e697345b981e7bba57fb0d9e757",
     "reviewedBase": "a52639b904335c5a70480fca1d2e59a23b21c1c6",
     "reviewedHead": "8fe951bd802f4907e90c33f57feef2d7d0e59a47",
     "reviewedTree": "798aa7c9db32899ec0a338fa9cdcce68fa93acf4",
@@ -498,6 +499,50 @@
         {
             "localPath": "/workspace/diagnostic-independent-results/current-probe-results.json",
             "sha256": "2020913f6589cecdfd3bec44cff6bf9b80bfefe179fc25d081be6d0136e0c4b4"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/latest-contracts.log",
+            "sha256": "4940bb6a22c8ecec6efe6fe98f3d74ef0b5d9952eaea9039ec596c91fc969fd9"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/latest-contracts.trx",
+            "sha256": "968eab7f8379448dba45c57c5d45bb28f859844b9c45ef0977c88298ee911278"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/latest-regression.log",
+            "sha256": "67834d1f36fdb94b3c09c5eeb99ff7f7c91ec227364e81786567b3b0a3f7bbf6"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/latest-regression.trx",
+            "sha256": "0909220bb49f9350b21c14581c11c3205dd9bd0188ebe7f8f822325247b86eb0"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/latest-source.log",
+            "sha256": "a5b2dc0ac15818595750123c9bf4f3dc8d4028b4cc996e218751f64c0981188b"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/latest-fsusui-typecheck.log",
+            "sha256": "8815decefcd50a7c34bbf372593da7dc676cca39c71f6604b93e5120957102f8"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/latest-probe-build.log",
+            "sha256": "8d3fad45ce2547d5b7827da4a1e48f8f3d0dbc20d3194f1b10d8c1600f13384d"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/latest-probe-results.json",
+            "sha256": "2e5fbbd9dee7b6ad10e77ed7eb12000c8bca88ca314000fd0fd2f20789fbafc8"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/final-review-style.log",
+            "sha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/final-review-change-contract.log",
+            "sha256": "78d493450b54ae00e98a68877c51b35f2630fb2dc9f514bf1198fbb6ee87f2a7"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/final-review-source.log",
+            "sha256": "192ff5db39447a5aff73c7fcfd962e185aa4044bde6025a6f0cc89fe7774c83d"
         }
     ],
     "runnerSourceSha256": "1807791d9bd3f21e66078a87b14fd2f70a095459deb909375d38c6ef7fa0dfd9",
@@ -934,5 +979,363 @@
             "scope": "Test regression; preserve ordered registration values and all assertions."
         }
     },
-    "finalRunnerSourceSha256": "e5c16aa8bb5d617db140f5fd85f7addaa6198bfad3f0020d7a5b7e22c395fe03"
+    "finalRunnerSourceSha256": "e5c16aa8bb5d617db140f5fd85f7addaa6198bfad3f0020d7a5b7e22c395fe03",
+    "finalRevision": {
+        "reviewedBase": "a52639b904335c5a70480fca1d2e59a23b21c1c6",
+        "reviewedHead": "9c1ac40204aa3e697345b981e7bba57fb0d9e757",
+        "reviewedTree": "fd59a8d83a24900d4770da7a348a561a9435c46f",
+        "deltaFrom": "4d988fb19d637d3bc0c6f71d187f95bc39e623c8",
+        "delta": "Only two ordered immutable-array assertions: 3 insertions, 3 deletions; no implementation or expected-value change",
+        "originalSuites": {
+            "latest-contracts": {
+                "counters": {
+                    "total": "134",
+                    "executed": "134",
+                    "passed": "134",
+                    "failed": "0",
+                    "error": "0",
+                    "timeout": "0",
+                    "aborted": "0",
+                    "inconclusive": "0",
+                    "passedButRunAborted": "0",
+                    "notRunnable": "0",
+                    "notExecuted": "0",
+                    "disconnected": "0",
+                    "warning": "0",
+                    "completed": "0",
+                    "inProgress": "0",
+                    "pending": "0"
+                },
+                "failures": [],
+                "trxSha256": "968eab7f8379448dba45c57c5d45bb28f859844b9c45ef0977c88298ee911278"
+            },
+            "latest-regression": {
+                "counters": {
+                    "total": "289",
+                    "executed": "289",
+                    "passed": "287",
+                    "failed": "2",
+                    "error": "0",
+                    "timeout": "0",
+                    "aborted": "0",
+                    "inconclusive": "0",
+                    "passedButRunAborted": "0",
+                    "notRunnable": "0",
+                    "notExecuted": "0",
+                    "disconnected": "0",
+                    "warning": "0",
+                    "completed": "0",
+                    "inProgress": "0",
+                    "pending": "0"
+                },
+                "failures": [
+                    {
+                        "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(text: \"a\\n\\0é\\ud834\\udd1e���\", digest: \"89f57d854aa2b871834c31342c1451edd26c031936a43cfd44\"···)",
+                        "message": "Assert.Equal() Failure: Strings differ\n           ↓ (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"···\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"···\n           ↑ (pos 0)"
+                    },
+                    {
+                        "name": "FsusBlog.Server.Tests.AuthoringCommandContributionTests.TransactionAdapter_AppliesMutationThroughCanonicalRpcOnce",
+                        "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Mutation preview does not bind the exact approved plan and host context."
+                    }
+                ],
+                "trxSha256": "0909220bb49f9350b21c14581c11c3205dd9bd0188ebe7f8f822325247b86eb0"
+            }
+        },
+        "independentControls": {
+            "ReviewedHead": "9c1ac40204aa3e697345b981e7bba57fb0d9e757",
+            "AssemblySha256": "afca0b952c38176d9634d23ff68d84304a9c6f889150db6694207e760a73d9b1",
+            "Total": 70,
+            "Passed": 68,
+            "Failed": 2,
+            "Results": [
+                {
+                    "Name": "positive-required-False-severity-Info",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "positive-required-False-severity-Warning",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "positive-required-False-severity-Blocking",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "positive-required-True-severity-Info",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "positive-required-True-severity-Warning",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "positive-required-True-severity-Blocking",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Required-nested-False",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Required-nested-True",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-CoreResults-nested-False",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-CoreResults-nested-True",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-PassOverride-nested-False",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-PassOverride-nested-True",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Html-nested-False",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Html-nested-True",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Dom-nested-False",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Dom-nested-True",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-SourcePatch-nested-False",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-SourcePatch-nested-True",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Executable-nested-False",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Executable-nested-True",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Budget-nested-False",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "closed-output-Budget-nested-True",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "duplicate-decoded-json-property",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "missing-nullable-output-member",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "unknown-output-schema",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "unknown-completion",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "empty-findings",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "nofindings-with-facts",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "explicit-nofindings",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "html-escaped-json",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "unknown-code",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "severity-downgrade",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "severity-upgrade",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "duplicate-facts",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "core-fact-namespace",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "core-fact-already-in-diagnostic-namespace",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "whole-document",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "split-whole-document",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "unknown-metadata",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "duplicate-metadata",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "fact-range-outside-admitted-read",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "deadline-exact-boundary",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "foreign-registry-core-digest",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "foreign-registry-requiredness",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "changed-document-epoch",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "changed-config",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "changed-range-text",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "unknown-declaration-member",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "capability-DocumentFullRead",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "capability-ArticleQuery",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "capability-NetworkDestination",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "capability-FileSystemRootRead",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "capability-DocumentMutationRequest",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "host-effective-output-byte-boundary",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "host-cannot-expand-declared-budget",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "duplicate-host-policy",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "core-check-alias-through-contribution-id",
+                    "Status": "FAIL",
+                    "Error": "Expected AuthoringExtensionContractException; exact-head API accepted the forbidden input."
+                },
+                {
+                    "Name": "core-check-alias-through-extension-id",
+                    "Status": "FAIL",
+                    "Error": "Expected AuthoringExtensionContractException; exact-head API accepted the forbidden input."
+                },
+                {
+                    "Name": "roster-absent-required",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-absent-optional",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-complete-findings",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-present-unavailable-is-not-success",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-reject-omitted-registration",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-reject-requiredness-tamper",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-reject-default-outcomes",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-reject-null-outcome",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-reject-expired-success",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-reject-foreign-policy-result",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-reject-foreign-roster",
+                    "Status": "PASS"
+                },
+                {
+                    "Name": "roster-empty-membership",
+                    "Status": "PASS"
+                }
+            ]
+        },
+        "sourceIntegration": "PASS; source-only, no runtime/release qualification",
+        "realLocalFsusUiAliasTypecheck": "PASS; actually executed at this head",
+        "runnerBuild": "PASS; 0 warnings, 0 errors",
+        "assertionFinding": "RESOLVED at this SHA; both original cases now pass",
+        "admissionIdentityFinding": "OPEN; both core identity collision refusal controls still fail"
+    }
 }

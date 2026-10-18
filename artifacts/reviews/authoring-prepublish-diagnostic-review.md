@@ -1,5 +1,7 @@
 # Independent diagnostic contract review
 
+Final audited target: **`9c1ac40204aa3e697345b981e7bba57fb0d9e757`**. Original contracts pass 134/134; complete related regression is 287 pass / 2 confirmed base failures; independent controls are 68 pass / 2 core identity collision refusals failing. The historical revisions and failed intermediate assertions below remain evidence, not the final verdict.
+
 Refs #2517. Dependency: [PR #4531](https://github.com/Ozwasyd/FsusBlog/pull/4531).
 
 - Reviewed base: `a52639b904335c5a70480fca1d2e59a23b21c1c6`.
@@ -104,3 +106,17 @@ dotnet tests/diagnostic-contract-review/bin/Release/net10.0/DiagnosticContractRe
 ```
 
 The result is 70 controls with exit 1 for the two preserved admission defects. `DiagnosticRosterReview` is a test-runner compilation option for APIs absent from the old head; it changes no host contract, security policy or test assertion.
+
+## Final assertion-fix revision
+
+The author then advanced to **`9c1ac40204aa3e697345b981e7bba57fb0d9e757`**, changing only the two roster assertions (3 insertions and 3 deletions). Explicit element types select ordered sequence comparison and preserve every registration field; the implementation, scopes, thresholds and expected values are unchanged. That complete diff was independently read and executed, without editing it.
+
+| Final exact-head run | Pass | Fail | Skip |
+| --- | ---: | ---: | ---: |
+| Original diagnostic + manifest contracts | 134 | 0 | 0 |
+| Complete related four-class regression | 287 | 2 | 0 |
+| Independent controls | 68 | 2 | 0 |
+
+Both intermediate assertion failures are **resolved at this SHA**. The remaining original regression failures have the same identities and messages as the exact base's two failures. The admission collision finding remains open; both refusing controls still fail against the freshly built exact-head server assembly, SHA-256 `afca0b952c38176d9634d23ff68d84304a9c6f889150db6694207e760a73d9b1`. Exact-head SOURCE and the actual local FsusUI alias typecheck pass. The independent runner's final Release build has 0 warnings/errors.
+
+The evidence branch retains parent `4d988fb19d637d3bc0c6f71d187f95bc39e623c8`; audited final tests run in the separate clean `9c1ac40204aa3e697345b981e7bba57fb0d9e757` checkout. Review commits add only their own five files and do not alter the author's test correction. Replay final controls with the same new-head command above, substituting the final assembly and final SHA argument. No result from one revision is relabeled as a run at another revision.
