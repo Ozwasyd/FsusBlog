@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationApplyJournalDialect.cs"
+            ],
+            "reason": "Preserve existing registered external process spelling; this change only applies official whitespace formatting and keeps all tokens and literals unchanged. The existing trusted registry assigns these eight C# paths to its process-environment surface. This candidate acknowledges that path-level ownership while preserving every original external process/environment spelling and its existing adapters. The renamed managed fields and constants still obey internal C# naming; this declaration introduces no environment key and grants no naming exception to those internal identifiers. Native FieldOffset/StructLayout and libc EntryPoint attributes, SQL/JSON/wire literals and retained-reader bootstrap bytes remain unchanged. The existing environment-variable registry governs these handwritten src/**/*.cs paths. Preserve original process environment spellings, migration tool bindings and refusal codes while exposing existing analyzer guards and formatting only; no external names are added or renamed, and this declaration grants no runtime or acceptance authority."
+        }
+    ]
+}
