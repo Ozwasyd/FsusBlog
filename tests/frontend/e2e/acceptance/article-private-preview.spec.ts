@@ -165,9 +165,10 @@ test.describe('article private preview browser contract', () => {
       expect(unexpectedNavigations).toEqual([])
       expect(session.page.url()).toBe(previewUrl)
 
-      let releaseHeldResponse: (() => void) | null = null
+      let resolveHeldResponse: (() => void) | null = null
+      const releaseHeldResponse = () => resolveHeldResponse?.()
       const heldResponseRelease = new Promise<void>((resolve) => {
-        releaseHeldResponse = resolve
+        resolveHeldResponse = resolve
       })
       let markResponseHeld: (() => void) | null = null
       const responseHeld = new Promise<void>((resolve) => {
@@ -198,7 +199,7 @@ test.describe('article private preview browser contract', () => {
       await session.page.getByRole('button', { name: '生成私有预览', exact: true }).click()
       await responseHeld
       await editor.fill(currentMarkdown)
-      releaseHeldResponse?.()
+      releaseHeldResponse()
       await expect(session.page.getByRole('button', {
         name: '生成私有预览',
         exact: true
