@@ -75,3 +75,236 @@ external opener rather than the last internal rail control. A save conflict,
 publish blocker, or high-severity check remains discoverable as one low-noise action in the
 existing command/status surface and opens its owning view; the rail and command
 surface do not expose a persistent per-view count wall.
+
+## Structured visual adjudication contract
+
+`inspectCompositionObservationDiagnostic` from the existing
+`@fsusblog/layout-governance/visual-producer-admission` entry consumes the
+canonical composition source, route and DOM APIs. It rebuilds the route graph,
+binds actual source/worktree/FsusUI/parser identities, and projects the declared
+scene state ID from the sole matrix into the analyzer's dimension-to-ID input.
+An undeclared state fails; loading or asset states do not default to a selected
+Settings tab. Caller loaders, graphs and verifier callbacks are forbidden.
+
+This consumer is diagnostic only. Missing public exports refuse explicitly;
+combined source/DOM observations cannot become separate static and DOM receipts.
+Unknown conditional and public-surface errors remain blocking, while runtime
+state origin, geometry and rendered field adjudication remain independent gates.
+Its declaration mapping does not qualify any current-run state fixture.
+
+`config/schemas/layout-visual-adjudication.schema.json` owns the exact ten visual
+rubric fields. `tests/frontend/support/layout/visualAdjudication.mjs` independently
+checks their states, evidence references, source and scene bindings, content
+digests, and the sole visual ledger. It consumes the composition identity from
+`compositionContracts.mjs`; it does not define another matrix, contract map,
+rubric, score, or baseline approval list.
+
+A field marked `pass` requires screenshot, static, rendered DOM, and geometry
+evidence for the same source/worktree, FsusUI baseline, contract, fixture, state,
+theme, viewport, and current run. A machine failure cannot be overridden by a
+visual pass. `fail` requires a canonical reason, an exact rubric field, a field
+from the applicable composition contract, and an atomic production issue
+reference. `not-observed` keeps the receipt incomplete. Baseline creation or
+movement requires the existing ledger's exact entry digest/classification and
+the explicitly supplied old/new screenshot digests. Schema, rubric, and verifier
+identities invalidate receipts when their consumed bytes change.
+
+Canonical source/DOM diagnostics can be consumed through the bounded API above.
+Qualified static/DOM scene admission and geometry producer adapters remain
+pending, so every production `rendered` verification still fails with
+`layout-visual-producer-adapter-unavailable`. Callers cannot supply an alternate
+verification callback or replace that authority with a status bit. Current-run
+state/viewport fixture admission and production-positive verification remain
+pending with those producers. Public issue existence and atomic scope also need
+independent evidence before a production visual failure can be qualified.
+
+Run the contract self-tests with:
+
+```bash
+node --test tests/tools/layout-visual-adjudication.test.mjs
+```
+
+Every test artifact is explicitly synthetic. Test-only success returns
+`qualificationEligible: false`; it does not adjudicate a real page, qualify local
+or published FsusUI, approve a baseline movement, or provide release acceptance.
+Local/published parity checks preserve the same rubric/contract/fixture and
+verify receipt seals, but never substitute for independent verification of both
+actual source modes. Real adjudication and complete evidence aggregation remain
+separate owners.
+
+## Composition contract definitions and identity
+
+Every existing representative in `layout-archetype-matrix.json` owns one
+`compositionContract`. The matrix retains its route and screenshot fields for
+fixture identity; the composition contract uses semantic region, owner, action,
+material and state IDs. It never treats a selector, current CSS, a historical
+snapshot or copied token values as design authority. The schema is
+`config/schemas/layout-composition-contract.schema.json`; the pure validator and
+identity functions are in
+`tests/frontend/support/layout/compositionContracts.mjs`.
+
+Contracts reference the current FsusUI design document and the maintained Blog
+governance, surface, public-layout, typography, task-geometry and page-title
+sources. They bind the existing matrix coverage, viewport corpus and available
+fixture sources rather than creating another representative-route or screenshot
+registry. State requirements live in the contract itself. A fixture source
+reference records provenance only: `pending-current-run` never claims that the
+state has been produced or accepted. A missing binding stays explicit with a
+null `fixtureRef` and its binding owner; unrelated loading/empty fixtures cannot
+stand in for a save, permission or icon-generation state.
+
+Action rules are exact-one or partitioned by one semantic state dimension.
+Exclusive cases cover all values of that dimension once. An explicitly passive
+case declares zero primary submit actions and retains only its named secondary
+actions; it does not manufacture a save button. Settings site, compliance and
+page publishing share the header authority, while media preferences have no
+submit action. Data previews and genuine status/risk regions retain their own
+roles and required boundaries; ordinary fields and repeated items remain flat.
+
+`createCompositionIdentity` binds the exact supplied source commit and existing
+FsusUI baseline receipt to the schema, validator content/version, semantic
+contracts, current design-document bytes, fixture sources, complete archetype
+matrix and sole visual ledger. Local and published baseline identities may
+differ; the semantic contract and schema do not branch by mode. Callers must
+resolve and verify their actual effective design source and baseline, including
+published provenance; merely finding a local checkout does not qualify a
+published package. `verifyCompositionIdentity` rejects stale or tampered
+bindings. Changing a route or screenshot target changes fixture identity without
+redefining the semantic contract.
+
+The current contract-definition result is `contract-defined`, with explicit
+pending capability and state bindings. `requireCompositionRuntimeBindings`
+rejects these pending bindings. These functions perform no SFC/DOM analysis,
+browser execution, rendered visual adjudication or full acceptance. Exact
+external capability commits and current-run state producer contracts remain
+required before any runtime qualification. Their integration must retain the
+canonical governance and visual lanes; this pure contract module is not an
+alternate release runner.
+
+The private repository package exposes the existing resolver, schema validator
+and layout helpers through `@fsusblog/layout-governance` exports. Both test
+packages consume its local file dependency; source files retain their canonical
+owners. Install the locked tools and test-package links before running the schema
+and identity negative controls:
+
+```bash
+npm ci --ignore-scripts --prefix tools/test-matrix/schema-validator
+npm ci --ignore-scripts --prefix tests/frontend
+npm ci --ignore-scripts --prefix tests/tools
+node --test tests/tools/layout-composition-contracts.test.mjs
+```
+
+These are synthetic contract mutations against the actual loaded definitions;
+they are not product-source mutations or evidence that a page renders correctly.
+
+## Aggregation preflight and mutation admission
+
+The existing `check:views-constraints` core dependency owns the aggregation
+preflight. Set `FSUSBLOG_LAYOUT_AGGREGATION_PREFLIGHT=1` on that command to inspect
+its declared coverage. The preflight reports `not-executed`,
+`qualificationEligible: false` and exit 1. The default command retains its
+existing static checks; a static pass does not qualify full visual acceptance.
+There is no second layout runner or selectable verification callback.
+
+`tests/frontend/support/layout/layoutAggregation.mjs` derives demands from every
+representative and required state in the sole archetype matrix and its referenced
+viewport/theme/media sources, for both local and published modes. It preserves
+literal dimension values and their source references. Symbolic desktop/mobile,
+high-contrast and zoom descriptors are not silently converted into browser
+scenes. Actual viewport, native zoom, forced-colors, state readiness and fixture
+admission remain the browser producer's authority. Derived demands are temporary
+contract data, not a second maintained matrix or proof of scene execution.
+
+`config/schemas/layout-aggregation-request.schema.json` owns the strict preflight
+request, receipt-reference cardinality, 25 mutation observation IDs and ten
+success counters. The IDs represent the required 18 controls plus seven extra
+runner/matrix/ledger/pixel/mode/lane/job downgrade controls. Each observation
+retains not-executed, killed or survived and evidence references. A caller's
+claimed kill cannot certify that a product mutation was executed or rejected.
+The current self-tests check this interface and downgrade refusal only; product
+mutations awaiting source/browser/adjudication producers remain unexecuted.
+
+`inspectLayoutReceiptCoverage` checks exact-one references per declared demand
+and evidence kind. `inspectLayoutAggregation` additionally checks current
+source/worktree/run/attempt, local/published composition identities freshly
+derived from the supplied current baseline/source and consumed inputs, exact artifact bytes and mutation-reference
+shape. Every diagnostic remains ineligible for qualification. Reference deficits
+are reported separately and cannot prove archetype coverage
+or evidence freshness. Only the current contract validation counter can be
+zero; all nine remaining success counters stay `null` until canonical producers
+independently verify them. Unknown is never zero.
+
+`requireFullLayoutAggregate` rejects focused/static-only/not-executed requests,
+incomplete coverage and finally unavailable canonical producer adapters. Even
+complete references, opaque bytes and all claimed kills cannot issue a full
+receipt. The current implementation has no release-final authority or CI
+transport registration; those integrations must consume actual producer APIs
+and the existing current-run locator, transport and required-evidence owners.
+Job success, artifact names, URLs, old receipts and published fallback to local
+cannot replace that authority.
+
+Run the non-qualifying interface tests with the locked packages installed:
+
+```bash
+node --test tests/tools/layout-aggregation.test.mjs
+FSUSBLOG_LAYOUT_AGGREGATION_PREFLIGHT=1 npm --prefix src/frontend run check:views-constraints
+```
+
+The second command is deliberately blocked before subsequent static dependencies
+run. It does not weaken their normal execution or overwrite any prior failure
+artifacts. Keep each failed attempt and subsequent rerun under distinct run-bound
+artifact paths; this preflight is not an attempt/failure evidence producer.
+
+## Canonical origin and browser consumer admission
+
+`visualProducerAdmission.mjs` consumes the existing current-run evidence locator,
+publication payload resolver, transport mapping and managed browser identity
+APIs. It registers no producer or authority. `inspectVisualProducerAdmission`
+requires visual and browser origin inputs, both verified against the
+same scheduler context. Each origin supplies a registered `consumerId`, exactly
+one explicit path or content-addressed reference, and, for transported evidence,
+an explicit manifest path/digest. The consumer reads the sole canonical registry;
+caller registries, callbacks, directory scans, filenames and mtime cannot replace
+it. Production calls use this repository; temporary repositories are limited to
+explicit synthetic contract tests and never qualify acceptance.
+
+The consumer resolves actual payload bytes, verifies their seals and exact
+source/worktree/run/attempt binding, and checks every explicit screenshot,
+static, DOM and geometry artifact plus opaque producer bytes against the visual
+receipt. Locator digests retain the canonical `sha256:` prefix, while visual
+artifact digests remain bare SHA-256 hex. That conversion is explicit at this
+boundary; it does not reinterpret opaque producer schemas.
+
+`inspectVisualBrowserBinding` verifies the actual browser seal and rendering
+observation, then recreates the current managed browser plan from the real
+policy, SDK package/catalog, executable, fonts and locale sources. It has no
+caller filesystem, package resolver, policy or verification callback override.
+By itself it proves identity consistency only: a browser payload has no
+source/run identity until its separate canonical origin is admitted. Browser
+identity and an envelope do not prove that a particular product scene ran.
+
+`visualProducerAdmissionIdentity` binds the consumer and consumed canonical
+source/authority bytes. Its `producerAdmissionDigest` is a required visual
+receipt field returned by `visualVerifierIdentity`; old receipts or loaded
+consumers are rejected when that closure changes. Downstream producers consume
+these exported identities instead of independently deriving their own hashes.
+
+For rendered receipts, `verifyVisualAdjudication` invokes admission when its
+context supplies `producerAdmission`. Foundation admission still returns
+`qualificationEligible: false`, and the rendered path always refuses the
+unavailable static/DOM and geometry producer adapters. Missing registered visual
+and browser origins, opaque-producer-to-artifact mapping, current fixture/state
+admission and scene execution remain explicit pending capabilities. No current
+helper signs a visual pass, real mutation kill, source-mode qualification or full
+aggregate.
+
+Run the consumer contract negatives with:
+
+```bash
+node --test tests/tools/layout-visual-producer-admission.test.mjs
+```
+
+These tests use labelled synthetic publication payloads and existing registry
+entries without creating visual authorities. Actual managed-browser probes and
+local/transport packet probes must retain their narrower identity/transport
+scope; they are not product-scene or visual adjudication receipts.

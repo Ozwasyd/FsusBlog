@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+
+import { loadCompositionInputs } from '@fsusblog/layout-governance/composition-contracts';
+import { createLayoutAggregationPlan } from '@fsusblog/layout-governance/layout-aggregation';
 
 const root = process.cwd();
 const srcDir = join(root, 'src');
@@ -445,6 +448,26 @@ for (const line of hardViolations)
 for (const line of softViolations)
 {
     console.warn(`[views-constraints] soft: ${line}`);
+}
+
+// The existing canonical command owns this bounded preflight. It never emits a
+// verified receipt, even when the static phase passes or CI reports job success.
+if (process.env.FSUSBLOG_LAYOUT_AGGREGATION_PREFLIGHT === '1')
+{
+    const inputs = loadCompositionInputs({ repositoryRoot: resolve(root, '../..') });
+    const plan = createLayoutAggregationPlan(inputs);
+    console.log(JSON.stringify({
+        schema: 'fsusblog.layout-aggregation-preflight.v1', status: 'not-executed',
+        qualificationEligible: false, command: plan.command, planDigest: plan.planDigest,
+        requiredArchetypes: inputs.matrix.archetypes.length,
+        criticalArchetypes: inputs.matrix.archetypes.filter((entry) => entry.critical).length,
+        declaredCoverageDemands: plan.requirements.length,
+        unresolvedStateBindings: plan.pendingStateBindings.length,
+        missingProducerCapabilities: [2098, 2099, 2100, 2101],
+        mutationObservationStatus: 'not-executed',
+        staticPhase: { hard: hardViolations.length, soft: softViolations.length }
+    }));
+    process.exit(1);
 }
 
 if (hardViolations.length > 0)

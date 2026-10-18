@@ -1,0 +1,577 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:fsusblog:layout-visual-adjudication:v1",
+    "title": "Structured layout visual adjudication receipt v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "rubricVersion",
+        "verifierVersion",
+        "schemaDigest",
+        "verifierDigest",
+        "rubricDigest",
+        "producerAdmissionDigest",
+        "evidenceClass",
+        "status",
+        "compositionIdentity",
+        "binding",
+        "adjudicator",
+        "evidence",
+        "rubric",
+        "baselineMovement",
+        "warnings",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.layout-visual-adjudication.v1"
+        },
+        "rubricVersion": {
+            "const": "fsusblog.layout-visual-rubric.v1"
+        },
+        "verifierVersion": {
+            "const": "fsusblog.layout-visual-verifier.v1"
+        },
+        "schemaDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "verifierDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "rubricDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "evidenceClass": {
+            "enum": [
+                "rendered",
+                "synthetic"
+            ]
+        },
+        "status": {
+            "enum": [
+                "verified",
+                "failed",
+                "incomplete"
+            ]
+        },
+        "compositionIdentity": {
+            "$ref": "#/$defs/compositionIdentity"
+        },
+        "binding": {
+            "$ref": "#/$defs/binding"
+        },
+        "adjudicator": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "independentReviewerId",
+                "runId",
+                "method"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "independentReviewerId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "runId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "method": {
+                    "const": "independent-rendered-field-review"
+                }
+            }
+        },
+        "evidence": {
+            "type": "array",
+            "minItems": 4,
+            "uniqueItems": true,
+            "items": {
+                "$ref": "#/$defs/evidence"
+            }
+        },
+        "rubric": {
+            "$ref": "#/$defs/rubric"
+        },
+        "baselineMovement": {
+            "oneOf": [
+                {
+                    "type": "null"
+                },
+                {
+                    "$ref": "#/$defs/movement"
+                }
+            ]
+        },
+        "warnings": {
+            "type": "array",
+            "maxItems": 0,
+            "items": {
+                "type": "string",
+                "minLength": 1
+            }
+        },
+        "contentDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        },
+        "producerAdmissionDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+        }
+    },
+    "$defs": {
+        "scene": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "archetype",
+                "routePattern",
+                "routeFixtureDigest",
+                "theme",
+                "viewport",
+                "state",
+                "media"
+            ],
+            "properties": {
+                "archetype": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "routePattern": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "routeFixtureDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "theme": {
+                    "enum": [
+                        "light",
+                        "dark",
+                        "forced-colors"
+                    ]
+                },
+                "viewport": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "width",
+                        "height",
+                        "zoom"
+                    ],
+                    "properties": {
+                        "width": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "height": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "zoom": {
+                            "enum": [
+                                1,
+                                1.5,
+                                2
+                            ]
+                        }
+                    }
+                },
+                "state": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "media": {
+                    "enum": [
+                        "default",
+                        "reduced-motion",
+                        "forced-colors"
+                    ]
+                }
+            }
+        },
+        "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "scene",
+                "compositionIdentityDigest",
+                "worktreeFingerprint",
+                "runId",
+                "attemptId"
+            ],
+            "properties": {
+                "scene": {
+                    "$ref": "#/$defs/scene"
+                },
+                "compositionIdentityDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "worktreeFingerprint": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "runId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "attemptId": {
+                    "type": "string",
+                    "minLength": 1
+                }
+            }
+        },
+        "blockingIssue": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "url",
+                "classification",
+                "contentDigest"
+            ],
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "pattern": "^https://github\\.com/Ozwasyd/FsusBlog/issues/[1-9][0-9]*$"
+                },
+                "classification": {
+                    "const": "production-atomic"
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                }
+            }
+        },
+        "field": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "status",
+                "evidenceIds",
+                "binding",
+                "reason",
+                "blockingIssue"
+            ],
+            "properties": {
+                "status": {
+                    "enum": [
+                        "pass",
+                        "fail",
+                        "not-observed"
+                    ]
+                },
+                "evidenceIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "binding": {
+                    "$ref": "#/$defs/binding"
+                },
+                "reason": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "code",
+                                "contractField",
+                                "explanation",
+                                "rubricField"
+                            ],
+                            "properties": {
+                                "code": {
+                                    "enum": [
+                                        "composition-contract-failure",
+                                        "machine-composition-failure",
+                                        "missing-observation"
+                                    ]
+                                },
+                                "contractField": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "explanation": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "rubricField": {
+                                    "type": "string",
+                                    "minLength": 1
+                                }
+                            }
+                        }
+                    ]
+                },
+                "blockingIssue": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "$ref": "#/$defs/blockingIssue"
+                        }
+                    ]
+                }
+            }
+        },
+        "rubric": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "primaryFocus",
+                "informationHierarchy",
+                "typographyRoles",
+                "spacingRhythm",
+                "surfaceMaterialRoles",
+                "actionPriority",
+                "contentToChromeBalance",
+                "responsiveContinuity",
+                "darkModeHierarchy",
+                "nonDecorativeRestraint"
+            ],
+            "properties": {
+                "primaryFocus": {
+                    "$ref": "#/$defs/field"
+                },
+                "informationHierarchy": {
+                    "$ref": "#/$defs/field"
+                },
+                "typographyRoles": {
+                    "$ref": "#/$defs/field"
+                },
+                "spacingRhythm": {
+                    "$ref": "#/$defs/field"
+                },
+                "surfaceMaterialRoles": {
+                    "$ref": "#/$defs/field"
+                },
+                "actionPriority": {
+                    "$ref": "#/$defs/field"
+                },
+                "contentToChromeBalance": {
+                    "$ref": "#/$defs/field"
+                },
+                "responsiveContinuity": {
+                    "$ref": "#/$defs/field"
+                },
+                "darkModeHierarchy": {
+                    "$ref": "#/$defs/field"
+                },
+                "nonDecorativeRestraint": {
+                    "$ref": "#/$defs/field"
+                }
+            }
+        },
+        "compositionIdentity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "validatorVersion",
+                "validatorDigest",
+                "sourceCommit",
+                "fsusUIBaselineIdentityDigest",
+                "fsusUIMode",
+                "archetypeMatrixDigest",
+                "compositionContractDigest",
+                "contractSchemaDigest",
+                "designSourceDigest",
+                "fixtureSourceDigest",
+                "visualLedgerDigest",
+                "identityDigest"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.layout-composition-identity.v1"
+                },
+                "validatorVersion": {
+                    "const": "fsusblog.layout-composition-validator.v1"
+                },
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "fsusUIBaselineIdentityDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "fsusUIMode": {
+                    "enum": [
+                        "local",
+                        "published"
+                    ]
+                },
+                "archetypeMatrixDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "compositionContractDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "contractSchemaDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "designSourceDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "fixtureSourceDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "visualLedgerDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "identityDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "validatorDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                }
+            }
+        },
+        "evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "kind",
+                "contentDigest",
+                "opaqueProducerDigest",
+                "binding"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "kind": {
+                    "enum": [
+                        "screenshot",
+                        "static",
+                        "dom",
+                        "geometry"
+                    ]
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "opaqueProducerDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "binding": {
+                    "$ref": "#/$defs/binding"
+                }
+            }
+        },
+        "movement": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "ledgerPath",
+                "ledgerDigest",
+                "entryDigest",
+                "issue",
+                "classification",
+                "oldScreenshotDigest",
+                "newScreenshotDigest",
+                "sourceCommit",
+                "fsusUIBaselineIdentityDigest",
+                "compositionContractDigest",
+                "reason",
+                "owner",
+                "kind"
+            ],
+            "properties": {
+                "ledgerPath": {
+                    "const": "tests/frontend/fixtures/layout-visual-change-ledger.json"
+                },
+                "ledgerDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "entryDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "issue": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "classification": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "oldScreenshotDigest": {
+                    "oneOf": [
+                        {
+                            "type": "null"
+                        },
+                        {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                        }
+                    ]
+                },
+                "newScreenshotDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}$"
+                },
+                "fsusUIBaselineIdentityDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "compositionContractDigest": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                },
+                "reason": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "owner": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "kind": {
+                    "enum": [
+                        "creation",
+                        "movement"
+                    ]
+                }
+            }
+        }
+    }
+}
