@@ -44,6 +44,47 @@ public sealed class AuthoringProductionPreflightTests
         Assert.Empty(registry.Snapshot());
     }
 
+    [Fact]
+    public async Task OriginalSignedMetadata_CanStageAndRevokeWithoutPublishingRuntimeAuthority()
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        using SqlSugarClient unavailable = UnavailableDatabase();
+        AuthoringExtensionHostResourceAuthority host = fixture.Compose(unavailable).HostResources;
+        IAuthoringInstalledPackageReadScope held = await fixture.Packages.ExecutionResolver
+            .AcquireReadScopeAsync(fixture.Package, default);
+        AuthoringExtensionHostResourceAuthority.StagedRegistrations stage;
+        try
+        {
+            stage = host.StageHeldPackage(held, fixture.Targets);
+        }
+        catch
+        {
+            held.Dispose();
+            throw;
+        }
+        try
+        {
+            await stage.ActivateAtomicallyAsync(stage.Package, fixture.Targets, default);
+            stage.Filters.ActivateAtomically(stage.Package, fixture.Targets);
+            Assert.True(stage.Active);
+            Assert.Single(stage.Filters.Snapshot());
+            Assert.Equal(0, host.PublishedGenerations);
+            AuthoringLifecycleHostResourceReport remaining = await stage.RevokeAllAsync(
+                fixture.Package.Contract.Manifest.Id, default);
+            Assert.Equal(0, remaining.ContributionRegistrations);
+            Assert.Empty(stage.Filters.Snapshot());
+            Assert.False(stage.Active);
+            Assert.Equal(0, host.PublishedGenerations);
+        }
+        finally
+        {
+            stage.ReleasePackageScope();
+        }
+        using IAuthoringInstalledPackageReadScope reacquired = await fixture.Packages.ExecutionResolver
+            .AcquireReadScopeAsync(fixture.Package, default);
+        Assert.Equal(fixture.Package.PackageIdentity, reacquired.ActivePackage.PackageIdentity);
+    }
+
     [Theory]
     [InlineData("runtime")]
     [InlineData("entrypoint")]
