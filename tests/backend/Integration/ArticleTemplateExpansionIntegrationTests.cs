@@ -439,6 +439,8 @@ public sealed class ArticleTemplateExpansionIntegrationTests(PostgresSchemaMigra
             + $"ordinaryValid={ordinary.Valid}; currentValid={current.Valid}; writerCalls={writerCalls}; refusal={refusal?.GetType().Name ?? "none"}");
         Assert.NotEqual(original.ContentDigest, candidate.ContentDigest);
         Assert.Contains(ordinary.Violations, static violation => violation.Code == "expansion_plan_defaults_digest_mismatch");
+        Assert.Throws<ArticleCreateValidationException>(() => new ArticleCreateCommand(s_writer, Guid.CreateVersion7(),
+            ArticleCreateMode.Template, candidate.Input.TemplateId, candidate.VersionId, candidate, original.ContentDigest));
         await writer.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default!, default!);
     }
 
@@ -463,6 +465,21 @@ public sealed class ArticleTemplateExpansionIntegrationTests(PostgresSchemaMigra
         => new(plan.Input, plan.VersionId, plan.VersionNumber, plan.TemplateRevision, plan.Scope,
             plan.ExpandedSource, plan.ExpandedSourceDigest, defaults, declaredDigest, plan.Dependencies,
             plan.Warnings, plan.IssuedAtUtc, plan.ExpiresAtUtc);
+
+    [Fact]
+    public async Task DefaultsReplacement_RejectsADeclarationThatDoesNotDescribeTheConsumedObject()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        PropertyPlanContext context = await CreatePropertyPlanAsync(db, ArticlePropertyValueType.Number);
+        ArticleTemplateExpansionPlan original = await context.Planner.PlanAsync(context.Input);
+        ArticleTemplateExpansionPlan candidate = WithDefaults(original, original.Defaults, new string('0', 64));
+
+        Assert.Equal(original.ContentDigest, candidate.ContentDigest);
+        ArticleTemplateVerificationResult result = await context.Verifier.VerifyAsync(candidate);
+        Assert.False(result.Valid);
+        Assert.Contains(result.Violations, static violation => violation.Code == "expansion_plan_defaults_digest_mismatch");
+        Assert.True((await context.Verifier.VerifyAsync(original)).Valid);
+    }
 
     private static readonly Guid s_optionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 

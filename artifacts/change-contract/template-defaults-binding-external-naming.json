@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleTemplateExpansionDigest.cs",
+                "src/backend/Services/Authoring/ArticleTemplateExpansionVerifier.cs"
+            ],
+            "reason": "These two changed C# sources match the existing environment-variable src/**/*.cs registration. This binding repair changes no environment key, external spelling, registry, wire or schema. It reuses the existing canonical defaults digest and verifier to bind the immutable object consumed by create. This exact-path governance declaration supplies no test-results aggregate or runtime qualification."
+        }
+    ]
+}

@@ -43,7 +43,7 @@ public static partial class ArticleTemplateContract
             ComputePermissionDigest(plan.Input.Actor),
             ComputeExpansionInputDigest(plan.Input),
             plan.ExpandedSourceDigest,
-            plan.DefaultsDigest,
+            ComputeDefaultsDigest(plan.Defaults),
             plan.Warnings.Count
         };
         values.AddRange(plan.Warnings.Cast<object?>());
