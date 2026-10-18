@@ -254,7 +254,7 @@ public sealed class AuthoringServiceGrantResolutionExpiryTests
         else
         {
             ImmutableArray<IPAddress> addresses = await validator.ResolveNetworkAsync(grant, grant.RuntimeIdentity, cancellationToken);
-            Assert.Equal(s_addresses, addresses);
+            Assert.Equal<IPAddress>(s_addresses, addresses);
         }
     }
 
