@@ -832,6 +832,7 @@ import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
 import { activeLocale, translate } from '@/locales';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
 import type { ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
+import { articleDocumentContextAuthority } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
 import type { ArticleEditorRuntimeBinding } from '@/services/authoring/articleEditorRuntimeBinding';
 import { createArticleWorkspaceRetainedRecoveryPort } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
@@ -844,6 +845,8 @@ import {
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
 import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, authoringWorkspaceMountedAuthoritySourcesKey, authoringWorkspaceMountedAuthorityBeforeReadKey, type AuthoringWorkspaceMountedAuthorityReservation, type AuthoringWorkspaceRootMountedSeal, type AuthoringWorkspaceLayoutPort, type AuthoringWorkspaceOutletExpectation, type AuthoringWorkspacePrimaryMountPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
+import type { AuthoringWorkspaceNavigationHost } from '@/services/authoring/authoringWorkspaceNavigationHost';
+import { createAuthoringWorkspaceNavigationHost } from '@/services/authoring/authoringWorkspaceNavigationHost';
 import { authoringWorkspacePanelSlotId, createAuthoringWorkspacePanelHost, type AuthoringWorkspacePanelHost } from '@/services/authoring/authoringWorkspacePanelHost';
 import {
     calculateOpenArticleDocumentDigest,
@@ -1011,9 +1014,12 @@ const workspaceNativeMountElement = shallowRef<HTMLElement | null>(null);
 const workspacePanelRegionElement = shallowRef<HTMLElement | null>(null);
 let workspacePanelHost: AuthoringWorkspacePanelHost | null = null;
 let workspacePanelLifetime: AbortController | null = null;
+let workspaceNavigationHost: AuthoringWorkspaceNavigationHost | null = null;
+let workspaceNavigationLifetime: AbortController | null = null;
 defineExpose({ getArticleWorkspaceMountedEditorSource: () => workspaceMountedSource.value,
                getAuthoringWorkspaceLayoutPort: () => workspaceLayoutRef.value,
                getAuthoringWorkspacePanelHost: () => workspacePanelHost,
+               getArticleWorkspaceNavigationHost: () => workspaceNavigationHost,
                getArticleWorkspaceRecoveryCheckpoint,
                getArticleWorkspaceRetainedRecoveryPort,
                getArticleWorkspacePrimaryMountPort: () => primaryMountDisposed ? null : primaryMountPort });
@@ -1439,6 +1445,7 @@ function sealMountedAuthority(editorSessionRef: string): AuthoringWorkspaceRootM
 provide(authoringWorkspaceMountedAuthorityBeforeReadKey, revokeMountedAuthorityBeforeRead);
 function retireMountedAuthority(): void
 {
+    retireWorkspaceNavigationHost();
     mountedAuthorityRetired = true;
     revokeMountedAuthorityBeforeChange();
     cancelPrimaryMount?.();
@@ -1622,6 +1629,7 @@ const primaryMountPort = Object.freeze({ prepareMountedEditor: preparePrimaryMou
                                          revokeBeforeExternalRead: revokeMountedAuthorityBeforeRead, retireMountedAuthority }) satisfies AuthoringWorkspacePrimaryMountPort;
 onBeforeUnmount(() =>
 {
+    retireWorkspaceNavigationHost();
     primaryMountDisposed = true;
     primaryMountGeneration += 1n;
     revokeMountedAuthorityBeforeChange();
@@ -1631,8 +1639,60 @@ onBeforeUnmount(() =>
 
 watch([workspaceMountedSource, workspaceTabId, workspaceDocumentContext], bindWorkspaceRecoveryCheckpoint, { flush: 'post' });
 
+function retireWorkspaceNavigationHost(): void
+{
+    const previous = workspaceNavigationHost;
+    workspaceNavigationHost = null;
+    workspaceNavigationLifetime?.abort();
+    workspaceNavigationLifetime = null;
+    previous?.dispose();
+}
+
+function refreshWorkspaceNavigationHost(): void
+{
+    retireWorkspaceNavigationHost();
+    const bound = mountedWriterBinding;
+    const source = workspaceMountedSource.value;
+    const port = boundEditorPort;
+    const generation = editorBindingGeneration;
+    const tabId = workspaceTabId.value;
+    if (!bound || !source || bound.mountedSource !== source || !port || !tabId || workspacePrimaryMountOnly.value)
+    {
+        return;
+    }
+    workspaceNavigationLifetime = new AbortController();
+    workspaceNavigationHost = createAuthoringWorkspaceNavigationHost({
+        authority: articleDocumentContextAuthority,
+        document: authoringDocumentContextAdapter, anchors: bound.binding.anchors,
+        registry: articleWorkspaceTabRouter.getRegistry(), mountedSource: source,
+        scope: authoringEditorRuntime.retainedScope, signal: workspaceNavigationLifetime.signal,
+        isCurrent: () => !primaryMountDisposed && !mountedAuthorityRetired && !workspacePrimaryMountOnly.value
+            && generation === editorBindingGeneration && mountedWriterBinding === bound && boundEditorPort === port
+            && workspaceMountedSource.value === source && workspaceTabId.value === tabId
+            && articleDocumentContextAuthority.context === authoringDocumentContextAdapter.context
+            && authoringDocumentContext.value === authoringDocumentContextAdapter.context,
+        readNative: () => articleEditorRef.value?.getAuthoringSessionPort?.() ?? null,
+        refreshNativeIdentity: async () =>
+        {
+            authoringEditorRuntime.refreshDocumentIdentity();
+            await nextTick();
+        },
+        // No complete capture/viewport loan exists in the original wrapper.
+        // Its attachment after/0/0 values and manual-scroll interval are not
+        // navigation facts. Keep mounted navigation unavailable until its owner supplies one.
+        viewOwner: null
+    });
+}
+// Physical DOM observations revoke the original Root seal independently. A
+// canonical retained publication may refresh its Vue identity while this same
+// writer lifetime remains mounted; the retained owner checks that publication.
+watch([workspaceWriteElement, workspaceNativeMountElement, workspaceMountedSource, workspacePrimaryMountOnly,
+       () => route.fullPath], retireWorkspaceNavigationHost, { flush: 'sync' });
+watch([workspaceMountedSource, workspaceTabId], refreshWorkspaceNavigationHost, { flush: 'post' });
+
 watch(articleEditorRef, () =>
 {
+    retireWorkspaceNavigationHost();
     revokeMountedAuthorityBeforeChange();
     const generation = ++editorBindingGeneration;
     releaseRecoveryCheckpoint();
@@ -1672,6 +1732,7 @@ watch(articleEditorRef, () =>
 }, { flush: 'post' });
 onUnmounted(() =>
 {
+    retireWorkspaceNavigationHost();
     editorBindingGeneration += 1;
     releaseRecoveryCheckpoint();
     mountedWriterBinding = null;

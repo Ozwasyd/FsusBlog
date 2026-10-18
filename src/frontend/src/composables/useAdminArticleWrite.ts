@@ -983,6 +983,18 @@ export function useAdminArticleWrite()
     let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
     let releaseEditorRuntime: (() => void) | null = null;
     const authoringEditorRuntime = Object.freeze({
+        retainedScope: Object.freeze({
+            readPrincipalIdentityId: () => active ? adminStore.adminPrincipal?.id?.trim() ?? null : null,
+            readSiteScope: () => active ? documentSiteScope : null
+        }),
+        refreshDocumentIdentity: (): void =>
+        {
+            if (!active || articleDocumentContextAuthority.context !== articleDocumentContextAdapter.context)
+            {
+                throw new Error('article-editor-original-document-unavailable');
+            }
+            syncAuthoringDocumentContext();
+        },
         bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort>, options: ArticleEditorRuntimeBindingOptions,
             readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
         {
