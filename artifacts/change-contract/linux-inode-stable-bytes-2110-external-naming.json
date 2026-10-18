@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/article-vault/observations/LinuxVaultSnapshotNative.cs",
+                "src/article-vault/observations/LinuxVaultSnapshotReader.cs"
+            ],
+            "reason": "Use the existing registry coverage for these two C# files to preserve actual Linux libc entry-point spellings (statx, fcntl, gettid, geteuid, sigemptyset, sigaddset, pthread_sigmask, sigpending and sigismember) and existing vault_snapshot_* observation reason codes. Native imports retain C# adapter names; this declaration introduces no environment option, naming policy, synchronization grant or namespace replacement authority."
+        }
+    ]
+}
