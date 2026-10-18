@@ -60,3 +60,13 @@ internal sealed record ArticlePreservationWritePlan(
     ImmutableArray<ArticlePreservationTaxonomyMap> Tags,
     ImmutableArray<ArticlePreservationArticleWritePlan> Articles,
     ArticleMediaInventory Media, string ContentDigest);
+
+// Values must come from the current owner's real envelope producer. Migration
+// never synthesizes an EventId, event time, payload, media or source generation.
+// Retain this exact batch across commit-unknown recovery; a new batch is not replay.
+internal sealed record ArticlePreservationOutboxEnvelope(
+    int ArticleId, string EventId, string PayloadJson, DateTime OccurredAt);
+internal sealed record ArticlePreservationOutboxBatch(
+    string PlanDigest, ImmutableArray<ArticlePreservationOutboxEnvelope> Events);
+internal sealed record ArticlePreservationOutboxReceipt(
+    int ArticleId, long OutboxId, string EventId);
