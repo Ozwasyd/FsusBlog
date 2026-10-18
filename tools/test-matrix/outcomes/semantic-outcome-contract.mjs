@@ -153,6 +153,37 @@ function sortedUnique(values, label, key = (value) => value)
     return keys;
 }
 
+/** Preserve the four string boundaries in an admitted failure record's identity. */
+export function failureTopologyIdentity(value)
+{
+    return JSON.stringify([value.producerId, value.testId, value.assertionId, value.failureKind]);
+}
+
+/** Retain legacy fingerprint ordering; only slash-key collisions use the tuple tie-break. */
+export function compareFailureTopology(left, right)
+{
+    const legacyKey = (value) => `${value.producerId}/${value.testId}/${value.assertionId}/${value.failureKind}`;
+    const leftKey = legacyKey(left);
+    const rightKey = legacyKey(right);
+    if (leftKey !== rightKey)
+    {
+        return leftKey < rightKey ? -1 : 1;
+    }
+    const leftIdentity = failureTopologyIdentity(left);
+    const rightIdentity = failureTopologyIdentity(right);
+    return leftIdentity < rightIdentity ? -1 : leftIdentity > rightIdentity ? 1 : 0;
+}
+
+function sortedFailureTopology(values)
+{
+    if (!Array.isArray(values)
+        || new Set(values.map(failureTopologyIdentity)).size !== values.length
+        || values.some((value, index) => index > 0 && compareFailureTopology(values[index - 1], value) > 0))
+    {
+        fail('failure topology must be sorted and unique');
+    }
+}
+
 function resolveSchema(rule, contracts, seen = new Set(), traversal = null, depth = 0)
 {
     if (traversal && (++traversal.nodes > traversal.limits.maxNodes || depth > traversal.limits.maxDepth))
@@ -534,7 +565,7 @@ export function validateProducerSemanticOutcomeData(value, options)
     {
         fail('test missing assertion identities');
     }
-    sortedUnique(value.failures, 'failure topology', (entry) => `${entry.producerId}/${entry.testId}/${entry.assertionId}/${entry.failureKind}`);
+    sortedFailureTopology(value.failures);
     value.failures.forEach((entry) => failure(entry, taxonomy, value.producerId, value.assertions));
     value.redactedSecrets.forEach((entry) =>
     {
@@ -636,9 +667,8 @@ export function validateAggregateRunOutcomeData(value, options, members)
     }
     sortedUnique(value.requiredCoverageIds, 'required coverage');
     sortedUnique(value.observedCoverageIds, 'observed coverage');
-    const topologyKey = (entry) => `${entry.producerId}/${entry.testId}/${entry.assertionId}/${entry.failureKind}`;
     const topology = members.flatMap((entry) => entry.outcome.failures)
-        .sort((a, b) => topologyKey(a) < topologyKey(b) ? -1 : topologyKey(a) > topologyKey(b) ? 1 : 0);
+        .sort(compareFailureTopology);
     equal(value.failureTopology, topology, 'failure topology');
     const complete = members.every((entry) => entry.outcome.producerStatus === 'success'
         && entry.outcome.cleanFirstAttempt && entry.outcome.qualificationEligible)

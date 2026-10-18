@@ -1,7 +1,7 @@
 import { types } from 'node:util';
 
 const { canonicalJson, digestCanonical, sealContentDigest } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
-import { aggregateRunOutcomeSchema, validateAggregateRunOutcomeData } from './semantic-outcome-contract.mjs';
+import { aggregateRunOutcomeSchema, compareFailureTopology, validateAggregateRunOutcomeData } from './semantic-outcome-contract.mjs';
 import { analyzeStrongSemanticOutcome, assertOutcomeAnalysisData } from './strong-outcome-analysis.mjs';
 
 const setNames = ['plannedTestIds', 'executedTestIds', 'passedTestIds', 'failedTestIds', 'skippedTestIds', 'blockedTestIds'];
@@ -79,9 +79,7 @@ export function prepareAggregateOutcomeAnalysis(options, suppliedMembers)
         }
     }
     const union = (field) => [...new Set(members.flatMap((member) => member.outcome[field]))].sort();
-    const failureTopology = members.flatMap((member) => member.outcome.failures).sort((left, right) =>
-        compare(`${left.producerId}/${left.testId}/${left.assertionId}/${left.failureKind}`,
-            `${right.producerId}/${right.testId}/${right.assertionId}/${right.failureKind}`));
+    const failureTopology = members.flatMap((member) => member.outcome.failures).sort(compareFailureTopology);
     const observedCoverageIds = union('coverageIds');
     const complete = members.every((member) => member.outcome.producerStatus === 'success'
         && member.outcome.cleanFirstAttempt && member.outcome.qualificationEligible)

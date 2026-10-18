@@ -6,6 +6,59 @@ const { sealVerifiedProducerSemanticOutcome } = await import(new URL('../../tool
 const { analyzeStrongSemanticOutcome } = await import(new URL('../../tools/test-matrix/outcomes/strong-outcome-analysis.mjs', import.meta.url));
 import { bindFixture, digest, producerFixture } from './support/semantic-outcome-analysis-fixture.mjs';
 
+function failurePairFixture(pairs)
+{
+    const member = producerFixture();
+    const outcome = structuredClone(member.outcome);
+    const ids = pairs.map(([testId]) => testId).sort();
+    Object.assign(outcome, { plannedTestIds: ids, executedTestIds: ids, passedTestIds: [], failedTestIds: ids,
+        qualificationEligible: false, producerStatus: 'failed' });
+    outcome.assertions = pairs.map(([testId, id]) => ({ id, testId, status: 'failed',
+        failureClass: 'product', failureKind: 'product.assertion',
+        failureIdentity: { producerId: outcome.producerId, testId, assertionId: id } }))
+        .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+    outcome.failures = pairs.map(([testId, assertionId]) => ({ producerId: outcome.producerId, testId, assertionId,
+        failureClass: 'product', failureKind: 'product.assertion',
+        identity: { producerId: outcome.producerId, testId, assertionId } }));
+    return bindFixture(outcome, member.options);
+}
+
+test('slash-bearing failure tuples stay distinct and canonical under exchanged input', () =>
+{
+    const member = failurePairFixture([['a', 'b/c'], ['a/b', 'c']]);
+    const raw = sealContentDigest({ ...member.outcome, failures: [...member.outcome.failures].reverse() });
+    const before = JSON.stringify(raw);
+    const result = analyzeStrongSemanticOutcome(raw, member.options);
+    assert.deepEqual(result.canonicalOutcome.failures.map((entry) => [entry.testId, entry.assertionId]),
+        [['a', 'b/c'], ['a/b', 'c']]);
+    assert.equal(result.outcomeFingerprint, member.outcome.outcomeFingerprint);
+    assert.equal(result.semanticPayloadDigest, member.outcome.semanticPayloadDigest);
+    assert.equal(result.canonicalOutcome.contentDigest, member.outcome.contentDigest);
+    assert.equal(result.semanticPayload.outcome.failures.length, 2);
+    assert.equal(JSON.stringify(raw), before);
+    assert.equal(result.dataOnly, true);
+    assert.equal(result.producerVerificationPending, true);
+    assert.throws(() => sealVerifiedProducerSemanticOutcome(result), /independent authority bridge/u);
+});
+
+test('exact repeated failure tuples remain duplicates despite slash-bearing IDs', () =>
+{
+    const member = failurePairFixture([['a', 'b/c'], ['a/b', 'c']]);
+    const raw = sealContentDigest({ ...member.outcome, failures: [...member.outcome.failures, member.outcome.failures[0]] });
+    assert.throws(() => analyzeStrongSemanticOutcome(raw, member.options), /duplicate identity/u);
+});
+
+test('noncolliding slash keys retain their original order and frozen producer fingerprints', () =>
+{
+    const member = failurePairFixture([['a/b', 'c'], ['a', 'z']]);
+    const result = analyzeStrongSemanticOutcome(member.outcome, member.options);
+    assert.deepEqual(result.canonicalOutcome.failures.map((entry) => [entry.testId, entry.assertionId]),
+        [['a/b', 'c'], ['a', 'z']]);
+    // Captured through the original interfaces on the pinned source composition before the fix.
+    assert.equal(result.semanticPayloadDigest, 'sha256:0e0e3e1c67d5bec3a8da94418546fefc7b3d9525d0aba702bd56dfd284a09430');
+    assert.equal(result.outcomeFingerprint, 'sha256:f7a0faa753ea85520454125b62a8d1579cb34143893027a0708f90a4ea389a5c');
+});
+
 test('strong analysis recomputes all semantic fields while retaining DATA_ONLY refusal', () =>
 {
     const member = producerFixture();

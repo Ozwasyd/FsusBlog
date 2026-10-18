@@ -5,6 +5,55 @@ const { sealContentDigest } = await import(new URL('../../tools/test/attempt-pro
 const { prepareAggregateOutcomeAnalysis } = await import(new URL('../../tools/test-matrix/outcomes/aggregate-outcome-analysis.mjs', import.meta.url));
 import { aggregateOptions, bindFixture, digest, producerFixture } from './support/semantic-outcome-analysis-fixture.mjs';
 
+function failurePairMember(pairs)
+{
+    const member = producerFixture();
+    const outcome = structuredClone(member.outcome);
+    const ids = pairs.map(([testId]) => testId).sort();
+    Object.assign(outcome, { plannedTestIds: ids, executedTestIds: ids, passedTestIds: [], failedTestIds: ids,
+        qualificationEligible: false, producerStatus: 'failed' });
+    outcome.assertions = pairs.map(([testId, id]) => ({ id, testId, status: 'failed',
+        failureClass: 'product', failureKind: 'product.assertion',
+        failureIdentity: { producerId: outcome.producerId, testId, assertionId: id } }))
+        .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+    outcome.failures = pairs.map(([testId, assertionId]) => ({ producerId: outcome.producerId, testId, assertionId,
+        failureClass: 'product', failureKind: 'product.assertion',
+        identity: { producerId: outcome.producerId, testId, assertionId } }));
+    return bindFixture(outcome, member.options);
+}
+
+test('aggregate retains colliding slash tuples and is invariant to member input order', () =>
+{
+    const members = [failurePairMember([['a', 'b/c'], ['a/b', 'c']]), producerFixture(1, 'failed')];
+    const options = aggregateOptions(members);
+    const before = JSON.stringify(members);
+    const first = prepareAggregateOutcomeAnalysis(options, members);
+    const second = prepareAggregateOutcomeAnalysis(options, [...members].reverse());
+    assert.deepEqual(first.canonicalOutcome.failureTopology, members.flatMap((member) => member.outcome.failures));
+    assert.deepEqual(second.canonicalOutcome, first.canonicalOutcome);
+    assert.equal(second.outcomeFingerprint, first.outcomeFingerprint);
+    assert.equal(second.semanticPayloadDigest, first.semanticPayloadDigest);
+    assert.equal(first.canonicalOutcome.failureTopology.length, 3);
+    assert.equal(first.canonicalOutcome.completenessStatus, 'incomplete');
+    assert.equal(first.dataOnly, true);
+    assert.equal(first.producerVerificationPending, true);
+    assert.equal(JSON.stringify(members), before);
+    const duplicate = structuredClone(members[0]);
+    duplicate.outcome = sealContentDigest({ ...duplicate.outcome,
+        failures: [...duplicate.outcome.failures, duplicate.outcome.failures[0]] });
+    assert.throws(() => prepareAggregateOutcomeAnalysis(options, [duplicate, members[1]]), /duplicate identity/u);
+});
+
+test('noncolliding slash failures preserve frozen aggregate fingerprints and legacy order', () =>
+{
+    const members = [failurePairMember([['a/b', 'c'], ['a', 'z']]), producerFixture(1, 'failed')];
+    const result = prepareAggregateOutcomeAnalysis(aggregateOptions(members), members);
+    assert.deepEqual(result.canonicalOutcome.failureTopology, members.flatMap((member) => member.outcome.failures));
+    // Frozen from the unmodified pinned composition, not recomputed by the candidate oracle.
+    assert.equal(result.semanticPayloadDigest, 'sha256:5f0b896c0132270665131b3745bc68bb6ec982c9cc76c18acb2579c571212438');
+    assert.equal(result.outcomeFingerprint, 'sha256:93108496ed89b99fa196c571d12f757b6fbca05a891894b0a240452391e7e244');
+});
+
 test('aggregate constructs exact unions refs status vectors and deterministic fingerprints', () =>
 {
     const members = [producerFixture(0), producerFixture(1)];
