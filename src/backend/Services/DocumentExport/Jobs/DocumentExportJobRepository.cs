@@ -139,9 +139,25 @@ internal sealed class DocumentExportJobRepository
             }
             if (fenced)
             {
-                // Keep the exclusion lock while replacing a failed success seal
-                // with a nondownloadable recovery fence before any reader enters.
-                Save(state);
+                // Keep the exclusion lock for the recovery attempt. A second
+                // save failure cannot replace the original publication failure
+                // or establish that the nondownloadable fence is durable.
+                try
+                {
+                    Save(state);
+                }
+                catch (Exception recoveryFailure)
+                {
+                    // Closed diagnostics carry no provider paths, credentials or
+                    // exception messages. The outer rethrow retains the first stack.
+                    exception.Data["document_export_recovery_fence"] = "unconfirmed";
+                    exception.Data["document_export_recovery_failure"] = recoveryFailure switch
+                    {
+                        UnauthorizedAccessException => "access_denied",
+                        IOException => "io_failure",
+                        _ => "save_failure"
+                    };
+                }
             }
             throw;
         }

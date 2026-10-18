@@ -38,16 +38,13 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         DocumentExportTask task, DocumentExportFrozenInput input, CancellationToken cancellationToken)
     {
         RequireActor(actor);
+        RequireInputAdmission(task, input);
         DocumentExportContractValidator.Validate(task, input);
         if (task.UserId != actor.UserId || task.SiteScope != actor.SiteScope || task.Status != DocumentExportTaskStatus.Queued)
         {
             throw new DocumentExportJobDeniedException();
         }
         await RequirePermissionAsync(actor, task, DocumentExportJobOperation.Create, cancellationToken).ConfigureAwait(false);
-        if (InputBytes(input) > DocumentExportJobPolicy.MaximumInputBytes)
-        {
-            throw new DocumentExportJobDeniedException();
-        }
         // Seal only after validating the received digest; never silently repair tampering.
         DocumentExportFrozenInput frozen = DocumentExportContractValidator.Seal(input);
         string requestDigest = RequestDigest(task);
@@ -254,8 +251,18 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             operation.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
             DocumentExportProviderContract contract = DocumentExportContractCatalog.RequireProvider(execution.FormatId);
+            // Both buffers are provider-owned until copied. Admit their lengths
+            // against the canonical owner before allocating either private copy;
+            // the provider's supplied plan cannot enlarge this envelope.
+            if (result.Bytes is null || result.SandboxOutputBytes is null
+                || result.Bytes.LongLength > Math.Min(DocumentExportJobPolicy.MaximumOutputBytes, contract.Budgets.MaxOutputBytes)
+                || result.SandboxOutputBytes.LongLength > Math.Min(DocumentExportJobPolicy.MaximumOutputBytes,
+                    Math.Min(contract.Budgets.MaxOutputBytes, contract.Budgets.MaxMessageBytes)))
+            {
+                throw new InvalidDataException("document_export_result_rejected");
+            }
             DocumentExportContractValidator.Validate(result.Receipt, execution, input, contract);
-            if (result.Bytes.LongLength > DocumentExportJobPolicy.MaximumOutputBytes
+            if (result.Bytes.LongLength != result.Receipt.OutputBytes
                 || result.Receipt.Status != DocumentExportProviderResultStatus.Succeeded)
             {
                 throw new InvalidDataException("document_export_result_rejected");
@@ -871,9 +878,90 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             ContentDigest = string.Empty
         });
 
+    private static void RequireInputAdmission(DocumentExportTask task, DocumentExportFrozenInput input)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+        ArgumentNullException.ThrowIfNull(input);
+        // Keep the existing raw-byte quota. Bound metadata/framing separately
+        // with the same envelope before shared validation allocates JSON digests.
+        // Six bytes per UTF-8 byte bounds JSON escaping; 256 bytes bounds each
+        // asset's field names, numeric fields and punctuation (excluding bytes).
+        const int AssetFramingBytes = 256;
+        if (input.MarkdownUtf8.IsDefault || input.Assets.IsDefault
+            || input.MarkdownUtf8.Length > DocumentExportJobPolicy.MaximumInputBytes
+            || input.Assets.Length > DocumentExportJobPolicy.MaximumInputBytes / AssetFramingBytes)
+        {
+            throw new DocumentExportJobDeniedException();
+        }
+        // No digest or ownership copy of an unsupported embed snapshot is needed.
+        DocumentExportFrozenEmbedContract.RequireMaterializer(input.FrozenEmbeds);
+        long metadataRemaining = DocumentExportJobPolicy.MaximumInputBytes - 4096
+            - (long)input.Assets.Length * AssetFramingBytes;
+        foreach (string? value in new[]
+        {
+            input.Schema, input.InputId, input.SiteScope, input.Coordinate?.DraftKey,
+            input.SourceDigest, input.MetadataDigest, input.PropertyDigest, input.AssetManifestDigest,
+            input.FontManifestDigest, input.RendererId, input.RendererVersion, input.RendererDigest,
+            input.LayoutProfile, input.ThemeProfile, input.Locale, input.ReadingStyleAuthorityDigest, input.ContentDigest,
+            task.Schema, task.TaskId, task.RequestId, task.IdempotencyKey, task.SiteScope, task.Coordinate?.DraftKey,
+            task.InputId, task.InputDigest, task.SourceDigest, task.MetadataDigest, task.PropertyDigest,
+            task.AssetManifestDigest, task.FontManifestDigest, task.ReadingStyleAuthorityDigest, task.RendererDigest,
+            task.FormatId, task.ProviderId, task.ProviderVersion, task.LayoutProfile, task.ThemeProfile, task.Locale, task.ContentDigest
+        })
+        {
+            AdmitMetadata(value);
+        }
+        foreach (DocumentExportAsset asset in input.Assets)
+        {
+            if (asset is null || asset.Bytes.IsDefault || asset.AltText is null || asset.FontFamily is null)
+            {
+                throw new DocumentExportJobDeniedException();
+            }
+            AdmitMetadata(asset.AssetId);
+            AdmitMetadata(asset.MediaType);
+            AdmitMetadata(asset.Sha256);
+            AdmitMetadata(asset.AltText);
+            AdmitMetadata(asset.Role);
+            AdmitMetadata(asset.FontFamily);
+            AdmitMetadata(asset.FontStyle);
+        }
+        if (InputBytes(input) > DocumentExportJobPolicy.MaximumInputBytes)
+        {
+            throw new DocumentExportJobDeniedException();
+        }
+
+        void AdmitMetadata(string? value)
+        {
+            if (metadataRemaining < 0 || value is not null
+                && (value.Length > metadataRemaining / 6 || 6L * Encoding.UTF8.GetByteCount(value) > metadataRemaining))
+            {
+                throw new DocumentExportJobDeniedException();
+            }
+            metadataRemaining -= value is null ? 0 : 6L * Encoding.UTF8.GetByteCount(value);
+        }
+    }
+
     private static long InputBytes(DocumentExportFrozenInput input)
-        => input.MarkdownUtf8.Length + input.Assets.Sum(asset => (long)asset.Bytes.Length
-            + Encoding.UTF8.GetByteCount(asset.AltText) + Encoding.UTF8.GetByteCount(asset.FontFamily));
+    {
+        long remaining = DocumentExportJobPolicy.MaximumInputBytes - input.MarkdownUtf8.Length;
+        foreach (DocumentExportAsset asset in input.Assets)
+        {
+            if (remaining < 0 || asset.Bytes.Length > remaining)
+            {
+                return DocumentExportJobPolicy.MaximumInputBytes + 1;
+            }
+            remaining -= asset.Bytes.Length;
+            foreach (string value in new[] { asset.AltText, asset.FontFamily })
+            {
+                if (value.Length > remaining || Encoding.UTF8.GetByteCount(value) > remaining)
+                {
+                    return DocumentExportJobPolicy.MaximumInputBytes + 1;
+                }
+                remaining -= Encoding.UTF8.GetByteCount(value);
+            }
+        }
+        return DocumentExportJobPolicy.MaximumInputBytes - remaining;
+    }
 
     private static string NewToken() => Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
 

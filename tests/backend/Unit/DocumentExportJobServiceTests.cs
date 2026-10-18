@@ -984,6 +984,241 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         Assert.False(Directory.Exists(JobRoot));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InputAdmission_RejectsOversizeBeforeDigestAllocation(bool assetPayload)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput(assetPayload ? "# small"
+            : new string('x', (int)DocumentExportJobPolicy.MaximumInputBytes + 1));
+        if (assetPayload)
+        {
+            byte[] bytes = new byte[(int)DocumentExportJobPolicy.MaximumInputBytes + 1];
+            ImmutableArray<DocumentExportAsset> assets = input.Assets.SetItem(0, input.Assets[0] with
+            {
+                Bytes = bytes.ToImmutableArray(),
+                Sha256 = DocumentExportDigest.ComputeBytes(bytes)
+            });
+            input = DocumentExportContractValidator.Seal(input with
+            {
+                Assets = assets,
+                AssetManifestDigest = DocumentExportContractValidator.ComputeAssetManifestDigest(assets)
+            });
+        }
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        DocumentExportJobService service = Service();
+        long started = GC.GetAllocatedBytesForCurrentThread();
+
+        Assert.Throws<DocumentExportJobDeniedException>(() =>
+            service.CreateAsync(_actor, task, input, default).GetAwaiter().GetResult());
+
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - started;
+        Assert.True(allocated < 1024 * 1024, $"Oversized admission allocated {allocated} bytes before rejection.");
+        Assert.False(Directory.Exists(JobRoot));
+    }
+
+    [Fact]
+    public async Task InputAdmission_ExactRawByteQuotaStillAcceptsValidatedInput()
+    {
+        DocumentExportFrozenInput template = DocumentExportContractTests.ValidInput();
+        long assetBytes = template.Assets.Sum(asset => (long)asset.Bytes.Length
+            + Encoding.UTF8.GetByteCount(asset.AltText) + Encoding.UTF8.GetByteCount(asset.FontFamily));
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput(
+            new string('x', checked((int)(DocumentExportJobPolicy.MaximumInputBytes - assetBytes))));
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+
+        DocumentExportJobSnapshot result = await Service().CreateAsync(_actor, task, input, default);
+
+        Assert.Equal(DocumentExportTaskStatus.Queued, result.Task.Status);
+        Assert.Equal(input.ContentDigest, (await Service().GetAsync(_actor, task.TaskId, default)).Task.InputDigest);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InputAdmission_DoesNotRepairWithinBudgetDigestTampering(bool taskDigest)
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        if (taskDigest)
+        {
+            task = task with
+            {
+                ContentDigest = DocumentExportDigest.ComputeBytes([0])
+            };
+        }
+        else
+        {
+            input = input with
+            {
+                ContentDigest = DocumentExportDigest.ComputeBytes([0])
+            };
+        }
+        await Assert.ThrowsAsync<InvalidDataException>(() => Service().CreateAsync(_actor, task, input, default));
+        Assert.False(Directory.Exists(JobRoot));
+    }
+
+    [Theory]
+    [InlineData("coordinate")]
+    [InlineData("asset-metadata")]
+    [InlineData("asset-count")]
+    public async Task InputAdmission_BoundsMetadataBeforeSharedDigestWork(string mutation)
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        if (mutation == "coordinate")
+        {
+            input = input with
+            {
+                Coordinate = new(DocumentExportCoordinateKind.Draft, 42,
+                    new string('x', (int)DocumentExportJobPolicy.MaximumInputBytes + 1), null, null, 3)
+            };
+        }
+        else if (mutation == "asset-metadata")
+        {
+            input = input with
+            {
+                Assets = input.Assets.SetItem(0, input.Assets[0] with
+                {
+                    FontFamily = new string('x', (int)DocumentExportJobPolicy.MaximumInputBytes + 1)
+                })
+            };
+        }
+        else
+        {
+            input = input with
+            {
+                Assets = Enumerable.Repeat(input.Assets[0], 65536).ToImmutableArray()
+            };
+        }
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().CreateAsync(_actor, task, input, default));
+        Assert.False(Directory.Exists(JobRoot));
+    }
+
+    [Fact]
+    public async Task ProviderResult_RejectsOversizeSandboxBeforeCopyOrVerifier()
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        var provider = new ControlledProvider(task.ProviderId)
+        {
+            SandboxBytes = new byte[checked((int)DocumentExportJobPolicy.MaximumOutputBytes + 1)]
+        };
+
+        DocumentExportJobSnapshot result = await Service().ExecuteAsync(_actor, task.TaskId, provider, default);
+
+        Assert.Equal(0, provider.Verifications);
+        Assert.Equal(DocumentExportTaskStatus.CleanupRequired, result.Task.Status);
+        Assert.Null(result.Output);
+        Assert.Empty(Directory.GetFiles(JobRoot, "*.object", SearchOption.AllDirectories));
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().GrantAsync(_actor, task.TaskId, default));
+        DocumentExportJobState state = await new DocumentExportJobRepository(_layout, _protection)
+            .ReadAsync(value => Task.FromResult(value), default);
+        Assert.NotNull(Assert.Single(state.Jobs).WorkerDigest);
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() =>
+            Service().RecoverInterruptedAsync(task.TaskId, new TestRecovery(false), default));
+    }
+
+    [Fact]
+    public async Task ProviderResult_VerifierAndCustodyRetainPrivateCopies()
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        var provider = new ControlledProvider(task.ProviderId) { SandboxBytes = [1, 2, 3] };
+        provider.BeforeVerification = (returned, owned) =>
+        {
+            Assert.NotSame(returned.Bytes, owned.Bytes);
+            Assert.NotSame(returned.SandboxOutputBytes, owned.SandboxOutputBytes);
+            Array.Fill(returned.Bytes, (byte)0);
+            Array.Fill(returned.SandboxOutputBytes, (byte)0);
+            Assert.Equal(new byte[] { 1, 2, 3 }, owned.SandboxOutputBytes);
+        };
+
+        DocumentExportJobSnapshot result = await Service().ExecuteAsync(_actor, task.TaskId, provider, default);
+
+        Assert.Equal(DocumentExportTaskStatus.Succeeded, result.Task.Status);
+        DocumentExportDownloadGrant grant = await Service().GrantAsync(_actor, task.TaskId, default);
+        Assert.Equal(ControlledProvider.Output, (await Service().DownloadAsync(_actor, grant.Token, false, default)).Bytes);
+    }
+
+    [Theory]
+    [InlineData("persistence", false)]
+    [InlineData("publication", false)]
+    [InlineData("cancellation", true)]
+    public async Task RecoveryFence_SecondSaveFailurePreservesFirstFailureAndStack(string failure, bool denied)
+    {
+        DocumentExportJobSnapshot completed = await SucceedAsync();
+        await Service().GrantAsync(_actor, completed.Task.TaskId, default);
+        Exception primary = failure == "cancellation"
+            ? new OperationCanceledException("private primary cancellation") : new IOException("private primary storage path");
+        Exception secondary = denied
+            ? new UnauthorizedAccessException("private recovery credential") : new IOException("private recovery storage path");
+        var sync = new RecoveryStateSync(failure == "persistence" ? primary : null, secondary);
+        var repository = new DocumentExportJobRepository(_layout, _protection, sync);
+        int publications = 0;
+        Exception observed = await Assert.ThrowsAnyAsync<Exception>(() => repository.UpdateAsync(state =>
+        {
+            DocumentExportStoredJob job = Assert.Single(state.Jobs);
+            state.Jobs[0] = job with
+            {
+                Snapshot = job.Snapshot with
+                {
+                    Version = job.Snapshot.Version + 1
+                }
+            };
+            return Task.FromResult(true);
+        }, default, validatePublication: () =>
+        {
+            if (++publications == 2)
+            {
+                ThrowOriginalPublication(primary);
+            }
+        }));
+
+        Assert.Same(primary, observed);
+        Assert.Equal(2, sync.StateSyncs);
+        Assert.Contains(failure == "persistence" ? nameof(RecoveryStateSync.Sync) : nameof(ThrowOriginalPublication), observed.StackTrace);
+        Assert.Equal("unconfirmed", observed.Data["document_export_recovery_fence"]);
+        Assert.Equal(denied ? "access_denied" : "io_failure", observed.Data["document_export_recovery_failure"]);
+        Assert.DoesNotContain("private", string.Join(' ', observed.Data.Values.Cast<object>()), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RecoveryFence_ConfirmedSaveStillRethrowsOriginalAndRevokesGrant()
+    {
+        DocumentExportJobSnapshot completed = await SucceedAsync();
+        DocumentExportDownloadGrant grant = await Service().GrantAsync(_actor, completed.Task.TaskId, default);
+        var primary = new IOException("controlled publication failure");
+        var sync = new RecoveryStateSync(null, null);
+        var repository = new DocumentExportJobRepository(_layout, _protection, sync);
+        int publications = 0;
+        Exception observed = await Assert.ThrowsAsync<IOException>(() => repository.UpdateAsync(state =>
+        {
+            DocumentExportStoredJob job = Assert.Single(state.Jobs);
+            state.Jobs[0] = job with
+            {
+                Snapshot = job.Snapshot with
+                {
+                    Version = job.Snapshot.Version + 1
+                }
+            };
+            return Task.FromResult(true);
+        }, default, validatePublication: () =>
+        {
+            if (++publications == 2)
+            {
+                ThrowOriginalPublication(primary);
+            }
+        }));
+        Assert.Same(primary, observed);
+        Assert.Equal(2, sync.StateSyncs);
+        Assert.False(observed.Data.Contains("document_export_recovery_fence"));
+        Assert.Equal(DocumentExportTaskStatus.CleanupRequired,
+            (await Service().GetAsync(_actor, completed.Task.TaskId, default)).Task.Status);
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().DownloadAsync(_actor, grant.Token, false, default));
+    }
+
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static void ThrowOriginalPublication(Exception exception) => throw exception;
+
     [Fact]
     public async Task UserAdmissionQuota_AggregatesAcrossAuthorizedSites()
     {
@@ -1186,6 +1421,32 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         }
     }
 
+    private sealed class RecoveryStateSync(Exception? primary, Exception? secondary) : IPrivateAssetDirectorySync
+    {
+        private readonly LinuxPrivateAssetDirectorySync _canonical = new();
+        internal int StateSyncs
+        {
+            get; private set;
+        }
+
+        public void Sync(Microsoft.Win32.SafeHandles.SafeFileHandle directory, PrivateAssetDirectoryDurabilityPoint point)
+        {
+            if (point == PrivateAssetDirectoryDurabilityPoint.ExistingPublication)
+            {
+                StateSyncs++;
+                if (StateSyncs == 1 && primary is not null)
+                {
+                    throw primary;
+                }
+                if (StateSyncs == 2 && secondary is not null)
+                {
+                    throw secondary;
+                }
+            }
+            _canonical.Sync(directory, point);
+        }
+    }
+
     private sealed class FinalStateDeadlineSync(Action expire) : IPrivateAssetDirectorySync
     {
         private readonly LinuxPrivateAssetDirectorySync _canonical = new();
@@ -1293,6 +1554,12 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         internal static byte[] Output => s_output;
         public string ProviderId => providerId;
         internal List<DocumentExportAttemptResources> Resources { get; } = [];
+        internal byte[] SandboxBytes { get; init; } = [];
+        internal Action<DocumentExportProviderResult, DocumentExportProviderResult>? BeforeVerification
+        {
+            get; set;
+        }
+        private DocumentExportProviderResult? _returnedResult;
         internal DocumentExportAttemptResources? ExportResources
         {
             get; private set;
@@ -1487,13 +1754,15 @@ public sealed class DocumentExportJobServiceTests : IDisposable
                 provider.OutputExtension, provider.NormalizationPolicy, DocumentExportDigest.ComputeBytes(Output),
                 DocumentExportDigest.ComputeBytes(Output), Output.Length, [], [], [], ResultStatus,
                 (long)provider.Delivery.RetentionTtl.TotalSeconds, string.Empty));
-            return new DocumentExportProviderResult(Output.ToArray(), [], receipt, null!, sandbox);
+            _returnedResult = new DocumentExportProviderResult(Output.ToArray(), SandboxBytes, receipt, null!, sandbox);
+            return _returnedResult;
         }
 
         public async Task VerifyAsync(DocumentExportProviderResult result, DocumentExportTask task,
             DocumentExportFrozenInput input, CancellationToken cancellationToken)
         {
             Verifications++;
+            BeforeVerification?.Invoke(_returnedResult!, result);
             Verifying.TrySetResult();
             if (PauseVerify)
             {
