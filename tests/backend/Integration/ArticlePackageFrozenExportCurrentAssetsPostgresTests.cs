@@ -93,6 +93,60 @@ public sealed class ArticlePackageFrozenExportCurrentAssetsPostgresTests(Postgre
         Assert.False(Directory.Exists(root));
     }
 
+    [Fact]
+    public async Task TwoActualCurrentRevisionsShareOneNativeAssetThroughTheZipWriter()
+    {
+        await using var setup = await CreateAsync(68);
+        var first = setup.Request;
+        var firstInput = await PlannerInputAsync(setup);
+        int articleId = await setup.Db.Insertable(new Article { Title = "Second", CategoryId = 1 }).ExecuteReturnIdentityAsync();
+        long blockId = await ArticleRevisionContentBlockStore.GetOrCreateAsync(setup.Db, "second\r\n", DateTime.UtcNow, default);
+        long revisionId = await setup.Db.Insertable(new ArticleRevision
+        {
+            ArticleId = articleId,
+            RevisionNo = 1,
+            Title = "Second",
+            CategoryId = 1,
+            ContentBlockId = blockId,
+            CreatedByAdminPrincipalId = setup.Session.OwnerAdminPrincipalId
+        }).ExecuteReturnBigIdentityAsync();
+        await setup.Db.Updateable<Article>().SetColumns(row => row.CurrentRevisionId == revisionId).Where(row => row.Id == articleId).ExecuteCommandAsync();
+        await new ArticleAssetReferenceStore(setup.Db).ReplaceRevisionAsync(revisionId, articleId, [new(first.AssetId, 1, null)]);
+        var source = (await setup.Sources.ReadCurrentAuthorizedAsync(new(setup.Session.OwnerAdminPrincipalId, "primary-site"),
+            articleId, Guid.CreateVersion7())).Source!;
+        var coordinate = new ArticlePackageCurrentAssetArticle(ArticlePackageCurrentAssetReaderTests.Identity(ArticlePackageIdentityKind.Article, 3),
+            articleId, RevisionCompareSourceKind.CurrentRevision, revisionId,
+            ArticleVaultManifestCodec.CaptureSourceBytes(source.Package.RawMarkdown.AsSpan()), source.Package.PackageDigest);
+        var second = first with
+        {
+            Article = coordinate
+        };
+        setup.Request = second;
+        var secondInput = await PlannerInputAsync(setup);
+        setup.Request = first;
+        var inventory = setup.Inventory.Append(new ArticlePackageInventoryEntry("articles/" + coordinate.PortableArticle.FileNameToken + ".md",
+            ArticlePackageEntryKind.RegularFile, coordinate.Source.ByteLength, coordinate.Source.ByteLength)).ToArray();
+        var original = await ArticlePackageManifestCandidatePlanner.ReadCurrentAssetsAndCreateCandidatePlanAsync(
+            [secondInput, firstInput], [second, first], setup.Principal, inventory, setup.Sources, setup.Reader);
+        Assert.True(original.IsValid, original.ReasonCode);
+        var expected = original.Plan!;
+        Assert.Single(expected.Assets!);
+        Assert.Equal(2, expected.Manifest.Assets!.References.Count);
+        var forward = await ArticlePackageFrozenExportCandidateWriter.ReadCurrentAssetsAndWriteCandidateAsync(
+            expected, [firstInput, secondInput], [first, second], setup.Principal, inventory, setup.Sources, setup.Reader,
+            [Frozen(setup, secondInput, expected), Frozen(setup, firstInput, expected)]);
+        Assert.True(forward.Result.IsValid, forward.Result.ReasonCode);
+        var reverse = await ArticlePackageFrozenExportCandidateWriter.ReadCurrentAssetsAndWriteCandidateAsync(
+            expected, [secondInput, firstInput], [second, first], setup.Principal, inventory.Reverse().ToArray(), setup.Sources, setup.Reader,
+            [Frozen(setup, firstInput, expected), Frozen(setup, secondInput, expected)]);
+        Assert.True(reverse.Result.IsValid, reverse.Result.ReasonCode);
+        Assert.Equal(forward.Candidate!.CopyArchiveBytes(), reverse.Candidate!.CopyArchiveBytes());
+        Assert.Equal(5, forward.Candidate.Candidate.FilePaths.Count);
+        Assert.Equal(2, forward.Candidate.SourceBindings.Count);
+        Assert.Equal(2, await setup.Db.Queryable<ContentAssetReference>().CountAsync());
+        Assert.False(forward.Candidate.RequireExportAuthority().IsValid);
+    }
+
     [Theory]
     [InlineData("storage-key")]
     [InlineData("owner")]
@@ -326,7 +380,7 @@ public sealed class ArticlePackageFrozenExportCurrentAssetsPostgresTests(Postgre
         var image = new DocumentExportAsset(observed.Record.Id.ToString(), observed.Record.MimeType,
             DocumentExportDigest.ComputeBytes(nativeBytes), nativeBytes.ToImmutableArray(), "actual owned upload", "image", string.Empty, 0, "normal");
         DocumentExportAsset[] assets = [.. fonts, image];
-        byte[] markdown = expected.Articles.Single().CopySourceBytes();
+        byte[] markdown = expected.Articles.Single(article => article.Manifest.PortableArticle == input.TitleBinding.PortableArticle).CopySourceBytes();
         string opaqueDigest = DocumentExportDigest.ComputeBytes("synthetic-provider-coordinate"u8);
         var frozen = new DocumentExportFrozenInput(DocumentExportContractCatalog.InputSchema, "actual-current-native-input",
             setup.Session.OwnerAdminPrincipalId, input.PropertySnapshot.Coordinates.SiteScope,
