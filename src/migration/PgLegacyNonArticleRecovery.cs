@@ -56,7 +56,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
         if (!_removed || _userMinimumNext is null || _recoveryArtifact is not null)
             throw new InvalidOperationException("legacy_nonarticle_recovery_publication_phase_invalid");
         PgArticlePreservationOperation.RequireInvocation(invocationId);
-        if (mediaRunId == Guid.Empty) throw new InvalidOperationException("legacy_nonarticle_recovery_run_missing");
+        if (mediaRunId == Guid.Empty)
+            throw new InvalidOperationException("legacy_nonarticle_recovery_run_missing");
         CurrentSchemaVerifierIdentity tool = await actualTool.RevalidateAsync(cancellationToken).ConfigureAwait(false);
         await RequireOriginalInputsAsync(_owned, verified, planArtifact, sourceArtifact, currentArtifact,
             tool, maximumInputBytes, cancellationToken).ConfigureAwait(false);
@@ -77,7 +78,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
         CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
             absoluteOutputPath, bytes, cancellationToken).ConfigureAwait(false);
         ReadOnlyMemory<byte> reread = await new OfflineMigrationCurrentSchemaArtifactReader().ReadAsync(published, cancellationToken).ConfigureAwait(false);
-        if (!reread.Span.SequenceEqual(bytes)) throw new InvalidOperationException("legacy_nonarticle_recovery_published_bytes_changed");
+        if (!reread.Span.SequenceEqual(bytes))
+            throw new InvalidOperationException("legacy_nonarticle_recovery_published_bytes_changed");
         await RevalidateCurrentAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         if (await actualTool.RevalidateAsync(cancellationToken).ConfigureAwait(false) != tool)
             throw new InvalidOperationException("legacy_nonarticle_recovery_producer_changed");
@@ -106,7 +108,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
             tool, maximumInputBytes, cancellationToken).ConfigureAwait(false);
         CurrentSchemaDatabaseIdentity database = await OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(
             connection, transaction, cancellationToken).ConfigureAwait(false);
-        if (database != verified.Plan.Source.Database) throw new InvalidOperationException("legacy_nonarticle_recovery_database_changed");
+        if (database != verified.Plan.Source.Database)
+            throw new InvalidOperationException("legacy_nonarticle_recovery_database_changed");
         var progress = new OfflineMigrationApplyJournalVerifier(verified.Plan, planArtifact, checkpoint.InvocationId);
         progress.BindOperationOwners(originalRegistry);
         await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, transaction, verified.Plan.ContentDigest,
@@ -136,8 +139,12 @@ internal sealed partial class PgLegacyNonArticlePreparation
             throw new InvalidOperationException("legacy_nonarticle_recovery_media_run_changed");
         var recovered = new PgLegacyNonArticlePreparation(null, owned, data.Source, data.IsolatedSchema, programs)
         {
-            _removed = true, _userMinimumNext = data.UserMinimumNext, _recoveryArtifact = artifact, _recoveryData = data,
-            _recoveryTool = actualTool, _recoveryMaximumInputBytes = maximumInputBytes
+            _removed = true,
+            _userMinimumNext = data.UserMinimumNext,
+            _recoveryArtifact = artifact,
+            _recoveryData = data,
+            _recoveryTool = actualTool,
+            _recoveryMaximumInputBytes = maximumInputBytes
         };
         foreach (PgLegacyNonArticleTableProof table in data.Tables)
         {
@@ -188,7 +195,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
     internal static string ColumnBindingDigest(LegacyTableProgram program)
         => OfflineMigrationPlanValidation.Digest(new
         {
-            program.Owner, Table = program.Table.Name,
+            program.Owner,
+            Table = program.Table.Name,
             Columns = program.Table.Columns.Values.OrderBy(static value => value.Name, StringComparer.Ordinal).ToArray()
         });
 
@@ -210,7 +218,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
     // keep an already constructed capability valid.
     private async Task RevalidateRecoveryPublicationAsync(CancellationToken cancellationToken)
     {
-        if (_recoveryArtifact is null) return; // Original same-TX native capability, before publication.
+        if (_recoveryArtifact is null)
+            return; // Original same-TX native capability, before publication.
         if (_recoveryData is null || _recoveryTool is null || _recoveryMaximumInputBytes <= 0)
             throw new InvalidOperationException("legacy_nonarticle_recovery_retention_missing");
         ReadOnlyMemory<byte> bytes = await new OfflineMigrationCurrentSchemaArtifactReader().ReadAsync(_recoveryArtifact, cancellationToken).ConfigureAwait(false);
@@ -263,12 +272,14 @@ internal sealed partial class PgLegacyNonArticlePreparation
             while ((count = await input.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false)) != 0)
             {
                 bytes = checked(bytes + count);
-                if (bytes > maximumInputBytes) throw new InvalidOperationException("legacy_nonarticle_recovery_original_artifact_budget");
+                if (bytes > maximumInputBytes)
+                    throw new InvalidOperationException("legacy_nonarticle_recovery_original_artifact_budget");
                 hash.AppendData(buffer.AsSpan(0, count));
             }
             OfflineMigrationCurrentSchemaArtifactReader.ValidateOriginalRegularFileUnchanged(reference.Reference, handle, initial, cancellationToken);
             return Convert.ToHexStringLower(hash.GetHashAndReset());
         }).ConfigureAwait(false);
-        if (digest != reference.Sha256) throw new InvalidOperationException("legacy_nonarticle_recovery_original_artifact_changed");
+        if (digest != reference.Sha256)
+            throw new InvalidOperationException("legacy_nonarticle_recovery_original_artifact_changed");
     }
 }

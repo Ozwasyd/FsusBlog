@@ -52,9 +52,15 @@ internal sealed class OfflineMigrationArticleMediaJournal : IArticleMediaPreserv
             PreviousDigest = _staged.Last.ContentDigest,
             ContentDigest = string.Empty,
             RecordedAt = DateTimeOffset.UtcNow,
-            Media = _prepared.Media! with { GenerationIdentity = publication.GenerationIdentity }
+            Media = _prepared.Media! with
+            {
+                GenerationIdentity = publication.GenerationIdentity
+            }
         };
-        entry = entry with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry) };
+        entry = entry with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry)
+        };
         // Validate in a fork before appending; only the original DB append's
         // successful parent-unique insert advances the transaction-local chain.
         OfflineMigrationApplyJournalVerifier next = _staged.Fork();

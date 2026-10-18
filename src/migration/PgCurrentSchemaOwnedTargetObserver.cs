@@ -37,7 +37,8 @@ internal sealed class PgCurrentSchemaOwnedTargetObserver(OwnedCurrentSchemaTarge
     {
         SchemaModelSnapshot complete = await PgCurrentSchemaCatalogObserver.ReadAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
         PgCurrentSchemaEffectObservation effects = await PgCurrentSchemaEffectObserver.ReadAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-        if (!complete.Tables.ContainsKey(OfflineMigrationStateStore.ApplyJournalTableName)) return new(complete, complete, effects);
+        if (!complete.Tables.ContainsKey(OfflineMigrationStateStore.ApplyJournalTableName))
+            return new(complete, complete, effects);
         // The original journal owner, not a copied current table mapping, validates
         // its exact control shape on this same connection and transaction. Retain
         // the complete native snapshot for its original physical observation hash.

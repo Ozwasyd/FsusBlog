@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 
 using Microsoft.Data.Sqlite;
+
 using MySqlConnector;
 
 using SqlSugar;
@@ -190,13 +191,17 @@ internal static class OfflineMigrationStateStore
                 throw new InvalidOperationException("offline_apply_journal_append_failed");
         }
         catch (Exception failure) { first = failure; }
-        try { await command.DisposeAsync().ConfigureAwait(false); }
+        try
+        {
+            await command.DisposeAsync().ConfigureAwait(false);
+        }
         catch (Exception cleanup)
         {
             first ??= cleanup;
             first.Data[JournalCleanupFailuresKey] = "offline_apply_journal_command_disposal_failed";
         }
-        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+        if (first is not null)
+            ExceptionDispatchInfo.Capture(first).Throw();
     }
 
     internal static DbCommand NativeCommand(DbConnection connection, DbTransaction? transaction, string sql)

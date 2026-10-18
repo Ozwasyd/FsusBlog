@@ -119,7 +119,8 @@ internal static class CurrentSchemaPortableBootstrapCompiler
                 if (identity.IsNullable || identity.DefaultValue is not null || identity.DataType is not ("int16" or "int32" or "int64")
                     || primary.Length != 1 || primary[0].Columns.Count != 1 || primary[0].Columns[0] != identity.Name)
                     throw new InvalidOperationException("portable_bootstrap_identity_unavailable");
-                if (provider == SchemaProviderKind.Sqlite) inlinePrimary = primary[0].Name;
+                if (provider == SchemaProviderKind.Sqlite)
+                    inlinePrimary = primary[0].Name;
             }
             var definitions = table.Columns.OrderBy(static value => value.Key, StringComparer.Ordinal)
                 .Select(value => value.Key == value.Value.Name ? Column(value.Value, provider, inlinePrimary)
@@ -134,7 +135,8 @@ internal static class CurrentSchemaPortableBootstrapCompiler
                     || constraint.ReferencedSchema is not null || constraint.ForeignKeyMatchType is not null
                     || constraint.ForeignKeyUpdateAction is not null || constraint.ForeignKeyDeleteAction is not null)
                     throw new InvalidOperationException("portable_bootstrap_constraint_effect_unavailable");
-                if (constraint.Name == inlinePrimary) continue;
+                if (constraint.Name == inlinePrimary)
+                    continue;
                 definitions.Add($"CONSTRAINT {Identifier(constraint.Name, provider)} {(constraint.Kind == "primary-key" ? "PRIMARY KEY" : "UNIQUE")} ({Columns(constraint.Columns, provider)})");
             }
             string suffix = provider == SchemaProviderKind.MySql ? " ENGINE=InnoDB" : "";

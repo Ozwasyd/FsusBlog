@@ -54,7 +54,11 @@ public static class CurrentSchemaOwnedTargetProjection
             Recipes = requiredRecipes.Select(static reference => reference.SemanticDescription).ToArray(),
             Control = CurrentSchemaControlShape.DescribeApplyJournalFacts()
         }));
-        return entityProjection.Identity with { SourceDigest = source, ContentDigest = content };
+        return entityProjection.Identity with
+        {
+            SourceDigest = source,
+            ContentDigest = content
+        };
     }
 
     private static string Hash(string value)

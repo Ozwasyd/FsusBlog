@@ -492,7 +492,10 @@ public sealed class AuthoringExtensionPackageTests
     {
         public DateTimeOffset UtcNow { get; set; } = now;
 
-        public Action? OnRead { get; set; }
+        public Action? OnRead
+        {
+            get; set;
+        }
 
         public override DateTimeOffset GetUtcNow()
         {
@@ -505,7 +508,10 @@ public sealed class AuthoringExtensionPackageTests
     {
         public AuthoringPackageArchiveContents Contents { get; set; } = contents;
 
-        public Action? AfterRead { get; set; }
+        public Action? AfterRead
+        {
+            get; set;
+        }
 
         public int ReadCount
         {

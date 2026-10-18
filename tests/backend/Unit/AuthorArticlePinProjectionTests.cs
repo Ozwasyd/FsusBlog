@@ -550,7 +550,10 @@ public sealed class AuthorArticlePinProjectionTests
             _ => throw new ArgumentOutOfRangeException(nameof(refusal))
         };
         AuthorArticlePinProjectionVerificationResult refused = AuthorArticlePinProjectionVerifier.Verify(
-            evidence with { Request = invalidRequest });
+            evidence with
+            {
+                Request = invalidRequest
+            });
 
         Assert.False(refused.Valid);
         Assert.Equal("projection_request_invalid", Assert.Single(refused.Reasons));

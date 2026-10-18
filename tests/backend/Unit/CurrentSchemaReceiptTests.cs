@@ -78,7 +78,10 @@ public sealed class CurrentSchemaReceiptTests
             Status = CurrentSchemaReceiptStatus.Rejected,
             Reasons = ["semantic_postcondition_failed"]
         };
-        rejected = rejected with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(rejected) };
+        rejected = rejected with
+        {
+            ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(rejected)
+        };
         byte[] bytes = CurrentSchemaReceiptCodec.Serialize(rejected);
 
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaReceiptAdmission.Validate(
@@ -97,7 +100,10 @@ public sealed class CurrentSchemaReceiptTests
                 GeneratorVersion = "fsusblog.current-schema-projection.v2"
             }
         };
-        old = old with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(old) };
+        old = old with
+        {
+            ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(old)
+        };
         byte[] original = CurrentSchemaReceiptCodec.Serialize(old);
         string originalDigest = Convert.ToHexStringLower(SHA256.HashData(original));
         var oldObservation = new CurrentSchemaAdmissionObservation(old.Target, old.Database, old.ActualSchemaDigest);
@@ -132,22 +138,55 @@ public sealed class CurrentSchemaReceiptTests
         switch (invalid)
         {
             case "target-source":
-                actual = actual with { Target = actual.Target with { SourceDigest = different } };
+                actual = actual with
+                {
+                    Target = actual.Target with
+                    {
+                        SourceDigest = different
+                    }
+                };
                 break;
             case "target-content":
-                actual = actual with { Target = actual.Target with { ContentDigest = different } };
+                actual = actual with
+                {
+                    Target = actual.Target with
+                    {
+                        ContentDigest = different
+                    }
+                };
                 break;
             case "instance":
-                actual = actual with { Database = actual.Database with { InstanceId = "other-instance" } };
+                actual = actual with
+                {
+                    Database = actual.Database with
+                    {
+                        InstanceId = "other-instance"
+                    }
+                };
                 break;
             case "database":
-                actual = actual with { Database = actual.Database with { DatabaseId = "other-database" } };
+                actual = actual with
+                {
+                    Database = actual.Database with
+                    {
+                        DatabaseId = "other-database"
+                    }
+                };
                 break;
             case "provider":
-                actual = actual with { Database = actual.Database with { Provider = CurrentSchemaProviderKind.MySql } };
+                actual = actual with
+                {
+                    Database = actual.Database with
+                    {
+                        Provider = CurrentSchemaProviderKind.MySql
+                    }
+                };
                 break;
             case "actual-schema":
-                actual = actual with { ActualSchemaDigest = different };
+                actual = actual with
+                {
+                    ActualSchemaDigest = different
+                };
                 break;
             case "artifact":
                 artifactDigest = different;
@@ -187,7 +226,10 @@ public sealed class CurrentSchemaReceiptTests
         {
             "unknown-provider" => valid with
             {
-                Database = valid.Database with { Provider = (CurrentSchemaProviderKind)999 }
+                Database = valid.Database with
+                {
+                    Provider = (CurrentSchemaProviderKind)999
+                }
             },
             "duplicate-checkpoint" => valid with
             {
@@ -195,7 +237,10 @@ public sealed class CurrentSchemaReceiptTests
             },
             "latest-reference" => valid with
             {
-                Plan = valid.Plan with { Reference = "offline-plan/latest" }
+                Plan = valid.Plan with
+                {
+                    Reference = "offline-plan/latest"
+                }
             },
             "unobserved-postcondition" => valid with
             {
@@ -210,7 +255,10 @@ public sealed class CurrentSchemaReceiptTests
             "success-with-warning" => valid with { Reasons = ["warning"] },
             _ => throw new InvalidOperationException("Unknown receipt mutation.")
         };
-        mutated = mutated with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(mutated) };
+        mutated = mutated with
+        {
+            ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(mutated)
+        };
 
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaReceiptCodec.Serialize(mutated));
     }
@@ -281,7 +329,10 @@ public sealed class CurrentSchemaReceiptTests
             case "extra-column":
                 tables["receipt_schema_entity"].Columns.Add(
                     "unknown",
-                    tables["receipt_schema_entity"].Columns["id"] with { Name = "unknown" });
+                    tables["receipt_schema_entity"].Columns["id"] with
+                    {
+                        Name = "unknown"
+                    });
                 break;
             case "extra-table":
                 tables.Add("unknown", new SchemaTableModel("unknown", [], []));
@@ -383,23 +434,44 @@ public sealed class CurrentSchemaReceiptTests
             case "predicate":
                 string kind = drift == "predicate" ? "index-predicate" : drift;
                 PgCurrentRawExpression expression = original.Expressions.First(value => value.Kind == kind);
-                inspector.Effects = original with { Expressions = original.Expressions.Select(value =>
-                    value == expression ? value with { Expression = drift == "default" ? "987654321" : "TRUE" } : value).ToArray() };
+                inspector.Effects = original with
+                {
+                    Expressions = original.Expressions.Select(value =>
+                    value == expression ? value with
+                    {
+                        Expression = drift == "default" ? "987654321" : "TRUE"
+                    } : value).ToArray()
+                };
                 break;
             case "sequence":
-                inspector.Effects = original with { Sequences = [original.Sequences[0] with { Increment = 2 }, .. original.Sequences.Skip(1)] };
+                inspector.Effects = original with
+                {
+                    Sequences = [original.Sequences[0] with { Increment = 2 }, .. original.Sequences.Skip(1)]
+                };
                 break;
             case "function":
-                inspector.Effects = original with { Functions = [original.Functions[0] with { SecurityDefiner = true }, .. original.Functions.Skip(1)] };
+                inspector.Effects = original with
+                {
+                    Functions = [original.Functions[0] with { SecurityDefiner = true }, .. original.Functions.Skip(1)]
+                };
                 break;
             case "trigger":
-                inspector.Effects = original with { Triggers = [original.Triggers[0] with { Enabled = "D" }, .. original.Triggers.Skip(1)] };
+                inspector.Effects = original with
+                {
+                    Triggers = [original.Triggers[0] with { Enabled = "D" }, .. original.Triggers.Skip(1)]
+                };
                 break;
             case "duplicate-effect":
-                inspector.Effects = original with { Functions = [.. original.Functions, original.Functions[0]] };
+                inspector.Effects = original with
+                {
+                    Functions = [.. original.Functions, original.Functions[0]]
+                };
                 break;
             case "string-context":
-                inspector.Effects = original with { StandardConformingStrings = false };
+                inspector.Effects = original with
+                {
+                    StandardConformingStrings = false
+                };
                 break;
             default:
                 throw new InvalidOperationException("Unknown complete native drift.");
@@ -517,14 +589,20 @@ public sealed class CurrentSchemaReceiptTests
             new(new string('b', 40), digest, digest, digest),
             [],
             string.Empty);
-        return receipt with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt) };
+        return receipt with
+        {
+            ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt)
+        };
     }
 
     [SugarTable("receipt_schema_entity")]
     private sealed class ReceiptSchemaEntity
     {
         [SugarColumn(IsPrimaryKey = true)]
-        public int Id { get; set; }
+        public int Id
+        {
+            get; set;
+        }
     }
 
     private sealed class ReceiptSchemaInspector : ISchemaModelInspector
@@ -541,13 +619,34 @@ public sealed class CurrentSchemaReceiptTests
             Effects = CreateEffects(complete);
         }
 
-        public CurrentSchemaCanonicalModel Canonical { get; }
-        public CurrentSchemaIdentity CompleteIdentity { get; }
-        public SchemaModelSnapshot Actual { get; set; }
-        public PgCurrentSchemaEffectObservation Effects { get; set; }
-        public Exception? ReadFailure { get; init; }
-        public Action? OnRead { get; set; }
-        public int ReadCount { get; private set; }
+        public CurrentSchemaCanonicalModel Canonical
+        {
+            get;
+        }
+        public CurrentSchemaIdentity CompleteIdentity
+        {
+            get;
+        }
+        public SchemaModelSnapshot Actual
+        {
+            get; set;
+        }
+        public PgCurrentSchemaEffectObservation Effects
+        {
+            get; set;
+        }
+        public Exception? ReadFailure
+        {
+            get; init;
+        }
+        public Action? OnRead
+        {
+            get; set;
+        }
+        public int ReadCount
+        {
+            get; private set;
+        }
 
         public IReadOnlyList<Type> GetManagedEntityTypes() => [typeof(ReceiptSchemaEntity)];
 

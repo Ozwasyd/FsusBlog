@@ -27,10 +27,22 @@ internal sealed class ArticlePreservationStorageProgram
         Rows = rows;
     }
 
-    internal string PlanDigest { get; }
-    internal CurrentSchemaIdentity Target { get; }
-    internal string TargetArtifactSha { get; }
-    internal ImmutableArray<ArticlePreservationStorageRow> Rows { get; }
+    internal string PlanDigest
+    {
+        get;
+    }
+    internal CurrentSchemaIdentity Target
+    {
+        get;
+    }
+    internal string TargetArtifactSha
+    {
+        get;
+    }
+    internal ImmutableArray<ArticlePreservationStorageRow> Rows
+    {
+        get;
+    }
 
     internal static ArticlePreservationStorageProgram Compile(
         ArticlePreservationWritePlan plan, OwnedCurrentSchemaTarget ownedTarget,
@@ -59,7 +71,8 @@ internal sealed class ArticlePreservationStorageProgram
                 bound.EntityOwner,
                 Key = bound.Columns.Where(static column => column.IsPrimaryKey).ToImmutableArray()
             });
-            if (!primaryKeys.Add(key)) throw new InvalidOperationException("article_preservation_current_primary_key_collision");
+            if (!primaryKeys.Add(key))
+                throw new InvalidOperationException("article_preservation_current_primary_key_collision");
             rows.Add(bound);
         }
         return new(plan.ContentDigest, ownedTarget.Target, ownedTarget.Execution.ArtifactSha256, rows.ToImmutable());
@@ -137,7 +150,8 @@ internal sealed class ArticlePreservationStorageProgram
             rows.Add(Row("ArticleBody", F("ArticleId", article.ArticleId), F("MarkdownContent", graph.Source.Markdown), F("UpdatedAt", created)));
             if (blocks.TryGetValue(coordinate.ContentBlockId, out ArticleRevisionContentAddress previous))
             {
-                if (previous != graph.ContentAddress) throw new InvalidOperationException("article_preservation_storage_content_block_collision");
+                if (previous != graph.ContentAddress)
+                    throw new InvalidOperationException("article_preservation_storage_content_block_collision");
             }
             else
             {

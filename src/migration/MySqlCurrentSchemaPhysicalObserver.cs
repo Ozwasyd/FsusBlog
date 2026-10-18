@@ -52,11 +52,13 @@ internal static class MySqlCurrentSchemaPhysicalObserver
         MySqlCatalogRow[] tableRows = Rows(MySqlCatalogPart.Tables);
         var tableNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (MySqlCatalogRow row in tableRows)
-            if (!tableNames.Add(Text(row, "TABLE_NAME"))) throw Failure("duplicate_table");
+            if (!tableNames.Add(Text(row, "TABLE_NAME")))
+                throw Failure("duplicate_table");
         foreach (MySqlCatalogRow row in raw.Rows.Where(static row => row.Part is MySqlCatalogPart.Columns
             or MySqlCatalogPart.IndexParts or MySqlCatalogPart.Constraints or MySqlCatalogPart.ConstraintColumns
             or MySqlCatalogPart.References or MySqlCatalogPart.Partitions or MySqlCatalogPart.Views))
-            if (!tableNames.Contains(Text(row, "TABLE_NAME"))) throw Failure("orphan_table_fact");
+            if (!tableNames.Contains(Text(row, "TABLE_NAME")))
+                throw Failure("orphan_table_fact");
         foreach (MySqlCatalogRow row in Rows(MySqlCatalogPart.Triggers))
             if (Text(row, "EVENT_OBJECT_SCHEMA") != raw.Database.DatabaseId
                 || !tableNames.Contains(Text(row, "EVENT_OBJECT_TABLE")))
@@ -75,14 +77,16 @@ internal static class MySqlCurrentSchemaPhysicalObserver
             var owner = (Text(row, "SPECIFIC_NAME"), Text(row, "ROUTINE_TYPE"));
             long ordinal = Integer(row, "ORDINAL_POSITION", allowZero: true);
             if (!routines.Contains(owner) || !parameters.Add((owner.Item1, owner.Item2, ordinal))
-                || (ordinal == 0 && owner.Item2 != "FUNCTION")) throw Failure("parameter_owner_invalid");
+                || (ordinal == 0 && owner.Item2 != "FUNCTION"))
+                throw Failure("parameter_owner_invalid");
         }
 
         var tables = ImmutableDictionary.CreateBuilder<string, MySqlObservedTablePhysicalFacts>(StringComparer.Ordinal);
         foreach (MySqlCatalogRow table in tableRows)
         {
             string name = Text(table, "TABLE_NAME"), type = Text(table, "TABLE_TYPE");
-            if (type is not ("BASE TABLE" or "VIEW")) throw Failure("table_type_unavailable");
+            if (type is not ("BASE TABLE" or "VIEW"))
+                throw Failure("table_type_unavailable");
             MySqlCatalogRow[] views = Rows(MySqlCatalogPart.Views, name);
             if ((type == "VIEW" && views.Length != 1) || (type == "BASE TABLE" && views.Length != 0)
                 || (type == "VIEW" && Rows(MySqlCatalogPart.Triggers).Any(row => Field(row, "EVENT_OBJECT_TABLE") == name)))
@@ -116,12 +120,14 @@ internal static class MySqlCurrentSchemaPhysicalObserver
             var columns = ImmutableDictionary.CreateBuilder<string, MySqlObservedColumnPhysicalFacts>(StringComparer.Ordinal);
             MySqlCatalogRow[] columnRows = Rows(MySqlCatalogPart.Columns, name);
             RequireOrdinal(columnRows, "ORDINAL_POSITION");
-            if (columnRows.Length == 0) throw Failure("complete_columns_required");
+            if (columnRows.Length == 0)
+                throw Failure("complete_columns_required");
             foreach (MySqlCatalogRow column in columnRows)
             {
                 string columnName = Text(column, "COLUMN_NAME");
                 string nullable = Text(column, "IS_NULLABLE");
-                if (nullable is not ("YES" or "NO")) throw Failure("column_nullability_invalid");
+                if (nullable is not ("YES" or "NO"))
+                    throw Failure("column_nullability_invalid");
                 uint? spatial = Field(column, "SRS_ID") is { } value
                     ? uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out uint id)
                         ? id : throw Failure("spatial_reference_invalid") : null;
@@ -129,7 +135,8 @@ internal static class MySqlCurrentSchemaPhysicalObserver
                     Text(column, "EXTRA", allowEmpty: true), Text(column, "GENERATION_EXPRESSION", allowEmpty: true),
                     Text(column, "COLUMN_COMMENT", allowEmpty: true), spatial);
                 if (!columns.TryAdd(columnName, new(Integer(column, "ORDINAL_POSITION"), Text(column, "COLUMN_TYPE"),
-                    nullable == "YES", Field(column, "COLUMN_DEFAULT"), facts))) throw Failure("duplicate_column");
+                    nullable == "YES", Field(column, "COLUMN_DEFAULT"), facts)))
+                    throw Failure("duplicate_column");
             }
 
             var indexes = ImmutableDictionary.CreateBuilder<string, MySqlObservedIndexPhysicalFacts>(StringComparer.Ordinal);
@@ -140,7 +147,8 @@ internal static class MySqlCurrentSchemaPhysicalObserver
                 RequireOrdinal(keys, "SEQ_IN_INDEX");
                 string unique = Text(keys[0], "NON_UNIQUE"), visible = Text(keys[0], "IS_VISIBLE"), method = Text(keys[0], "INDEX_TYPE");
                 if (unique is not ("0" or "1") || visible is not ("YES" or "NO")
-                    || method is not ("BTREE" or "HASH" or "FULLTEXT" or "RTREE")) throw Failure("index_attributes_invalid");
+                    || method is not ("BTREE" or "HASH" or "FULLTEXT" or "RTREE"))
+                    throw Failure("index_attributes_invalid");
                 var facts = new SchemaMySqlIndexPhysicalFacts(visible == "YES", Text(keys[0], "COMMENT", allowEmpty: true),
                     Text(keys[0], "INDEX_COMMENT", allowEmpty: true));
                 var observedKeys = ImmutableArray.CreateBuilder<MySqlObservedIndexKeyPhysicalFacts>();
@@ -148,13 +156,15 @@ internal static class MySqlCurrentSchemaPhysicalObserver
                 {
                     if (Text(key, "NON_UNIQUE") != unique || Text(key, "IS_VISIBLE") != visible || Text(key, "INDEX_TYPE") != method
                         || Text(key, "COMMENT", allowEmpty: true) != facts.Comment
-                        || Text(key, "INDEX_COMMENT", allowEmpty: true) != facts.IndexComment) throw Failure("index_attributes_inconsistent");
+                        || Text(key, "INDEX_COMMENT", allowEmpty: true) != facts.IndexComment)
+                        throw Failure("index_attributes_inconsistent");
                     string? column = Field(key, "COLUMN_NAME"), expression = Field(key, "EXPRESSION"), direction = Field(key, "COLLATION");
                     long? prefix = OptionalInteger(key, "SUB_PART");
                     string nullable = Text(key, "NULLABLE", allowEmpty: true);
                     if ((column is null) == (expression is null) || column == string.Empty || expression == string.Empty
                         || (expression is not null && prefix is not null) || (column is not null && !columns.ContainsKey(column))
-                        || direction is not (null or "A" or "D") || nullable is not ("" or "YES")) throw Failure("index_key_invalid");
+                        || direction is not (null or "A" or "D") || nullable is not ("" or "YES"))
+                        throw Failure("index_key_invalid");
                     observedKeys.Add(new(Integer(key, "SEQ_IN_INDEX"), column, direction, nullable, new(prefix, expression)));
                 }
                 indexes.Add(index.Key, new(unique == "0", method, facts, observedKeys.ToImmutable()));
@@ -185,7 +195,8 @@ internal static class MySqlCurrentSchemaPhysicalObserver
     private static void RequireOrdinal(MySqlCatalogRow[] rows, string field)
     {
         for (int index = 0; index < rows.Length; index++)
-            if (Integer(rows[index], field) != index + 1) throw Failure("native_ordinal_invalid");
+            if (Integer(rows[index], field) != index + 1)
+                throw Failure("native_ordinal_invalid");
     }
 
     private static string? Field(MySqlCatalogRow row, string name) => row.Cells.Single(cell => cell.Name == name).Value;

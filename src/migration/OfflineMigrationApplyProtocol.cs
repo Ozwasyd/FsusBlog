@@ -13,7 +13,10 @@ internal interface IOfflineMigrationApplyOperationRegistry
 
 internal abstract class OfflineMigrationApplyOperation
 {
-    internal abstract OfflineMigrationProviderOperation Identity { get; }
+    internal abstract OfflineMigrationProviderOperation Identity
+    {
+        get;
+    }
     // MySQL DDL implicitly commits. The sealed transactional mode is not
     // permission to run it. A compiled MySQL data owner must supply only
     // rollbackable InnoDB effects on the original transaction; no caller flag

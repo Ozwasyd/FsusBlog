@@ -201,7 +201,7 @@ public sealed class SchemaMigrationCatalogTests
             {
                 Assert.Equal("current-20260915-authoring", catalog.CatalogId);
                 Assert.Equal(
-                    new[] {ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId, AuthorRecentArticleHistoryMigrationDefinitions.MigrationId},
+                    new[] { ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId, AuthorRecentArticleHistoryMigrationDefinitions.MigrationId },
                     catalog.Descriptors.Select(static descriptor => descriptor.MigrationId));
                 Assert.Equal(new DateOnly(2026, 9, 15), catalog.StartVersion);
                 Assert.Equal(new DateOnly(2026, 9, 15), catalog.EndVersion);
@@ -215,7 +215,7 @@ public sealed class SchemaMigrationCatalogTests
                 Assert.Equal(new DateOnly(2026, 10, 2), catalog.StartVersion);
                 Assert.Equal(new DateOnly(2026, 10, 2), catalog.EndVersion);
                 Assert.Equal(
-                    new[] {ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId, AuthorRecentArticleHistoryMigrationDefinitions.MigrationId},
+                    new[] { ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId, AuthorRecentArticleHistoryMigrationDefinitions.MigrationId },
                     catalog.Dependencies.Select(static dependency => dependency.MigrationId));
                 Assert.All(catalog.Dependencies, dependency =>
                     Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase));

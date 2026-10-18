@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+
 using Microsoft.Win32.SafeHandles;
 
 namespace FsusBlog.Migration;
@@ -49,11 +50,14 @@ internal sealed class ArticleMediaDirectory : IDisposable
 
     public static ArticleMediaDirectory Open(string path, bool writable)
     {
-        if (!OperatingSystem.IsLinux() || !Path.IsPathFullyQualified(path)) throw new ArticleMediaException("filesystem_capability_unavailable");
+        if (!OperatingSystem.IsLinux() || !Path.IsPathFullyQualified(path))
+            throw new ArticleMediaException("filesystem_capability_unavailable");
         // Do not normalize away traversal or trust symlinked ancestors of the supplied root.
         var components = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (components.Length == 0) throw new ArticleMediaException("unsafe_root");
-        foreach (var component in components) ValidateSegment(component);
+        if (components.Length == 0)
+            throw new ArticleMediaException("unsafe_root");
+        foreach (var component in components)
+            ValidateSegment(component);
         var current = OpenHandle(-100, "/", CloseOnExec | DirectoryFlag | NoFollow);
         var lineage = ImmutableArray.CreateBuilder<string>();
         try
@@ -83,7 +87,8 @@ internal sealed class ArticleMediaDirectory : IDisposable
         var fd = OpenAt(FileDescriptor, name, CloseOnExec | DirectoryFlag | NoFollow, 0);
         if (fd < 0)
         {
-            if (Marshal.GetLastPInvokeError() == 2) return null;
+            if (Marshal.GetLastPInvokeError() == 2)
+                return null;
             throw new ArticleMediaException("unsafe_or_unavailable_directory");
         }
         var child = new ArticleMediaDirectory(new SafeFileHandle(fd, true), _writable, _ancestors.Add(Identity));
@@ -109,13 +114,16 @@ internal sealed class ArticleMediaDirectory : IDisposable
     {
         using var file = OpenFile(path);
         var before = ReadIdentity(file, directory: false);
-        if (before.Bytes > maximumBytes) throw new ArticleMediaException("file_byte_budget");
+        if (before.Bytes > maximumBytes)
+            throw new ArticleMediaException("file_byte_budget");
         using var stream = new FileStream(file, FileAccess.Read, BufferBytes, isAsync: false);
         var result = await HashStreamAsync(stream, before.Bytes, maximumBytes, token);
         var after = ReadIdentity(file, directory: false);
-        if (before != after) throw new ArticleMediaException("source_file_changed");
+        if (before != after)
+            throw new ArticleMediaException("source_file_changed");
         using var reopened = OpenFile(path);
-        if (ReadIdentity(reopened, directory: false) != after) throw new ArticleMediaException("source_path_changed");
+        if (ReadIdentity(reopened, directory: false) != after)
+            throw new ArticleMediaException("source_path_changed");
         return result;
     }
 
@@ -128,15 +136,18 @@ internal sealed class ArticleMediaDirectory : IDisposable
         if (existing is not null)
         {
             var actual = await HashFileAsync(expected.RelativePath, maximumBytes, token);
-            if (actual.Bytes != expected.Bytes || actual.Sha256 != expected.Sha256) throw new ArticleMediaException("stage_file_conflict");
+            if (actual.Bytes != expected.Bytes || actual.Sha256 != expected.Sha256)
+                throw new ArticleMediaException("stage_file_conflict");
             // Resumption still proves source readset, not merely stale cached staged bytes.
             var original = await source.HashFileAsync(expected.RelativePath, maximumBytes, token);
-            if (original != actual) throw new ArticleMediaException("source_file_changed");
+            if (original != actual)
+                throw new ArticleMediaException("source_file_changed");
             return;
         }
         using var input = source.OpenFile(expected.RelativePath);
         var before = ReadIdentity(input, directory: false);
-        if (before.Bytes != expected.Bytes || before.Bytes > maximumBytes) throw new ArticleMediaException("source_file_changed");
+        if (before.Bytes != expected.Bytes || before.Bytes > maximumBytes)
+            throw new ArticleMediaException("source_file_changed");
         using var temporary = OpenHandle(destination.FileDescriptor, ".", 2 | CloseOnExec | TemporaryFile, FileMode);
         using var reader = new FileStream(input, FileAccess.Read, BufferBytes, isAsync: false);
         using var writer = new FileStream(temporary, FileAccess.ReadWrite, BufferBytes, isAsync: false);
@@ -146,16 +157,19 @@ internal sealed class ArticleMediaDirectory : IDisposable
         while (true)
         {
             var read = await reader.ReadAsync(buffer, token);
-            if (read == 0) break;
+            if (read == 0)
+                break;
             copied = checked(copied + read);
-            if (copied > expected.Bytes || copied > maximumBytes) throw new ArticleMediaException("source_file_changed");
+            if (copied > expected.Bytes || copied > maximumBytes)
+                throw new ArticleMediaException("source_file_changed");
             hash.AppendData(buffer, 0, read);
             await writer.WriteAsync(buffer.AsMemory(0, read), token);
         }
         if (copied != expected.Bytes || Hex(hash.GetHashAndReset()) != expected.Sha256 || ReadIdentity(input, false) != before)
             throw new ArticleMediaException("source_file_changed");
         using (var reopened = source.OpenFile(expected.RelativePath))
-            if (ReadIdentity(reopened, false) != before) throw new ArticleMediaException("source_path_changed");
+            if (ReadIdentity(reopened, false) != before)
+                throw new ArticleMediaException("source_path_changed");
         await writer.FlushAsync(token);
         writer.Flush(flushToDisk: true);
         writer.Position = 0;
@@ -189,15 +203,20 @@ internal sealed class ArticleMediaDirectory : IDisposable
                 var relative = prefix.Length == 0 ? name : prefix + "/" + name;
                 if (files.TryGetValue(relative, out var file))
                 {
-                    if (!seen.Add(relative)) throw new ArticleMediaException("generation_duplicate");
+                    if (!seen.Add(relative))
+                        throw new ArticleMediaException("generation_duplicate");
                     var actual = await directory.HashFileAsync(name, maximumBytes, token);
-                    if (actual.Bytes != file.Bytes || actual.Sha256 != file.Sha256) throw new ArticleMediaException("generation_hash_mismatch");
+                    if (actual.Bytes != file.Bytes || actual.Sha256 != file.Sha256)
+                        throw new ArticleMediaException("generation_hash_mismatch");
                 }
-                else if (directories.Remove(relative)) pending.Push(relative);
-                else throw new ArticleMediaException("generation_readset_extra");
+                else if (directories.Remove(relative))
+                    pending.Push(relative);
+                else
+                    throw new ArticleMediaException("generation_readset_extra");
             }
         }
-        if (seen.Count != files.Count) throw new ArticleMediaException("generation_readset_missing");
+        if (seen.Count != files.Count)
+            throw new ArticleMediaException("generation_readset_missing");
     }
 
     internal static long CountDirectoryMetadataBytes(ImmutableArray<ArticleMediaFile> files, long budget)
@@ -220,7 +239,8 @@ internal sealed class ArticleMediaDirectory : IDisposable
                 if (directories.Add(prefix))
                 {
                     bytes = checked(bytes + System.Text.Encoding.UTF8.GetByteCount(prefix) + 64);
-                    if (bytes > budget) throw new ArticleMediaException("directory_metadata_budget");
+                    if (bytes > budget)
+                        throw new ArticleMediaException("directory_metadata_budget");
                 }
                 slash = path.IndexOf('/', slash + 1);
             }
@@ -274,14 +294,16 @@ internal sealed class ArticleMediaDirectory : IDisposable
         var fd = OpenAt(FileDescriptor, name, CloseOnExec | NoFollow | NonBlock, 0);
         if (fd < 0)
         {
-            if (Marshal.GetLastPInvokeError() == 2) return null;
+            if (Marshal.GetLastPInvokeError() == 2)
+                return null;
             throw new ArticleMediaException("unsafe_or_unavailable_file");
         }
         var file = new SafeFileHandle(fd, true);
         try
         {
             var info = ReadIdentity(file, directory: false);
-            if (info.Device != _identity.Device || info.Mount != _identity.Mount) throw new ArticleMediaException("cross_mount_file");
+            if (info.Device != _identity.Device || info.Mount != _identity.Mount)
+                throw new ArticleMediaException("cross_mount_file");
             return file;
         }
         catch
@@ -317,13 +339,16 @@ internal sealed class ArticleMediaDirectory : IDisposable
 
     internal static void ValidateRelativePath(string path)
     {
-        if (path.Length == 0 || path.StartsWith('/') || path.Length > 4096) throw new ArticleMediaException("invalid_media_path");
-        foreach (var part in path.Split('/')) ValidateSegment(part);
+        if (path.Length == 0 || path.StartsWith('/') || path.Length > 4096)
+            throw new ArticleMediaException("invalid_media_path");
+        foreach (var part in path.Split('/'))
+            ValidateSegment(part);
     }
     internal static void ValidateSegment(string segment)
     {
         if (segment.Length == 0 || segment is "." or ".." || segment.Any(c => c is '/' or '\\' or '\0' || char.IsControl(c))
-            || System.Text.Encoding.UTF8.GetByteCount(segment) > 255) throw new ArticleMediaException("invalid_media_path");
+            || System.Text.Encoding.UTF8.GetByteCount(segment) > 255)
+            throw new ArticleMediaException("invalid_media_path");
     }
 
     private static async Task<(long Bytes, string Sha256)> HashStreamAsync(Stream stream, long expectedBytes, long maximumBytes, CancellationToken token)
@@ -334,29 +359,35 @@ internal sealed class ArticleMediaDirectory : IDisposable
         while (true)
         {
             var read = await stream.ReadAsync(buffer, token);
-            if (read == 0) break;
+            if (read == 0)
+                break;
             count = checked(count + read);
-            if (count > maximumBytes || count > expectedBytes) throw new ArticleMediaException("file_changed_or_budget");
+            if (count > maximumBytes || count > expectedBytes)
+                throw new ArticleMediaException("file_changed_or_budget");
             hash.AppendData(buffer, 0, read);
         }
-        if (count != expectedBytes) throw new ArticleMediaException("file_changed_or_budget");
+        if (count != expectedBytes)
+            throw new ArticleMediaException("file_changed_or_budget");
         return (count, Hex(hash.GetHashAndReset()));
     }
 
     private void RequireWritable()
     {
-        if (!_writable) throw new ArticleMediaException("readonly_media_root");
+        if (!_writable)
+            throw new ArticleMediaException("readonly_media_root");
     }
     private static string Hex(byte[] bytes) => Convert.ToHexString(bytes).ToLowerInvariant();
     private static SafeFileHandle OpenHandle(int parent, string name, int flags, uint mode = 0)
     {
         var fd = OpenAt(parent, name, flags, mode);
-        if (fd < 0) throw new ArticleMediaException("anchored_filesystem_capability");
+        if (fd < 0)
+            throw new ArticleMediaException("anchored_filesystem_capability");
         return new SafeFileHandle(fd, true);
     }
     private static void Sync(SafeFileHandle fd)
     {
-        if (FileSync(checked((int)fd.DangerousGetHandle())) != 0) throw new ArticleMediaException("media_durability_failure");
+        if (FileSync(checked((int)fd.DangerousGetHandle())) != 0)
+            throw new ArticleMediaException("media_durability_failure");
     }
     private static FileIdentity ReadIdentity(SafeFileHandle handle, bool directory)
     {
