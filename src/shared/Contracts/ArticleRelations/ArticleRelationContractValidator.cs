@@ -509,7 +509,7 @@ public static class ArticleRelationContractValidator
 
     public static ArticleRelationValidationResult Validate(ArticleRelationLifecycleEvent? lifecycleEvent)
     {
-        const ArticleRelationLifecycleChanges allowedChanges = ArticleRelationLifecycleChanges.Slug
+        const ArticleRelationLifecycleChanges AllowedChanges = ArticleRelationLifecycleChanges.Slug
             | ArticleRelationLifecycleChanges.Title
             | ArticleRelationLifecycleChanges.HeadingIdentity;
         if (lifecycleEvent is null
@@ -518,7 +518,7 @@ public static class ArticleRelationContractValidator
             || !ArticleRelationDigest.IsSha256(lifecycleEvent.EventIdentity)
             || !Enum.IsDefined(lifecycleEvent.Kind)
             || !Enum.IsDefined(lifecycleEvent.Owner)
-            || (lifecycleEvent.Changes & ~allowedChanges) != ArticleRelationLifecycleChanges.None
+            || (lifecycleEvent.Changes & ~AllowedChanges) != ArticleRelationLifecycleChanges.None
             || !IsStableArticleIdentity(lifecycleEvent.ArticleIdentity)
             || !IsStableRevisionIdentity(lifecycleEvent.RevisionIdentity)
             || lifecycleEvent.EventRevision < 1)

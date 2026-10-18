@@ -560,9 +560,9 @@ internal sealed partial class PgLegacyNonArticlePreparation
             try { await resource.DisposeAsync().ConfigureAwait(false); }
             catch (Exception cleanup) when (primary is not null)
             {
-                const string key = "legacy_nonarticle_cleanup_types";
-                string prior = primary.Data[key] as string ?? "";
-                if (prior.Length < 256) primary.Data[key] = (prior + (prior.Length == 0 ? "" : ",") + cleanup.GetType().Name)[..Math.Min(256,
+                const string Key = "legacy_nonarticle_cleanup_types";
+                string prior = primary.Data[Key] as string ?? "";
+                if (prior.Length < 256) primary.Data[Key] = (prior + (prior.Length == 0 ? "" : ",") + cleanup.GetType().Name)[..Math.Min(256,
                     prior.Length + (prior.Length == 0 ? 0 : 1) + cleanup.GetType().Name.Length)];
             }
         }

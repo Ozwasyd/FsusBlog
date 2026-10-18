@@ -740,13 +740,13 @@ public sealed partial class OfflineMigrationSourceObserver
     private static async Task<ImmutableArray<OfflineMigrationFact>> ReadMySqlBusinessAsync(
         DbConnection connection, DbTransaction transaction, ObservationBudget budget, CancellationToken cancellationToken)
     {
-        const string key = "`key`";
-        const string length = "CHAR_LENGTH";
-        const string nonPage = "BINARY `key` NOT LIKE BINARY 'Page_%' AND BINARY `key` NOT LIKE BINARY 'sys:page:%'";
-        long category = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM category WHERE {length}(name)>128", budget, cancellationToken).ConfigureAwait(false);
-        long tag = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM tag WHERE {length}(name)>128", budget, cancellationToken).ConfigureAwait(false);
-        long configKey = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM sys_systemconfig WHERE {nonPage} AND {length}({key})>64", budget, cancellationToken).ConfigureAwait(false);
-        long configValue = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM sys_systemconfig WHERE {nonPage} AND {length}(value)>512", budget, cancellationToken).ConfigureAwait(false);
+        const string Key = "`key`";
+        const string Length = "CHAR_LENGTH";
+        const string NonPage = "BINARY `key` NOT LIKE BINARY 'Page_%' AND BINARY `key` NOT LIKE BINARY 'sys:page:%'";
+        long category = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM category WHERE {Length}(name)>128", budget, cancellationToken).ConfigureAwait(false);
+        long tag = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM tag WHERE {Length}(name)>128", budget, cancellationToken).ConfigureAwait(false);
+        long configKey = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM sys_systemconfig WHERE {NonPage} AND {Length}({Key})>64", budget, cancellationToken).ConfigureAwait(false);
+        long configValue = await ProviderScalarAsync(connection, transaction, $"SELECT COUNT(*) FROM sys_systemconfig WHERE {NonPage} AND {Length}(value)>512", budget, cancellationToken).ConfigureAwait(false);
         return OfflineMigrationSourceFingerprints.Business(true, category, tag, configKey, configValue);
     }
 
@@ -778,7 +778,7 @@ public sealed partial class OfflineMigrationSourceObserver
             var rows = ImmutableArray.CreateBuilder<ImmutableArray<string>>();
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
-                if (++budget.Rows > MaximumMetadataRows || reader.FieldCount > 16)
+                if (++budget._rows > MaximumMetadataRows || reader.FieldCount > 16)
                 {
                     throw new InvalidOperationException("offline_source_metadata_budget_exceeded");
                 }
@@ -786,8 +786,8 @@ public sealed partial class OfflineMigrationSourceObserver
                 for (int index = 0; index < reader.FieldCount; index++)
                 {
                     string text = reader.IsDBNull(index) ? string.Empty : Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture) ?? string.Empty;
-                    budget.Characters += text.Length;
-                    if (text.Length > MaximumCellCharacters || budget.Characters > MaximumMetadataCharacters)
+                    budget._characters += text.Length;
+                    if (text.Length > MaximumCellCharacters || budget._characters > MaximumMetadataCharacters)
                     {
                         throw new InvalidOperationException("offline_source_metadata_budget_exceeded");
                     }

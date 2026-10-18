@@ -46,10 +46,10 @@ public static class NativeRegularFileGuard
         string path, CancellationToken cancellationToken, out NativeDirectoryIdentity[] directories)
         => WithOriginalParentDirectory(path, cancellationToken, (directory, name) =>
         {
-            const int fileFlags = 0x800 | 0x20000 | 0x80000; // RDONLY, NONBLOCK, NOFOLLOW, CLOEXEC
+            const int FileFlags = 0x800 | 0x20000 | 0x80000; // RDONLY, NONBLOCK, NOFOLLOW, CLOEXEC
             NativeFileIdentity before = Observe(directory.DangerousGetHandle().ToInt32(), name, 0x100); // SYMLINK_NOFOLLOW
             RequireRegular(before);
-            SafeFileHandle file = Own(OpenAt(directory.DangerousGetHandle().ToInt32(), name, fileFlags));
+            SafeFileHandle file = Own(OpenAt(directory.DangerousGetHandle().ToInt32(), name, FileFlags));
             try
             {
                 // A replaced FIFO cannot block open: NONBLOCK precedes same-FD
@@ -81,18 +81,18 @@ public static class NativeRegularFileGuard
         // fallback is accepted on an unowned platform or architecture.
         if (!OperatingSystem.IsLinux() || RuntimeInformation.ProcessArchitecture is not (Architecture.X64 or Architecture.Arm64))
             throw new InvalidOperationException("current_verify_native_file_owner_unavailable");
-        const int directoryFlags = 0x200000 | 0x10000 | 0x20000 | 0x80000; // PATH, DIRECTORY, NOFOLLOW, CLOEXEC
+        const int DirectoryFlags = 0x200000 | 0x10000 | 0x20000 | 0x80000; // PATH, DIRECTORY, NOFOLLOW, CLOEXEC
         string[] components = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         if (components.Length == 0)
             throw new InvalidOperationException("current_verify_regular_artifact_required");
-        SafeFileHandle directory = Own(OpenAt(-100, "/", directoryFlags));
+        SafeFileHandle directory = Own(OpenAt(-100, "/", DirectoryFlags));
         try
         {
             List<NativeDirectoryIdentity> observedDirectories = [ObserveDirectory(directory)];
             foreach (string component in components[..^1])
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                SafeFileHandle next = Own(OpenAt(directory.DangerousGetHandle().ToInt32(), component, directoryFlags));
+                SafeFileHandle next = Own(OpenAt(directory.DangerousGetHandle().ToInt32(), component, DirectoryFlags));
                 directory.Dispose();
                 directory = next;
                 observedDirectories.Add(ObserveDirectory(directory));
@@ -115,9 +115,9 @@ public static class NativeRegularFileGuard
 
     private static NativeFileIdentity Observe(int descriptor, string name, int flags)
     {
-        const uint requiredMask = 0x7df; // BASIC_STATS excluding atime, changed by reading.
-        if (Statx(descriptor, name, flags, requiredMask, out NativeFileIdentity identity) != 0
-            || (identity.Mask & requiredMask) != requiredMask)
+        const uint RequiredMask = 0x7df; // BASIC_STATS excluding atime, changed by reading.
+        if (Statx(descriptor, name, flags, RequiredMask, out NativeFileIdentity identity) != 0
+            || (identity._mask & RequiredMask) != RequiredMask)
             throw new InvalidOperationException("current_verify_native_artifact_identity_unavailable");
         return identity;
     }
@@ -143,15 +143,15 @@ public static class NativeRegularFileGuard
     private static NativeDirectoryIdentity ObserveDirectory(SafeFileHandle directory)
     {
         NativeFileIdentity identity = ObserveHandle(directory);
-        return new(identity.DeviceMajor, identity.DeviceMinor, identity.Inode, identity.Mode);
+        return new(identity._deviceMajor, identity._deviceMinor, identity._inode, identity._mode);
     }
 
     private static bool SameFileIdentity(NativeFileIdentity left, NativeFileIdentity right)
-        => left.DeviceMajor == right.DeviceMajor && left.DeviceMinor == right.DeviceMinor
-            && left.Inode == right.Inode && left.Mode == right.Mode && left.Links == right.Links
-            && left.Size == right.Size && left.Uid == right.Uid && left.Gid == right.Gid
-            && left.ChangedSeconds == right.ChangedSeconds && left.ChangedNanoseconds == right.ChangedNanoseconds
-            && left.ModifiedSeconds == right.ModifiedSeconds && left.ModifiedNanoseconds == right.ModifiedNanoseconds;
+        => left._deviceMajor == right._deviceMajor && left._deviceMinor == right._deviceMinor
+            && left._inode == right._inode && left._mode == right._mode && left._links == right._links
+            && left._size == right._size && left._uid == right._uid && left._gid == right._gid
+            && left._changedSeconds == right._changedSeconds && left._changedNanoseconds == right._changedNanoseconds
+            && left._modifiedSeconds == right._modifiedSeconds && left._modifiedNanoseconds == right._modifiedNanoseconds;
 
     public sealed class OriginalRegularFileIdentity
     {
@@ -213,9 +213,9 @@ public static class NativeRegularFileGuard
             _path = path;
             _handle = handle;
             _directories = directories;
-            DeviceMajor = identity.DeviceMajor;
-            DeviceMinor = identity.DeviceMinor;
-            Inode = identity.Inode;
+            DeviceMajor = identity._deviceMajor;
+            DeviceMinor = identity._deviceMinor;
+            Inode = identity._inode;
         }
 
         internal static OriginalHeldRegularFileIdentity Capture(
@@ -243,12 +243,12 @@ public static class NativeRegularFileGuard
         }
 
         private bool Matches(NativeFileIdentity identity)
-            => (identity.Mode & 0xf000) == 0x8000 && identity.DeviceMajor == DeviceMajor
-                && identity.DeviceMinor == DeviceMinor && identity.Inode == Inode;
+            => (identity._mode & 0xf000) == 0x8000 && identity._deviceMajor == DeviceMajor
+                && identity._deviceMinor == DeviceMinor && identity._inode == Inode;
 
         private static bool SameIncarnation(NativeFileIdentity left, NativeFileIdentity right)
-            => (right.Mode & 0xf000) == 0x8000 && left.DeviceMajor == right.DeviceMajor
-                && left.DeviceMinor == right.DeviceMinor && left.Inode == right.Inode;
+            => (right._mode & 0xf000) == 0x8000 && left._deviceMajor == right._deviceMajor
+                && left._deviceMinor == right._deviceMinor && left._inode == right._inode;
 
         private static NativeFileIdentity ObserveHeldPath(
             string path, CancellationToken cancellationToken, out NativeDirectoryIdentity[] directories)
@@ -264,7 +264,7 @@ public static class NativeRegularFileGuard
 
     private static void RequireRegular(NativeFileIdentity identity)
     {
-        if ((identity.Mode & 0xf000) != 0x8000)
+        if ((identity._mode & 0xf000) != 0x8000)
             throw new InvalidOperationException("current_verify_regular_artifact_required");
     }
 
@@ -273,19 +273,19 @@ public static class NativeRegularFileGuard
     [StructLayout(LayoutKind.Explicit, Size = 256)]
     private struct NativeFileIdentity
     {
-        [FieldOffset(0)] internal uint Mask;
-        [FieldOffset(16)] internal uint Links;
-        [FieldOffset(20)] internal uint Uid;
-        [FieldOffset(24)] internal uint Gid;
-        [FieldOffset(28)] internal ushort Mode;
-        [FieldOffset(32)] internal ulong Inode;
-        [FieldOffset(40)] internal ulong Size;
-        [FieldOffset(96)] internal long ChangedSeconds;
-        [FieldOffset(104)] internal uint ChangedNanoseconds;
-        [FieldOffset(112)] internal long ModifiedSeconds;
-        [FieldOffset(120)] internal uint ModifiedNanoseconds;
-        [FieldOffset(136)] internal uint DeviceMajor;
-        [FieldOffset(140)] internal uint DeviceMinor;
+        [FieldOffset(0)] internal uint _mask;
+        [FieldOffset(16)] internal uint _links;
+        [FieldOffset(20)] internal uint _uid;
+        [FieldOffset(24)] internal uint _gid;
+        [FieldOffset(28)] internal ushort _mode;
+        [FieldOffset(32)] internal ulong _inode;
+        [FieldOffset(40)] internal ulong _size;
+        [FieldOffset(96)] internal long _changedSeconds;
+        [FieldOffset(104)] internal uint _changedNanoseconds;
+        [FieldOffset(112)] internal long _modifiedSeconds;
+        [FieldOffset(120)] internal uint _modifiedNanoseconds;
+        [FieldOffset(136)] internal uint _deviceMajor;
+        [FieldOffset(140)] internal uint _deviceMinor;
     }
 
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]

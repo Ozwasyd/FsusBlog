@@ -209,12 +209,12 @@ public sealed class ProductionQueueDiagnosticProjectionTests
     [Fact]
     public void ActualOwnerAndAuditReportProjections_OmitRetainedIdentityAndPreserveAccounting()
     {
-        const string privateItem = "private event/principal/target/challenge material";
+        const string PrivateItem = "private event/principal/target/challenge material";
         var audit = new AuditLogChannel(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.Wait });
         audit.MarkCommitted(3);
-        audit.Complete(new InvalidOperationException(privateItem));
+        audit.Complete(new InvalidOperationException(PrivateItem));
         AuditLogRuntimeSnapshot original = new AuditLogRuntimeState(audit).Snapshot();
-        Assert.Equal(privateItem, original.LastItemReference);
+        Assert.Equal(PrivateItem, original.LastItemReference);
         using ServiceProvider provider = new ServiceCollection().AddSingleton(audit).BuildServiceProvider();
 
         AuditLogRuntimeSnapshot projected = ProductionReadinessProbe.ProjectAuditLogDiagnostics(original)!;
@@ -222,10 +222,10 @@ public sealed class ProductionQueueDiagnosticProjectionTests
 
         Assert.Null(projected.LastItemReference);
         Assert.Equal(original with { LastItemReference = null }, projected);
-        Assert.Equal(privateItem, original.LastItemReference);
+        Assert.Equal(PrivateItem, original.LastItemReference);
         Assert.Equal("closed", diagnostics["audit-log"].LastDisposition);
-        Assert.DoesNotContain(privateItem, JsonSerializer.Serialize(projected), StringComparison.Ordinal);
-        Assert.DoesNotContain(privateItem, JsonSerializer.Serialize(diagnostics), StringComparison.Ordinal);
+        Assert.DoesNotContain(PrivateItem, JsonSerializer.Serialize(projected), StringComparison.Ordinal);
+        Assert.DoesNotContain(PrivateItem, JsonSerializer.Serialize(diagnostics), StringComparison.Ordinal);
         Assert.Null(ProductionReadinessProbe.ProjectAuditLogDiagnostics(null));
     }
 
