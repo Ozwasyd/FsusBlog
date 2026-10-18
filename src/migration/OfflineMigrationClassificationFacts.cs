@@ -41,18 +41,36 @@ public readonly record struct HistoricalMigrationFence : IComparable<HistoricalM
         IsClassificationValue = classificationValue;
     }
 
-    public string Value { get; }
+    public string Value
+    {
+        get;
+    }
 
-    public string SortKey { get; }
+    public string SortKey
+    {
+        get;
+    }
 
-    public bool IsLegacy { get; }
+    public bool IsLegacy
+    {
+        get;
+    }
 
-    internal bool IsClassificationValue { get; }
+    internal bool IsClassificationValue
+    {
+        get;
+    }
 
-    public static HistoricalMigrationFence Minimum { get; } =
+    public static HistoricalMigrationFence Minimum
+    {
+        get;
+    } =
         new(MinimumValue, MinimumValue, legacy: false, classificationValue: true);
 
-    public static HistoricalMigrationFence Maximum { get; } =
+    public static HistoricalMigrationFence Maximum
+    {
+        get;
+    } =
         new(MaximumValue, MaximumValue, legacy: false, classificationValue: true);
 
     /// <summary>Retains the original historical date/suffix normalization only.</summary>

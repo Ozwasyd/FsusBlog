@@ -22,8 +22,8 @@ internal static class SchemaMigrationCatalog20261018ArticleSourceGeneration
             Descriptors:
             [
                 ArticleSourceGenerationMigrationDefinitions.BuildMigration(),
+                ArticleSourceReceiptOriginsMigrationDefinitions.BuildMigration(),
                 TaxonomyMutationReceiptMigrationDefinitions.BuildMigration(),
-                UserLocaleMutationReceiptMigrationDefinitions.BuildMigration(),
-                ArticleSourceReceiptOriginsMigrationDefinitions.BuildMigration()
+                UserLocaleMutationReceiptMigrationDefinitions.BuildMigration()
             ]);
 }

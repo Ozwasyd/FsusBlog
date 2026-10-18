@@ -226,9 +226,9 @@ public sealed class SchemaMigrationCatalogTests
                 Assert.Equal(new DateOnly(2026, 10, 18), catalog.StartVersion);
                 Assert.Equal(new DateOnly(2026, 10, 18), catalog.EndVersion);
                 Assert.Equal(new[] { ArticleSourceGenerationMigrationDefinitions.MigrationId,
+                    ArticleSourceReceiptOriginsMigrationDefinitions.MigrationId,
                     TaxonomyMutationReceiptMigrationDefinitions.MigrationId,
-                    UserLocaleMutationReceiptMigrationDefinitions.MigrationId,
-                    ArticleSourceReceiptOriginsMigrationDefinitions.MigrationId },
+                    UserLocaleMutationReceiptMigrationDefinitions.MigrationId },
                     catalog.Descriptors.Select(static descriptor => descriptor.MigrationId));
                 Assert.Equal(new[] { ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId,
                     UserLocalePreferenceMigrationDefinitions.MigrationId },
