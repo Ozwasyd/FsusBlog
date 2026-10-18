@@ -765,10 +765,13 @@ returns permission refusal without querying the catalog with a null document or
 substituting a default document.
 
 Preflight supplies a five-second cooperative cancellation deadline. The original
-state owner binds it to ADO and a SQL timeout; the original receipt owner currently
-checks it before/after database awaits without binding advisory-lock waits to ADO
-cancellation. This is not a hard five-second completion guarantee or production
-deadline admission. The underlying owners retain transaction settlement. A valid
+state owner binds it to ADO and a SQL timeout. The original receipt owner binds
+its caller token to ADO for advisory-lock, reader and insert commands, restores
+the previous ADO token, and awaits driver completion, reader disposal and owned
+transaction cleanup before returning. Its database command timeout is unchanged.
+Cancellation initiates settlement; cleanup is awaited, so this is not a hard
+five-second return-time guarantee or production deadline admission. The original
+owners retain transaction settlement. A valid
 static target or configured native provider
 does not prove physical startup. Enable must not require an incarnation before
 Starting: the original coordinator must prepare runtime startup, bounded handshake,

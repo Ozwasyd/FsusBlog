@@ -1,3 +1,7 @@
+using System.Diagnostics;
+
+using Npgsql;
+
 using SqlSugar;
 
 using Microsoft.AspNetCore.Http;
@@ -12,6 +16,144 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AuthoringProductionPreflightPostgresTests(PostgresSchemaMigrationFixture postgres)
 {
+    [Theory]
+    [InlineData("advisory", false)]
+    [InlineData("reader", false)]
+    [InlineData("advisory", true)]
+    [InlineData("reader", true)]
+    public async Task RealPreflight_ReceiptCancellationSettlesSqlAndPackageScopeBeforeReturning(
+        string stage, bool cancelCaller)
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        string application = "preflight-receipt-cancel-" + Guid.NewGuid().ToString("N");
+        using SqlSugarClient db = await DatabaseAsync(application);
+        await new PostgresAuthoringExtensionStateStore(db).InitializeAsync(fixture.Package, fixture.Scope, default);
+        var receipts = new PostgresAuthoringLifecycleReceiptStore(db);
+        AuthoringLifecycleReceipt receipt = Receipt(fixture.Package);
+        await receipts.AppendAsync(receipt, default);
+        AuthoringExtensionProductionComposition composition = fixture.Compose(db);
+        int commandTimeout = db.Ado.CommandTimeOut;
+        bool autoClose = db.CurrentConnectionConfig.IsAutoCloseConnection;
+        using var prior = new CancellationTokenSource();
+        db.Ado.CancellationToken = prior.Token;
+        using var caller = new CancellationTokenSource();
+        using var observationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        var blockerConnection = new NpgsqlConnectionStringBuilder(db.CurrentConnectionConfig.ConnectionString)
+        {
+            ApplicationName = "preflight-receipt-holder-" + Guid.NewGuid().ToString("N")
+        };
+        await using var holder = new NpgsqlConnection(blockerConnection.ConnectionString);
+        await holder.OpenAsync(observationDeadline.Token);
+        await using NpgsqlTransaction held = await holder.BeginTransactionAsync(observationDeadline.Token);
+        await using (var blocker = holder.CreateCommand())
+        {
+            blocker.CommandText = stage == "advisory"
+                ? "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 0));"
+                : "LOCK TABLE authoring_lifecycle_receipt IN ACCESS EXCLUSIVE MODE;";
+            if (stage == "advisory")
+            {
+                blocker.Parameters.AddWithValue("Identity", "authoring-lifecycle-receipt:" + receipt.ExtensionId);
+            }
+            await blocker.ExecuteNonQueryAsync(observationDeadline.Token);
+        }
+        Task<AuthoringProductionPreflightObservation> inspecting = composition.Preflight.InspectAsync(
+            fixture.Package, fixture.Targets, caller.Token).AsTask();
+        try
+        {
+            int waiter = await WaitForReceiptWaitAsync(holder, application,
+                stage == "advisory" ? "SELECT pg_advisory_xact_lock" : "SELECT schema_version",
+                inspecting, observationDeadline.Token);
+            long started = Stopwatch.GetTimestamp();
+            if (cancelCaller)
+            {
+                caller.Cancel();
+            }
+            // The other cases exercise the real preflight's own five-second
+            // cancellation trigger. The assertion watchdog never detaches work:
+            // finally releases the original blocker and awaits the same task.
+            var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+                await inspecting.WaitAsync(TimeSpan.FromSeconds(12)));
+            Assert.True(error.CancellationToken.IsCancellationRequested);
+            Assert.Equal(PostgresErrorCodes.QueryCanceled, Assert.IsType<PostgresException>(error.InnerException).SqlState);
+            Assert.True(Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10));
+            Assert.Null(db.Ado.Transaction);
+            Assert.Equal(prior.Token, db.Ado.CancellationToken);
+            Assert.Equal(commandTimeout, db.Ado.CommandTimeOut);
+            Assert.Equal(autoClose, db.CurrentConnectionConfig.IsAutoCloseConnection);
+            Assert.Same(holder, held.Connection);
+            await using (var refresh = new NpgsqlCommand("SELECT pg_stat_clear_snapshot();", holder))
+            {
+                await refresh.ExecuteNonQueryAsync(observationDeadline.Token);
+            }
+            await using (var cleanup = holder.CreateCommand())
+            {
+                cleanup.CommandText = """
+                    SELECT NOT EXISTS (SELECT FROM pg_stat_activity WHERE pid=@Waiter
+                        AND (state <> 'idle' OR xact_start IS NOT NULL))
+                    AND NOT EXISTS (SELECT FROM pg_locks WHERE pid=@Waiter);
+                    """;
+                cleanup.Parameters.AddWithValue("Waiter", waiter);
+                Assert.True((bool)(await cleanup.ExecuteScalarAsync(observationDeadline.Token))!);
+            }
+            // Actual installed-package exclusion must be gone before the held
+            // SQL blocker is released; a cancelled facade cannot retain it.
+            using (IAuthoringInstalledPackageReadScope reacquired = await fixture.Packages.ExecutionResolver
+                .AcquireReadScopeAsync(fixture.Package, observationDeadline.Token))
+            {
+                Assert.Equal(fixture.Package.PackageIdentity, reacquired.ActivePackage.PackageIdentity);
+            }
+            Assert.Equal(0, composition.HostResources.PublishedGenerations);
+        }
+        finally
+        {
+            caller.Cancel();
+            await held.RollbackAsync();
+            _ = await Record.ExceptionAsync(async () => await inspecting);
+        }
+        Assert.Equal(receipt, await receipts.GetLatestAsync(receipt.ExtensionId, default));
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT count(*) FROM authoring_lifecycle_receipt;"));
+        AuthoringProductionPreflightObservation retry = await composition.Preflight.InspectAsync(fixture.Package, fixture.Targets);
+        Assert.Equal(receipt.ReceiptSha256, retry.LifecycleReceiptSha256);
+        Assert.Contains("production_approval_claim_missing", retry.Blockers);
+        Assert.Equal(new(0, 1), await composition.HostResources.InspectRegistrationsAsync(fixture.Package, fixture.Targets));
+        Assert.Equal(prior.Token, db.Ado.CancellationToken);
+        Assert.Equal(0, composition.HostResources.PublishedGenerations);
+    }
+
+    private static async Task<int> WaitForReceiptWaitAsync(NpgsqlConnection holder, string application,
+        string queryPrefix, Task operation, CancellationToken cancellationToken)
+    {
+        await using var observer = holder.CreateCommand();
+        observer.CommandText = """
+            SELECT pid FROM pg_stat_activity WHERE datname=current_database() AND application_name=@Application
+                AND state='active' AND wait_event_type='Lock' AND query LIKE @Query || '%'
+                AND @Holder=ANY(pg_blocking_pids(pid));
+            """;
+        observer.Parameters.AddWithValue("Application", application);
+        observer.Parameters.AddWithValue("Query", queryPrefix);
+        observer.Parameters.AddWithValue("Holder", holder.ProcessID);
+        long started = Stopwatch.GetTimestamp();
+        while (Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10))
+        {
+            if (operation.IsCompleted)
+            {
+                await operation;
+                Assert.Fail("Preflight returned before reaching the original receipt SQL wait.");
+            }
+            await using (var refresh = new NpgsqlCommand("SELECT pg_stat_clear_snapshot();", holder))
+            {
+                await refresh.ExecuteNonQueryAsync(cancellationToken);
+            }
+            if (await observer.ExecuteScalarAsync(cancellationToken) is int waiter)
+            {
+                return waiter;
+            }
+            await Task.Delay(20, cancellationToken);
+        }
+        Assert.Fail("The original receipt SQL wait was not observed.");
+        return 0;
+    }
+
     [Theory]
     [InlineData("completed")]
     [InlineData("rolledback")]
@@ -320,10 +462,14 @@ public sealed class AuthoringProductionPreflightPostgresTests(PostgresSchemaMigr
         Assert.Equal(0, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM authoring_lifecycle_receipt;"));
     }
 
-    private async Task<SqlSugarClient> DatabaseAsync()
+    private async Task<SqlSugarClient> DatabaseAsync(string? applicationName = null)
     {
-        SqlSugarClient db = PostgresSqlSugarTestClient.Create(
-            await PostgresSqlSugarTestClient.CreateConnectionStringAsync(postgres));
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(postgres);
+        if (applicationName is not null)
+        {
+            connectionString = new NpgsqlConnectionStringBuilder(connectionString) { ApplicationName = applicationName }.ConnectionString;
+        }
+        SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
         try
         {
             await db.Ado.ExecuteCommandAsync(AuthoringExtensionStateStorageSchema.CreateTablesSql);
