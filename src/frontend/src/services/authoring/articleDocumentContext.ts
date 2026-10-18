@@ -467,6 +467,7 @@ interface ArticleDocumentPrimaryHandover {
     readonly target: ArticleDocumentContext;
     readonly isReleased: () => boolean;
     published: boolean;
+    assertAdmission?: () => void;
 }
 
 // Only this module's original authority can enter the adapter's handover operation.
@@ -2681,7 +2682,8 @@ export function createArticleDocumentContextAdapter(
 export class ArticleDocumentContextAuthority
 {
     #adapter: ArticleDocumentContextAdapter | null = null;
-    #bindings = new Set<number>();
+    #bindings = new Map<number, ArticleDocumentContextBinding>();
+    #primaryRetainedAdmissionPending = false;
     #bindingSequence = 0;
     #bindingCustody = new WeakMap<ArticleDocumentContextBinding, {
         readonly adapter: ArticleDocumentContextAdapter;
@@ -2835,7 +2837,6 @@ export class ArticleDocumentContextAuthority
         this.#bindingSequence += 1;
         const bindingId = this.#bindingSequence;
         const adapter = this.#adapter;
-        this.#bindings.add(bindingId);
         let released = false;
 
         const binding: ArticleDocumentContextBinding = Object.freeze({
@@ -2867,8 +2868,104 @@ export class ArticleDocumentContextAuthority
                 }
             }
         });
+        this.#bindings.set(bindingId, binding);
         this.#bindingCustody.set(binding, { adapter, isReleased: () => released });
         return binding;
+    }
+
+    /**
+     * Admit the actual sole primary already held by this authority. The host lends its adapter,
+     * current Registry entry and real lifetime signal; it never needs the composable's private binding.
+     * Registry admission/server selection remains upstream. No entry, source or association is invented.
+     */
+    public admitCurrentPrimaryRetainedDocument(registry: OpenArticleDocumentRegistry, expectedEntry: OpenArticleDocumentEntry,
+        expectedRegistryRevision: number, adapter: ArticleDocumentContextAdapter, scope: ArticleDocumentRetainedScopeReaders, signal: AbortSignal): ArticleDocumentRetainedBinding
+    {
+        this.#assertRetainedOwnerAdmission();
+        if (this.#primaryRetainedAdmissionPending)
+        {
+            throw new Error('article-document-primary-host-admission-in-progress');
+        }
+        this.#primaryRetainedAdmissionPending = true;
+        let preparation: ArticleDocumentRetainedPreparation | null = null;
+        try
+        {
+            // Use the native getter so a structural signal cannot authorize the operation.
+            const assertSignal = (): void =>
+            {
+                if (Reflect.get(AbortSignal.prototype, 'aborted', signal))
+                {
+                    throw new Error('article-document-primary-host-aborted');
+                }
+            };
+            assertSignal();
+            const primary = this.#bindings.size === 1 ? this.#bindings.values().next().value : undefined;
+            const custody = primary ? this.#bindingCustody.get(primary) : null;
+            if (!primary || !custody || custody.isReleased() || primary.adapter !== adapter || this.#adapter !== adapter)
+            {
+                throw new Error('article-document-primary-host-owner-unavailable');
+            }
+            const previous = adapter.context;
+            const entry = registry.getEntry(expectedEntry.tabId);
+            if (entry?.contentDigest !== expectedEntry.contentDigest || registry.getRevision() !== expectedRegistryRevision)
+            {
+                throw new Error('article-document-primary-host-entry-changed');
+            }
+            const assertCurrent = (): void =>
+            {
+                assertSignal();
+                if (this.#adapter !== adapter || this.#bindings.size !== 1 || this.#bindings.values().next().value !== primary
+                    || custody.isReleased() || !adapter.isCurrentContext(adapter.context)
+                    || adapter.context !== previous && adapter.context !== preparation?.context
+                    || registry.getEntry(entry.tabId)?.contentDigest !== entry.contentDigest || registry.getRevision() !== expectedRegistryRevision)
+                {
+                    throw new Error('article-document-primary-host-admission-changed');
+                }
+                assertSignal();
+            };
+            assertCurrent();
+            const handle = registry.issueRetainedDocumentHandle(entry.tabId);
+            assertCurrent();
+            let retained: ArticleDocumentRetainedBinding;
+            if (entry.identity.documentId === previous.documentId && entry.documentContext.documentEpoch === previous.documentEpoch)
+            {
+                retained = this.#adoptPrimaryRetainedDocument(registry, handle, primary, scope, assertCurrent);
+            }
+            else
+            {
+                // The existing original handover performs real cancellation/publication. It never copies a primary binding.
+                preparation = this.preparePrimaryRetainedHandover(registry, handle, primary, scope);
+                const handover = this.#primaryHandovers.get(preparation);
+                if (!handover)
+                {
+                    throw new Error('article-document-primary-host-handover-unavailable');
+                }
+                handover.assertAdmission = assertCurrent;
+                assertCurrent();
+                retained = this.acquireRetainedDocument(handle, preparation);
+            }
+            assertCurrent();
+            if (retained.adapter !== adapter || retained.inspect().admissionClosed)
+            {
+                throw new Error('article-document-primary-host-retained-unavailable');
+            }
+            assertCurrent();
+            return retained;
+        }
+        catch (error)
+        {
+            // Only an unused offer may be discarded. Published failures retain real original owner custody.
+            const handover = preparation ? this.#primaryHandovers.get(preparation) : null;
+            if (preparation && handover && !handover.published)
+            {
+                this.discardRetainedPreparation(preparation);
+            }
+            throw error;
+        }
+        finally
+        {
+            this.#primaryRetainedAdmissionPending = false;
+        }
     }
 
     /** Issue original identities before Registry admission; expose no writable adapter. */
@@ -2940,7 +3037,15 @@ export class ArticleDocumentContextAuthority
     public adoptPrimaryRetainedDocument(registry: OpenArticleDocumentRegistry, handle: RetainedArticleDocumentHandle,
         primary: ArticleDocumentContextBinding, scope: ArticleDocumentRetainedScopeReaders): ArticleDocumentRetainedBinding
     {
+        return this.#adoptPrimaryRetainedDocument(registry, handle, primary, scope);
+    }
+
+    #adoptPrimaryRetainedDocument(registry: OpenArticleDocumentRegistry, handle: RetainedArticleDocumentHandle,
+        primary: ArticleDocumentContextBinding, scope: ArticleDocumentRetainedScopeReaders,
+        assertAdmission?: () => void): ArticleDocumentRetainedBinding
+    {
         this.#assertRetainedOwnerAdmission();
+        assertAdmission?.();
         const custody = this.#bindingCustody.get(primary);
         if (!custody || custody.isReleased() || primary.adapter !== custody.adapter)
         {
@@ -2975,7 +3080,11 @@ export class ArticleDocumentContextAuthority
         try
         {
             return this.#bindRetainedOwner(handle, this.#createRetainedOwner(registry, custody.adapter, scope), admission,
-                () => !custody.isReleased() && primary.adapter === custody.adapter);
+                () =>
+                {
+                    assertAdmission?.();
+                    return !custody.isReleased() && primary.adapter === custody.adapter;
+                });
         }
         finally
         {
@@ -3077,6 +3186,7 @@ export class ArticleDocumentContextAuthority
     #assertPrimaryHandover(owner: ArticleDocumentRetainedOwner, handover: ArticleDocumentPrimaryHandover,
         scopeRetirementSequence: number): void
     {
+        handover.assertAdmission?.();
         const principal = owner.scope.readPrincipalIdentityId();
         const site = owner.scope.readSiteScope();
         const target = handover.target;
@@ -3097,6 +3207,7 @@ export class ArticleDocumentContextAuthority
         {
             throw new Error('article-document-primary-handover-admission-changed');
         }
+        handover.assertAdmission?.();
     }
 
     /** Scope cleanup is final admission revocation; actual consumer/task custody remains. */
