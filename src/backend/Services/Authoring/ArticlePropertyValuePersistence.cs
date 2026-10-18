@@ -17,12 +17,14 @@ public sealed partial class ArticlePropertyValuePersistence
     public const string WriteAuditAction = "article-property-values-write";
     public const string SnapshotAuditAction = "article-property-values-snapshot";
     private readonly ISqlSugarClient _db;
+    private readonly IConfiguration _configuration;
     private readonly byte[]? _tamperKey;
     private readonly TimeProvider _timeProvider;
 
     public ArticlePropertyValuePersistence(ISqlSugarClient db, IConfiguration configuration, TimeProvider timeProvider)
     {
         _db = db;
+        _configuration = configuration;
         _tamperKey = AuditTamperEvidence.ResolveKey(configuration);
         _timeProvider = timeProvider;
     }
