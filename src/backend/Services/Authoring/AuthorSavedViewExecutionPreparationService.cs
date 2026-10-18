@@ -44,7 +44,7 @@ public sealed class AuthorSavedViewExecutionPreparationService(
         AuthorSavedViewQueryValidationResult validation = await validator.ValidateAsync(
             detached.Owner, detached.Query, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        AuthorSavedViewExecutionPreparationVerifier.ValidateResolution(detached, validation);
+        validation = AuthorSavedViewExecutionPreparationVerifier.ValidateResolution(detached, validation, cancellationToken);
 
         AuthorSavedView? current = await views.GetAsync(request.ViewId, cancellationToken).ConfigureAwait(false);
         if (current is null || current.Owner != detached.Owner || current.ContentDigest != detached.ContentDigest)
@@ -58,7 +58,7 @@ public sealed class AuthorSavedViewExecutionPreparationService(
         AuthorSavedViewQueryValidationResult confirmation = await validator.ValidateAsync(
             detached.Owner, detached.Query, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        AuthorSavedViewExecutionPreparationVerifier.ValidateResolution(detached, confirmation);
+        confirmation = AuthorSavedViewExecutionPreparationVerifier.ValidateResolution(detached, confirmation, cancellationToken);
         if (confirmation.DependencyDigest != validation.DependencyDigest)
         {
             return Refusal(request, AuthorSavedViewPreparationStatus.Stale, "saved_view_dependencies_stale");
@@ -128,7 +128,6 @@ public sealed class AuthorSavedViewExecutionPreparationService(
         IReadOnlyList<AuthorSavedViewDependencyResolution> dependencies)
         => dependencies.Select(static dependency => dependency with
         {
-            CanonicalValues = Array.AsReadOnly(dependency.CanonicalValues.ToArray()),
             Operator = dependency.Operator with
             {
                 FieldKinds = Array.AsReadOnly(dependency.Operator.FieldKinds.ToArray())

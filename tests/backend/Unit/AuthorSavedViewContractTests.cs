@@ -9,6 +9,100 @@ public sealed class AuthorSavedViewContractTests
 {
     private static readonly AuthorSavedViewOwner s_owner = new(7, "primary-site");
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(64)]
+    public async Task CanonicalValuesBoundary_AcceptsBoundedIndexOnlyValuesWithoutEnumeration(int count)
+    {
+        string[] input = [.. Enumerable.Range(0, Math.Max(1, count)).Select(index => $"tag:value-{index}")];
+        var supplied = new CanonicalValuesSupply(() => count, (index, _) => input[index]);
+        var provider = new TestDependencyProvider { SuppliedCanonicalValues = supplied };
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
+
+        AuthorSavedViewQueryValidationResult result = await validator.ValidateAsync(s_owner,
+            Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "identity.any-of", input)]));
+
+        Assert.True(result.IsValid);
+        Assert.Equal(input.Order(StringComparer.Ordinal), result.Query.Conditions[0].Values);
+        Assert.Equal(count, result.Resolutions[0].CanonicalValues.Count);
+        Assert.Equal(0, supplied.EnumeratorCalls);
+        Assert.Equal(count * 2, supplied.IndexReads);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(2)]
+    [InlineData(65)]
+    public async Task CanonicalValuesBoundary_RejectsCountBeforeReadingOrEnumerating(int count)
+    {
+        var supplied = new CanonicalValuesSupply(() => count, (_, _) => "tag:stable", throwEnumerator: false);
+        var provider = new TestDependencyProvider { SuppliedCanonicalValues = supplied };
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
+
+        await AssertValidationCode("saved_view_dependency_values_tampered", () => validator.ValidateAsync(s_owner,
+            Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "identity.equals", "tag:stable")])));
+
+        Assert.Equal(0, supplied.IndexReads);
+        Assert.Equal(0, supplied.EnumeratorCalls);
+    }
+
+    [Theory]
+    [InlineData("count-throws")]
+    [InlineData("index-throws")]
+    [InlineData("count-changes")]
+    [InlineData("same-count-values-change")]
+    [InlineData("spurious-cancellation")]
+    public async Task CanonicalValuesBoundary_RejectsThrowingOrChangingSupply(string mutation)
+    {
+        int reads = 0;
+        var supplied = new CanonicalValuesSupply(
+            () => mutation == "spurious-cancellation" ? throw new OperationCanceledException("private supplier cancellation")
+                : mutation == "count-throws" ? throw new InvalidOperationException("private count failure")
+                : mutation == "count-changes" && reads > 0 ? 0 : 1,
+            (_, _) => mutation == "index-throws" ? throw new InvalidOperationException("private index failure")
+                : ++reads == 1 ? "tag:stable" : "tag:changed",
+            throwEnumerator: false);
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog(
+            [new TestDependencyProvider { SuppliedCanonicalValues = supplied }]));
+
+        await AssertValidationCode("saved_view_dependency_values_tampered", () => validator.ValidateAsync(s_owner,
+            Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "identity.equals", "tag:stable")])));
+        Assert.Equal(0, supplied.EnumeratorCalls);
+    }
+
+    [Fact]
+    public async Task CanonicalValuesBoundary_RechecksCancellationDuringIndexedSupply()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var supplied = new CanonicalValuesSupply(() => 1, (_, _) =>
+        {
+            cancellation.Cancel();
+            return "tag:stable";
+        }, throwEnumerator: false);
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog(
+            [new TestDependencyProvider { SuppliedCanonicalValues = supplied }]));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => validator.ValidateAsync(s_owner,
+            Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "identity.equals", "tag:stable")]),
+            cancellation.Token));
+        Assert.Equal(0, supplied.EnumeratorCalls);
+    }
+
+    [Fact]
+    public async Task CanonicalValuesBoundary_CustomCatalogCannotRequireAnEnumerator()
+    {
+        var supplied = new CanonicalValuesSupply(() => 1, (_, _) => "tag:stable");
+        var validator = new AuthorSavedViewQueryValidator(new SuppliedCatalog(supplied));
+
+        AuthorSavedViewQueryValidationResult result = await validator.ValidateAsync(s_owner,
+            Query([Condition(AuthorSavedViewFieldKind.Tag, "tag:stable", "identity.equals", "tag:stable")]));
+
+        Assert.True(result.IsValid);
+        Assert.Equal("tag:stable", Assert.Single(result.Resolutions[0].CanonicalValues));
+        Assert.Equal(0, supplied.EnumeratorCalls);
+    }
+
     [Fact]
     public async Task ClosedAst_CoversStableAuthoritiesAndControlledOrWithoutRecursivePayloads()
     {
@@ -676,6 +770,10 @@ public sealed class AuthorSavedViewContractTests
 
     private sealed class TestDependencyProvider : IAuthorSavedViewDependencyProvider
     {
+        public IReadOnlyList<string>? SuppliedCanonicalValues
+        {
+            get; set;
+        }
         public AuthorSavedViewDependencyStatus Status { get; set; } = AuthorSavedViewDependencyStatus.Current;
         public string LabelRevision { get; set; } = "authority-v1";
         public bool TamperDependency
@@ -730,9 +828,9 @@ public sealed class AuthorSavedViewContractTests
             {
                 return ValueTask.FromResult<AuthorSavedViewDependencyFact?>(null);
             }
-            IReadOnlyList<string> canonical = ReuseMutableCanonicalBuffer
+            IReadOnlyList<string> canonical = SuppliedCanonicalValues ?? (ReuseMutableCanonicalBuffer
                 ? MutableCanonicalBuffer
-                : condition.Values;
+                : condition.Values);
             if (TamperCanonicalCount)
             {
                 canonical = [.. canonical, "tampered:extra"];
@@ -770,6 +868,55 @@ public sealed class AuthorSavedViewContractTests
                     LabelRevision,
                     [])
                 : null);
+    }
+
+    internal sealed class CanonicalValuesSupply(
+        Func<int> count,
+        Func<int, int, string> value,
+        bool throwEnumerator = true) : IReadOnlyList<string>
+    {
+        public int IndexReads
+        {
+            get; private set;
+        }
+        public int EnumeratorCalls
+        {
+            get; private set;
+        }
+        public int Count => count();
+        public string this[int index] => value(index, ++IndexReads);
+
+        public IEnumerator<string> GetEnumerator()
+        {
+            EnumeratorCalls++;
+            if (throwEnumerator)
+            {
+                throw new InvalidOperationException("Supply enumerator must not be requested.");
+            }
+            return Enumerable.Range(0, Math.Max(0, Count)).Select(index => this[index]).GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    private sealed class SuppliedCatalog(IReadOnlyList<string> values) : IAuthorSavedViewDependencyCatalog
+    {
+        private readonly AuthorSavedViewDependencyCatalog _inner = new([new TestDependencyProvider()]);
+
+        public async ValueTask<AuthorSavedViewDependencyResolution> ResolveConditionAsync(
+            AuthorSavedViewOwner owner, AuthorSavedViewCondition condition, CancellationToken cancellationToken = default)
+            => (await _inner.ResolveConditionAsync(owner, condition, cancellationToken)) with
+            {
+                CanonicalValues = values
+            };
+
+        public ValueTask<AuthorSavedViewDependencyResolution> ResolveSortAsync(
+            AuthorSavedViewOwner owner, AuthorSavedViewSort sort, CancellationToken cancellationToken = default)
+            => _inner.ResolveSortAsync(owner, sort, cancellationToken);
+
+        public ValueTask<AuthorSavedViewDependencyResolution> ResolveProjectionAsync(
+            AuthorSavedViewOwner owner, AuthorSavedViewFieldReference field, CancellationToken cancellationToken = default)
+            => _inner.ResolveProjectionAsync(owner, field, cancellationToken);
     }
 
     private sealed class CancellingProvider(CancellationTokenSource cancellation)

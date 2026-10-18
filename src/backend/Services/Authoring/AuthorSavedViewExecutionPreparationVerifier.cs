@@ -28,7 +28,7 @@ public static class AuthorSavedViewExecutionPreparationVerifier
         try
         {
             ValidateSource(source);
-            ValidateResolution(source, currentDependencies);
+            currentDependencies = ValidateResolution(source, currentDependencies);
             AuthorSavedViewContract.ValidateQueryShape(plan.Query);
             if (!currentDependencies.IsValid || source.LifecycleState != AuthorSavedViewLifecycleState.Active
                 || plan.Owner != source.Owner || plan.ViewId != source.Id || plan.ViewRevision != source.Revision
@@ -65,9 +65,10 @@ public static class AuthorSavedViewExecutionPreparationVerifier
         }
     }
 
-    internal static void ValidateResolution(
+    internal static AuthorSavedViewQueryValidationResult ValidateResolution(
         AuthorSavedView source,
-        AuthorSavedViewQueryValidationResult validation)
+        AuthorSavedViewQueryValidationResult validation,
+        CancellationToken cancellationToken = default)
     {
         AuthorSavedViewContract.ValidateQueryShape(validation.Query);
         if (validation.QueryDigest != source.QueryDigest
@@ -79,8 +80,10 @@ public static class AuthorSavedViewExecutionPreparationVerifier
         }
 
         var reasons = new List<string>();
+        var frozenResolutions = new AuthorSavedViewDependencyResolution[validation.Resolutions.Count];
         for (int index = 0; index < validation.Resolutions.Count; index++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             AuthorSavedViewDependencyResolution resolution = validation.Resolutions[index];
             int conditionCount = source.Query.Conditions.Count;
             AuthorSavedViewFieldReference field = index < conditionCount
@@ -101,6 +104,13 @@ public static class AuthorSavedViewExecutionPreparationVerifier
             {
                 throw new AuthorSavedViewValidationException("saved_view_execution_resolution_tampered");
             }
+            resolution = resolution with
+            {
+                CanonicalValues = AuthorSavedViewContract.SnapshotCanonicalValues(resolution.CanonicalValues,
+                    index < conditionCount ? source.Query.Conditions[index].Values.Count : 0,
+                    cancellationToken, "saved_view_execution_resolution_tampered")
+            };
+            frozenResolutions[index] = resolution;
             if (index < conditionCount)
             {
                 IReadOnlyList<string> values = source.Query.Conditions[index].Values;
@@ -128,6 +138,11 @@ public static class AuthorSavedViewExecutionPreparationVerifier
         {
             throw new AuthorSavedViewValidationException("saved_view_execution_resolution_tampered");
         }
+        cancellationToken.ThrowIfCancellationRequested();
+        return validation with
+        {
+            Resolutions = Array.AsReadOnly(frozenResolutions)
+        };
     }
 
     private static bool SameDependencies(
@@ -138,7 +153,9 @@ public static class AuthorSavedViewExecutionPreparationVerifier
             && pair.First.OperatorId == pair.Second.OperatorId
             && pair.First.Status == pair.Second.Status
             && pair.First.AuthorityRevision == pair.Second.AuthorityRevision
-            && pair.First.CanonicalValues.SequenceEqual(pair.Second.CanonicalValues)
+            && AuthorSavedViewContract.SnapshotCanonicalValues(pair.First.CanonicalValues,
+                pair.Second.CanonicalValues.Count, errorCode: "saved_view_execution_resolution_tampered")
+                .SequenceEqual(pair.Second.CanonicalValues)
             && SameOperator(pair.First.Operator, pair.Second.Operator));
 
     private static bool SameOperator(AuthorSavedViewOperatorDescriptor actual, AuthorSavedViewOperatorDescriptor expected)
