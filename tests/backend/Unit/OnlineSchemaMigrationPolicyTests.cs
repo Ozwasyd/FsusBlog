@@ -347,7 +347,10 @@ public sealed class OnlineSchemaMigrationPolicyTests
             AuthorRecentArticleHistoryMigrationDefinitions.MigrationId,
             ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId,
             ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId,
-            ArticleSourceGenerationMigrationDefinitions.MigrationId
+            ArticleSourceGenerationMigrationDefinitions.MigrationId,
+            TaxonomyMutationReceiptMigrationDefinitions.MigrationId,
+            UserLocaleMutationReceiptMigrationDefinitions.MigrationId,
+            ArticleSourceReceiptOriginsMigrationDefinitions.MigrationId
         };
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>

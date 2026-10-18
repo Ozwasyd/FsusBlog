@@ -1,9 +1,15 @@
 using System.Data.Common;
+using System.Text.Json;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Interfaces;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Shared.Contracts.Localization;
 using FsusBlog.Shared.Contracts.Outputs;
+
+using Npgsql;
+
+using NpgsqlTypes;
 
 using SqlSugar;
 
@@ -84,6 +90,9 @@ public sealed class UserLocalePreferenceService(
             UserLocalePreferenceDto? committed = null;
             var transaction = await db.Ado.UseTranAsync(async () =>
             {
+                await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
+                UserLocaleMutationReceiptPersistence.Capture capture = await UserLocaleMutationReceiptPersistence
+                    .CaptureBeforeAsync(db, accountId, cancellationToken: cancellationToken).ConfigureAwait(false);
                 (previous, previousExisted) = await ReadForUpdateAsync(accountId, cancellationToken).ConfigureAwait(false);
                 if (previous.Revision != normalized.ExpectedRevision)
                 {
@@ -124,16 +133,21 @@ public sealed class UserLocalePreferenceService(
 
                 if (affected == 1)
                 {
+                    UserLocaleMutationReceipt receipt = await UserLocaleMutationReceiptPersistence
+                        .PersistActualAfterAsync(db, capture, affected, cancellationToken).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException("locale_source_receipt_required");
+                    await ArticleSourceGenerationAuthority.RecordDisplayLocaleAsync(db, receipt.ReceiptId, cancellationToken)
+                        .ConfigureAwait(false);
+                    UserLocalePreferenceReceiptState actual = receipt.After
+                        ?? throw new InvalidOperationException("locale_source_after_state_required");
                     committed = new UserLocalePreferenceDto(
-                        normalized.Mode,
-                        normalized.FixedLocale,
-                        revision,
-                        updatedAt.UtcDateTime);
+                        actual.Mode, actual.FixedLocale, actual.Revision, actual.UpdatedAt);
                 }
             }).ConfigureAwait(false);
 
             if (!transaction.IsSuccess)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 logger.LogWarning("Locale preference transaction failed | reason=transaction_error");
                 return new UserLocalePreferenceUpdateResult(
                     UserLocalePreferenceUpdateOutcome.Unavailable,
@@ -178,38 +192,65 @@ public sealed class UserLocalePreferenceService(
     {
         try
         {
-            int affected = previousPreferenceExisted
-                ? await db.Ado.ExecuteCommandAsync(
-                    """
-                    UPDATE user_locale_preference
-                    SET mode = @Mode,
-                        fixed_locale = @FixedLocale,
-                        revision = @PreviousRevision,
-                        updated_at = @PreviousUpdatedAt
-                    WHERE account_id = @AccountId
-                      AND revision = @CommittedRevision;
-                    """,
-                    new SugarParameter[]
-                    {
-                        new SugarParameter("@Mode", previousPreference.Mode),
-                        new SugarParameter("@FixedLocale", previousPreference.FixedLocale),
-                        new SugarParameter("@PreviousRevision", previousPreference.Revision),
-                        new SugarParameter("@PreviousUpdatedAt", previousPreference.UpdatedAt),
-                        new SugarParameter("@AccountId", accountId),
-                        new SugarParameter("@CommittedRevision", committedPreference.Revision)
-                    }).ConfigureAwait(false)
-                : await db.Ado.ExecuteCommandAsync(
-                    """
-                    DELETE FROM user_locale_preference
-                    WHERE account_id = @AccountId
-                      AND revision = @CommittedRevision;
-                    """,
-                    new SugarParameter[]
-                    {
-                        new SugarParameter("@AccountId", accountId),
-                        new SugarParameter("@CommittedRevision", committedPreference.Revision)
-                    }).ConfigureAwait(false);
-            return affected == 1;
+            var transaction = await db.Ado.UseTranAsync(async () =>
+            {
+                await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
+                Guid? originalReceiptId = await FindUncompensatedUpdateReceiptAsync(accountId,
+                    committedPreference, previousPreference, previousPreferenceExisted, cancellationToken).ConfigureAwait(false);
+                if (!originalReceiptId.HasValue)
+                {
+                    return false;
+                }
+                UserLocaleMutationReceiptPersistence.Capture capture = await UserLocaleMutationReceiptPersistence
+                    .CaptureBeforeAsync(db, accountId, originalReceiptId, cancellationToken).ConfigureAwait(false);
+                int affected = previousPreferenceExisted
+                    ? await db.Ado.ExecuteCommandAsync(
+                        """
+                        UPDATE user_locale_preference
+                        SET mode = @Mode,
+                            fixed_locale = @FixedLocale,
+                            revision = @PreviousRevision,
+                            updated_at = @PreviousUpdatedAt
+                        WHERE account_id = @AccountId
+                          AND revision = @CommittedRevision;
+                        """,
+                        new SugarParameter[]
+                        {
+                            new SugarParameter("@Mode", previousPreference.Mode),
+                            new SugarParameter("@FixedLocale", previousPreference.FixedLocale),
+                            new SugarParameter("@PreviousRevision", previousPreference.Revision),
+                            new SugarParameter("@PreviousUpdatedAt", previousPreference.UpdatedAt),
+                            new SugarParameter("@AccountId", accountId),
+                            new SugarParameter("@CommittedRevision", committedPreference.Revision)
+                        }).ConfigureAwait(false)
+                    : await db.Ado.ExecuteCommandAsync(
+                        """
+                        DELETE FROM user_locale_preference
+                        WHERE account_id = @AccountId
+                          AND revision = @CommittedRevision;
+                        """,
+                        new SugarParameter[]
+                        {
+                            new SugarParameter("@AccountId", accountId),
+                            new SugarParameter("@CommittedRevision", committedPreference.Revision)
+                        }).ConfigureAwait(false);
+                UserLocaleMutationReceipt? receipt = await UserLocaleMutationReceiptPersistence
+                    .PersistActualAfterAsync(db, capture, affected, cancellationToken).ConfigureAwait(false);
+                if (receipt is null)
+                {
+                    return false;
+                }
+                await ArticleSourceGenerationAuthority.RecordDisplayLocaleAsync(db, receipt.ReceiptId, cancellationToken)
+                    .ConfigureAwait(false);
+                return true;
+            }).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!transaction.IsSuccess)
+            {
+                logger.LogError(transaction.ErrorException, "Locale preference compensation failed | account={AccountId}", accountId);
+                return false;
+            }
+            return transaction.Data;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -220,6 +261,39 @@ public sealed class UserLocalePreferenceService(
             logger.LogError(exception, "Locale preference compensation failed | account={AccountId}", accountId);
             return false;
         }
+    }
+
+    // The original compensation port carries full states, not a receipt ID. Resolve
+    // exactly one persisted, unconsumed update; ambiguity refuses rather than picking
+    // a revision/timestamp/latest row as authority. No clock is allocated by this read.
+    private async Task<Guid?> FindUncompensatedUpdateReceiptAsync(int accountId,
+        UserLocalePreferenceDto committed, UserLocalePreferenceDto previous, bool previousExisted,
+        CancellationToken cancellationToken)
+    {
+        (NpgsqlConnection connection, NpgsqlTransaction transaction) = ArticleSourceGenerationAuthority.RequireTransaction(db);
+        await using NpgsqlCommand command = new("""
+            SELECT original.receipt_id
+            FROM user_locale_mutation_receipt original
+            WHERE original.account_id = @AccountId AND original.mutation_kind = 'update'
+              AND original.after_state = @After
+              AND original.before_state IS NOT DISTINCT FROM @Before
+              AND NOT EXISTS (SELECT 1 FROM user_locale_mutation_receipt undo
+                  WHERE undo.compensates_receipt_id = original.receipt_id)
+            LIMIT 2;
+            """, connection, transaction);
+        command.Parameters.AddWithValue("AccountId", accountId);
+        command.Parameters.AddWithValue("After", NpgsqlDbType.Jsonb, JsonSerializer.Serialize(
+            new UserLocalePreferenceReceiptState(committed.Mode, committed.FixedLocale, committed.Revision, committed.UpdatedAt)));
+        command.Parameters.AddWithValue("Before", NpgsqlDbType.Jsonb, previousExisted
+            ? JsonSerializer.Serialize(new UserLocalePreferenceReceiptState(previous.Mode, previous.FixedLocale, previous.Revision, previous.UpdatedAt))
+            : DBNull.Value);
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            return null;
+        Guid receiptId = reader.GetGuid(0);
+        if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            throw new InvalidOperationException("locale_source_compensation_receipt_ambiguous");
+        return receiptId;
     }
 
     private async Task<(UserLocalePreferenceDto Preference, bool Existed)> ReadForUpdateAsync(

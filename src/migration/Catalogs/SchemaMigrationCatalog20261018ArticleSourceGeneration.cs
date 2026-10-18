@@ -14,10 +14,16 @@ internal static class SchemaMigrationCatalog20261018ArticleSourceGeneration
             [
                 new SchemaMigrationCatalogDependency(
                     ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId,
+                    SchemaMigrationPhase.PostCodeFirst),
+                new SchemaMigrationCatalogDependency(
+                    UserLocalePreferenceMigrationDefinitions.MigrationId,
                     SchemaMigrationPhase.PostCodeFirst)
             ],
             Descriptors:
             [
-                ArticleSourceGenerationMigrationDefinitions.BuildMigration()
+                ArticleSourceGenerationMigrationDefinitions.BuildMigration(),
+                TaxonomyMutationReceiptMigrationDefinitions.BuildMigration(),
+                UserLocaleMutationReceiptMigrationDefinitions.BuildMigration(),
+                ArticleSourceReceiptOriginsMigrationDefinitions.BuildMigration()
             ]);
 }

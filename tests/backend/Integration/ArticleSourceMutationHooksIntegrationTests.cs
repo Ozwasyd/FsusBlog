@@ -210,7 +210,8 @@ public sealed partial class ArticleSourceMutationHooksIntegrationTests(PostgresS
                 db, tagId, "renamed source tag", CancellationToken.None)).Outcome);
 
         await AssertEveryEventEnrolledAsync(db, 3);
-        Assert.Equal(new ArticleSourceCursor(created!.ArticleId, 3, 3),
+        Assert.Equal(2, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM taxonomy_mutation_receipt;"));
+        Assert.Equal(new ArticleSourceCursor(created!.ArticleId, 5, 3),
             await ArticleSourceGenerationAuthority.ReadArticleCursorAsync(db, created.ArticleId));
     }
 

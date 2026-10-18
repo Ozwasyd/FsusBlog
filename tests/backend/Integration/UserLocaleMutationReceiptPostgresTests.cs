@@ -319,16 +319,17 @@ public sealed class UserLocaleMutationReceiptPostgresTests(PostgresSchemaMigrati
     }
 
     [Fact]
-    public async Task OriginalServiceIsStillUnwired_AndCannotProduceReceiptsByItself()
+    public async Task OriginalService_EnlistsActualUpdateAndCompensationThroughTheSourceAuthority()
     {
         using SqlSugarClient db = await DatabaseAsync();
         var original = new UserLocalePreferenceService(db, NullLogger<UserLocalePreferenceService>.Instance);
         var result = await original.UpdateAsync(1, new("fixed", "ja-JP", 0));
         Assert.Equal(UserLocalePreferenceUpdateOutcome.Success, result.Outcome);
-        Assert.Equal(0, await CountAsync(db));
+        Assert.Equal(1, await CountAsync(db));
         Assert.True(await original.CompensateAsync(1, result.Preference!.Value,
             result.PreviousPreference!.Value, result.PreviousPreferenceExisted));
-        Assert.Equal(0, await CountAsync(db));
+        Assert.Equal(2, await CountAsync(db));
+        Assert.Equal(2, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
     }
 
     private async Task<SqlSugarClient> DatabaseAsync()
@@ -351,6 +352,7 @@ public sealed class UserLocaleMutationReceiptPostgresTests(PostgresSchemaMigrati
                 await step.ExecuteAsync(db, default);
             }
         }
+        PostgresSqlSugarTestClient.InitTables(db, typeof(UserLocalePreference));
         return db;
     }
 

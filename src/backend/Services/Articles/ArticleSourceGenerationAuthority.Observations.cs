@@ -11,6 +11,35 @@ public sealed record ArticleSourceObservationCursor(long SourceGeneration, int? 
 
 public static partial class ArticleSourceGenerationAuthority
 {
+    /// <summary>Enrolls an actual immutable display preference transition; not a content or label locale.</summary>
+    public static Task<ArticleSourceObservationCursor> RecordDisplayLocaleAsync(
+        ISqlSugarClient db, Guid receiptId, CancellationToken cancellationToken = default)
+    {
+        if (receiptId == Guid.Empty)
+            throw new ArgumentException("A real locale receipt is required.", nameof(receiptId));
+        return RecordObservationAsync(db, "display-locale", receiptId.ToString("D"), """
+            SELECT to_jsonb(receipt)::text, NULL::integer
+            FROM user_locale_mutation_receipt receipt
+            WHERE receipt.receipt_id = @Id AND receipt.account_id > 0
+                AND receipt.mutation_kind IN ('update', 'compensation');
+            """, command => command.Parameters.AddWithValue("Id", receiptId), cancellationToken);
+    }
+
+    /// <summary>Enrolls the actual immutable category/tag identity and affected-article receipt.</summary>
+    public static Task<ArticleSourceObservationCursor> RecordTaxonomyAsync(
+        ISqlSugarClient db, Guid receiptId, CancellationToken cancellationToken = default)
+    {
+        if (receiptId == Guid.Empty)
+            throw new ArgumentException("A real taxonomy receipt is required.", nameof(receiptId));
+        return RecordObservationAsync(db, "taxonomy", receiptId.ToString("D"), """
+            SELECT to_jsonb(receipt)::text, NULL::integer
+            FROM taxonomy_mutation_receipt receipt
+            WHERE receipt.receipt_id = @Id AND receipt.target_id > 0
+                AND receipt.target_kind IN ('category', 'tag')
+                AND receipt.operation IN ('create', 'update', 'delete');
+            """, command => command.Parameters.AddWithValue("Id", receiptId), cancellationToken);
+    }
+
     /// <summary>Enrolls the actual original definition receipt and authenticated command journal.</summary>
     public static Task<ArticleSourceObservationCursor> RecordPropertyDefinitionAsync(
         ISqlSugarClient db, Guid receiptId, CancellationToken cancellationToken = default)
