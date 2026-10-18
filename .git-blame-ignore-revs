@@ -30,3 +30,6 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 
 # Original ESLint layout pass for local operational preservation controls.
 9fe86c28d3b2cfd4008b0575111ddcfcf94f598f
+
+# Assigned original backend test formatting for #3663.
+5eebf8fde645f5ad430c2697ec0d950bcadbd8ef
