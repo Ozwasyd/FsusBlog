@@ -161,15 +161,23 @@ public sealed class AdminPermissionMutationReceiptPostgresTests(PostgresSchemaMi
         Assert.Equal(3, await db.Ado.GetIntAsync("SELECT count(*) FROM admin_session WHERE revokedatutc IS NULL;"));
     }
 
-    [Fact]
-    public async Task MissingProducer_RejectsCommitAndRollsBackMutation()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MissingProducer_RejectsCommitAndRollsBackMutation(bool replicaMode)
     {
         using SqlSugarClient db = await CreateAsync();
         await db.Ado.BeginTranAsync();
+        if (replicaMode)
+        {
+            await db.Ado.ExecuteCommandAsync("SET LOCAL session_replication_role = replica;");
+        }
         Assert.Equal(1, await RevokeAsync(db, "a"));
         PostgresException error = await Assert.ThrowsAsync<PostgresException>(() => db.Ado.CommitTranAsync());
         Assert.Equal("admin_receipt_unsealed_batch", error.MessageText);
-        await db.Ado.RollbackTranAsync();
+        // PostgreSQL has already rolled back a rejected COMMIT. SqlSugar retains the completed
+        // native transaction on this exception path; detach it before verification/disposal.
+        db.Ado.Transaction = null;
         Assert.Equal(0, await CountAsync(db));
         Assert.Equal(3, await db.Ado.GetIntAsync("SELECT count(*) FROM admin_session WHERE revokedatutc IS NULL;"));
     }
@@ -271,6 +279,43 @@ public sealed class AdminPermissionMutationReceiptPostgresTests(PostgresSchemaMi
         Assert.Empty(await batch.CompleteAsync(0));
         await db.Ado.CommitTranAsync();
         Assert.Equal(0, await CountAsync(db));
+    }
+
+    [Fact]
+    public async Task ReplicaModeCleanup_CapturesEveryActualDeletion()
+    {
+        using SqlSugarClient db = await CreateAsync();
+        await db.Ado.BeginTranAsync();
+        AdminPermissionMutationReceiptBatch batch = await AdminPermissionMutationReceiptPersistence.BeginAsync(db);
+        // Match DemoFixtureSeeder.DeleteOwnedRowsAsync's original transaction-local mode.
+        await db.Ado.ExecuteCommandAsync("SET LOCAL session_replication_role = replica;");
+        Assert.Equal(3, await db.Ado.ExecuteCommandAsync("DELETE FROM admin_session WHERE adminprincipalid = 1;"));
+        Assert.Equal(1, await db.Ado.ExecuteCommandAsync("DELETE FROM admin_principal WHERE id = 1;"));
+        IReadOnlyList<AdminPermissionMutationReceipt> receipts = await batch.CompleteAsync(4);
+        Assert.All(receipts, receipt =>
+        {
+            Assert.Equal("DELETE", receipt.MutationKind);
+            Assert.NotNull(receipt.BeforeJson);
+            Assert.Null(receipt.AfterJson);
+        });
+        Assert.Equal(3, receipts.Count(receipt => receipt.SubjectKind == "session"));
+        Assert.Single(receipts, receipt => receipt.SubjectKind == "principal");
+        await db.Ado.CommitTranAsync();
+        Assert.Equal(4, await CountAsync(db));
+    }
+
+    [Fact]
+    public async Task SealedReceipts_AreInvisibleToAnotherConnectionUntilCommit()
+    {
+        using SqlSugarClient db = await CreateAsync();
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await db.Ado.BeginTranAsync();
+        AdminPermissionMutationReceiptBatch batch = await AdminPermissionMutationReceiptPersistence.BeginAsync(db);
+        await RevokeAsync(db, "a");
+        await batch.CompleteAsync(1);
+        Assert.Equal(0, await CountAsync(observer));
+        await db.Ado.CommitTranAsync();
+        Assert.Equal(1, await CountAsync(observer));
     }
 
     [Theory]

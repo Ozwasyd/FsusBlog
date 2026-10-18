@@ -39,6 +39,10 @@ public sealed record AdminPermissionMutationReceipt(
 /// idle/absolute lifetime writer must complete its own batch through the separate lifetime owner.
 /// Fixture direct seed/cleanup and physical deletion also need explicit complete-batch hookup
 /// before registration; the deferred guard deliberately fails closed for any missing participant.
+/// SqlSugarAuthFixtureLifecycleRepository.InsertOwnedAdminAsync is currently an autocommit insert;
+/// RuntimeCacheScenarioEvidenceEndpoints creates/deletes sessions directly. Both need original
+/// owner transaction boundaries. DemoFixtureSeeder deletes in replica mode in its existing
+/// transaction, so this migration's capture/integrity triggers run ALWAYS, including that mode.
 /// Expiry without a write emits nothing: live authentication must still evaluate current time.
 /// </summary>
 public static class AdminPermissionMutationReceiptPersistence

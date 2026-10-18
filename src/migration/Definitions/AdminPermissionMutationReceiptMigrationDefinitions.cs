@@ -170,5 +170,19 @@ internal static class AdminPermissionMutationReceiptMigrationDefinitions
         DROP TRIGGER IF EXISTS admin_receipt_no_truncate ON public.admin_session;
         CREATE TRIGGER admin_receipt_no_truncate BEFORE TRUNCATE ON public.admin_session
             FOR EACH STATEMENT EXECUTE FUNCTION public.admin_receipt_immutable();
+
+        -- Existing demo cleanup uses replica mode inside its original transaction. Capture and
+        -- integrity must survive that path too; no roles, grants or session settings are changed.
+        ALTER TABLE public.admin_principal ENABLE ALWAYS TRIGGER admin_receipt_capture;
+        ALTER TABLE public.admin_session ENABLE ALWAYS TRIGGER admin_receipt_capture;
+        ALTER TABLE public.admin_permission_mutation_receipt ENABLE ALWAYS TRIGGER admin_receipt_insert_guard;
+        ALTER TABLE public.admin_permission_mutation_receipt ENABLE ALWAYS TRIGGER admin_receipt_require_seal;
+        ALTER TABLE public.admin_permission_mutation_receipt ENABLE ALWAYS TRIGGER admin_receipt_immutable;
+        ALTER TABLE public.admin_permission_mutation_receipt ENABLE ALWAYS TRIGGER admin_receipt_no_truncate;
+        ALTER TABLE public.admin_permission_mutation_receipt_batch ENABLE ALWAYS TRIGGER admin_receipt_seal_guard;
+        ALTER TABLE public.admin_permission_mutation_receipt_batch ENABLE ALWAYS TRIGGER admin_receipt_immutable;
+        ALTER TABLE public.admin_permission_mutation_receipt_batch ENABLE ALWAYS TRIGGER admin_receipt_no_truncate;
+        ALTER TABLE public.admin_principal ENABLE ALWAYS TRIGGER admin_receipt_no_truncate;
+        ALTER TABLE public.admin_session ENABLE ALWAYS TRIGGER admin_receipt_no_truncate;
         """;
 }
