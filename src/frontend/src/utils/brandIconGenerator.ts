@@ -168,7 +168,8 @@ function blobToDataUrl(blob: Blob): Promise<string>
     {
         const reader = new FileReader();
         reader.onerror = () => reject(reader.error ?? new Error('blob_read_failed'));
-        reader.onload = () => resolve(String(reader.result ?? ''));
+        // readAsDataURL completes with a string result rather than an ArrayBuffer.
+        reader.onload = () => resolve(String((reader.result as string | null) ?? ''));
         reader.readAsDataURL(blob);
     });
 }

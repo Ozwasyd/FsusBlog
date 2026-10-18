@@ -82,7 +82,7 @@ const comments: CommentTreeViewNode[] = Array.from({ length: count }, (_, index)
     content: `第 ${index + 1} 条静态评论，用于验证 populated 节奏。`,
     createTime: '2026-07-24T08:00:00.000Z',
     author: {
-      mode: index % 2 === 0 ? 'public' : 'anonymous',
+      mode: index % 2 === 0 ? 'public' : 'legacy_server_visible_pseudonymous',
       displayName: index % 2 === 0 ? 'Reader' : 'Anonymous',
       displayLanguage: 'zh-CN',
       badge: null,
