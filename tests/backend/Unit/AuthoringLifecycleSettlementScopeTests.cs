@@ -364,10 +364,13 @@ public sealed class AuthoringLifecycleSettlementScopeTests
         fixture.Host.FailNextRelease = true;
         Assert.Same(fixture.Host.ReleaseError, Assert.Throws<IOException>(scope.Dispose));
         Assert.Same(fixture.Host.ReleaseError, scope.ReleaseFailure);
+        Assert.Null(scope.CleanupReport);
+        Assert.Null(scope.HostCleanupReport);
         Assert.False(scope.IsReleased);
         Assert.True(fixture.Host.Held);
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => fixture.HoldAsync().AsTask());
-        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => fixture.HoldAsync().AsTask());
+        await fixture.AssertClosedAsync();
+        await scope.SettleAsync();
         scope.Dispose();
         Assert.True(scope.IsReleased);
         await fixture.ActivateAsync(2);
