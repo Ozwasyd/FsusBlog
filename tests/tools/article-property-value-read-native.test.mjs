@@ -27,7 +27,7 @@ test('actual native generated read parser agrees with complete shared positive a
         assert.equal(run.status, 0, run.stderr);
         assert.match(run.stdout, new RegExp(`cases=${golden.cases.length} all matched`));
         assert.match(run.stdout, /production dispatcher\/error13 matched/);
-        const mutations = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/protocol/article-property-mutation-wire-golden.json'), 'utf8'));
+        const mutations = { cases: ['article-property-mutation-wire-golden.json', 'article-property-historical-read-wire-golden.json'].flatMap(file => JSON.parse(readFileSync(path.join(root, 'tests/fixtures/protocol', file), 'utf8')).cases) };
         const mutationInput = path.join(directory, 'mutations.txt');
         writeFileSync(mutationInput, mutations.cases.map(item => `${item.valid ? 1 : 0} ${item.frameType}:${item.name} ${item.payloadHex}`).join('\n') + '\n');
         const mutationRun = spawnSync(executable, [mutationInput, String(mutations.cases.length), 'mutation'], { encoding: 'utf8' });

@@ -219,3 +219,23 @@ test('mutation roots execute all exact typed cases and refuse every truncated pr
     mode[mode.length - 5] = 255;
     assert.throws(() => wire.decodeArticlePropertyValueMutationCommand(mode), 'Unknown mode fails closed');
 });
+
+test('historical exact coordinates and SQL-null publication share the original strict codec', () =>
+{
+    const historical = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/protocol/article-property-historical-read-wire-golden.json'), 'utf8'));
+    for (const item of historical.cases)
+    {
+        const bytes = Uint8Array.from(Buffer.from(item.payloadHex, 'hex'));
+        if (!item.valid)
+        {
+            assert.throws(() => wire.decodeArticlePropertyValueHistoricalReadResponse(bytes), item.name);
+            continue;
+        }
+        const value = wire.decodeArticlePropertyValueHistoricalReadResponse(bytes);
+        assert.deepEqual(wire.encodeArticlePropertyValueHistoricalReadResponse(value), bytes);
+        assert.equal(value.articleRevisionId, value.snapshot.snapshot.coordinates.articleRevisionId);
+        assert.equal(value.publicationId, value.snapshot.snapshot.coordinates.publicationId);
+        assert.equal(Object.hasOwn(value, 'currentArticleRevisionId'), false);
+        for (let length = 0; length < bytes.length; length++) assert.throws(() => wire.decodeArticlePropertyValueHistoricalReadResponse(bytes.slice(0, length)));
+    }
+});

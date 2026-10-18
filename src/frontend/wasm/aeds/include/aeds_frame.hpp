@@ -321,6 +321,7 @@ enum class FrameType : std::uint16_t
     ArticlePropertyDefinitionDeprecateRequest = 287,
     ArticlePropertyDefinitionDeleteRequest = 288,
     ArticlePropertyDefinitionMutationReceipt = 289,
+    ArticlePropertyValueHistoricalReadResponse = 290,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -627,6 +628,7 @@ enum class FrameType : std::uint16_t
         case FrameType::ArticlePropertyDefinitionDeprecateRequest:
         case FrameType::ArticlePropertyDefinitionDeleteRequest:
         case FrameType::ArticlePropertyDefinitionMutationReceipt:
+        case FrameType::ArticlePropertyValueHistoricalReadResponse:
             return true;
         default:
             return false;

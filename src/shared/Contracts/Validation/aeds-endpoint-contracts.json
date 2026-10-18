@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "ed91c8cb3e587d5bdbc4a6ef5e4a8434c926b40e976497a3b768fc53e529c8f2",
+    "contentDigest": "d31e6a8e24fdef567a0fdf609ce1601e5b255e2e7e3e336a87781d40577a851f",
     "operations": [
         {
             "method": "DELETE",
@@ -3262,6 +3262,17 @@
             "requestType": "FsusBlog.Shared.Contracts.ArticleProperties.ArticlePropertyDefinitionDeleteRequest",
             "requestEncoding": "binary-layout",
             "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/articles/{articleId:int}/properties/history/{articleRevisionId:long}",
+            "operationId": "binary_author_article_property_values_historical_read",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "ArticlePropertyValueHistoricalReadResponse",
             "errorFrame": "ApiError",
             "successStatus": 200
         }

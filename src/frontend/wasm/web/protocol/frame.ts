@@ -282,6 +282,7 @@ export const FrameType = {
   ArticlePropertyDefinitionDeprecateRequest: 287,
   ArticlePropertyDefinitionDeleteRequest: 288,
   ArticlePropertyDefinitionMutationReceipt: 289,
+  ArticlePropertyValueHistoricalReadResponse: 290,
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];

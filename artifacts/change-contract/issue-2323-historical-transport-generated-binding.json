@@ -1,0 +1,64 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/contracts/generate-article-property-value-read-wire.mjs",
+        "tools/contracts/generate-article-property-value-read-golden.mjs",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "src/shared/Contracts/Validation/article-property-value-read-wire.json",
+        "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs",
+        "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePropertyValueRoutes.cs",
+        "tests/frontend/fixtures/cross-stack-contract-matrix.json"
+    ],
+    "outputs": [
+        {
+            "path": "src/core/Algorithms/AedsFrameType.cs",
+            "sha256": "3fbf085de71ee71dbb656e6f6c8ae75f9e1446f38d34229ce73d95033da21545"
+        },
+        {
+            "path": "src/shared/AedsFrameHeader.cs",
+            "sha256": "b667f6862250ae93be7c2ff80451526fd083a1c70f3ac1c33e49f951f374ddea"
+        },
+        {
+            "path": "src/frontend/wasm/web/protocol/frame.ts",
+            "sha256": "8a7f86b245fb6aefc3a543f8be09eb5f9502560c92986f0d02d63e7a0f9ad1c4"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+            "sha256": "c3f917ea88ac8a2e216736e4659058d3e51f0ee1c12997b8860b3e8fc152906f"
+        },
+        {
+            "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "sha256": "6668e1cc4738499af3e056aad6af4e5f692f875f7e07851f851a4f23be7f4577"
+        },
+        {
+            "path": "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+            "sha256": "54e831ae30d457c785d1220a92836cccade4a3951a391e3285d4b353a2a4e31d"
+        },
+        {
+            "path": "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+            "sha256": "faef773f8c00236f27879280c60a5a9a6367191257fcbf4243bd2ce456fc807e"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/property_value_read.generated.hpp",
+            "sha256": "b0a5abe9a9ab7d11d571701ba7a3c96b253dc73725cd414deb53e75bf87c7f05"
+        },
+        {
+            "path": "tests/fixtures/protocol/article-property-historical-read-wire-golden.json",
+            "sha256": "fdff730ac1749d6eecba5b5cc4c727dde91160e2aa097cd4b3fc7a6ffc2ee6ba"
+        },
+        {
+            "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "sha256": "fe8517fffcc6621a6239136d7db31d87abc432b7183f2571478f64f3ae38dc36"
+        },
+        {
+            "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "sha256": "f1055ec020a481cf145f95a99e49efc6d4b61173435b68e3b03134b63d87e0aa"
+        },
+        {
+            "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+            "sha256": "35c8e69c2443902ee1107cb25a399acc91cbe7d394f9f0f3aa18dc9a21232097"
+        }
+    ]
+}

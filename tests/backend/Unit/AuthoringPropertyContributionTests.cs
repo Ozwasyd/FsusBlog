@@ -268,6 +268,10 @@ public sealed class AuthoringPropertyContributionTests
             Article = articleId;
             return Result(cancellationToken);
         }
+        public Task<ArticlePropertyValueReadModel> ReadHistoricalPropertyValuesAsync(long actorAdminPrincipalId,
+            ArticlePropertyDefinitionOwner owner, int articleId, long articleRevisionId, long? publicationId,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException("Current contribution adapter cannot select historical coordinates.");
         public Task<ArticlePropertyValueMutationReceipt> MutateAsync(long actorAdminPrincipalId, ArticlePropertyValueMutationCommand command, CancellationToken cancellationToken = default)
         {
             Writes++;

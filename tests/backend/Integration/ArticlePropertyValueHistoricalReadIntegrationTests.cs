@@ -185,14 +185,8 @@ public sealed class ArticlePropertyValueHistoricalReadIntegrationTests(PostgresS
         var queries = new List<string>();
         data.Db.Aop.OnLogExecuting = (sql, _) => queries.Add(sql);
         Exception? error = await Record.ExceptionAsync(() => HistoricalAsync(data, historical));
-        if (drift == "empty-permissions")
-        {
-            Assert.IsType<ArticlePropertyDefinitionValidationException>(error);
-        }
-        else
-        {
-            Assert.True(error is ArticlePropertyDefinitionAccessDeniedException or AuthoringCanvasAccessDeniedException);
-        }
+        // The frozen transport predecessor normalizes an empty SQL permission list to access denial.
+        Assert.True(error is ArticlePropertyDefinitionAccessDeniedException or AuthoringCanvasAccessDeniedException);
         Assert.DoesNotContain(queries, sql => sql.Contains("article_property_value_snapshot", StringComparison.Ordinal));
     }
 

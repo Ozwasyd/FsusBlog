@@ -285,5 +285,6 @@ public enum AedsFrameType : ushort
     ArticlePropertyDefinitionRenameRequest = 286,
     ArticlePropertyDefinitionDeprecateRequest = 287,
     ArticlePropertyDefinitionDeleteRequest = 288,
-    ArticlePropertyDefinitionMutationReceipt = 289
+    ArticlePropertyDefinitionMutationReceipt = 289,
+    ArticlePropertyValueHistoricalReadResponse = 290
 }

@@ -300,6 +300,7 @@
     { "name": "ArticlePropertyDefinitionRenameRequest", "value": 286, "family": "article-property-mutation" },
     { "name": "ArticlePropertyDefinitionDeprecateRequest", "value": 287, "family": "article-property-mutation" },
     { "name": "ArticlePropertyDefinitionDeleteRequest", "value": 288, "family": "article-property-mutation" },
-    { "name": "ArticlePropertyDefinitionMutationReceipt", "value": 289, "family": "article-property-mutation" }
+    { "name": "ArticlePropertyDefinitionMutationReceipt", "value": 289, "family": "article-property-mutation" },
+    { "name": "ArticlePropertyValueHistoricalReadResponse", "value": 290, "family": "article-property-historical-read" }
   ]
 }

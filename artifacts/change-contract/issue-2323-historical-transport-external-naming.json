@@ -1,0 +1,45 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/article-property-value-boundary.md"
+            ],
+            "reason": "Preserve original historical authority and external AEDS/SQL/generated/test identifiers through the sole property transport owner; no permission, persistence or JSON fallback is added."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePropertyValueRoutes.cs",
+                "src/backend/Services/ArticleService.ArticlePropertyValues.HistoricalRead.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValuePersistence.HistoricalRead.cs",
+                "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+                "src/core/Algorithms/AedsFrameType.cs",
+                "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+                "src/shared/AedsFrameHeader.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs",
+                "tools/contracts/generate-article-property-value-read-golden.mjs",
+                "tools/contracts/generate-article-property-value-read-wire.mjs"
+            ],
+            "reason": "Preserve original historical authority and external AEDS/SQL/generated/test identifiers through the sole property transport owner; no permission, persistence or JSON fallback is added."
+        },
+        {
+            "id": "generated-native",
+            "paths": [
+                "src/frontend/wasm/aeds/include/aeds_frame.hpp"
+            ],
+            "reason": "Preserve original historical authority and external AEDS/SQL/generated/test identifiers through the sole property transport owner; no permission, persistence or JSON fallback is added."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/aeds-golden-catalog.json",
+                "tests/fixtures/protocol/article-property-historical-read-wire-golden.json",
+                "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+                "tests/frontend/fixtures/cross-stack-contract-matrix.json"
+            ],
+            "reason": "Preserve original historical authority and external AEDS/SQL/generated/test identifiers through the sole property transport owner; no permission, persistence or JSON fallback is added."
+        }
+    ]
+}

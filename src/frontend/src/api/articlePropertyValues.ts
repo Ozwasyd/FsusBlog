@@ -77,6 +77,28 @@ export const articlePropertyValuesApi = {
         }
         return result;
     },
+    /** Reads exactly one persisted revision/publication. Explicit null selects unpublished history only. */
+    async readHistorical(articleId: number, articleRevisionId: string, publicationId: string | null,
+        ownerUserId: string | null = null, signal?: AbortSignal): Promise<mutationWire.ArticlePropertyValueHistoricalReadResponse>
+    {
+        requireCurrentArticleRevisionId(articleRevisionId);
+        if (publicationId !== null)
+        {
+            requireCurrentArticleRevisionId(publicationId);
+        }
+        const path = propertiesPath(articleId, ownerUserId).replace('/properties', `/properties/history/${articleRevisionId}`);
+        const binaryUrl = publicationId === null ? path : `${path}${path.includes('?') ? '&' : '?'}publicationId=${publicationId}`;
+        const result = await requestBinaryOnly<mutationWire.ArticlePropertyValueHistoricalReadResponse>({
+            binaryUrl, privateScope: 'admin', frameType: FrameType.ArticlePropertyValueHistoricalReadResponse, signal,
+            requestOptions: { method: 'GET', cache: 'no-store' }
+        });
+        if (result.articleId !== articleId || result.articleRevisionId !== articleRevisionId || result.publicationId !== publicationId
+            || result.scope.definitionOwnerUserId !== ownerUserId || result.scope.siteScope !== 'primary-site')
+        {
+            throw new Error('article_property_value_historical_coordinates_changed');
+        }
+        return result;
+    },
     /** Re-read Server facts after a canonical save receipt, refusing a raced article revision. */
     async readAfterSave(articleId: number, savedArticleRevisionId: string,
         ownerUserId: string | null = null, signal?: AbortSignal): Promise<ArticlePropertyValueReadResponse>
