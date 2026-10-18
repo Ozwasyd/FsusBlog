@@ -652,7 +652,7 @@ public sealed class AuthoringPrepublishDiagnosticContractTests
 
         AuthoringDiagnosticExpectedRoster reorderedConstruction = CreateRosterRegistry(reverse: true).ExpectedDiagnostics;
         Assert.Equal(roster.RosterSha256, reorderedConstruction.RosterSha256);
-        Assert.Equal(roster.Registrations, reorderedConstruction.Registrations);
+        Assert.Equal<AuthoringDiagnosticExpectedRegistration>(roster.Registrations, reorderedConstruction.Registrations);
 
         ImmutableArray<AuthoringDiagnosticExpectedRegistration> changed = roster.Registrations.SetItem(0,
             roster.Registrations[0] with
@@ -722,8 +722,8 @@ public sealed class AuthoringPrepublishDiagnosticContractTests
         AuthoringDiagnosticOutcomeCoverage complete = registry.ValidateOutcomeCoverage(
             registry.ExpectedDiagnostics, [optional, required], s_now);
         Assert.True(complete.HasAllOutcomes);
-        Assert.Equal(registry.ExpectedDiagnostics.Registrations,
-            complete.Slots.Select(static slot => slot.Registration).ToImmutableArray());
+        Assert.Equal<AuthoringDiagnosticExpectedRegistration>(registry.ExpectedDiagnostics.Registrations,
+            complete.Slots.Select(static slot => slot.Registration));
         Assert.All(complete.Slots, static slot => Assert.False(slot.IsAbsent));
 
         AuthoringPrepublishDiagnosticResult failedRequired = registry.Unavailable(required.Input, AuthoringDiagnosticUnavailableReason.Crashed);
