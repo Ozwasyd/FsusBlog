@@ -18,6 +18,8 @@ const catalogPath =
     "src/shared/Contracts/ArticleRelations/ArticleRelationCatalog.cs";
 const validatorPath =
     "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs";
+const parserBridgePath = "src/backend/Services/Authoring/CanonicalArticleRelationParserBridge.cs";
+const parserBridgeScriptPath = "src/backend/Services/Authoring/canonicalArticleRelationParserBridge.mjs";
 
 function sources()
 {
@@ -68,6 +70,25 @@ function jsonFixtures()
 test("article relation authority is one closed contract/catalog/validator slice", () =>
 {
     assert.deepEqual(checkArticleRelations(), []);
+});
+
+test("canonical bridge admission is exact to its owner, original reader and public runtime", () =>
+{
+    const original = sources();
+    const mutations = [
+        (fixture) => fixture.set("src/backend/OtherCanonicalArticleRelationParserBridge.cs", original.get(parserBridgePath)),
+        (fixture) => fixture.set(parserBridgePath, original.get(parserBridgePath).replace("AuthoringRevisionComparePackageReader reader", "OtherReader reader")),
+        (fixture) => fixture.delete(parserBridgeScriptPath),
+        (fixture) => fixture.set(parserBridgeScriptPath, original.get(parserBridgeScriptPath).replace("runtime.createMarkdownEditorProjection(", "otherParser(")),
+        (fixture) => fixture.set(parserBridgeScriptPath, original.get(parserBridgeScriptPath) + "\nconst second = new RegExp('body');"),
+        (fixture) => fixture.set(parserBridgeScriptPath, original.get(parserBridgeScriptPath) + "\nimport '@element-plus/wasm';")
+    ];
+    for (const mutate of mutations)
+    {
+        const fixture = new Map(original);
+        mutate(fixture);
+        assert.match(checkArticleRelationSources(fixture).join("\n"), /forbidden downstream implementation|sole public-runtime script/u);
+    }
 });
 
 test("catalog closes kinds, resolution states, lifecycle events and public policy", () =>

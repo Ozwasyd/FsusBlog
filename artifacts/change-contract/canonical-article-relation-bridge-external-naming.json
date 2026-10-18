@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleBlockRelationProducerContracts.cs",
+                "src/backend/Services/Authoring/CanonicalArticleRelationParserBridge.cs",
+                "tools/governance/check-article-relations.mjs"
+            ],
+            "reason": "Bind the original registry source-path naming scope while preserving existing public runtime, parser and contract spellings. The bridge clears inherited process environment and introduces no caller-visible environment keys; its internal options and identifiers retain the C# mother-style mapping."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/block-anchor-contract.md"
+            ],
+            "reason": "Bind the original registry maintained-document scope while retaining documented caller-visible public-runtime and coordinate names. This change introduces no DOM/CSS identifiers, tokens or observable UI behavior."
+        }
+    ]
+}

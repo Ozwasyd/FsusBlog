@@ -14,6 +14,8 @@ const validatorFile = `${contractDirectory}/ArticleRelationContractValidator.cs`
 const schemaFile = 'config/schemas/article-relation-contract.schema.json';
 const catalogJsonFile = 'config/contracts/article-relation-catalog.json';
 const requiredFiles = [contractsFile, catalogFile, digestFile, validatorFile];
+const parserBridgeFile = 'src/backend/Services/Authoring/CanonicalArticleRelationParserBridge.cs';
+const parserBridgeScript = 'src/backend/Services/Authoring/canonicalArticleRelationParserBridge.mjs';
 
 const expectedKinds = ['outgoing', 'backlink', 'broken', 'visibility-risk', 'unlinked-mention'];
 const expectedResolutionStatuses = [
@@ -79,10 +81,15 @@ function walk(directory)
 
 export function readArticleRelationSources(root = repositoryRoot)
 {
-    return new Map(walk(path.join(root, 'src')).map((absolute) => [
+    const sources = new Map(walk(path.join(root, 'src')).map((absolute) => [
         toPosix(path.relative(root, absolute)),
         readFileSync(absolute, 'utf8')
     ]));
+    if (existsSync(path.join(root, parserBridgeScript)))
+    {
+        sources.set(parserBridgeScript, readFileSync(path.join(root, parserBridgeScript), 'utf8'));
+    }
+    return sources;
 }
 
 function withoutComments(source)
@@ -224,10 +231,25 @@ export function checkArticleRelationSources(sources)
         }
     }
 
+    const bridge = withoutComments(sources.get(parserBridgeFile) ?? '');
+    const script = withoutComments(sources.get(parserBridgeScript) ?? '');
+    // This exact downstream owner consumes public parser output; the contract slice
+    // and every other parser/producer location retain their original prohibition.
+    const canonicalBridgeValid = bridge.includes('AuthoringRevisionComparePackageReader reader')
+        && bridge.includes('"canonicalArticleRelationParserBridge.mjs"')
+        && script.includes("'@ozwasyd/element-plus/markdown-runtime'")
+        && ['createMarkdownEditorProjection', 'stabilizeMarkdownEditorProjection',
+            'collectMarkdownAnchorNodes', 'collectMarkdownEmbedNodes', 'createMarkdownSourceCoordinateMap']
+            .every((name) => script.includes(`runtime.${name}(`))
+        && !/\b(?:Regex|GeneratedRegex|MarkdownParser|HtmlDocument|WebView|PublicAot)\b|@element-plus\/wasm|packages\/wasm|\/es\/wasm|new\s+RegExp|\.(?:match|matchAll|exec)\s*\(/u.test(`${bridge}\n${script}`);
+    if ((sources.has(parserBridgeFile) || sources.has(parserBridgeScript)) && !canonicalBridgeValid)
+    {
+        violations.push('canonical relation bridge must reuse the original reader and sole public-runtime script without a second parser or private UI import');
+    }
     const implementationNames = declarations(
         sources,
         /\b(?:class|interface|struct)\s+([A-Za-z0-9_]*ArticleRelation[A-Za-z0-9_]*(?:Parser|Producer|Indexer|IndexWriter|Query|Prepublish|Inspector|Ui)[A-Za-z0-9_]*)\b/gu
-    );
+    ).filter((name) => !canonicalBridgeValid || name !== `${parserBridgeFile}:CanonicalArticleRelationParserBridge`);
     if (implementationNames.length > 0)
     {
         violations.push(`relation contract slice contains a forbidden downstream implementation: ${implementationNames.join(', ')}`);

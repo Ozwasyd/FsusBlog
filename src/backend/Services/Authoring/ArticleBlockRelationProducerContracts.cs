@@ -51,7 +51,19 @@ public sealed record ArticleBlockRelationProductionInput(
     int AnchorContractVersion,
     string AnchorContractDigest,
     ImmutableArray<ArticleBlockRelationParsedLink> Links,
-    ImmutableArray<ArticleBlockRelationTargetInventory> Targets);
+    ImmutableArray<ArticleBlockRelationTargetInventory> Targets)
+{
+    // Only a completed canonical process envelope supplies parser facts here. Registry,
+    // permission and corpus-generation facts remain independently owned and unqualified.
+    internal static ArticleBlockRelationProductionInput FromCanonicalParsedSource(
+        CanonicalArticleRelationParserBridge.ParsedSource parsedSource,
+        ArticleRelationSourceFacts source,
+        ArticleRelationVisibilityFacts visibility,
+        long sourceGeneration,
+        ImmutableArray<CanonicalArticleRelationTargetBinding> bindings,
+        ImmutableArray<ArticleBlockRelationTargetInventory> targets)
+        => parsedSource.Bind(source, visibility, sourceGeneration, bindings, targets);
+}
 
 /// <summary>
 /// All-or-nothing canonical set production. A successful set remains an internal fact projection;
