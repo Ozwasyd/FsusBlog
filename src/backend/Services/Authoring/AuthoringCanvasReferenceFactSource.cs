@@ -401,10 +401,18 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
 {
     private const string PrimarySiteScope = "primary-site";
 
-    public async Task<AuthoringCanvasArticleReadAuthority> ReadAuthorityAsync(
+    public Task<AuthoringCanvasArticleReadAuthority> ReadAuthorityAsync(
         AuthoringCanvasOwner owner,
         AuthoringCanvasReferencePermission permission,
         CancellationToken cancellationToken = default)
+        => WithCancellationAsync(
+            token => ReadAuthorityCoreAsync(owner, permission, token),
+            cancellationToken);
+
+    private async Task<AuthoringCanvasArticleReadAuthority> ReadAuthorityCoreAsync(
+        AuthoringCanvasOwner owner,
+        AuthoringCanvasReferencePermission permission,
+        CancellationToken cancellationToken)
     {
         AuthoringCanvasContract.ValidateOwner(owner);
         if (!Enum.IsDefined(permission))
@@ -412,7 +420,7 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
             throw new AuthoringCanvasValidationException("canvas_reference_permission_invalid");
         }
         cancellationToken.ThrowIfCancellationRequested();
-        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             WITH principal AS (
                 SELECT id, status, isroot, permissions,
@@ -488,11 +496,20 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
             authorized);
     }
 
-    public async Task<IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord>> ReadBatchAsync(
+    public Task<IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord>> ReadBatchAsync(
         AuthoringCanvasOwner owner,
         AuthoringCanvasReferencePermission permission,
         IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
         CancellationToken cancellationToken = default)
+        => WithCancellationAsync(
+            token => ReadBatchCoreAsync(owner, permission, targets, token),
+            cancellationToken);
+
+    private async Task<IReadOnlyDictionary<int, AuthoringCanvasArticleReferenceRecord>> ReadBatchCoreAsync(
+        AuthoringCanvasOwner owner,
+        AuthoringCanvasReferencePermission permission,
+        IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
+        CancellationToken cancellationToken)
     {
         AuthoringCanvasContract.ValidateOwner(owner);
         if (!Enum.IsDefined(permission))
@@ -510,7 +527,7 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
         }
 
         var articles = new Dictionary<int, MutableArticleFact>(articleIds.Length);
-        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT id, title, summary, status, isdeleted, current_revision_id,
                    EXISTS (
@@ -579,7 +596,7 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
             .ToArray();
         if (pinnedRevisionIds.Length > 0)
         {
-            using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
                 SELECT id, article_id, title, summary
                 FROM article_revision
@@ -621,6 +638,30 @@ public sealed class PostgresAuthoringCanvasArticleReferenceReader(ISqlSugarClien
         return articles.ToDictionary(
             static pair => pair.Key,
             static pair => pair.Value.ToRecord());
+    }
+
+    private async Task<T> WithCancellationAsync<T>(
+        Func<CancellationToken, Task<T>> read,
+        CancellationToken cancellationToken)
+    {
+        CancellationToken? previous = db.Ado.CancellationToken;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            previous ?? CancellationToken.None,
+            cancellationToken);
+        linked.Token.ThrowIfCancellationRequested();
+        // SqlSugar's original GetDataReaderAsync has no token parameter. Its ADO token
+        // reaches the provider command; keep it installed until awaited reader cleanup ends.
+        db.Ado.CancellationToken = linked.Token;
+        try
+        {
+            T result = await read(linked.Token).ConfigureAwait(false);
+            linked.Token.ThrowIfCancellationRequested();
+            return result;
+        }
+        finally
+        {
+            db.Ado.CancellationToken = previous;
+        }
     }
 
     private static SugarParameter ArrayParameter(string name, Array value)
