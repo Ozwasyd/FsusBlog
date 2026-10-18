@@ -965,6 +965,21 @@ export function createBinaryTransport(decodeFramePayload: BinaryFramePayloadDeco
     };
 }
 
+function resolveBinaryRequestScope(auth: string): {
+    privateScope: PrivateRequestScope;
+    abortOnGenerationChange: boolean;
+}
+{
+    return {
+        privateScope: auth === 'admin'
+            ? 'admin'
+            : auth === 'user' || auth === 'optional'
+                ? 'account'
+                : 'public',
+        abortOnGenerationChange: auth !== 'optional'
+    };
+}
+
 function resolveBinaryRequest(options: {
     binaryUrl?: string;
     binaryRoute?: {
@@ -996,12 +1011,7 @@ function resolveBinaryRequest(options: {
       && descriptor.rateLimitPolicy === 'public_read'
       && descriptor.method === 'GET'
       && !descriptor.requiresPow;
-        const privateScope: PrivateRequestScope = descriptor.auth === 'admin'
-            ? 'admin'
-            : descriptor.auth === 'user' || descriptor.auth === 'optional'
-        ? 'account'
-        : 'public';
-        const abortOnGenerationChange = descriptor.auth !== 'optional';
+        const { privateScope, abortOnGenerationChange } = resolveBinaryRequestScope(descriptor.auth);
         if (options.requestOptions?.credentials !== undefined || descriptor.credentialPolicy === 'include')
         {
             return {

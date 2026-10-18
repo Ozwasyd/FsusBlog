@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { AedsRuntimeManifest } from '@wasm/aeds'
 
-function runtimeManifest() {
+function runtimeManifest(): AedsRuntimeManifest {
   const hash = 'a'.repeat(64)
   return {
     schema: 'fsusblog.aeds-runtime.v1' as const,
