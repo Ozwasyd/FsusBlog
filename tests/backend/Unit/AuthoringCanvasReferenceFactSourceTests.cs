@@ -1,12 +1,19 @@
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Unit")]
-public sealed class AuthoringCanvasReferenceFactSourceTests
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class AuthoringCanvasReferenceFactSourceTests(PostgresSchemaMigrationFixture fixture) : IDisposable
 {
+    private readonly AuthoringCanvasAuthenticatedTestScope _authenticatedRequest =
+        AuthoringCanvasAuthenticatedTestScope.Standalone(fixture, 61);
+
+    public void Dispose() => _authenticatedRequest.Dispose();
+
     private const string CanvasDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
     private static readonly AuthoringCanvasOwner s_owner = new(61, "primary-site");
 

@@ -15,19 +15,32 @@ namespace FsusBlog.Server.Services.Authoring;
 /// </summary>
 public sealed class AuthoringCanvasReferenceFactSource(
     IAuthoringCanvasArticleReferenceReader articles,
-    IAuthoringCanvasCoordinateFactProvider coordinateProvider) : IAuthoringCanvasReferenceFactSource
+    IAuthoringCanvasCoordinateFactProvider coordinateProvider,
+    AuthoringCanvasRequestLifetime? requestLifetime = null) : IAuthoringCanvasReferenceFactSource
 {
+    private readonly AuthoringCanvasRequestLifetime _requestLifetime = requestLifetime ?? new();
+
     public async Task<AuthoringCanvasReferenceAuthorityCoordinate> ReadAuthorityCoordinateAsync(
         AuthoringCanvasOwner owner,
         AuthoringCanvasReferencePermission permission,
         CancellationToken cancellationToken = default)
     {
         AuthoringCanvasContract.ValidateOwner(owner);
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(owner, cancellationToken);
+        cancellationToken = authorityScope.Token;
         AuthoringCanvasArticleReadAuthority authority = await articles.ReadAuthorityAsync(
             owner,
             permission,
             cancellationToken).ConfigureAwait(false);
-        return Coordinate(owner, permission, authority);
+        if (!string.Equals(owner.SiteScope, "primary-site", StringComparison.Ordinal))
+        {
+            authority = authority with
+            {
+                Authorized = false
+            };
+        }
+        authorityScope.EnsureCurrent();
+        return Coordinate(owner, permission, authority, authorityScope.BindingDigest);
     }
 
     public async Task<IReadOnlyList<AuthoringCanvasReferenceFact>> ReadBatchAsync(
@@ -35,6 +48,13 @@ public sealed class AuthoringCanvasReferenceFactSource(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(query.Owner, cancellationToken);
+        using IDisposable databaseCancellation = _requestLifetime.BindDatabaseCancellation(authorityScope);
+        cancellationToken = authorityScope.Token;
+        if (!string.Equals(query.Owner.SiteScope, "primary-site", StringComparison.Ordinal))
+        {
+            return query.Targets.Select(Denied).ToArray();
+        }
         if (query.Targets.Count > AuthoringCanvasReferenceContract.MaxBatchSize)
         {
             throw new AuthoringCanvasBudgetExceededException("canvas_reference_batch_budget_exceeded");
@@ -44,14 +64,12 @@ public sealed class AuthoringCanvasReferenceFactSource(
             query.Permission,
             cancellationToken).ConfigureAwait(false);
         if (!authority.Authorized
-            || !string.Equals(
-                authority.PermissionFingerprint,
-                query.AuthorityCoordinate.PermissionFingerprint,
-                StringComparison.Ordinal))
+            || !string.Equals(PermissionFingerprint(authority, authorityScope.BindingDigest),
+                query.AuthorityCoordinate.PermissionFingerprint, StringComparison.Ordinal))
         {
             return query.Targets.Select(Denied).ToArray();
         }
-        if (Coordinate(query.Owner, query.Permission, authority) != query.AuthorityCoordinate)
+        if (Coordinate(query.Owner, query.Permission, authority, authorityScope.BindingDigest) != query.AuthorityCoordinate)
         {
             throw new AuthoringCanvasValidationException("canvas_reference_authority_changed");
         }
@@ -80,14 +98,12 @@ public sealed class AuthoringCanvasReferenceFactSource(
             query.Permission,
             cancellationToken).ConfigureAwait(false);
         if (!verifiedAuthority.Authorized
-            || !string.Equals(
-                verifiedAuthority.PermissionFingerprint,
-                query.AuthorityCoordinate.PermissionFingerprint,
-                StringComparison.Ordinal))
+            || !string.Equals(PermissionFingerprint(verifiedAuthority, authorityScope.BindingDigest),
+                query.AuthorityCoordinate.PermissionFingerprint, StringComparison.Ordinal))
         {
             return query.Targets.Select(Denied).ToArray();
         }
-        if (Coordinate(query.Owner, query.Permission, verifiedAuthority) != query.AuthorityCoordinate)
+        if (Coordinate(query.Owner, query.Permission, verifiedAuthority, authorityScope.BindingDigest) != query.AuthorityCoordinate)
         {
             throw new AuthoringCanvasValidationException("canvas_reference_authority_changed");
         }
@@ -169,13 +185,15 @@ public sealed class AuthoringCanvasReferenceFactSource(
                 DisplayProjectionReference = projectionReference
             });
         }
+        authorityScope.EnsureCurrent();
         return result;
     }
 
     private static AuthoringCanvasReferenceAuthorityCoordinate Coordinate(
         AuthoringCanvasOwner owner,
         AuthoringCanvasReferencePermission permission,
-        AuthoringCanvasArticleReadAuthority authority)
+        AuthoringCanvasArticleReadAuthority authority,
+        string sessionBinding)
         => new(
             Math.Max(1, Math.Max(authority.PrincipalGeneration, authority.ContentGeneration)),
             AuthoringCanvasContract.ComputeCommandDigest(
@@ -189,7 +207,11 @@ public sealed class AuthoringCanvasReferenceFactSource(
                 authority.RevisionCount,
                 authority.PermissionFingerprint,
                 authority.Authorized),
-            authority.PermissionFingerprint);
+            PermissionFingerprint(authority, sessionBinding));
+
+    private static string PermissionFingerprint(AuthoringCanvasArticleReadAuthority authority, string sessionBinding)
+        => AuthoringCanvasContract.ComputeCommandDigest(
+            "canvas-reference-session-permission", authority.PermissionFingerprint, sessionBinding);
 
     private static void ValidateArticleFactSet(
         IReadOnlyList<AuthoringCanvasReferenceTarget> targets,

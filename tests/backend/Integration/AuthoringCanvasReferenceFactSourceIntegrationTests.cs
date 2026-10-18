@@ -30,8 +30,12 @@ namespace FsusBlog.Server.Tests.Integration;
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
-public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresSchemaMigrationFixture fixture)
+public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresSchemaMigrationFixture fixture) : IDisposable
 {
+    private readonly AuthoringCanvasAuthenticatedTestScope _authenticatedRequest = new();
+
+    public void Dispose() => _authenticatedRequest.Dispose();
+
     private const string BodyCanary = "ARTICLE-BODY-MUST-NOT-ENTER-CANVAS-REFERENCE";
     private static readonly AuthoringCanvasOwner s_owner = new(73, "primary-site");
 
@@ -78,6 +82,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
             """,
             new SugarParameter("@BodyCanary", BodyCanary));
         var reader = new PostgresAuthoringCanvasArticleReferenceReader(db);
+        await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
         var source = new AuthoringCanvasReferenceFactSource(
             reader,
             new AuthoringCanvasCoordinateFactProvider([]));
@@ -108,6 +113,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         Assert.DoesNotContain("body", serialized, StringComparison.OrdinalIgnoreCase);
 
         var otherAccount = new AuthoringCanvasOwner(74, "primary-site");
+        using IDisposable otherAccountRequest = await AuthoringCanvasAuthenticatedTestScope.SwitchOwnerAsync(db, otherAccount.AdminPrincipalId);
         AuthoringCanvasReferenceAuthorityCoordinate otherAccountCoordinate =
             await source.ReadAuthorityCoordinateAsync(
                 otherAccount,
@@ -122,6 +128,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         Assert.Null(hiddenFromOtherAccount.ContextSnippet);
         Assert.Null(hiddenFromOtherAccount.StableRoute);
 
+        otherAccountRequest.Dispose();
         AuthoringCanvasReferenceTarget missingTarget = Target(Guid.CreateVersion7()) with
         {
             TargetArticleId = 999
@@ -134,6 +141,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         Assert.Null(missing.StableRoute);
 
         var rootOwner = new AuthoringCanvasOwner(75, "primary-site");
+        using IDisposable rootRequest = await AuthoringCanvasAuthenticatedTestScope.SwitchOwnerAsync(db, rootOwner.AdminPrincipalId);
         AuthoringCanvasReferenceAuthorityCoordinate rootCoordinate =
             await source.ReadAuthorityCoordinateAsync(
                 rootOwner,
@@ -143,6 +151,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         Assert.Equal(AuthoringCanvasArticleState.Current, rootFact.ArticleState);
         Assert.Equal("Current title", rootFact.Title);
 
+        rootRequest.Dispose();
         var otherSite = new AuthoringCanvasOwner(73, "other-site");
         AuthoringCanvasReferenceAuthorityCoordinate otherSiteCoordinate =
             await source.ReadAuthorityCoordinateAsync(
@@ -244,6 +253,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
                 "^code-block")),
             new SugarParameter("@PinnedMarkdown", "# Old head ^doc-head\n\nOld para ^intro-block\n"));
         var authority = new PostgresAuthoringCanvasCoordinateAuthority(db);
+        await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
         var source = new AuthoringCanvasReferenceFactSource(
             new PostgresAuthoringCanvasArticleReferenceReader(db),
             new AuthoringCanvasCoordinateFactProvider([authority]));
@@ -516,6 +526,9 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         Assert.Equal("Current block", Assert.Single(warm.Projections).ContextSnippet);
         foreach (AuthoringCanvasReferenceResolutionRequest deniedRequest in new[] { foreignOwner, foreignSite })
         {
+            using IDisposable? ownerRequest = deniedRequest.Owner.AdminPrincipalId != s_owner.AdminPrincipalId
+                ? await AuthoringCanvasAuthenticatedTestScope.SwitchOwnerAsync(db, deniedRequest.Owner.AdminPrincipalId)
+                : null;
             AuthoringCanvasReferenceResolutionBatch denied = await resolver.ResolveAsync(deniedRequest);
             Assert.Equal(0, denied.Receipt.CacheHitCount);
             AssertDenied(Assert.Single(denied.Projections));
@@ -707,7 +720,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
     public async Task ProductionSessionRevocation_UsesOriginalPgProjectionAdmissionWithAWarmReferenceCache()
     {
         using SqlSugarClient db = await CreateResolverDatabaseAsync();
-        await db.Ado.ExecuteCommandAsync("ALTER TABLE admin_principal ADD COLUMN validationversion bigint NOT NULL DEFAULT 1;");
+        await db.Ado.ExecuteCommandAsync("ALTER TABLE admin_principal ADD COLUMN IF NOT EXISTS validationversion bigint NOT NULL DEFAULT 1;");
         PostgresSqlSugarTestClient.InitTables(db, typeof(AdminSession));
         TestTemporalContext temporal = TestTemporalContext.FromEnvironment();
         TimeProvider clock = temporal.BusinessClock;
@@ -1143,7 +1156,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         }
     }
 
-    private sealed class NativeIoObservation(CancellationTokenSource cancellation, int cancelAt)
+    internal sealed class NativeIoObservation(CancellationTokenSource cancellation, int cancelAt)
     {
         public TaskCompletionSource CleanupEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource CleanupReleased { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1209,7 +1222,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
 
     // These observers delegate every command, row, text read and disposal to the real Npgsql objects.
     // They introduce only a cleanup barrier/cancellation notification; no source facts or EOF values are synthesized.
-    private sealed class ObservedConnection(DbConnection inner, NativeIoObservation io) : DbConnection
+    internal sealed class ObservedConnection(DbConnection inner, NativeIoObservation io) : DbConnection
     {
         [AllowNull]
         public override string ConnectionString
@@ -1418,14 +1431,18 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         {
             await step.ExecuteAsync(db, CancellationToken.None);
         }
+        await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
         return db;
     }
 
     private static AuthoringCanvasReferenceResolver Resolver(SqlSugarClient db, AuthoringCanvasReferenceProjectionCache cache)
-        => new(new AuthoringCanvasDocumentStore(db, TimeProvider.System),
+    {
+        var lifetime = new AuthoringCanvasRequestLifetime(db);
+        return new AuthoringCanvasReferenceResolver(new AuthoringCanvasDocumentStore(db, TimeProvider.System),
             new AuthoringCanvasReferenceFactSource(new PostgresAuthoringCanvasArticleReferenceReader(db),
-                new AuthoringCanvasCoordinateFactProvider([new PostgresAuthoringCanvasCoordinateAuthority(db)])),
-            cache, TimeProvider.System);
+                new AuthoringCanvasCoordinateFactProvider([new PostgresAuthoringCanvasCoordinateAuthority(db)]), lifetime),
+            cache, TimeProvider.System, lifetime);
+    }
 
     private static AuthoringCanvasNode ReferenceNode(long? pinned = null, int order = 0)
         => new(Guid.CreateVersion7(), AuthoringCanvasNodeType.BlockReference, order,

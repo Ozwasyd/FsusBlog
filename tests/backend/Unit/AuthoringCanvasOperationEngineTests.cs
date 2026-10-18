@@ -1,12 +1,19 @@
 using System.Text.Json;
 
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Unit")]
-public sealed class AuthoringCanvasOperationEngineTests
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class AuthoringCanvasOperationEngineTests(PostgresSchemaMigrationFixture fixture) : IDisposable
 {
+    private readonly AuthoringCanvasAuthenticatedTestScope _authenticatedRequest =
+        AuthoringCanvasAuthenticatedTestScope.Standalone(fixture, 51);
+
+    public void Dispose() => _authenticatedRequest.Dispose();
+
     private const string InitialDigest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
     private const string ReceiptCanary = "PRIVATE-NOTE-CANARY";
     private static readonly Guid s_canvasId = Guid.Parse("018f5f93-2997-7c8a-9a47-0242ac120101");

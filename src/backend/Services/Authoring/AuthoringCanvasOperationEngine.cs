@@ -7,13 +7,19 @@ namespace FsusBlog.Server.Services.Authoring;
 public sealed class AuthoringCanvasOperationEngine(
     IAuthoringCanvasDocumentStore documentStore,
     IAuthoringCanvasOperationTransaction transaction,
-    IAuthoringCanvasOperationReferenceValidator referenceValidator)
+    IAuthoringCanvasOperationReferenceValidator referenceValidator,
+    AuthoringCanvasRequestLifetime? requestLifetime = null)
 {
+    private readonly AuthoringCanvasRequestLifetime _requestLifetime = requestLifetime ?? new();
+
     public async Task<AuthoringCanvasOperationReceipt> ApplyAsync(
         AuthoringCanvasOperationRequest request,
         CancellationToken cancellationToken = default)
     {
         AuthoringCanvasOperationContract.ValidateRequest(request);
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(request.Owner, cancellationToken);
+        using IDisposable databaseCancellation = _requestLifetime.BindDatabaseCancellation(authorityScope);
+        cancellationToken = authorityScope.Token;
         string transactionDigest = AuthoringCanvasOperationContract.ComputeTransactionDigest(request);
         AuthoringCanvasOperationReceipt? replay = await transaction.RecoverAsync(
             new AuthoringCanvasOperationRecoveryQuery(
@@ -32,7 +38,7 @@ public sealed class AuthoringCanvasOperationEngine(
                 null,
                 transactionDigest,
                 request.Commands.Select(static command => command.Kind).ToArray());
-            return replay;
+            return await PublishReceiptAsync(authorityScope, replay).ConfigureAwait(false);
         }
         AuthoringCanvasOperationSnapshot snapshot = await ReadSnapshotAsync(
             request.Owner,
@@ -107,7 +113,7 @@ public sealed class AuthoringCanvasOperationEngine(
             state.EdgeCount,
             transactionDigest,
             referenceValidationDigest);
-        return await CommitWithRecoveryAsync(plan, cancellationToken).ConfigureAwait(false);
+        return await CommitWithRecoveryAsync(plan, authorityScope, cancellationToken).ConfigureAwait(false);
     }
 
     public Task<AuthoringCanvasOperationReceipt> UndoAsync(
@@ -131,6 +137,9 @@ public sealed class AuthoringCanvasOperationEngine(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(query.Owner, cancellationToken);
+        using IDisposable databaseCancellation = _requestLifetime.BindDatabaseCancellation(authorityScope);
+        cancellationToken = authorityScope.Token;
         if (query.CanvasId == Guid.Empty
             || query.RequestId == Guid.Empty
             || query.TransactionDigest.Length != 64)
@@ -138,7 +147,8 @@ public sealed class AuthoringCanvasOperationEngine(
             throw new AuthoringCanvasValidationException("canvas_operation_recovery_query_invalid");
         }
         AuthoringCanvasContract.ValidateOwner(query.Owner);
-        return await transaction.RecoverAsync(query, cancellationToken).ConfigureAwait(false);
+        AuthoringCanvasOperationReceipt? receipt = await transaction.RecoverAsync(query, cancellationToken).ConfigureAwait(false);
+        return await _requestLifetime.PublishAsync(authorityScope, _ => Task.FromResult(receipt)).ConfigureAwait(false);
     }
 
     private async Task<AuthoringCanvasOperationReceipt> ApplyHistoryAsync(
@@ -146,6 +156,9 @@ public sealed class AuthoringCanvasOperationEngine(
         CancellationToken cancellationToken)
     {
         AuthoringCanvasOperationContract.ValidateHistoryRequest(request);
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(request.Owner, cancellationToken);
+        using IDisposable databaseCancellation = _requestLifetime.BindDatabaseCancellation(authorityScope);
+        cancellationToken = authorityScope.Token;
         if (request.Mode is not (AuthoringCanvasJournalMode.Undo or AuthoringCanvasJournalMode.Redo))
         {
             throw new AuthoringCanvasValidationException("canvas_history_mode_invalid");
@@ -168,7 +181,7 @@ public sealed class AuthoringCanvasOperationEngine(
                 request.TargetJournalId,
                 transactionDigest,
                 expectedCommandKinds: null);
-            return replay;
+            return await PublishReceiptAsync(authorityScope, replay).ConfigureAwait(false);
         }
         AuthoringCanvasOperationSnapshot snapshot = await ReadSnapshotAsync(
             request.Owner,
@@ -232,11 +245,12 @@ public sealed class AuthoringCanvasOperationEngine(
             state.EdgeCount,
             transactionDigest,
             AuthoringCanvasContract.ComputeCommandDigest("canvas-operation-reference-validation-none"));
-        return await CommitWithRecoveryAsync(plan, cancellationToken).ConfigureAwait(false);
+        return await CommitWithRecoveryAsync(plan, authorityScope, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<AuthoringCanvasOperationReceipt> CommitWithRecoveryAsync(
         AuthoringCanvasOperationPlan plan,
+        AuthoringCanvasRequestLifetime.Borrow authorityScope,
         CancellationToken cancellationToken)
     {
         try
@@ -245,17 +259,16 @@ public sealed class AuthoringCanvasOperationEngine(
                 plan,
                 cancellationToken).ConfigureAwait(false);
             ValidateReceipt(plan, receipt);
-            return receipt;
+            return await PublishReceiptAsync(authorityScope, receipt).ConfigureAwait(false);
         }
         catch (AuthoringCanvasUnknownCommitResultException)
         {
-            AuthoringCanvasOperationReceipt? recovered = await transaction.RecoverAsync(
-                new AuthoringCanvasOperationRecoveryQuery(
-                    plan.CanvasId,
-                    plan.Owner,
-                    plan.RequestId,
-                    plan.TransactionDigest),
-                CancellationToken.None).ConfigureAwait(false);
+            var recovery = new AuthoringCanvasOperationRecoveryQuery(
+                plan.CanvasId, plan.Owner, plan.RequestId, plan.TransactionDigest);
+            // Settle an unknown outcome independently; only the final publication is authorized.
+            AuthoringCanvasOperationReceipt? recovered = transaction is PostgresAuthoringCanvasOperationTransaction postgres
+                ? await postgres.RecoverOutcomeAsync(recovery, CancellationToken.None).ConfigureAwait(false)
+                : await transaction.RecoverAsync(recovery, CancellationToken.None).ConfigureAwait(false);
             if (recovered is null)
             {
                 throw;
@@ -270,9 +283,14 @@ public sealed class AuthoringCanvasOperationEngine(
                 ReceiptDigest = AuthoringCanvasOperationContract.ComputeReceiptDigest(recovered)
             };
             ValidateReceipt(plan, recovered);
-            return recovered;
+            return await PublishReceiptAsync(authorityScope, recovered).ConfigureAwait(false);
         }
     }
+
+    private Task<AuthoringCanvasOperationReceipt> PublishReceiptAsync(
+        AuthoringCanvasRequestLifetime.Borrow authorityScope,
+        AuthoringCanvasOperationReceipt receipt)
+        => _requestLifetime.PublishAsync(authorityScope, _ => Task.FromResult(receipt));
 
     private async Task<string> ValidateReferencesAsync(
         AuthoringCanvasOperationRequest request,

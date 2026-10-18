@@ -5,13 +5,18 @@ namespace FsusBlog.Server.Services.Authoring;
 /// cannot be proven by the current upstream authority are rejected instead of trusting caller state.
 /// </summary>
 public sealed class AuthoringCanvasOperationReferenceValidator(
-    AuthoringCanvasReferenceResolver resolver) : IAuthoringCanvasOperationReferenceValidator
+    AuthoringCanvasReferenceResolver resolver,
+    AuthoringCanvasRequestLifetime? requestLifetime = null) : IAuthoringCanvasOperationReferenceValidator
 {
+    private readonly AuthoringCanvasRequestLifetime _requestLifetime = requestLifetime ?? new();
+
     public async Task<string> ValidateAsync(
         AuthoringCanvasOperationReferenceValidationRequest request,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(request.Owner, cancellationToken);
+        cancellationToken = authorityScope.Token;
         if (request.References.Count == 0)
         {
             throw new AuthoringCanvasValidationException("canvas_operation_reference_validation_empty");
@@ -64,7 +69,9 @@ public sealed class AuthoringCanvasOperationReferenceValidator(
             }
         }
 
-        return AuthoringCanvasContract.ComputeCommandDigest(
+        return await _requestLifetime.PublishAsync(authorityScope, _ =>
+        {
+            return Task.FromResult(AuthoringCanvasContract.ComputeCommandDigest(
             "canvas-operation-reference-validation",
             request.CanvasId,
             request.CanvasRevision,
@@ -74,7 +81,8 @@ public sealed class AuthoringCanvasOperationReferenceValidator(
             batch.AuthorityCoordinate.PermissionFingerprint,
             batch.ContentDigest,
             batch.Receipt.ContentDigest,
-            string.Join(',', request.References.Select(AuthoringCanvasContract.ComputeNodeDigest)));
+            string.Join(',', request.References.Select(AuthoringCanvasContract.ComputeNodeDigest))));
+        }).ConfigureAwait(false);
     }
 
     private static AuthoringCanvasReferenceState ExpectedReferenceState(
