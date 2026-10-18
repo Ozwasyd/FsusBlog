@@ -26,7 +26,6 @@
                             v-for="reply in comment.repliesPreview"
                             :key="reply.id"
                             class="text-sm text-[var(--fsusblog-text-tertiary)]"
-                            v-memo="[reply.id, reply.content, reply.author.displayName]"
                         >
                             <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.author.displayName }}</strong>
                             <span v-if="reply.replyToAuthor"> 回复 @{{ reply.replyToAuthor?.displayName }}</span>

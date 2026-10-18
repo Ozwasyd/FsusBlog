@@ -217,7 +217,7 @@ async function loadValidatedPublicKey(
         const jwk = await subtle.exportKey('jwk', key);
         modulusBytes = jwk.n ? base64UrlToBytes(jwk.n) : null;
         exponentBytes = jwk.e ? base64UrlToBytes(jwk.e) : null;
-        if (!modulusBytes || modulusBytes.byteLength !== MODULUS_BYTES ||
+        if (modulusBytes?.byteLength !== MODULUS_BYTES ||
       !exponentBytes || os2ip(exponentBytes) !== 65537n ||
       (modulusBytes[0] & 0x80) === 0)
         {
