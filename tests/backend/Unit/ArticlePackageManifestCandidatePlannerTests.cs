@@ -944,6 +944,49 @@ public sealed class ArticlePackageManifestCandidatePlannerTests
         Assert.Null(plan);
     }
 
+    [Theory]
+    [InlineData("storage-key")]
+    [InlineData("owner")]
+    [InlineData("created")]
+    [InlineData("updated")]
+    public void BackendPlanBindingRefusesFullRecordDriftWithUnchangedPortableProjection(string field)
+    {
+        ArticlePackageManifestCandidateInput[] inputs = [Input()];
+        ArticlePackageAssetCollectionSource[] sources = [AssetSource(1, AssetBytes())];
+        var references = AssetReferences(inputs, sources[0]);
+        var inventory = AssetInventory(inputs, sources);
+        var frozen = CreateAssets(inputs, sources, references, inventory);
+        var record = sources[0].Record;
+        var changed = field switch
+        {
+            "storage-key" => record with { StorageKey = AssetStorageKey.Parse("content/public/different.png") },
+            "owner" => record with { OwnerAdminPrincipalId = record.OwnerAdminPrincipalId + 1 },
+            "created" => record with { CreatedAtUtc = record.CreatedAtUtc.AddSeconds(-1) },
+            _ => record with { UpdatedAtUtc = record.UpdatedAtUtc.AddSeconds(1) }
+        };
+        sources[0] = sources[0] with
+        {
+            Record = changed
+        };
+        Assert.True(ArticlePackageAssetCollectionMapper.TryMapCandidate(sources, references, inventory, out var collection).IsValid);
+        Assert.Equal(frozen.Manifest.Assets!.ComponentDigest, collection!.ComponentDigest);
+        Assert.True(ArticlePackageManifestCandidateCodec.TryCreateCandidate(frozen.Manifest.Articles, collection, inventory, out var root).IsValid);
+        Assert.Equal(frozen.Manifest.SemanticDigest, root!.SemanticDigest);
+        var bound = ArticlePackageManifestCandidatePlanner.TryBindCandidatePlanToSnapshot(
+            frozen, inputs, sources, references, inventory, out var plan);
+        Assert.False(bound.IsValid);
+        Assert.Equal("article_package_manifest_asset_record_snapshot_mismatch", bound.ReasonCode);
+        Assert.Null(plan);
+        Assert.Equal(record, Assert.Single(frozen.Assets!).Record);
+        sources[0] = sources[0] with
+        {
+            Record = record
+        };
+        Assert.True(ArticlePackageManifestCandidatePlanner.TryBindCandidatePlanToSnapshot(
+            frozen, inputs, sources, references, inventory, out var restored).IsValid);
+        Assert.Equal(record, Assert.Single(restored!.Assets!).Record);
+    }
+
     private static ArticlePackageManifestCandidatePlan CreateAssets(IReadOnlyList<ArticlePackageManifestCandidateInput> inputs,
         IReadOnlyList<ArticlePackageAssetCollectionSource> sources, IReadOnlyList<ArticlePackageManifestAssetReference> references,
         IReadOnlyList<ArticlePackageInventoryEntry> inventory)
