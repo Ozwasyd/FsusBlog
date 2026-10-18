@@ -543,6 +543,14 @@
         {
             "localPath": "/workspace/diagnostic-independent-results/final-review-source.log",
             "sha256": "192ff5db39447a5aff73c7fcfd962e185aa4044bde6025a6f0cc89fe7774c83d"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/published-pr-contract.log",
+            "sha256": "a5035e9564ebc55daf4e88c6591994687b3aac923748e64490e8b9dbc9714ec7"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/published-review-source.log",
+            "sha256": "c1f3f99c243ad9847789c0eadc8cba9edaec6180908e692c5165c96bb96f3b03"
         }
     ],
     "runnerSourceSha256": "1807791d9bd3f21e66078a87b14fd2f70a095459deb909375d38c6ef7fa0dfd9",
@@ -1337,5 +1345,11 @@
         "runnerBuild": "PASS; 0 warnings, 0 errors",
         "assertionFinding": "RESOLVED at this SHA; both original cases now pass",
         "admissionIdentityFinding": "OPEN; both core identity collision refusal controls still fail"
+    },
+    "evidenceBranchParent": "9c1ac40204aa3e697345b981e7bba57fb0d9e757",
+    "publishedMetadataCorrections": {
+        "initialPrContract": "FAIL: test title cannot claim Behavior change; new NuGet lock requires registered external naming declaration",
+        "initialPublishedSource": "FAIL: selected base was not yet an ancestor of evidence branch",
+        "repair": "Replay only own evidence commits onto exact final target; correct metadata and add existing-policy json-api-field declaration; leave unsupported .csproj dispatch visible"
     }
 }
