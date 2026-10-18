@@ -578,7 +578,7 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
                 await ExchangeSnapshotAsync(binding, false, deadline.Token);
                 CheckSnapshotBoundary(deadline.Token, cutoff);
                 _pendingSnapshot = binding;
-                issued = AuthoringNativeStateSnapshotAcceptance.Issue(this, _incarnationOwner, _incarnation!, binding);
+                issued = AuthoringNativeStateSnapshotAcceptance.Issue(this, _incarnationOwner, _incarnation!, binding, cancellationToken);
                 _snapshotAcceptance = issued;
                 _pendingSnapshot = null;
                 CheckSnapshotBoundary(deadline.Token, cutoff);
