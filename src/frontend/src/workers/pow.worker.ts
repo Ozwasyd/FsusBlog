@@ -7,7 +7,8 @@ import { initPowModule, type PowEngineKind } from '@wasm/pow';
  * 统一 Wasm 规范：模块化加载、资产清单化、业务层仅关注调度与错误语义。
  */
 
-const ctx: DedicatedWorkerGlobalScope = self as any;
+// Dedicated workers share MessagePort's message and transferable APIs.
+const ctx = self as Pick<MessagePort, 'onmessage' | 'postMessage'> & { readonly name: string; };
 const workerRole = String(ctx.name || '').startsWith('FsusPowShard') ? 'shard' : 'main';
 
 let powModule: any = null;

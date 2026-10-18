@@ -97,7 +97,8 @@ type CommentPrivacyWorkerResponse =
       error: string;
   };
 
-const ctx = self as DedicatedWorkerGlobalScope;
+// Dedicated workers share MessagePort's message and transferable APIs.
+const ctx = self as Pick<MessagePort, 'onmessage' | 'postMessage'>;
 const prover = createCommentPrivacyWasmProver();
 
 ctx.onmessage = (event: MessageEvent<CommentPrivacyWorkerRequest>) =>

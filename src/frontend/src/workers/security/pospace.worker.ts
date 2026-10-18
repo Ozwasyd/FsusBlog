@@ -61,7 +61,8 @@ type PoSpaceWorkerResponse =
       error: string;
   };
 
-const ctx = self as DedicatedWorkerGlobalScope;
+// Dedicated workers share MessagePort's message and transferable APIs.
+const ctx = self as Pick<MessagePort, 'onmessage' | 'postMessage'>;
 
 ctx.onmessage = async (event: MessageEvent<PoSpaceWorkerRequest>) =>
 {
