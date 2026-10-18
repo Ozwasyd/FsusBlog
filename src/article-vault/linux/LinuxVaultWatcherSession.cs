@@ -140,7 +140,11 @@ public sealed class LinuxVaultWatcherSession : IDisposable
         return facts;
     }
 
-    /// <summary>Marks the post-rescan event watermark valid without performing or normalizing a rescan.</summary>
+    /// <summary>Returns the unchanged watermark because a digest alone cannot prove complete native rescan coverage.</summary>
+    /// <remarks>
+    /// This session has no native rescan receipt verifier. Acknowledgement cannot clear a loss reason,
+    /// advance the event cut, or attach an unverified receipt; the watermark remains invalid.
+    /// </remarks>
     public LinuxVaultWatermark AcknowledgeRescan(string rescanReceiptSha256)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -149,13 +153,6 @@ public sealed class LinuxVaultWatcherSession : IDisposable
             throw new ArgumentException("Rescan receipt must be a SHA-256 digest.", nameof(rescanReceiptSha256));
         }
 
-        Watermark = Watermark with
-        {
-            LastSequence = _nextSequence,
-            IsValid = true,
-            InvalidatedReasonCode = null,
-            RescanReceiptSha256 = rescanReceiptSha256
-        };
         return Watermark;
     }
 

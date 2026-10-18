@@ -90,6 +90,10 @@ public sealed class LinuxVaultWatcherExt4Tests
         Assert.Equal(sequences.Order().Distinct(), sequences);
         Assert.All(create.Concat(modify).Concat(duplicateAudit).Concat(move).Concat(replace).Concat(truncate).Concat(deleted),
             static item => Assert.True(LinuxVaultRawFactCodec.Validate(item)));
+        Assert.All(create.Concat(modify).Concat(duplicateAudit).Concat(move).Concat(replace).Concat(truncate).Concat(deleted),
+            static item => Assert.False(item.WatermarkValid));
+        Assert.False(session.Watermark.IsValid);
+        Assert.Null(session.Watermark.RescanReceiptSha256);
     }
 
     [Fact]
@@ -351,7 +355,9 @@ public sealed class LinuxVaultWatcherExt4Tests
             firstIdentity = first.Identity.WatchInstanceIdentity;
             _ = first.ReadAvailable();
             _ = first.AcknowledgeRescan(LinuxVaultTestRoot.DigestA);
-            Assert.True(first.Watermark.IsValid);
+            Assert.False(first.Watermark.IsValid);
+            Assert.Equal("linux_vault_watcher_restart", first.Watermark.InvalidatedReasonCode);
+            Assert.Null(first.Watermark.RescanReceiptSha256);
         }
 
         using LinuxVaultWatcherSession second = root.Open();
