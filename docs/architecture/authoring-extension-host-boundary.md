@@ -664,6 +664,47 @@ consumption. They do not establish a human confirmation or a new Passkey ceremon
 Rollback removes producer registration/consumers while preserving decisions and
 events for recovery; never recreate an empty approval store to retry an effect.
 
+## Production lifecycle preflight boundary
+
+`AuthoringExtensionProductionPreflight` resolves every declared target through
+the original execution resolver before acquiring the package store's asynchronous
+read exclusion scope. Resolving while holding that scope would reenter the same
+store gate. The subsequent held scope independently verifies the active signed
+archive and trust, and binds manifest, payload, target, host API and bounded
+resource policy. Fenced state and durable lifecycle receipts are read from their
+original owners. Required grants are queried by exact version, contribution,
+execution class and document, then checked for site, purpose, digest and expiry.
+Scope parameters here are diagnostic host observations, not authenticated actor
+identity or consent. This consumer cannot map an opaque user ID to an admin.
+
+Preflight bounds its package acquisition and read operations with a five-second
+cancellation deadline. The underlying owners retain their cancellation and
+transaction responsibilities. A valid static target or configured native provider
+does not prove physical startup. Enable must not require an incarnation before
+Starting: the original coordinator must prepare runtime startup, bounded handshake,
+actual owner lease and staged registrations within its own current generation.
+`AuthoringProductionRuntimeProviders` can be constructed only by this composition
+from the original Linux runtime options; missing providers and unsupported host
+platforms remain closed. Launch capability admission and the authenticated
+ApprovalContract operation context are still unavailable to this consumer.
+
+`AuthoringExtensionHostResourceAuthority` owns original command and filter registry
+instances and performs signed-metadata preparation under the package lifetime.
+It does not sequentially activate two registries and call rollback atomicity.
+Activation throws until both registries expose staging plus a shared generation
+publication gate joined to the original coordinator's Running receipt. Revoke
+settles the reachable registry/grant owners, then throws because original RPC,
+job and surface remaining-resource ports are absent. Removed counts are never
+reported as remaining counts, and unknown resources are never reported as zero.
+
+`AuthoringExtensionProductionComposition` creates the original coordinator and
+Resources without installing a production route. Its optional worker/service
+observations use the original incarnation issuer's owner-bound lease and retained
+descriptor. These observations are not pre-enable requirements or a Track/receipt
+join. Resources at the integrated producer still exposes no current Track read
+port. Until the original coordinator, ApprovalContract and registry owners freeze
+their shared ports, this composition is WIP and cannot activate an extension.
+
 ## Resource budgets, crash isolation, and telemetry
 
 Every runtime operation is admitted against the exact resource policy from its
