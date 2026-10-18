@@ -90,13 +90,13 @@
         },
         {
             "path": "src/frontend/package-lock.json",
-            "contentDigest": "sha256:a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
-            "indexDigest": "sha256:a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+            "contentDigest": "sha256:ddb81f9d626a63eb7ac75367dd2e654cf7eb5dec50de937782dd7f9f233a55c0",
+            "indexDigest": "sha256:ddb81f9d626a63eb7ac75367dd2e654cf7eb5dec50de937782dd7f9f233a55c0"
         },
         {
             "path": "src/frontend/package.json",
-            "contentDigest": "sha256:a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
-            "indexDigest": "sha256:a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731"
+            "contentDigest": "sha256:2b3d12cecf28f3b4d2d53cac0624b742cc8f5dc36d117906a87fabe819d1a257",
+            "indexDigest": "sha256:2b3d12cecf28f3b4d2d53cac0624b742cc8f5dc36d117906a87fabe819d1a257"
         },
         {
             "path": "src/frontend/scripts/fsusui-root.mjs",
@@ -110,8 +110,8 @@
         },
         {
             "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
-            "contentDigest": "sha256:a400a42e583620395a9fa07f52b2fb0388c3929154845df73d154d4707a65a37",
-            "indexDigest": "sha256:a400a42e583620395a9fa07f52b2fb0388c3929154845df73d154d4707a65a37"
+            "contentDigest": "sha256:eda5fe8246d843954d5314762b22385f4238d2cf9828bcd273e6db01a578fb07",
+            "indexDigest": "sha256:eda5fe8246d843954d5314762b22385f4238d2cf9828bcd273e6db01a578fb07"
         },
         {
             "path": "src/frontend/scripts/vite-watch-policy.mjs",
@@ -770,8 +770,8 @@
         },
         {
             "path": "src/frontend/tsconfig.playwright.json",
-            "contentDigest": "sha256:43325af9580e355f76fe3eab77a5529c6b17552de82a4fc415ffbac8ffb44876",
-            "indexDigest": "sha256:43325af9580e355f76fe3eab77a5529c6b17552de82a4fc415ffbac8ffb44876"
+            "contentDigest": "sha256:62ee834bc44c80532981b94cd7ea05f5211a9d8d12a54760eb805f2d68b727f9",
+            "indexDigest": "sha256:62ee834bc44c80532981b94cd7ea05f5211a9d8d12a54760eb805f2d68b727f9"
         },
         {
             "path": "src/frontend/wasm/build.sh",
