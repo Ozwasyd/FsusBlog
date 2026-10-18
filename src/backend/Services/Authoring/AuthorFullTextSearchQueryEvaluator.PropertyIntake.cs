@@ -24,7 +24,7 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator
     /// Executable operands must be bound to clauses in the sole v4 query AST. This
     /// intake grants no current source permission, admitted result or facet.
     /// </summary>
-    public async Task<AuthorSearchPropertyOperandIntake> InspectPropertyOperandsAsync(
+    internal async Task<AuthorSearchPropertyOperandIntake> InspectPropertyOperandsAsync(
         AuthorSearchQuery query,
         IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions,
         IEnumerable<AuthorSearchPropertyOperand> operands,
