@@ -95,6 +95,20 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
           throw new Error('wasm-memory-outside-budget');
         }
 
+        const loadState = instance.exports.fsus_state_load;
+        const readState = instance.exports.fsus_state_snapshot;
+        const stateSnapshotVersion = typeof loadState === 'function' && typeof readState === 'function' ? 1 : 0;
+        let acceptedStateBinding = null;
+        const readStoredState = () => {
+          const packed = readState();
+          if (typeof packed !== 'bigint') throw new Error('state-result-not-i64');
+          const pointer = Number((packed >> 32n) & 0xffffffffn);
+          const length = Number(packed & 0xffffffffn);
+          if (memory.buffer.byteLength > maximumMemoryBytes || length > maximumResponseBytes ||
+              pointer + length > memory.buffer.byteLength) throw new Error('state-readback-outside-boundary');
+          return Buffer.from(new Uint8Array(memory.buffer, pointer, length));
+        };
+
         const write = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
         write({
           kind: 'ready',
@@ -109,6 +123,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
           imports: [],
           globals: ['WebAssembly', 'TextEncoder', 'TextDecoder'],
           initialMemoryBytes: memory.buffer.byteLength,
+          stateSnapshotVersion,
         });
 
         const lines = createInterface({ input: process.stdin, crlfDelay: Infinity, terminal: false });
@@ -116,6 +131,39 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
           try {
             if (line.length > maximumRequestBytes * 2 + 4096) throw new Error('request-frame-outside-budget');
             const request = structuredClone(JSON.parse(line));
+            if (request.kind === 'state-load' || request.kind === 'state-verify') {
+              if (stateSnapshotVersion !== 1 || request.schemaVersion !== 1 ||
+                  typeof request.nonce !== 'string' || !/^[0-9a-f]{64}$/.test(request.nonce)) {
+                throw new Error('state-protocol-unavailable-or-invalid');
+              }
+              const load = request.kind === 'state-load';
+              const allowed = load ? ['kind', 'schemaVersion', 'nonce', 'binding', 'payload'] : ['kind', 'schemaVersion', 'nonce'];
+              if (Object.keys(request).length !== allowed.length || Object.keys(request).some(key => !allowed.includes(key))) {
+                throw new Error('state-frame-not-closed');
+              }
+              if (load) {
+                acceptedStateBinding = null;
+                if (typeof request.binding !== 'string' || request.binding.length > 4096 ||
+                    typeof request.payload !== 'string') throw new Error('state-load-frame-invalid');
+                const payload = Buffer.from(request.payload, 'base64');
+                if (payload.toString('base64') !== request.payload || payload.byteLength > maximumRequestBytes ||
+                    payload.byteLength > maximumResponseBytes) throw new Error('state-load-outside-budget');
+                const pointer = Number(allocate(payload.byteLength));
+                if (!Number.isSafeInteger(pointer) || pointer < 0 || pointer + payload.byteLength > memory.buffer.byteLength) {
+                  throw new Error('state-load-memory-outside-boundary');
+                }
+                new Uint8Array(memory.buffer, pointer, payload.byteLength).set(payload);
+                if (loadState(pointer, payload.byteLength) !== 1 || !readStoredState().equals(payload)) {
+                  throw new Error('state-load-not-adopted');
+                }
+                acceptedStateBinding = request.binding;
+              }
+              if (acceptedStateBinding === null) throw new Error('state-not-loaded');
+              const stored = readStoredState();
+              write({ kind: load ? 'state-accepted' : 'state-current', schemaVersion: 1,
+                nonce: request.nonce, binding: acceptedStateBinding, payload: stored.toString('base64') });
+              continue;
+            }
             if (request.kind !== 'execute' || request.schemaVersion !== 1 || typeof request.payload !== 'string') {
               throw new Error('request-frame-invalid');
             }
@@ -231,7 +279,10 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                 descriptor,
                 capabilities,
                 s_json,
-                stderrDrain);
+                stderrDrain)
+            {
+                StateSnapshotSupported = ready.StateSnapshotVersion == 1
+            };
             instance.IssueIncarnation();
             return instance;
         }
@@ -504,7 +555,10 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         string? RequestId = null,
         string? ResultSchemaReference = null,
         string? Payload = null,
-        string? StableReason = null);
+        string? StableReason = null,
+        int StateSnapshotVersion = 0,
+        string? Nonce = null,
+        string? Binding = null);
 
     internal static bool OwnsNativeCustody(
         object owner,
@@ -516,6 +570,24 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         string profileIdentity) =>
         owner is LinuxBubblewrapWorkerInstance native &&
         native.OwnsNativeCustody(descriptor, authority, custody, sandbox, startTicks, profileIdentity);
+
+    internal static bool OwnsSnapshotLoad(object owner, object authority, AuthoringNativeStateSnapshotBinding binding) =>
+        owner is LinuxBubblewrapWorkerInstance native && native.OwnsSnapshotLoad(authority, binding);
+
+    internal static ValueTask VerifySnapshotAcceptanceAsync(object owner, AuthoringNativeStateSnapshotAcceptance acceptance,
+        AuthoringNativeStateSnapshotBinding binding, CancellationToken cancellationToken) =>
+        owner is LinuxBubblewrapWorkerInstance native
+            ? native.VerifySnapshotAcceptanceAsync(acceptance, binding, cancellationToken)
+            : ValueTask.FromException(new AuthoringExtensionContractException("Original native snapshot owner is required."));
+
+    internal static void ReleaseSnapshotAcceptance(object owner, AuthoringNativeStateSnapshotAcceptance acceptance)
+    {
+        if (owner is not LinuxBubblewrapWorkerInstance native)
+        {
+            throw new AuthoringExtensionContractException("Original native snapshot owner is required.");
+        }
+        native.ReleaseSnapshotAcceptance(acceptance);
+    }
 
     private sealed class LinuxBubblewrapWorkerInstance(
         Process process,
@@ -557,6 +629,224 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         public string RuntimeIdentity => descriptor.RuntimeIdentity;
 
         public int ProcessId => sandboxProcessId;
+
+        public bool StateSnapshotSupported
+        {
+            private get; init;
+        }
+        private readonly Lock _snapshotGate = new();
+        private bool _snapshotTransportHeld;
+        private bool _snapshotIoActive;
+        private AuthoringNativeStateSnapshotBinding? _pendingSnapshot;
+        private AuthoringNativeStateSnapshotAcceptance? _snapshotAcceptance;
+
+        public bool OwnsSnapshotLoad(object authority, AuthoringNativeStateSnapshotBinding binding) =>
+            ReferenceEquals(authority, _incarnationOwner) && ReferenceEquals(_pendingSnapshot, binding) &&
+            _snapshotAcceptance is null && !_terminated && _incarnation is not null &&
+            _incarnation.IsCurrentOwner(this) && _messageLock.CurrentCount == 0;
+
+        public async ValueTask<AuthoringNativeStateSnapshotAcceptance> AcceptStateSnapshotAsync(
+            VerifiedAuthoringPackage package,
+            AuthoringExecutionTarget target,
+            AuthoringStateSnapshot appliedSnapshot,
+            long runningGeneration,
+            string operationSha256,
+            CancellationToken cancellationToken)
+        {
+            AuthoringNativeStateSnapshotBinding binding = AuthoringNativeStateSnapshotBinding.Create(
+                package, target, appliedSnapshot, runningGeneration, operationSha256, descriptor);
+            await _messageLock.WaitAsync(cancellationToken);
+            lock (_snapshotGate)
+            {
+                _snapshotTransportHeld = true;
+                _snapshotIoActive = true;
+            }
+            bool transportStarted = false;
+            bool handedOff = false;
+            AuthoringNativeStateSnapshotAcceptance? issued = null;
+            try
+            {
+                RequireSnapshotOwner();
+                if (!StateSnapshotSupported)
+                {
+                    throw new AuthoringExtensionContractException("Native module has no actual snapshot storage protocol.");
+                }
+
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                deadline.CancelAfter(binding.MaximumWallClock);
+                DateTimeOffset cutoff = DateTimeOffset.UtcNow + binding.MaximumWallClock;
+                transportStarted = true;
+                await ExchangeSnapshotAsync(binding, true, deadline.Token);
+                // A load response alone cannot establish adoption. This request sends no state
+                // bytes or expected digest: read the original instance's retained state afresh.
+                await ExchangeSnapshotAsync(binding, false, deadline.Token);
+                CheckSnapshotBoundary(deadline.Token, cutoff);
+                _pendingSnapshot = binding;
+                issued = AuthoringNativeStateSnapshotAcceptance.Issue(this, _incarnationOwner, _incarnation!, binding);
+                _snapshotAcceptance = issued;
+                _pendingSnapshot = null;
+                CheckSnapshotBoundary(deadline.Token, cutoff);
+                handedOff = true;
+                return issued;
+            }
+            catch
+            {
+                try
+                {
+                    if (transportStarted)
+                    {
+                        _incarnation?.Revoke(this, _incarnationOwner);
+                        _terminated = true;
+                        EndSnapshotIo();
+                        await TerminateAsync("snapshot-acceptance-failed", CancellationToken.None);
+                    }
+                }
+                finally
+                {
+                    if (issued is not null)
+                    {
+                        await issued.DisposeAsync();
+                    }
+                }
+                throw;
+            }
+            finally
+            {
+                _pendingSnapshot = null;
+                EndSnapshotIo();
+                if (!handedOff && issued is null)
+                {
+                    ReleaseSnapshotTransport();
+                }
+            }
+        }
+
+        public async ValueTask VerifySnapshotAcceptanceAsync(
+            AuthoringNativeStateSnapshotAcceptance acceptance,
+            AuthoringNativeStateSnapshotBinding binding,
+            CancellationToken cancellationToken)
+        {
+            lock (_snapshotGate)
+            {
+                if (!ReferenceEquals(_snapshotAcceptance, acceptance) || !_snapshotTransportHeld || _snapshotIoActive)
+                {
+                    throw new AuthoringExtensionContractException("Snapshot lifetime does not belong to this native owner.");
+                }
+                RequireSnapshotOwner();
+                _snapshotIoActive = true;
+            }
+            try
+            {
+                RequireSnapshotOwner();
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                deadline.CancelAfter(binding.MaximumWallClock);
+                DateTimeOffset cutoff = DateTimeOffset.UtcNow + binding.MaximumWallClock;
+                await ExchangeSnapshotAsync(binding, false, deadline.Token);
+                CheckSnapshotBoundary(deadline.Token, cutoff);
+            }
+            catch
+            {
+                _incarnation?.Revoke(this, _incarnationOwner);
+                _terminated = true;
+                EndSnapshotIo();
+                await TerminateAsync("snapshot-custody-changed", CancellationToken.None);
+                throw;
+            }
+            finally
+            {
+                EndSnapshotIo();
+            }
+        }
+
+        public void ReleaseSnapshotAcceptance(AuthoringNativeStateSnapshotAcceptance acceptance)
+        {
+            lock (_snapshotGate)
+            {
+                if (!ReferenceEquals(_snapshotAcceptance, acceptance) || _snapshotIoActive)
+                {
+                    throw new AuthoringExtensionContractException("Foreign or in-flight snapshot lifetime cannot release native exclusion.");
+                }
+                _snapshotAcceptance = null;
+                ReleaseSnapshotTransport();
+            }
+        }
+
+        private void ReleaseSnapshotTransport()
+        {
+            lock (_snapshotGate)
+            {
+                if (_snapshotTransportHeld && !_snapshotIoActive)
+                {
+                    _snapshotTransportHeld = false;
+                    _messageLock.Release();
+                }
+            }
+        }
+
+        private void EndSnapshotIo()
+        {
+            lock (_snapshotGate)
+            {
+                _snapshotIoActive = false;
+                if (_terminated)
+                {
+                    ReleaseSnapshotTransport();
+                }
+            }
+        }
+
+        private void RequireSnapshotOwner()
+        {
+            if (_terminated || _incarnation is null || !_incarnation.IsCurrentOwner(this))
+            {
+                throw new AuthoringExtensionContractException("Native snapshot owner is terminated or revoked.");
+            }
+        }
+
+        private void CheckSnapshotBoundary(CancellationToken token, DateTimeOffset cutoff)
+        {
+            token.ThrowIfCancellationRequested();
+            if (DateTimeOffset.UtcNow >= cutoff)
+            {
+                throw new TimeoutException("Native snapshot operation exceeded its exclusive deadline.");
+            }
+            RequireSnapshotOwner();
+        }
+
+        private async ValueTask ExchangeSnapshotAsync(
+            AuthoringNativeStateSnapshotBinding binding, bool load, CancellationToken cancellationToken)
+        {
+            string nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
+            string frame = load
+                ? JsonSerializer.Serialize(new
+                {
+                    kind = "state-load",
+                    schemaVersion = 1,
+                    nonce,
+                    binding = binding.TransportBinding,
+                    payload = Convert.ToBase64String(binding.Bytes)
+                }, json)
+                : JsonSerializer.Serialize(new
+                {
+                    kind = "state-verify",
+                    schemaVersion = 1,
+                    nonce
+                }, json);
+            if (Encoding.UTF8.GetByteCount(frame) > descriptor.MaximumRequestBytes * 2 + 4096)
+            {
+                throw new AuthoringExtensionContractException("Native snapshot request exceeds the original transport budget.");
+            }
+            await process.StandardInput.WriteLineAsync(frame.AsMemory(), cancellationToken);
+            await process.StandardInput.FlushAsync(cancellationToken);
+            WorkerRunnerMessage response = ParseMessage(await ReadClosedLineAsync(process.StandardOutput,
+                descriptor.MaximumResponseBytes * 2 + 4096, cancellationToken), descriptor.MaximumResponseBytes);
+            if (response.Kind != (load ? "state-accepted" : "state-current") ||
+                response.SchemaVersion != 1 || response.Nonce != nonce)
+            {
+                throw new AuthoringExtensionContractException("Native worker did not attest a fresh stored-state readback.");
+            }
+            binding.VerifyReadback(response.Binding, response.Payload);
+        }
 
         public async ValueTask<AuthoringWorkerResponse> ExecuteAsync(
             AuthoringWorkerRequest request,
@@ -622,6 +912,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             // Revocation precedes every await, including failed or cancelled cleanup attempts.
             _incarnation?.Revoke(this, _incarnationOwner);
             _terminated = true;
+            ReleaseSnapshotTransport();
             await _lifecycleLock.WaitAsync(CancellationToken.None);
             try
             {
@@ -641,6 +932,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         {
             _incarnation?.Revoke(this, _incarnationOwner);
             _terminated = true;
+            ReleaseSnapshotTransport();
             await _lifecycleLock.WaitAsync(CancellationToken.None);
             try
             {

@@ -7,9 +7,15 @@ namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
 public interface IAuthoringMeasuredRuntimeInstance
 {
-    string RuntimeIdentity { get; }
+    string RuntimeIdentity
+    {
+        get;
+    }
 
-    int ProcessId { get; }
+    int ProcessId
+    {
+        get;
+    }
 }
 
 /// <summary>
@@ -53,11 +59,20 @@ public sealed class AuthoringRuntimeIncarnationLease
         ProcessId = sandbox.Id;
     }
 
-    public string RuntimeIdentity { get; }
+    public string RuntimeIdentity
+    {
+        get;
+    }
 
-    public string RuntimeProfileSha256 { get; }
+    public string RuntimeProfileSha256
+    {
+        get;
+    }
 
-    public int ProcessId { get; }
+    public int ProcessId
+    {
+        get;
+    }
 
     /// <summary>Remains true after revocation until termination, transport settlement and disposal succeed.</summary>
     public bool CustodyRetained
@@ -291,6 +306,262 @@ public sealed class AuthoringRuntimeIncarnationLease
         return ulong.Parse(fields[19], System.Globalization.CultureInfo.InvariantCulture);
     }
 }
+
+/// <summary>
+/// Native acceptance custody for one exact applied snapshot and operation. Only the original
+/// private runtime owner can issue it after loading and reading back the complete state. This
+/// is neither approval nor a Running receipt. Holding it excludes host transport/state changes;
+/// native termination still revokes it immediately. Dispose releases that exclusion.
+/// </summary>
+[SupportedOSPlatform("linux")]
+public sealed class AuthoringNativeStateSnapshotAcceptance : IAsyncDisposable
+{
+    private static readonly ConditionalWeakTable<AuthoringNativeStateSnapshotAcceptance, object> s_issued = new();
+    private readonly object _owner;
+    private readonly AuthoringRuntimeIncarnationLease _incarnation;
+    private readonly AuthoringNativeStateSnapshotBinding _binding;
+    private readonly SemaphoreSlim _verification = new(1, 1);
+    private bool _disposed;
+
+    private AuthoringNativeStateSnapshotAcceptance(
+        object owner,
+        AuthoringRuntimeIncarnationLease incarnation,
+        AuthoringNativeStateSnapshotBinding binding)
+    {
+        _owner = owner;
+        _incarnation = incarnation;
+        _binding = binding;
+    }
+
+    internal static AuthoringNativeStateSnapshotAcceptance Issue(
+        object owner,
+        object authority,
+        AuthoringRuntimeIncarnationLease incarnation,
+        AuthoringNativeStateSnapshotBinding binding)
+    {
+        if (!incarnation.IsCurrentOwner(owner) ||
+            !(LinuxBubblewrapAuthoringWorkerRuntime.OwnsSnapshotLoad(owner, authority, binding) ||
+              LinuxBubblewrapAuthoringServiceRuntime.OwnsSnapshotLoad(owner, authority, binding)))
+        {
+            throw new AuthoringExtensionContractException("Only the original native snapshot loader can issue acceptance.");
+        }
+
+        var acceptance = new AuthoringNativeStateSnapshotAcceptance(owner, incarnation, binding);
+        s_issued.Add(acceptance, owner);
+        return acceptance;
+    }
+
+    /// <summary>
+    /// Revalidates the exact native owner, package/target, applied bytes, proposed generation and
+    /// original operation identity. Reads state again from the actual native instance while held.
+    /// Caller cancellation, changed state, replacement, clones and revoked owners cannot succeed.
+    /// </summary>
+    public async ValueTask VerifyCurrentAsync(
+        object exactNativeOwner,
+        VerifiedAuthoringPackage package,
+        AuthoringExecutionTarget target,
+        AuthoringStateSnapshot appliedSnapshot,
+        long runningGeneration,
+        string operationSha256,
+        CancellationToken cancellationToken = default)
+    {
+        await _verification.WaitAsync(cancellationToken);
+        try
+        {
+            RequireCurrent(exactNativeOwner);
+            AuthoringNativeStateSnapshotBinding expected = AuthoringNativeStateSnapshotBinding.Create(
+                package, target, appliedSnapshot, runningGeneration, operationSha256, _binding.Descriptor);
+            if (_binding.TransportBinding != expected.TransportBinding ||
+                !_binding.Bytes.AsSpan().SequenceEqual(expected.Bytes))
+            {
+                throw new AuthoringExtensionContractException("Native snapshot acceptance binding is different.");
+            }
+
+            if (_owner is IAuthoringWorkerSandboxInstance)
+            {
+                await LinuxBubblewrapAuthoringWorkerRuntime.VerifySnapshotAcceptanceAsync(
+                    _owner, this, _binding, cancellationToken);
+            }
+            else
+            {
+                await LinuxBubblewrapAuthoringServiceRuntime.VerifySnapshotAcceptanceAsync(
+                    _owner, this, _binding, cancellationToken);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            RequireCurrent(exactNativeOwner);
+        }
+        finally
+        {
+            _verification.Release();
+        }
+    }
+
+    private void RequireCurrent(object owner)
+    {
+        if (_disposed || !ReferenceEquals(owner, _owner) ||
+            !s_issued.TryGetValue(this, out object? issuedOwner) || !ReferenceEquals(owner, issuedOwner) ||
+            !_incarnation.IsCurrentOwner(owner))
+        {
+            throw new AuthoringExtensionContractException("Native snapshot acceptance is foreign, released or revoked.");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _verification.WaitAsync(CancellationToken.None);
+        try
+        {
+            if (_disposed)
+            {
+                return;
+            }
+            if (!s_issued.TryGetValue(this, out object? owner) || !ReferenceEquals(owner, _owner))
+            {
+                throw new AuthoringExtensionContractException("Copied snapshot acceptance cannot release native custody.");
+            }
+
+            if (_owner is IAuthoringWorkerSandboxInstance)
+            {
+                LinuxBubblewrapAuthoringWorkerRuntime.ReleaseSnapshotAcceptance(_owner, this);
+            }
+            else
+            {
+                LinuxBubblewrapAuthoringServiceRuntime.ReleaseSnapshotAcceptance(_owner, this);
+            }
+            _disposed = true;
+            _binding.Bytes.AsSpan().Clear();
+            s_issued.Remove(this);
+        }
+        finally
+        {
+            _verification.Release();
+        }
+    }
+}
+
+// Native transport custody only: reuse the original state codec and target, never a second
+// state/result/approval model or a caller-issued acceptance handle.
+internal sealed class AuthoringNativeStateSnapshotBinding
+{
+    private AuthoringNativeStateSnapshotBinding(object descriptor, byte[] bytes, string binding, TimeSpan wallClock)
+    {
+        Descriptor = descriptor;
+        Bytes = bytes;
+        TransportBinding = binding;
+        MaximumWallClock = wallClock;
+    }
+
+    internal object Descriptor
+    {
+        get;
+    }
+    internal byte[] Bytes
+    {
+        get;
+    }
+    internal string TransportBinding
+    {
+        get;
+    }
+    internal TimeSpan MaximumWallClock
+    {
+        get;
+    }
+
+    internal static AuthoringNativeStateSnapshotBinding Create(
+        VerifiedAuthoringPackage package,
+        AuthoringExecutionTarget target,
+        AuthoringStateSnapshot snapshot,
+        long generation,
+        string operationSha256,
+        object descriptor)
+    {
+        AuthoringExtensionStateContract.ValidateOwner(package, snapshot.Scope);
+        AuthoringStateSnapshot frozen = AuthoringExtensionStateContract.Snapshot(
+            snapshot.Scope, snapshot.PackageIdentity, snapshot.Revision, snapshot.Entries);
+        if (snapshot.ContractVersion != 1 || snapshot.ContentSha256 != frozen.ContentSha256)
+        {
+            throw new AuthoringExtensionContractException("Applied snapshot differs from the original canonical state codec.");
+        }
+        byte[] bytes = AuthoringExtensionStateContract.Encode(frozen);
+        AuthoringExtensionManifest manifest = package.Contract.Manifest;
+        AuthoringContributionDeclaration? contribution = manifest.Contributions.SingleOrDefault(
+            item => item.Id == target.ContributionId);
+        bool descriptorMatches = descriptor switch
+        {
+            AuthoringWorkerLaunchDescriptor worker =>
+                target.ExecutionClass == AuthoringExecutionClass.IsolatedWorkerWasm &&
+                worker.RuntimeIdentity == target.RuntimeIdentity && worker.ExtensionId == manifest.Id &&
+                worker.Version == manifest.Version && worker.PackageSha256 == manifest.PackageSha256 &&
+                worker.ContentSha256 == manifest.ContentSha256 && worker.ContributionId == target.ContributionId &&
+                worker.ModuleSha256 == contribution?.Entrypoint.ContentSha256 &&
+                worker.MaximumMemoryBytes == manifest.Limits.MemoryBytes &&
+                worker.MaximumRequestBytes == manifest.Limits.MaximumRequestBytes &&
+                worker.MaximumResponseBytes == manifest.Limits.MaximumResponseBytes,
+            AuthoringServiceLaunchDescriptor service =>
+                target.ExecutionClass == AuthoringExecutionClass.OutOfProcessService &&
+                service.RuntimeIdentity == target.RuntimeIdentity && service.ExtensionId == manifest.Id &&
+                service.Version == manifest.Version && service.PackageSha256 == manifest.PackageSha256 &&
+                service.ContentSha256 == manifest.ContentSha256 && service.ContributionId == target.ContributionId &&
+                service.ExecutableSha256 == contribution?.Entrypoint.ContentSha256 &&
+                service.MaximumMemoryBytes == manifest.Limits.MemoryBytes &&
+                service.MaximumRequestBytes == manifest.Limits.MaximumRequestBytes &&
+                service.MaximumResponseBytes == manifest.Limits.MaximumResponseBytes &&
+                service.MaximumWallClock == manifest.Limits.WallClock,
+            _ => false
+        };
+        if (!descriptorMatches || generation < 1 || !AuthoringExtensionStateContract.IsDigest(operationSha256) ||
+            frozen.PackageIdentity != package.PackageIdentity || target.Status != AuthoringExecutionResolutionStatus.Ready ||
+            target.BlockedReason is not null || target.ExtensionId != manifest.Id ||
+            target.ExtensionVersion != manifest.Version || target.PackageSha256 != manifest.PackageSha256 ||
+            contribution is null || contribution.Kind != target.ContributionKind ||
+            contribution.ExecutionClass != target.ExecutionClass || contribution.Entrypoint.PathOrAdapterId != target.EntrypointIdentity ||
+            AuthoringExtensionStateContract.ValueBytes(frozen) > manifest.Limits.MaximumStateBytes ||
+            bytes.Length > manifest.Limits.MaximumRequestBytes || bytes.Length > manifest.Limits.MaximumResponseBytes ||
+            bytes.Length > manifest.Limits.MemoryBytes)
+        {
+            throw new AuthoringExtensionContractException("Native snapshot load is unbounded or not package/target/operation bound.");
+        }
+
+        string binding = Convert.ToBase64String(AuthoringExtensionStateContract.Encode(new
+        {
+            ContractVersion = 1,
+            package.PackageIdentity,
+            manifest.PackageSha256,
+            manifest.StateSchemaVersion,
+            manifest.DataSchemaVersion,
+            Scope = frozen.Scope,
+            frozen.Revision,
+            Target = target,
+            RunningGeneration = generation,
+            OperationSha256 = operationSha256,
+            SnapshotContentSha256 = frozen.ContentSha256
+        }));
+        return new AuthoringNativeStateSnapshotBinding(descriptor, bytes, binding, manifest.Limits.WallClock);
+    }
+
+    internal void VerifyReadback(string? binding, string? payload)
+    {
+        if (binding != TransportBinding || payload is null || payload.Length > (Bytes.Length + 2L) / 3 * 4)
+        {
+            throw new AuthoringExtensionContractException("Native snapshot readback binding or size is different.");
+        }
+        byte[] readback;
+        try
+        {
+            readback = Convert.FromBase64String(payload);
+        }
+        catch (FormatException)
+        {
+            throw new AuthoringExtensionContractException("Native snapshot readback is not canonical base64.");
+        }
+        if (!readback.AsSpan().SequenceEqual(Bytes) || Convert.ToBase64String(readback) != payload)
+        {
+            throw new AuthoringExtensionContractException("Native snapshot storage does not contain the actual applied snapshot.");
+        }
+    }
+}
+
 
 /// <summary>Registration requires a native incarnation; legacy scalar operations cannot confer authority.</summary>
 public interface IAuthoringRuntimeResourceLedger

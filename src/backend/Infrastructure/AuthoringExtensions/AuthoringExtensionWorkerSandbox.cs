@@ -117,6 +117,19 @@ public interface IAuthoringWorkerSandboxInstance : IAsyncDisposable
         AuthoringWorkerRequest request,
         CancellationToken cancellationToken);
 
+    /// <summary>Load the original applied snapshot into native storage and retain same-owner readback custody.
+    /// This confers no approval; unsupported runtimes fail closed.</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("linux")]
+    ValueTask<AuthoringNativeStateSnapshotAcceptance> AcceptStateSnapshotAsync(
+        VerifiedAuthoringPackage package,
+        AuthoringExecutionTarget target,
+        AuthoringStateSnapshot appliedSnapshot,
+        long runningGeneration,
+        string operationSha256,
+        CancellationToken cancellationToken) =>
+        ValueTask.FromException<AuthoringNativeStateSnapshotAcceptance>(
+            new AuthoringExtensionContractException("Runtime cannot accept the actual applied state snapshot."));
+
     ValueTask TerminateAsync(string reason, CancellationToken cancellationToken);
 }
 
