@@ -276,7 +276,8 @@ public sealed class GraphNativeMetadataNodeIntegrationTests(PostgresSchemaMigrat
             using var trace = new Commands();
             Assert.False(await consumer.VerifyAsync(read));
             Assert.Empty(read.Nodes);
-            Assert.Empty(trace.Sql);
+            Assert.Equal(initialTransaction ? 1 : 0, trace.Sql.Count);
+            Assert.All(trace.Sql, sql => Assert.Contains("SELECT pg_backend_pid()", sql));
             Assert.Same(replacement, db.Ado.Transaction);
             Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1"));
         }

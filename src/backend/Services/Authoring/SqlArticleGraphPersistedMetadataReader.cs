@@ -450,6 +450,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
                 reader.GetString(2) == "read committed" ? IsolationLevel.ReadCommitted : IsolationLevel.Unspecified,
                 _transaction is not null, System.Transactions.Transaction.Current is not null);
             Require(!await reader.ReadAsync(token).ConfigureAwait(false));
+            binding.ObserveSession(stamp);
             return stamp;
         }
 

@@ -17,6 +17,7 @@ internal sealed class GraphNativePermissionRead(ISqlSugarClient db, SqlAuthorArt
     private NpgsqlTransaction? _transaction;
     private bool _captured;
     private int _backendId;
+    private string? _transactionId;
     private int _entered;
     internal CancellationToken PriorCancellation
     {
@@ -62,6 +63,17 @@ internal sealed class GraphNativePermissionRead(ISqlSugarClient db, SqlAuthorArt
             && ReferenceEquals(_transaction, transaction)
             && (transaction is null || transaction.IsolationLevel == IsolationLevel.ReadCommitted
                 && ReferenceEquals(transaction.Connection, connection)));
+    }
+
+    internal void ObserveSession(SqlArticleGraphPersistedMetadataReader.SessionStamp stamp)
+    {
+        // Npgsql can reuse the same transaction object after caller rollback/begin. Keep
+        // the server incarnation across batches and Verify, not just the CLR reference.
+        if (stamp.CallerTransaction)
+        {
+            Require(_transactionId is null || _transactionId == stamp.TransactionId);
+            _transactionId ??= stamp.TransactionId;
+        }
     }
 
     internal async Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
