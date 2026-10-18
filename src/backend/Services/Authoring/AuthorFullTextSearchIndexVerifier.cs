@@ -21,6 +21,7 @@ public static class AuthorFullTextSearchIndexVerifier
         {
             throw new AuthorSearchContractException("author_search_index_snapshot_invalid");
         }
+        AuthorFullTextSearchIndex.ValidateBudget(snapshot.Articles);
         int afterArticleId = 0;
         int articleCount = 0;
         while (true)
@@ -34,6 +35,12 @@ public static class AuthorFullTextSearchIndexVerifier
                 || page.HasMore && page.Articles.IsEmpty)
             {
                 throw new AuthorSearchContractException("author_search_index_verification_source_stale");
+            }
+            if (page.Articles.Sum(static article => article.Fields.Sum(static field => (long)field.RawSource.Length)
+                    + AuthorSearchIndexPropertyBinding.SourceCharacters(article.PropertyValues))
+                > AuthorFullTextSearchIndex.MaxBatchSourceCharacters)
+            {
+                throw new AuthorSearchContractException("author_search_source_batch_budget_exceeded");
             }
             foreach (AuthorSearchIndexArticleSource article in page.Articles)
             {
@@ -69,6 +76,17 @@ public static class AuthorFullTextSearchIndexVerifier
                     }
                     AuthorFullTextSearchVerifier.VerifyTokenDocument(matches[0], field.RawSource,
                         article.Definitions, field.ParserVersion, field.DocumentEpoch);
+                }
+                AuthorSearchIndexedArticle properties = AuthorSearchIndexPropertyBinding.Project(
+                    article, indexed.Documents, snapshot.UserId, snapshot.SiteScope);
+                if (properties.PropertySnapshotDigest != indexed.PropertySnapshotDigest
+                    || properties.PropertyCoordinates != indexed.PropertyCoordinates
+                    || properties.PropertyValues.Count != indexed.PropertyValues.Count
+                    || properties.PropertyValues.Any(pair => !indexed.PropertyValues.TryGetValue(pair.Key, out var actual)
+                        || pair.Value.Entry.ValueDigest != actual.Entry.ValueDigest
+                        || AuthorSearchPropertyValueProjection.Project(article.Definitions[pair.Key], actual.Entry) != actual))
+                {
+                    throw new AuthorSearchContractException("author_search_index_verification_property_mismatch");
                 }
                 afterArticleId = article.ArticleId;
             }

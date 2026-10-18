@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
 
+using FsusBlog.Shared.Contracts.ArticleProperties;
+
 namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>Source fields are supplied only by the original canonical source/property adapter.</summary>
@@ -14,11 +16,14 @@ public sealed record AuthorSearchIndexFieldSource(
 /// The adapter must provide the complete eligible field set and real typed-value projections.
 /// A SourceGeneration identifies one stable complete source view across every page; any
 /// article, permission, definition or taxonomy change requires a different source generation.
+/// PropertyValues is the original immutable canonical value snapshot. Null means unavailable
+/// typed input and cannot produce Property fields or be interpreted as Missing/default.
 /// </summary>
 public sealed record AuthorSearchIndexArticleSource(
     int ArticleId, long SourceSequence, bool Deleted,
     ImmutableArray<AuthorSearchIndexFieldSource> Fields,
-    IReadOnlyDictionary<Guid, ArticlePropertyDefinition> Definitions);
+    IReadOnlyDictionary<Guid, ArticlePropertyDefinition> Definitions,
+    ArticlePropertyValueSnapshot? PropertyValues = null);
 
 public sealed record AuthorSearchIndexSourcePage(
     long SourceGeneration, ImmutableArray<AuthorSearchIndexArticleSource> Articles, bool HasMore);
@@ -61,11 +66,34 @@ public enum AuthorSearchIndexStatus
 }
 
 public sealed record AuthorSearchIndexedArticle(
-    int ArticleId, long SourceSequence, bool Deleted, ImmutableArray<AuthorSearchTokenizedDocument> Documents);
+    int ArticleId, long SourceSequence, bool Deleted, ImmutableArray<AuthorSearchTokenizedDocument> Documents)
+{
+    /// <summary>
+    /// Derived eligible canonical entries, not a fresh permission/reference grant. Null
+    /// coordinates/digest mean unavailable typed input, never an inferred Missing value.
+    /// Ineligible payloads are not retained. Query execution belongs to the consumer.
+    /// </summary>
+    public ImmutableSortedDictionary<Guid, AuthorSearchProjectedPropertyValue> PropertyValues
+    {
+        get; init;
+    }
+        = ImmutableSortedDictionary<Guid, AuthorSearchProjectedPropertyValue>.Empty;
+
+    public ArticlePropertySnapshotCoordinates? PropertyCoordinates
+    {
+        get; init;
+    }
+
+    public string? PropertySnapshotDigest
+    {
+        get; init;
+    }
+}
 
 /// <summary>
 /// Immutable author-private input for the separate query owner. It contains indexed
-/// terms/ranges, never the raw field corpus. The query owner must revalidate current
+/// terms/ranges and bounded eligible canonical typed property payloads, not raw article
+/// title/body source. The query owner must revalidate current
 /// permission/source facts and use the original source reader for snippet context.
 /// </summary>
 public sealed record AuthorSearchIndexReadSnapshot(
@@ -412,7 +440,12 @@ public sealed class AuthorFullTextSearchIndex(
         {
             builder.Append(article.ArticleId.ToString(CultureInfo.InvariantCulture)).Append(':')
                 .Append(article.SourceSequence.ToString(CultureInfo.InvariantCulture)).Append(':')
-                .Append(article.Deleted ? '1' : '0').Append('\n');
+                .Append(article.Deleted ? '1' : '0').Append(':')
+                .Append(article.PropertySnapshotDigest ?? "unavailable").Append('\n');
+            foreach (AuthorSearchProjectedPropertyValue property in article.PropertyValues.Values)
+            {
+                builder.Append(property.Entry.ValueDigest).Append('\n');
+            }
             foreach (AuthorSearchTokenizedDocument document in article.Documents)
             {
                 AuthorSearchDocument normalized = AuthorFullTextSearchContract.SealDocument(document.Document with
@@ -486,7 +519,7 @@ public sealed class AuthorFullTextSearchIndex(
         {
             throw new AuthorSearchContractException("author_search_article_document_set_invalid");
         }
-        return new(article.ArticleId, article.SourceSequence, article.Deleted, ordered);
+        return AuthorSearchIndexPropertyBinding.Project(article, ordered, userId, siteScope);
     }
 
     /// <summary>
@@ -568,6 +601,7 @@ public sealed class AuthorFullTextSearchIndex(
             {
                 sourceCharacters += field.RawSource.Length;
             }
+            sourceCharacters += AuthorSearchIndexPropertyBinding.SourceCharacters(article.PropertyValues);
             afterArticleId = article.ArticleId;
         }
         if (sourceCharacters > MaxBatchSourceCharacters)
@@ -576,14 +610,15 @@ public sealed class AuthorFullTextSearchIndex(
         }
     }
 
-    private static void ValidateBudget(ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> articles)
+    internal static void ValidateBudget(ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> articles)
     {
         long documents = 0;
         long tokens = 0;
         long characters = 0;
         foreach (AuthorSearchIndexedArticle article in articles.Values)
         {
-            documents += article.Documents.Length;
+            documents += article.Documents.Length + article.PropertyValues.Count;
+            characters += AuthorSearchIndexPropertyBinding.StoredCharacters(article.PropertyValues.Values);
             foreach (AuthorSearchTokenizedDocument document in article.Documents)
             {
                 tokens += document.Tokens.Length;
@@ -595,7 +630,7 @@ public sealed class AuthorFullTextSearchIndex(
         }
         if (articles.Count > MaxArticles || documents > MaxDocuments
             || tokens > MaxStoredTokens || characters > MaxStoredTermCharacters
-            || articles.Count * 128L + documents * 1_024L + tokens * 320L + characters * 2L > MaxEstimatedIndexBytes)
+            || articles.Count * 512L + documents * 1_024L + tokens * 320L + characters * 2L > MaxEstimatedIndexBytes)
         {
             throw new AuthorSearchContractException("author_search_index_budget_exceeded");
         }
