@@ -56,7 +56,7 @@ function count(source, pattern)
     return (source.match(pattern) ?? []).length;
 }
 
-function hasDomReferenceAuthority(source)
+function hasDomReferenceAuthority(source, isCSharp = false)
 {
     // A finite lexical guard, not a language/type checker: follow forward local aliases
     // from explicit DOM reads into named identity writes or selection predicates.
@@ -69,18 +69,56 @@ function hasDomReferenceAuthority(source)
     const identity = /^(?:Target)?(?:ArticleId|HeadingIdentity|BlockIdentity|AnchorId)$/iu;
     const domRead = /^(?:querySelector(?:All)?|getElementById|getElementsBy(?:Name|ClassName|TagName)|elements?FromPoint|getSelection|getRangeAt|createRange|getAttribute(?:NS)?|SelectSingleNode|SelectNodes|GetElementById|QuerySelector(?:All)?|GetAttribute(?:Value|Node)?)$/u;
     const selection = /^(?:find|filter|some|every|First|Single|FirstOrDefault|SingleOrDefault|Find|FindAll|Where|Any|All)$/u;
+    const scalarType = /^(?:string|bool|byte|sbyte|short|ushort|int|uint|long|ulong|float|double|decimal|char|object|dynamic)$/u;
+    const opening = new Map([['(', ')'], ['[', ']'], ['{', '}']]);
+    const matching = new Map();
+    const conditionalColons = new Set();
+    const groups = [{ questions: [] }];
+    // Call boundaries and conditional colons belong to their enclosing delimiter
+    // group; a following boolean guard is not an argument, and ?: is one expression.
+    for (let index = 0; index < tokens.length; index++)
+    {
+        const token = tokens[index];
+        if (opening.has(token))
+        {
+            groups.push({ start: index, closing: opening.get(token), questions: [] });
+        }
+        else if (token === groups.at(-1).closing)
+        {
+            const group = groups.pop();
+            matching.set(group.start, index);
+            matching.set(index, group.start);
+        }
+        else if (token === '?' && tokens[index + 1] !== ':')
+        {
+            groups.at(-1).questions.push(index);
+        }
+        else if (token === ':' && groups.at(-1).questions.length > 0)
+        {
+            groups.at(-1).questions.pop();
+            conditionalColons.add(index);
+        }
+        else if ([',', ';'].includes(token))
+        {
+            groups.at(-1).questions.length = 0;
+        }
+    }
+    const callArguments = (index) => matching.has(index)
+        ? tokens.slice(index + 1, matching.get(index)) : [];
     const scopes = [new Map()];
-    const alias = (name) =>
+    const functionScopes = new Set(scopes);
+    const bindingScope = (name) =>
     {
         for (let index = scopes.length - 1; index >= 0; index--)
         {
             if (scopes[index].has(name))
             {
-                return scopes[index].get(name);
+                return scopes[index];
             }
         }
-        return false;
+        return undefined;
     };
+    const alias = (name) => bindingScope(name)?.get(name) ?? false;
     const domDerived = (expression) => expression.some((token, index) =>
         (domRead.test(token) && expression[index + 1] === '(')
         || (alias(token) && !['.', '?.'].includes(expression[index - 1])));
@@ -94,7 +132,8 @@ function hasDomReferenceAuthority(source)
         for (let index = start; index >= 0 && index < tokens.length; index += direction)
         {
             const token = tokens[index];
-            if (depth === 0 && (closing.includes(token) || [',', ';', '=', '=>', ':'].includes(token)
+            if (depth === 0 && (closing.includes(token) || [',', ';', '=', '=>'].includes(token)
+                || (token === ':' && !conditionalColons.has(index))
                 || (comparison && ['&&', '||', '==', '===', '!=', '!=='].includes(token))))
             {
                 break;
@@ -112,14 +151,22 @@ function hasDomReferenceAuthority(source)
         return direction === 1 ? expression : expression.reverse();
     };
     const selections = tokens.flatMap((token, index) => selection.test(token) && tokens[index + 1] === '('
-        ? [[index, index + expressionAt(index + 1).length]] : []);
+        && matching.has(index + 1) ? [[index, matching.get(index + 1)]] : []);
 
     for (let index = 0; index < tokens.length; index++)
     {
         const token = tokens[index];
         if (token === '{')
         {
-            scopes.push(new Map());
+            const scope = new Map();
+            scopes.push(scope);
+            const previous = tokens[index - 1];
+            const parameters = matching.get(index - 1);
+            if (previous === '=>' || (previous === ')' && parameters !== undefined
+                && !['if', 'for', 'while', 'switch', 'catch', 'with'].includes(tokens[parameters - 1])))
+            {
+                functionScopes.add(scope);
+            }
         }
         else if (token === '}' && scopes.length > 1)
         {
@@ -132,7 +179,7 @@ function hasDomReferenceAuthority(source)
             // display projection data is not an identity slot.
             const argumentsList = [[]];
             let depth = 0;
-            for (const argumentToken of expressionAt(index + 1).slice(1, -1))
+            for (const argumentToken of callArguments(index + 1))
             {
                 if (argumentToken === ',' && depth === 0)
                 {
@@ -154,7 +201,7 @@ function hasDomReferenceAuthority(source)
                 return true;
             }
         }
-        else if (token === '=' || token === ':'
+        else if (token === '=' || (token === ':' && !conditionalColons.has(index))
             || (token === '=>' && (tokens[index - 2] === 'string'
                 || (tokens[index - 2] === '?' && tokens[index - 3] === 'string'))))
         {
@@ -173,7 +220,17 @@ function hasDomReferenceAuthority(source)
             {
                 // Object fields are checked individually; do not taint the whole
                 // container because one unrelated display/geometry field reads DOM.
-                scopes.at(-1).set(name, !expression.includes('{') && !expression.includes('=>') && derived);
+                const prefix = tokens[nameIndex - 1];
+                const declaration = ['const', 'let', 'var'].includes(prefix)
+                    || (isCSharp && (scalarType.test(prefix)
+                        || (prefix === '?' && scalarType.test(tokens[nameIndex - 2]))));
+                // Declarations create bindings; ordinary assignments update the
+                // existing owner. Frontend var is function-scoped, unlike C# var.
+                const owner = declaration
+                    ? prefix === 'var' && !isCSharp
+                        ? scopes.findLast((scope) => functionScopes.has(scope)) : scopes.at(-1)
+                    : bindingScope(name) ?? scopes.at(-1);
+                owner.set(name, !expression.includes('{') && !expression.includes('=>') && derived);
             }
         }
         else if (['==', '===', '!=', '!=='].includes(token)
@@ -189,9 +246,10 @@ function hasDomReferenceAuthority(source)
         else if (token === 'Equals' && tokens[index + 1] === '('
             && selections.some(([start, end]) => index > start && index <= end))
         {
-            const receiver = expressionAt(index - 2, -1);
-            const argumentsList = expressionAt(index + 1);
+            const receiver = expressionAt(index - 2, -1, true);
+            const argumentsList = callArguments(index + 1);
             if ((hasIdentity(receiver) && domDerived(argumentsList))
+                || (domDerived(receiver) && hasIdentity(argumentsList))
                 || (hasIdentity(argumentsList) && domDerived(argumentsList)))
             {
                 return true;
@@ -274,7 +332,7 @@ export function checkAuthoringCanvasReferenceAuthority(repositoryRoot = root)
     {
         if ((relative.includes('AuthoringCanvasReference') || /\bPinnedTargetRevision\b/u.test(source)
             || /\bAuthoringCanvasReference\w*/u.test(source))
-            && hasDomReferenceAuthority(source))
+            && hasDomReferenceAuthority(source, true))
         {
             violations.push(`${relative}: DOM-derived canvas reference identity or selection authority is forbidden`);
         }
