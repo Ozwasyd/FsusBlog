@@ -2,6 +2,15 @@
     "schema": "fsusblog.frontend-style-rule-registry.v1",
     "rules": [
         {
+            "id": "@typescript-eslint/prefer-promise-reject-errors",
+            "owner": "FrontendReliabilityOwner",
+            "sourceScopes": [
+                "typescript",
+                "vue-script"
+            ],
+            "fixability": "manual"
+        },
+        {
             "id": "@stylistic/indent",
             "owner": "FrontendLanguageStyleOwner",
             "sourceScopes": [

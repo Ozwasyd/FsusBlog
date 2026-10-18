@@ -14,6 +14,7 @@
         "src/frontend/scripts/fsusui-root.mjs",
         "tools/frontend/check-frontend-style.mjs",
         "tools/frontend/style-toolchain/eslint.config.mjs",
+        "tools/frontend/style-toolchain/rejection-forwarding.mjs",
         "tools/frontend/style-toolchain/stylelint.config.mjs",
         "src/frontend/tsconfig.node.json"
     ],
