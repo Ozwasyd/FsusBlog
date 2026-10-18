@@ -25,6 +25,21 @@ const mockGetAdminMe = vi.mocked(getAdminMe)
 const mockLogoutAdmin = vi.mocked(logoutAdmin)
 const mockClearPrivateBrowserState = vi.mocked(clearPrivateBrowserState)
 
+function createDeferred<T>() {
+  let resolve: (value: T | PromiseLike<T>) => void = () => {
+    throw new Error('Deferred resolver was not initialized')
+  }
+  let reject: (reason?: unknown) => void = () => {
+    throw new Error('Deferred rejecter was not initialized')
+  }
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+
+  return { promise, resolve, reject }
+}
+
 describe('useAdminStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -102,8 +117,7 @@ describe('useAdminStore', () => {
   })
 
   it('hydrates independent admin principals from the admin session endpoint', async () => {
-    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
-    authApi.getAdminMe.mockResolvedValue({
+    mockGetAdminMe.mockResolvedValue({
       id: '1',
       displayName: 'local-root',
       source: 'independent',
@@ -115,7 +129,7 @@ describe('useAdminStore', () => {
 
     await store.ensureAdminSessionFresh(null)
 
-    expect(authApi.getAdminMe).toHaveBeenCalledTimes(1)
+    expect(mockGetAdminMe).toHaveBeenCalledTimes(1)
     expect(store.adminState).toBe('active')
     expect(store.canManage).toBe(true)
     expect(store.hasPermission('admin.manage')).toBe(true)
@@ -124,8 +138,7 @@ describe('useAdminStore', () => {
 
   it('ensureAdminSessionFresh caches missing admin session after 401', async () => {
     vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
-    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
-    authApi.getAdminMe.mockRejectedValue({
+    mockGetAdminMe.mockRejectedValue({
       name: 'HttpApiError',
       message: 'unauthorized',
       status: 401
@@ -134,7 +147,7 @@ describe('useAdminStore', () => {
 
     await store.ensureAdminSessionFresh()
 
-    expect(authApi.getAdminMe).toHaveBeenCalledTimes(1)
+    expect(mockGetAdminMe).toHaveBeenCalledTimes(1)
     expect(store.adminState).toBe('missing')
     expect(store.adminPrincipal).toBeNull()
     expect(store.adminCheckedAt).toBe(Date.now())
@@ -142,8 +155,7 @@ describe('useAdminStore', () => {
 
   it('ensureAdminSessionFresh skips fresh missing state', async () => {
     vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
-    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
-    authApi.getAdminMe.mockRejectedValue({
+    mockGetAdminMe.mockRejectedValue({
       name: 'HttpApiError',
       message: 'unauthorized',
       status: 401
@@ -153,13 +165,12 @@ describe('useAdminStore', () => {
     await store.ensureAdminSessionFresh()
     await store.ensureAdminSessionFresh()
 
-    expect(authApi.getAdminMe).toHaveBeenCalledTimes(1)
+    expect(mockGetAdminMe).toHaveBeenCalledTimes(1)
   })
 
   it('ensureAdminSessionFresh force bypasses missing cache', async () => {
     vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
-    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
-    authApi.getAdminMe.mockRejectedValue({
+    mockGetAdminMe.mockRejectedValue({
       name: 'HttpApiError',
       message: 'unauthorized',
       status: 401
@@ -169,13 +180,12 @@ describe('useAdminStore', () => {
     await store.ensureAdminSessionFresh()
     await store.ensureAdminSessionFresh({ force: true })
 
-    expect(authApi.getAdminMe).toHaveBeenCalledTimes(2)
+    expect(mockGetAdminMe).toHaveBeenCalledTimes(2)
   })
 
   it('ensureAdminSessionFresh revalidates expired missing cache', async () => {
     vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
-    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
-    authApi.getAdminMe.mockRejectedValue({
+    mockGetAdminMe.mockRejectedValue({
       name: 'HttpApiError',
       message: 'unauthorized',
       status: 401
@@ -186,13 +196,12 @@ describe('useAdminStore', () => {
     vi.setSystemTime(new Date(Date.now() + ADMIN_NEGATIVE_CACHE_MS + 1))
     await store.ensureAdminSessionFresh()
 
-    expect(authApi.getAdminMe).toHaveBeenCalledTimes(2)
+    expect(mockGetAdminMe).toHaveBeenCalledTimes(2)
   })
 
   it('reuses active admin session inside the short TTL', async () => {
     vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
-    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
-    authApi.getAdminMe.mockResolvedValue({
+    mockGetAdminMe.mockResolvedValue({
       id: '1',
       displayName: 'local-root',
       source: 'independent',
@@ -205,14 +214,13 @@ describe('useAdminStore', () => {
     vi.setSystemTime(new Date(Date.now() + ADMIN_ACTIVE_TTL_MS - 1))
     await store.ensureAdminSessionFresh()
 
-    expect(authApi.getAdminMe).toHaveBeenCalledTimes(1)
+    expect(mockGetAdminMe).toHaveBeenCalledTimes(1)
     expect(store.canManage).toBe(true)
   })
 
   it('refreshes active admin session after the short TTL', async () => {
     vi.setSystemTime(new Date('2026-06-22T00:00:00Z'))
-    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
-    authApi.getAdminMe.mockResolvedValue({
+    mockGetAdminMe.mockResolvedValue({
       id: '1',
       displayName: 'local-root',
       source: 'independent',
@@ -225,7 +233,7 @@ describe('useAdminStore', () => {
     vi.setSystemTime(new Date(Date.now() + ADMIN_ACTIVE_TTL_MS + 1))
     await store.ensureAdminSessionFresh()
 
-    expect(authApi.getAdminMe).toHaveBeenCalledTimes(2)
+    expect(mockGetAdminMe).toHaveBeenCalledTimes(2)
   })
 
   it('canManage requires active state and permissions', () => {
@@ -269,8 +277,7 @@ describe('useAdminStore', () => {
 
   it('network failure does not overwrite existing active principal', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
-    authApi.getAdminMe.mockRejectedValue(new Error('network down'))
+    mockGetAdminMe.mockRejectedValue(new Error('network down'))
     const store = useAdminStore()
     store.setAdminPrincipal({
       id: 'admin-principal',
@@ -290,8 +297,7 @@ describe('useAdminStore', () => {
 
   it('forced revalidation consumes a missing cache before a network failure', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const authApi = await import('@/api/auth') as { getAdminMe: ReturnType<typeof vi.fn> }
-    authApi.getAdminMe.mockRejectedValue(new Error('network down'))
+    mockGetAdminMe.mockRejectedValue(new Error('network down'))
     const store = useAdminStore()
     store.markMissing()
 
@@ -445,16 +451,14 @@ describe('useAdminStore', () => {
   })
 
   it('deduplicates concurrent logout and reuses a confirmed result', async () => {
-    let resolveLogout: (() => void) | null = null
-    mockLogoutAdmin.mockImplementation(() => new Promise<null>((resolve) => {
-      resolveLogout = () => resolve(null)
-    }))
+    const pendingLogout = createDeferred<null>()
+    mockLogoutAdmin.mockReturnValue(pendingLogout.promise)
     const store = useAdminStore()
 
     const first = store.logout()
     const second = store.logout()
     expect(mockLogoutAdmin).toHaveBeenCalledTimes(1)
-    resolveLogout?.()
+    pendingLogout.resolve(null)
 
     const [firstOutcome, secondOutcome] = await Promise.all([first, second])
     expect(firstOutcome).toEqual(secondOutcome)
@@ -464,16 +468,16 @@ describe('useAdminStore', () => {
   })
 
   it('cancels a stale admin snapshot before it can restore logged-out state', async () => {
-    let resolveSnapshot: ((value: Awaited<ReturnType<typeof getAdminMe>>) => void) | null = null
-    mockGetAdminMe.mockImplementation(({ signal } = {}) => new Promise((resolve, reject) => {
-      resolveSnapshot = resolve
-      signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
-    }))
+    const pendingSnapshot = createDeferred<Awaited<ReturnType<typeof getAdminMe>>>()
+    mockGetAdminMe.mockImplementation(({ signal } = {}) => {
+      signal?.addEventListener('abort', () => pendingSnapshot.reject(new DOMException('aborted', 'AbortError')))
+      return pendingSnapshot.promise
+    })
     const store = useAdminStore()
     const refresh = store.ensureAdminSessionFresh({ force: true })
 
     await store.logout()
-    resolveSnapshot?.({
+    pendingSnapshot.resolve({
       id: 'stale-admin',
       displayName: 'Stale Admin',
       source: 'independent',
