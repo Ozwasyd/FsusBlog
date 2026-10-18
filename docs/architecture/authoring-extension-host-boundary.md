@@ -411,15 +411,38 @@ reuse an existing gate. There is no unlimited default, background retry, or
 best-effort measurement mode. A missing measurement authority fails before the
 operation and quarantines that lifecycle generation.
 
-Linux worker and service processes expose their owned sandbox PID only to the
-host measurement wrapper. The wrapper registers that PID with the `/proc`
-measurement authority and freezes its last observation on disposal. CPU, resident
-memory, and process I/O are sampled during execution; the broker ledger contributes
-restart and network/file/state usage. Crossing a live ceiling cancels execution,
-discards the result, revokes the exact generation through lifecycle resources, and
-requires an explicit quarantine-clear approval before reactivation. A runtime
-crash follows the same containment path, and the host rechecks core continuity
-before returning a closed result.
+Linux worker and service runtimes issue `AuthoringRuntimeIncarnationLease` only
+inside their private native wrapper, after the real process start, bounded
+readiness handshake, sandbox PID resolution, and namespace/profile observation.
+The process-local capability binds that exact wrapper, its original descriptor,
+the observed profile, retained process handles, and Linux process birth ticks.
+The existing resolver `RuntimeIdentity` and deterministic worker
+`InstanceIdentity` keep their wire meanings; neither identifies a live process
+incarnation. Descriptor copies, forwarding owners, copied capabilities, process
+exit, and changed birth ticks cannot confer or restore authority.
+
+Termination revokes the capability before its first await. Disposal retains
+custody until owned-process exit, stderr and in-flight transport settlement,
+working-root cleanup, and process disposal succeed. Failed cleanup stays revoked
+and retains custody for retry. Measurement decorators return the same native owner
+rather than another wrapper. `/proc` counters and brokered usage belong to one
+capability; counter regression is rejected, and a replacement process has a
+separate ledger even when its descriptor and runtime identity are unchanged.
+
+Scalar string/PID registration, restart/usage writes, and string-only budget
+measurement fail closed. The capability-based measurement overload observes a
+native instance only; it does not approve lifecycle generation or coordinator
+Running state. Those joins remain with the original resource tracker and
+coordinator owners and are not implemented here. Controlled private-owner tests
+exercise capability and cleanup behavior using task-owned processes; they do not
+establish native sandbox isolation. Real sandbox acceptance still requires the
+original Linux prerequisites and actual startup/cleanup tests.
+
+Crossing an admitted live ceiling cancels execution, discards the result, revokes
+the exact generation through lifecycle resources, and requires an explicit
+quarantine-clear approval before reactivation. A runtime crash follows the same
+containment path, and the host rechecks core continuity before returning a closed
+result.
 
 A returned operation value remains subject to cancellation through final
 measurement and telemetry completion. Caller cancellation discards the value;
