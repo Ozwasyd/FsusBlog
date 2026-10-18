@@ -5,8 +5,10 @@ namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
 /// Bounded typed input and original index-stage evidence only. The properties have not
-/// filtered these candidates. This is not a typed query AST, current value projection,
-/// permission grant, result, cursor, receipt or full-source fingerprint.
+/// filtered these candidates. IndexEvidence retains the original request instance and
+/// generation; intake cannot bind them to a replacement writer. This is not a typed
+/// query AST, current value projection, permission grant, result, cursor, receipt
+/// or full-source fingerprint.
 /// </summary>
 public sealed record AuthorSearchPropertyOperandIntake(
     AuthorSearchTokenEvaluation IndexEvidence,

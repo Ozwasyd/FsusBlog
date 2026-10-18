@@ -1,12 +1,13 @@
 using System.Collections.Immutable;
 using System.Reflection;
 
+using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleProperties;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-/// <summary>Source controls for unadmitted typed intake; execution/discovery remains separately held.</summary>
+/// <summary>Controls for unadmitted typed intake; these do not qualify product query execution.</summary>
 [Trait("Category", "Unit")]
 public sealed class AuthorFullTextSearchPropertyIntakeTests
 {
@@ -35,7 +36,7 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         AuthorSearchPropertyOperand[] borrowed = [operand];
         using AuthorFullTextSearchIndex index = await Index();
         var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
-        AuthorSearchQuery query = Query();
+        AuthorSearchQuery query = Query(index);
         AuthorSearchPropertyOperandIntake intake = await evaluator.InspectPropertyOperandsAsync(query, definitions, borrowed);
         borrowed[0] = operand with
         {
@@ -64,7 +65,7 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         var operand = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.equals", [new ArticlePropertyNumberValue(0)]);
         using var index = new AuthorFullTextSearchIndex(new EmptySource(), 42, "primary");
         AuthorSearchContractException error = await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
-            new AuthorFullTextSearchQueryEvaluator(index).InspectPropertyOperandsAsync(Query(), definitions, [operand]));
+            new AuthorFullTextSearchQueryEvaluator(index).InspectPropertyOperandsAsync(Query(index), definitions, [operand]));
         Assert.Equal("author_search_property_not_eligible", error.Message);
     }
 
@@ -79,7 +80,7 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         var operand = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.equals", [new ArticlePropertyNumberValue(0)]);
         using var index = new AuthorFullTextSearchIndex(new EmptySource(), 42, "primary");
         AuthorSearchContractException error = await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
-            new AuthorFullTextSearchQueryEvaluator(index).InspectPropertyOperandsAsync(Query(), definitions, Enumerable.Repeat(operand, count)));
+            new AuthorFullTextSearchQueryEvaluator(index).InspectPropertyOperandsAsync(Query(index), definitions, Enumerable.Repeat(operand, count)));
         Assert.Equal("author_search_query_budget_invalid", error.Message);
     }
 
@@ -92,9 +93,9 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         using var index = new AuthorFullTextSearchIndex(new EmptySource(), 42, "primary");
         var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
         Assert.Equal("author_search_duplicate_filter", (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
-            evaluator.InspectPropertyOperandsAsync(Query(), definitions, [operand, operand]))).Message);
+            evaluator.InspectPropertyOperandsAsync(Query(index), definitions, [operand, operand]))).Message);
         Assert.Equal("author_search_property_operand_digest_invalid", (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
-            evaluator.InspectPropertyOperandsAsync(Query(), definitions,
+            evaluator.InspectPropertyOperandsAsync(Query(index), definitions,
                 [operand with { Values = [new ArticlePropertyNumberValue(1)] }]))).Message);
     }
 
@@ -106,7 +107,7 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         var operand = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.equals", [new ArticlePropertyNumberValue(0)]);
         using AuthorFullTextSearchIndex index = await Index();
         var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
-        AuthorSearchQuery query = Query();
+        AuthorSearchQuery query = Query(index);
         var intake = await evaluator.InspectPropertyOperandsAsync(query, definitions, [operand]);
         var changed = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.equals", [new ArticlePropertyNumberValue(1)]);
         Assert.Equal("author_search_property_intake_tampered", (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
@@ -135,14 +136,14 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         var operand = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.equals", [new ArticlePropertyNumberValue(0)]);
         using var index = new AuthorFullTextSearchIndex(new EmptySource(), 42, "primary");
         var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
-        AuthorSearchQuery query = AuthorFullTextSearchContract.SealQuery(Query() with
+        AuthorSearchQuery query = AuthorFullTextSearchContract.SealQuery(Query(index) with
         {
             Clauses = [new(AuthorSearchClauseKind.Property, AuthorSearchFieldKind.Property, definition.DefinitionId, "number.equals", ["0"])]
         });
         Assert.Equal("author_search_typed_property_operand_unavailable", (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
             evaluator.InspectPropertyOperandsAsync(query, definitions, [operand]))).Message);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => evaluator.InspectPropertyOperandsAsync(
-            Query(), definitions, [operand], new CancellationToken(true)));
+            Query(index), definitions, [operand], new CancellationToken(true)));
     }
 
     [Theory]
@@ -156,8 +157,8 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         ArticlePropertyDefinition definition = Definition(ArticlePropertyValueType.Number);
         var operand = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.equals", [new ArticlePropertyNumberValue(0)]);
         using AuthorFullTextSearchIndex index = await Index();
-        AuthorSearchQuery query = Query();
-        AuthorSearchIndexReadSnapshot before = await index.ReadSnapshotAsync(42, "primary", 1);
+        AuthorSearchQuery query = Query(index);
+        AuthorSearchIndexReadSnapshot before = await index.ReadSnapshotAsync(42, "primary", query.IndexInstanceId, 1);
         string beforeDigest = index.SemanticDigest();
         SemaphoreSlim gate = Assert.IsType<SemaphoreSlim>(typeof(AuthorFullTextSearchIndex)
             .GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(index));
@@ -196,7 +197,7 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
                 Assert.Equal("author_search_property_operand_definition_stale",
                     (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
             }
-            AuthorSearchIndexReadSnapshot after = await index.ReadSnapshotAsync(42, "primary", 1);
+            AuthorSearchIndexReadSnapshot after = await index.ReadSnapshotAsync(42, "primary", query.IndexInstanceId, 1);
             Assert.Equal(before.IndexGeneration, after.IndexGeneration);
             Assert.Equal(before.SourceGeneration, after.SourceGeneration);
             Assert.Equal(before.RegistryDigest, after.RegistryDigest);
@@ -221,6 +222,286 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RestartOrOverlappingInstanceCannotRebindOriginalEvaluation(bool restart)
+    {
+        using AuthorFullTextSearchIndex original = await Index();
+        AuthorSearchQuery originalQuery = Query(original);
+        var originalEvaluator = new AuthorFullTextSearchQueryEvaluator(original);
+        AuthorSearchTokenEvaluation evidence = await originalEvaluator.InspectIndexAsync(originalQuery,
+            new Dictionary<Guid, ArticlePropertyDefinition>());
+        if (restart)
+        {
+            original.Dispose();
+        }
+        using AuthorFullTextSearchIndex replacement = await Index();
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(replacement);
+        AuthorSearchQuery replacementQuery = Query(replacement);
+        AuthorSearchTokenEvaluation fresh = await evaluator.InspectIndexAsync(replacementQuery,
+            new Dictionary<Guid, ArticlePropertyDefinition>());
+        Assert.Equal(evidence.IndexGeneration, fresh.IndexGeneration);
+        Assert.Equal(evidence.SourceGeneration, fresh.SourceGeneration);
+        Assert.Equal(evidence.SnapshotDigest, fresh.SnapshotDigest);
+        Assert.NotEqual(evidence.IndexInstanceId, fresh.IndexInstanceId);
+        Assert.Equal(originalQuery.IndexInstanceId, evidence.IndexInstanceId);
+        Assert.Equal(replacementQuery.IndexInstanceId, fresh.IndexInstanceId);
+        Assert.Equal("author_search_index_read_scope_or_generation_stale",
+            (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
+                evaluator.RevalidateIndexAsync(originalQuery, evidence))).Message);
+        // Resealing the request for the replacement cannot rewrite held evidence.
+        Assert.Equal("author_search_query_evaluation_stale",
+            (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
+                evaluator.RevalidateIndexAsync(replacementQuery, evidence with
+                {
+                    QueryDigest = replacementQuery.ContentDigest
+                }))).Message);
+        await evaluator.RevalidateIndexAsync(replacementQuery, fresh);
+        await evaluator.RevalidateSourceAsync(replacementQuery, fresh, new EmptySource());
+    }
+
+    [Theory]
+    [InlineData("inspect")]
+    [InlineData("intake")]
+    [InlineData("index")]
+    [InlineData("source")]
+    [InlineData("property")]
+    public async Task ReplacementReadPreservesRequestIdentityAcrossActualSemaphoreAwait(string operation)
+    {
+        ArticlePropertyDefinition definition = Definition(ArticlePropertyValueType.Number);
+        var definitions = new Dictionary<Guid, ArticlePropertyDefinition> { [definition.DefinitionId] = definition };
+        var operand = AuthorFullTextSearchContract.CreatePropertyOperand(definition, "number.equals", [new ArticlePropertyNumberValue(0)]);
+        using AuthorFullTextSearchIndex original = await Index();
+        AuthorSearchQuery query = Query(original);
+        var intake = await new AuthorFullTextSearchQueryEvaluator(original)
+            .InspectPropertyOperandsAsync(query, definitions, [operand]);
+        using AuthorFullTextSearchIndex replacement = await Index();
+        Assert.Equal(original.RequireCurrentGeneration(), replacement.RequireCurrentGeneration());
+        Assert.NotEqual(query.IndexInstanceId, replacement.IndexInstanceId);
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(replacement);
+        SemaphoreSlim gate = Assert.IsType<SemaphoreSlim>(typeof(AuthorFullTextSearchIndex)
+            .GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(replacement));
+        await gate.WaitAsync();
+        bool held = true;
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Task pending = operation switch
+        {
+            "inspect" => evaluator.InspectIndexAsync(query, definitions, timeout.Token),
+            "intake" => evaluator.InspectPropertyOperandsAsync(query, definitions, [operand], timeout.Token),
+            "index" => evaluator.RevalidateIndexAsync(query, intake.IndexEvidence, timeout.Token),
+            "source" => evaluator.RevalidateSourceAsync(query, intake.IndexEvidence, new EmptySource(), timeout.Token),
+            _ => evaluator.RevalidatePropertyOperandsAsync(query, intake, definitions, timeout.Token)
+        };
+        try
+        {
+            Assert.False(pending.IsCompleted);
+            gate.Release();
+            held = false;
+            Assert.Equal("author_search_index_read_scope_or_generation_stale",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
+            AuthorSearchQuery fresh = Query(replacement);
+            var current = await evaluator.InspectPropertyOperandsAsync(fresh, definitions, [operand], timeout.Token);
+            Assert.Equal(replacement.IndexInstanceId, current.IndexEvidence.IndexInstanceId);
+            Assert.Equal("author_search_query_evaluation_stale",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
+                    evaluator.RevalidatePropertyOperandsAsync(fresh, intake, definitions, timeout.Token))).Message);
+            await evaluator.RevalidatePropertyOperandsAsync(fresh, current, definitions, timeout.Token);
+        }
+        finally
+        {
+            if (held)
+            {
+                gate.Release();
+            }
+            try
+            {
+                await pending;
+            }
+            catch (AuthorSearchContractException)
+            {
+                // Drain the test-owned read while preserving its checked refusal.
+            }
+        }
+    }
+
+    [Fact]
+    public async Task SourceRevalidationRejectsSnapshotChangedAcrossSourceAwait()
+    {
+        var source = new TombstoneSource();
+        using var index = new AuthorFullTextSearchIndex(source, 42, "primary");
+        while (await index.RebuildStepAsync() is not null)
+        {
+        }
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        AuthorSearchQuery query = Query(index);
+        var evidence = await evaluator.InspectIndexAsync(query, new Dictionary<Guid, ArticlePropertyDefinition>());
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var waiting = new WaitingSource();
+        Task pending = evaluator.RevalidateSourceAsync(query, evidence, waiting, timeout.Token);
+        try
+        {
+            await waiting.Entered.Task.WaitAsync(timeout.Token);
+            Assert.False(pending.IsCompleted);
+            source.Generation = 2;
+            await index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit, timeout.Token);
+            Assert.Equal(evidence.IndexGeneration + 1, index.RequireCurrentGeneration());
+            Assert.Equal(evidence.IndexInstanceId, index.IndexInstanceId);
+            waiting.Release.TrySetResult();
+            Assert.Equal("author_search_index_read_scope_or_generation_stale",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
+            Assert.Equal("author_search_index_read_scope_or_generation_stale",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
+                    evaluator.RevalidateIndexAsync(query, evidence, timeout.Token))).Message);
+            AuthorSearchQuery currentQuery = AuthorFullTextSearchContract.SealQuery(query with
+            {
+                IndexGeneration = index.RequireCurrentGeneration()
+            });
+            var fresh = await evaluator.InspectIndexAsync(currentQuery, new Dictionary<Guid, ArticlePropertyDefinition>(), timeout.Token);
+            Assert.Equal(query.IndexInstanceId, fresh.IndexInstanceId);
+            Assert.Equal(2, fresh.SourceGeneration);
+            await evaluator.RevalidateSourceAsync(currentQuery, fresh, source, timeout.Token);
+        }
+        finally
+        {
+            waiting.Release.TrySetResult();
+            try
+            {
+                await pending;
+            }
+            catch (AuthorSearchContractException)
+            {
+                // Drain verification even if a preceding assertion failed.
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("schema2")]
+    [InlineData("empty-query-instance")]
+    [InlineData("empty-evidence-instance")]
+    public async Task EvaluationRejectsLegacySchemaAndMissingInstance(string fault)
+    {
+        using AuthorFullTextSearchIndex index = await Index();
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        var definitions = new Dictionary<Guid, ArticlePropertyDefinition>();
+        AuthorSearchQuery query = Query(index);
+        var evidence = await evaluator.InspectIndexAsync(query, definitions);
+        AuthorSearchQuery changed = AuthorFullTextSearchContract.SealQuery(query with
+        {
+            SchemaVersion = fault == "schema2" ? 2 : query.SchemaVersion,
+            Schema = fault == "schema2" ? "fsusblog.author-full-text-query.v2" : query.Schema,
+            IndexInstanceId = fault == "empty-query-instance" ? Guid.Empty : query.IndexInstanceId
+        });
+        var changedEvidence = evidence with
+        {
+            QueryDigest = changed.ContentDigest,
+            IndexInstanceId = fault == "empty-evidence-instance" ? Guid.Empty : evidence.IndexInstanceId
+        };
+        Assert.Equal("author_search_query_evaluation_stale",
+            (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
+                evaluator.RevalidateIndexAsync(changed, changedEvidence))).Message);
+        if (fault != "empty-evidence-instance")
+        {
+            await Assert.ThrowsAsync<AuthorSearchContractException>(() => evaluator.InspectIndexAsync(changed, definitions));
+        }
+        await evaluator.RevalidateIndexAsync(query, evidence);
+    }
+
+    [Fact]
+    public async Task TokenCandidatesAndSnapshotGuardsRetainOriginalSemantics()
+    {
+        var source = new TextSource();
+        using var index = new AuthorFullTextSearchIndex(source, 42, "primary");
+        while (await index.RebuildStepAsync() is not null)
+        {
+        }
+        var evaluator = new AuthorFullTextSearchQueryEvaluator(index);
+        var definitions = new Dictionary<Guid, ArticlePropertyDefinition>();
+        AuthorSearchQuery query = Query(index);
+        var evidence = await evaluator.InspectIndexAsync(query, definitions);
+        AuthorSearchTokenCandidate candidate = Assert.Single(evidence.Candidates);
+        Assert.Equal(2, candidate.MatchedRanges);
+        Assert.Equal(0, candidate.PhraseClauses);
+        Assert.Equal(new[] { 0, 10 }, candidate.Ranges.Select(range => range.Utf16Start));
+        await evaluator.RevalidateSourceAsync(query, evidence, source);
+        foreach (AuthorSearchTokenEvaluation stale in new[]
+        {
+            evidence with { SourceGeneration = evidence.SourceGeneration + 1 },
+            evidence with { SnapshotDigest = AuthorFullTextSearchContract.Digest("stale") }
+        })
+        {
+            Assert.Equal("author_search_index_source_snapshot_stale",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() =>
+                    evaluator.RevalidateIndexAsync(query, stale))).Message);
+        }
+        AuthorSearchQuery phrase = AuthorFullTextSearchContract.SealQuery(query with
+        {
+            Clauses = AuthorFullTextSearchContract.ParseClauses("\"red green\"")
+        });
+        AuthorSearchTokenCandidate phraseCandidate = Assert.Single((await evaluator.InspectIndexAsync(phrase, definitions)).Candidates);
+        Assert.Equal(1, phraseCandidate.PhraseClauses);
+        AuthorSearchSourceRange range = Assert.Single(phraseCandidate.Ranges);
+        Assert.Equal(0, range.Utf16Start);
+        Assert.Equal(9, range.Utf16End);
+        Assert.Equal(0, range.Utf8Start);
+        Assert.Equal(9, range.Utf8End);
+    }
+
+    private static AuthorSearchIndexSourcePage TombstonePage(long generation, int afterArticleId)
+        => new(generation, afterArticleId < 1
+            ? [new(1, generation, true, [], new Dictionary<Guid, ArticlePropertyDefinition>())] : [], false);
+
+    private sealed class TextSource : IAuthorFullTextSearchIndexSource
+    {
+        public Task<AuthorSearchIndexSourcePage> ReadAsync(int userId, string siteScope, int afterArticleId,
+            int pageSize, long? expectedSourceGeneration, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            const string Raw = "red green red";
+            string digest = AuthorFullTextSearchContract.Digest(Raw);
+            var document = AuthorFullTextSearchContract.SealDocument(new(
+                AuthorFullTextSearchContract.SchemaVersion, AuthorFullTextSearchContract.DocumentSchema,
+                AuthorFullTextSearchContract.TokenizerVersion, AuthorFullTextSearchContract.IndexOwner,
+                new(1, userId, siteScope, 1, 1, 1, 1, "en", ArticleStatus.Draft,
+                    AuthorSearchScope.CurrentArticle, AuthorSearchPermissionState.Allowed,
+                    AuthorSearchVisibilityScope.AuthorOnly, AuthorFullTextSearchContract.Digest("policy")),
+                new(AuthorSearchFieldKind.MarkdownBody, digest, null, null, null),
+                new(AuthorFullTextSearchContract.SourceCoordinateAuthority, "algorithm-fixture-parser",
+                    "document:1", 1, digest, 0, Raw.Length, 0, Raw.Length), string.Empty));
+            return Task.FromResult(new AuthorSearchIndexSourcePage(1, afterArticleId < 1
+                ? [new(1, 1, false, [new(document, Raw, "algorithm-fixture-parser", "document:1")],
+                    new Dictionary<Guid, ArticlePropertyDefinition>())] : [], false));
+        }
+    }
+
+    private sealed class TombstoneSource : IAuthorFullTextSearchIndexSource
+    {
+        public long Generation { get; set; } = 1;
+
+        public Task<AuthorSearchIndexSourcePage> ReadAsync(int userId, string siteScope, int afterArticleId,
+            int pageSize, long? expectedSourceGeneration, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(TombstonePage(Generation, afterArticleId));
+        }
+    }
+
+    private sealed class WaitingSource : IAuthorFullTextSearchIndexSource
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<AuthorSearchIndexSourcePage> ReadAsync(int userId, string siteScope, int afterArticleId,
+            int pageSize, long? expectedSourceGeneration, CancellationToken cancellationToken)
+        {
+            Assert.Equal(1, expectedSourceGeneration);
+            Entered.TrySetResult();
+            await Release.Task.WaitAsync(cancellationToken);
+            return TombstonePage(1, afterArticleId);
+        }
+    }
+
     private static DateTime Instant() => new(2026, 10, 13, 0, 0, 0, DateTimeKind.Utc);
 
     private static ArticlePropertyDefinition Definition(ArticlePropertyValueType type)
@@ -237,13 +518,13 @@ public sealed class AuthorFullTextSearchPropertyIntakeTests
             ContentDigest = ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition)
         };
 
-    private static AuthorSearchQuery Query()
+    private static AuthorSearchQuery Query(AuthorFullTextSearchIndex index)
         => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.SchemaVersion,
             AuthorFullTextSearchContract.QuerySchema, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
             Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), 42, "primary", 1, 1,
             AuthorSearchScope.CurrentArticle, AuthorFullTextSearchContract.ParseClauses("red"), 10, null,
-            string.Empty, AuthorFullTextSearchContract.Digest("policy")));
+            string.Empty, AuthorFullTextSearchContract.Digest("policy"), index.IndexInstanceId));
 
     private static async Task<AuthorFullTextSearchIndex> Index()
     {
