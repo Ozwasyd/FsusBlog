@@ -4,10 +4,10 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-using Npgsql;
-
-using FsusBlog.Contracts.Schema;
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
+
+using Npgsql;
 
 namespace FsusBlog.Migration;
 

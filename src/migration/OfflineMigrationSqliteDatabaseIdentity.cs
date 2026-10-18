@@ -4,10 +4,10 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 
+using FsusBlog.Contracts.Migration;
+
 using Microsoft.Data.Sqlite;
 using Microsoft.Win32.SafeHandles;
-
-using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration;
 

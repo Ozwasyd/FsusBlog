@@ -6,10 +6,10 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using Npgsql;
-
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.SchemaMigration;
+
+using Npgsql;
 
 namespace FsusBlog.Migration;
 
