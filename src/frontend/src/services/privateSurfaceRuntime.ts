@@ -56,7 +56,8 @@ class PrivateSurfaceRuntime
         this.generationState.value = createOpaqueGeneration();
         privateRequestRuntime.advanceForAuthTransition(reason);
         const previousTransition = this.transition;
-        const currentTransition = (async () =>
+        let currentTransition: Promise<void> | null = null;
+        currentTransition = (async () =>
         {
             if (previousTransition)
             {

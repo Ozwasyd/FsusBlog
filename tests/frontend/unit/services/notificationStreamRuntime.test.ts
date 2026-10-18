@@ -27,8 +27,10 @@ class ManualWebSocket {
   public onmessage: ((message: { data: ArrayBuffer }) => void) | null = null
   public onerror: (() => void) | null = null
   public onclose: ((event: { code: number }) => void) | null = null
+  public readonly url: URL
 
-  constructor(public readonly url: URL) {
+  constructor(url: URL) {
+    this.url = url
     ManualWebSocket.instances.push(this)
   }
 
@@ -180,17 +182,11 @@ describe('resolveNotificationStreamEndpointUrl', () => {
   it('consumes a challenge lease in preflight, keeps proof out of URL, and reissues on reconnect', async () => {
     const fetchMock = vi.mocked(fetch)
     fetchMock
-      .mockResolvedValueOnce({
-        ok: true,
-        headers: new Headers(),
-        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0))
-      } as Response)
-      .mockResolvedValueOnce({
-        ok: false,
+      .mockResolvedValueOnce(new Response(null))
+      .mockResolvedValueOnce(new Response(null, {
         status: 428,
-        headers: new Headers({ 'X-Fsus-Notification-Stream-Error-Code': 'risk_challenge_required' }),
-        arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0))
-      } as Response)
+        headers: { 'X-Fsus-Notification-Stream-Error-Code': 'risk_challenge_required' }
+      }))
     const settle = vi.fn().mockReturnValue(true)
     const runtime = new NotificationStreamRuntime()
     const handshakeFailure = vi.fn()

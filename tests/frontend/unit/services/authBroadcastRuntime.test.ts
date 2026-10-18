@@ -48,8 +48,10 @@ class MockBroadcastChannel {
   static instances: MockBroadcastChannel[] = []
   public messages: unknown[] = []
   private listeners = new Set<(message: MessageEvent) => void>()
+  public readonly name: string
 
-  constructor(public readonly name: string) {
+  constructor(name: string) {
+    this.name = name
     MockBroadcastChannel.instances.push(this)
   }
 
