@@ -65,12 +65,13 @@ function server(snapshot: AuthoringWorkspaceSnapshot): AuthoringWorkspaceSnapsho
         receipt: { ...receipt, contentDigest: workspaceSnapshotDigest(receipt) } };
 }
 
-function createFixture(userScope = 'user:7')
+function createFixture(userScope = 'user:7', sourceRevision = 0)
 {
     fixtureSequence += 1;
     const documentOwner = articleDocumentContextAuthority.acquire({ articleId: fixtureSequence,
         siteScope: 'primary-site', userScope, content: 'selected document' });
     const adapter = documentOwner.adapter;
+    if (sourceRevision > 0) adapter.updateSource(`selected document revision ${sourceRevision}`, sourceRevision);
     const documentContext = adapter.context;
     cleanup.push(() => documentOwner.release());
     const registry = new OpenArticleDocumentRegistry();
@@ -202,6 +203,14 @@ describe('authoring workspace live panel host', () =>
         expect(f.host.assertCurrent(result)).toBe(true);
         expect(f.host.assertCurrent({ ...result })).toBe(false);
         expect(transport.calls).toBe(3);
+    });
+
+    it('observes an explicit nonzero original numeric revision after canonical registry publication', async () =>
+    {
+        const f = createFixture('user:7', 47);
+        expect(await f.host.refreshAuthority()).toBe(true);
+        expect(f.host.observe(createQuery())).toMatchObject({ status: 'observed', binding: { sourceRevision: 47,
+            documentEpoch: f.adapter.context.documentEpoch } });
     });
 
     it('uses native region measurements instead of a caller override or desired size', async () =>
