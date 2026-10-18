@@ -273,7 +273,7 @@ public sealed class AdminAuthenticatedRequestLifetimeTests
             NullLogger<DistributedInvalidationBus>.Instance, services.GetRequiredService<IServiceScopeFactory>());
         await bus.HandlePayloadAsync(JsonSerializer.Serialize(received), default);
         await ledger.Received(1).RecordApplyAsync(Arg.Any<DistributedInvalidationEvent>(), "receiver",
-            DistributedInvalidationInboxApplyState.Applied, null, 1, Arg.Any<CancellationToken>());
+            DistributedInvalidationInboxApplyState.Applied, null, 2, Arg.Any<CancellationToken>());
         Assert.False(lifetime.IsCurrent);
         Assert.True(lifetime.Invalidated.IsCancellationRequested);
     }
