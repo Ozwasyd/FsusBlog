@@ -10,11 +10,13 @@ using Microsoft.Win32.SafeHandles;
 
 namespace FsusBlog.ArticleVault.Observations;
 
-/// <summary>Observes metadata only on a descriptor already issued by the canonical root scope.</summary>
+/// <summary>Owns inode read leases and metadata observations for the canonical root-bound reader.</summary>
 internal static class LinuxVaultSnapshotNative
 {
     private const uint RequiredMask = 0x17df;
     private const int BreakSignal = 29;
+    private const int SetSignalOwner = 15;
+    private const int SetSignal = 10;
     private const int SetLease = 1024;
     private const int GetLease = 1025;
     private const int ReadLock = 0;
@@ -23,7 +25,8 @@ internal static class LinuxVaultSnapshotNative
     // No process-wide handler, signal disposition, thread-pool mask or kernel settings change.
     // F_SETSIG=0 deliberately uses plain SIGIO: no queued-signal exhaustion fallback. Linux
     // F_OWNER_TID preserves thread-directed delivery even for this legacy signal mode.
-    // The dedicated thread stays alive and keeps SIGIO blocked until unlock and close. Thread-directed pending signals die with that thread.
+    // The dedicated thread keeps SIGIO blocked until unlock and close; its pending signals
+    // die with the thread. No await or callback may transfer this lifecycle to another thread.
     internal static void WithReadLease(Func<SafeFileHandle> openDescriptor,
         Action<SafeFileHandle, Action> read, CancellationToken cancellationToken)
     {
@@ -57,7 +60,7 @@ internal static class LinuxVaultSnapshotNative
                         }
 
                         var owner = new SignalOwner { _type = 0, _identity = ThreadIdentity() };
-                        if (SetOwner(fd, 15, ref owner) != 0 || Control(fd, 10, 0) != 0)
+                        if (SetOwner(fd, SetSignalOwner, ref owner) != 0 || Control(fd, SetSignal, 0) != 0)
                         {
                             throw new LinuxVaultWatcherException("vault_snapshot_lease_signal_setup_failed");
                         }
@@ -126,6 +129,7 @@ internal static class LinuxVaultSnapshotNative
         worker.Start();
         worker.Join();
         failure?.Throw();
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private static bool HasPendingBreakSignal(ref SignalSet signals)

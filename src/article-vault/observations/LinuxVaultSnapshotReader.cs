@@ -193,6 +193,11 @@ public sealed class LinuxVaultSnapshotReader
                     throw new LinuxVaultWatcherException("vault_snapshot_native_metadata_or_bytes_changed");
                 }
 
+                if (!second.After.Metadata.IsReadable)
+                {
+                    throw new LinuxVaultWatcherException("vault_snapshot_permission_blocked");
+                }
+
                 if (second.Bytes.Length == 0)
                 {
                     throw new LinuxVaultWatcherException("vault_snapshot_empty_save_unproven");
@@ -322,6 +327,7 @@ public sealed class LinuxVaultSnapshotReader
         {
             cancellationToken.ThrowIfCancellationRequested();
             _scope.RevalidateForUse(descriptor);
+            check?.Invoke();
             int count = RandomAccess.Read(descriptor, bytes.AsSpan(offset, Math.Min(ReadChunkBytes, bytes.Length - offset)), offset);
             if (count == 0)
             {
