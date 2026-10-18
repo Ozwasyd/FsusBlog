@@ -373,6 +373,37 @@ public sealed class AuthoringExtensionProductionPreflight(
             approvedClaim!.OrderedOldTargets, targets, runningGeneration);
     }
 
+    internal async ValueTask<IAuthoringExtensionStateObservation> AcquireSettledStateObservationAsync(
+        VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage,
+        AuthoringFencedStateMigration originalPlan, AuthoringStateMigrationPhase terminalPhase,
+        CancellationToken cancellationToken)
+    {
+        Require(stateStore is IAuthoringExtensionStateObservationStore, "production_state_observation_owner_missing");
+        // Only the original read-only recovery port validates the actual
+        // settlement journal. Never repeat Complete/Apply or backfill a digest.
+        IAuthoringExtensionStateObservation held = await ((IAuthoringExtensionStateObservationStore)stateStore)
+            .ObserveSettledMigrationAsync(oldPackage, newPackage, originalPlan, terminalPhase, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await held.VerifyCurrentAsync(cancellationToken).ConfigureAwait(false);
+            AuthoringStateObservation observed = held.State;
+            ImmutableArray<string> exactScopes = [.. new[] { originalPlan.From, originalPlan.To }
+                .Select(AuthoringExtensionStateContract.ScopeId).Order(StringComparer.Ordinal)];
+            Require(held.AcquiredScopeIds.SequenceEqual(exactScopes) && observed.Phase == terminalPhase
+                && observed.From.Fence is null && observed.To?.Fence is null && observed.To is not null
+                && observed.From.Snapshot.Scope == originalPlan.From && observed.To.Snapshot.Scope == originalPlan.To
+                && observed.From.Snapshot.PackageIdentity == oldPackage.PackageIdentity
+                && observed.To.Snapshot.PackageIdentity == newPackage.PackageIdentity,
+                "production_settled_state_observation_drift");
+            return held;
+        }
+        catch
+        {
+            await held.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
     internal ValueTask<AuthoringLifecycleReceipt?> ReadLatestReceiptAsync(string extensionId, CancellationToken cancellationToken)
         => receipts.GetLatestAsync(extensionId, cancellationToken);
 
