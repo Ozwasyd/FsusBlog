@@ -1,0 +1,4 @@
+  Determining projects to restore...
+/tmp/mem-3464-master/tests/backend/FsusBlog.Server.Tests.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+  Failed to restore /tmp/mem-3464-master/tests/backend/FsusBlog.Server.Tests.csproj (in 117 ms).
+  5 of 6 projects are up-to-date for restore.

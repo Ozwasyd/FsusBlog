@@ -22,6 +22,9 @@
     <Project Path="tests/migration/FsusBlog.Migration.Tests.csproj" />
     <Project Path="benchmarks/core/FsusBlog.Core.Benchmarks.csproj" />
   </Folder>
+  <Folder Name="/Tools/">
+    <Project Path="tools/governance/memory-syntax-observer/FsusBlog.MemorySyntaxObserver.csproj" />
+  </Folder>
   <Folder Name="/Ops/">
     <Project Path="ops/docker/docker-compose.dcproj">
       <Build />

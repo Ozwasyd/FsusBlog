@@ -1,0 +1,21 @@
+{
+  "candidate": "1dec415048d363c3839867b25c886a9f7a260379",
+  "sourceAfter": "1dec415048d363c3839867b25c886a9f7a260379",
+  "runId": "mem-1dec41504-20261008-real-drain",
+  "startedAt": "2026-10-08T12:50:55.621816+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~MemoryCapabilityControllerTests|FullyQualifiedName~MemoryCapabilityOwnerIntegrationTests|FullyQualifiedName~GpuMemoryDeviceTests|FullyQualifiedName~DiskSegmentStoreTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests|FullyQualifiedName~MemoryReservationCoordinatorTests|FullyQualifiedName~MemoryExistingAllocationTests",
+    "--logger",
+    "trx;LogFileName=memory-1dec41504.trx",
+    "--results-directory",
+    ".tmp/memory-integration/1dec41504/test-results"
+  ],
+  "exitCode": 0,
+  "artifact": ".tmp/memory-integration/1dec41504/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/1dec41504/data"
+}
