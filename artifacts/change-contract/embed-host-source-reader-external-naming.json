@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleEmbedHostSourceReader.cs",
+                "tests/backend/Unit/ArticleEmbedHostSourceReaderTests.cs"
+            ],
+            "reason": "Preserve canonical administrator claim, registered service, persisted draft and permission contract spellings in the host source adapter and its PostgreSQL controls. No process environment key or naming policy is introduced."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve existing public API, database and permission spellings when documenting the read-only host source capability. No CSS selector, token or naming policy is introduced."
+        }
+    ]
+}
