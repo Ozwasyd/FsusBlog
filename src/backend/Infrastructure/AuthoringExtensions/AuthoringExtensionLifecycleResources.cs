@@ -1081,6 +1081,8 @@ public sealed class AuthoringExtensionLifecycleResources(
                 {
                     _disposing = false;
                     _releaseFailure ??= exception;
+                    _hostReport = null;
+                    _report = null;
                 }
                 throw;
             }
