@@ -391,6 +391,79 @@ public sealed class ArticleTemplateExpansionIntegrationTests(PostgresSchemaMigra
                 plan.Input.TemplateId, plan.VersionId, plan, legacyDigest)).Code);
     }
 
+    [Theory]
+    [InlineData("empty")]
+    [InlineData("title")]
+    [InlineData("summary")]
+    [InlineData("category")]
+    [InlineData("tags")]
+    [InlineData("assets")]
+    [InlineData("property-value")]
+    [InlineData("rights")]
+    [InlineData("responsibility")]
+    [InlineData("prepublish")]
+    public async Task DefaultsReplacement_IsRejectedBeforeTheCreateWriter(string mutation)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        PropertyPlanContext context = await CreatePropertyPlanAsync(db, ArticlePropertyValueType.Number);
+        var input = new ArticleTemplateExpansionInput(s_writer, context.Input.TemplateId, context.Input.VersionId,
+            null, context.Input.BusinessTimeUtc, context.Input.TimeZoneId, context.Input.LocaleCode);
+        ArticleTemplateExpansionPlan original = await context.Planner.PlanAsync(input);
+        ArticleTemplatePropertyDefault property = Assert.Single(original.Defaults.PropertyDefaults);
+        var replacement = new ArticleTemplateDefaults(
+            titlePlaceholder: mutation == "title" ? "Unsealed title" : null,
+            summaryPlaceholder: mutation == "summary" ? "Unsealed summary" : null,
+            categoryId: mutation == "category" ? 777 : null,
+            tagIds: mutation == "tags" ? [777] : [],
+            assetIds: mutation == "assets" ? [FsusBlog.Server.Contracts.Assets.AssetId.FromGuid(Guid.CreateVersion7())] : [],
+            propertyDefaults: mutation == "property-value"
+                ? [new(property.DefinitionId, property.ValueKind, "1")] : [],
+            rightsProfile: mutation == "rights" ? new(Guid.CreateVersion7(), 1) : null,
+            responsibilityProfile: mutation == "responsibility" ? new(Guid.CreateVersion7(), 1) : null,
+            prepublishProfile: mutation == "prepublish" ? new(Guid.CreateVersion7(), 1) : null);
+        ArticleTemplateExpansionPlan candidate = WithDefaults(original, replacement, original.DefaultsDigest);
+        Assert.Same(original.Dependencies, candidate.Dependencies);
+        Assert.Equal(original.DefaultsDigest, candidate.DefaultsDigest);
+        Assert.Single(candidate.Dependencies.PropertyPins);
+
+        ArticleTemplateVerificationResult ordinary = await context.Verifier.VerifyAsync(candidate);
+        ArticleTemplateVerificationResult current = await context.Verifier.VerifyAsync(candidate, s_writer, context.Definition.Owner);
+        IArticleCreatePersistence writer = Substitute.For<IArticleCreatePersistence>();
+        var create = new ArticleCreateStore(writer, context.Verifier);
+        Exception? refusal = await Record.ExceptionAsync(() => create.CreateAsync(new(s_writer, Guid.CreateVersion7(),
+            ArticleCreateMode.Template, candidate.Input.TemplateId, candidate.VersionId, candidate, candidate.ContentDigest)));
+        int writerCalls = writer.ReceivedCalls().Count(static call => call.GetMethodInfo().Name == nameof(IArticleCreatePersistence.ExecuteAsync));
+
+        Assert.True(!ordinary.Valid && !current.Valid && writerCalls == 0 && refusal is ArticleCreateException,
+            $"Defaults substitution: sameSeal={original.ContentDigest == candidate.ContentDigest}; "
+            + $"ordinaryValid={ordinary.Valid}; currentValid={current.Valid}; writerCalls={writerCalls}; refusal={refusal?.GetType().Name ?? "none"}");
+        Assert.NotEqual(original.ContentDigest, candidate.ContentDigest);
+        Assert.Contains(ordinary.Violations, static violation => violation.Code == "expansion_plan_defaults_digest_mismatch");
+        await writer.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default!, default!);
+    }
+
+    [Fact]
+    public async Task DefaultsReplacement_WithARecomputedDeclarationStillCannotReplaceCanonicalDependencies()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        PropertyPlanContext context = await CreatePropertyPlanAsync(db, ArticlePropertyValueType.Number);
+        ArticleTemplateExpansionPlan original = await context.Planner.PlanAsync(context.Input);
+        var replacement = new ArticleTemplateDefaults(summaryPlaceholder: "Resealed summary");
+        ArticleTemplateExpansionPlan candidate = WithDefaults(original, replacement, ArticleTemplateContract.ComputeDefaultsDigest(replacement));
+
+        Assert.Same(original.Dependencies, candidate.Dependencies);
+        Assert.NotEqual(original.ContentDigest, candidate.ContentDigest);
+        ArticleTemplateVerificationResult result = await context.Verifier.VerifyAsync(candidate);
+        Assert.False(result.Valid);
+        Assert.Contains(result.Violations, static violation => violation.Code == "expansion_plan_recompute_mismatch");
+    }
+
+    private static ArticleTemplateExpansionPlan WithDefaults(
+        ArticleTemplateExpansionPlan plan, ArticleTemplateDefaults defaults, string declaredDigest)
+        => new(plan.Input, plan.VersionId, plan.VersionNumber, plan.TemplateRevision, plan.Scope,
+            plan.ExpandedSource, plan.ExpandedSourceDigest, defaults, declaredDigest, plan.Dependencies,
+            plan.Warnings, plan.IssuedAtUtc, plan.ExpiresAtUtc);
+
     private static readonly Guid s_optionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private static ArticlePropertyValueValidator PropertyValidator(ArticlePropertyDefinitionStore definitions)
