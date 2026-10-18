@@ -376,3 +376,134 @@ test('CLI rejects unknown options and emits a real nonqualifying original-input 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).qualificationEligible, false);
 });
+
+// Preserve the checkpoint's original inspector controls above. These explicit
+// text-node mutations exercise the P2 at every supported structural boundary.
+const feffTextCases = [
+    ['central scalar before', central, '>true<', '>\uFEFFtrue<'],
+    ['central scalar inside', central, '>true<', '>tr\uFEFFue<'],
+    ['central scalar after', central, '>true<', '>true\uFEFF<'],
+    ['project scalar before', project, '>net10.0<', '>\uFEFFnet10.0<'],
+    ['project scalar inside', project, '>net10.0<', '>net\uFEFF10.0<'],
+    ['project scalar after', project, '>net10.0<', '>net10.0\uFEFF<'],
+    ['central root before groups', central, '<Project>', '<Project>\uFEFF'],
+    ['central root between groups', central, '</PropertyGroup>', '</PropertyGroup>\uFEFF'],
+    ['central root after groups', central, '</ItemGroup>', '</ItemGroup>\uFEFF'],
+    ['central properties before scalar', central, '<PropertyGroup>', '<PropertyGroup>\uFEFF'],
+    ['central properties after scalar', central, '</ManagePackageVersionsCentrally>', '</ManagePackageVersionsCentrally>\uFEFF'],
+    ['central items before packages', central, '<ItemGroup>', '<ItemGroup>\uFEFF'],
+    ['central items between packages', central, '<PackageVersion Include="AngleSharp" Version="1.5.0" />', '<PackageVersion Include="AngleSharp" Version="1.5.0" />\uFEFF'],
+    ['central items after packages', central, '</ItemGroup>', '\uFEFF</ItemGroup>'],
+    ['central empty package text', central, '<PackageVersion Include="AngleSharp" Version="1.5.0" />', '<PackageVersion Include="AngleSharp" Version="1.5.0">\uFEFF</PackageVersion>'],
+    ['project root before groups', project, '<Project Sdk="Microsoft.NET.Sdk">', '<Project Sdk="Microsoft.NET.Sdk">\uFEFF'],
+    ['project root between groups', project, '</PropertyGroup>', '</PropertyGroup>\uFEFF'],
+    ['project root after groups', project, '</Project>', '\uFEFF</Project>'],
+    ['project properties before scalars', project, '<PropertyGroup>', '<PropertyGroup>\uFEFF'],
+    ['project properties after scalars', project, '</ImplicitUsings>', '</ImplicitUsings>\uFEFF'],
+    ['project items before packages', project, '<ItemGroup>\n    <PackageReference', '<ItemGroup>\uFEFF\n    <PackageReference'],
+    ['project items between packages', project, '<PackageReference Include="AngleSharp" />', '<PackageReference Include="AngleSharp" />\uFEFF'],
+    ['project items after packages', project, '<PackageReference Include="SqlSugarCoreNoDrive" />\n  </ItemGroup>', '<PackageReference Include="SqlSugarCoreNoDrive" />\n  \uFEFF</ItemGroup>'],
+    ['project empty package text', project, '<PackageReference Include="AngleSharp" />', '<PackageReference Include="AngleSharp">\uFEFF</PackageReference>'],
+    ['project empty reference text', project, '<ProjectReference Include="..\\shared\\FsusBlog.Shared.csproj" />', '<ProjectReference Include="..\\shared\\FsusBlog.Shared.csproj">\uFEFF</ProjectReference>']
+];
+
+function dispatchCurrentMsbuild(f)
+{
+    const source = fs.readFileSync(path.join(repository, 'tools/test-matrix/source-governance.mjs'), 'utf8');
+    const start = source.indexOf('    const msbuildFiles = evidence.changedFiles.filter');
+    const end = source.indexOf('    const solutions =', start);
+    assert.ok(start > 0 && end > start);
+    const context = { root: f.root, evidence: { changedFiles: [...msbuildSourceFiles],
+        headCommit: f.git('rev-parse', 'HEAD').toString().trim() }, msbuildSourceFiles,
+    inspectMsbuildSource, validateMsbuildSourceReceipt, process: { exitCode: 0 }, results: [], checkedMsbuild: [] };
+    vm.runInNewContext(source.slice(start, end), context);
+    return context;
+}
+
+for (const [index, [name, file, before, after]] of feffTextCases.entries())
+{
+    test(`XML whitespace P2 ${String(index + 1).padStart(2, '0')}: U+FEFF ${name} refuses inspection, reopen and dispatch`, t =>
+    {
+        const f = fixture(t);
+        const originalReceipt = f.inspect();
+        const source = original.get(file).toString();
+        assert.equal(source.split(before).length, 2, 'the mutation must bind one original declaration');
+        f.write(file, source.replace(before, after));
+        const head = f.commit();
+        assert.throws(() => f.inspect(), /unsupported MSBuild construct or value/u);
+        // This is a real original-input receipt, not a constructed receipt for the
+        // hostile input. Reopen must reject the XML before comparing stale fields.
+        assert.throws(() => validateMsbuildSourceReceipt({ repositoryRoot: f.root,
+            files: [...msbuildSourceFiles], expectedHead: head, receipt: originalReceipt }), /unsupported MSBuild construct or value/u);
+        const actual = dispatchCurrentMsbuild(f);
+        assert.equal(actual.process.exitCode, 1);
+        assert.equal(actual.checkedMsbuild.length, 0);
+        assert.equal(actual.results[0].status, 'failure');
+        assert.equal(actual.results[0].qualificationEligible, false);
+        assert.equal(actual.results[0].receipt, null);
+        assert.match(actual.results[0].bindingError, /unsupported MSBuild construct or value/u);
+        assert.deepEqual(unsupportedSourceStageFiles([...msbuildSourceFiles], [], [], [], [], actual.checkedMsbuild), [...msbuildSourceFiles]);
+    });
+}
+
+// Complete ECMAScript trim whitespace outside XML 1.0 S. VT and FF are invalid
+// XML; the other code points are valid characters but never XML whitespace.
+const nonXmlTrimCodePoints = [0x000b, 0x000c, 0x00a0, 0x1680,
+    0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a,
+    0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff];
+
+test('XML whitespace rejects every JavaScript-trim-only character before, inside and after scalar text', t =>
+{
+    const f = fixture(t);
+    for (const point of nonXmlTrimCodePoints)
+    {
+        const character = String.fromCodePoint(point);
+        assert.equal(character.trim(), '', 'control must expose JavaScript trim semantics');
+        for (const value of [`${character}true`, `tr${character}ue`, `true${character}`])
+        {
+            f.write(central, original.get(central).toString().replace('>true<', `>${value}<`));
+            f.commit();
+            assert.throws(() => f.inspect(), /unsupported MSBuild construct or value|MSBuild XML refused/u,
+                `U+${point.toString(16).toUpperCase()} ${JSON.stringify(value)}`);
+        }
+    }
+});
+
+test('XML whitespace preserves exactly space, tab, CR and LF in both genuine supported input grammars', t =>
+{
+    const f = fixture(t);
+    for (const approved of [false, true])
+    {
+        for (const whitespace of [' ', '\t', '\r', '\n', ' \t\r\n'])
+        {
+            for (const file of msbuildSourceFiles)
+            {
+                let source = original.get(file).toString();
+                if (approved && file === central)
+                {
+                    source = source.replace('MessagePack" Version="2.5.301', 'MessagePack" Version="2.5.307');
+                }
+                if (approved && file === project)
+                {
+                    source = source.replace('<PackageReference Include="MySqlConnector"',
+                        '<PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />\n    <PackageReference Include="MySqlConnector"');
+                }
+                source = source.replace(/>([^<]*)</gu, (match, value) => `>${whitespace}${value}${whitespace}<`);
+                f.write(file, `${whitespace}${source}${whitespace}`);
+            }
+            const head = f.commit();
+            const actual = f.inspect();
+            assert.equal(actual.status, 'success');
+            assert.equal(actual.qualificationEligible, false);
+            assert.equal(actual.sources[0].packages.length, 47);
+            assert.equal(actual.sources[0].packages.find(value => value.id === 'MessagePack').version,
+                approved ? '2.5.307' : '2.5.301');
+            assert.equal(actual.sources[1].packageReferences.includes('SQLitePCLRaw.lib.e_sqlite3'), approved);
+            assert.deepEqual(validateMsbuildSourceReceipt({ repositoryRoot: f.root,
+                files: [...msbuildSourceFiles], expectedHead: head, receipt: actual }), actual);
+            const dispatched = dispatchCurrentMsbuild(f);
+            assert.equal(dispatched.process.exitCode, 0);
+            assert.deepEqual([...dispatched.checkedMsbuild], [...msbuildSourceFiles]);
+        }
+    }
+});

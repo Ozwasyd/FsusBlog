@@ -107,7 +107,7 @@ def end(name):
 def text(value):
     if stack:
         stack[-1]["text"] += value
-    elif value.strip():
+    elif value.strip(" \t\r\n"):
         raise ValueError("text outside root")
 parser = expat.ParserCreate()
 parser.StartElementHandler = start
@@ -248,7 +248,10 @@ function parseXml(held, parser)
 
 function element(node, name, attributes, text = '')
 {
-    if (node?.name !== name || !isDeepStrictEqual(node.attributes, attributes) || node.text.trim() !== text)
+    // XML 1.0 S is only space, tab, CR and LF. JavaScript trim also erases
+    // non-XML characters such as U+FEFF, hiding unsupported literal content.
+    if (node?.name !== name || !isDeepStrictEqual(node.attributes, attributes)
+        || node.text.replace(/^[\t\n\r ]+|[\t\n\r ]+$/gu, '') !== text)
     {
         throw new Error(`unsupported MSBuild construct or value: expected ${name}`);
     }
