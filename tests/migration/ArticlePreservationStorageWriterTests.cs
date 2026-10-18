@@ -86,7 +86,13 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection();
         using var transaction = new TestTransaction(connection);
         ArticlePreservationStorageRow row = Row();
-        row = row with { Columns = row.Columns.SetItem(1, row.Columns[1] with { DataType = "uuid" }) };
+        row = row with
+        {
+            Columns = row.Columns.SetItem(1, row.Columns[1] with
+            {
+                DataType = "uuid"
+            })
+        };
         await Assert.ThrowsAsync<InvalidOperationException>(() => ArticlePreservationStorageWriter.StageRowsAsync(
             [row], connection, transaction, s_limits, default));
         Assert.Empty(connection.Commands);
@@ -109,7 +115,10 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection();
         using var transaction = new TestTransaction(connection);
         ArticlePreservationStorageRow row = Row();
-        row = row with { Columns = row.Columns.RemoveAt(3) };
+        row = row with
+        {
+            Columns = row.Columns.RemoveAt(3)
+        };
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, s_limits, default));
         Assert.Equal("article_preservation_native_initial_pointer_shape_invalid", failure.Message);
@@ -147,10 +156,14 @@ public sealed class ArticlePreservationStorageWriterTests
     [Fact]
     public async Task ExistingCountAloneCannotApproveAMissingOrChangedGraph()
     {
-        using var connection = new TestConnection { ExistingCount = 1, ReaderRows = [Row() with
+        using var connection = new TestConnection
+        {
+            ExistingCount = 1,
+            ReaderRows = [Row() with
         {
             Columns = Row().Columns.SetItem(1, Row().Columns[1] with { Value = "different actual text" })
-        }] };
+        }]
+        };
         using var transaction = new TestTransaction(connection);
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             ArticlePreservationStorageWriter.StageRowsAsync([Row()], connection, transaction, s_limits, default));
@@ -219,13 +232,31 @@ public sealed class ArticlePreservationStorageWriterTests
     private sealed class TestConnection : DbConnection
     {
         public List<TestCommand> Commands { get; } = [];
-        public long ExistingCount { get; init; }
+        public long ExistingCount
+        {
+            get; init;
+        }
         public ImmutableArray<ArticlePreservationStorageRow> ReaderRows { get; init; } = [];
-        public bool FailCommandDisposal { get; init; }
-        public CancellationTokenSource? CancelOnWrite { get; init; }
-        public int Writes { get; set; }
-        public int Opens { get; private set; }
-        public int Closes { get; private set; }
+        public bool FailCommandDisposal
+        {
+            get; init;
+        }
+        public CancellationTokenSource? CancelOnWrite
+        {
+            get; init;
+        }
+        public int Writes
+        {
+            get; set;
+        }
+        public int Opens
+        {
+            get; private set;
+        }
+        public int Closes
+        {
+            get; private set;
+        }
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string ConnectionString { get; set; } = string.Empty;
         public override string Database => "unit";
@@ -246,14 +277,27 @@ public sealed class ArticlePreservationStorageWriterTests
 
     private sealed class TestTransaction(TestConnection connection) : DbTransaction
     {
-        public int Commits { get; private set; }
-        public int Rollbacks { get; private set; }
-        public int Disposals { get; private set; }
+        public int Commits
+        {
+            get; private set;
+        }
+        public int Rollbacks
+        {
+            get; private set;
+        }
+        public int Disposals
+        {
+            get; private set;
+        }
         public override IsolationLevel IsolationLevel => IsolationLevel.RepeatableRead;
         protected override DbConnection DbConnection => connection;
         public override void Commit() => Commits++;
         public override void Rollback() => Rollbacks++;
-        protected override void Dispose(bool disposing) { Disposals++; base.Dispose(disposing); }
+        protected override void Dispose(bool disposing)
+        {
+            Disposals++;
+            base.Dispose(disposing);
+        }
     }
 
     private sealed class TestCommand(TestConnection? connection) : DbCommand
@@ -261,24 +305,47 @@ public sealed class ArticlePreservationStorageWriterTests
         private readonly NpgsqlCommand _parameterOwner = new();
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string CommandText { get; set; } = string.Empty;
-        public override int CommandTimeout { get; set; }
-        public override CommandType CommandType { get; set; }
-        public override bool DesignTimeVisible { get; set; }
-        public override UpdateRowSource UpdatedRowSource { get; set; }
+        public override int CommandTimeout
+        {
+            get; set;
+        }
+        public override CommandType CommandType
+        {
+            get; set;
+        }
+        public override bool DesignTimeVisible
+        {
+            get; set;
+        }
+        public override UpdateRowSource UpdatedRowSource
+        {
+            get; set;
+        }
         protected override DbConnection? DbConnection { get; set; } = connection;
-        protected override DbTransaction? DbTransaction { get; set; }
+        protected override DbTransaction? DbTransaction
+        {
+            get; set;
+        }
         protected override DbParameterCollection DbParameterCollection => _parameterOwner.Parameters;
         public override void Cancel() => throw new NotSupportedException();
-        public override void Prepare() { }
+        public override void Prepare()
+        {
+        }
         protected override DbParameter CreateDbParameter() => new NpgsqlParameter();
         public override object ExecuteScalar() => connection!.ExistingCount;
-        public override int ExecuteNonQuery() { connection!.Writes++; connection.CancelOnWrite?.Cancel(); return 1; }
+        public override int ExecuteNonQuery()
+        {
+            connection!.Writes++;
+            connection.CancelOnWrite?.Cancel();
+            return 1;
+        }
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
             var table = new DataTable();
             ArticlePreservationStorageColumn[] columns = connection!.ReaderRows[0].Columns.OrderByDescending(static column => column.IsPrimaryKey)
                 .ThenBy(static column => column.Name, StringComparer.Ordinal).ToArray();
-            foreach (ArticlePreservationStorageColumn column in columns) table.Columns.Add(column.Name, column.Value!.GetType());
+            foreach (ArticlePreservationStorageColumn column in columns)
+                table.Columns.Add(column.Name, column.Value!.GetType());
             foreach (ArticlePreservationStorageRow row in connection.ReaderRows)
                 table.Rows.Add(columns.Select(column => row.Columns.Single(value => value.Name == column.Name).Value).ToArray());
             return table.CreateDataReader();
@@ -290,6 +357,11 @@ public sealed class ArticlePreservationStorageWriterTests
                 ? ValueTask.FromException(new InvalidOperationException("fixture_private_disposal_detail"))
                 : ValueTask.CompletedTask;
         }
-        protected override void Dispose(bool disposing) { if (disposing) _parameterOwner.Dispose(); base.Dispose(disposing); }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                _parameterOwner.Dispose();
+            base.Dispose(disposing);
+        }
     }
 }
