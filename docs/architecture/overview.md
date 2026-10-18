@@ -66,6 +66,30 @@ current-context admission, including its last snapshot with unchanged bytes and
 digest. The historical readonly context remains available for lifecycle evidence;
 consumers must use the owner predicate rather than infer currentness from it.
 
+## Bounded Linux memory observations
+
+`LinuxCgroupTimedObservationReader` borrows the existing
+`LinuxCgroupDirectoryReader` for exactly one scalar or v1 `memory.stat` capture.
+The directory owner still validates descriptors, selects files and parses native
+values. The wrapper retains scalar unlimited-limit meaning and v1 local,
+hierarchical-total or hierarchical-limit scope and units without mapping them to
+another controller version. It does not add a registry, sampler or governor.
+
+Each attempted capture records its actual UTC and monotonic start/end and both
+observed timestamp frequencies. A positive caller-supplied duration bound applies
+to both clocks; integer comparison preserves its inclusive monotonic boundary.
+Discontinuity, frequency drift or excessive duration yields Stale with no value
+or unlimited-limit assertion. This validates a completed synchronous operation;
+it does not interrupt or impose a native I/O timeout. Disabled performs no owner
+capture or clock reads. Scratch is cleared even on exceptions, while the caller
+retains the borrowed reader's lifetime.
+
+Native unavailable states remain unavailable. Captures retain NotVerified and
+provide no process-membership, matching ancestor, pressure-rate or growth
+authority. Synthetic descriptor rejection and readable native cgroup observations
+are separate evidence; neither supplies live v1, Windows/macOS, full memory
+pressure, governor, or release/runtime qualification.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:
