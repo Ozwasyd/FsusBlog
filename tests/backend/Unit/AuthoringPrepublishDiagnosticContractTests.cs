@@ -611,6 +611,8 @@ public sealed class AuthoringPrepublishDiagnosticContractTests
             var empty = new AuthoringPrepublishDiagnosticRegistry(
                 AuthoringExtensionContractValidator.CreateRegistry([], new([], [], [], [], [])), [], [], []);
             Assert.Empty(empty.CoreResults);
+            Assert.Empty(empty.ExpectedDiagnostics.Registrations);
+            Assert.Empty(empty.ValidateOutcomeCoverage(empty.ExpectedDiagnostics, [], s_now).Slots);
             return;
         }
 
@@ -623,11 +625,261 @@ public sealed class AuthoringPrepublishDiagnosticContractTests
         AuthoringExtensionRegistrySnapshot extensions = ExtensionRegistry(manifest);
         var registry = new AuthoringPrepublishDiagnosticRegistry(extensions, contributions, policies, [fixture.Core]);
         Assert.Equal(contributions[^1], registry.Get(contributions[^1].DiagnosticId));
+        Assert.Equal(count, registry.ExpectedDiagnostics.Registrations.Length);
+        AuthoringDiagnosticOutcomeCoverage coverage = registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics, [], s_now);
+        Assert.Equal(count, coverage.Slots.Length);
+        Assert.All(coverage.Slots, static slot => Assert.Equal(AuthoringDiagnosticOutcomeStatus.RequiredUnavailable, slot.Status));
         if (count == 1000)
         {
             Assert.Throws<AuthoringExtensionContractException>(() => new AuthoringPrepublishDiagnosticRegistry(
                 extensions, [.. contributions, contributions[0]], [.. policies, policies[0]], [fixture.Core]));
         }
+    }
+
+    [Fact]
+    public void ExpectedRoster_IsCompleteCanonicalAndBoundToHostPolicy()
+    {
+        AuthoringPrepublishDiagnosticRegistry registry = CreateRosterRegistry();
+        AuthoringDiagnosticExpectedRoster roster = registry.ExpectedDiagnostics;
+        Assert.Equal(1, roster.SchemaVersion);
+        Assert.Equal(registry.RegistrySha256, roster.RegistrySha256);
+        Assert.Equal(64, roster.RosterSha256.Length);
+        Assert.Equal(["acme.check.links", "acme.check.optional"], roster.Registrations.Select(static entry => entry.DiagnosticId));
+        Assert.Equal([true, false], roster.Registrations.Select(static entry => entry.Required));
+        AuthoringPrepublishDiagnosticInput input = Input(registry);
+        Assert.Equal(input.ContributionSha256, roster.Registrations[0].ContributionSha256);
+        Assert.Equal(input.PolicySha256, roster.Registrations[0].PolicySha256);
+
+        AuthoringDiagnosticExpectedRoster reorderedConstruction = CreateRosterRegistry(reverse: true).ExpectedDiagnostics;
+        Assert.Equal(roster.RosterSha256, reorderedConstruction.RosterSha256);
+        Assert.Equal(roster.Registrations, reorderedConstruction.Registrations);
+
+        ImmutableArray<AuthoringDiagnosticExpectedRegistration> changed = roster.Registrations.SetItem(0,
+            roster.Registrations[0] with
+            {
+                Required = false
+            });
+        Assert.True(registry.ExpectedDiagnostics.Registrations[0].Required);
+        Assert.False(changed[0].Required);
+        AuthoringDiagnosticOutcomeCoverage copied = registry.ValidateOutcomeCoverage(roster with
+        {
+            Registrations = [.. roster.Registrations]
+        }, [], s_now);
+        Assert.Same(roster, copied.ExpectedDiagnostics);
+    }
+
+    [Fact]
+    public void Coverage_EmptyRegisteredRosterIsDifferentFromMissingRegisteredOutcomes()
+    {
+        var empty = new AuthoringPrepublishDiagnosticRegistry(
+            AuthoringExtensionContractValidator.CreateRegistry([], new([], [], [], [], [])), [], [], []);
+        AuthoringDiagnosticOutcomeCoverage noRegistrations = empty.ValidateOutcomeCoverage(empty.ExpectedDiagnostics, [], s_now);
+        Assert.Empty(noRegistrations.ExpectedDiagnostics.Registrations);
+        Assert.Empty(noRegistrations.Slots);
+        Assert.True(noRegistrations.HasAllOutcomes);
+
+        AuthoringPrepublishDiagnosticRegistry registry = CreateRosterRegistry();
+        AuthoringDiagnosticOutcomeCoverage missing = registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics, [], s_now);
+        Assert.False(missing.HasAllOutcomes);
+        Assert.Equal(2, missing.Slots.Length);
+        Assert.All(missing.Slots, static slot =>
+        {
+            Assert.True(slot.IsAbsent);
+            Assert.Null(slot.Outcome);
+        });
+        Assert.True(missing.Slots[0].Registration.Required);
+        Assert.Equal(AuthoringDiagnosticOutcomeStatus.RequiredUnavailable, missing.Slots[0].Status);
+        Assert.False(missing.Slots[1].Registration.Required);
+        Assert.Equal(AuthoringDiagnosticOutcomeStatus.OptionalNotEvaluable, missing.Slots[1].Status);
+        Assert.Equal(Digest('f'), Assert.Single(registry.CoreResults).ResultSha256);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Coverage_OmittedRequiredAndOptionalUseOriginalHostRequiredness(bool omitRequired)
+    {
+        AuthoringPrepublishDiagnosticRegistry registry = CreateRosterRegistry();
+        string suppliedId = omitRequired ? "acme.check.optional" : "acme.check.links";
+        AuthoringPrepublishDiagnosticResult supplied = NoFindings(registry, suppliedId);
+        AuthoringDiagnosticOutcomeCoverage coverage = registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics, [supplied], s_now);
+        AuthoringDiagnosticOutcomeSlot missing = Assert.Single(coverage.Slots, static slot => slot.IsAbsent);
+        Assert.Equal(omitRequired, missing.Registration.Required);
+        Assert.Equal(omitRequired ? AuthoringDiagnosticOutcomeStatus.RequiredUnavailable :
+            AuthoringDiagnosticOutcomeStatus.OptionalNotEvaluable, missing.Status);
+        Assert.Null(missing.Outcome);
+        Assert.False(coverage.HasAllOutcomes);
+        Assert.Equal(AuthoringDiagnosticOutcomeStatus.NoFindings,
+            Assert.Single(coverage.Slots, static slot => !slot.IsAbsent).Status);
+    }
+
+    [Fact]
+    public void Coverage_CompleteResultsAreCanonicalAndPresenceDoesNotMeanSuccess()
+    {
+        AuthoringPrepublishDiagnosticRegistry registry = CreateRosterRegistry();
+        AuthoringPrepublishDiagnosticResult required = NoFindings(registry, "acme.check.links");
+        AuthoringPrepublishDiagnosticResult optional = NoFindings(registry, "acme.check.optional");
+        AuthoringDiagnosticOutcomeCoverage complete = registry.ValidateOutcomeCoverage(
+            registry.ExpectedDiagnostics, [optional, required], s_now);
+        Assert.True(complete.HasAllOutcomes);
+        Assert.Equal(registry.ExpectedDiagnostics.Registrations,
+            complete.Slots.Select(static slot => slot.Registration).ToImmutableArray());
+        Assert.All(complete.Slots, static slot => Assert.False(slot.IsAbsent));
+
+        AuthoringPrepublishDiagnosticResult failedRequired = registry.Unavailable(required.Input, AuthoringDiagnosticUnavailableReason.Crashed);
+        AuthoringPrepublishDiagnosticResult failedOptional = registry.Unavailable(optional.Input, AuthoringDiagnosticUnavailableReason.Disabled);
+        AuthoringDiagnosticOutcomeCoverage failures = registry.ValidateOutcomeCoverage(
+            registry.ExpectedDiagnostics, [failedRequired, failedOptional], required.Input.Context.Deadline);
+        Assert.True(failures.HasAllOutcomes);
+        Assert.Equal(AuthoringDiagnosticOutcomeStatus.RequiredUnavailable, failures.Slots[0].Status);
+        Assert.Equal(AuthoringDiagnosticOutcomeStatus.OptionalNotEvaluable, failures.Slots[1].Status);
+        Assert.All(failures.Slots, static slot => Assert.Empty(slot.Outcome!.Facts));
+    }
+
+    [Theory]
+    [InlineData("schema")]
+    [InlineData("registry")]
+    [InlineData("digest")]
+    [InlineData("default")]
+    [InlineData("empty")]
+    [InlineData("missing-required")]
+    [InlineData("duplicate")]
+    [InlineData("unknown")]
+    [InlineData("order")]
+    [InlineData("requiredness")]
+    [InlineData("contribution")]
+    [InlineData("policy")]
+    [InlineData("null")]
+    public void Coverage_RejectsIncompleteDuplicateOrTamperedExpectedRoster(string mutation)
+    {
+        AuthoringPrepublishDiagnosticRegistry registry = CreateRosterRegistry();
+        AuthoringDiagnosticExpectedRoster roster = registry.ExpectedDiagnostics;
+        AuthoringDiagnosticExpectedRegistration required = roster.Registrations[0];
+        AuthoringDiagnosticExpectedRegistration optional = roster.Registrations[1];
+        AuthoringDiagnosticExpectedRoster changed = mutation switch
+        {
+            "schema" => roster with { SchemaVersion = 2 },
+            "registry" => roster with { RegistrySha256 = Digest('0') },
+            "digest" => roster with { RosterSha256 = Digest('0') },
+            "default" => roster with { Registrations = default },
+            "empty" => roster with { Registrations = [] },
+            "missing-required" => roster with { Registrations = [optional] },
+            "duplicate" => roster with { Registrations = [required, required] },
+            "unknown" => roster with { Registrations = [required with { DiagnosticId = "unknown.diagnostic" }, optional] },
+            "order" => roster with { Registrations = [optional, required] },
+            "requiredness" => roster with { Registrations = [required with { Required = false }, optional] },
+            "contribution" => roster with { Registrations = [required with { ContributionSha256 = Digest('0') }, optional] },
+            "policy" => roster with { Registrations = [required with { PolicySha256 = Digest('0') }, optional] },
+            "null" => roster with { Registrations = [null!, optional] },
+            _ => throw new ArgumentOutOfRangeException(nameof(mutation))
+        };
+
+        Assert.Throws<AuthoringExtensionContractException>(() => registry.ValidateOutcomeCoverage(changed, [], s_now));
+    }
+
+    [Fact]
+    public void Coverage_HostPolicyChangeInvalidatesRosterAndPreviousOutcomes()
+    {
+        Fixture fixture = CreateFixture();
+        AuthoringPrepublishDiagnosticRegistry previous = fixture.Registry();
+        AuthoringPrepublishDiagnosticRegistry current = (fixture with
+        {
+            Policy = fixture.Policy with
+            {
+                Required = false
+            }
+        }).Registry();
+        Assert.NotEqual(previous.ExpectedDiagnostics.RosterSha256, current.ExpectedDiagnostics.RosterSha256);
+        Assert.Throws<AuthoringExtensionContractException>(() => current.ValidateOutcomeCoverage(previous.ExpectedDiagnostics, [], s_now));
+        Assert.Throws<AuthoringExtensionContractException>(() => current.ValidateOutcomeCoverage(previous.ExpectedDiagnostics with
+        {
+            RegistrySha256 = current.RegistrySha256,
+            RosterSha256 = current.ExpectedDiagnostics.RosterSha256
+        }, [], s_now));
+        Assert.Throws<AuthoringExtensionContractException>(() => current.ValidateOutcomeCoverage(current.ExpectedDiagnostics,
+            [NoFindings(previous, fixture.Contribution.DiagnosticId)], s_now));
+    }
+
+    [Fact]
+    public void Coverage_RejectsDefaultNullDuplicateUnknownAndExpiredOutcomes()
+    {
+        AuthoringPrepublishDiagnosticRegistry registry = CreateRosterRegistry();
+        AuthoringPrepublishDiagnosticResult result = NoFindings(registry, "acme.check.links");
+        Assert.Throws<AuthoringExtensionContractException>(() => registry.ValidateOutcomeCoverage(null!, [], s_now));
+        Assert.Throws<AuthoringExtensionContractException>(() => registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics, default, s_now));
+        Assert.Throws<AuthoringExtensionContractException>(() => registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics, [null!], s_now));
+        Assert.Throws<AuthoringExtensionContractException>(() => registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics, [result, result], s_now));
+        Assert.Throws<AuthoringExtensionContractException>(() => registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics,
+            [new(result.Input with { DiagnosticId = "unknown.diagnostic" }, true,
+                AuthoringDiagnosticOutcomeStatus.NoFindings, [], null)], s_now));
+        Assert.Throws<AuthoringExtensionContractException>(() => registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics,
+            [result], result.Input.Context.Deadline));
+    }
+
+    [Theory]
+    [InlineData("requiredness")]
+    [InlineData("downgraded-unavailable")]
+    [InlineData("unknown-status")]
+    [InlineData("completed-with-reason")]
+    [InlineData("unavailable-with-facts")]
+    [InlineData("empty-findings")]
+    [InlineData("default-facts")]
+    [InlineData("input")]
+    [InlineData("severity")]
+    public void Coverage_RevalidatesTypedOutcomesInsteadOfTrustingTheirLabels(string mutation)
+    {
+        AuthoringPrepublishDiagnosticRegistry registry = CreateRosterRegistry();
+        AuthoringPrepublishDiagnosticInput input = Input(registry);
+        AuthoringPrepublishDiagnosticResult valid = registry.ValidateResult(input, Response(input), s_now);
+        AuthoringPrepublishDiagnosticResult changed = mutation switch
+        {
+            "requiredness" => new(input, false, valid.Status, valid.Facts, null),
+            "downgraded-unavailable" => new(input, true, AuthoringDiagnosticOutcomeStatus.OptionalNotEvaluable, [],
+                AuthoringDiagnosticUnavailableReason.Crashed),
+            "unknown-status" => new(input, true, (AuthoringDiagnosticOutcomeStatus)999, [], AuthoringDiagnosticUnavailableReason.Crashed),
+            "completed-with-reason" => new(input, true, valid.Status, valid.Facts, AuthoringDiagnosticUnavailableReason.Crashed),
+            "unavailable-with-facts" => new(input, true, AuthoringDiagnosticOutcomeStatus.RequiredUnavailable, valid.Facts,
+                AuthoringDiagnosticUnavailableReason.Crashed),
+            "empty-findings" => new(input, true, AuthoringDiagnosticOutcomeStatus.Findings, [], null),
+            "default-facts" => new(input, true, AuthoringDiagnosticOutcomeStatus.NoFindings, default, null),
+            "input" => new(input with { PolicySha256 = Digest('0') }, true, valid.Status, valid.Facts, null),
+            "severity" => new(input, true, valid.Status, [valid.Facts[0] with { Severity = AuthoringDiagnosticSeverity.Info }], null),
+            _ => throw new ArgumentOutOfRangeException(nameof(mutation))
+        };
+
+        Assert.Throws<AuthoringExtensionContractException>(() => registry.ValidateOutcomeCoverage(registry.ExpectedDiagnostics, [changed], s_now));
+    }
+
+    private static AuthoringPrepublishDiagnosticRegistry CreateRosterRegistry(bool reverse = false)
+    {
+        Fixture fixture = CreateFixture();
+        AuthoringExtensionManifest manifest = fixture.Extensions.Contracts[0].Manifest;
+        AuthoringPrepublishDiagnosticContribution optional = fixture.Contribution with
+        {
+            DiagnosticId = "acme.check.optional",
+            ContributionId = "acme.check.optional"
+        };
+        ImmutableArray<AuthoringPrepublishDiagnosticContribution> contributions = [fixture.Contribution, optional];
+        ImmutableArray<AuthoringDiagnosticHostPolicy> policies =
+            [fixture.Policy, fixture.Policy with { DiagnosticId = optional.DiagnosticId, Required = false }];
+        manifest = manifest with
+        {
+            Contributions = [.. contributions.Select(value => manifest.Contributions[0] with { Id = value.ContributionId })]
+        };
+        if (reverse)
+        {
+            contributions = [.. contributions.Reverse()];
+            policies = [.. policies.Reverse()];
+        }
+
+        return new AuthoringPrepublishDiagnosticRegistry(ExtensionRegistry(manifest), contributions, policies, [fixture.Core]);
+    }
+
+    private static AuthoringPrepublishDiagnosticResult NoFindings(AuthoringPrepublishDiagnosticRegistry registry, string diagnosticId)
+    {
+        AuthoringPrepublishDiagnosticInput input = registry.CreateInput(diagnosticId, Context(), [new("title", "Title")],
+            [new("node.one", new(2, 5), "abc")], s_now);
+        return registry.ValidateResult(input, new(1, diagnosticId, input.InputSha256, AuthoringDiagnosticCompletion.NoFindings, []), s_now);
     }
 
     private static AuthoringDiagnosticBudget ChangeBudget(AuthoringDiagnosticBudget value, int dimension, bool upper) => dimension switch

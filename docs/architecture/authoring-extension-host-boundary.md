@@ -68,6 +68,27 @@ diagnostic contribution. Category schema version 1 binds diagnostic ID/version,
 entrypoint content digest, execution class, minimal input schema, permissions,
 policy reference and diagnostic resource ceilings to that original manifest.
 
+`ExpectedDiagnostics` exposes the complete canonical immutable registration
+roster, ordered by ordinal diagnostic ID. Each registration carries host-owned
+requiredness and declaration/policy digests; the roster binds its schema version,
+registry identity and complete ordered membership through `RosterSha256`. This
+is a projection of the original registry, not a caller-owned authority or another
+registry. A digest alone and `Get(id)` cannot establish complete membership.
+
+`ValidateOutcomeCoverage(expectedDiagnostics, outcomes, now)` compares the supplied
+roster with that exact current projection, rejects missing/duplicate/unknown or
+tampered roster entries, and independently revalidates every supplied outcome's
+input, facts, status and requiredness. Its immutable `Slots` account for every
+registration in canonical order. An absent required outcome has
+`RequiredUnavailable`; an absent optional outcome has `OptionalNotEvaluable`.
+Both have `IsAbsent=true` and `Outcome=null`: no input, failure reason, fact or
+successful evaluation is invented. An explicitly empty outcome array therefore
+differs from an actually empty registry; an uninitialized array is rejected.
+`HasAllOutcomes` describes presence only, including explicit unavailable outcomes.
+The caller must still bind outcomes to one current invocation and recheck live
+authority. Coverage supplies no core combination, publication decision or receipt,
+and does not change the existing version-1 plugin input/output fields or digests.
+
 The host supplies each code's exact severity, requiredness, inert fix command
 references and effective budgets. Unknown, duplicate, conflicting or core-owned
 identities fail closed. Runtime output cannot supply requiredness, core results,

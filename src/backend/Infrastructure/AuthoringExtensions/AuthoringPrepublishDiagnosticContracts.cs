@@ -88,6 +88,81 @@ public sealed record AuthoringDiagnosticHostPolicy(
     ImmutableArray<string> FixCommandReferences,
     AuthoringDiagnosticBudget Budget);
 
+/// <summary>Registry-owned membership and requiredness; the digests bind the complete declaration and host policy.</summary>
+public sealed record AuthoringDiagnosticExpectedRegistration(
+    string DiagnosticId,
+    bool Required,
+    string ContributionSha256,
+    string PolicySha256);
+
+/// <summary>
+/// Canonical complete roster, ordered by ordinal diagnostic ID and projected only by the registry.
+/// Copies are data, not authority; coverage admission compares them with the current registry's exact projection.
+/// </summary>
+public sealed record AuthoringDiagnosticExpectedRoster(
+    int SchemaVersion,
+    string RegistrySha256,
+    ImmutableArray<AuthoringDiagnosticExpectedRegistration> Registrations,
+    string RosterSha256);
+
+/// <summary>
+/// One expected diagnostic's coverage. An absent outcome has no fabricated input or plugin result;
+/// its unavailable status follows the original host registration's requiredness.
+/// </summary>
+public sealed class AuthoringDiagnosticOutcomeSlot
+{
+    internal AuthoringDiagnosticOutcomeSlot(
+        AuthoringDiagnosticExpectedRegistration registration,
+        AuthoringPrepublishDiagnosticResult? outcome)
+    {
+        Registration = registration;
+        Outcome = outcome;
+    }
+
+    public AuthoringDiagnosticExpectedRegistration Registration
+    {
+        get;
+    }
+
+    public AuthoringPrepublishDiagnosticResult? Outcome
+    {
+        get;
+    }
+
+    public bool IsAbsent => Outcome is null;
+
+    public AuthoringDiagnosticOutcomeStatus Status => Outcome?.Status ?? (Registration.Required
+        ? AuthoringDiagnosticOutcomeStatus.RequiredUnavailable
+        : AuthoringDiagnosticOutcomeStatus.OptionalNotEvaluable);
+}
+
+/// <summary>
+/// Complete registry membership coverage, including absent outcomes. Presence is not evaluation success,
+/// current invocation binding, live permission or a publication decision; those remain with their original owners.
+/// </summary>
+public sealed class AuthoringDiagnosticOutcomeCoverage
+{
+    internal AuthoringDiagnosticOutcomeCoverage(
+        AuthoringDiagnosticExpectedRoster expectedDiagnostics,
+        ImmutableArray<AuthoringDiagnosticOutcomeSlot> slots)
+    {
+        ExpectedDiagnostics = expectedDiagnostics;
+        Slots = slots;
+    }
+
+    public AuthoringDiagnosticExpectedRoster ExpectedDiagnostics
+    {
+        get;
+    }
+
+    public ImmutableArray<AuthoringDiagnosticOutcomeSlot> Slots
+    {
+        get;
+    }
+
+    public bool HasAllOutcomes => Slots.All(static slot => !slot.IsAbsent);
+}
+
 /// <summary>
 /// An explicit observation supplied by the original core check owner. It neither runs nor redefines a core check.
 /// ResultSha256 binds the owner's complete result, including its pass/failure semantics.

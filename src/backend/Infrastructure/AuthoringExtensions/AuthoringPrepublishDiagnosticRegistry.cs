@@ -136,6 +136,14 @@ public sealed partial class AuthoringPrepublishDiagnosticRegistry
             CoreResultsSha256,
             Entries = _entries.OrderBy(static pair => pair.Key, StringComparer.Ordinal).Select(static pair => pair.Value).ToArray()
         });
+        var roster = new AuthoringDiagnosticExpectedRoster(SchemaVersion, RegistrySha256,
+            [.. _entries.OrderBy(static pair => pair.Key, StringComparer.Ordinal).Select(static pair =>
+                new AuthoringDiagnosticExpectedRegistration(pair.Key, pair.Value.Policy.Required,
+                    Digest(pair.Value.Contribution), Digest(pair.Value.Policy)))], string.Empty);
+        ExpectedDiagnostics = roster with
+        {
+            RosterSha256 = Digest(roster)
+        };
     }
 
     public string RegistrySha256
@@ -151,6 +159,63 @@ public sealed partial class AuthoringPrepublishDiagnosticRegistry
     public ImmutableArray<AuthoringDiagnosticCoreResult> CoreResults
     {
         get;
+    }
+
+    /// <summary>The complete host-owned expected roster; consumers need not know any diagnostic ID in advance.</summary>
+    public AuthoringDiagnosticExpectedRoster ExpectedDiagnostics
+    {
+        get;
+    }
+
+    /// <summary>
+    /// Validates the exact expected roster and supplied outcomes, then accounts for every registration.
+    /// Missing required/optional outcomes become unavailable/not-evaluable slots, never invented plugin results.
+    /// This does not combine core facts or establish that outcomes belong to one current invocation.
+    /// </summary>
+    public AuthoringDiagnosticOutcomeCoverage ValidateOutcomeCoverage(
+        AuthoringDiagnosticExpectedRoster expectedDiagnostics,
+        ImmutableArray<AuthoringPrepublishDiagnosticResult> outcomes,
+        DateTimeOffset now)
+    {
+        Require(expectedDiagnostics is not null && expectedDiagnostics.SchemaVersion == SchemaVersion &&
+            expectedDiagnostics.RegistrySha256 == RegistrySha256 &&
+            expectedDiagnostics.RosterSha256 == ExpectedDiagnostics.RosterSha256 &&
+            !expectedDiagnostics.Registrations.IsDefault &&
+            expectedDiagnostics.Registrations.Length == ExpectedDiagnostics.Registrations.Length &&
+            expectedDiagnostics.Registrations.SequenceEqual(ExpectedDiagnostics.Registrations),
+            "Expected diagnostic roster is incomplete, foreign or tampered.");
+        Require(!outcomes.IsDefault && outcomes.Length <= ExpectedDiagnostics.Registrations.Length,
+            "Outcome collection must be explicit and bounded by the complete registry roster.");
+        var supplied = new Dictionary<string, AuthoringPrepublishDiagnosticResult>(StringComparer.Ordinal);
+        foreach (AuthoringPrepublishDiagnosticResult outcome in outcomes)
+        {
+            Require(outcome is not null && outcome.Input is not null, "Diagnostic outcome or its input is missing.");
+            Require(!supplied.ContainsKey(outcome.Input.DiagnosticId), "Diagnostic outcome is duplicated.");
+            AuthoringPrepublishDiagnosticResult verified;
+            if (outcome.Status is AuthoringDiagnosticOutcomeStatus.Findings or AuthoringDiagnosticOutcomeStatus.NoFindings)
+            {
+                Require(outcome.UnavailableReason is null, "A completed outcome cannot carry an unavailability reason.");
+                verified = ValidateResult(outcome.Input, new AuthoringPrepublishDiagnosticResponse(
+                    SchemaVersion, outcome.Input.DiagnosticId, outcome.Input.InputSha256,
+                    outcome.Status == AuthoringDiagnosticOutcomeStatus.Findings
+                        ? AuthoringDiagnosticCompletion.Findings : AuthoringDiagnosticCompletion.NoFindings,
+                    outcome.Facts), now);
+            }
+            else
+            {
+                Require(outcome.UnavailableReason is not null && !outcome.Facts.IsDefault && outcome.Facts.IsEmpty,
+                    "Unavailable outcome must carry its host failure reason and no facts.");
+                verified = Unavailable(outcome.Input, outcome.UnavailableReason.Value);
+            }
+
+            Require(outcome.Required == verified.Required && outcome.Status == verified.Status,
+                "Outcome status or requiredness differs from the current host policy.");
+            supplied.Add(verified.Input.DiagnosticId, verified);
+        }
+
+        return new AuthoringDiagnosticOutcomeCoverage(ExpectedDiagnostics,
+            [.. ExpectedDiagnostics.Registrations.Select(registration =>
+                new AuthoringDiagnosticOutcomeSlot(registration, supplied.GetValueOrDefault(registration.DiagnosticId)))]);
     }
 
     public AuthoringPrepublishDiagnosticContribution Get(string diagnosticId) => GetEntry(diagnosticId).Contribution;
