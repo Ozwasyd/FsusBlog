@@ -225,9 +225,9 @@ public static class TaxonomyMutationReceiptPersistence
                 await using NpgsqlCommand ownership = new($"""
                     WITH root AS (SELECT pg_current_xact_id()::text::numeric AS xid),
                     writer AS (
-                        SELECT root.xid + mod(xmin::text::numeric - mod(root.xid, 4294967296)
+                        SELECT root.xid + mod(taxonomy.xmin::text::numeric - mod(root.xid, 4294967296)
                             + 6442450944, 4294967296) - 2147483648 AS xid
-                        FROM {Table(capture.Kind)} CROSS JOIN root WHERE id = @Id
+                        FROM {Table(capture.Kind)} taxonomy CROSS JOIN root WHERE taxonomy.id = @Id
                     )
                     SELECT pg_xact_status(writer.xid::text::xid8) = 'in progress' FROM writer;
                     """, connection, transaction);
