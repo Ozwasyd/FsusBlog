@@ -336,10 +336,17 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
             StateSchemaVersion = host.NewPackage.Contract.Manifest.StateSchemaVersion,
             ScopeDigest = claim.Digest
         };
-        result = result with
+        migrating = migrating with
         {
-            ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(result)
+            ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(migrating)
         };
+        await host.State.BackupAsync(host.OldPackage, host.NewPackage, host.Plan, default);
+        await host.State.ApplyAsync(host.OldPackage, host.NewPackage, host.Plan, default);
+        await host.State.CompleteAsync(host.OldPackage, host.NewPackage, host.Plan, default);
+        await host.Receipts.AppendAsync(migrating, default);
+        AuthoringLifecycleReceipt starting = NextReceipt(migrating, AuthoringLifecycleState.Starting);
+        await host.Receipts.AppendAsync(starting, default);
+        AuthoringLifecycleReceipt result = NextReceipt(starting, AuthoringLifecycleState.Running);
         await host.Receipts.AppendAsync(result, default);
         await host.NewAuthority().CompleteAsync(claim, result);
         await host.NewAuthority().CompleteAsync(claim, result);
