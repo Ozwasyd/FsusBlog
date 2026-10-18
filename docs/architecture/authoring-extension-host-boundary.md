@@ -843,6 +843,10 @@ it in place against that same owner and binding; the original native implementat
 reads stored state again without resending the expected bytes. Missing acceptance,
 revocation, changed state or unsupported snapshot ABI refuse. No document
 epoch/revision, acceptance object, schema identity or native success is fabricated.
+The accepted package must still be the one held by the original installed-package
+scope, and transport budgets must cover the actual encoded binding, including
+Unicode. A sealed handle alone does not qualify unreviewed native provenance or
+length handling; the production qualification guard remains closed.
 The composition consumes the original canonical result-source interface, validates
 the supplied approval transaction and exact owned claim/generation, and consults
 its actual retained prepared group. This acquisition never calls the unjoined
@@ -851,6 +855,12 @@ manufactures a result scope. It revalidates actual retained native acceptances
 without those diagnostic reads, then refuses the missing joined old-settlement
 and original settled-state lifetimes. This is a closed integration path, not a
 completed joined authority or production registration.
+Old settlement must retain the exact original tracked roster and bind every
+approved old worker/service target to its actual descriptor and lease. An empty
+roster cannot stand in for those targets. Pending or failed host-scope release
+cannot authorize replacement activation, and a cached zero report cannot replace
+the original complete host-resource exclusion. Unqualified settlement producers
+remain separate WIP dependencies and confer no final result authority.
 Abort first hides the staged generation and releases original native acceptance
 lifetimes before Resources can dispose owners and wait on their transport locks.
 A failed release retains its reference and prevents settlement. It then uses original Resources/native and
