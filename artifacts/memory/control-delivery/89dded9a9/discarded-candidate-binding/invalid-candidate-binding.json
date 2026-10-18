@@ -1,0 +1,6 @@
+{
+  "acceptance": "NotVerified",
+  "status": "DoNotUseAsCurrentCandidateEvidence",
+  "reason": "Source-check runner started before the following commit finished; its initial0868dbaf7 candidate differs from SourceAfter89dded9a9. Fresh89dded9a9 checks were run after commit completion. Original mismatched outputs remain preserved.",
+  "recordedAt": "2026-10-08T14:55:48.865569+00:00"
+}

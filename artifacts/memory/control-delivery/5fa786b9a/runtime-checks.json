@@ -1,0 +1,30 @@
+{
+  "candidate": "5fa786b9a3de37cc47169a82269dd33450ab1c8e",
+  "sourceAfter": "5fa786b9a3de37cc47169a82269dd33450ab1c8e",
+  "runId": "mem-5fa786b9a-20261008-control-inventory",
+  "startedAt": "2026-10-08T11:44:08.175617+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-build",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~NativeMemoryArenaTests|FullyQualifiedName~OsPageRegionTests|FullyQualifiedName~OsNumaTopologyTests|FullyQualifiedName~MemoryAllocationLayoutTests|FullyQualifiedName~ManagedMemoryBackingTests|FullyQualifiedName~MemoryReservationCoordinatorTests|FullyQualifiedName~MemoryAsyncOwnershipTests|FullyQualifiedName~MemoryContractTests|FullyQualifiedName~PortableMemoryPressureTests|FullyQualifiedName~MemoryArticlePageOracleTests|FullyQualifiedName~OwnedAedsFrameTests|FullyQualifiedName~BoundedTaskSingleFlightTests|FullyQualifiedName~ReleaseStorageTopologyTests|FullyQualifiedName~ReleaseStorageLifecycleTests|FullyQualifiedName~MemoryStorageBoundaryTests|FullyQualifiedName~GpuMemoryDeviceTests|FullyQualifiedName~GpuMetalTests|FullyQualifiedName~GpuNativeTests|FullyQualifiedName~GpuPeerCapabilitiesTests|FullyQualifiedName~GpuPeerMappingTests|FullyQualifiedName~GpuPeerTransferTests|FullyQualifiedName~FlatArtifactIndexTests|FullyQualifiedName~DiskBudgetAdmissionTests|FullyQualifiedName~DiskSpillEligibilityTests|FullyQualifiedName~OwnedSpillRootTests|FullyQualifiedName~DiskSegmentStoreTests|FullyQualifiedName~MemoryDiskPolicyTests|FullyQualifiedName~DatabaseMaterializationScopeTests|FullyQualifiedName~NotificationPayloadLeaseTests|FullyQualifiedName~TransientBufferPoolTests|FullyQualifiedName~MemoryCapabilityPolicyPlanTests|FullyQualifiedName~MemoryExistingAllocationTests|FullyQualifiedName~LinuxProcMemoryPressureTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests|FullyQualifiedName~MemoryCapabilityControllerTests",
+    "--logger",
+    "trx;LogFileName=memory-5fa786b9a.trx",
+    "--results-directory",
+    ".tmp/memory-integration/5fa786b9a/test-results"
+  ],
+  "exitCode": 0,
+  "artifact": ".tmp/memory-integration/5fa786b9a/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/5fa786b9a/data",
+  "buildCandidate": "a74f87df104be90a864c53ce0fcbe7ffc1b6f7de",
+  "changesSinceBuild": [
+    "config/development/memory-allocation-boundaries.json"
+  ],
+  "compiledArtifacts": {
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "486d2c006805201a790c0b9bf47fddf95d06e74b9900a23ced73f575a0ad09b3",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "42252f009b889cf0abfca1a4c9f5db8b43270bc56f65bbb74513f9368d9f8ca8"
+  }
+}
