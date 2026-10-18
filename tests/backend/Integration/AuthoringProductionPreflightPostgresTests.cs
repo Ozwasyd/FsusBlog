@@ -10,6 +10,75 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AuthoringProductionPreflightPostgresTests(PostgresSchemaMigrationFixture postgres)
 {
+    [Theory]
+    [InlineData("unchanged")]
+    [InlineData("content")]
+    [InlineData("revision")]
+    [InlineData("scope")]
+    [InlineData("completed")]
+    public async Task OriginalAppliedObservation_BindsActualApply_AndReleasesOriginalStateKeys(string mutation)
+    {
+        using var source = await AuthoringProductionPreflightFixture.CreateAsync();
+        using var target = await AuthoringProductionPreflightFixture.CreateAsync(version: "2.0.0");
+        using SqlSugarClient db = await DatabaseAsync();
+        var state = new PostgresAuthoringExtensionStateStore(db);
+        await state.InitializeAsync(source.Package, source.Scope, default);
+        await state.InitializeAsync(target.Package, target.Scope, default);
+        await state.WriteAsync(source.Package, source.Scope, 0, new("actual", [1, 2, 3]), default);
+        AuthoringStateSnapshot original = await state.ReadAsync(source.Package, source.Scope, default);
+        AuthoringFencedStateMigration plan = AuthoringStateProcessWorker.Plan(original, target.Scope);
+        await state.BackupAsync(source.Package, target.Package, plan, default);
+        AuthoringStateSnapshot applied = await state.ApplyAsync(source.Package, target.Package, plan, default);
+        AuthoringStateSnapshot supplied = mutation switch
+        {
+            "content" => AuthoringExtensionStateContract.Snapshot(applied.Scope, applied.PackageIdentity, applied.Revision,
+                [new("different", [9])]),
+            "revision" => AuthoringExtensionStateContract.Snapshot(applied.Scope, applied.PackageIdentity, applied.Revision + 1, applied.Entries),
+            "scope" => AuthoringExtensionStateContract.Snapshot(applied.Scope with
+            {
+                DocumentId = "other-document"
+            },
+                applied.PackageIdentity, applied.Revision, applied.Entries),
+            _ => applied
+        };
+        if (mutation == "completed")
+        {
+            await state.CompleteAsync(source.Package, target.Package, plan, default);
+        }
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        AuthoringExtensionProductionComposition composition = target.Compose(db);
+        if (mutation == "unchanged")
+        {
+            await using IAuthoringExtensionStateObservation held = await composition.Preflight.AcquireAppliedStateObservationAsync(
+                source.Package, target.Package, plan, supplied, deadline.Token);
+            await held.VerifyCurrentAsync(deadline.Token);
+            Assert.Equal(applied.ContentSha256, held.State.To!.Snapshot.ContentSha256);
+            Assert.Equal(AuthoringStateMigrationPhase.Applied, held.State.Phase);
+            Assert.Equal(0, composition.HostResources.PublishedGenerations);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await composition.Preflight.AcquireAppliedStateObservationAsync(source.Package, target.Package, plan, supplied, deadline.Token));
+            Assert.Equal(mutation == "completed" ? "state_observation_phase_drifted" : "production_applied_state_observation_drift", error.Message);
+        }
+        if (mutation != "completed")
+        {
+            // Reacquisition occurs only after the tested scope is disposed; this
+            // is a release control, not the final-CAS VerifyCurrent callback.
+            await using (IAuthoringExtensionStateObservation reacquired = await state.ObserveFencedAsync(
+                source.Package, target.Package, plan, AuthoringStateMigrationPhase.Applied, deadline.Token))
+            {
+                await reacquired.VerifyCurrentAsync(deadline.Token);
+            }
+            await state.RollbackAsync(source.Package, target.Package, plan, deadline.Token);
+        }
+        else
+        {
+            Assert.Equal(applied.Revision + 1, (await state.ReadAsync(target.Package, target.Scope, deadline.Token)).Revision);
+        }
+    }
+
     [Fact]
     public async Task RealOwners_InspectExactStateGrantReceipt_WithoutEnableOrLiveIncarnation()
     {
