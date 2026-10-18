@@ -783,6 +783,21 @@ launches only original providers, observes their exact owner-bound physical leas
 and descriptors, and calls the original Resources.Track at the supplied generation.
 No static identity, caller-ready flag or arbitrary generation supplies custody.
 
+The preparation preflight also consumes the original opt-in
+`IAuthoringExtensionStateObservationStore.ObserveFencedAsync` for the Applied
+phase. Its original observation holds sorted state advisory keys and verifies on
+that same connection. The consumer checks exact acquired scopes, fences, phase,
+source revision and canonical target bytes against the retained actual `ApplyAsync`
+return. A reconstructed or changed snapshot cannot substitute for that return.
+This read-only observation is disposed before separate state effects; the current
+qualification guard still refuses native startup. It is not final execution-result
+custody. To join final approval, the coordinator must call the original
+`CompleteAndObserveAsync` once and retain its actual returned scope through SQL
+CAS. A held Applied observation blocks independent completion, and an already
+completed retry refuses rather than reconstructing historical output. Commit/gap
+drift and effects-and-observe errors require recovery; consumers must not repeat
+destructive effects or reacquire an observation during final verification.
+
 Prepared verification checks current native owners, service health, exact current
 grants, authenticated claim, package trust and the exact durable Starting or Running
 receipt. The original approval codec binds the actual applied snapshot, ordered
