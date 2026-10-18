@@ -13,7 +13,7 @@ namespace FsusBlog.Migration.Tests;
 public sealed class ArticlePreservationStorageWriterTests
 {
     private const string Owner = "FsusBlog.Server.Entities.Article";
-    private static readonly ArticlePreservationWriteLimits Limits = new(100, 10, 100, 1_000_000, TimeSpan.FromSeconds(1));
+    private static readonly ArticlePreservationWriteLimits s_limits = new(100, 10, 100, 1_000_000, TimeSpan.FromSeconds(1));
 
     [Fact]
     public void InsertUsesOwnedNamesAndParametersWithInitialNullPointers()
@@ -52,12 +52,12 @@ public sealed class ArticlePreservationStorageWriterTests
     {
         ArticlePreservationWriteLimits changed = missing switch
         {
-            "rows" => Limits with { MaximumRows = 0 },
-            "batch" => Limits with { MaximumBatchRows = 0 },
-            "parameters" => Limits with { MaximumBatchParameters = 0 },
-            "bytes" => Limits with { MaximumArtifactBytes = 0 },
-            "budget" => Limits with { OperationBudget = TimeSpan.Zero },
-            "infinite-budget" => Limits with { OperationBudget = Timeout.InfiniteTimeSpan },
+            "rows" => s_limits with { MaximumRows = 0 },
+            "batch" => s_limits with { MaximumBatchRows = 0 },
+            "parameters" => s_limits with { MaximumBatchParameters = 0 },
+            "bytes" => s_limits with { MaximumArtifactBytes = 0 },
+            "budget" => s_limits with { OperationBudget = TimeSpan.Zero },
+            "infinite-budget" => s_limits with { OperationBudget = Timeout.InfiniteTimeSpan },
             _ => throw new ArgumentOutOfRangeException(nameof(missing))
         };
         Assert.Throws<InvalidOperationException>(() => ArticlePreservationStorageWriter.RequireLimits(changed));
@@ -71,7 +71,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ArticlePreservationStorageWriter.StageRowsAsync(
-            [Row()], connection, transaction, Limits, cancelled.Token));
+            [Row()], connection, transaction, s_limits, cancelled.Token));
         Assert.Empty(connection.Commands);
         Assert.Equal(0, transaction.Commits);
         Assert.Equal(0, transaction.Rollbacks);
@@ -86,9 +86,15 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection();
         using var transaction = new TestTransaction(connection);
         ArticlePreservationStorageRow row = Row();
-        row = row with { Columns = row.Columns.SetItem(1, row.Columns[1] with { DataType = "uuid" }) };
+        row = row with
+        {
+            Columns = row.Columns.SetItem(1, row.Columns[1] with
+            {
+                DataType = "uuid"
+            })
+        };
         await Assert.ThrowsAsync<InvalidOperationException>(() => ArticlePreservationStorageWriter.StageRowsAsync(
-            [row], connection, transaction, Limits, default));
+            [row], connection, transaction, s_limits, default));
         Assert.Empty(connection.Commands);
     }
 
@@ -98,7 +104,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection();
         using var transaction = new TestTransaction(connection);
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            ArticlePreservationStorageWriter.StageRowsAsync([Row(), Row()], connection, transaction, Limits, default));
+            ArticlePreservationStorageWriter.StageRowsAsync([Row(), Row()], connection, transaction, s_limits, default));
         Assert.Equal("article_preservation_native_primary_key_duplicate", failure.Message);
         Assert.Empty(connection.Commands);
     }
@@ -109,9 +115,12 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection();
         using var transaction = new TestTransaction(connection);
         ArticlePreservationStorageRow row = Row();
-        row = row with { Columns = row.Columns.RemoveAt(3) };
+        row = row with
+        {
+            Columns = row.Columns.RemoveAt(3)
+        };
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, Limits, default));
+            ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, s_limits, default));
         Assert.Equal("article_preservation_native_initial_pointer_shape_invalid", failure.Message);
         Assert.Empty(connection.Commands);
     }
@@ -122,7 +131,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection { ExistingCount = 2 };
         using var transaction = new TestTransaction(connection);
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            ArticlePreservationStorageWriter.StageRowsAsync([Row()], connection, transaction, Limits, default));
+            ArticlePreservationStorageWriter.StageRowsAsync([Row()], connection, transaction, s_limits, default));
         Assert.Equal("article_preservation_native_partial_target_refused", failure.Message);
         Assert.All(connection.Commands, command => Assert.Same(transaction, command.Transaction));
         Assert.Equal(0, connection.Writes);
@@ -136,7 +145,7 @@ public sealed class ArticlePreservationStorageWriterTests
         ArticlePreservationStorageRow row = Row();
         using var connection = new TestConnection { ExistingCount = 1, ReaderRows = [row] };
         using var transaction = new TestTransaction(connection);
-        Assert.True(await ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, Limits, default));
+        Assert.True(await ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, s_limits, default));
         Assert.Equal(0, connection.Writes);
         Assert.All(connection.Commands, command => Assert.Same(transaction, command.Transaction));
         Assert.Equal(0, transaction.Commits);
@@ -147,13 +156,17 @@ public sealed class ArticlePreservationStorageWriterTests
     [Fact]
     public async Task ExistingCountAloneCannotApproveAMissingOrChangedGraph()
     {
-        using var connection = new TestConnection { ExistingCount = 1, ReaderRows = [Row() with
+        using var connection = new TestConnection
+        {
+            ExistingCount = 1,
+            ReaderRows = [Row() with
         {
             Columns = Row().Columns.SetItem(1, Row().Columns[1] with { Value = "different actual text" })
-        }] };
+        }]
+        };
         using var transaction = new TestTransaction(connection);
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            ArticlePreservationStorageWriter.StageRowsAsync([Row()], connection, transaction, Limits, default));
+            ArticlePreservationStorageWriter.StageRowsAsync([Row()], connection, transaction, s_limits, default));
         Assert.Equal("article_preservation_native_row_value_changed", failure.Message);
         Assert.Equal(0, connection.Writes);
     }
@@ -164,7 +177,7 @@ public sealed class ArticlePreservationStorageWriterTests
         ArticlePreservationStorageRow row = Row();
         using var connection = new TestConnection { ReaderRows = [row] };
         using var transaction = new TestTransaction(connection);
-        Assert.False(await ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, Limits, default));
+        Assert.False(await ArticlePreservationStorageWriter.StageRowsAsync([row], connection, transaction, s_limits, default));
         Assert.Equal(2, connection.Writes);
         TestCommand insert = Assert.Single(connection.Commands, static command => command.CommandText.StartsWith("INSERT", StringComparison.Ordinal));
         TestCommand cas = Assert.Single(connection.Commands, static command => command.CommandText.StartsWith("UPDATE", StringComparison.Ordinal));
@@ -186,7 +199,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var connection = new TestConnection { CancelOnWrite = cancelled };
         using var transaction = new TestTransaction(connection);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ArticlePreservationStorageWriter.StageRowsAsync(
-            [Row()], connection, transaction, Limits, cancelled.Token));
+            [Row()], connection, transaction, s_limits, cancelled.Token));
         Assert.Equal(1, connection.Writes);
         Assert.DoesNotContain(connection.Commands, static command => command.CommandText.StartsWith("UPDATE", StringComparison.Ordinal));
         Assert.Equal(0, transaction.Commits);
@@ -201,7 +214,7 @@ public sealed class ArticlePreservationStorageWriterTests
         using var transaction = new TestTransaction(connection);
         var first = new OperationCanceledException("fixture_main_cancel");
         OperationCanceledException actual = await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            ArticlePreservationStorageWriter.CommandAsync<bool>(connection, transaction, Limits, _ => Task.FromException<bool>(first)));
+            ArticlePreservationStorageWriter.CommandAsync<bool>(connection, transaction, s_limits, _ => Task.FromException<bool>(first)));
         Assert.Same(first, actual);
         Assert.Equal(new[] { "article_preservation_native_command_disposal_failed" },
             Assert.IsType<ImmutableArray<string>>(actual.Data[ArticlePreservationStorageWriter.CleanupFailuresKey]).ToArray());
@@ -219,13 +232,31 @@ public sealed class ArticlePreservationStorageWriterTests
     private sealed class TestConnection : DbConnection
     {
         public List<TestCommand> Commands { get; } = [];
-        public long ExistingCount { get; init; }
+        public long ExistingCount
+        {
+            get; init;
+        }
         public ImmutableArray<ArticlePreservationStorageRow> ReaderRows { get; init; } = [];
-        public bool FailCommandDisposal { get; init; }
-        public CancellationTokenSource? CancelOnWrite { get; init; }
-        public int Writes { get; set; }
-        public int Opens { get; private set; }
-        public int Closes { get; private set; }
+        public bool FailCommandDisposal
+        {
+            get; init;
+        }
+        public CancellationTokenSource? CancelOnWrite
+        {
+            get; init;
+        }
+        public int Writes
+        {
+            get; set;
+        }
+        public int Opens
+        {
+            get; private set;
+        }
+        public int Closes
+        {
+            get; private set;
+        }
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string ConnectionString { get; set; } = string.Empty;
         public override string Database => "unit";
@@ -246,14 +277,27 @@ public sealed class ArticlePreservationStorageWriterTests
 
     private sealed class TestTransaction(TestConnection connection) : DbTransaction
     {
-        public int Commits { get; private set; }
-        public int Rollbacks { get; private set; }
-        public int Disposals { get; private set; }
+        public int Commits
+        {
+            get; private set;
+        }
+        public int Rollbacks
+        {
+            get; private set;
+        }
+        public int Disposals
+        {
+            get; private set;
+        }
         public override IsolationLevel IsolationLevel => IsolationLevel.RepeatableRead;
         protected override DbConnection DbConnection => connection;
         public override void Commit() => Commits++;
         public override void Rollback() => Rollbacks++;
-        protected override void Dispose(bool disposing) { Disposals++; base.Dispose(disposing); }
+        protected override void Dispose(bool disposing)
+        {
+            Disposals++;
+            base.Dispose(disposing);
+        }
     }
 
     private sealed class TestCommand(TestConnection? connection) : DbCommand
@@ -261,24 +305,47 @@ public sealed class ArticlePreservationStorageWriterTests
         private readonly NpgsqlCommand _parameterOwner = new();
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string CommandText { get; set; } = string.Empty;
-        public override int CommandTimeout { get; set; }
-        public override CommandType CommandType { get; set; }
-        public override bool DesignTimeVisible { get; set; }
-        public override UpdateRowSource UpdatedRowSource { get; set; }
+        public override int CommandTimeout
+        {
+            get; set;
+        }
+        public override CommandType CommandType
+        {
+            get; set;
+        }
+        public override bool DesignTimeVisible
+        {
+            get; set;
+        }
+        public override UpdateRowSource UpdatedRowSource
+        {
+            get; set;
+        }
         protected override DbConnection? DbConnection { get; set; } = connection;
-        protected override DbTransaction? DbTransaction { get; set; }
+        protected override DbTransaction? DbTransaction
+        {
+            get; set;
+        }
         protected override DbParameterCollection DbParameterCollection => _parameterOwner.Parameters;
         public override void Cancel() => throw new NotSupportedException();
-        public override void Prepare() { }
+        public override void Prepare()
+        {
+        }
         protected override DbParameter CreateDbParameter() => new NpgsqlParameter();
         public override object ExecuteScalar() => connection!.ExistingCount;
-        public override int ExecuteNonQuery() { connection!.Writes++; connection.CancelOnWrite?.Cancel(); return 1; }
+        public override int ExecuteNonQuery()
+        {
+            connection!.Writes++;
+            connection.CancelOnWrite?.Cancel();
+            return 1;
+        }
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
             var table = new DataTable();
             ArticlePreservationStorageColumn[] columns = connection!.ReaderRows[0].Columns.OrderByDescending(static column => column.IsPrimaryKey)
                 .ThenBy(static column => column.Name, StringComparer.Ordinal).ToArray();
-            foreach (ArticlePreservationStorageColumn column in columns) table.Columns.Add(column.Name, column.Value!.GetType());
+            foreach (ArticlePreservationStorageColumn column in columns)
+                table.Columns.Add(column.Name, column.Value!.GetType());
             foreach (ArticlePreservationStorageRow row in connection.ReaderRows)
                 table.Rows.Add(columns.Select(column => row.Columns.Single(value => value.Name == column.Name).Value).ToArray());
             return table.CreateDataReader();
@@ -290,6 +357,11 @@ public sealed class ArticlePreservationStorageWriterTests
                 ? ValueTask.FromException(new InvalidOperationException("fixture_private_disposal_detail"))
                 : ValueTask.CompletedTask;
         }
-        protected override void Dispose(bool disposing) { if (disposing) _parameterOwner.Dispose(); base.Dispose(disposing); }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                _parameterOwner.Dispose();
+            base.Dispose(disposing);
+        }
     }
 }
