@@ -244,7 +244,7 @@ public sealed class AuthoringExtensionServiceIoBroker
             throw new AuthoringExtensionContractException("Network request purpose drifted from its grant.");
         }
 
-        using var deadline = new GrantIoDeadline(grant.ExpiresAt, cancellationToken);
+        using var deadline = new GrantIoDeadline(grant.ExpiresAt, cancellationToken, _grantValidator.TimeProvider);
         ImmutableArray<IPAddress> addresses = await _grantValidator.ResolveNetworkAsync(
             grant,
             runtimeIdentity,
@@ -282,7 +282,7 @@ public sealed class AuthoringExtensionServiceIoBroker
             throw new AuthoringExtensionContractException("File read operation or purpose drifted from its grant.");
         }
 
-        using var deadline = new GrantIoDeadline(grant.ExpiresAt, cancellationToken);
+        using var deadline = new GrantIoDeadline(grant.ExpiresAt, cancellationToken, _grantValidator.TimeProvider);
         string path = await _grantValidator.ResolveFileAsync(grant, runtimeIdentity, deadline.Token);
         deadline.ThrowIfExpiredOrCancelled();
         var file = new FileInfo(path);
@@ -329,7 +329,7 @@ public sealed class AuthoringExtensionServiceIoBroker
             throw new AuthoringExtensionContractException("Proposed file write is missing, unbounded, or purpose-drifted.");
         }
 
-        using var deadline = new GrantIoDeadline(grant.ExpiresAt, cancellationToken);
+        using var deadline = new GrantIoDeadline(grant.ExpiresAt, cancellationToken, _grantValidator.TimeProvider);
         _ = await _grantValidator.ResolveFileAsync(grant, runtimeIdentity, deadline.Token);
         deadline.ThrowIfExpiredOrCancelled();
         string digest = Convert.ToHexStringLower(SHA256.HashData(payload.AsSpan()));
@@ -493,10 +493,10 @@ public sealed class AuthoringExtensionServiceIoBroker
         private bool _resourcesReleased;
         private int _activeCallbacks;
 
-        internal GrantIoDeadline(DateTimeOffset expiresAt, CancellationToken callerToken, TimeProvider? timeProvider = null)
+        internal GrantIoDeadline(DateTimeOffset expiresAt, CancellationToken callerToken, TimeProvider timeProvider)
         {
             _expiresAt = expiresAt;
-            _timeProvider = timeProvider ?? TimeProvider.System;
+            _timeProvider = timeProvider;
             _callerToken = callerToken;
             callerToken.ThrowIfCancellationRequested();
             TimeSpan remaining = expiresAt - _timeProvider.GetUtcNow();
