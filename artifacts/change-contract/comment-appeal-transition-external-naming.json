@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/CommentGovernanceService.cs"
+            ],
+            "reason": "Preserve external process environment spelling under the registered C# source surface; this change only corrects appeal event state values and introduces no environment names."
+        }
+    ]
+}
