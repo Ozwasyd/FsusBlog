@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/article-property-value-boundary.md"
+            ],
+            "reason": "Preserve existing current architecture document and external API/wire/SQL identifiers while recording canonical request capture and generated operation binding."
+        }
+    ]
+}
