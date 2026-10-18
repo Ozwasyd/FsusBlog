@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.AssetRecords.cs",
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.CurrentAssets.cs"
+            ],
+            "reason": "These two backend-only partials fall under the existing src/**/*.cs environment-variable registration. They add no environment reads or external process spellings, preserve existing external names, and use C# naming for internal members. This declaration binds only the changed registered source paths without changing trusted policy or the exception registry."
+        }
+    ]
+}
