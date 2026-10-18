@@ -21,7 +21,8 @@ public sealed class VerifiedPackageAuthoringCommandSource : IAuthoringCommandCon
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = false,
         ReadCommentHandling = JsonCommentHandling.Disallow,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        RespectRequiredConstructorParameters = true
     };
 
     public ImmutableArray<AuthoringCommandContribution> Read(
