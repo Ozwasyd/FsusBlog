@@ -519,76 +519,141 @@ store as a recovery shortcut.
 
 ## Durable authoring state approval producer (WIP consumers)
 
-`AuthoringExtensionApprovalAuthority` prepares migration and independent data-deletion
-confirmations using the original `FreezePlan`, `AuthoringFencedStateMigration`,
-`ReadAsync`, `MeasureAsync`, and `AuthoringStateMeasurement` contracts. The preview
-includes both exact migration scopes, observed record/byte counts, schemas, full
-plan digest, lifecycle head and generation, expiry, and a closed retention policy.
-Deletion requires the original RetainedData lifecycle head and includes current
-state and retained backup measurement; equal counts do
-not authorize different bytes. Uninstall does not imply data-deletion consent.
+`AuthoringExtensionApprovalAuthority` owns the single host approval contract in
+`AuthoringExtensionApprovalContract`. Decision/preview version 2 freezes the original
+`AuthoringFencedStateMigration`, actual source/target observations, both exact ordered
+`AuthoringExecutionTarget` rosters, package bindings, expected lifecycle head, scope
+authorization and closed retention policy. It reuses original `FreezePlan`, `ReadAsync`
+and `MeasureAsync`; deletion uses the full original `AuthoringStateMeasurement`,
+including retained backups and same-size content changes. Prepare never fabricates
+an applied snapshot. Pending is not approval. The existing `admin-sensitive` one-time
+proof establishes recent identity only; exact preview confirmation is separate.
 
-The host must display this preview and submit its exact digest through the
-operation-specific confirmation method. The existing `admin-sensitive` one-time
-proof is consumed through `IAdminPrincipalService`; it establishes recent identity,
-not consent to a plan. There is no generic plugin confirmation or approved boolean.
-The store enforces one decision for the same package/scope/revision/content effect;
-changing a plan ID, actor or lifecycle head cannot create another approval after a lost response.
-An ID locates a durable decision. It cannot authorize an operation by itself.
+Package identity fields retain their original meanings. Lifecycle receipt and target
+`PackageSha256` equal `Manifest.PackageSha256`, the package payload hash. Manifest
+`ContentSha256` is the original entry-path/content-hash tree. The verifier's
+`VerifiedAuthoringPackage.PackageIdentity` additionally binds verified manifest,
+archive/signature/trust/keyset/source/provenance facts. State snapshot
+`PackageIdentity` uses that composite identity. Neither field substitutes for the
+other. Ordinary coordinator receipts retain `ScopeDigest = PackageIdentity`.
 
-The producer requires an authenticated admin principal from `HttpContext`, its
-`admin_id` and `admin_sid`, an explicit `AuthoringExtensions:SiteId` configuration,
-and current SQL `admin_principal` / `admin_session` rows. Missing configuration,
-permissions, schema, keys, session, state or receipt authority fails closed. V1
-requires the actual `system.config` permission for site administration; root status
-or claimed permissions alone do not substitute for it. Principal/session `xmin`,
-validation versions, active status, both expiry bounds and revocation are checked.
-Row locks exclude concurrent permission/session mutation until the decision commits.
+The producer requires the authenticated admin from `HttpContext` `admin_id` /
+`admin_sid`, configured `AuthoringExtensions:SiteId`, and current SQL principal and
+session status, permissions, xmin, validation versions, both expiry bounds and
+revocation. SQL `system.config` alone does not authorize caller-selected opaque
+user/document scopes. No admin ID to state `UserId` mapping is inferred. A mandatory
+`IAuthoringExtensionApprovalScopeAuthority` must acquire the canonical owner's exact
+actor/operation/site/user/document scope authorization, bind its version/revocation
+facts, and hold original exclusion through the decision transaction. There is no
+production implementation or permissive adapter in this leaf. Missing scope owner
+refuses before state access/decision creation; changed scope authority refuses
+confirmation, claim, inspection and completion. The former site-admin-wide policy
+is not retained. `OperationContext` version 2 describes these exact bindings and is
+not a credential by itself.
 
-`AuthoringExtensionOperationContext` is the sole versioned binding for lifecycle
-preflight consumers. Its actor hash binds the SQL principal/session snapshot and
-configured site; its other fields bind the exact opaque state user, nullable
-document, source/destination scope digests, and lifecycle generation/head. There is
-no canonical admin ID to state `UserId` mapping. Policy
-`system-config-site-state-admin-v1` explicitly authorizes a site administrator to
-manage only the separately confirmed extension-owned state scope; it grants no
-core document read, authorship, history, asset, or cross-site permission. The
-context is descriptive and must be consumed from the same issued `ApprovedClaim`,
-not treated as an independently supplied credential.
+`PostgresAuthoringExtensionApprovalStore` protects the exact decision and every event
+with the application's Data Protection provider. Version 2 does not reinterpret
+version-1 protected records. Production rollout must account for retained old
+records through the migration/recovery owner; it must not discard them or silently
+mint replacement approvals. The unique frozen-effect key excludes plan ID, actor
+and lifecycle head so progress after a lost response cannot create another approval
+for unchanged state. Journal rollback, replay, actor/scope/plan/roster drift, expired
+or revoked authority and stale lifecycle generations refuse.
 
-`PostgresAuthoringExtensionApprovalStore` persists a Data Protection protected
-exact decision and every status event. Pending transitions to Approved or Denied;
-only Approved can transition once to Claimed. Completed, Failed, RecoveryRequired,
-Revoked and Expired cannot become another claim. The protected journal is checked
-against the current row so restoring an earlier approved head alone fails. A
-confirmation that loses its SQL commit also loses its decision/event update; its
-already consumed identity proof requires fresh step-up. Claim failure rolls back
-the claim event. No state values or proof tokens enter plaintext audit records.
+`AuthoringExtensionApprovalExecutionResult` is the single canonical post-effect host
+data contract in the same approval source. Its domain-separated digest binds the
+claim/operation, exact package payload and composite identity plus version/schemas,
+original frozen-plan digest, the actual original `ApplyAsync` snapshot, exact ordered
+old/new targets and final generation. Deletion binds the actual post-delete original
+measurement instead. Result `ScopeDigest` is this execution-result digest, not bare
+`claim.Digest`. It excludes the final receipt hash, avoiding a circular dependency.
+The result factory validates data; it neither issues approval nor attests native
+readiness, snapshot acceptance or a published generation. Snapshot bytes are not
+written into plaintext receipts/events or exposed by a new transport.
 
-Prepare reads actual state and lifecycle facts before creating the decision. State
-and receipt stores retain their original independently owned transactions: they
-are never placed inside an ambient approval transaction. Claim rechecks the exact
-plan/measurement and lifecycle generation, and uses the receipt store's existing
-advisory lock at its final decision CAS. This does not create atomicity across
-stores. The lifecycle coordinator must recheck its original state fences,
-revisions and exact receipt before effects, and bind the result receipt scope
-digest to the claim digest. A response lost after claim does not authorize a second
-claim or another deletion. Restart inspection can mark that same durable claim
-RecoveryRequired without issuing a new capability. Automated resumption of an
-effect is not supplied by this producer; the coordinator must recover the same
-operation using its exact durable state/receipt evidence.
+`CompleteAsync` requires that execution result and an exact latest Running
+(migration) or Removed (deletion) receipt, including matching payload hash, version,
+state/data schemas, state, failure absence, generation/sequence and result digest.
+The canonical execution-result source must hold actual original state exclusion
+and, for migration, original native/resource-generation custody through final CAS.
+It supplies original settled snapshots/measurement; separate ordinary state rereads
+cannot manufacture this lifetime. The producer supplies no execution-result source implementation:
+ordinary state/receipt methods own their own transactions, and the native/staged
+publication ports are not supplied here. The original observation-store dependency
+now supplies genuine held initial migration/deletion observations; it does not supply
+native result authority. The recovery dependency additionally supplies
+ObserveSettledMigrationAsync for Completed/RolledBack: it reads original settled
+rows against a hash recorded atomically by the original settlement transaction,
+without reapplying or completing effects. Its hash-only companion table must be
+installed by the original migration owner; missing historical hashes refuse and
+must never be backfilled by a recovery retry. Both migration and deletion completion
+therefore fail closed when that real custody is missing, even if metadata hashes
+look valid. Data-codec tests and internal SQL-CAS component tests do not qualify
+whole runtime or user admission.
 
-The leaf `AuthoringExtensionApprovalStorageSchema` supplies only DDL. Runtime
-methods do not create tables, change existing state/receipt schemas, or register
-production migrations. The migration definitions/catalog/manifest, production DI,
-lifecycle consumer, HTTP/AEDS transport and real confirmation UI remain separately
-owned WIP work. The preview/context here are internal host contracts, not newly
-registered AEDS frames; the shared protocol owner must serialize any future wire
-contract. Tests use isolated PostgreSQL databases, real state/receipt stores,
-Data Protection, and the existing admin proof issuer with real Redis one-time
-consumption. They do not establish a human confirmation or a new Passkey ceremony.
-Rollback removes producer registration/consumers while preserving decisions and
-events for recovery; never recreate an empty approval store to retry an effect.
+Terminal success holds the existing lifecycle advisory key inside the approval
+store transaction and checks the complete actual latest receipt immediately before
+its status/event CAS, retaining the lock until commit. A newer legal head while the
+approval-row lock is blocked refuses; an earlier transaction's GetLatest is only a
+precheck. Exact package metadata is also rechecked against the protected decision
+inside this final transaction. No existing receipt/state store is enlisted in an
+ambient transaction, and no cross-store effect atomicity is claimed.
+
+The approval owner opens its final PostgreSQL transaction and locks the actual
+principal then session before requesting foreign custody. The execution-result source receives this exact Npgsql connection and transaction;
+providers never commit/dispose them. The original scope authority retains its own
+held connection and verifies through that connection. Original state observations retain their own dedicated transaction
+acquired after actor locks and before provenance and held through approval commit; no enlistment
+or cross-store atomicity is claimed. Change first observes a decision without locking solely to route
+custody acquisition, then re-reads FOR UPDATE and validates its immutable descriptor.
+The positive acquisition sequence is actor, original state scopes in ordinal ScopeId
+order, provenance custody, decision/effect uniqueness, and lifecycle receipt. This
+follows the actual original INSERT/delete witness trigger and provenance activation
+writer order: state before provenance. A provenance-first state wait can deadlock
+against these writers. Historical reads, denial, revocation and recovery marking
+acquire only actor and the protected actor-owned decision; they grant no execution
+and never require an obsolete initial state. Document scopes remain refused by the
+genuine provenance producer until a document authority exists. Creation
+obtains the operation unique-index lock before waiting for the receipt key. Receipt
+chain prechecks finish before foreign custody; final receipt validation stays in the
+owned transaction. VerifyCurrent must use held owner connections without opening
+another transaction or reacquiring a state/receipt key. Original state read-custody,
+provenance writers and native generation publication must prove this order before
+production activation. Prepare/Confirm/Claim consume the exact original observation
+store, verify on its held connection, and hold it through CAS; they never call the
+independent Read/Measure API while that state custody is held. Deletion preparation
+may measure before acquiring the exact observation, which revalidates any gap.
+Failure-only settlement after identity loss has a separate unpinned, decision-only
+transaction and cannot settle Completed. Principal DELETE/cascading document FKs,
+provenance revocation, original state writers and receipt appends remain required
+cross-owner race controls; fixture ACL controls alone do not qualify provenance.
+
+Positive approval uses AcquireWithStateCustodyAsync with the exact original
+IAuthoringExtensionStateObservation. The provider validates AcquiredScopeIds and
+verifies state through that held owner connection. It must not execute a state-table
+SELECT on its separate provenance connection: a queued TRUNCATE can otherwise wait
+for observation's AccessShare while that new SELECT waits behind TRUNCATE. Missing
+ordered acquisition refuses approval_ordered_scope_authority_unavailable, without
+falling back to the standalone scope adapter. The genuine scope producer implements this ordered port by borrowing the original
+observation and retaining its own provenance rows. Its standalone old entry refuses;
+there is no provenance-first state wait adapter. Activation pins actor/session in its
+own final transaction before state and provenance, with post-wait time/site/package
+checks. Actual combined race tests and independent reviews still gate qualification. The canonical
+execution-result scope exposes its original StateCustody; Complete checks the same
+observation's actual phase, snapshots/measurement and exact scope IDs before terminal
+CAS. No result-source implementation or native publication authority is supplied here.
+
+The leaf schema supplies only DDL; runtime methods do not create tables, alter
+existing state/receipt schemas, or register production migrations/DI. Lifecycle,
+preflight, canonical scope/state/native custody, HTTP/AEDS/UI and same-operation
+recovery consumers remain separately owned WIP. The old receipt-only Complete and
+migration overloads are not success adapters. Shared wire frames remain with the
+protocol owner. Tests use isolated PostgreSQL/Redis, explicit synthetic exact-scope
+SQL ACL custody, original state/receipt owners and existing admin proof consumption;
+they do not establish production scope policy, real consent, Passkey ceremony,
+native acceptance or full issue qualification. Rollback preserves decisions/events
+and exact state/receipt recovery facts; never reset the store to erase a claimed
+operation or restore revoked authority.
 
 ## Resource budgets, crash isolation, and telemetry
 

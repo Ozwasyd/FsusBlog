@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionScopeProvenanceAuthority.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateScopeIssuer.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionScopeProvenanceStore.cs"
+            ],
+            "reason": "Preserve original authenticated admin/session claim, configured-site and PostgreSQL field names while adapting the canonical supplied-state-custody entry and activation currentness. The unchanged trusted registry assigns these C# paths to environment-variable; no shared policy, migration registration, DI or document identity mapping is modified."
+        }
+    ]
+}
