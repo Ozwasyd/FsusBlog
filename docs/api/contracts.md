@@ -3239,11 +3239,22 @@ metadata/property digests and exporting UserId retain their own domains; they
 are not equated to package RevisionNo, property-mapping digests or definition
 ownership. The read-only `SourceBindings` retain those supplied coordinates.
 
-At most 1,000 inputs and 256 document assets per input are inspected. All supplied
-Markdown and presentation-font bytes share a 64 MiB pre-copy budget. The document
+At most 1,000 inputs and 256 document assets per input are inspected. The
+combined article/asset file roster must fit the existing byte reader's 1,002-file
+limit, including manifest and checksums. All supplied
+Markdown, content assets and presentation-font bytes share a 64 MiB pre-copy budget. The document
 owner validates its required font set, while those presentation fonts are not
-emitted as article content assets. Any other asset is refused, never silently
-omitted. A non-null `FrozenEmbeds` slot is also refused with
+emitted as article content assets. Content images require an explicit v2 asset
+plan; the legacy article-only path still refuses them. Every frozen image's
+source asset ID must identify the planned ledger assertion and exactly match
+that article's explicit reference edges. The writer rechecks each occurrence's
+owned bytes, SHA-256, length and MIME against the plan and the original media
+mapper, then revalidates the entire collection and root inventory. Shared assets
+are emitted once. Document `sha256:<hex>` digests and package bare-hex hashes
+remain separate representations; the latter are recomputed from frozen bytes.
+An explicitly empty v2 collection remains v2. This bridge
+supports only the supplied v2 asset-root/property-v1 format; v3 property roots
+have no conversion or fallback here. A non-null `FrozenEmbeds` slot is refused with
 `article_package_export_dependency_schema_unavailable`: the existing finite
 manifest cannot represent its original plan, portable dependency mapping and
 retained projection bytes. Presence of a typed slot never supplies missing
@@ -3252,11 +3263,15 @@ A null slot does not prove the raw Markdown has no dependencies; the finite
 writer performs no syntax parsing and never grants complete export authority.
 
 For supported inputs, the writer emits the existing finite manifest, exact
-Markdown and checksum documents, using the sole checksum digest owner. The
+Markdown, v2 asset payloads when explicitly planned, and checksum documents,
+using the sole checksum digest owner. The
 official ZIP library writes ordinal paths with stored payloads, fixed 1980-01-01
 timestamps and regular-file attributes into a bounded private buffer. The
 existing actual ZIP/byte validators verify the entire generated archive before
-any candidate is returned. Repeated equal inputs in the same official runtime
+any candidate is returned. For v2, the asset collection is rebound to actual
+stored output inventory (including completed manifest/checksum lengths), and
+the backend asset reader also reinspects the actual decompressed media bytes.
+Planning metadata length placeholders do not become archive facts. Repeated equal inputs in the same official runtime
 produce equal archive bytes; the finite file-set digest remains distinct from
 archive bytes and from a complete package semantic digest. No alternate parser,
 dependency schema, download route, store or temporary output is introduced.

@@ -53,11 +53,36 @@ public static class ArticlePackageImportZipCandidateReader
         ReadOnlySpan<byte> archiveBytes,
         out ArticlePackageImportZipCandidate? candidate,
         CancellationToken cancellationToken = default)
+        => TryReadCore(archiveBytes, null, false, out candidate, cancellationToken);
+
+    /// <summary>
+    /// Reads the finite v2 asset-root profile against an explicitly supplied collection. The root
+    /// codec receives inventory observed from this archive, including original compressed sizes,
+    /// rather than trusting the collection's inventory. CRC and all actual bytes remain checked.
+    /// Media, rights, complete archive and execution authority are not established here.
+    /// </summary>
+    public static ArticlePackageManifestCandidateResult TryReadCandidate(
+        ReadOnlySpan<byte> archiveBytes,
+        ArticlePackageManifestAssetCollectionCandidate? assets,
+        out ArticlePackageImportZipCandidate? candidate,
+        CancellationToken cancellationToken = default)
+        => TryReadCore(archiveBytes, assets, true, out candidate, cancellationToken);
+
+    private static ArticlePackageManifestCandidateResult TryReadCore(
+        ReadOnlySpan<byte> archiveBytes,
+        ArticlePackageManifestAssetCollectionCandidate? assets,
+        bool withAssets,
+        out ArticlePackageImportZipCandidate? candidate,
+        CancellationToken cancellationToken)
     {
         candidate = null;
         if (cancellationToken.IsCancellationRequested)
         {
             return Invalid("article_package_import_cancelled");
+        }
+        if (withAssets && assets is null)
+        {
+            return Invalid("article_package_manifest_asset_root_input_invalid");
         }
         if (archiveBytes.Length < 22 || archiveBytes.Length > MaxArchiveBytes)
         {
@@ -100,7 +125,7 @@ public static class ArticlePackageImportZipCandidateReader
                 {
                     return Invalid("article_package_zip_structure_invalid");
                 }
-                if (entry.FullName.StartsWith("assets/", StringComparison.Ordinal))
+                if (!withAssets && entry.FullName.StartsWith("assets/", StringComparison.Ordinal))
                 {
                     return Invalid("article_package_manifest_assets_authority_unavailable");
                 }
@@ -114,8 +139,10 @@ public static class ArticlePackageImportZipCandidateReader
                 files[index] = new(expected.Path, bytes);
             }
             cancellationToken.ThrowIfCancellationRequested();
-            ArticlePackageManifestCandidateResult byteResult = ArticlePackageImportCandidateBytes.Validate(
-                inventory, files, out ArticlePackageValidatedImportCandidate? bytesCandidate, cancellationToken);
+            ArticlePackageValidatedImportCandidate? bytesCandidate;
+            ArticlePackageManifestCandidateResult byteResult = withAssets
+                ? ArticlePackageImportCandidateBytes.Validate(inventory, files, assets, out bytesCandidate, cancellationToken)
+                : ArticlePackageImportCandidateBytes.Validate(inventory, files, out bytesCandidate, cancellationToken);
             if (!byteResult.IsValid)
             {
                 return byteResult;

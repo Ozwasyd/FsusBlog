@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs",
+                "src/backend/Services/Authoring/ArticlePackageImportAssetCandidateValidator.cs",
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.Assets.cs",
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs"
+            ],
+            "reason": "Bind the six changed C# source paths already classified by the trusted environment-variable registration. Supplier closure files remain byte-identical to their recorded heads; the original writer adds no environment reads or external spellings, preserves public contract names, and uses internal C# naming. This manifest changes no naming policy or authorization."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "The existing authoritative API document retains its registered external JSON and contract identifiers while describing the finite writer asset path and its limits. This source documentation update changes no external spelling, document-exactness authority, generated section, registry or policy."
+        }
+    ]
+}
