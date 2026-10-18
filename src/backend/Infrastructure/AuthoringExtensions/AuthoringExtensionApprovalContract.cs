@@ -161,6 +161,20 @@ public interface IAuthoringExtensionApprovalScopeAuthority
     ValueTask<IAuthoringExtensionApprovalScope> AcquireAsync(HttpContext context,
         AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destinationScope,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Ordered approval acquisition. Validate the exact original held scope IDs and verify state
+    /// through its owner connection, never through a new provenance-connection state SELECT.
+    /// A missing implementation refuses; the legacy standalone acquisition is not an adapter.
+    /// The scope provider does not own or dispose stateCustody.
+    /// </summary>
+    ValueTask<IAuthoringExtensionApprovalScope> AcquireWithStateCustodyAsync(HttpContext context,
+        AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destinationScope,
+        IAuthoringExtensionStateObservation stateCustody, CancellationToken cancellationToken)
+    {
+        throw new AuthoringExtensionContractException("approval_ordered_scope_authority_unavailable");
+    }
+
 }
 
 public interface IAuthoringExtensionApprovalScope : IAsyncDisposable
@@ -218,6 +232,10 @@ public interface IAuthoringExtensionApprovalExecutionResultSource
 
 public interface IAuthoringExtensionApprovalExecutionResultScope : IAsyncDisposable
 {
+    IAuthoringExtensionStateObservation StateCustody
+    {
+        get;
+    }
     AuthoringExtensionApprovalExecutionResult Result
     {
         get;

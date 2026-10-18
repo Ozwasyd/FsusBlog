@@ -93,7 +93,7 @@ public sealed class AuthoringExtensionApprovalAuthority(
         Require(frozen.From.SiteId == actor.SiteId, "approval_site_mismatch");
         await using IAuthoringExtensionStateObservation observedState = await ObserveMigrationAsync(oldPackage, newPackage, frozen, cancellationToken);
         await observedState.VerifyCurrentAsync(cancellationToken);
-        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(AuthoringApprovalOperation.Migration, frozen.From, frozen.To, cancellationToken);
+        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(AuthoringApprovalOperation.Migration, frozen.From, frozen.To, observedState, cancellationToken);
         (long records, long bytes) = MigrationCounts(observedState);
         string digest = MigrationDigest(oldPackage, newPackage, frozen, oldTargets, newTargets, expectedLifecycleReceipt, records, bytes, access.AuthorizationSha256);
         AuthoringApprovalDecision result = await store.CreateAsync(transaction,
@@ -120,7 +120,7 @@ public sealed class AuthoringExtensionApprovalAuthority(
         AuthoringStateMeasurement measurement = await state.MeasureAsync(package, scope, cancellationToken);
         await using IAuthoringExtensionStateObservation observedState = await ObserveDeletionAsync(package, measurement, expectedLifecycleReceipt, cancellationToken);
         await observedState.VerifyCurrentAsync(cancellationToken);
-        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(AuthoringApprovalOperation.Deletion, scope, null, cancellationToken);
+        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(AuthoringApprovalOperation.Deletion, scope, null, observedState, cancellationToken);
         string digest = DeletionDigest(package, measurement, expectedLifecycleReceipt, access.AuthorizationSha256);
         AuthoringApprovalDecision result = await store.CreateAsync(transaction,
             Decision(transaction.Actor, AuthoringApprovalOperation.Deletion, package, package, scope,
@@ -333,19 +333,25 @@ public sealed class AuthoringExtensionApprovalAuthority(
             await executionResults!.AcquireAsync(transaction.Connection, transaction.Transaction, claim, result.Generation, cancellationToken);
         await held.VerifyCurrentAsync(cancellationToken);
         await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(claim.Operation, claim.Scope,
-            claim.FrozenPlan?.To, cancellationToken);
+            claim.FrozenPlan?.To, held.StateCustody, cancellationToken);
         Require(access.AuthorizationSha256 == claim.ScopeAuthorizationSha256, "approval_scope_authority_drift");
         await held.VerifyCurrentAsync(cancellationToken);
+        await held.StateCustody.VerifyCurrentAsync(cancellationToken);
+        AuthoringStateObservation canonical = held.StateCustody.State;
         AuthoringExtensionApprovalExecutionResult observed = AuthoringExtensionApprovalContract.FreezeResult(claim, held.Result);
         Require(Digest(observed) == Digest(frozen), "approval_execution_observation_mismatch");
         if (claim.Operation == AuthoringApprovalOperation.Migration)
         {
-            AuthoringExtensionApprovalContract.ValidateSettledMigration(claim, frozen.AppliedSnapshot!, held.SettledSourceSnapshot,
-                held.SettledDestinationSnapshot, cancellationToken);
+            Require(canonical.Phase == AuthoringStateMigrationPhase.Completed &&
+                Digest(canonical.From.Snapshot) == Digest(held.SettledSourceSnapshot) &&
+                Digest(canonical.To?.Snapshot) == Digest(held.SettledDestinationSnapshot), "approval_result_state_custody_mismatch");
+            AuthoringExtensionApprovalContract.ValidateSettledMigration(claim, frozen.AppliedSnapshot!, canonical.From.Snapshot,
+                canonical.To?.Snapshot, cancellationToken);
         }
         else
         {
-            Require(held.DeletedMeasurement == frozen.DeletionResult, "approval_deletion_result_drift");
+            Require(canonical.To is null && canonical.Phase is null && canonical.From.Measurement == held.DeletedMeasurement &&
+                held.DeletedMeasurement == frozen.DeletionResult, "approval_deletion_result_drift");
         }
         await held.VerifyCurrentAsync(cancellationToken);
         await store.SettleAsync(transaction, claim, AuthoringApprovalStatus.Completed, result, frozen.ContentSha256,
@@ -353,14 +359,21 @@ public sealed class AuthoringExtensionApprovalAuthority(
             {
                 await access.VerifyCurrentAsync(token);
                 await held.VerifyCurrentAsync(token);
+                await held.StateCustody.VerifyCurrentAsync(token);
             }, cancellationToken);
     }
 
     private async ValueTask<IAuthoringExtensionApprovalScope> AcquireScopeAsync(AuthoringApprovalOperation operation,
-        AuthoringStateScope scope, AuthoringStateScope? destination, CancellationToken token)
+        AuthoringStateScope scope, AuthoringStateScope? destination, IAuthoringExtensionStateObservation stateCustody,
+        CancellationToken token)
     {
         Require(scopeAuthority is not null, "approval_exact_scope_authority_unavailable");
-        IAuthoringExtensionApprovalScope held = await scopeAuthority!.AcquireAsync(contexts.HttpContext!, operation, scope, destination, token);
+        await stateCustody.VerifyCurrentAsync(token);
+        string[] exact = (destination is null ? new[] { scope } : new[] { scope, destination })
+            .Select(ScopeId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        Require(stateCustody.AcquiredScopeIds.SequenceEqual(exact), "approval_state_custody_scope_mismatch");
+        IAuthoringExtensionApprovalScope held = await scopeAuthority!.AcquireWithStateCustodyAsync(
+            contexts.HttpContext!, operation, scope, destination, stateCustody, token);
         try
         {
             Require(IsDigest(held.AuthorizationSha256), "approval_scope_authorization_invalid");
@@ -397,7 +410,7 @@ public sealed class AuthoringExtensionApprovalAuthority(
         await using IAuthoringExtensionStateObservation observedState = await observeState(observed, token);
         await observedState.VerifyCurrentAsync(token);
         await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(
-            observed.Operation, observed.Scope, observed.FrozenPlan?.To, token);
+            observed.Operation, observed.Scope, observed.FrozenPlan?.To, observedState, token);
         Require(access.AuthorizationSha256 == observed.ScopeAuthorizationSha256, "approval_scope_authority_drift");
         return await store.ChangeAsync(transaction, observed, change,
             async cancellation =>

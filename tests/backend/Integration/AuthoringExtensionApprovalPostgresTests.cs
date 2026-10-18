@@ -956,6 +956,14 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
     // production authorization adapter and not an adminId -> opaque user mapping.
     private sealed class FixtureScopeAuthority(NpgsqlDataSource source) : IAuthoringExtensionApprovalScopeAuthority
     {
+        public async ValueTask<IAuthoringExtensionApprovalScope> AcquireWithStateCustodyAsync(HttpContext context,
+            AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destination,
+            IAuthoringExtensionStateObservation stateCustody, CancellationToken token)
+        {
+            await stateCustody.VerifyCurrentAsync(token);
+            return await AcquireAsync(context, operation, scope, destination, token);
+        }
+
         public async ValueTask<IAuthoringExtensionApprovalScope> AcquireAsync(HttpContext context,
             AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destination, CancellationToken token)
         {
