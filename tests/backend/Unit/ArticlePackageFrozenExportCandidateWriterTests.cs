@@ -562,10 +562,10 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
         var plan = AssetPlan(fixtures, sources);
         Assert.StartsWith("sha256:", exports[0].Input.Assets.Last().Sha256);
         Assert.Equal(64, plan.Assets![0].RawByteSha256.Length);
-        var first = Write(plan, exports);
-        var second = Write(plan, exports.Reverse().ToArray());
+        var first = WriteAssets(plan, plan, fixtures, exports);
+        var second = WriteAssets(plan, plan, fixtures, exports.Reverse().ToArray());
         Assert.Equal(first.CopyArchiveBytes(), second.CopyArchiveBytes());
-        Assert.Equal(first.CopyArchiveBytes(), Write(AssetPlan(fixtures.Reverse().ToArray(), sources.Reverse().ToArray()), exports).CopyArchiveBytes());
+        Assert.Equal(first.CopyArchiveBytes(), WriteAssets(plan, AssetPlan(fixtures.Reverse().ToArray(), sources.Reverse().ToArray()), fixtures, exports).CopyArchiveBytes());
         Assert.Equal(2, first.Candidate.Manifest.SchemaVersion);
         Assert.Equal(assetCount, first.Candidate.Manifest.Assets!.Assets.Count);
         Assert.Equal(2 * assetCount, first.Candidate.Manifest.Assets.References.Count);
@@ -605,7 +605,8 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
     public void AssetWriter_ExplicitEmptyV2NeverFallsBackToLegacy()
     {
         ExportFixture[] fixtures = [Fixture()];
-        var candidate = Write(AssetPlan(fixtures, []), [fixtures[0].Export]);
+        var plan = AssetPlan(fixtures, []);
+        var candidate = WriteAssets(plan, plan, fixtures, [fixtures[0].Export]);
         Assert.Equal(2, candidate.Candidate.Manifest.SchemaVersion);
         Assert.Empty(candidate.Candidate.Manifest.Assets!.Assets);
         Assert.False(ArticlePackageImportZipCandidateReader.TryReadCandidate(candidate.CopyArchiveBytes(), out var legacy).IsValid);
@@ -675,8 +676,8 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
             Input = WithAssets(valid.Input, assets)
         };
         var plan = AssetPlan([fixture], [source]);
-        Reject(plan, [changed]);
-        Assert.Equal(2, Write(plan, [valid]).Candidate.Manifest.SchemaVersion);
+        RejectAssets(plan, plan, [fixture], [changed]);
+        Assert.Equal(2, WriteAssets(plan, plan, [fixture], [valid]).Candidate.Manifest.SchemaVersion);
     }
 
     [Theory]
@@ -756,8 +757,8 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
             typeof(ArticlePackageManifestCandidate).GetProperty(nameof(ArticlePackageManifestCandidate.Assets))!.SetValue(root, collection);
         }
         var forged = Construct<ArticlePackageManifestCandidatePlan>(root, articles, assets);
-        Reject(forged, [valid]);
-        Assert.Equal(Write(original, [valid]).CopyArchiveBytes(), Write(original, [valid]).CopyArchiveBytes());
+        RejectAssets(original, forged, [fixture], [valid]);
+        Assert.Equal(WriteAssets(original, original, [fixture], [valid]).CopyArchiveBytes(), WriteAssets(original, original, [fixture], [valid]).CopyArchiveBytes());
     }
 
     [Fact]
@@ -767,14 +768,14 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
         var source = AssetSource(1);
         var plan = AssetPlan(fixtures, [source]);
         var exports = fixtures.Select(fixture => WithContentAssets(fixture.Export, [source])).ToArray();
-        byte[] expected = Write(plan, exports).CopyArchiveBytes();
+        byte[] expected = WriteAssets(plan, plan, fixtures, exports).CopyArchiveBytes();
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
-        Assert.False(ArticlePackageFrozenExportCandidateWriter.TryWriteCandidate(plan, exports, out var candidate, cancelled.Token).IsValid);
+        Assert.False(ArticlePackageFrozenExportCandidateWriter.TryWriteCandidateToSnapshot(plan, plan, fixtures.Select(fixture => fixture.Manifest).ToArray(), exports, out var candidate, cancelled.Token).IsValid);
         Assert.Null(candidate);
         using var during = new CancellationTokenSource();
         var inputs = new IndexOnlyInputs(exports, 2, 2, callback: during.Cancel);
-        var result = ArticlePackageFrozenExportCandidateWriter.TryWriteCandidate(plan, inputs, out candidate, during.Token);
+        var result = ArticlePackageFrozenExportCandidateWriter.TryWriteCandidateToSnapshot(plan, plan, fixtures.Select(fixture => fixture.Manifest).ToArray(), inputs, out candidate, during.Token);
         Assert.Equal("article_package_export_cancelled", result.ReasonCode);
         Assert.Null(candidate);
         byte[] alias = source.SourceBytes.ToArray();
@@ -797,8 +798,8 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
                 alias[^1] ^= 1;
             }
         });
-        Reject(plan, tampering);
-        Assert.Equal(expected, Write(plan, fixtures.Select(fixture => WithContentAssets(fixture.Export, [source])).ToArray()).CopyArchiveBytes());
+        RejectAssets(plan, plan, fixtures, tampering);
+        Assert.Equal(expected, WriteAssets(plan, plan, fixtures, fixtures.Select(fixture => WithContentAssets(fixture.Export, [source])).ToArray()).CopyArchiveBytes());
     }
 
     [Fact]
@@ -806,7 +807,8 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
     {
         ExportFixture fixture = Fixture();
         var source = AssetSource(1);
-        var candidate = Write(AssetPlan([fixture], [source]), [WithContentAssets(fixture.Export, [source])]);
+        var plan = AssetPlan([fixture], [source]);
+        var candidate = WriteAssets(plan, plan, [fixture], [WithContentAssets(fixture.Export, [source])]);
         byte[] bytes = candidate.CopyArchiveBytes();
         int offset = bytes.AsSpan().IndexOf(source.SourceBytes.Span);
         Assert.True(offset >= 0);
@@ -824,9 +826,9 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
             new(fixtures[0].Export.PortableArticle, sources[0].PortableAsset),
             new(fixtures[1].Export.PortableArticle, sources[1].PortableAsset)];
         var plan = AssetPlan(fixtures, sources, references);
-        var candidate = Write(plan, [WithContentAssets(fixtures[0].Export, [sources[0]]), WithContentAssets(fixtures[1].Export, [sources[1]])]);
+        var candidate = WriteAssets(plan, plan, fixtures, [WithContentAssets(fixtures[0].Export, [sources[0]]), WithContentAssets(fixtures[1].Export, [sources[1]])]);
         Assert.Equal(2, candidate.Candidate.Manifest.Assets!.Assets.Count);
-        Reject(plan, [WithContentAssets(fixtures[0].Export, [sources[1]]), WithContentAssets(fixtures[1].Export, [sources[0]])],
+        RejectAssets(plan, plan, fixtures, [WithContentAssets(fixtures[0].Export, [sources[1]]), WithContentAssets(fixtures[1].Export, [sources[0]])],
             "article_package_export_asset_binding_mismatch");
     }
 
@@ -836,8 +838,74 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
         ExportFixture[] fixtures = Enumerable.Range(1, 1000).Select(id => Fixture(id)).ToArray();
         var plan = AssetPlan(fixtures, [AssetSource(1)]);
         var inputs = new IndexOnlyInputs([], 1000, 1000);
-        Reject(plan, inputs, "article_package_export_file_budget_exceeded");
+        RejectAssets(plan, plan, fixtures, inputs, "article_package_export_file_budget_exceeded");
         Assert.Equal(0, inputs.IndexReads);
+    }
+
+    [Theory]
+    [InlineData("storage-key")]
+    [InlineData("owner")]
+    [InlineData("created")]
+    [InlineData("updated")]
+    public void AssetWriter_OriginalEntryCannotExportUnanchoredRecordPlans(string field)
+    {
+        ExportFixture fixture = Fixture();
+        var source = AssetSource(1);
+        var expected = AssetPlan([fixture], [source]);
+        var changed = source with
+        {
+            Record = field switch
+            {
+                "storage-key" => source.Record with { StorageKey = AssetStorageKey.Parse("content/public/other.png") },
+                "owner" => source.Record with { OwnerAdminPrincipalId = 8 },
+                "created" => source.Record with { CreatedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(-1) },
+                _ => source.Record with { UpdatedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(1) }
+            }
+        };
+        var replacement = AssetPlan([fixture], [changed]);
+        Assert.Equal(expected.Manifest.SemanticDigest, replacement.Manifest.SemanticDigest);
+        var input = WithContentAssets(fixture.Export, [source]);
+        Reject(expected, [input], "article_package_export_asset_record_snapshot_required");
+        Reject(replacement, [input], "article_package_export_asset_record_snapshot_required");
+        RejectAssets(expected, replacement, [fixture], [input], "article_package_manifest_asset_record_snapshot_mismatch");
+        Assert.Equal(2, WriteAssets(expected, expected, [fixture], [input]).Candidate.Manifest.SchemaVersion);
+    }
+
+    [Fact]
+    public void AssetWriter_MissingExpectedSnapshotNeverUsesCandidateAsItsOwnExpectedRecord()
+    {
+        ExportFixture fixture = Fixture();
+        var source = AssetSource(1);
+        var plan = AssetPlan([fixture], [source]);
+        var input = WithContentAssets(fixture.Export, [source]);
+        var result = ArticlePackageFrozenExportCandidateWriter.TryWriteCandidateToSnapshot(
+            null, plan, [fixture.Manifest], [input], out var candidate);
+        Assert.Equal("article_package_export_asset_record_snapshot_required", result.ReasonCode);
+        Assert.Null(candidate);
+    }
+
+    private static ArticlePackageFrozenExportCandidate WriteAssets(ArticlePackageManifestCandidatePlan expected,
+        ArticlePackageManifestCandidatePlan plan, IReadOnlyList<ExportFixture> fixtures,
+        IReadOnlyList<ArticlePackageFrozenExportCandidateInput> inputs)
+    {
+        var result = ArticlePackageFrozenExportCandidateWriter.TryWriteCandidateToSnapshot(expected, plan,
+            fixtures.Select(fixture => fixture.Manifest).ToArray(), inputs, out var candidate);
+        Assert.True(result.IsValid, result.ReasonCode);
+        return Assert.IsType<ArticlePackageFrozenExportCandidate>(candidate);
+    }
+
+    private static void RejectAssets(ArticlePackageManifestCandidatePlan expected,
+        ArticlePackageManifestCandidatePlan plan, IReadOnlyList<ExportFixture> fixtures,
+        IReadOnlyList<ArticlePackageFrozenExportCandidateInput> inputs, string? reason = null)
+    {
+        var result = ArticlePackageFrozenExportCandidateWriter.TryWriteCandidateToSnapshot(expected, plan,
+            fixtures.Select(fixture => fixture.Manifest).ToArray(), inputs, out var candidate);
+        Assert.False(result.IsValid);
+        Assert.Null(candidate);
+        if (reason is not null)
+        {
+            Assert.Equal(reason, result.ReasonCode);
+        }
     }
 
     private static T Construct<T>(params object[] arguments)

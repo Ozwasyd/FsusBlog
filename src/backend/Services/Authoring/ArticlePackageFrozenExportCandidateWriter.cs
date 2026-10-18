@@ -84,7 +84,100 @@ public static class ArticlePackageFrozenExportCandidateWriter
     public const long MaxFrozenInputBytes = 64L * 1024 * 1024;
     public const int MaxAssetsPerInput = 256;
 
+    /// <summary>
+    /// Legacy article-only entry. An asset-root plan cannot carry its own independent expected
+    /// private record snapshot; callers must use the explicit snapshot entry instead.
+    /// </summary>
     public static ArticlePackageManifestCandidateResult TryWriteCandidate(
+        ArticlePackageManifestCandidatePlan? plan,
+        IReadOnlyList<ArticlePackageFrozenExportCandidateInput>? inputs,
+        out ArticlePackageFrozenExportCandidate? candidate,
+        CancellationToken cancellationToken = default)
+    {
+        candidate = null;
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Invalid("article_package_export_cancelled");
+        }
+        if (plan?.Assets is not null || plan?.Manifest.Assets is not null)
+        {
+            return Invalid("article_package_export_asset_record_snapshot_required");
+        }
+        return TryWriteCandidateCore(plan, inputs, out candidate, cancellationToken);
+    }
+
+    /// <summary>
+    /// Requires the backend's independently retained expected plan and original article inputs.
+    /// Reuses the strict planner snapshot binder before writing the supplied plan/frozen bytes.
+    /// This finite comparison establishes no persisted source, permission or export authority;
+    /// the expected plan must not be replaced by a newly projected untrusted record set.
+    /// </summary>
+    public static ArticlePackageManifestCandidateResult TryWriteCandidateToSnapshot(
+        ArticlePackageManifestCandidatePlan? expected,
+        ArticlePackageManifestCandidatePlan? plan,
+        IReadOnlyList<ArticlePackageManifestCandidateInput>? articles,
+        IReadOnlyList<ArticlePackageFrozenExportCandidateInput>? inputs,
+        out ArticlePackageFrozenExportCandidate? candidate,
+        CancellationToken cancellationToken = default)
+    {
+        candidate = null;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (expected?.Assets is null || plan?.Assets is null || plan.Manifest.Assets is null)
+            {
+                return Invalid("article_package_export_asset_record_snapshot_required");
+            }
+            // Bound both backend snapshots before the planner takes defensive byte copies.
+            foreach (ArticlePackageManifestCandidatePlan snapshotPlan in new[] { expected, plan })
+            {
+                if (snapshotPlan.Assets!.Count > ArticlePackageImportCandidateBytes.MaxFiles - snapshotPlan.Articles.Count - 2)
+                {
+                    return Invalid("article_package_export_file_budget_exceeded");
+                }
+                long plannedBytes = 0;
+                foreach (ArticlePackageManifestPlannedArticle article in snapshotPlan.Articles)
+                {
+                    if (!AddBytes(ref plannedBytes, article.Manifest.SourceBytes.ByteLength))
+                    {
+                        return Invalid("article_package_export_byte_budget_exceeded");
+                    }
+                }
+                foreach (ArticlePackageManifestPlannedAsset asset in snapshotPlan.Assets)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!AddBytes(ref plannedBytes, asset.Source.SourceBytes.Length))
+                    {
+                        return Invalid("article_package_export_byte_budget_exceeded");
+                    }
+                }
+            }
+            ArticlePackageManifestCandidateResult bound = ArticlePackageManifestCandidatePlanner.TryBindCandidatePlanToSnapshot(
+                expected, articles, plan.Assets.Select(static asset => asset.Source).ToArray(),
+                plan.Manifest.Assets.References, plan.Inventory, out var snapshot, cancellationToken);
+            if (!bound.IsValid)
+            {
+                return bound;
+            }
+            if (plan.Manifest.SemanticDigest != snapshot!.Manifest.SemanticDigest
+                || !plan.Articles.Select(static article => article.Manifest).SequenceEqual(snapshot.Manifest.Articles))
+            {
+                return Invalid("article_package_export_source_binding_mismatch");
+            }
+            return TryWriteCandidateCore(plan, inputs, out candidate, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return Invalid("article_package_export_cancelled");
+        }
+        catch (Exception)
+        {
+            // Foreign article collections cannot expose diagnostics or a partially bound result.
+            return Invalid("article_package_export_input_invalid");
+        }
+    }
+
+    private static ArticlePackageManifestCandidateResult TryWriteCandidateCore(
         ArticlePackageManifestCandidatePlan? plan,
         IReadOnlyList<ArticlePackageFrozenExportCandidateInput>? inputs,
         out ArticlePackageFrozenExportCandidate? candidate,

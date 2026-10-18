@@ -3245,7 +3245,18 @@ limit, including manifest and checksums. All supplied
 Markdown, content assets and presentation-font bytes share a 64 MiB pre-copy budget. The document
 owner validates its required font set, while those presentation fonts are not
 emitted as article content assets. Content images require an explicit v2 asset
-plan; the legacy article-only path still refuses them. Every frozen image's
+plan and the backend's independently retained expected plan.
+`TryWriteCandidateToSnapshot` takes that expected plan, the supplied candidate,
+the original article inputs and frozen document bytes. It calls
+`TryBindCandidatePlanToSnapshot` to compare every original `AssetRecord` field
+and exact owned bytes before the original writer pipeline. Storage key, owner
+and timestamps remain backend-only; portable root equality does not bind them.
+The legacy `TryWriteCandidate` entry refuses every v2 asset-root plan, including
+an explicitly empty collection, with
+`article_package_export_asset_record_snapshot_required`. It cannot use a newly
+projected candidate as its own independent record expectation. The caller must
+retain the expected backend plan separately; this finite comparison does not
+establish persisted source or permission authority. Every frozen image's
 source asset ID must identify the planned ledger assertion and exactly match
 that article's explicit reference edges. The writer rechecks each occurrence's
 owned bytes, SHA-256, length and MIME against the plan and the original media
