@@ -26,7 +26,7 @@ static int HexDigit(char value)
 
 int main(int argc, char** argv)
 {
-    if (argc != 3)
+    if (argc != 3 && argc != 4)
     {
         return 2;
     }
@@ -66,7 +66,20 @@ int main(int argc, char** argv)
             }
             bytes.push_back(static_cast<std::uint8_t>(high * 16 + low));
         }
-        bool actual = FsusBlog::Aeds::ValidateArticlePropertyValueReadPayload(269, bytes.data(), bytes.size());
+        std::uint16_t frameType = 269;
+        if (argc == 4)
+        {
+            unsigned parsedFrame = 0;
+            const auto separator = name.find(':');
+            const auto identity = name.substr(0, separator);
+            const auto parsed = std::from_chars(identity.data(), identity.data() + identity.size(), parsedFrame);
+            if (separator == std::string::npos || parsed.ec != std::errc() || parsed.ptr != identity.data() + identity.size() || parsedFrame > 65535)
+            {
+                return 2;
+            }
+            frameType = static_cast<std::uint16_t>(parsedFrame);
+        }
+        bool actual = FsusBlog::Aeds::ValidateArticlePropertyValueReadPayload(frameType, bytes.data(), bytes.size());
         if (actual != expected)
         {
             std::cerr << "mismatch " << name << '\n';
@@ -77,7 +90,7 @@ int main(int argc, char** argv)
             return 3;
         }
         // Independently frame each witness, then exercise the actual public native dispatcher.
-        std::vector<std::uint8_t> frame{0x41, 0x45, 0x44, 0x53, 2, 16, 0, 0, 0x0d, 0x01};
+        std::vector<std::uint8_t> frame{0x41, 0x45, 0x44, 0x53, 2, 16, 0, 0, static_cast<std::uint8_t>(frameType), static_cast<std::uint8_t>(frameType >> 8)};
         for (unsigned shift = 0; shift < 32; shift += 8)
         {
             frame.push_back(static_cast<std::uint8_t>(bytes.size() >> shift));
@@ -92,7 +105,7 @@ int main(int argc, char** argv)
         {
             return 5;
         }
-        if (expected && (decoded.frame_type != 269 || decoded.payload_ptr != frame.data() + 16
+        if (expected && (decoded.frame_type != frameType || decoded.payload_ptr != frame.data() + 16
             || decoded.payload_len != bytes.size()))
         {
             return 6;

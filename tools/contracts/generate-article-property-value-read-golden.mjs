@@ -234,3 +234,91 @@ else
 {
     writeFileSync(target, out);
 }
+
+// Mutation roots reuse the same strict primitive producer and retain the original read witnesses.
+const protocol = JSON.parse(readFileSync(path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
+const mutationCases = [];
+function mutationCase(record, name, value)
+{
+    const frameType = protocol.frameTypes.find(frame => frame.name === record).value;
+    const bytes = wire[`encode${record}`](value);
+    mutationCases.push({ record, name, frameType, payloadHex: Buffer.from(bytes).toString('hex'), valid: true });
+    for (const [suffix, altered] of [
+        ['truncated', bytes.slice(0, -1)], ['trailing', Uint8Array.from([...bytes, 0])],
+        ['unknown-version', Uint8Array.from([255, ...bytes.slice(1)])]
+    ])
+    {
+        mutationCases.push({ record, name: name + '-' + suffix, frameType, payloadHex: Buffer.from(altered).toString('hex'), valid: false });
+    }
+}
+const baseCommand = { requestId: guid, definitionOwnerUserId: '42', siteScope: 'primary-site',
+    articleId: 7, expectedArticleRevisionId: '9223372036854775807', expectedPropertyRevision: '0', mode: 1, changes: [] };
+const extremes = [...types, { type: 1, number: { lo: 4294967295, mid: 4294967295, hi: 4294967295, scale: 0, negative: false } },
+    { type: 1, number: { lo: 1, mid: 0, hi: 0, scale: 28, negative: true } },
+    { type: 3, utc: '0' }, { type: 3, utc: '3155378975999999999' }];
+for (const [index, value] of extremes.entries())
+{
+    mutationCase('ArticlePropertyValueMutationCommand', `value-${index}`, { ...baseCommand,
+        changes: [{ kind: 0, input: { definitionId: guid, definitionSchemaRevision: '9223372036854775807',
+            definitionDigest: digest, presence: 2, value } }] });
+}
+mutationCase('ArticlePropertyValueMutationCommand', 'empty-replace', { ...baseCommand, mode: 0 });
+mutationCase('ArticlePropertyValueMutationReceipt', 'persisted-value-receipt', { receiptId: guid,
+    actorAdminPrincipalId: '9223372036854775807', requestId: guid, definitionOwnerUserId: '42', siteScope: 'primary-site',
+    articleId: 7, expectedArticleRevisionId: '9223372036854775807', beforePropertyRevision: '0', afterPropertyRevision: '1',
+    beforeSnapshotId: null, afterSnapshotId: guid, commandKind: 1, commandDigest: digest, contentDigest: digest,
+    auditReference: guid, auditChainId: 'persisted-chain', auditRecordHash: digest, occurredAtUtc: '638954208000000001', idempotencyReplay: false });
+const descriptor = definition(0);
+const settings = Object.fromEntries(['valueType', 'cardinality', 'required', 'presence', 'defaultValue', 'constraints',
+    'options', 'referencePolicy', 'urlPolicy', 'searchEligible', 'filterable', 'sortable', 'displayPlacement', 'visibilityScope']
+    .map(key => [key, descriptor[key]]));
+const definitionBase = { requestId: guid, definitionOwnerUserId: '42', siteScope: 'primary-site', definitionId: guid,
+    expectedOwnerRevision: '0', expectedSchemaRevision: '1' };
+for (const action of ['Create', 'Update', 'Rename', 'Deprecate', 'Delete'])
+{
+    mutationCase(`ArticlePropertyDefinition${action}Request`, `definition-${action.toLowerCase()}`,
+        { ...definitionBase, machineKey: 'field', displayNames: descriptor.displayNames, settings });
+}
+mutationCase('ArticlePropertyDefinitionMutationReceipt', 'persisted-definition-receipt', {
+    receiptId: guid, requestId: guid, actorAdminPrincipalId: '42', definitionOwnerUserId: '42', siteScope: 'primary-site',
+    commandKind: 'create', commandDigest: digest, definitionId: guid, previousOwnerRevision: '0', ownerRevision: '1',
+    previousSchemaRevision: '0', schemaRevision: '1', status: 0, beforeDefinitionDigest: digest, afterDefinitionDigest: digest,
+    constraintDigest: digest, optionsDigest: digest, policyDigest: digest, flagsDigest: digest, obligations: [],
+    auditReference: guid, auditDigest: digest, contentDigest: digest, occurredAtUtc: '638954208000000001', isIdempotentReplay: false });
+// Independent LE/network-GUID layout oracle for the empty current-article command.
+const independentEmptyMutation = '02' + '00112233445566778899aabbccddeeff' + '01' + '2a00000000000000'
+    + '0c000000' + '7072696d6172792d73697465' + '07000000' + 'ffffffffffffff7f'
+    + '0000000000000000' + '00' + '00000000';
+if (mutationCases.find(item => item.name === 'empty-replace').payloadHex !== independentEmptyMutation)
+{
+    throw new Error('property_mutation_empty_layout_drift');
+}
+for (const [name, witness, offset, replacement] of [
+    ['unknown-mode', 'empty-replace', 62, 255],
+    ['invalid-owner-presence', 'empty-replace', 17, 2],
+    ['unknown-change-kind', 'value-0', 67, 255],
+    ['unknown-value-presence', 'value-0', 160, 255],
+    ['invalid-value-presence-marker', 'value-0', 161, 2],
+    ['unknown-typed-tag', 'value-0', 162, 255],
+    ['invalid-decimal-scale', 'value-1', 175, 29],
+    ['invalid-decimal-sign', 'value-1', 176, 2],
+    ['invalid-site-utf8', 'empty-replace', 30, 255],
+    ['trimmed-site', 'empty-replace', 30, 32],
+    ['negative-article-revision', 'empty-replace', 53, 255]
+])
+{
+    const sample = mutationCases.find(item => item.name === witness);
+    const bytes = Buffer.from(sample.payloadHex, 'hex');
+    bytes[offset] = replacement;
+    mutationCases.push({ ...sample, name, payloadHex: bytes.toString('hex'), valid: false });
+}
+const mutationTarget = path.join(root, 'tests/fixtures/protocol/article-property-mutation-wire-golden.json');
+const mutationOutput = JSON.stringify({ schema: 'fsusblog.article-property-mutation-wire-golden.v1', cases: mutationCases }, null, 2) + '\n';
+if (process.argv.includes('--check'))
+{
+    if (readFileSync(mutationTarget, 'utf8') !== mutationOutput) throw new Error('property_mutation_golden_drift');
+}
+else
+{
+    writeFileSync(mutationTarget, mutationOutput);
+}

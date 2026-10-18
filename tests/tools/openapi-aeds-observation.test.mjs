@@ -1686,3 +1686,64 @@ test('generated OpenAPI materialization uses the canonical projection serializer
         rmSync(directory, { recursive: true, force: true });
     }
 });
+
+test('compiled ordinal property order is retained across mixed-case prefixes; locale order refuses', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-ordinal-fields-'));
+    try
+    {
+        const observation = sampleObservation();
+        const operation = observation.operations[1];
+        const request = operation.request;
+        const prototype = Object.values(request.properties).find(property => property.type === 'string');
+        request.properties = Object.fromEntries(['allowAbsolute', 'allowRelative', 'allowedSchemes'].map(name =>
+            [name, { ...structuredClone(prototype), name, required: true }]));
+        request.requiredFields = Object.keys(request.properties);
+        request.bounds = Object.fromEntries(Object.entries(request.properties).filter(([, value]) =>
+            Object.values(value.bounds).some(bound => bound != null)).map(([name, value]) => [name, value.bounds]));
+        resealRequestFixture(operation);
+        let sealed = writeObservation(directory, observation);
+        const protocol = readJson(path.join(directory, 'src/shared/Contracts/Validation/aeds-protocol.json'));
+        assert.deepEqual(validateObservationAgainstProtocol(observation, protocol), []);
+        let result = extractOpenApi({ repositoryRoot: directory, buildIdentity: sealed.buildIdentity, canonicalDigest: digestValue });
+        assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
+        request.requiredFields = [...request.requiredFields].sort((a, b) => a.localeCompare(b));
+        resealRequestFixture(operation);
+        sealed = writeObservation(directory, observation);
+        assert.notDeepEqual(validateObservationAgainstProtocol(observation, protocol), []);
+        result = extractOpenApi({ repositoryRoot: directory, buildIdentity: sealed.buildIdentity, canonicalDigest: digestValue });
+        assert.equal(result.status, 'failed');
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('empty declared CLR base definition projects identity without an illegal empty observation map', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-empty-base-'));
+    try
+    {
+        const observation = sampleObservation();
+        const operation = observation.operations[1];
+        const definition = operation.request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata'];
+        definition.properties = {};
+        definition.requiredFields = [];
+        definition.bounds = {};
+        resealRequestFixture(operation);
+        const sealed = writeObservation(directory, observation);
+        const protocol = readJson(path.join(directory, 'src/shared/Contracts/Validation/aeds-protocol.json'));
+        assert.deepEqual(validateObservationAgainstProtocol(observation, protocol), []);
+        const result = extractOpenApi({ repositoryRoot: directory, buildIdentity: sealed.buildIdentity, canonicalDigest: digestValue });
+        assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
+        const definitions = result.observations.operations.binary_post_admin_article.request.definitions;
+        const projected = Object.values(definitions).find(value => value.identity === definition.typeIdentity);
+        assert.ok(projected);
+        assert.equal(Object.hasOwn(projected, 'properties'), false);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});

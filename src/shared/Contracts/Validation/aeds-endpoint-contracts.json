@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "ba3160e1c83d1f9d3f5ad64fd18f3a477548252e0e8513e2e410924b5dbd35ec",
+    "contentDigest": "ed91c8cb3e587d5bdbc4a6ef5e4a8434c926b40e976497a3b768fc53e529c8f2",
     "operations": [
         {
             "method": "DELETE",
@@ -3196,6 +3196,72 @@
             "requestType": "FsusBlog.Contracts.AuthoringNavigation.AuthorArticleSelectionRevalidationRequest",
             "requestEncoding": "binary-layout",
             "responseFrame": "AuthorArticleSelectionRevalidateResponse",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/articles/{articleId:int}/properties",
+            "operationId": "binary_author_article_property_values_mutate",
+            "requestFrame": "ArticlePropertyValueMutationCommand",
+            "requestType": "FsusBlog.Shared.Contracts.ArticleProperties.ArticlePropertyValueMutationCommand",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "ArticlePropertyValueMutationReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/property-definitions",
+            "operationId": "binary_author_article_property_definition_create",
+            "requestFrame": "ArticlePropertyDefinitionCreateRequest",
+            "requestType": "FsusBlog.Shared.Contracts.ArticleProperties.ArticlePropertyDefinitionCreateRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "PUT",
+            "path": "/api/binary/author/property-definitions/{definitionId:guid}",
+            "operationId": "binary_author_article_property_definition_update",
+            "requestFrame": "ArticlePropertyDefinitionUpdateRequest",
+            "requestType": "FsusBlog.Shared.Contracts.ArticleProperties.ArticlePropertyDefinitionUpdateRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/property-definitions/{definitionId:guid}/rename",
+            "operationId": "binary_author_article_property_definition_rename",
+            "requestFrame": "ArticlePropertyDefinitionRenameRequest",
+            "requestType": "FsusBlog.Shared.Contracts.ArticleProperties.ArticlePropertyDefinitionRenameRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/property-definitions/{definitionId:guid}/deprecate",
+            "operationId": "binary_author_article_property_definition_deprecate",
+            "requestFrame": "ArticlePropertyDefinitionDeprecateRequest",
+            "requestType": "FsusBlog.Shared.Contracts.ArticleProperties.ArticlePropertyDefinitionDeprecateRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "DELETE",
+            "path": "/api/binary/author/property-definitions/{definitionId:guid}",
+            "operationId": "binary_author_article_property_definition_delete",
+            "requestFrame": "ArticlePropertyDefinitionDeleteRequest",
+            "requestType": "FsusBlog.Shared.Contracts.ArticleProperties.ArticlePropertyDefinitionDeleteRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
             "errorFrame": "ApiError",
             "successStatus": 200
         }

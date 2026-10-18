@@ -1,4 +1,6 @@
+import { encodeAedsFrame } from '@/api/binaryFrame';
 import type { ArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
+import * as mutationWire from '@/codecs/binary/articlePropertyValueReadWire.generated';
 import { requestBinaryOnly } from '@/composition/binaryTransport';
 
 import { FrameType } from '@wasm/protocol/frame';
@@ -31,8 +33,32 @@ function propertiesPath(articleId: number, ownerUserId: string | null): string
     return `${path}?ownerUserId=${ownerUserId}`;
 }
 
-/** Reads persisted Server facts through the private author scope; mutation transport remains a separate contract. */
+/** Uses the original private author transport for persisted facts and canonical mutations. */
 export const articlePropertyValuesApi = {
+    async mutate(command: mutationWire.ArticlePropertyValueMutationCommand,
+        signal?: AbortSignal): Promise<mutationWire.ArticlePropertyValueMutationReceipt>
+    {
+        const path = propertiesPath(command.articleId, null);
+        if (command.siteScope !== 'primary-site')
+        {
+            throw new RangeError('article_property_value_site_invalid');
+        }
+        const result = await requestBinaryOnly<mutationWire.ArticlePropertyValueMutationReceipt>({
+            binaryUrl: path, privateScope: 'admin', frameType: FrameType.ArticlePropertyValueMutationReceipt, signal,
+            requestOptions: { method: 'POST', cache: 'no-store', requiresPow: true,
+                body: encodeAedsFrame(FrameType.ArticlePropertyValueMutationCommand,
+                    mutationWire.encodeArticlePropertyValueMutationCommand(command)) }
+        });
+        if (result.requestId !== command.requestId || result.articleId !== command.articleId
+            || result.definitionOwnerUserId !== command.definitionOwnerUserId || result.siteScope !== command.siteScope
+            || result.expectedArticleRevisionId !== command.expectedArticleRevisionId
+            || result.beforePropertyRevision !== command.expectedPropertyRevision || result.commandKind !== command.mode
+            || BigInt(result.afterPropertyRevision) !== BigInt(command.expectedPropertyRevision) + 1n)
+        {
+            throw new Error('article_property_value_receipt_binding_invalid');
+        }
+        return result;
+    },
     async read(articleId: number, ownerUserId: string | null = null, signal?: AbortSignal): Promise<ArticlePropertyValueReadResponse>
     {
         const result = await requestBinaryOnly<ArticlePropertyValueReadResponse>({

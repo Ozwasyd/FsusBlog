@@ -1,0 +1,108 @@
+{
+    "schema": "fsusblog.property-formal-transport-wip-evidence.v1",
+    "status": "targeted-qualification-passed-with-existing-global-blockers",
+    "baseRevision": "2fe77e0d5402b7762aa9196c8335a3f237aec6c9",
+    "readWireRevision": "cdd0457367cb4661d6edba5b3bf0693d6ba85857",
+    "branch": "codex/issue-2322-2323-2325-formal-transport-wip",
+    "soleProtocolOwner": true,
+    "approvalWireIncluded": false,
+    "localFsusUi": {
+        "root": "/workspace/FsusUI",
+        "revision": "f2d929a5d045439c35e93b4771f912ce50ec2337",
+        "sourceAliasPreserved": true
+    },
+    "passed": {
+        "backendPostgresHttpAndGolden": 475,
+        "frontendPrivateBinaryApi": 63,
+        "nodeWireProtocolNative": 64,
+        "nativeAllFrames": 281,
+        "openApiOperations": 297,
+        "csharpStyleFiles": 4,
+        "frontendStyleFiles": 2
+    },
+    "existingBlockers": [
+        {
+            "check": "local FsusUI application typecheck",
+            "candidateErrors": 255,
+            "exactInput4266BaselineErrors": 255,
+            "newErrors": 0
+        },
+        {
+            "check": "pre-3177 OpenAPI census expectation",
+            "candidate": "expects old excluded JSON route log; actual typed AEDS operations=297",
+            "exactInput4266Baseline": "same assertion fails with actual typed AEDS operations=291",
+            "originalSuitePass": 39,
+            "originalSuiteFail": 1
+        }
+    ],
+    "notQualified": [
+        "Full production cookie/session startup and deployment",
+        "Full test matrix, remote required checks and release qualification",
+        "Rendered UI and standalone draft/reference authorities"
+    ],
+    "rawEvidenceDirectory": "/workspace/shared/formal-transport-evidence",
+    "rawLogs": [
+        {
+            "path": "/workspace/shared/formal-transport-evidence/final-backend-tests.log",
+            "sha256": "74273ef48e3c6c9738c2fce96b045849a8c6b80828f8f0dafa4a01a40f8a622a"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/final-frontend-tests.log",
+            "sha256": "74b7de8db25617d80ba8fceaf7a829ac5faf1c01baef8f23c62d09364bbe407f"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/wire-tests.log",
+            "sha256": "2a71e056044618f1766155d57875f643002804f7dea3c9f01ec1947926772484"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/cross-stack.log",
+            "sha256": "665ffe9d79519932c43527e7928968a2e4acecb10cc404e305013be52ff41024"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/openapi.log",
+            "sha256": "3c7dc98f6d334a0b19a9deb31d998a58c3f60c540a829c2812a1261ba7b8e6af"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/openapi-tests.log",
+            "sha256": "d6ca1268f9f390c0272eb79b1631113ebb3ecf83cbf37b7f92c877f52bd5c468"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/openapi-final-check.log",
+            "sha256": "d274b7d920421e39077afeb47cec39cdea487d5eca113c40ada39ded00a61316"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/products-check.log",
+            "sha256": "9cf409428cfe3518e2ff651315f57a145792b160b34cb30889c4a9833222b75e"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/generation-check.log",
+            "sha256": "d26c9d6c22dee06abeef36958b3e42c3991ef87debec3b89ff9b05b1d99afd9c"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/typecheck.log",
+            "sha256": "29240c0dc673037f2294dbbc94d5b3cb7b9557c12ffd2757483594992755051d"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/baseline-typecheck.log",
+            "sha256": "6dc7dbcf5c2c4ed6b60daec8e07c507e165b466991fea195a18000f519c40db4"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/original-openapi-test.log",
+            "sha256": "03f496da0ae0a2f25206a4b21fb97c7cc1856e177a22b0438372535a50145245"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/original-openapi-build.log",
+            "sha256": "e91f89653f409725fd34a11a38e3bdaaeefa08fa2093a578859ce61527b003ad"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/csharp-style.log",
+            "sha256": "338c3460669d174026aff5806362826322bba8ad7b474d80ac85fdd8acbc56ec"
+        },
+        {
+            "path": "/workspace/shared/formal-transport-evidence/style.log",
+            "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+        }
+    ],
+    "generatedBinding": "artifacts/change-contract/issue-2325-formal-transport-generated-binding.json",
+    "rollback": "Revert this transport increment; no schema migration, package publish or self-merge was performed."
+}

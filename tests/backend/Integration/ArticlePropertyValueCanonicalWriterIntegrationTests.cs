@@ -30,7 +30,7 @@ namespace FsusBlog.Server.Tests.Integration;
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
-public sealed class ArticlePropertyValueCanonicalWriterIntegrationTests(PostgresSchemaMigrationFixture fixture)
+public sealed partial class ArticlePropertyValueCanonicalWriterIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     private const string AuditKey = "isolated-property-value-canonical-writer-HMAC-key-20261008";
     private static readonly ArticlePropertyDefinitionOwner s_owner = ArticlePropertyDefinitionOwner.Site("primary-site");
@@ -435,7 +435,7 @@ public sealed class ArticlePropertyValueCanonicalWriterIntegrationTests(Postgres
         return new(db, composition, admin, article, category);
     }
 
-    private static Composition Compose(SqlSugarClient db, long admin, string device, string? auditKey = AuditKey)
+    private static Composition Compose(SqlSugarClient db, long admin, string device, string? auditKey = AuditKey, IHttpContextAccessor? hostContext = null)
     {
         IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
@@ -447,13 +447,16 @@ public sealed class ArticlePropertyValueCanonicalWriterIntegrationTests(Postgres
             new PostgresArticlePropertyDefinitionValueImpactAuthority(db), new ArticlePropertyDefinitionVerifier(configuration), clock);
         var persistence = new ArticlePropertyValuePersistence(db, configuration, clock);
         var validator = new ArticlePropertyValueValidator(store, permissions, new UnavailableArticlePropertyReferenceValueAuthority());
-        var context = Substitute.For<IHttpContextAccessor>();
-        context.HttpContext.Returns(new DefaultHttpContext
+        var context = hostContext ?? Substitute.For<IHttpContextAccessor>();
+        if (hostContext is null)
         {
-            User = new ClaimsPrincipal(new ClaimsIdentity(
-            [new Claim("admin_id", admin.ToString(CultureInfo.InvariantCulture)), new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
-             new Claim("admin_sid", device)], "fixture"))
-        });
+            context.HttpContext.Returns(new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim("admin_id", admin.ToString(CultureInfo.InvariantCulture)), new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
+                 new Claim("admin_sid", device)], "fixture"))
+            });
+        }
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
         var scope = Substitute.For<IRuntimeKeyScope>();

@@ -12,7 +12,8 @@
   "enumOwners": [
     "src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs",
     "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
-    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs"
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs"
   ],
   "typedValueOwner": "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
   "records": {
@@ -569,7 +570,653 @@
           "max": 1
         }
       ]
+    },
+    "ArticlePropertyValueInput": {
+      "fields": [
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionSchemaRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "DefinitionDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "Presence",
+          "type": "byte",
+          "enum": "ArticlePropertyValuePresence"
+        },
+        {
+          "name": "Value",
+          "type": "typedValue",
+          "nullable": true
+        }
+      ]
+    },
+    "ArticlePropertyValueChange": {
+      "fields": [
+        {
+          "name": "Kind",
+          "type": "byte",
+          "enum": "ArticlePropertyValueChangeKind"
+        },
+        {
+          "name": "Input",
+          "type": "ArticlePropertyValueInput"
+        }
+      ]
+    },
+    "ArticlePropertyValueMutationCommand": {
+      "fields": [
+        {
+          "name": "RequestId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "ArticleId",
+          "type": "int32",
+          "min": 1
+        },
+        {
+          "name": "ExpectedArticleRevisionId",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "ExpectedPropertyRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "Mode",
+          "type": "byte",
+          "enum": "ArticlePropertyValueMutationMode"
+        },
+        {
+          "name": "Changes",
+          "type": "ArticlePropertyValueChange",
+          "array": true,
+          "maxCount": 1000
+        }
+      ]
+    },
+    "ArticlePropertyValueMutationReceipt": {
+      "fields": [
+        {
+          "name": "ReceiptId",
+          "type": "guid"
+        },
+        {
+          "name": "ActorAdminPrincipalId",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "RequestId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "ArticleId",
+          "type": "int32",
+          "min": 1
+        },
+        {
+          "name": "ExpectedArticleRevisionId",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "BeforePropertyRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "AfterPropertyRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "BeforeSnapshotId",
+          "type": "guid",
+          "nullable": true
+        },
+        {
+          "name": "AfterSnapshotId",
+          "type": "guid"
+        },
+        {
+          "name": "CommandKind",
+          "type": "byte",
+          "enum": "ArticlePropertyValueMutationMode"
+        },
+        {
+          "name": "CommandDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "ContentDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "AuditReference",
+          "type": "guid"
+        },
+        {
+          "name": "AuditChainId",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "AuditRecordHash",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "utcTicks"
+        },
+        {
+          "name": "IdempotencyReplay",
+          "type": "bool"
+        }
+      ]
+    },
+    "ArticlePropertyDefinitionSettings": {
+      "fields": [
+        {
+          "name": "ValueType",
+          "type": "byte",
+          "enum": "ArticlePropertyValueType"
+        },
+        {
+          "name": "Cardinality",
+          "type": "byte",
+          "enum": "ArticlePropertyCardinality"
+        },
+        {
+          "name": "Required",
+          "type": "bool"
+        },
+        {
+          "name": "Presence",
+          "type": "ArticlePropertyReadPresencePolicy"
+        },
+        {
+          "name": "DefaultValue",
+          "type": "ArticlePropertyReadDefaultValue",
+          "nullable": true
+        },
+        {
+          "name": "Constraints",
+          "type": "ArticlePropertyReadConstraints"
+        },
+        {
+          "name": "Options",
+          "type": "ArticlePropertyReadOption",
+          "array": true,
+          "maxCount": 1000
+        },
+        {
+          "name": "ReferencePolicy",
+          "type": "ArticlePropertyReadReferencePolicy",
+          "nullable": true
+        },
+        {
+          "name": "UrlPolicy",
+          "type": "ArticlePropertyReadUrlPolicy",
+          "nullable": true
+        },
+        {
+          "name": "SearchEligible",
+          "type": "bool"
+        },
+        {
+          "name": "Filterable",
+          "type": "bool"
+        },
+        {
+          "name": "Sortable",
+          "type": "bool"
+        },
+        {
+          "name": "DisplayPlacement",
+          "type": "byte",
+          "enum": "ArticlePropertyDisplayPlacement"
+        },
+        {
+          "name": "VisibilityScope",
+          "type": "byte",
+          "enum": "ArticlePropertyVisibilityScope"
+        }
+      ]
+    },
+    "ArticlePropertyDefinitionCreateRequest": {
+      "fields": [
+        {
+          "name": "RequestId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "ExpectedOwnerRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "MachineKey",
+          "type": "string",
+          "maxChars": 64,
+          "digest": false
+        },
+        {
+          "name": "DisplayNames",
+          "type": "ArticlePropertyReadLocalizedName",
+          "array": true,
+          "maxCount": 16
+        },
+        {
+          "name": "Settings",
+          "type": "ArticlePropertyDefinitionSettings"
+        }
+      ]
+    },
+    "ArticlePropertyDefinitionUpdateRequest": {
+      "fields": [
+        {
+          "name": "RequestId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "ExpectedOwnerRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "ExpectedSchemaRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "Settings",
+          "type": "ArticlePropertyDefinitionSettings"
+        }
+      ]
+    },
+    "ArticlePropertyDefinitionRenameRequest": {
+      "fields": [
+        {
+          "name": "RequestId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "ExpectedOwnerRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "ExpectedSchemaRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "DisplayNames",
+          "type": "ArticlePropertyReadLocalizedName",
+          "array": true,
+          "maxCount": 16
+        }
+      ]
+    },
+    "ArticlePropertyDefinitionDeprecateRequest": {
+      "fields": [
+        {
+          "name": "RequestId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "ExpectedOwnerRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "ExpectedSchemaRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        }
+      ]
+    },
+    "ArticlePropertyDefinitionDeleteRequest": {
+      "fields": [
+        {
+          "name": "RequestId",
+          "type": "guid"
+        },
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "ExpectedOwnerRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "ExpectedSchemaRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        }
+      ]
+    },
+    "ArticlePropertyDefinitionMutationObligation": {
+      "fields": [
+        {
+          "name": "Kind",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "AffectedValueCount",
+          "type": "int64",
+          "min": 0,
+          "nullable": true
+        },
+        {
+          "name": "RequiresReconciliation",
+          "type": "bool"
+        },
+        {
+          "name": "ReasonCode",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        }
+      ]
+    },
+    "ArticlePropertyDefinitionMutationReceipt": {
+      "fields": [
+        {
+          "name": "ReceiptId",
+          "type": "guid"
+        },
+        {
+          "name": "RequestId",
+          "type": "guid"
+        },
+        {
+          "name": "ActorAdminPrincipalId",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "DefinitionOwnerUserId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "SiteScope",
+          "type": "string",
+          "maxChars": 128,
+          "digest": false
+        },
+        {
+          "name": "CommandKind",
+          "type": "string",
+          "maxChars": 32,
+          "digest": false
+        },
+        {
+          "name": "CommandDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "DefinitionId",
+          "type": "guid"
+        },
+        {
+          "name": "PreviousOwnerRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "OwnerRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "PreviousSchemaRevision",
+          "type": "int64",
+          "min": 0,
+          "nullable": false
+        },
+        {
+          "name": "SchemaRevision",
+          "type": "int64",
+          "min": 1,
+          "nullable": false
+        },
+        {
+          "name": "Status",
+          "type": "byte",
+          "enum": "ArticlePropertyDefinitionStatus"
+        },
+        {
+          "name": "BeforeDefinitionDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "AfterDefinitionDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "ConstraintDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "OptionsDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "PolicyDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "FlagsDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "Obligations",
+          "type": "ArticlePropertyDefinitionMutationObligation",
+          "array": true,
+          "maxCount": 1000
+        },
+        {
+          "name": "AuditReference",
+          "type": "guid"
+        },
+        {
+          "name": "AuditDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "ContentDigest",
+          "type": "string",
+          "maxChars": 64,
+          "digest": true
+        },
+        {
+          "name": "OccurredAtUtc",
+          "type": "utcTicks"
+        },
+        {
+          "name": "IsIdempotentReplay",
+          "type": "bool"
+        }
+      ]
     }
   },
-  "definitionContractOwner": "src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs"
+  "definitionContractOwner": "src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs",
+  "contractOwners": [
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs",
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueMutationContracts.cs",
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyDefinitionMutationContracts.cs",
+    "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs"
+  ],
+  "mutationRoots": [
+    "ArticlePropertyValueMutationCommand",
+    "ArticlePropertyValueMutationReceipt",
+    "ArticlePropertyDefinitionCreateRequest",
+    "ArticlePropertyDefinitionUpdateRequest",
+    "ArticlePropertyDefinitionRenameRequest",
+    "ArticlePropertyDefinitionDeprecateRequest",
+    "ArticlePropertyDefinitionDeleteRequest",
+    "ArticlePropertyDefinitionMutationReceipt"
+  ]
 }

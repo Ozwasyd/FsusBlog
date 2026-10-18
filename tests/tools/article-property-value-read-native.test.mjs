@@ -27,6 +27,12 @@ test('actual native generated read parser agrees with complete shared positive a
         assert.equal(run.status, 0, run.stderr);
         assert.match(run.stdout, new RegExp(`cases=${golden.cases.length} all matched`));
         assert.match(run.stdout, /production dispatcher\/error13 matched/);
+        const mutations = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/protocol/article-property-mutation-wire-golden.json'), 'utf8'));
+        const mutationInput = path.join(directory, 'mutations.txt');
+        writeFileSync(mutationInput, mutations.cases.map(item => `${item.valid ? 1 : 0} ${item.frameType}:${item.name} ${item.payloadHex}`).join('\n') + '\n');
+        const mutationRun = spawnSync(executable, [mutationInput, String(mutations.cases.length), 'mutation'], { encoding: 'utf8' });
+        assert.equal(mutationRun.status, 0, mutationRun.stderr);
+        assert.match(mutationRun.stdout, new RegExp(`cases=${mutations.cases.length} all matched`));
         assert.equal(spawnSync(executable, [input, String(golden.cases.length + 1)]).status, 4, 'Incompletecase count must fail');
         assert.equal(spawnSync(executable, [input, '0']).status, 2, 'An empty witness set cannot establish parity');
         assert.equal(spawnSync(executable, [input, `${golden.cases.length}extra`]).status, 2);

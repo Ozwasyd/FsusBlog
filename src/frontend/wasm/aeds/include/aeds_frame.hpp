@@ -313,6 +313,14 @@ enum class FrameType : std::uint16_t
     DocumentExportTaskRequest = 279,
     DocumentExportJobResponse = 280,
     DocumentExportPageResponse = 281,
+    ArticlePropertyValueMutationCommand = 282,
+    ArticlePropertyValueMutationReceipt = 283,
+    ArticlePropertyDefinitionCreateRequest = 284,
+    ArticlePropertyDefinitionUpdateRequest = 285,
+    ArticlePropertyDefinitionRenameRequest = 286,
+    ArticlePropertyDefinitionDeprecateRequest = 287,
+    ArticlePropertyDefinitionDeleteRequest = 288,
+    ArticlePropertyDefinitionMutationReceipt = 289,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -611,6 +619,14 @@ enum class FrameType : std::uint16_t
         case FrameType::DocumentExportTaskRequest:
         case FrameType::DocumentExportJobResponse:
         case FrameType::DocumentExportPageResponse:
+        case FrameType::ArticlePropertyValueMutationCommand:
+        case FrameType::ArticlePropertyValueMutationReceipt:
+        case FrameType::ArticlePropertyDefinitionCreateRequest:
+        case FrameType::ArticlePropertyDefinitionUpdateRequest:
+        case FrameType::ArticlePropertyDefinitionRenameRequest:
+        case FrameType::ArticlePropertyDefinitionDeprecateRequest:
+        case FrameType::ArticlePropertyDefinitionDeleteRequest:
+        case FrameType::ArticlePropertyDefinitionMutationReceipt:
             return true;
         default:
             return false;

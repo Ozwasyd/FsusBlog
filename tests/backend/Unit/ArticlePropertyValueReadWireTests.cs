@@ -36,6 +36,36 @@ public sealed class ArticlePropertyValueReadWireTests
         }
     }
 
+    public static IEnumerable<object[]> MutationWireCases()
+    {
+        using JsonDocument golden = JsonDocument.Parse(BackendTestPaths.ReadAllTextFromRoot(
+            "tests/fixtures/protocol/article-property-mutation-wire-golden.json"));
+        return golden.RootElement.GetProperty("cases").EnumerateArray().Select(row => new object[]
+        {
+            row.GetProperty("record").GetString()!, row.GetProperty("name").GetString()!,
+            row.GetProperty("payloadHex").GetString()!, row.GetProperty("valid").GetBoolean()
+        }).ToArray();
+    }
+
+    [Theory]
+    [MemberData(nameof(MutationWireCases))]
+    public void MutationGolden_ExecutesCanonicalCodecAndExactBytes(string record, string name, string payloadHex, bool expectedValid)
+    {
+        byte[] bytes = Convert.FromHexString(payloadHex);
+        var decoder = typeof(PodBinaryCodec).GetMethod("TryDecode" + record)!;
+        object?[] arguments = [new ReadOnlyMemory<byte>(bytes), null];
+        bool valid = (bool)decoder.Invoke(null, arguments)!;
+        Assert.True(valid == expectedValid, name);
+        if (valid)
+        {
+            Assert.Equal(bytes, (byte[])typeof(PodBinaryCodec).GetMethod("Encode" + record)!.Invoke(null, [arguments[1]])!);
+            for (int length = 0; length < bytes.Length; length++)
+            {
+                Assert.False((bool)decoder.Invoke(null, [new ReadOnlyMemory<byte>(bytes, 0, length), null])!, name);
+            }
+        }
+    }
+
     [Fact]
     public void ExactDecimalAndUtcTicks_SurviveBeyondJavaScriptNumberPrecision()
     {

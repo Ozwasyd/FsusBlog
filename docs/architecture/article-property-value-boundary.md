@@ -24,4 +24,49 @@ Read payload version 2 requires a `Scope` even when no snapshot or definitions e
 
 ## Remaining acceptance
 
-Related to #2322, #2323, #2324 and tracking #1808. This source increment does not qualify the entire property lifecycle. Direct lifecycle-writer and scheduled-publication paths still need the same participant integration and an authentic background actor boundary. Standalone drafts and nonempty article references remain unavailable. Original typed-command history/replay verification, durable reconciliation/query projections, permanent-deletion cleanup, full per-field error receipts and complete scale coverage remain open. Schema qualification, actual HTTP/session admission, rendered UX and full frontend types are separate unaccepted gates. The mutation API is currently a backend authority interface; no HTTP mutation contract is inferred from the read endpoint.
+Related to #2322, #2323, #2324 and tracking #1808. This source increment does not qualify the entire property lifecycle. Direct lifecycle-writer and scheduled-publication paths still need the same participant integration and an authentic background actor boundary. Standalone drafts and nonempty article references remain unavailable. Original typed-command history/replay verification, durable reconciliation/query projections, permanent-deletion cleanup, full per-field error receipts and complete scale coverage remain open. Schema qualification, actual HTTP/session admission, rendered UX and full frontend types are separate unaccepted gates. The property mutation transport described below exposes the original authority; full production session/deployment qualification remains separate.
+
+## Formal mutation transport
+
+`POST /api/binary/author/articles/{articleId}/properties` accepts the Shared
+`ArticlePropertyValueMutationCommand` and returns the original persisted
+`ArticlePropertyValueMutationReceipt` from `IArticlePropertyValueAuthority.MutateAsync`.
+It does not obtain a receipt by reading the current snapshot. The path article ID,
+body article ID and server site must agree. Owner selection is explicit in the body;
+mutation query parameters are refused. Existing actor/article/definition authorization,
+transaction, article/property/schema CAS, factsets, snapshots, audit and replay stay in
+the original ArticleService writer.
+
+The definition routes are `POST /api/binary/author/property-definitions`,
+`PUT`/`DELETE /api/binary/author/property-definitions/{definitionId}`, and
+`POST /api/binary/author/property-definitions/{definitionId}/rename` or `/deprecate`.
+Each has its own typed request frame and calls the original definition store command.
+Settings reuse the definition-owned policies and eight-type payload catalog. Responses
+project every field of the store's persisted write receipt, including obligations,
+revision transitions, digests, audit identity and replay status. No request accepts
+an actor or permission list. The authenticated admin session identifies the actor;
+the current active SQL principal supplies root/permission authority. Site definition
+management still requires SystemConfig in addition to ArticleWrite; user definition
+management remains restricted to the same principal.
+
+All six mutation routes retain ArticleWrite authorization, the original PoW filter,
+private no-store responses and ApiError failures. Denied private articles remain
+indistinguishable from unavailable articles, including the original article-lock
+access exception. Nonempty references and standalone drafts keep their existing
+unavailable-authority refusal.
+
+One `article-property-value-read-wire.json` schema and its original
+`generate-article-property-value-read-wire.mjs` producer own read and mutation roots.
+Frame allocations live only in `aeds-protocol.json`; the original protocol generator
+owns C#/Shared/TS/native frame constants and the golden catalog. The same strict
+8 MiB / 40,000 item primitive implementation carries int64 decimal strings,
+96-bit decimal words/scale/sign and UTC 100 ns ticks for every root. Native production
+dispatch, C# and TS reject unknown discriminants, malformed UTF-8, truncation,
+trailing data and budget overruns. The original read v2 layout is retained.
+
+`articlePropertyValuesApi.mutate` and `articlePropertyDefinitionsApi` use the existing
+private AEDS client, PoW and decoder registry. They bind response request/owner/site,
+identity, command kind and revision transitions to the submitted command. A read
+snapshot is never accepted as a mutation receipt. These client checks supplement
+the original server's authenticated persistence and do not authenticate arbitrary
+receipt bytes independently of that server.

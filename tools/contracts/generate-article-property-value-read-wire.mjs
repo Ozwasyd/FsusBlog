@@ -10,7 +10,7 @@ const read = name => readFileSync(path.join(root, name), 'utf8');
 const schema = JSON.parse(read('src/shared/Contracts/Validation/article-property-value-read-wire.json'));
 const protocol = JSON.parse(read('src/shared/Contracts/Validation/aeds-protocol.json'));
 const declarations = schema.enumOwners.map(read).join('\n');
-const shared = read('src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs');
+const shared = schema.contractOwners.map(read).join('\n');
 const domainValues = read(schema.typedValueOwner);
 const definitionContract = read(schema.definitionContractOwner);
 const definitionSchemaVersion = Number(definitionContract.match(/public const int SchemaVersion = (\d+);/)?.[1]);
@@ -61,7 +61,7 @@ for (const variant of variants)
     }
 }
 const primitives = new Set(['guid', 'bool', 'int32', 'int64', 'string', 'byte', 'decimal', 'utcTicks', 'typedValue', 'scheme']);
-const enumTypes = new Set(['ArticlePropertyValuePresence']);
+const enumTypes = new Set(['ArticlePropertyValuePresence', 'ArticlePropertyValueChangeKind', 'ArticlePropertyValueMutationMode']);
 const csType = field => field.type === 'typedValue' ? 'ArticlePropertyTypedValue' :
     field.enum && enumTypes.has(field.enum) ? field.enum : ({ guid: 'Guid', bool: 'bool', int32: 'int', int64: 'long', string: 'string', scheme: 'string', byte: 'byte', decimal: 'decimal', utcTicks: 'DateTime' }[field.type] ?? field.type);
 for (const [name, record] of Object.entries(schema.records))
@@ -69,7 +69,7 @@ for (const [name, record] of Object.entries(schema.records))
     if (shared.includes(`public sealed record ${name}(`))
     {
         const parameters = shared.match(new RegExp(`public sealed record ${name}\\(([\\s\\S]*?)\\);`))[1].split(',');
-        const names = parameters.map(item => item.trim().split(/\s+/).at(-1));
+        const names = parameters.map(item => item.split('=')[0].trim().split(/\s+/).at(-1));
         if (JSON.stringify(names) !== JSON.stringify(record.fields.map(item => item.name)))
         {
             fail(`DTO order ${name}`);
@@ -78,7 +78,7 @@ for (const [name, record] of Object.entries(schema.records))
         {
             const type = field.array ? `IReadOnlyList<${csType(field)}>` : csType(field);
             const expected = `${type}${field.nullable ? '?' : ''} ${field.name}`;
-            if (parameters[index].trim() !== expected)
+            if (parameters[index].split('=')[0].trim() !== expected)
             {
                 fail(`DTO type ${name}.${field.name}`);
             }
@@ -220,6 +220,10 @@ function semantic(name, lang, value)
 {
     const cs = lang === 'cs';
     const p = name => `${value}.${cs ? name : camel(name)}`;
+    if (name === 'ArticlePropertyValueInput')
+    {
+        return cs ? `if ((${p('Presence')} == ArticlePropertyValuePresence.Present) != (${p('Value')} is not null)) throw new ArgumentException("property_mutation_presence");` : `if ((${p('Presence')} === 2) !== (${p('Value')} !== null)) invalid();`;
+    }
     if (name === 'ArticlePropertyValueEntry')
     {
         return cs ? `if ((${p('Presence')} == ArticlePropertyValuePresence.Present) != (${p('Value')} is not null) || ${p('DefaultApplied')} && ${p('Presence')} == ArticlePropertyValuePresence.Missing) throw new ArgumentException("property_read_presence");` : `if ((${p('Presence')} === 2) !== (${p('Value')} !== null) || ${p('DefaultApplied')} && ${p('Presence')} === 0) invalid();`;
@@ -232,7 +236,7 @@ function semantic(name, lang, value)
     {
         return cs ? `if (!IsPropertyReadDefaultShape(${value})) throw new ArgumentException("property_read_default");` : `if (!isPropertyDefaultShape(${value})) invalid();`;
     }
-    if (name === 'ArticlePropertyValueReadScope')
+    if (schema.records[name].fields.some(field => field.name === 'SiteScope') && name !== 'ArticlePropertyValueReadResponse')
     {
         return cs ? `if (string.IsNullOrWhiteSpace(${p('SiteScope')}) || ${p('SiteScope')} != ${p('SiteScope')}.Trim() || ${p('SiteScope')}.Any(char.IsControl)) throw new ArgumentException("property_read_scope_site");` : `if (!isPropertyReadSiteScope(${p('SiteScope')})) invalid();`;
     }
@@ -366,7 +370,7 @@ for (const [name, record] of Object.entries(schema.records))
         }
         else if (field.nullable)
         {
-            cs += `        writer.WriteBoolean(${value} is not null);\n        if (${value} is not null) ${scalar(inner, 'cs', ['int32', 'int64', 'decimal', 'utcTicks'].includes(field.type) ? `${value}.Value` : value)};\n`;
+            cs += `        writer.WriteBoolean(${value} is not null);\n        if (${value} is not null) ${scalar(inner, 'cs', ['int32', 'int64', 'decimal', 'utcTicks', 'guid'].includes(field.type) ? `${value}.Value` : value)};\n`;
         }
         else
         {
@@ -394,7 +398,7 @@ for (const [name, record] of Object.entries(schema.records))
     }
     ts += '}\n';
     cpp += `inline bool Parse${name}(Reader& reader)\n{\n`;
-    const capturesScope = ['ArticlePropertyDefinitionReadDescriptor', 'ArticlePropertySnapshotCoordinates', 'ArticlePropertyValueReadScope'].includes(name);
+    const capturesScope = record.fields.some(field => field.name === 'SiteScope');
     if (capturesScope) cpp += '    ScopeFact scopeFact;\n';
     for (const [index, field] of record.fields.entries())
     {
@@ -437,8 +441,10 @@ for (const [name, record] of Object.entries(schema.records))
     {
         cpp = cpp.replace('if (present1) { std::uint8_t field1Tag;', 'std::uint8_t field1Tag = 255; if (present1) {') + '    if (!((field0 <= 1 && !present1) || (field0 == 2 && present1 && (field1Tag <= 3 || field1Tag == 7)) || (field0 == 3 && present1 && (field1Tag == 4 || field1Tag == 5)) || (field0 == 4 && present1 && field1Tag == 6))) return false;\n';
     }
+    if (name === 'ArticlePropertyValueInput') cpp += '    if ((field3 == 2) != present4) return false;\n';
     if (capturesScope)
     {
+        cpp += '    if (!IsScopeSite(scopeFact.site)) return false;\n';
         if (name === 'ArticlePropertyValueReadScope')
         {
             cpp += '    if (!IsScopeSite(scopeFact.site)) return false;\n    for (const auto& fact : reader.scopeFacts) if (fact.owner != scopeFact.owner || fact.site != scopeFact.site || (fact.schema != 0 && fact.schema != scopeFact.schema)) return false;\n';
@@ -491,8 +497,13 @@ for (const variant of variants)
 }
 cs += '            default: throw new ArgumentException("property_read_type");\n        }\n    }\n';
 ts += '        default: invalid();\n    }\n}\n';
-cs += `    public static byte[] Encode${schema.root}(${schema.root} value)\n    {\n        var writer = new PropertyReadWireWriter();\n        writer.WriteByte(${schema.schemaVersion});\n        WritePropertyRead${schema.root}(value, writer);\n        return writer.ToArray();\n    }\n    public static void Write${schema.root}(${schema.root} value, IBufferWriter<byte> destination) => destination.Write(Encode${schema.root}(value));\n    public static bool TryDecode${schema.root}(ReadOnlyMemory<byte> source, out ${schema.root} value)\n    {\n        value = default!;\n        if (source.Length is < 1 or > ${schema.maxPayloadBytes}) return false;\n        try\n        {\n            var reader = new PropertyReadWireReader(source.Span);\n            if (reader.ReadByte() != ${schema.schemaVersion}) return false;\n            var decoded = ReadPropertyRead${schema.root}(ref reader);\n            if (!reader.IsConsumed) return false;\n            value = decoded;\n            return true;\n        }\n        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException) { return false; }\n    }\n`;
-ts += `export function encode${schema.root}(value: ${schema.root}): Uint8Array\n{\n    const writer = new PropertyReadWireWriter(); writer.byte(${schema.schemaVersion}); write${schema.root}(value, writer); return writer.finish();\n}\nexport function decode${schema.root}(source: Uint8Array): ${schema.root}\n{\n    const reader = new PropertyReadWireReader(source);\n    if (reader.byte() !== ${schema.schemaVersion}) invalid();\n    const value = read${schema.root}(reader); reader.finish(); return value;\n}\n`;
+const roots = [schema.root, ...schema.mutationRoots];
+for (const rootName of roots)
+{
+    if (!protocol.frameTypes.some(frame => frame.name === rootName)) fail(`unallocated root ${rootName}`);
+cs += `    public static byte[] Encode${rootName}(${rootName} value)\n    {\n        var writer = new PropertyReadWireWriter();\n        writer.WriteByte(${schema.schemaVersion});\n        WritePropertyRead${rootName}(value, writer);\n        return writer.ToArray();\n    }\n    public static void Write${rootName}(${rootName} value, IBufferWriter<byte> destination) => destination.Write(Encode${rootName}(value));\n    public static bool TryDecode${rootName}(ReadOnlyMemory<byte> source, out ${rootName} value)\n    {\n        value = default!;\n        if (source.Length is < 1 or > ${schema.maxPayloadBytes}) return false;\n        try\n        {\n            var reader = new PropertyReadWireReader(source.Span);\n            if (reader.ReadByte() != ${schema.schemaVersion}) return false;\n            var decoded = ReadPropertyRead${rootName}(ref reader);\n            if (!reader.IsConsumed) return false;\n            value = decoded;\n            return true;\n        }\n        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException) { return false; }\n    }\n`;
+ts += `export function encode${rootName}(value: ${rootName}): Uint8Array\n{\n    const writer = new PropertyReadWireWriter(); writer.byte(${schema.schemaVersion}); write${rootName}(value, writer); return writer.finish();\n}\nexport function decode${rootName}(source: Uint8Array): ${rootName}\n{\n    const reader = new PropertyReadWireReader(source);\n    if (reader.byte() !== ${schema.schemaVersion}) invalid();\n    const value = read${rootName}(reader); reader.finish(); return value;\n}\n`;
+}
 cs += `    private static Guid ReadPropertyReadGuid(ref PropertyReadWireReader reader)\n    {\n        Guid value = reader.ReadGuid();\n        return value != Guid.Empty ? value : throw new FormatException("property_read_guid");\n    }\n    private static void WritePropertyReadGuid(Guid value, PropertyReadWireWriter writer)\n    {\n        if (value == Guid.Empty) throw new ArgumentException("property_read_guid");\n        writer.WriteGuid(value);\n    }\n    private static DateTime ReadPropertyReadUtc(ref PropertyReadWireReader reader) => new(reader.ReadInt64(0, DateTime.MaxValue.Ticks), DateTimeKind.Utc);\n    private static void WritePropertyReadUtc(DateTime value, PropertyReadWireWriter writer)\n    {\n        if (value.Kind != DateTimeKind.Utc) throw new ArgumentException("property_read_utc");\n        writer.WriteInt64(value.Ticks, 0, DateTime.MaxValue.Ticks);\n    }\n    private static decimal ReadPropertyReadDecimal(ref PropertyReadWireReader reader)\n    {\n        int lo = reader.ReadInt32(int.MinValue, int.MaxValue), mid = reader.ReadInt32(int.MinValue, int.MaxValue), hi = reader.ReadInt32(int.MinValue, int.MaxValue);\n        byte scale = reader.ReadByte();\n        if (scale > 28) throw new FormatException("property_read_decimal_scale");\n        return new decimal(lo, mid, hi, reader.ReadBoolean(), scale);\n    }\n    private static void WritePropertyReadDecimal(decimal value, PropertyReadWireWriter writer)\n    {\n        int[] bits = decimal.GetBits(value);\n        writer.WriteInt32(bits[0], int.MinValue, int.MaxValue); writer.WriteInt32(bits[1], int.MinValue, int.MaxValue); writer.WriteInt32(bits[2], int.MinValue, int.MaxValue);\n        writer.WriteByte((byte)((bits[3] >> 16) & 255)); writer.WriteBoolean(bits[3] < 0);\n    }\n    private static bool IsPropertyReadDefaultShape(ArticlePropertyReadDefaultValue value) => value.Kind switch\n    {\n        0 or 1 => value.Value is null,\n        2 => value.Value is ArticlePropertyTextValue or ArticlePropertyNumberValue or ArticlePropertyBooleanValue or ArticlePropertyDateValue or ArticlePropertyUrlValue,\n        3 => value.Value is ArticlePropertySingleSelectValue or ArticlePropertyMultiSelectValue,\n        4 => value.Value is ArticlePropertyArticleReferenceValue,\n        _ => false\n    };\n`;
 // Reuse the canonical existing strict primitive implementation as generator input, without editing its owner.
 const canvasCs = read('src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs');
@@ -535,7 +546,7 @@ ts += `\nfunction isPropertyReadSiteScope(value: string): boolean\n{\n    if (ty
 ts += '\nfunction isPropertyReadArray(value: unknown): boolean\n{\n    return Array.isArray(value);\n}\n';
 ts = ts.replaceAll('Array.isArray(values)', 'isPropertyReadArray(values)');
 ts = await formatPropertyReadTypeScript(ts, root, 'src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts');
-cpp += `}\nnamespace FsusBlog::Aeds\n{\ninline bool ValidateArticlePropertyValueReadPayload(std::uint16_t frameType, const std::uint8_t* payload, std::size_t length)\n{\n    if (frameType != ${frame.value} || payload == nullptr || length < 1 || length > ${schema.maxPayloadBytes}) return false;\n    PropertyValueReadWire::Reader reader(payload, length);\n    std::uint8_t version; if (!reader.Byte(version) || version != ${schema.schemaVersion}) return false;\n    return PropertyValueReadWire::Parse${schema.root}(reader) && reader.Consumed();\n}\n}\n`;
+cpp += `}\nnamespace FsusBlog::Aeds\n{\ninline bool IsArticlePropertyPayloadFrame(std::uint16_t frameType)\n{\n    switch (frameType)\n    {\n${roots.map(name => `        case ${protocol.frameTypes.find(frame => frame.name === name).value}:`).join('\n')}\n            return true;\n        default: return false;\n    }\n}\ninline bool ValidateArticlePropertyValueReadPayload(std::uint16_t frameType, const std::uint8_t* payload, std::size_t length)\n{\n    if (!IsArticlePropertyPayloadFrame(frameType) || payload == nullptr || length < 1 || length > ${schema.maxPayloadBytes}) return false;\n    PropertyValueReadWire::Reader reader(payload, length);\n    std::uint8_t version; if (!reader.Byte(version) || version != ${schema.schemaVersion}) return false;\n    bool valid;\n    switch (frameType)\n    {\n${roots.map(name => `        case ${protocol.frameTypes.find(frame => frame.name === name).value}: valid = PropertyValueReadWire::Parse${name}(reader); break;`).join('\n')}\n        default: return false;\n    }\n    return valid && reader.Consumed();\n}\n}\n`;
 for (const [name, content] of [
     ['src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs', cs],
     ['src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts', ts],
