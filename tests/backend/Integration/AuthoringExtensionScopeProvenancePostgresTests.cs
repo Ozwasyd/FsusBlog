@@ -34,13 +34,13 @@ public sealed class AuthoringExtensionScopeProvenancePostgresTests(PostgresSchem
         Assert.NotEqual("1", registration.Scope.UserId);
         await host.RefuseAsync(registration.Scope);
         Assert.Equal(registration.Scope, await host.CompleteAsync(registration));
-        await using IAuthoringExtensionApprovalScope held = await host.AcquireAsync(registration.Scope);
-        Assert.True(IsDigest(held.AuthorizationSha256));
-        await held.VerifyCurrentAsync(default);
         using SqlSugarClient db = host.Client();
         AuthoringStateSnapshot state = await new PostgresAuthoringExtensionStateStore(db).ReadAsync(s_package, registration.Scope, default);
         Assert.Equal(0, state.Revision);
         Assert.Empty(state.Entries);
+        await using IAuthoringExtensionApprovalScope held = await host.AcquireAsync(registration.Scope);
+        Assert.True(IsDigest(held.AuthorizationSha256));
+        await held.VerifyCurrentAsync(default);
     }
 
     [Fact]
@@ -51,20 +51,17 @@ public sealed class AuthoringExtensionScopeProvenancePostgresTests(PostgresSchem
         await host.CompleteAsync(first);
         AuthoringExtensionScopeRegistration second = await host.Issuer.BeginAsync(host.Context, s_next, first.Scope);
         Assert.Equal(first.Scope.UserId, second.Scope.UserId);
-        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.AcquireAsync(host.Context,
-            AuthoringApprovalOperation.Migration, first.Scope, second.Scope, default).AsTask());
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.AcquireAsync(first.Scope, second.Scope).AsTask());
         await host.Issuer.CompleteAsync(host.Context, s_next, second.RegistrationId);
         string digest;
-        await using (IAuthoringExtensionApprovalScope held = await host.Authority.AcquireAsync(host.Context,
-            AuthoringApprovalOperation.Migration, first.Scope, second.Scope, default))
+        await using (IAuthoringExtensionApprovalScope held = await host.AcquireAsync(first.Scope, second.Scope))
         {
             digest = held.AuthorizationSha256;
             await held.VerifyCurrentAsync(default);
         }
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.AcquireAsync(first.Scope, second.Scope, Actor(2)).AsTask());
         await using IAuthoringExtensionApprovalScope deletion = await host.AcquireAsync(first.Scope);
         Assert.NotEqual(digest, deletion.AuthorizationSha256);
-        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.AcquireAsync(Actor(2),
-            AuthoringApprovalOperation.Migration, first.Scope, second.Scope, default).AsTask());
     }
 
     [Theory]
@@ -92,8 +89,7 @@ public sealed class AuthoringExtensionScopeProvenancePostgresTests(PostgresSchem
         AuthoringExtensionScopeRegistration registration = await host.BeginAsync();
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Issuer.CompleteAsync(Actor(2), s_package, registration.RegistrationId).AsTask());
         await host.CompleteAsync(registration);
-        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.AcquireAsync(Actor(2),
-            AuthoringApprovalOperation.Deletion, registration.Scope, null, default).AsTask());
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.AcquireAsync(registration.Scope, null, Actor(2)).AsTask());
         await host.RefuseAsync(registration.Scope with
         {
             SiteId = "primary-site"
@@ -339,9 +335,10 @@ public sealed class AuthoringExtensionScopeProvenancePostgresTests(PostgresSchem
             command.Parameters.AddWithValue(ids[1]);
             await command.ExecuteNonQueryAsync();
         }
+        await using IAuthoringExtensionStateObservation state = await host.ObserveAsync(first.Scope, second.Scope);
         using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.Authority.AcquireAsync(host.Context,
-            AuthoringApprovalOperation.Migration, first.Scope, second.Scope, cancellation.Token).AsTask());
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => host.Authority.AcquireWithStateCustodyAsync(host.Context,
+            AuthoringApprovalOperation.Migration, first.Scope, second.Scope, state, cancellation.Token).AsTask());
         await transaction.RollbackAsync();
         await host.SqlAsync("UPDATE authoring_extension_scope_provenance SET status=2 WHERE scope_id=$1", ids[0]);
     }
@@ -454,8 +451,51 @@ public sealed class AuthoringExtensionScopeProvenancePostgresTests(PostgresSchem
         public Task<AuthoringExtensionScopeRegistration> BeginAsync() => Issuer.BeginAsync(Context, s_package).AsTask();
         public Task<AuthoringStateScope> CompleteAsync(AuthoringExtensionScopeRegistration registration) =>
             Issuer.CompleteAsync(Context, s_package, registration.RegistrationId).AsTask();
-        public ValueTask<IAuthoringExtensionApprovalScope> AcquireAsync(AuthoringStateScope scope) =>
-            Authority.AcquireAsync(Context, AuthoringApprovalOperation.Deletion, scope, null, default);
+        public async ValueTask<IAuthoringExtensionStateObservation> ObserveAsync(AuthoringStateScope scope, AuthoringStateScope? destination = null)
+        {
+            using SqlSugarClient db = Client();
+            var state = new PostgresAuthoringExtensionStateStore(db);
+            VerifiedAuthoringPackage package = scope.ExtensionVersion == s_package.Contract.Manifest.Version ? s_package : s_next;
+            if (destination is null)
+            {
+                return await state.ObserveDeletionAsync(package, await state.MeasureAsync(package, scope, default), default);
+            }
+            AuthoringStateSnapshot source = await state.ReadAsync(package, scope, default);
+            return await state.ObserveInitialAsync(package, s_next, AuthoringStateProcessWorker.Plan(source, destination, []), default);
+        }
+
+        public async ValueTask<IAuthoringExtensionApprovalScope> AcquireAsync(AuthoringStateScope scope,
+            AuthoringStateScope? destination = null, HttpContext? context = null)
+        {
+            IAuthoringExtensionStateObservation state = await ObserveAsync(scope, destination);
+            try
+            {
+                IAuthoringExtensionApprovalScope provenance = await Authority.AcquireWithStateCustodyAsync(context ?? Context,
+                    destination is null ? AuthoringApprovalOperation.Deletion : AuthoringApprovalOperation.Migration,
+                    scope, destination, state, default);
+                return new OwnedTestScope(provenance, state);
+            }
+            catch
+            {
+                await state.DisposeAsync();
+                throw;
+            }
+        }
+
+        private sealed class OwnedTestScope(IAuthoringExtensionApprovalScope provenance, IAuthoringExtensionStateObservation state)
+            : IAuthoringExtensionApprovalScope
+        {
+            public string AuthorizationSha256 => provenance.AuthorizationSha256;
+            public ValueTask VerifyCurrentAsync(CancellationToken token) => provenance.VerifyCurrentAsync(token);
+            public async ValueTask DisposeAsync()
+            {
+                try
+                {
+                    await provenance.DisposeAsync();
+                }
+                finally { await state.DisposeAsync(); }
+            }
+        }
         public async Task RefuseAsync(AuthoringStateScope scope) =>
             await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => AcquireAsync(scope).AsTask());
 

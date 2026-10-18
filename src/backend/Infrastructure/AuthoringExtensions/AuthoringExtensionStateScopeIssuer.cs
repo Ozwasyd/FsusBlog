@@ -35,8 +35,10 @@ public sealed class AuthoringExtensionStateScopeIssuer(
         string userId = RandomId();
         if (migrationSource is not null)
         {
-            await using IAuthoringExtensionApprovalScope held = await provenance.AcquireAsync(
-                context, AuthoringApprovalOperation.Deletion, migrationSource, null, cancellationToken);
+            // Issuance reads the durable server-issued owner relation only. This lifetime is not
+            // approval authority and cannot replace ordered, original state custody for approval.
+            await using IAsyncDisposable held = await provenance.AcquireIssuanceSourceAsync(
+                context, migrationSource, cancellationToken);
             Require(migrationSource.ExtensionId == package.Contract.Manifest.Id, "scope_issuance_extension_mismatch");
             userId = migrationSource.UserId;
             // The relation has the same durable owner and opaque user. The destination still
