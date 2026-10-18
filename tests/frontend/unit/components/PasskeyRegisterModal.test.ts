@@ -105,13 +105,13 @@ describe('PasskeyRegisterModal', () => {
     const wrapper = mountModal({ visible: true, needsMfa: true })
 
     expect(wrapper.get('[role="dialog"]').attributes('aria-hidden')).toBeUndefined()
-    expect(wrapper.get('#passkey-register-name').exists()).toBe(true)
+    expect(wrapper.find('#passkey-register-name').exists()).toBe(true)
     await wrapper.get('#passkey-register-name').setValue('工作电脑')
     await wrapper.get('button[data-type="primary"]').trigger('click')
     await nextTick()
 
     const verifyButton = wrapper.get('button[data-type="primary"]')
-    expect(wrapper.get('#passkey-register-mfa-code').exists()).toBe(true)
+    expect(wrapper.find('#passkey-register-mfa-code').exists()).toBe(true)
     expect(verifyButton.attributes()).toHaveProperty('disabled')
 
     await wrapper.get('#passkey-register-mfa-code').setValue('123456')
@@ -150,7 +150,7 @@ describe('PasskeyRegisterModal', () => {
     await flushPromises()
 
     expect(wrapper.get('[role="alert"]').text()).toBe('认证器暂不可用')
-    expect(wrapper.get('#passkey-register-name').exists()).toBe(true)
+    expect(wrapper.find('#passkey-register-name').exists()).toBe(true)
     expect(wrapper.emitted('success')).toBeUndefined()
   })
 })

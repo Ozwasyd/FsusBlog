@@ -627,7 +627,7 @@ export function useNotification()
         {
             while (pendingInitMode)
             {
-                const nextMode = pendingInitMode;
+                const nextMode: 'auth' | 'guest' = pendingInitMode;
                 pendingInitMode = '';
 
                 if (nextMode === currentMode.value && notificationStreamRuntime.isConnected())
@@ -636,7 +636,8 @@ export function useNotification()
                 }
 
                 await runInitialization(nextMode);
-                if (pendingInitMode === nextMode)
+                // Initialization can yield to another caller that queues a mode.
+                if ((pendingInitMode as 'auth' | 'guest' | '') === nextMode)
                 {
                     pendingInitMode = '';
                 }
