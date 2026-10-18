@@ -1,9 +1,9 @@
 using System.Reflection;
 
-using FsusBlog.Server.Infrastructure.AuthoringExtensions;
-
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+
+using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
 namespace FsusBlog.Server.Tests.Unit;
 

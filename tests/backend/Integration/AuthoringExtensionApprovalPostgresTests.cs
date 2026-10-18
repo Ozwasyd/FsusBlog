@@ -2,6 +2,19 @@ using System.Security.Claims;
 
 using Fido2NetLib;
 
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using NSubstitute;
+
+using Npgsql;
+
+using SqlSugar;
+
+using StackExchange.Redis;
+
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Entities;
@@ -12,19 +25,6 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
-
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using Npgsql;
-
-using NSubstitute;
-
-using SqlSugar;
-
-using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Integration;
 
@@ -266,13 +266,19 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.ClaimMigrationAsync(second).AsTask());
     }
 
-    [Fact]
-    public async Task SameEffect_CannotObtainAnotherDecisionEvenWithAnotherPlanIdAfterLostClaimResponse()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SameEffect_CannotObtainAnotherDecisionAfterLostClaimResponse(bool advanceLifecycle)
     {
         await using Harness host = await CreateAsync();
         AuthoringExtensionApprovalPreview pending = await host.PrepareMigrationAsync();
         await host.ConfirmMigrationAsync(pending);
         _ = await host.ClaimMigrationAsync(pending);
+        if (advanceLifecycle)
+        {
+            await host.AdvanceReceiptAsync(AuthoringLifecycleState.Disabled);
+        }
         host.Plan = host.Plan with
         {
             PlanId = "replacement-after-lost-response"
@@ -531,6 +537,12 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
             Receipt = NextReceipt(Receipt, AuthoringLifecycleState.Uninstalling);
             await Receipts.AppendAsync(Receipt, default);
             Receipt = NextReceipt(Receipt, AuthoringLifecycleState.RetainedData);
+            await Receipts.AppendAsync(Receipt, default);
+        }
+
+        public async Task AdvanceReceiptAsync(AuthoringLifecycleState next)
+        {
+            Receipt = NextReceipt(Receipt, next);
             await Receipts.AppendAsync(Receipt, default);
         }
 

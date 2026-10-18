@@ -101,15 +101,15 @@ internal sealed record AuthoringApprovalDecision(
     DateTimeOffset ExpiresAt,
     string? ResultReceiptSha256)
 {
-    // A different plan ID or actor cannot create a second approval for the same frozen effect.
+    // A different plan ID, actor or lifecycle head cannot recreate the same frozen effect.
+    // The complete lifecycle receipt remains bound separately by Digest and OperationContext.
     public string OperationSha256 => AuthoringExtensionStateContract.Digest(new
     {
         Kind = "authoring-approval-effect-v1", Operation, OldPackageIdentity, NewPackageIdentity, Scope,
         Destination = FrozenPlan?.To,
         SourceRevision = FrozenPlan?.ExpectedFromRevision ?? Measurement!.Revision,
         DestinationRevision = FrozenPlan?.ExpectedToRevision,
-        SourceContent = FrozenPlan?.SourceContentSha256 ?? Measurement!.ContentSha256,
-        ExpectedLifecycleReceipt
+        SourceContent = FrozenPlan?.SourceContentSha256 ?? Measurement!.ContentSha256
     });
 
     public AuthoringExtensionOperationContext OperationContext => new(
