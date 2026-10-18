@@ -7,6 +7,8 @@ using FsusBlog.Shared.Contracts.ArticleProperties;
 
 using Microsoft.Extensions.Configuration;
 
+using NSubstitute;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;
@@ -220,6 +222,13 @@ public sealed class ArticleTemplateExpansionIntegrationTests(PostgresSchemaMigra
         {
             Assert.Contains(result.Violations, static violation => violation.Code == "expansion_plan_reference_stale");
         }
+        IArticleCreatePersistence writer = Substitute.For<IArticleCreatePersistence>();
+        var create = new ArticleCreateStore(writer, context.Verifier);
+        ArticleCreateException refused = await Assert.ThrowsAsync<ArticleCreateException>(() => create.CreateAsync(
+            new(s_writer, Guid.CreateVersion7(), ArticleCreateMode.Template, old.Input.TemplateId,
+                old.VersionId, old, old.ContentDigest)));
+        Assert.StartsWith("article_create_plan_stale:", refused.Code);
+        await writer.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default!, default!);
     }
 
     [Theory]
