@@ -198,7 +198,8 @@ const wasmSupportedFormatsDisplay = computed(() =>
 
 function updateOption<K extends keyof ImageCompressionOptions>(key: K, value: ImageCompressionOptions[K]): void
 {
-    emit('update:options', { [key]: value } as Partial<ImageCompressionOptions>);
+    const update: Partial<ImageCompressionOptions> = { [key]: value };
+    emit('update:options', update);
 }
 
 function updateFormat(value: string | number | boolean): void
@@ -263,7 +264,7 @@ function formatBytes(value: number): string
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
+@import "@/assets/main.css" reference;
 
 .section-title
  {

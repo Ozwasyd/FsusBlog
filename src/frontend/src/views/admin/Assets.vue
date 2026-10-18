@@ -300,6 +300,8 @@ import {
 } from '@/fsusui/tableV2';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 
+defineOptions({ name: 'AdminAssets' });
+
 const assets = shallowRef<AssetLibraryItemResponse[]>([]);
 const loading = ref(false);
 const hasLoadedAssets = ref(false);
