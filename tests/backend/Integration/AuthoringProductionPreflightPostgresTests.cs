@@ -24,7 +24,7 @@ public sealed class AuthoringProductionPreflightPostgresTests(PostgresSchemaMigr
         var state = new PostgresAuthoringExtensionStateStore(db);
         await state.InitializeAsync(source.Package, source.Scope, default);
         await state.InitializeAsync(target.Package, target.Scope, default);
-        await state.WriteAsync(source.Package, source.Scope, 0, new("actual", [1, 2, 3]), default);
+        await state.WriteAsync(source.Package, source.Scope, 0, new("old", [1, 2, 3]), default);
         AuthoringStateSnapshot original = await state.ReadAsync(source.Package, source.Scope, default);
         AuthoringFencedStateMigration plan = AuthoringStateProcessWorker.Plan(original, target.Scope);
         await state.BackupAsync(source.Package, target.Package, plan, default);
