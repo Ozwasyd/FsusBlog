@@ -21,6 +21,7 @@ import {
     projectQualifiedContainerEnvironment,
     releaseReliabilityAuditedContainerOverrides
 } from './release-reliability-runtime-environment.mjs';
+import { verifyLoadProfileMeasurement } from './verify-load-profile-measurement.mjs';
 import {
     verifyLifecycleActionReceipt
 } from './verify-release-reliability-lifecycle-action.mjs';
@@ -1248,7 +1249,8 @@ function verifyLoadProfileEvidence(repositoryRoot, document, scenario, identity)
         })
         || !sameJson(document.thresholds, policy.thresholds)
         || !sameJson(document.sampling, {
-            totalRequests: policy.declared.concurrency * policy.declared.rounds,
+            totalRequests: document.runtime?.dispatches?.length,
+            minimumCompletedRequests: policy.declared.concurrency * policy.declared.rounds,
             concurrency: policy.declared.concurrency,
             rounds: policy.declared.rounds,
             durationMs: policy.declared.durationMs,
@@ -1287,6 +1289,8 @@ function verifyLoadProfileEvidence(repositoryRoot, document, scenario, identity)
             throw new Error(`scenario ${scenario.id} forged threshold check: ${metric}`);
         }
     }
+    verifyLoadProfileMeasurement(document, { routeIds,
+        paths: routeIds.map((id) => routeCatalogFile.document.routes.find((route) => route.routeId === id).pathTemplate) });
 }
 
 function verifySoakEvidence(document, scenario)
