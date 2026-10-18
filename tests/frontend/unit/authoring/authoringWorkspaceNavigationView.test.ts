@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { ElDrawer, ElIcon } from '@ozwasyd/element-plus';
+import { ElDrawer, ElIcon, ElMarkdownEditor } from '@ozwasyd/element-plus';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -24,6 +24,18 @@ async function fixture()
 
 describe('original ArticleWriteEditor → adapter → leaf source view plumbing', () =>
 {
+    it('preserves explicit public surface choices through every original wrapper without replacing the native session', async () =>
+    {
+        const f = await fixture();
+        const surfaces = { toolbar: true, selectionToolbar: false, slashMenu: true, commandPalette: true };
+        await f.wrapper.setProps({ commandSurfaces: surfaces });
+        expect(f.wrapper.getComponent(ElMarkdownEditor).props('surfaces')).toEqual(surfaces);
+        expect(f.wrapper.vm.getAuthoringSessionPort()).toBe(f.editor);
+        expect(f.editor.getSession('session:wrapper')).toBe(f.options.session);
+        await f.wrapper.setProps({ commandSurfaces: { ...surfaces, selectionToolbar: true } });
+        expect(f.wrapper.getComponent(ElMarkdownEditor).props('surfaces').selectionToolbar).toBe(true);
+    });
+
     it('keeps the original raw editor/session and refuses unavailable geometry without a capture default', async () =>
     {
         const f = await fixture();

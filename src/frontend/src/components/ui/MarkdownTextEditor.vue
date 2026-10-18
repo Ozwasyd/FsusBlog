@@ -38,7 +38,7 @@
             :show-save-action="showSaveAction"
             :show-submit-action="false"
             :status-density="statusDensity"
-            :surfaces="articleBodyCommandSurfaces"
+            :surfaces="commandSurfaces"
             :textarea-id="textareaId"
             :textarea-name="textareaName"
             toolbar-density="standard"
