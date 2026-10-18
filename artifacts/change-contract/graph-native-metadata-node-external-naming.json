@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleGraphNodeProjectionConsumer.cs",
+                "src/backend/Services/Authoring/GraphNativePermissionRead.cs",
+                "src/backend/Services/Authoring/SqlArticleGraphPersistedMetadataReader.cs",
+                "src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs"
+            ],
+            "reason": "Preserve native SQL/ADO adapter and SITE_BASEURL external spellings under the existing registered C# surface while binding allocated metadata reads to the original caller; internal state follows repository naming."
+        }
+    ]
+}

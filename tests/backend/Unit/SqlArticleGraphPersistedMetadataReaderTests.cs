@@ -457,7 +457,7 @@ public sealed class SqlArticleGraphPersistedMetadataReaderTests
             SqlArticleGraphPersistedMetadataReader.Row[] rows = ids.Select(id => ChangeRow(new(id,
                 ArticleStatus.Published, false, 100 + id, 10, 500 + id, 5, 50 + id, 5, 5,
                 current ? 100 + id : 50 + id, current ? 10 : 5,
-                current ? 7 : 3, current ? "9,11" : "2,4"))).ToArray();
+                current ? 7 : 3, current ? "9,11" : "2,4", $"current fixture title {id}"))).ToArray();
             return OmitLastRow ? rows[..^1] : rows;
         }
 

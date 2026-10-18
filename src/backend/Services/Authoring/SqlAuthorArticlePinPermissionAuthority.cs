@@ -70,6 +70,8 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         }
     }
 
+    internal bool IsBoundTo(ISqlSugarClient caller) => ReferenceEquals(db, caller);
+
     /// <summary>
     /// Awaits the original SQL commands and asynchronous reader disposal before completing.
     /// The request and any existing ADO cancellation token cancel command execution as well as reads;
@@ -82,9 +84,17 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
     /// Command completion follows the native driver's cancellation response policy. This contract
     /// does not impose an execution deadline or prove the Graph metadata reader's 250 ms budget.
     /// </remarks>
-    public async Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
+    public Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
         AuthorArticlePinPermissionBatchRequest request,
         CancellationToken cancellationToken = default)
+        => ResolveAllocatedAsync(request, cancellationToken, null);
+
+    // The original SQL and grants remain the sole permission implementation. The native
+    // borrower accounts each actual dispatch and checks custody without copying that SQL.
+    internal async Task<AuthorArticlePinPermissionSnapshot> ResolveAllocatedAsync(
+        AuthorArticlePinPermissionBatchRequest request,
+        CancellationToken cancellationToken,
+        Action? beforeCommand)
     {
         cancellationToken.ThrowIfCancellationRequested();
         AuthorArticlePinContract.ValidateOwner(request.Owner);
@@ -118,6 +128,7 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         try
         {
             ado.CancellationToken = commandCancellation;
+            beforeCommand?.Invoke();
             PermissionState? state = await ReadPermissionStateAsync(
                 ado,
                 adminPrincipalId,
@@ -135,6 +146,10 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
                 return Unavailable(request.Owner, "article_pin_permission_session_denied");
             }
 
+            if (articleIds.Length != 0)
+            {
+                beforeCommand?.Invoke();
+            }
             Dictionary<int, ArticleAccessState> articles = await ReadArticleStatesAsync(ado, articleIds, commandCancellation)
                 .ConfigureAwait(false);
             commandCancellation.ThrowIfCancellationRequested();
