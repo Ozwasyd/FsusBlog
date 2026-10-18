@@ -54,6 +54,7 @@ public sealed class AuthoringExtensionLifecycleResources(
 {
     private readonly Lock _lock = new();
     private readonly SemaphoreSlim _lifecycleGate = new(1, 1);
+    private readonly object _settlementKey = new();
     private readonly Dictionary<string, ActiveResources> _active = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _quarantined = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ImmutableArray<AuthoringExecutionTarget>> _targetHistory = new(StringComparer.Ordinal);
@@ -96,7 +97,7 @@ public sealed class AuthoringExtensionLifecycleResources(
                 _active.TryGetValue(package.Contract.Manifest.Id, out previous);
                 if (previous is not null &&
                     (generation <= previous.Generation ||
-                        (!previous.Retired && previous.Settlement?._report?.IsEmpty != true)))
+                        (!previous.Retired && previous.Settlement?.CleanupReport?.IsEmpty != true)))
                 {
                     throw new AuthoringExtensionContractException("Lifecycle activation would overlap existing runtime authority.");
                 }
@@ -201,23 +202,23 @@ public sealed class AuthoringExtensionLifecycleResources(
             {
                 if (expectedGeneration < 1 ||
                     FindGeneration(extensionId, expectedGeneration) is not ActiveResources resources ||
-                    (resources.Settlement is not null && !resources.Settlement._acquisitionFailed) ||
+                    (resources.Settlement is not null && !resources.Settlement.AcquisitionFailed) ||
                     (resources.Revoking && !resources.SettlementRequired))
                 {
                     throw new AuthoringExtensionContractException("Exact original lifecycle roster is unavailable or held.");
                 }
 
-                scope = resources.Settlement ?? new SettlementScope(this, extensionId, expectedGeneration);
-                scope._acquisitionFailed = false;
+                scope = resources.Settlement ?? new SettlementScope(this, extensionId, expectedGeneration, _settlementKey);
+                scope.MarkAcquisitionFailed(_settlementKey, false);
                 resources.Settlement = scope;
                 resources.SettlementRequired = true;
                 resources.Revoking = true;
             }
 
-            if (scope._hostScope is null && hostResources is IAuthoringLifecycleHostSettlementAuthority authority)
+            if (!scope.HasHostScope && hostResources is IAuthoringLifecycleHostSettlementAuthority authority)
             {
-                scope._hostScope = await authority.AcquireSettlementScopeAsync(
-                    extensionId, expectedGeneration, scope.Targets, cancellationToken);
+                scope.AttachHostScope(_settlementKey, await authority.AcquireSettlementScopeAsync(
+                    extensionId, expectedGeneration, scope.Targets, cancellationToken));
             }
             cancellationToken.ThrowIfCancellationRequested();
             return scope;
@@ -228,7 +229,7 @@ public sealed class AuthoringExtensionLifecycleResources(
             {
                 lock (_lock)
                 {
-                    scope._acquisitionFailed = true;
+                    scope.MarkAcquisitionFailed(_settlementKey, true);
                 }
             }
             try
@@ -345,9 +346,9 @@ public sealed class AuthoringExtensionLifecycleResources(
             {
                 host = await hostResources.RevokeAllAsync(extensionId, CancellationToken.None);
             }
-            else if (settlement._hostScope is not null)
+            else if (settlement.HasHostScope)
             {
-                host = await settlement._hostScope.RevokeAllAsync(CancellationToken.None);
+                host = await settlement.RevokeHostScopeAsync(_settlementKey, CancellationToken.None);
             }
             else
             {
@@ -359,7 +360,7 @@ public sealed class AuthoringExtensionLifecycleResources(
             {
                 lock (_lock)
                 {
-                    settlement._hostReport = host;
+                    settlement.RecordHostReport(_settlementKey, host);
                 }
             }
             if (host is null)
@@ -382,7 +383,7 @@ public sealed class AuthoringExtensionLifecycleResources(
             {
                 lock (_lock)
                 {
-                    settlement._report = report;
+                    settlement.RecordCleanupReport(_settlementKey, report);
                 }
             }
             else if (report.IsEmpty)
@@ -826,19 +827,20 @@ public sealed class AuthoringExtensionLifecycleResources(
         private readonly ActiveResources _resources;
         private readonly TrackedResource<IAuthoringWorkerSandboxInstance>[] _workers;
         private readonly TrackedResource<IAuthoringServiceProcess>[] _services;
-        internal IAuthoringLifecycleHostSettlementScope? _hostScope;
-        internal AuthoringLifecycleHostResourceReport? _hostReport;
-        internal AuthoringLifecycleResourceReport? _report;
-        internal bool _acquisitionFailed;
+        private IAuthoringLifecycleHostSettlementScope? _hostScope;
+        private AuthoringLifecycleHostResourceReport? _hostReport;
+        private AuthoringLifecycleResourceReport? _report;
+        private bool _acquisitionFailed;
         private Task? _settlementTask;
         private Exception? _failure;
         private Exception? _releaseFailure;
         private bool _released;
         private bool _disposing;
 
-        internal SettlementScope(AuthoringExtensionLifecycleResources owner, string extensionId, long generation)
+        internal SettlementScope(AuthoringExtensionLifecycleResources owner, string extensionId, long generation, object key)
         {
             _owner = owner;
+            RequireOwner(key);
             ActiveResources resources = owner.FindGeneration(extensionId, generation) ??
                 throw new AuthoringExtensionContractException("Original lifecycle generation is unavailable.");
             _resources = resources;
@@ -847,6 +849,49 @@ public sealed class AuthoringExtensionLifecycleResources(
             Generation = resources.Generation;
             Workers = [.. _workers.Select(static entry => entry.Instance)];
             Services = [.. _services.Select(static entry => entry.Instance)];
+        }
+
+        internal bool HasHostScope => _hostScope is not null;
+
+        internal bool AcquisitionFailed => _acquisitionFailed;
+
+        private void RequireOwner(object key)
+        {
+            if (!ReferenceEquals(key, _owner._settlementKey))
+            {
+                throw new AuthoringExtensionContractException("Only the original resource owner can record settlement facts.");
+            }
+        }
+
+        internal void MarkAcquisitionFailed(object key, bool failed)
+        {
+            RequireOwner(key);
+            _acquisitionFailed = failed;
+        }
+
+        internal void AttachHostScope(object key, IAuthoringLifecycleHostSettlementScope? scope)
+        {
+            RequireOwner(key);
+            _hostScope = scope;
+        }
+
+        internal ValueTask<AuthoringLifecycleHostResourceReport?> RevokeHostScopeAsync(object key, CancellationToken token)
+        {
+            RequireOwner(key);
+            return (_hostScope ?? throw new AuthoringExtensionContractException("Original held host scope is unavailable."))
+                .RevokeAllAsync(token);
+        }
+
+        internal void RecordHostReport(object key, AuthoringLifecycleHostResourceReport? report)
+        {
+            RequireOwner(key);
+            _hostReport = report;
+        }
+
+        internal void RecordCleanupReport(object key, AuthoringLifecycleResourceReport report)
+        {
+            RequireOwner(key);
+            _report = report;
         }
 
         public VerifiedAuthoringPackage Package => _resources.Package;
