@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { resolveLocalFsusUiRepositoryRoot } from '../../../frontend/scripts/fsusui-root.mjs';
 
 const schema = 'fsusblog.canonical-article-relation-parse.v1';
+const identityClosureSchema = 'fsusblog.canonical-article-relation-identity-closure.v1';
 const publicModule = '@ozwasyd/element-plus/markdown-runtime';
 const maxInputBytes = 1024 * 1024;
 const maxOutputBytes = 2 * 1024 * 1024;
@@ -30,6 +31,8 @@ try {
     }
     const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     requireFact(input.schema === schema && typeof input.sourceBase64 === 'string');
+    const operation = input.operation ?? 'parse';
+    requireFact(operation === 'parse' || operation === 'identity-closure');
     const bytes = Buffer.from(input.sourceBase64, 'base64');
     requireFact(bytes.toString('base64') === input.sourceBase64 && bytes.length <= 600000);
     requireFact(sha256(bytes) === input.sourceDigest);
@@ -74,6 +77,7 @@ try {
     requireFact(projection.identity.version === runtime.MARKDOWN_RENDERER_VERSION);
     requireFact(projection.identity.version === input.runtimeVersion);
     requireFact(projection.identity.rawSource === rawSource && projection.identity.normalizedSource === coordinates.normalizedSource);
+    requireFact(projection.identity.sourceIdentity === runtime.resolveMarkdownSourceIdentity(rawSource));
     requireFact(projection.nodes.length <= maxNodes && projection.diagnostics.length <= maxNodes);
     const stable = runtime.stabilizeMarkdownEditorProjection(projection, {
         id: input.documentId,
@@ -154,7 +158,7 @@ try {
     // getrusage maxRSS can retain the .NET parent's pre-exec high-water mark on
     // Linux. The parent monitor and this check use the actual Node address space.
     requireFact(process.memoryUsage().rss <= 256 * 1024 * 1024);
-    const output = Buffer.from(JSON.stringify({
+    const canonical = {
         schema,
         publicModule,
         publicEntryDigest: input.publicEntryDigest,
@@ -170,7 +174,12 @@ try {
         projectionNodeCount: projection.nodes.length,
         nodes,
         diagnostics,
-    }));
+    };
+    // The authority operation receives only the original source/context, never the
+    // producer's proposed identities. A new process reconstructs the entire tuple.
+    const output = Buffer.from(JSON.stringify(operation === 'identity-closure'
+        ? { schema: identityClosureSchema, canonical }
+        : canonical));
     requireFact(output.length <= maxOutputBytes);
     await new Promise((resolve, reject) => process.stdout.write(output, (error) => error ? reject(error) : resolve()));
 } catch {

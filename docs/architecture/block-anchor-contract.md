@@ -205,13 +205,24 @@ original parser adapter owner, but does not itself implement that authority.
 from the real `@ozwasyd/element-plus/markdown-runtime` public entry. Its only child
 script, `canonicalArticleRelationParserBridge.mjs`, calls
 `createMarkdownEditorProjection`, `stabilizeMarkdownEditorProjection`,
-`collectMarkdownAnchorNodes`, `collectMarkdownEmbedNodes` and
+`resolveMarkdownSourceIdentity`, `collectMarkdownAnchorNodes`, `collectMarkdownEmbedNodes` and
 `createMarkdownSourceCoordinateMap`. No C#/regex/DOM Markdown parser, private UI
 import or PublicAot worker receives the body. Standard WebAssembly host observation
 records the SHA-256 of the module actually compiled during that public call; expected
 public-entry bytes, module bytes and runtime version are explicit trusted host pins.
 The envelope also retains the runtime's actual parser/source/version identity and
 the original byte digest. Pins are verified, never learned from the private request.
+The producer's source/node/block identity strings are not admission proofs. After
+its process exits, the same sole script runs an independent `identity-closure`
+operation in a fresh process. That operation receives only the frozen original
+bytes, mount context and host pins; it does not receive the producer's candidate
+identities. The public source-identity, projection and stabilization APIs reconstruct
+the canonical output. The parent verifies both contexts and compares the entire
+closed envelope, including all identity strings, ordered node inventory, ranges,
+candidate destinations and diagnostics. Any difference refuses before the private
+parsed-source envelope can be created or bound to the original producer. C# copies
+no source/node/block identity algorithm, prefix convention or parser. A replayed
+producer-shaped response cannot substitute for the distinct authority response.
 The local alias uses Node 24's native TypeScript stripping on the public entry;
 there is no tsx loader or child compilation service. Published-package mode resolves
 the same documented public export. The native .NET package remains unpublished.
@@ -241,7 +252,10 @@ admission. Duplicate, orphan or changed bindings fail closed.
 The process gate permits one in-flight read/parse and child at a time; concurrent
 submissions refuse before another body is materialized. Source/input/output/node limits are
 200,000 UTF-16 units, 1 MiB stdin, 2 MiB stdout and 4,096 projection nodes, with
-4 KiB stderr and a 10-second deadline. Node has a 96 MiB old-space and 8 MiB
+4 KiB stderr per invocation. The producer and fresh authority processes run
+sequentially and share the same 10-second monotonic parse deadline; verification
+does not add another deadline or permit another concurrent child. The source is
+reread only after successful closure validation. Node has a 96 MiB old-space and 8 MiB
 semi-space limit; the parent polls actual working set every 10 ms against 256 MiB
 and the child checks its own RSS before publishing. RSS monitoring is not a kernel
 allocation reservation or a measured storage/latency qualification. Caller
