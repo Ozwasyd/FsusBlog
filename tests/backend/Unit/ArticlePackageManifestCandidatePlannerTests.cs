@@ -961,7 +961,7 @@ public sealed class ArticlePackageManifestCandidatePlannerTests
         {
             "storage-key" => record with { StorageKey = AssetStorageKey.Parse("content/public/different.png") },
             "owner" => record with { OwnerAdminPrincipalId = record.OwnerAdminPrincipalId + 1 },
-            "created" => record with { CreatedAtUtc = record.CreatedAtUtc.AddSeconds(1) },
+            "created" => record with { CreatedAtUtc = record.CreatedAtUtc.AddSeconds(-1) },
             _ => record with { UpdatedAtUtc = record.UpdatedAtUtc.AddSeconds(1) }
         };
         sources[0] = sources[0] with
