@@ -178,7 +178,11 @@ public sealed class AuthorRecentArticleHistoryProjectionTests
                 {
                     Decisions = [],
                     ContentDigest = AuthorRecentArticleHistoryContract.ComputePermissionDigest(
-                        snapshot with { Decisions = [], ContentDigest = string.Empty })
+                        snapshot with
+                        {
+                            Decisions = [],
+                            ContentDigest = string.Empty
+                        })
                 },
                 _ => throw new ArgumentOutOfRangeException(nameof(dimension))
             });
