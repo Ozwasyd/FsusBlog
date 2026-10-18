@@ -534,3 +534,168 @@ export function canvasReference(element: HTMLElement, target: { targetHeadingIde
         }
     });
 }
+
+const reviewedExpressionFlows = [
+    ['canonical frontend conditional comparisons with a DOM presence guard', 'ts', false, `
+type Reference = { targetHeadingIdentity: string };
+export function canvasReference(target: Reference, references: Reference[], allow: boolean) {
+    const present = document.querySelector('h2') !== null;
+    return references.some(r => allow ? r.targetHeadingIdentity === target.targetHeadingIdentity && present : r.targetHeadingIdentity === target.targetHeadingIdentity);
+}
+`],
+    ...['c.TargetHeadingIdentity.Equals(target.TargetHeadingIdentity)', 'c.TargetHeadingIdentity == target.TargetHeadingIdentity']
+        .map(comparison => [`canonical backend conditional comparison ${comparison}`, 'cs', false, `
+public sealed class AuthoringCanvasReferenceExpressionFlow
+{
+    public object Find(System.Xml.XmlDocument document, AuthoringCanvasReferenceTarget target, IEnumerable<AuthoringCanvasReferenceTarget> candidates, bool allow)
+    {
+        var present = document.SelectSingleNode("//*[@id]") != null;
+        return candidates.Any(c => allow ? c.TargetHeadingIdentity == target.TargetHeadingIdentity && present : ${comparison});
+    }
+}
+`]),
+    ...[
+        ['DOM binding survives an uncalled annotated function', 'element.getAttribute("id")', 'target.targetHeadingIdentity', true],
+        ['canonical binding survives an uncalled annotated function', 'target.targetHeadingIdentity', 'element.getAttribute("id")', false]
+    ].map(([name, initial, replacement, rejected]) => [name, 'ts', rejected, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }) {
+    let observed = ${initial};
+    function paint(): void { observed = ${replacement}; }
+    return { targetHeadingIdentity: observed };
+}
+`]),
+    ...[
+        ['DOM binding survives an uncalled expression arrow', 'element.getAttribute("id")', 'target.targetHeadingIdentity', true],
+        ['canonical binding survives an uncalled expression arrow', 'target.targetHeadingIdentity', 'element.getAttribute("id")', false]
+    ].map(([name, initial, replacement, rejected]) => [name, 'ts', rejected, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }) {
+    let observed = ${initial};
+    const paint = () => (observed = ${replacement});
+    return { targetHeadingIdentity: observed };
+}
+`])
+];
+
+for (const [name, extension, rejected, source] of reviewedExpressionFlows)
+{
+    test(`reviewed expression flow: ${name}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, extension === 'cs'
+            ? 'src/backend/Services/Authoring/AuthoringCanvasReferenceExpressionFlow.cs'
+            : 'src/frontend/canvas-reference.ts', source);
+        const result = checkAuthoringCanvasReferenceAuthority(repositoryRoot);
+        if (rejected)
+        {
+            assert.equal(result.length, 1);
+            assert.match(result[0], domAuthorityViolation);
+        }
+        else
+        {
+            assert.deepEqual(result, []);
+        }
+    });
+}
+
+const expressionBoundaryControls = [
+    ...[true, false].map(domFirst => [`DOM identity in the ${domFirst ? 'first' : 'second'} comparison arm remains rejected`, 'ts', true, `
+type Reference = { targetHeadingIdentity: string };
+export function canvasReference(target: Reference, references: Reference[], allow: boolean) {
+    const observed = document.querySelector('h2')?.id;
+    return references.some(r => allow ? r.targetHeadingIdentity === ${domFirst ? 'observed' : 'target.targetHeadingIdentity'} : r.targetHeadingIdentity === ${domFirst ? 'target.targetHeadingIdentity' : 'observed'});
+}
+`]),
+    ['DOM Equals receiver in a conditional arm remains rejected', 'cs', true, `
+public sealed class AuthoringCanvasReferenceExpressionFlow
+{
+    public object Find(System.Xml.XmlElement element, AuthoringCanvasReferenceTarget target, IEnumerable<AuthoringCanvasReferenceTarget> candidates, bool allow)
+    {
+        var observed = element.GetAttribute("id");
+        return candidates.Any(c => allow ? c.TargetHeadingIdentity == target.TargetHeadingIdentity : observed.Equals(c.TargetHeadingIdentity));
+    }
+}
+`],
+    ...[
+        ['annotated function', 'function paint(): void { const targetHeadingIdentity = element.getAttribute("id"); }'],
+        ['expression arrow', 'const paint = () => ({ targetHeadingIdentity: element.getAttribute("id") });']
+    ].map(([name, definition]) => [`actual identity writes inside an uncalled ${name} remain scanned`, 'ts', true, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }) {
+    ${definition}
+    return { targetHeadingIdentity: target.targetHeadingIdentity };
+}
+`]),
+    ...['function paint() { observed = REPLACEMENT; }', 'const paint = () => observed = REPLACEMENT;']
+        .flatMap(definition => [true, false].map(domInitial => [`${definition} preserves ${domInitial ? 'DOM' : 'canonical'} outer binding`, 'ts', domInitial, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }) {
+    let observed = ${domInitial ? 'element.getAttribute("id")' : 'target.targetHeadingIdentity'};
+    ${definition.replace('REPLACEMENT', domInitial ? 'target.targetHeadingIdentity' : 'element.getAttribute("id")')}
+    return { targetHeadingIdentity: observed };
+}
+`])),
+    ['an object return annotation does not execute its function', 'ts', false, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string | null }) {
+    let observed = target.targetHeadingIdentity;
+    function paint(): { heading: string | null } {
+        observed = element.getAttribute("id");
+        return { heading: observed };
+    }
+    return { targetHeadingIdentity: observed };
+}
+`],
+    ['a function return annotation is not an executable arrow', 'ts', true, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string | null }) {
+    let observed = element.getAttribute("id");
+    function paint(): () => void {
+        observed = target.targetHeadingIdentity;
+        return () => {};
+    }
+    return { targetHeadingIdentity: observed };
+}
+`],
+    ...[true, false].map(domInitial => [`an annotated object method preserves its ${domInitial ? 'DOM' : 'canonical'} outer binding`, 'ts', domInitial, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string | null }) {
+    let observed = ${domInitial ? 'element.getAttribute("id")' : 'target.targetHeadingIdentity'};
+    const controller = { paint(): void { observed = ${domInitial ? 'target.targetHeadingIdentity' : 'element.getAttribute("id")'}; } };
+    return { targetHeadingIdentity: observed };
+}
+`]),
+    ...[true, false].map(domReplacement => [`a directly invoked arrow executes its ${domReplacement ? 'DOM' : 'canonical'} assignment`, 'ts', domReplacement, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string | null }) {
+    let observed = ${domReplacement ? 'target.targetHeadingIdentity' : 'element.getAttribute("id")'};
+    (() => (observed = ${domReplacement ? 'element.getAttribute("id")' : 'target.targetHeadingIdentity'}))();
+    return { targetHeadingIdentity: observed };
+}
+`]),
+    ...[true, false].map(domReplacement => [`a C# switch arm executes its ${domReplacement ? 'DOM' : 'canonical'} assignment`, 'cs', domReplacement, `
+public sealed class AuthoringCanvasReferenceExpressionFlow
+{
+    public object Create(System.Xml.XmlElement element, AuthoringCanvasReferenceTarget target, bool allow)
+    {
+        var observed = ${domReplacement ? 'target.TargetHeadingIdentity' : 'element.GetAttribute("id")'};
+        var display = allow switch { _ => observed = ${domReplacement ? 'element.GetAttribute("id")' : 'target.TargetHeadingIdentity'} };
+        return target with { TargetHeadingIdentity = observed };
+    }
+}
+`])
+];
+
+for (const [name, extension, rejected, source] of expressionBoundaryControls)
+{
+    test(`expression boundary control: ${name}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, extension === 'cs'
+            ? 'src/backend/Services/Authoring/AuthoringCanvasReferenceExpressionFlow.cs'
+            : 'src/frontend/canvas-reference.ts', source);
+        const result = checkAuthoringCanvasReferenceAuthority(repositoryRoot);
+        if (rejected)
+        {
+            assert.equal(result.length, 1);
+            assert.match(result[0], domAuthorityViolation);
+        }
+        else
+        {
+            assert.deepEqual(result, []);
+        }
+    });
+}
