@@ -79,24 +79,35 @@ public sealed class PostgresAuthoringLifecycleReceiptStore(ISqlSugarClient db) :
             throw new AuthoringExtensionContractException("Lifecycle receipts require an owned PostgreSQL transaction.");
         }
 
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        CancellationToken? previousCancellationToken = db.Ado.CancellationToken;
+        try
         {
-            _ = await db.Ado.ExecuteCommandAsync("SET TRANSACTION ISOLATION LEVEL READ COMMITTED;").ConfigureAwait(false);
-            // The lock also covers an empty chain, where SELECT FOR UPDATE cannot exclude another first append.
-            _ = await db.Ado.GetScalarAsync(
-                "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 0));",
-                new SugarParameter("@Identity", $"authoring-lifecycle-receipt:{extensionId}")).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            await operation().ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-        }).ConfigureAwait(false);
-        if (!transaction.IsSuccess)
-        {
-            if (transaction.ErrorException is not null)
+            // The operation-scoped client must bind every SQL await, including lock acquisition.
+            // UseTranAsync awaits the driver and its non-cancelable rollback before returning.
+            db.Ado.CancellationToken = cancellationToken;
+            var transaction = await db.Ado.UseTranAsync(async () =>
             {
-                ExceptionDispatchInfo.Capture(transaction.ErrorException).Throw();
+                _ = await db.Ado.ExecuteCommandAsync("SET TRANSACTION ISOLATION LEVEL READ COMMITTED;").ConfigureAwait(false);
+                // The lock also covers an empty chain, where SELECT FOR UPDATE cannot exclude another first append.
+                _ = await db.Ado.GetScalarAsync(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 0));",
+                    new SugarParameter("@Identity", $"authoring-lifecycle-receipt:{extensionId}")).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                await operation().ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+            }).ConfigureAwait(false);
+            if (!transaction.IsSuccess)
+            {
+                if (transaction.ErrorException is not null)
+                {
+                    ExceptionDispatchInfo.Capture(transaction.ErrorException).Throw();
+                }
+                throw new InvalidOperationException("Lifecycle receipt transaction failed.");
             }
-            throw new InvalidOperationException("Lifecycle receipt transaction failed.");
+        }
+        finally
+        {
+            db.Ado.CancellationToken = previousCancellationToken;
         }
     }
 
@@ -104,7 +115,7 @@ public sealed class PostgresAuthoringLifecycleReceiptStore(ISqlSugarClient db) :
         string extensionId,
         CancellationToken cancellationToken)
     {
-        using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             $"SELECT {Columns} FROM authoring_lifecycle_receipt WHERE extension_id = @ExtensionId ORDER BY sequence;",
             new SugarParameter("@ExtensionId", extensionId)).ConfigureAwait(false);
         AuthoringLifecycleReceipt? previous = null;
