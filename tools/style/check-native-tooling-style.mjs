@@ -2145,9 +2145,9 @@ function CheckMarkdownTool(files, argumentsValue)
     {
         return;
     }
-    const markdownlint = policy.standardTools.markdownLint.command;
+    const markdownlint = path.join(root, 'tools/style/markdown-toolchain/node_modules/markdownlint-cli2/markdownlint-cli2-bin.mjs');
     const registered = files.filter((file) => markdownAnchorBindings.has(file));
-    if (!IsCommandAvailable(markdownlint))
+    if (process.env.FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS === '1' || !fs.existsSync(markdownlint))
     {
         for (const file of registered)
         {
@@ -2155,7 +2155,8 @@ function CheckMarkdownTool(files, argumentsValue)
         }
         if (argumentsValue.requireTools)
         {
-            RequireTool(markdownlint, policy.standardTools.markdownLint.configuration);
+            AddDiagnostic(policy.standardTools.markdownLint.configuration, 1, 'missing-tool',
+                'markdownlint-cli2 is required by --require-tools; run npm ci --ignore-scripts --prefix tools/style/markdown-toolchain');
         }
         return;
     }
@@ -2169,18 +2170,11 @@ function CheckMarkdownTool(files, argumentsValue)
     let result;
     if (registered.length > 0)
     {
-        const executable = (process.env.PATH ?? '').split(path.delimiter)
-            .map((directory) => path.resolve(directory, markdownlint))
-            .find((file) =>
-            {
-                try { fs.accessSync(file, fs.constants.X_OK); return true; }
-                catch { return false; }
-            });
-        result = Run(process.execPath, [scriptPath, '--markdownlint-spans', executable, ...toolArguments]);
+        result = Run(process.execPath, [scriptPath, '--markdownlint-spans', markdownlint, ...toolArguments]);
         CheckMarkdownSpans(files, registered, result);
         return;
     }
-    result = Run(markdownlint, toolArguments);
+    result = Run(process.execPath, [markdownlint, ...toolArguments]);
     if (result.status === 0)
     {
         return;

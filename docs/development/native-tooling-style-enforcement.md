@@ -15,6 +15,16 @@ Use the changed-file path during development:
 
 Use `--base <ref>` for stacked branches and `--full` for the authoritative repository scan. The migration acceptance state requires `config/development/native-tooling-style-baseline.json` to contain no file entries; formatter or lint debt cannot be hidden behind a content digest. `--require-tools` additionally fails when a configured external executable is unavailable.
 
+Install the Markdown toolchain from the committed lockfile with Node.js 22 or newer:
+
+```bash
+npm ci --ignore-scripts --prefix tools/style/markdown-toolchain
+./tools/lint.sh docs --require-tools --base origin/master
+node --test tests/tools/native-tooling-style.test.mjs
+```
+
+The original checker resolves Markdownlint from this repository's `tools/style/markdown-toolchain/node_modules/markdownlint-cli2/` and runs its bin with the current Node executable. It does not search `PATH` or `NODE_PATH` for Markdownlint. The exact `0.23.1` dependency matches the original structured-span adapter's package version, export and bin checks; changing it requires verifying that adapter's actual API compatibility. A missing install remains a required-tool failure in SOURCE. Installation does not run package lifecycle scripts or change the Markdown rules, source checks or test registration.
+
 `./tools/format.sh` writes only selected changed files. It normalizes UTF-8/LF/final-newline/trailing whitespace, delegates C++ to `clang-format`, delegates Shell/CMake when their formatters exist, and pretty-prints JSON without sorting semantic keys. Markdown is never destructively wrapped. `--check` is read-only.
 
 ## Line-ending invariant
@@ -73,7 +83,7 @@ The standard Markdownlint configuration remains unchanged: MD033/default rules s
 
 Classification requires a unique real MD033 opening-token span with the exact registered file, active source line, whole empty-anchor syntax and associated heading. Matching `Element: a`, a line number, a caller label or an abbreviated text-only diagnostic is insufficient. Original raw diagnostics must correspond one-to-one to the structured formatter results; source drift, missing/duplicate span evidence, an abnormal exit or invocation failure refuses admission. Every unclassified diagnostic, including additional a-elements and other HTML, remains a failure. Baseline contents, other overrides, exclusions and existing Markdown rules are not changed.
 
-Portable mode can report source-closure defects but refuses admission of registered aliases without the actual parser spans, even when other external tools are optional. The required-tool path and its actual positive/refusal controls are separate from original mock-transport and portable fixtures. Run `node --test tests/tools/native-tooling-style.test.mjs` with the original Markdownlint CLI available on `PATH`, then the relevant `./tools/lint.sh docs --require-tools` selection. Fixture results do not prove whole-repository zero debt, product/API behavior, generated facts, independent acceptance, merge or promotion. The original test remains a manual diagnostic unless its existing lifecycle owner separately changes registration.
+Portable mode can report source-closure defects but refuses admission of registered aliases without the actual parser spans, even when other external tools are optional. The required-tool path and its actual positive/refusal controls are separate from original mock-transport and portable fixtures. Install the locked toolchain and run `node --test tests/tools/native-tooling-style.test.mjs`, then the relevant `./tools/lint.sh docs --require-tools` selection. Fixture results do not prove whole-repository zero debt, product/API behavior, generated facts, independent acceptance, merge or promotion. The original test remains a manual diagnostic unless its existing lifecycle owner separately changes registration.
 
 ## Native build presets
 
