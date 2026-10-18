@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Text;
 
 namespace FsusBlog.Server.Services.Authoring;
@@ -60,7 +61,7 @@ public sealed record ArticleTemplateActor
     {
         ArgumentNullException.ThrowIfNull(permissions);
         AdminPrincipalId = adminPrincipalId;
-        _permissions = new HashSet<string>(permissions, StringComparer.Ordinal);
+        _permissions = permissions.ToFrozenSet(StringComparer.Ordinal);
         ArticleTemplateContract.ValidateActor(this);
     }
 

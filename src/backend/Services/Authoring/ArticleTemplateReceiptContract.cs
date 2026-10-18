@@ -65,6 +65,14 @@ public static partial class ArticleTemplateContract
                 throw new ArticleTemplateValidationException("article_template_property_select_default_invalid");
             }
         }
+        else if (propertyDefault.ValueKind == ArticleTemplatePropertyValueKind.ArticleReference)
+        {
+            // This representation declares only an empty set. A string is never interpreted as IDs.
+            if (propertyDefault.CanonicalValue is not null || propertyDefault.OptionIds.Count != 0)
+            {
+                throw new ArticleTemplateReferenceException("article_template_property_reference_source_identity_unavailable");
+            }
+        }
         else if (propertyDefault.OptionIds.Count != 0
             || string.IsNullOrEmpty(propertyDefault.CanonicalValue)
             || propertyDefault.CanonicalValue.Length > MaxPropertyValueCharacters

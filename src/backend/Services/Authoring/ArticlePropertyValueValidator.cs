@@ -287,7 +287,8 @@ public sealed class ArticlePropertyValueValidator(
         }
     }
 
-    private static ArticlePropertyTypedValue FromPayload(ArticlePropertyValueType type, ArticlePropertyDefaultValue value)
+    // Template defaults reuse this conversion after definition-owned payload validation.
+    internal static ArticlePropertyTypedValue FromPayload(ArticlePropertyValueType type, ArticlePropertyDefaultValue value)
         => type switch
         {
             ArticlePropertyValueType.Text => new ArticlePropertyTextValue(value.Scalar!),
