@@ -36,6 +36,12 @@ public sealed class ArticleTemplateExpansionVerifier(
         ArgumentNullException.ThrowIfNull(plan);
         var violations = new List<ArticleTemplateVerificationViolation>();
 
+        // Bind the immutable object consumed by create, not only its supplied declaration.
+        if (!string.Equals(plan.DefaultsDigest, ArticleTemplateContract.ComputeDefaultsDigest(plan.Defaults),
+                StringComparison.Ordinal))
+        {
+            violations.Add(new("expansion_plan_defaults_digest_mismatch", "consumed defaults differ from declared digest"));
+        }
         if (!string.Equals(
                 plan.ContentDigest,
                 ArticleTemplateContract.ComputeExpansionPlanDigest(plan),
