@@ -70,7 +70,6 @@ public static class ArticleEmbedDependencyGraphVerifier
             return Finish(reasons);
         }
 
-        var seenMemoizable = new HashSet<NodeKey>();
         int observedNodes = 0;
         int observedDepth = 0;
         for (int index = 0; index < requests.Count; index++)
@@ -85,7 +84,6 @@ public static class ArticleEmbedDependencyGraphVerifier
                 snapshot,
                 factsByIdentity,
                 budgets!,
-                seenMemoizable,
                 ref observedNodes,
                 ref observedDepth,
                 reasons);
@@ -114,7 +112,6 @@ public static class ArticleEmbedDependencyGraphVerifier
         ArticleEmbedAuthoritySnapshot snapshot,
         Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
         ArticleEmbedResolutionBudgetLimits budgets,
-        HashSet<NodeKey> seenMemoizable,
         ref int observedNodes,
         ref int observedDepth,
         List<string> reasons)
@@ -158,19 +155,6 @@ public static class ArticleEmbedDependencyGraphVerifier
         }
 
         NodeKey key = NodeKeyOf(request.Target);
-        bool earlierMemoizable = seenMemoizable.Contains(key);
-        if (item.CacheHit && !earlierMemoizable)
-        {
-            reasons.Add($"cache_hit_without_prior_resolution:{request.RequestId}");
-        }
-        if (!item.CacheHit
-            && earlierMemoizable
-            && (result.Result.Status == ArticleEmbedProviderResultStatus.Resolved
-                || (result.Result.Error is not null && IsFactStable(result.Result.Error.Code))))
-        {
-            reasons.Add($"cache_miss_for_memoized_node:{request.RequestId}");
-        }
-
         ArticleEmbedError? bindingFailure = ExpectBinding(request, snapshot);
         if (bindingFailure is not null)
         {
@@ -296,7 +280,7 @@ public static class ArticleEmbedDependencyGraphVerifier
         }
 
         VerifyReceiptItem(result, item, expectation.Error is null ? expectation.Facts!.ResolvedRevision : null, reasons);
-        bool subtreeClean = VerifyChildren(
+        VerifyChildren(
             result.Children,
             expectation.Error is null ? expectation.Facts : null,
             snapshot,
@@ -308,23 +292,14 @@ public static class ArticleEmbedDependencyGraphVerifier
                 key
             },
             budgets,
-            seenMemoizable,
             ref observedNodes,
             ref observedDepth,
             reasons);
-
-        if (expectation.Error is null
-            ? subtreeClean
-            : IsFactStable(expectation.Error.Code))
-        {
-            seenMemoizable.Add(key);
-        }
     }
 
     /// <summary>
-    /// Returns false when any descendant carries a path-dependent failure (cycle/budget/abort). Nodes whose
-    /// outcome is path-independent join <paramref name="seenMemoizable"/> exactly as the resolver memoizes them,
-    /// whether they were expanded top-level, nested, or replayed from the shared memo.
+    /// Checks descendant shape, facts and coordinates. Stage-specific memo admission and cost are
+    /// independently replayed by the observation pass rather than inferred from this structural walk.
     /// </summary>
     private static bool VerifyChildren(
         IReadOnlyList<ArticleEmbedResolvedNode> children,
@@ -334,7 +309,6 @@ public static class ArticleEmbedDependencyGraphVerifier
         int depth,
         HashSet<NodeKey> path,
         ArticleEmbedResolutionBudgetLimits budgets,
-        HashSet<NodeKey> seenMemoizable,
         ref int observedNodes,
         ref int observedDepth,
         List<string> reasons)
@@ -422,10 +396,6 @@ public static class ArticleEmbedDependencyGraphVerifier
                 {
                     clean = false;
                 }
-                else
-                {
-                    seenMemoizable.Add(key);
-                }
                 continue;
             }
             if (child.Status != ArticleEmbedProviderResultStatus.Resolved)
@@ -464,16 +434,11 @@ public static class ArticleEmbedDependencyGraphVerifier
                 depth + 1,
                 path,
                 budgets,
-                seenMemoizable,
                 ref observedNodes,
                 ref observedDepth,
                 reasons);
             path.Remove(key);
             clean &= childClean;
-            if (childClean)
-            {
-                seenMemoizable.Add(key);
-            }
         }
         return clean;
     }
@@ -556,11 +521,14 @@ public static class ArticleEmbedDependencyGraphVerifier
             {
                 ArticleEmbedProviderRequest request = requests[index];
                 ArticleEmbedAuthoringEmbedResult result = candidate.Results[index];
+                int projectionHits = projection.CacheHits;
+                int graphHits = graph.CacheHits;
                 ArticleEmbedError? projectionFailure = ObserveProjectionRequest(
                     request, snapshot, factsByIdentity, budgets, projection);
                 if (projectionFailure is not null)
                 {
                     graph.ObserveNode(1);
+                    graph.CacheHits += projection.CacheHits - projectionHits;
                     VerifyObservedOutcome(result.Result.Status, result.Result.Error, projectionFailure, reasons);
                 }
                 else
@@ -570,6 +538,11 @@ public static class ArticleEmbedDependencyGraphVerifier
                         {
                             new(snapshot.HostPortableArticleIdentity, ArticleEmbedTargetKind.Article, null, null)
                         }, snapshot, factsByIdentity, budgets, graph, reasons);
+                }
+                if (candidate.Receipt.Items[index].CacheHit != (graph.CacheHits > graphHits))
+                {
+                    string stage = projectionFailure is not null ? "projection" : "graph";
+                    reasons.Add($"{stage}_cache_hit_mismatch:{request.RequestId}");
                 }
                 ArticleEmbedBudgetObservation observed = result.Result.Budgets;
                 if (observed.Bytes != graph.Bytes || observed.Nodes != graph.Nodes || observed.Depth != graph.Depth)
@@ -581,6 +554,10 @@ public static class ArticleEmbedDependencyGraphVerifier
                     reasons.Add("graph_elapsed_observation_not_monotonic");
                 }
                 elapsed = observed.ElapsedMilliseconds;
+            }
+            if (candidate.Receipt.CacheHitCount != graph.CacheHits)
+            {
+                reasons.Add("graph_cache_hit_count_mismatch");
             }
             if (candidate.Receipt.Observed.Bytes != graph.Bytes)
             {
@@ -617,6 +594,7 @@ public static class ArticleEmbedDependencyGraphVerifier
         NodeKey key = NodeKeyOf(request.Target);
         if (meter.Memo.TryGetValue(key, out ArticleEmbedError? cached))
         {
+            meter.CacheHits++;
             return cached;
         }
         ArticleEmbedError? error = ObserveSource(request.Target, snapshot, factsByIdentity, budgets, meter);
@@ -682,7 +660,12 @@ public static class ArticleEmbedDependencyGraphVerifier
             VerifyObservedOutcome(status, error, failure, reasons);
             return false;
         }
-        if (!meter.Memo.TryGetValue(key, out failure))
+        bool cacheHit = meter.Memo.TryGetValue(key, out failure);
+        if (cacheHit && depth == 1)
+        {
+            meter.CacheHits++;
+        }
+        if (!cacheHit)
         {
             failure = ObserveSource(target, snapshot, factsByIdentity, budgets, meter);
         }
@@ -768,6 +751,10 @@ public static class ArticleEmbedDependencyGraphVerifier
         public int Depth
         {
             get; private set;
+        }
+        public int CacheHits
+        {
+            get; set;
         }
         public int Messages
         {

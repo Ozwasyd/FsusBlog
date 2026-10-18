@@ -868,6 +868,9 @@ Graph verifier 分别重放 projection 与 graph 的累计成本：复制 projec
 source read；fresh authorized projection read 累计 source bytes，memo hit 只复用叶投影，
 descendant 仍重新展开计数。每个 provider result 与最终 receipt 的 byte/node/depth observation
 必须精确对应，size failure 必须符合实际 node/message/byte 检查顺序，取消必须对应当前 request token。
+复制 projection failure 时只按 projection memo 核对命中，不向 graph memo 写入复制项；其余根节点
+按 graph 的前置预算/cycle 检查后实际 lookup 计命中。逐项 `CacheHit` 与 receipt `CacheHitCount`
+必须精确匹配该阶段的独立重放；同一 target 在另一个阶段出现不能作为命中依据。
 result/receipt elapsed observation 必须单调，但候选自报时间与重算 digest 不是独立时钟证据。
 现有 verifier API 没有独立时间见证输入，因此即使记录了真实 timeout，也拒绝将 `TimeExceeded`
 graph 准入 relation/refresh；不得仅凭 error enum 或自报超限时间放行缺失子图。

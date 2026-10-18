@@ -466,6 +466,235 @@ public sealed class ArticleEmbedPipelineTests : IDisposable
         Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, evaluated.Graph).Valid);
     }
 
+
+    [Theory]
+    [InlineData(ArticleEmbedErrorCode.PermissionDenied)]
+    [InlineData(ArticleEmbedErrorCode.PermissionUnknown)]
+    [InlineData(ArticleEmbedErrorCode.Missing)]
+    [InlineData(ArticleEmbedErrorCode.Archived)]
+    [InlineData(ArticleEmbedErrorCode.StaleTarget)]
+    public void GraphMemoAdmitsCopiedProjectionFailuresAfterNestedExpansion(ArticleEmbedErrorCode code)
+    {
+        var (requests, snapshot) = MemoGraphInput(denied: true);
+        ArticleEmbedTargetFacts target = snapshot.Targets[1] with
+        {
+            Permission = code == ArticleEmbedErrorCode.PermissionDenied ? ArticleEmbedPermissionStatus.Denied
+                : code == ArticleEmbedErrorCode.PermissionUnknown ? ArticleEmbedPermissionStatus.Unknown
+                : ArticleEmbedPermissionStatus.Allowed,
+            Lifecycle = code == ArticleEmbedErrorCode.Archived ? ArticleEmbedLifecycleStatus.Archived
+                : ArticleEmbedLifecycleStatus.Published,
+            AuthorityGeneration = code == ArticleEmbedErrorCode.StaleTarget ? 2 : 1
+        };
+        snapshot = code == ArticleEmbedErrorCode.Missing ? Snapshot(snapshot.Targets[0])
+            : Snapshot(snapshot.Targets[0], target);
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets);
+        Assert.True(ArticleEmbedAuthoringContractValidator.Validate(evaluated.Graph).IsValid);
+        Assert.Equal(code, evaluated.Graph.Results[1].Result.Error!.Code);
+        Assert.False(evaluated.Projection.Receipt.Items[1].CacheHit);
+        Assert.False(evaluated.Graph.Receipt.Items[1].CacheHit);
+        Assert.Equal(0, evaluated.Graph.Receipt.CacheHitCount);
+        Assert.Equal(128, evaluated.Graph.Receipt.Observed.Bytes);
+        Assert.Equal(3, evaluated.Graph.Receipt.Observed.Nodes);
+        Assert.Equal(2, evaluated.Graph.Receipt.Observed.Depth);
+
+        foreach (ArticleEmbedProviderRequest request in requests)
+        {
+            var single = ArticleEmbedAuthoringPipeline.Evaluate([request], snapshot, s_budgets);
+            Assert.True(ArticleEmbedDependencyGraphVerifier.Verify([request], snapshot, s_budgets, single.Graph).Valid);
+        }
+        ArticleEmbedAuthoringVerification verification = ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, evaluated.Graph);
+        Assert.True(verification.Valid, string.Join(", ", verification.ReasonCodes));
+        Assert.True(evaluated.Relations.Accepted);
+        ArticleEmbedRelationEdge edge = Assert.Single(evaluated.Relations.EdgeSet!.Edges);
+        Assert.Equal(Host, edge.OwnerPortableArticleIdentity);
+        Assert.Equal(ArticleA, edge.Target.PortableArticleIdentity);
+    }
+
+    [Fact]
+    public void GraphMemoUsesGraphHitsWhenProjectionHasOnlySeenTheRoot()
+    {
+        var (requests, snapshot) = MemoGraphInput(denied: false);
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets);
+
+        Assert.False(evaluated.Projection.Receipt.Items[1].CacheHit);
+        Assert.True(evaluated.Graph.Receipt.Items[1].CacheHit);
+        Assert.Equal(1, evaluated.Graph.Receipt.CacheHitCount);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, evaluated.Graph).Valid);
+    }
+
+    [Fact]
+    public void GraphMemoCopiesRepeatedProjectionFailureHits()
+    {
+        var (requests, snapshot) = MemoGraphInput(denied: true);
+        ArticleEmbedProviderRequest repeated = ArticleEmbedContractValidator.Seal(requests[1] with
+        {
+            RequestId = "request:third"
+        });
+        requests = [requests[0], requests[1], repeated];
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets);
+
+        Assert.False(evaluated.Projection.Receipt.Items[1].CacheHit);
+        Assert.True(evaluated.Projection.Receipt.Items[2].CacheHit);
+        Assert.False(evaluated.Graph.Receipt.Items[1].CacheHit);
+        Assert.True(evaluated.Graph.Receipt.Items[2].CacheHit);
+        Assert.Equal(1, evaluated.Graph.Receipt.CacheHitCount);
+        Assert.Equal(128, evaluated.Graph.Receipt.Observed.Bytes);
+        Assert.Equal(4, evaluated.Graph.Receipt.Observed.Nodes);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, evaluated.Graph).Valid);
+        Assert.Single(evaluated.Relations.EdgeSet!.Edges);
+    }
+
+    [Theory]
+    [InlineData(ArticleEmbedTargetKind.Heading)]
+    [InlineData(ArticleEmbedTargetKind.Block)]
+    public void GraphMemoLeavesUnboundSelectedProjectionFailuresUncached(ArticleEmbedTargetKind kind)
+    {
+        var (requests, snapshot) = UnboundMemoGraphInput(kind);
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets);
+
+        Assert.True(evaluated.Projection.Receipt.Items[1].CacheHit);
+        Assert.All(evaluated.Graph.Receipt.Items, item => Assert.False(item.CacheHit));
+        Assert.All(evaluated.Graph.Results, result => Assert.Equal(ArticleEmbedErrorCode.InvalidTarget, result.Result.Error!.Code));
+        Assert.Equal(128, evaluated.Graph.Results[0].Result.Budgets.Bytes);
+        Assert.Equal(256, evaluated.Graph.Results[1].Result.Budgets.Bytes);
+        Assert.Equal(0, evaluated.Graph.Receipt.CacheHitCount);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, s_budgets, evaluated.Graph).Valid);
+    }
+
+    [Theory]
+    [InlineData("projection")]
+    [InlineData("graph")]
+    [InlineData("unbound")]
+    public void GraphMemoRejectsHitsBorrowedFromTheOtherStage(string stage)
+    {
+        var (requests, snapshot) = stage == "unbound" ? UnboundMemoGraphInput(ArticleEmbedTargetKind.Heading)
+            : MemoGraphInput(denied: stage == "projection", cyclic: stage == "graph");
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets);
+        Assert.False(evaluated.Graph.Receipt.Items[1].CacheHit);
+        ArticleEmbedAuthoringResolution forged = ResealGraph(evaluated.Graph with
+        {
+            Receipt = evaluated.Graph.Receipt with
+            {
+                CacheHitCount = 1,
+                Items = [evaluated.Graph.Receipt.Items[0], evaluated.Graph.Receipt.Items[1] with { CacheHit = true }]
+            }
+        });
+
+        AssertGraphRejectedEverywhere(requests, snapshot, s_budgets, forged);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void GraphMemoRejectsAnIncorrectAggregateHitCount(int count)
+    {
+        var (requests, snapshot) = MemoGraphInput(denied: false);
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets);
+        Assert.Equal(1, evaluated.Graph.Receipt.CacheHitCount);
+        ArticleEmbedAuthoringResolution forged = ResealGraph(evaluated.Graph with
+        {
+            Receipt = evaluated.Graph.Receipt with
+            {
+                CacheHitCount = count
+            }
+        });
+
+        AssertGraphRejectedEverywhere(requests, snapshot, s_budgets, forged);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GraphMemoRejectsUnderreportedHitsInEitherStage(bool projectionFailure)
+    {
+        var (requests, snapshot) = MemoGraphInput(denied: projectionFailure);
+        if (projectionFailure)
+        {
+            requests = [ArticleEmbedContractValidator.Seal(requests[1] with { RequestId = "request:first" }), requests[1]];
+        }
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets);
+        Assert.True(evaluated.Graph.Receipt.Items[1].CacheHit);
+        ArticleEmbedAuthoringResolution forged = ResealGraph(evaluated.Graph with
+        {
+            Receipt = evaluated.Graph.Receipt with
+            {
+                CacheHitCount = 0,
+                Items = [evaluated.Graph.Receipt.Items[0], evaluated.Graph.Receipt.Items[1] with { CacheHit = false }]
+            }
+        });
+
+        AssertGraphRejectedEverywhere(requests, snapshot, s_budgets, forged);
+    }
+
+    [Fact]
+    public void GraphMemoRejectsAFalseHitUsedToDiscountSourceBytes()
+    {
+        var (requests, snapshot) = MemoGraphInput(denied: false, cyclic: true);
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, s_budgets);
+        Assert.Equal(512, evaluated.Graph.Receipt.Observed.Bytes);
+        Assert.False(evaluated.Graph.Receipt.Items[1].CacheHit);
+        ArticleEmbedAuthoringEmbedResult second = evaluated.Graph.Results[1];
+        ArticleEmbedResolutionBudgetLimits budgets = s_budgets with
+        {
+            MaxSourceBytes = 256
+        };
+        ArticleEmbedAuthoringResolution forged = ResealGraph(evaluated.Graph with
+        {
+            Results = [evaluated.Graph.Results[0], second with
+            {
+                Result = second.Result with { Budgets = second.Result.Budgets with { Bytes = 256 } }
+            }],
+            Receipt = evaluated.Graph.Receipt with
+            {
+                Budgets = budgets,
+                Observed = evaluated.Graph.Receipt.Observed with
+                {
+                    Bytes = 256
+                },
+                CacheHitCount = 1,
+                Items = [evaluated.Graph.Receipt.Items[0], evaluated.Graph.Receipt.Items[1] with { CacheHit = true }]
+            }
+        });
+
+        AssertGraphRejectedEverywhere(requests, snapshot, budgets, forged);
+    }
+
+    [Fact]
+    public void GraphMemoCopiedFailureDoesNotAvoidAnAuthorityMessageRead()
+    {
+        var (requests, snapshot) = MemoGraphInput(denied: true);
+        const string MissingToken = "article:01991e72-c871-7a86-bc95-5518cf8bd7dc";
+        ArticleEmbedTargetFacts parent = snapshot.Targets[0] with
+        {
+            NestedDirectives = [snapshot.Targets[0].NestedDirectives[0],
+                new(ArticleEmbedSchemas.ParserContract, MissingToken, ArticleEmbedTargetKind.Article, new(32, 64))]
+        };
+        snapshot = Snapshot(parent, snapshot.Targets[1]);
+        requests = [requests[1], requests[0]];
+        ArticleEmbedResolutionBudgetLimits budgets = s_budgets with
+        {
+            MaxAuthorityMessages = 2
+        };
+        var evaluated = ArticleEmbedAuthoringPipeline.Evaluate(requests, snapshot, budgets);
+        ArticleEmbedAuthoringEmbedResult root = evaluated.Graph.Results[1];
+        ArticleEmbedResolvedNode child = root.Children[1];
+        Assert.Equal(ArticleEmbedErrorCode.SizeExceeded, child.Error!.Code);
+        Assert.Equal("authority_messages_exceeded", child.Error.SafeReasonCode);
+        Assert.Equal(128, evaluated.Graph.Receipt.Observed.Bytes);
+        Assert.Equal(4, evaluated.Graph.Receipt.Observed.Nodes);
+        Assert.True(ArticleEmbedDependencyGraphVerifier.Verify(requests, snapshot, budgets, evaluated.Graph).Valid);
+        Assert.Single(evaluated.Relations.EdgeSet!.Edges);
+
+        ArticleEmbedAuthoringResolution forged = ResealGraph(evaluated.Graph with
+        {
+            Results = [evaluated.Graph.Results[0], root with
+            {
+                Children = [root.Children[0], child with { Error = new(ArticleEmbedErrorCode.Missing, "target_missing") }]
+            }]
+        });
+        AssertGraphRejectedEverywhere(requests, snapshot, budgets, forged);
+    }
+
     [Fact]
     public void RefreshBlocksNestedCycleWithoutReturningPartialPlan()
     {
@@ -539,6 +768,40 @@ public sealed class ArticleEmbedPipelineTests : IDisposable
         {
             ResolutionDigest = ArticleEmbedAuthoringDigest.ComputeResolution(graph)
         };
+    }
+
+    private (ArticleEmbedProviderRequest[] Requests, ArticleEmbedAuthoritySnapshot Snapshot) MemoGraphInput(bool denied, bool cyclic = false)
+    {
+        var (requests, snapshot) = NestedGraph(ArticleEmbedTargetKind.Article);
+        ArticleEmbedProviderRequest second = ArticleEmbedContractValidator.Seal(Request(cyclic ? ArticleA : ArticleB) with
+        {
+            RequestId = "request:second"
+        });
+        ArticleEmbedTargetFacts target = snapshot.Targets[1] with
+        {
+            Permission = denied ? ArticleEmbedPermissionStatus.Denied : ArticleEmbedPermissionStatus.Allowed,
+            NestedDirectives = cyclic ? [new(ArticleEmbedSchemas.ParserContract, Host, ArticleEmbedTargetKind.Article, new(0, 32))] : []
+        };
+        return ([requests[0], second], Snapshot(snapshot.Targets[0], target));
+    }
+
+    private (ArticleEmbedProviderRequest[] Requests, ArticleEmbedAuthoritySnapshot Snapshot) UnboundMemoGraphInput(ArticleEmbedTargetKind kind)
+    {
+        string token = kind == ArticleEmbedTargetKind.Heading ? $"{ArticleB}#{Heading}" : $"{ArticleB}#release-notes";
+        Assert.True(ArticleEmbedTargetCodec.TryDecode(token, kind, out ArticleEmbedTargetIdentity? target).IsValid);
+        ArticleEmbedProviderRequest first = ArticleEmbedContractValidator.Seal(Request(ArticleB) with
+        {
+            Directive = new(ArticleEmbedSchemas.ParserContract, token, kind, new(0, 32)),
+            Target = target!
+        });
+        ArticleEmbedProviderRequest second = ArticleEmbedContractValidator.Seal(first with
+        {
+            RequestId = "request:second"
+        });
+        return ([first, second], Snapshot(Facts(ArticleB) with
+        {
+            NestedDirectives = [new(ArticleEmbedSchemas.ParserContract, Host, ArticleEmbedTargetKind.Article, new(0, 32))]
+        }));
     }
 
     private (ArticleEmbedProviderRequest[] Requests, ArticleEmbedAuthoritySnapshot Snapshot) NestedGraph(ArticleEmbedTargetKind kind)
