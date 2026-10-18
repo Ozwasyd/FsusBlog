@@ -259,6 +259,100 @@ public sealed class AuthoringExtensionProductionPreflight(
         };
     }
 
+    internal AuthoringStateSnapshot FreezeAppliedSnapshot(AuthoringStateSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        AuthoringStateSnapshot canonical = AuthoringExtensionStateContract.Snapshot(
+            snapshot.Scope, snapshot.PackageIdentity, snapshot.Revision, snapshot.Entries);
+        Require(snapshot.ContractVersion == canonical.ContractVersion && snapshot.ContentSha256 == canonical.ContentSha256,
+            "production_applied_snapshot_tampered");
+        return canonical;
+    }
+
+    internal async ValueTask<IAuthoringInstalledPackageReadScope> AcquirePreparationScopeAsync(
+        VerifiedAuthoringPackage package,
+        ImmutableArray<AuthoringExecutionTarget> targets,
+        AuthoringStateSnapshot applied,
+        long generation,
+        CancellationToken cancellationToken)
+    {
+        Require(approvedClaim is not null && approvedClaim.Operation == AuthoringApprovalOperation.Migration
+            && approvedClaim.FrozenPlan is not null, "production_migration_claim_required");
+        IAuthoringInstalledPackageReadScope held = await AcquirePackageScopeAsync(package, targets, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            AuthoringFencedStateMigration plan = approvedClaim!.FrozenPlan!;
+            Require(applied.Scope == plan.To && applied.Scope == scope && applied.PackageIdentity == package.PackageIdentity
+                && plan.ExpectedToRevision <= long.MaxValue - 2 && applied.Revision == plan.ExpectedToRevision + 2
+                && AuthoringExtensionStateContract.ValueBytes(applied) <= package.Contract.Manifest.Limits.MaximumStateBytes,
+                "production_applied_snapshot_binding_drift");
+            AuthoringLifecycleReceipt? starting = await receipts.GetLatestAsync(package.Contract.Manifest.Id, cancellationToken).ConfigureAwait(false);
+            Require(starting is not null && starting.State == AuthoringLifecycleState.Starting
+                && starting.SchemaVersion == 1 && starting.Sequence == starting.Generation && starting.FailureCode is null
+                && starting.PackageSha256 == package.Contract.Manifest.PackageSha256
+                && starting.Version == package.Contract.Manifest.Version
+                && starting.StateSchemaVersion == package.Contract.Manifest.StateSchemaVersion
+                && starting.DataSchemaVersion == package.Contract.Manifest.DataSchemaVersion
+                && starting.ScopeDigest == approvedClaim.Digest
+                && starting.ReceiptSha256 == AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(starting)
+                && starting.Generation > approvedClaim.ExpectedLifecycleReceipt.Generation
+                && starting.Generation < long.MaxValue && generation == starting.Generation + 1,
+                "production_starting_generation_not_current");
+            Require(await HasGrantsAsync(held.ActivePackage, targets, cancellationToken).ConfigureAwait(false),
+                "production_required_grant_missing");
+            return held;
+        }
+        catch (Exception failure)
+        {
+            AuthoringTerminalReadScopes.Release(failure, held);
+            throw;
+        }
+    }
+
+    internal void RequireQualifiedEffects()
+    {
+        // The current original issuer has independently demonstrated false
+        // acceptances. No caller flag can qualify it or enable native effects.
+        throw new AuthoringExtensionContractException("production_approval_qualification_pending");
+    }
+
+    internal ValueTask<AuthoringLifecycleReceipt?> ReadLatestReceiptAsync(string extensionId, CancellationToken cancellationToken)
+        => receipts.GetLatestAsync(extensionId, cancellationToken);
+
+    internal ValueTask VerifyClaimCurrentAsync(VerifiedAuthoringPackage package, CancellationToken cancellationToken)
+        => VerifyApprovedOperationAsync(package, cancellationToken);
+
+    internal async ValueTask VerifyCurrentGrantsAsync(VerifiedAuthoringPackage package,
+        ImmutableArray<AuthoringExecutionTarget> targets, CancellationToken cancellationToken)
+        => Require(await HasGrantsAsync(package, targets, cancellationToken).ConfigureAwait(false),
+            "production_required_grant_missing");
+
+    internal bool IsPackageTrustCurrent(VerifiedAuthoringPackage package)
+        => package.Trust.Status == AuthoringPackageTrustStatus.Trusted && package.Trust.ValidUntil > timeProvider.GetUtcNow();
+
+    internal string RequireClaimDigest()
+        => approvedClaim?.Digest ?? throw new AuthoringExtensionContractException("production_migration_claim_required");
+
+    internal async ValueTask<ImmutableArray<string>> FindBoundGrantIdsAsync(
+        VerifiedAuthoringPackage package, AuthoringExecutionTarget target, CancellationToken cancellationToken)
+    {
+        ImmutableArray<AuthoringCapabilityGrant> found = await grants.FindActiveExactAsync(target.ExtensionId,
+            target.ExtensionVersion, target.ContributionId, target.RuntimeIdentity, target.ExecutionClass,
+            scope.DocumentId!, cancellationToken).ConfigureAwait(false);
+        Require(!found.IsDefault, "production_grant_catalog_unavailable");
+        AuthoringContributionDeclaration declaration = package.Contract.Manifest.Contributions.Single(item => item.Id == target.ContributionId);
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        return [.. found.Where(grant => declaration.Capabilities.Contains(grant.Capability)
+                && grant.ExtensionId == target.ExtensionId && grant.ExtensionVersion == target.ExtensionVersion
+                && grant.ContributionId == target.ContributionId && grant.RuntimeIdentity == target.RuntimeIdentity
+                && grant.ExecutionClass == target.ExecutionClass && grant.DocumentId == scope.DocumentId
+                && grant.SiteIdentity == scope.SiteId && grant.Purpose == purpose && grant.IssuedAt <= now
+                && grant.ExpiresAt > now && !string.IsNullOrWhiteSpace(grant.ApprovalReceiptId)
+                && grant.GrantId == grant.GrantDigest
+                && grant.GrantDigest == AuthoringCapabilityGrantAuthority.ComputeGrantDigest(grant))
+            .Select(static grant => grant.GrantId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+    }
+
     private async ValueTask<bool> HasGrantsAsync(
         VerifiedAuthoringPackage package,
         ImmutableArray<AuthoringExecutionTarget> targets,
