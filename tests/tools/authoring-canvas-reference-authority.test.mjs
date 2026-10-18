@@ -676,7 +676,19 @@ public sealed class AuthoringCanvasReferenceExpressionFlow
         return target with { TargetHeadingIdentity = observed };
     }
 }
-`])
+`]),
+    ['a conditional constructor call is not an annotated method definition', 'cs', true, `
+public sealed class AuthoringCanvasReferenceExpressionFlow
+{
+    private sealed class DisplayRecord { public string? Label { get; set; } }
+    public object Create(System.Xml.XmlElement element, AuthoringCanvasReferenceTarget target, bool allow)
+    {
+        var observed = target.TargetHeadingIdentity;
+        var display = allow ? new DisplayRecord() : new DisplayRecord { Label = observed = element.GetAttribute("id") };
+        return target with { TargetHeadingIdentity = observed };
+    }
+}
+`]
 ];
 
 for (const [name, extension, rejected, source] of expressionBoundaryControls)

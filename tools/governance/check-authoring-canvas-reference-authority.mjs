@@ -252,7 +252,7 @@ function hasDomReferenceAuthority(source, isCSharp = false)
     };
     for (let index = 0; index < tokens.length; index++)
     {
-        if (tokens[index] !== 'function')
+        if (isCSharp || tokens[index] !== 'function')
         {
             continue;
         }
@@ -306,7 +306,8 @@ function hasDomReferenceAuthority(source, isCSharp = false)
     // function keyword. Interface/overload signatures have no executable body.
     for (let index = 0; index < tokens.length; index++)
     {
-        if (tokens[index] !== ')' || tokens[index + 1] !== ':' || !matching.has(index))
+        if (tokens[index] !== ')' || tokens[index + 1] !== ':'
+            || conditionalColons.has(index + 1) || !matching.has(index))
         {
             continue;
         }
