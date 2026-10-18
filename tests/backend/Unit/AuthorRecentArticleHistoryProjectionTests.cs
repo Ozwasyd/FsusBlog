@@ -10,7 +10,7 @@ public sealed class AuthorRecentArticleHistoryProjectionTests
     private static readonly AuthorRecentArticleHistoryOwner s_owner = new(7, "site-a");
 
     [Fact]
-    public async Task Projection_PartialPermissionWithholdsWholeCollectionFacts()
+    public async Task Projection_FiltersPermissionBeforeReturningStableServerFacts()
     {
         AuthorRecentArticleHistoryEntry visible = CreateEntry(2, 22, 2);
         AuthorRecentArticleHistoryEntry hidden = CreateEntry(1, 11, 1);
