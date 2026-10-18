@@ -322,3 +322,57 @@ else
 {
     writeFileSync(mutationTarget, mutationOutput);
 }
+
+const historicalCases = [];
+const historicalRecord = 'ArticlePropertyValueHistoricalReadResponse';
+const historicalFrame = protocol.frameTypes.find(frame => frame.name === historicalRecord).value;
+function historicalResponse(publicationId = null)
+{
+    const original = response(8);
+    original.current.snapshot.coordinates.publicationId = publicationId;
+    return { articleId: original.articleId, articleRevisionId: original.currentArticleRevisionId,
+        publicationId, propertyRevision: original.propertyRevision, snapshot: original.current,
+        definitions: original.definitions, reconciliation: original.reconciliation, scope: original.scope };
+}
+function historicalCase(name, bytes, valid)
+{
+    historicalCases.push({ record: historicalRecord, name, frameType: historicalFrame,
+        payloadHex: Buffer.from(bytes).toString('hex'), valid });
+}
+for (const [name, publication] of [['unpublished-exact', null], ['published-exact', '1'], ['publication-int64-max', '9223372036854775807']])
+{
+    const bytes = wire.encodeArticlePropertyValueHistoricalReadResponse(historicalResponse(publication));
+    historicalCase(name, bytes, true);
+    historicalCase(name + '-truncated', bytes.slice(0, -1), false);
+    historicalCase(name + '-trailing', Uint8Array.from([...bytes, 0]), false);
+    historicalCase(name + '-unknown-version', Uint8Array.from([255, ...bytes.slice(1)]), false);
+}
+const unpublished = wire.encodeArticlePropertyValueHistoricalReadResponse(historicalResponse());
+for (const [name, offset, replacement] of [
+    ['article-mismatch', 1, 8], ['revision-mismatch', 5, 2], ['property-revision-mismatch', 14, 2],
+    ['snapshot-revision-mismatch', 95, 2], ['invalid-publication-presence', 13, 2]
+])
+{
+    const bytes = unpublished.slice();
+    bytes[offset] = replacement;
+    historicalCase(name, bytes, false);
+}
+const published = wire.encodeArticlePropertyValueHistoricalReadResponse(historicalResponse('1'));
+const publicationMismatch = published.slice();
+publicationMismatch[14] = 2;
+historicalCase('publication-mismatch', publicationMismatch, false);
+const draftRevision = Buffer.alloc(8);
+draftRevision.writeBigInt64LE(1n);
+historicalCase('draft-coordinate-refused', Buffer.concat([
+    unpublished.slice(0, 103), Buffer.from([1]), draftRevision, Buffer.from([1]), draftRevision, unpublished.slice(105)
+]), false);
+const historicalTarget = path.join(root, 'tests/fixtures/protocol/article-property-historical-read-wire-golden.json');
+const historicalOutput = JSON.stringify({ schema: 'fsusblog.article-property-historical-read-wire-golden.v1', cases: historicalCases }, null, 2) + '\n';
+if (process.argv.includes('--check'))
+{
+    if (readFileSync(historicalTarget, 'utf8') !== historicalOutput) throw new Error('property_historical_golden_drift');
+}
+else
+{
+    writeFileSync(historicalTarget, historicalOutput);
+}

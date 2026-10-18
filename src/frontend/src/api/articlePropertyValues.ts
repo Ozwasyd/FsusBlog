@@ -38,22 +38,24 @@ export const articlePropertyValuesApi = {
     async mutate(command: mutationWire.ArticlePropertyValueMutationCommand,
         signal?: AbortSignal): Promise<mutationWire.ArticlePropertyValueMutationReceipt>
     {
-        const path = propertiesPath(command.articleId, null);
+        propertiesPath(command.articleId, null);
         if (command.siteScope !== 'primary-site')
         {
             throw new RangeError('article_property_value_site_invalid');
         }
+        const payload = mutationWire.encodeArticlePropertyValueMutationCommand(command);
+        const captured = mutationWire.decodeArticlePropertyValueMutationCommand(payload);
         const result = await requestBinaryOnly<mutationWire.ArticlePropertyValueMutationReceipt>({
-            binaryUrl: path, privateScope: 'admin', frameType: FrameType.ArticlePropertyValueMutationReceipt, signal,
+            binaryRoute: { operationId: 'binary_author_article_property_values_mutate', params: { articleId: captured.articleId } },
+            privateScope: 'admin', frameType: FrameType.ArticlePropertyValueMutationReceipt, signal,
             requestOptions: { method: 'POST', cache: 'no-store', requiresPow: true,
-                body: encodeAedsFrame(FrameType.ArticlePropertyValueMutationCommand,
-                    mutationWire.encodeArticlePropertyValueMutationCommand(command)) }
+                body: encodeAedsFrame(FrameType.ArticlePropertyValueMutationCommand, payload) }
         });
-        if (result.requestId !== command.requestId || result.articleId !== command.articleId
-            || result.definitionOwnerUserId !== command.definitionOwnerUserId || result.siteScope !== command.siteScope
-            || result.expectedArticleRevisionId !== command.expectedArticleRevisionId
-            || result.beforePropertyRevision !== command.expectedPropertyRevision || result.commandKind !== command.mode
-            || BigInt(result.afterPropertyRevision) !== BigInt(command.expectedPropertyRevision) + 1n)
+        if (result.requestId !== captured.requestId || result.articleId !== captured.articleId
+            || result.definitionOwnerUserId !== captured.definitionOwnerUserId || result.siteScope !== captured.siteScope
+            || result.expectedArticleRevisionId !== captured.expectedArticleRevisionId
+            || result.beforePropertyRevision !== captured.expectedPropertyRevision || result.commandKind !== captured.mode
+            || BigInt(result.afterPropertyRevision) !== BigInt(captured.expectedPropertyRevision) + 1n)
         {
             throw new Error('article_property_value_receipt_binding_invalid');
         }
@@ -72,6 +74,28 @@ export const articlePropertyValuesApi = {
             || result.scope.siteScope !== 'primary-site')
         {
             throw new Error('article_property_value_read_scope_changed');
+        }
+        return result;
+    },
+    /** Reads exactly one persisted revision/publication. Explicit null selects unpublished history only. */
+    async readHistorical(articleId: number, articleRevisionId: string, publicationId: string | null,
+        ownerUserId: string | null = null, signal?: AbortSignal): Promise<mutationWire.ArticlePropertyValueHistoricalReadResponse>
+    {
+        requireCurrentArticleRevisionId(articleRevisionId);
+        if (publicationId !== null)
+        {
+            requireCurrentArticleRevisionId(publicationId);
+        }
+        const path = propertiesPath(articleId, ownerUserId).replace('/properties', `/properties/history/${articleRevisionId}`);
+        const binaryUrl = publicationId === null ? path : `${path}${path.includes('?') ? '&' : '?'}publicationId=${publicationId}`;
+        const result = await requestBinaryOnly<mutationWire.ArticlePropertyValueHistoricalReadResponse>({
+            binaryUrl, privateScope: 'admin', frameType: FrameType.ArticlePropertyValueHistoricalReadResponse, signal,
+            requestOptions: { method: 'GET', cache: 'no-store' }
+        });
+        if (result.articleId !== articleId || result.articleRevisionId !== articleRevisionId || result.publicationId !== publicationId
+            || result.scope.definitionOwnerUserId !== ownerUserId || result.scope.siteScope !== 'primary-site')
+        {
+            throw new Error('article_property_value_historical_coordinates_changed');
         }
         return result;
     },

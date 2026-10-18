@@ -2954,6 +2954,18 @@
           "cache": "no-store",
           "rateLimit": "none",
           "operationId": "binary_author_article_property_values_mutate"
+        },
+        {
+          "method": "GET",
+          "path": "/author/articles/{articleId:int}/properties/history/{articleRevisionId:long}",
+          "auth": "admin",
+          "pow": false,
+          "responseFrame": "ArticlePropertyValueHistoricalReadResponse",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_property_values_historical_read"
         }
       ]
     },

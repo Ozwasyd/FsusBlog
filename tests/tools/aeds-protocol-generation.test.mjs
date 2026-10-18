@@ -58,7 +58,7 @@ test('the original producer owns five products with manifest-derived identities 
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
     assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
-    assert.equal(golden.frames.length, 281);
+    assert.equal(golden.frames.length, 282);
 });
 
 test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
@@ -236,4 +236,11 @@ test('property mutation allocation is independently fixed without changing any p
     ];
     const source = JSON.parse(readFileSync(path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
     assert.deepEqual(source.frameTypes.filter(frame => frame.goldenFamily === 'article-property-mutation').map(frame => [frame.name, frame.value]), expected);
+});
+
+test('historical property read uses the next sole-owner allocation and retains the original read frame', () =>
+{
+    const source = JSON.parse(readFileSync(path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
+    assert.equal(source.frameTypes.find(frame => frame.name === 'ArticlePropertyValueHistoricalReadResponse').value, 290);
+    assert.equal(source.frameTypes.find(frame => frame.name === 'ArticlePropertyValueReadResponse').value, 269);
 });

@@ -47,8 +47,20 @@ public sealed class ArticlePropertyValueReadWireTests
         }).ToArray();
     }
 
+    public static IEnumerable<object[]> HistoricalWireCases()
+    {
+        using JsonDocument golden = JsonDocument.Parse(BackendTestPaths.ReadAllTextFromRoot(
+            "tests/fixtures/protocol/article-property-historical-read-wire-golden.json"));
+        return golden.RootElement.GetProperty("cases").EnumerateArray().Select(row => new object[]
+        {
+            row.GetProperty("record").GetString()!, row.GetProperty("name").GetString()!,
+            row.GetProperty("payloadHex").GetString()!, row.GetProperty("valid").GetBoolean()
+        }).ToArray();
+    }
+
     [Theory]
     [MemberData(nameof(MutationWireCases))]
+    [MemberData(nameof(HistoricalWireCases))]
     public void MutationGolden_ExecutesCanonicalCodecAndExactBytes(string record, string name, string payloadHex, bool expectedValid)
     {
         byte[] bytes = Convert.FromHexString(payloadHex);

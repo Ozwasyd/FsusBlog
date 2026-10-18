@@ -10,6 +10,17 @@ public sealed record ArticlePropertyValueReadResponse(
     IReadOnlyList<ArticlePropertyValueReconciliationRead> Reconciliation,
     ArticlePropertyValueReadScope Scope);
 
+/// <summary>Exact historical coordinate and authenticated persisted snapshot; carries no current/latest revision claim.</summary>
+public sealed record ArticlePropertyValueHistoricalReadResponse(
+    int ArticleId,
+    long ArticleRevisionId,
+    long? PublicationId,
+    long PropertyRevision,
+    ArticlePropertyValuePersistedSnapshot Snapshot,
+    IReadOnlyList<ArticlePropertyDefinitionReadDescriptor> Definitions,
+    IReadOnlyList<ArticlePropertyValueReconciliationRead> Reconciliation,
+    ArticlePropertyValueReadScope Scope);
+
 /// <summary>Authoritative definition owner/site/schema echo, including empty reads; null owner means site ownership.</summary>
 public sealed record ArticlePropertyValueReadScope(
     long? DefinitionOwnerUserId, string SiteScope, int DefinitionSchemaVersion);

@@ -13,6 +13,8 @@ using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleProperties;
 using FsusBlog.Shared.Contracts.AuthoringCanvas;
 
+using Microsoft.Extensions.Primitives;
+
 namespace FsusBlog.Server.Modules.Endpoints;
 
 public static partial class AuthoringEndpoints
@@ -52,28 +54,56 @@ public static partial class AuthoringEndpoints
         .RequireAdminPermission(AdminPermissions.ArticleWrite)
         .AddEndpointFilterWithMetadata<RequiresPowFilter>();
 
+        group.MapGet("/articles/{articleId:int}/properties/history/{articleRevisionId:long}", static async Task<BinaryFrameResult> (
+            int articleId, long articleRevisionId, HttpContext context, IAedsEncoder aeds,
+            IArticlePropertyValueAuthority authority, CancellationToken cancellationToken) =>
+        {
+            context.Request.Query.TryGetValue("ownerUserId", out var suppliedOwner);
+            context.Request.Query.TryGetValue("publicationId", out var suppliedPublication);
+            if (articleId <= 0 || articleRevisionId <= 0
+                || !TryReadPropertyQueryId(suppliedOwner, out long? ownerUserId)
+                || !TryReadPropertyQueryId(suppliedPublication, out long? publicationId)
+                || context.Request.Query.Keys.Any(static key => key is not ("ownerUserId" or "publicationId")))
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation,
+                    "article_property_value_historical_request_invalid"), aeds);
+            }
+            return await ExecutePropertyReadAsync(aeds, async () =>
+            {
+                var owner = new ArticlePropertyDefinitionOwner(ownerUserId, "primary-site");
+                ArticlePropertyValueReadModel model = await authority.ReadHistoricalPropertyValuesAsync(
+                    ResolveRequiredAdminPrincipalId(context), owner, articleId, articleRevisionId,
+                    publicationId, cancellationToken).ConfigureAwait(false);
+                ArticlePropertyValueReadResponse projection = ToPropertyReadResponse(model, owner);
+                var response = new ArticlePropertyValueHistoricalReadResponse(model.ArticleId,
+                    model.ArticleRevisionId, publicationId, model.PropertyRevision,
+                    model.Current ?? throw new ArticlePropertyDefinitionIntegrityException("article_property_value_historical_snapshot_unavailable"),
+                    projection.Definitions, projection.Reconciliation, projection.Scope);
+                return BinaryResults.Frame(aeds, AedsFrameType.ArticlePropertyValueHistoricalReadResponse,
+                    destination => PodBinaryCodec.WriteArticlePropertyValueHistoricalReadResponse(response, destination));
+            }).ConfigureAwait(false);
+        })
+        .WithName("binary_author_article_property_values_historical_read")
+        .WithMetadata(new FsusOpenApiAedsContractMetadata(null, AedsFrameType.ArticlePropertyValueHistoricalReadResponse))
+        .RequireNoStoreResponse()
+        .RequireAdminPermission(AdminPermissions.ArticleWrite);
+
         group.MapGet("/articles/{articleId:int}/properties", static async Task<BinaryFrameResult> (
             int articleId, HttpContext context, IAedsEncoder aeds, IArticlePropertyValueAuthority authority,
             CancellationToken cancellationToken) =>
         {
-            long? ownerUserId = null;
-            if (context.Request.Query.TryGetValue("ownerUserId", out var supplied)
-                && (supplied.Count != 1 || !long.TryParse(supplied[0], NumberStyles.None,
-                    CultureInfo.InvariantCulture, out long ownerId) || ownerId <= 0))
+            context.Request.Query.TryGetValue("ownerUserId", out var suppliedOwner);
+            if (!TryReadPropertyQueryId(suppliedOwner, out long? ownerUserId))
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation,
                     "article_property_value_owner_invalid"), aeds);
-            }
-            else if (supplied.Count == 1)
-            {
-                ownerUserId = long.Parse(supplied[0]!, CultureInfo.InvariantCulture);
             }
             if (articleId <= 0)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation,
                     "article_property_value_article_invalid"), aeds);
             }
-            try
+            return await ExecutePropertyReadAsync(aeds, async () =>
             {
                 var owner = new ArticlePropertyDefinitionOwner(ownerUserId, "primary-site");
                 ArticlePropertyValueReadModel model = await authority.ReadAsync(
@@ -82,31 +112,56 @@ public static partial class AuthoringEndpoints
                 ArticlePropertyValueReadResponse response = ToPropertyReadResponse(model, owner);
                 return BinaryResults.Frame(aeds, AedsFrameType.ArticlePropertyValueReadResponse,
                     destination => PodBinaryCodec.WriteArticlePropertyValueReadResponse(response, destination));
-            }
-            catch (Exception error) when (error is ArticlePropertyDefinitionAccessDeniedException or AuthoringCanvasAccessDeniedException)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound,
-                    "article_property_value_unavailable"), aeds);
-            }
-            catch (ArticlePropertyDefinitionValidationException error)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, error.Code), aeds);
-            }
-            catch (ArticlePropertyDefinitionIntegrityException)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure,
-                    "article_property_value_integrity_failed"), aeds);
-            }
-            catch (ArticlePropertyDefinitionBudgetExceededException)
-            {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation,
-                    "article_property_value_read_budget_exceeded"), aeds);
-            }
+            }).ConfigureAwait(false);
         })
         .WithName("binary_author_article_property_values_read")
         .WithMetadata(new FsusOpenApiAedsContractMetadata(null, AedsFrameType.ArticlePropertyValueReadResponse))
         .RequireNoStoreResponse()
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
+    }
+
+    private static bool TryReadPropertyQueryId(StringValues supplied, out long? value)
+    {
+        value = null;
+        if (supplied.Count == 0)
+        {
+            return true;
+        }
+        if (supplied.Count != 1 || !long.TryParse(supplied[0], NumberStyles.None,
+            CultureInfo.InvariantCulture, out long parsed) || parsed <= 0)
+        {
+            return false;
+        }
+        value = parsed;
+        return true;
+    }
+
+    private static async Task<BinaryFrameResult> ExecutePropertyReadAsync(IAedsEncoder aeds,
+        Func<Task<BinaryFrameResult>> execute)
+    {
+        try
+        {
+            return await execute().ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is ArticlePropertyDefinitionAccessDeniedException or AuthoringCanvasAccessDeniedException)
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound,
+                "article_property_value_unavailable"), aeds);
+        }
+        catch (ArticlePropertyDefinitionValidationException error)
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, error.Code), aeds);
+        }
+        catch (ArticlePropertyDefinitionIntegrityException)
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure,
+                "article_property_value_integrity_failed"), aeds);
+        }
+        catch (ArticlePropertyDefinitionBudgetExceededException)
+        {
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation,
+                "article_property_value_read_budget_exceeded"), aeds);
+        }
     }
 
     private static ArticlePropertyValueReadResponse ToPropertyReadResponse(

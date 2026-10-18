@@ -1200,6 +1200,51 @@
           "type": "bool"
         }
       ]
+    },
+    "ArticlePropertyValueHistoricalReadResponse": {
+      "fields": [
+        {
+          "name": "ArticleId",
+          "type": "int32",
+          "min": 1
+        },
+        {
+          "name": "ArticleRevisionId",
+          "type": "int64",
+          "min": 1
+        },
+        {
+          "name": "PublicationId",
+          "type": "int64",
+          "min": 1,
+          "nullable": true
+        },
+        {
+          "name": "PropertyRevision",
+          "type": "int64",
+          "min": 1
+        },
+        {
+          "name": "Snapshot",
+          "type": "ArticlePropertyValuePersistedSnapshot"
+        },
+        {
+          "name": "Definitions",
+          "type": "ArticlePropertyDefinitionReadDescriptor",
+          "array": true,
+          "maxCount": 1000
+        },
+        {
+          "name": "Reconciliation",
+          "type": "ArticlePropertyValueReconciliationRead",
+          "array": true,
+          "maxCount": 1000
+        },
+        {
+          "name": "Scope",
+          "type": "ArticlePropertyValueReadScope"
+        }
+      ]
     }
   },
   "definitionContractOwner": "src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs",
@@ -1218,5 +1263,8 @@
     "ArticlePropertyDefinitionDeprecateRequest",
     "ArticlePropertyDefinitionDeleteRequest",
     "ArticlePropertyDefinitionMutationReceipt"
+  ],
+  "readRoots": [
+    "ArticlePropertyValueHistoricalReadResponse"
   ]
 }

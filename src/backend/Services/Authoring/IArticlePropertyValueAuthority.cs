@@ -15,6 +15,15 @@ public interface IArticlePropertyValueAuthority
         ArticlePropertyDefinitionOwner owner,
         int articleId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Reads the exact authorized revision/publication; null selects SQL NULL, never current/latest.</summary>
+    Task<ArticlePropertyValueReadModel> ReadHistoricalPropertyValuesAsync(
+        long actorAdminPrincipalId,
+        ArticlePropertyDefinitionOwner owner,
+        int articleId,
+        long articleRevisionId,
+        long? publicationId,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed record ArticlePropertyValueReadModel(

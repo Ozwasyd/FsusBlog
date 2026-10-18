@@ -1,0 +1,112 @@
+{
+    "inheritedFrontendRepair": "8b1b075e17627a4e4c19ece9ee074d70ff90fa36",
+    "appliedFrontendRepair": "cd35ca9ffd7ba62e9bcb03b107ac6d08a6e3efd8",
+    "originalPowCheckerRemainingBaselineFailures": 5,
+    "newPropertyPowFailures": 0,
+    "schema": "fsusblog.property-historical-transport-checkpoint.v1",
+    "status": "targeted-qualification-passed-with-existing-baseline-blockers",
+    "frozenPredecessor": "97d31197119918f4d7e5bafbd69000d3f59fff05",
+    "originalHistoricalHead": "b360815ae779c4f288d32439601b89f125e51f0e",
+    "originalHistoricalImplementation": "495f26fd113a57dbe8e5c11c8588aa7ab4bcdcfe",
+    "originalAuthoritySources": [
+        {
+            "path": "src/backend/Services/ArticleService.ArticlePropertyValues.HistoricalRead.cs",
+            "sha256": "a237143842dcf628d2f70137f1198ad5ac0dac6c2e50f0716418b232fab824e8"
+        },
+        {
+            "path": "src/backend/Services/Authoring/ArticlePropertyValuePersistence.HistoricalRead.cs",
+            "sha256": "0002952b8456654afc12e91fc5421fe7f05f15f4836bee240187071aa59942ee"
+        }
+    ],
+    "soleProtocolOwner": true,
+    "approvalAllocation": null,
+    "historicalFrame": "ArticlePropertyValueHistoricalReadResponse",
+    "publicationSelector": "explicit SQL NULL when absent; exact positive int64 when present; never current/latest",
+    "passed": {
+        "backend": 549,
+        "frontend": 84,
+        "nodeWireNative": 66,
+        "nativeFrames": 282,
+        "openApiOperations": 298
+    },
+    "existingBlockers": {
+        "typecheckDiagnostics": 255,
+        "newTypecheckDiagnostics": 0,
+        "openApiLegacyCensus": "Unchanged old JSON exclusion assertion; independently reproduced on exact input4266. Not suppressed."
+    },
+    "notQualified": [
+        "Full matrix/remote checks",
+        "Production cookie/session startup or deployment",
+        "Standalone drafts/nonempty reference authority",
+        "Approval workflow or plugin migration execution"
+    ],
+    "rawEvidence": "local only; raw fixture/authentication/SQL traces are not published",
+    "localRawLogDirectory": "/workspace/shared/property-historical-transport-evidence",
+    "rawLogs": [
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/backend-tests.log",
+            "sha256": "0f7824413665c863b5b01c6df9e1e7a0a84d08ca395ba8a42a99ae86153577b5"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/frontend-final.log",
+            "sha256": "3f65181f9bbb3ba6f6de70a5d03e06235b655769a988ee1114f288b78dbc91cc"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/wire-tests.log",
+            "sha256": "f9519af241c4dfa2fcb477814993642a6221f469d45c7dab8739950253f863ab"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/cross-stack.log",
+            "sha256": "4f88bbb2a23f7b9bdaa68287da25bfe82ee8581607c63e92e17cff99f87a09d6"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/products-check.log",
+            "sha256": "508aca60bd710c8642bba959e7c283aa3c5f3abb4d3baeb678b3cfd13c8ab3c3"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/openapi.log",
+            "sha256": "93312509f328690d04d4e6a41c3b66356d14840addb36a363082a1d2f4f052de"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/csharp-style.log",
+            "sha256": "338c3460669d174026aff5806362826322bba8ad7b474d80ac85fdd8acbc56ec"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/frontend-style.log",
+            "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/typecheck-final.log",
+            "sha256": "4a4add837f0874bc71033dafb1b20181fa729bd52dcac84d23a5a99eeeb3b010"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/typecheck-application-final.log",
+            "sha256": "29240c0dc673037f2294dbbc94d5b3cb7b9557c12ffd2757483594992755051d"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/regenerate.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/products-final.log",
+            "sha256": "2340d5309c29f07e9e76543fcf6b7621c2e55f3498552c0e4c04be171fc55ef2"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/wire-final.log",
+            "sha256": "45a58ff6266fabe5d132b1b1fe355801872836b099815ddcf08cd9162531942c"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/frontend-style-final.log",
+            "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/pow-final.log",
+            "sha256": "4053a5019c96a52171a7fd03dd3597ed7822bdbc86031f5f479ce585c2bdcb54"
+        },
+        {
+            "path": "/workspace/shared/property-historical-transport-evidence/pow-controls.log",
+            "sha256": "df9f0dc917024be19d3f08023fb59d284a60588110d967cd87d6228b3f4d9d3f"
+        }
+    ],
+    "generatedBinding": "artifacts/change-contract/issue-2323-historical-transport-generated-binding.json"
+}

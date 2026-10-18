@@ -6,6 +6,7 @@ import { encodeAedsFrame } from '@/api/binaryFrame';
 import { articlePropertyValuesApi } from '@/api/articlePropertyValues';
 import { decodeArticlePropertyValueReadResponse, encodeArticlePropertyValueReadResponse,
     type ArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
+import { decodeArticlePropertyValueHistoricalReadResponse, encodeArticlePropertyValueHistoricalReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
 import { privateRequestRuntime } from '@/services/privateRequestRuntime';
 
 // Wire-only fixtures are not persisted/authenticated receipts. Actual binary
@@ -247,5 +248,66 @@ describe('article property persisted read / save revision API boundary', () =>
         });
         await expect(articlePropertyValuesApi.readAfterSave(7, savedRevision, '42'))
             .rejects.toMatchObject({ name: 'AbortError', scope: 'admin' });
+    });
+});
+
+const historyGolden = JSON.parse(readFileSync(new URL('../../../fixtures/protocol/article-property-historical-read-wire-golden.json', import.meta.url), 'utf8')) as {
+    cases: Array<{ name: string; payloadHex: string }>;
+};
+function historyWitness(name = 'unpublished-exact'): Uint8Array
+{
+    return Uint8Array.from(Buffer.from(historyGolden.cases.find(item => item.name === name)!.payloadHex, 'hex'));
+}
+
+describe('exact-coordinate historical property read over original private transport', () =>
+{
+    it('selects SQL-null publication explicitly without asking for current facts', async () =>
+    {
+        fetchBoundary.mockResolvedValue(new Response(frame(historyWitness(), FrameType.ArticlePropertyValueHistoricalReadResponse)));
+        const result = await articlePropertyValuesApi.readHistorical(7, savedRevision, null, '42');
+        expect(result.publicationId).toBeNull();
+        expect(result.articleRevisionId).toBe(savedRevision);
+        expect(result.snapshot.snapshot.coordinates.articleRevisionId).toBe(savedRevision);
+        expect(result).not.toHaveProperty('currentArticleRevisionId');
+        expect(fetchBoundary).toHaveBeenCalledTimes(1);
+        const [url, options] = fetchBoundary.mock.calls[0];
+        expect(String(url)).toContain(`/api/binary/author/articles/7/properties/history/${savedRevision}?ownerUserId=42`);
+        expect(String(url)).not.toContain('publicationId=');
+        expect(options.method).toBe('GET');
+        expect(options.cache).toBe('no-store');
+    });
+
+    it('preserves complete int64 publication identity', async () =>
+    {
+        fetchBoundary.mockResolvedValue(new Response(frame(historyWitness('publication-int64-max'), FrameType.ArticlePropertyValueHistoricalReadResponse)));
+        const result = await articlePropertyValuesApi.readHistorical(7, savedRevision, '9223372036854775807', '42');
+        expect(result.publicationId).toBe('9223372036854775807');
+        expect(String(fetchBoundary.mock.calls[0][0])).toContain('publicationId=9223372036854775807');
+    });
+
+    it.each(['0', '-1', '', 'null', 'latest', '9223372036854775808', undefined])('refuses invalid publication %s before IO', async publication =>
+    {
+        await expect(articlePropertyValuesApi.readHistorical(7, savedRevision, publication as string, '42')).rejects.toThrow();
+        expect(fetchBoundary).not.toHaveBeenCalled();
+    });
+
+    it('rejects an internally valid response for another revision without a current fallback', async () =>
+    {
+        const other = decodeArticlePropertyValueHistoricalReadResponse(historyWitness());
+        other.articleRevisionId = '1';
+        other.snapshot.snapshot.coordinates.articleRevisionId = '1';
+        fetchBoundary.mockResolvedValue(new Response(frame(encodeArticlePropertyValueHistoricalReadResponse(other), FrameType.ArticlePropertyValueHistoricalReadResponse)));
+        await expect(articlePropertyValuesApi.readHistorical(7, savedRevision, null, '42'))
+            .rejects.toThrow('article_property_value_historical_coordinates_changed');
+        expect(fetchBoundary).toHaveBeenCalledTimes(1);
+    });
+
+    it('refuses a current read frame or an exact-history coordinate mismatch', async () =>
+    {
+        fetchBoundary.mockResolvedValue(new Response(frame()));
+        await expect(articlePropertyValuesApi.readHistorical(7, savedRevision, null, '42')).rejects.toThrow();
+        fetchBoundary.mockClear().mockResolvedValue(new Response(frame(historyWitness('publication-mismatch'), FrameType.ArticlePropertyValueHistoricalReadResponse)));
+        await expect(articlePropertyValuesApi.readHistorical(7, savedRevision, '1', '42')).rejects.toThrow();
+        expect(fetchBoundary).toHaveBeenCalledTimes(1);
     });
 });

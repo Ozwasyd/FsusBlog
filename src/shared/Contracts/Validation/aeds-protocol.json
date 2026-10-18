@@ -1740,6 +1740,12 @@
             "value": 289,
             "goldenFamily": "article-property-mutation",
             "goldenOrder": 280
+        },
+        {
+            "name": "ArticlePropertyValueHistoricalReadResponse",
+            "value": 290,
+            "goldenFamily": "article-property-historical-read",
+            "goldenOrder": 281
         }
     ],
     "goldenCatalog": {

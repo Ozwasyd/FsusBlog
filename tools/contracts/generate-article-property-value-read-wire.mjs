@@ -240,6 +240,29 @@ function semantic(name, lang, value)
     {
         return cs ? `if (string.IsNullOrWhiteSpace(${p('SiteScope')}) || ${p('SiteScope')} != ${p('SiteScope')}.Trim() || ${p('SiteScope')}.Any(char.IsControl)) throw new ArgumentException("property_read_scope_site");` : `if (!isPropertyReadSiteScope(${p('SiteScope')})) invalid();`;
     }
+    if (name === 'ArticlePropertyValueHistoricalReadResponse')
+    {
+        return cs ? `var coordinates = ${p('Snapshot')}.Snapshot.Coordinates;
+        if (coordinates.ArticleId != ${p('ArticleId')} || coordinates.ArticleRevisionId != ${p('ArticleRevisionId')}
+            || coordinates.PublicationId != ${p('PublicationId')} || coordinates.PropertyRevision != ${p('PropertyRevision')}
+            || coordinates.DraftId.HasValue || coordinates.DraftServerRevision.HasValue
+            || coordinates.DefinitionOwnerUserId != ${p('Scope')}.DefinitionOwnerUserId || coordinates.SiteScope != ${p('Scope')}.SiteScope)
+            throw new ArgumentException("property_historical_coordinates");
+        foreach (var definition in ${p('Definitions')})
+        {
+            if (definition.DefinitionOwnerUserId != ${p('Scope')}.DefinitionOwnerUserId || definition.SiteScope != ${p('Scope')}.SiteScope
+                || definition.SchemaVersion != ${p('Scope')}.DefinitionSchemaVersion) throw new ArgumentException("property_historical_definition_scope");
+        }` : `const coordinates = ${p('Snapshot')}.snapshot.coordinates;
+    if (coordinates.articleId !== ${p('ArticleId')} || coordinates.articleRevisionId !== ${p('ArticleRevisionId')}
+        || coordinates.publicationId !== ${p('PublicationId')} || coordinates.propertyRevision !== ${p('PropertyRevision')}
+        || coordinates.draftId !== null || coordinates.draftServerRevision !== null
+        || coordinates.definitionOwnerUserId !== ${p('Scope')}.definitionOwnerUserId || coordinates.siteScope !== ${p('Scope')}.siteScope) invalid();
+    for (const definition of ${p('Definitions')})
+    {
+        if (definition.definitionOwnerUserId !== ${p('Scope')}.definitionOwnerUserId || definition.siteScope !== ${p('Scope')}.siteScope
+            || definition.schemaVersion !== ${p('Scope')}.definitionSchemaVersion) invalid();
+    }`;
+    }
     if (name === 'ArticlePropertyValueReadResponse')
     {
         return cs ? `ArgumentNullException.ThrowIfNull(${p('Scope')});\n        foreach (var definition in ${p('Definitions')})\n        {\n            if (definition.DefinitionOwnerUserId != ${p('Scope')}.DefinitionOwnerUserId || definition.SiteScope != ${p('Scope')}.SiteScope || definition.SchemaVersion != ${p('Scope')}.DefinitionSchemaVersion) throw new ArgumentException("property_read_scope_definition");\n        }\n        if (${p('Current')} is { } current && (current.Snapshot.Coordinates.DefinitionOwnerUserId != ${p('Scope')}.DefinitionOwnerUserId || current.Snapshot.Coordinates.SiteScope != ${p('Scope')}.SiteScope)) throw new ArgumentException("property_read_scope_snapshot");` : `if (!${p('Scope')}) invalid();\n    for (const definition of ${p('Definitions')}) { if (definition.definitionOwnerUserId !== ${p('Scope')}.definitionOwnerUserId || definition.siteScope !== ${p('Scope')}.siteScope || definition.schemaVersion !== ${p('Scope')}.definitionSchemaVersion) invalid(); }\n    if (${p('Current')} !== null && (${p('Current')}.snapshot.coordinates.definitionOwnerUserId !== ${p('Scope')}.definitionOwnerUserId || ${p('Current')}.snapshot.coordinates.siteScope !== ${p('Scope')}.siteScope)) invalid();`;
@@ -263,9 +286,18 @@ ts += `export type ArticlePropertyTypedValue =\n${variants.map(variant =>
 }).join('\n')};\n`;
 let cpp = notice + '#pragma once\n#include <cstdint>\n#include <cstddef>\n#include <cstring>\n#include <cmath>\n#include <limits>\n#include <initializer_list>\n#include <optional>\n#include <string>\n#include <vector>\nnamespace FsusBlog::Aeds::PropertyValueReadWire\n{\n';
 const nativeOwner = read('src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp');
+cpp += 'struct CoordinateFact { std::int32_t article = 0; std::int64_t revision = 0, propertyRevision = 0; std::optional<std::int64_t> publication; bool draft = false; };\n';
 cpp += 'struct ScopeFact { std::optional<std::int64_t> owner; std::string site; std::int32_t schema = 0; };\n';
 cpp += nativeOwner.slice(nativeOwner.indexOf('class Reader'), nativeOwner.indexOf('inline bool ParseAuthoringCanvasOwner')).replaceAll('40002', String(schema.maxAggregateItems));
 cpp = cpp.replace('    bool Consumed() const', `    std::vector<ScopeFact> scopeFacts;
+    std::vector<CoordinateFact> snapshotCoordinates;
+    bool Int64Value(std::int64_t& value)
+    {
+        std::uint64_t bits;
+        if (!Bits64(bits)) return false;
+        std::memcpy(&value, &bits, 8);
+        return value > 0;
+    }
     bool TextValue(std::string& value, std::size_t maxChars)
     {
         const auto start = offset_;
@@ -400,10 +432,28 @@ for (const [name, record] of Object.entries(schema.records))
     cpp += `inline bool Parse${name}(Reader& reader)\n{\n`;
     const capturesScope = record.fields.some(field => field.name === 'SiteScope');
     if (capturesScope) cpp += '    ScopeFact scopeFact;\n';
+    const capturesCoordinates = name === 'ArticlePropertySnapshotCoordinates' || name === 'ArticlePropertyValueHistoricalReadResponse';
+    if (capturesCoordinates) cpp += '    CoordinateFact coordinateFact;\n';
     for (const [index, field] of record.fields.entries())
     {
         const inner = { ...field, nullable: false, array: false };
-        if (capturesScope && field.name === 'DefinitionOwnerUserId')
+        if (capturesCoordinates && field.name === 'ArticleId')
+        {
+            cpp += '    if (!reader.Signed32(coordinateFact.article) || coordinateFact.article <= 0) return false;\n';
+        }
+        else if (capturesCoordinates && field.name === 'ArticleRevisionId')
+        {
+            cpp += '    if (!reader.Int64Value(coordinateFact.revision)) return false;\n';
+        }
+        else if (capturesCoordinates && field.name === 'PropertyRevision')
+        {
+            cpp += '    if (!reader.Int64Value(coordinateFact.propertyRevision)) return false;\n';
+        }
+        else if (capturesCoordinates && field.name === 'PublicationId')
+        {
+            cpp += `    if (!reader.Owner(coordinateFact.publication)) return false;\n${name === 'ArticlePropertySnapshotCoordinates' ? `    bool present${index} = coordinateFact.publication.has_value();\n` : ''}`;
+        }
+        else if (capturesScope && field.name === 'DefinitionOwnerUserId')
         {
             cpp += '    if (!reader.Owner(scopeFact.owner)) return false;\n';
         }
@@ -434,12 +484,16 @@ for (const [name, record] of Object.entries(schema.records))
     }
     if (name === 'ArticlePropertySnapshotCoordinates')
     {
-        cpp += '    if (present5 != present6 || (present5 && present7)) return false;\n';
+        cpp += '    if (present5 != present6 || (present5 && present7)) return false;\n    coordinateFact.draft = present5 || present6;\n    reader.snapshotCoordinates.push_back(coordinateFact);\n';
     }
     // Nullable typed payload tags must outlive their branch to validate the default-kind pairing.
     if (name === 'ArticlePropertyReadDefaultValue')
     {
         cpp = cpp.replace('if (present1) { std::uint8_t field1Tag;', 'std::uint8_t field1Tag = 255; if (present1) {') + '    if (!((field0 <= 1 && !present1) || (field0 == 2 && present1 && (field1Tag <= 3 || field1Tag == 7)) || (field0 == 3 && present1 && (field1Tag == 4 || field1Tag == 5)) || (field0 == 4 && present1 && field1Tag == 6))) return false;\n';
+    }
+    if (name === 'ArticlePropertyValueHistoricalReadResponse')
+    {
+        cpp += '    if (reader.snapshotCoordinates.size() != 1) return false;\n    const auto& actual = reader.snapshotCoordinates.front();\n    if (actual.article != coordinateFact.article || actual.revision != coordinateFact.revision || actual.propertyRevision != coordinateFact.propertyRevision || actual.publication != coordinateFact.publication || actual.draft) return false;\n';
     }
     if (name === 'ArticlePropertyValueInput') cpp += '    if ((field3 == 2) != present4) return false;\n';
     if (capturesScope)
@@ -497,7 +551,7 @@ for (const variant of variants)
 }
 cs += '            default: throw new ArgumentException("property_read_type");\n        }\n    }\n';
 ts += '        default: invalid();\n    }\n}\n';
-const roots = [schema.root, ...schema.mutationRoots];
+const roots = [schema.root, ...schema.mutationRoots, ...schema.readRoots];
 for (const rootName of roots)
 {
     if (!protocol.frameTypes.some(frame => frame.name === rootName)) fail(`unallocated root ${rootName}`);

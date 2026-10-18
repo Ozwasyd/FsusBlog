@@ -70,3 +70,34 @@ identity, command kind and revision transitions to the submitted command. A read
 snapshot is never accepted as a mutation receipt. These client checks supplement
 the original server's authenticated persistence and do not authenticate arbitrary
 receipt bytes independently of that server.
+
+Mutation clients capture their command through the original generated encode/decode
+pair before asynchronous transport. This holds the exact canonical GUID identities,
+owner/site and CAS coordinates actually sent, independently of caller mutation or
+valid GUID letter casing. Receipts bind to that held command. Each of the six
+mutation calls uses its actual generated operation descriptor with an explicit
+HTTP method and PoW requirement, observable by the unchanged original parity checker.
+
+## Exact historical reads
+
+`IArticlePropertyValueAuthority.ReadHistoricalPropertyValuesAsync` exposes the original
+ArticleService historical reader. `GET /api/binary/author/articles/{articleId}/properties/history/{articleRevisionId}`
+uses that same authority, current authenticated actor/SQL permissions, private article
+admission and transaction. Optional `ownerUserId` selects the same owner as current reads.
+Optional `publicationId` is an exact positive int64; omission selects SQL NULL only.
+It never means the latest publication, current head, empty facts or an unverified draft.
+Unknown query selectors and malformed/duplicate identities refuse before lookup.
+
+The dedicated `ArticlePropertyValueHistoricalReadResponse` root carries the selected
+article revision/publication, property revision and original verified persisted snapshot.
+It makes no current-revision claim. The original property schema/producer generates
+C#, TypeScript and native codecs and validates that the top-level coordinate agrees with
+the snapshot, owner/site scope and canonical definition descriptors. The original
+current response layout and mutation receipts remain unchanged.
+
+`articlePropertyValuesApi.readHistorical` requires an explicit nullable publication selector,
+retains int64 decimal strings, uses the existing private no-store binary client/registry,
+and binds the response to its requested coordinates. Missing/ambiguous coordinates and
+authenticated fact/audit/coordinate failures retain the original read error mapping;
+no successful current or empty response substitutes for an unavailable historical result.
+Standalone drafts and nonempty reference authorities remain unavailable.
