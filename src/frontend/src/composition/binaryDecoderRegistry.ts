@@ -17,7 +17,7 @@ import { mapCategoryListFromPayload, mapTagListFromPayload, mapTaxonomyExactMeta
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
 import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
-import { decodeArticlePropertyValueHistoricalReadResponse, decodeArticlePropertyValueMutationReceipt, decodeArticlePropertyDefinitionMutationReceipt, decodeArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadWire.generated';
+import { decodeAuthoringExtensionApprovalPreviewResponse, decodeArticlePropertyValueHistoricalReadResponse, decodeArticlePropertyValueMutationReceipt, decodeArticlePropertyDefinitionMutationReceipt, decodeArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadWire.generated';
 import { decodeAuthorArticleSelectionRevalidationResponse } from '@/codecs/binary/authorArticleSelectionWire.generated';
 import { decodeAuthoringWorkspaceSnapshotResponse } from '@/codecs/binary/authoringWorkspaceSnapshotWire.generated';
 import { decodeDocumentExportJobResponse, decodeDocumentExportPageResponse } from '@/codecs/binary/documentExportWire.generated';
@@ -183,6 +183,7 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.ArticleCanvasLinkHistoryResponse,
     FrameType.ArticlePropertyValueReadResponse,
     FrameType.ArticlePropertyValueHistoricalReadResponse,
+    FrameType.AuthoringExtensionApprovalPreviewResponse,
     FrameType.ArticlePropertyValueMutationReceipt,
     FrameType.ArticlePropertyDefinitionMutationReceipt,
     FrameType.AuthoringWorkspaceSnapshotResponse,
@@ -397,6 +398,7 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.ArticleCanvasLinkHistoryResponse, decodeArticleCanvasLinkHistoryResponse],
     [FrameType.ArticlePropertyValueReadResponse, decodeArticlePropertyValueReadResponse],
     [FrameType.ArticlePropertyValueHistoricalReadResponse, decodeArticlePropertyValueHistoricalReadResponse],
+    [FrameType.AuthoringExtensionApprovalPreviewResponse, decodeAuthoringExtensionApprovalPreviewResponse],
     [FrameType.ArticlePropertyValueMutationReceipt, decodeArticlePropertyValueMutationReceipt],
     [FrameType.ArticlePropertyDefinitionMutationReceipt, decodeArticlePropertyDefinitionMutationReceipt],
     [FrameType.AuthoringWorkspaceSnapshotResponse, decodeAuthoringWorkspaceSnapshotResponse],

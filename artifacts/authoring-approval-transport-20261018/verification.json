@@ -1,0 +1,125 @@
+{
+    "schema": "fsusblog.authoring-approval-bounded-transport.v1",
+    "status": "bounded-transport-and-negative-controls-qualified; positive-runtime-authorization-not-qualified",
+    "originalIssuerHead": "1647fc9535664ada98b7eccdffe09db240d91acd",
+    "frozenPropertyCheckpoint": "b3ce7e385ed4e11528f4845ec159277e228b78a5",
+    "originalSourceCustody": "artifacts/change-contract/authoring-approval-transport-source-custody.json",
+    "allOriginalOwnerSourceBlobsUnchanged": true,
+    "soleProtocolProducer": true,
+    "approvalFrames": [
+        {
+            "name": "AuthoringExtensionApprovalDecisionRequest",
+            "value": 291
+        },
+        {
+            "name": "AuthoringExtensionApprovalConfirmationRequest",
+            "value": 292
+        },
+        {
+            "name": "AuthoringExtensionApprovalPreviewResponse",
+            "value": 293
+        }
+    ],
+    "passed": {
+        "backend": 648,
+        "originalIssuerSubset": 59,
+        "newTransportPgCases": 12,
+        "newHostRefusalCases": 7,
+        "newWireCases": 21,
+        "frontend": 106,
+        "nodeWireNativeProtocol": 88,
+        "nativeFrames": 285,
+        "openApiOperations": 298,
+        "csharpStyleFiles": 6,
+        "frontendStyleFiles": 2
+    },
+    "production": {
+        "diRegistered": false,
+        "httpMounted": false,
+        "frontendHttpClientAdded": false,
+        "pluginExecution": false,
+        "migration": false,
+        "claimsOrActualResultsSerialized": false
+    },
+    "notQualified": [
+        "Canonical scope-owner authorization custody",
+        "Original state/native-generation/snapshot acceptance and execution-result custody",
+        "Independent full authorization acceptance",
+        "Native startup/cleanup or actual plugin execution",
+        "Production cookie/session startup",
+        "Full matrix and remote checks"
+    ],
+    "existingBaseline": {
+        "typecheckErrors": 255,
+        "newTypecheckErrors": 0,
+        "powFailures": 5,
+        "newPropertyOrApprovalPowFailures": 0,
+        "legacyOpenApiCensus": "Inherited old exclusion expectation remains a baseline failure",
+        "postgresCollectionRegistry": "Inherited failures match exact frozen historical checkout after registering the 58 added source cases; original checker is unchanged."
+    },
+    "rawEvidence": "local only; no raw fixture/authentication/SQL traces are published",
+    "rawDirectory": "/workspace/shared/approval-transport-evidence",
+    "rawLogs": [
+        {
+            "path": "/workspace/shared/approval-transport-evidence/catalog-final.log",
+            "sha256": "e213e33829c6e367247760488024a585c49e75af49cdbfabc4a3ce4923972f79"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/original-tests.log",
+            "sha256": "9b4a197a059cae2eafcfe37a47e9c7cbc96795948464d4216d8ba6c33034bbc1"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/backend-tests.log",
+            "sha256": "0a7440f4736090160ea0b7a14a3f92e45ba3db14f5c630bba3d272f7a4f0ed92"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/backend-final.log",
+            "sha256": "7ebb5cdbd637c06a67ffe150f41df1f7e62a3b134bea66f436b8a08b216a91b0"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/frontend-tests.log",
+            "sha256": "66781f49d1573f9071e2f8dea06efd05431681a78dac05de30976be5f9e21a2e"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/wire-tests.log",
+            "sha256": "b21ae9bf6928fcf43b8e7d506dd245d163c9a56ebd3bd1fdbc62236f1173a732"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/native-all.log",
+            "sha256": "0bc4eb0af28d1c687c8f980ad530a3a293eb3024b3cd7645e9ba1d4b8192fe7f"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/products-final.log",
+            "sha256": "2a5b21a54779e56022bc92ca757559e2cbf099e001d84ee35b96127d0056dab1"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/protocol-final.log",
+            "sha256": "9c1dc636d8921f17dfe926234643fe74c6a26e725cb091131ec6a247e321f14c"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/csharp-style-final.log",
+            "sha256": "c0f9ff505fbc32b8d5feeef837e1851647189d603ead096534554f91783007b9"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/frontend-style.log",
+            "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/typecheck.log",
+            "sha256": "29240c0dc673037f2294dbbc94d5b3cb7b9557c12ffd2757483594992755051d"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/pow.log",
+            "sha256": "4053a5019c96a52171a7fd03dd3597ed7822bdbc86031f5f479ce585c2bdcb54"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/pg-collections-final.log",
+            "sha256": "5ba5ebee790dc59cbca8822e16641cb726c7fe1e7033fcdde96d6c675bcdc01d"
+        },
+        {
+            "path": "/workspace/shared/approval-transport-evidence/pg-collections-baseline.log",
+            "sha256": "6ff1194e3f5841ab74c8543f6f6143d40a3a586be97047280f4ccdc332746955"
+        }
+    ],
+    "generatedBinding": "artifacts/change-contract/authoring-approval-transport-generated-binding.json"
+}

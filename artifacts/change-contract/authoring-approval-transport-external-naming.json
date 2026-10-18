@@ -2,18 +2,55 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve frozen original issuer source, external SQL/AEDS identifiers and original canonical generator products while adding the bounded unregistered approval transport; no owner authority or permission fallback is replaced."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-approval-transport-boundary.md"
+            ],
+            "reason": "Preserve frozen original issuer source, external SQL/AEDS identifiers and original canonical generator products while adding the bounded unregistered approval transport; no owner authority or permission fallback is replaced."
+        },
+        {
             "id": "environment-variable",
             "paths": [
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalAuthority.cs",
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalContract.cs",
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalStorageSchema.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionApprovalStore.cs",
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs",
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateStorageSchema.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionApprovalStore.cs",
                 "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionStateStore.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringLifecycleReceiptStore.cs"
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringLifecycleReceiptStore.cs",
+                "src/backend/Services/Authoring/AuthoringExtensionApprovalTransport.cs",
+                "src/core/Algorithms/AedsFrameType.cs",
+                "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+                "src/shared/AedsFrameHeader.cs",
+                "src/shared/Contracts/AuthoringExtensions/AuthoringExtensionApprovalTransportContracts.cs",
+                "tools/contracts/generate-article-property-value-read-golden.mjs",
+                "tools/contracts/generate-article-property-value-read-wire.mjs"
             ],
-            "reason": "Preserve exact frozen original authoring approval issuer and required state/lifecycle source blobs; this transport successor supplies no substitute authority or production registration."
+            "reason": "Preserve frozen original issuer source, external SQL/AEDS identifiers and original canonical generator products while adding the bounded unregistered approval transport; no owner authority or permission fallback is replaced."
+        },
+        {
+            "id": "generated-native",
+            "paths": [
+                "src/frontend/wasm/aeds/include/aeds_frame.hpp"
+            ],
+            "reason": "Preserve frozen original issuer source, external SQL/AEDS identifiers and original canonical generator products while adding the bounded unregistered approval transport; no owner authority or permission fallback is replaced."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/aeds-golden-catalog.json",
+                "tests/backend/Fixtures/postgres-test-collections.json",
+                "tests/fixtures/protocol/authoring-extension-approval-wire-golden.json"
+            ],
+            "reason": "Preserve frozen original issuer source, external SQL/AEDS identifiers and original canonical generator products while adding the bounded unregistered approval transport; no owner authority or permission fallback is replaced."
         }
     ]
 }

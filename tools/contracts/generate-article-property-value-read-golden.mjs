@@ -376,3 +376,85 @@ else
 {
     writeFileSync(historicalTarget, historicalOutput);
 }
+
+// Format witnesses only: these bytes never establish scope custody, consent or execution readiness.
+const approvalCases = [];
+const approvalScope = { extensionId: 'fixture.extension', extensionVersion: '1.0.0', siteId: 'fixture-site',
+    userId: 'opaque-user', documentId: 'opaque-document', schemaVersion: 1 };
+const approvalDestination = { ...approvalScope, extensionVersion: '2.0.0', schemaVersion: 2 };
+const approvalTarget = { status: 0, executionClass: 1, extensionId: approvalScope.extensionId,
+    extensionVersion: approvalScope.extensionVersion, packageSha256: 'b'.repeat(64), contributionId: 'fixture.command',
+    contributionKind: 0, entrypointIdentity: 'fixture.wasm', trustedAdapterId: null,
+    runtimeIdentity: 'c'.repeat(64), blockedReason: null, trustedAdapterIdentity: null };
+const approvalReceipt = { schemaVersion: 1, sequence: '9007199254740993', extensionId: approvalScope.extensionId,
+    packageSha256: 'b'.repeat(64), version: '1.0.0', stateSchemaVersion: 1, dataSchemaVersion: 1,
+    previousState: 0, state: 1, generation: '9007199254740993', scopeDigest: 'd'.repeat(64), failureCode: null,
+    previousReceiptSha256: '0'.repeat(64), receiptSha256: 'e'.repeat(64) };
+const approvalPreview = { contractVersion: 2,
+    operationContext: { contractVersion: 2, actorBindingSha256: digest,
+        authorizationPolicy: 'canonical-state-scope-authority-required-v1', siteId: approvalScope.siteId,
+        stateUserId: approvalScope.userId, documentId: approvalScope.documentId, sourceScopeSha256: digest,
+        destinationScopeSha256: 'f'.repeat(64), lifecycleGeneration: approvalReceipt.generation,
+        lifecycleReceiptSha256: approvalReceipt.receiptSha256, scopeAuthorizationSha256: digest },
+    decisionId: digest, operation: 1, status: 0, scope: approvalScope, destinationScope: approvalDestination,
+    records: '9007199254740993', bytes: '9223372036854775807',
+    retention: 'retain-exact-source-and-destination-backups', digest,
+    frozenPlan: { contractVersion: 1, planId: 'fixture-plan', expectedFromRevision: '9223372036854775807',
+        expectedToRevision: '9007199254740993', sourceContentSha256: digest, maximumRecords: '4096',
+        maximumBytes: '16777216', maximumDurationTicks: '3000000000', transformCount: 1000,
+        backupReference: 'fixture-backup', rollbackReference: 'fixture-rollback', contentSha256: digest },
+    measurement: null, expectedLifecycleReceipt: approvalReceipt, expiresAtUtc: '638954208000000001',
+    orderedOldTargets: [approvalTarget], orderedNewTargets: [{ ...approvalTarget, extensionVersion: '2.0.0' }] };
+function approvalCase(record, name, value)
+{
+    const bytes = wire['encode' + record](value);
+    const frameType = protocol.frameTypes.find(frame => frame.name === record).value;
+    for (const [suffix, payload, valid] of [
+        ['', bytes, true], ['-truncated', bytes.slice(0, -1), false],
+        ['-trailing', Uint8Array.from([...bytes, 0]), false],
+        ['-legacy-version', Uint8Array.from([1, ...bytes.slice(1)]), false]
+    ])
+    {
+        approvalCases.push({ record, name: name + suffix, frameType, payloadHex: Buffer.from(payload).toString('hex'), valid });
+    }
+}
+const approvalRecord = 'AuthoringExtensionApprovalPreviewResponse';
+approvalCase(approvalRecord, 'migration-format-only', approvalPreview);
+const deletionPreview = { ...approvalPreview, operation: 2, destinationScope: null, frozenPlan: null,
+    operationContext: { ...approvalPreview.operationContext, destinationScopeSha256: null },
+    retention: 'purge-current-and-retained-backups',
+    measurement: { scope: approvalScope, revision: '9223372036854775807', records: '0', bytes: '0', contentSha256: digest },
+    orderedOldTargets: [], orderedNewTargets: [] };
+approvalCase(approvalRecord, 'deletion-format-only', deletionPreview);
+approvalCase('AuthoringExtensionApprovalDecisionRequest', 'decision-location-only', { contractVersion: 2, decisionId: digest });
+approvalCase('AuthoringExtensionApprovalConfirmationRequest', 'display-confirmation-only', {
+    contractVersion: 2, decisionId: digest, displayedDigest: 'b'.repeat(64), stepUpProof: 'inert-format-fixture' });
+const approvalBytes = Buffer.from(approvalCases[0].payloadHex, 'hex');
+// Independent field offsets: find the exact ID occurrence followed by the two closed byte enums.
+const decisionMarker = Buffer.concat([Buffer.from(digest), Buffer.from([1, 0])]);
+const decisionOffset = approvalBytes.indexOf(decisionMarker) + 64;
+if (approvalBytes[decisionOffset] !== 1 || approvalBytes[decisionOffset + 1] !== 0)
+{
+    throw new Error('approval_independent_operation_layout_drift');
+}
+for (const [name, offset, replacement] of [
+    ['unknown-operation', decisionOffset, 255], ['unknown-status', decisionOffset + 1, 255],
+    ['wrong-operation-shape', decisionOffset, 2], ['legacy-contract-v1', 1, 1]
+])
+{
+    const bytes = approvalBytes.slice();
+    bytes[offset] = replacement;
+    approvalCases.push({ record: approvalRecord, name, frameType: approvalCases[0].frameType,
+        payloadHex: bytes.toString('hex'), valid: false });
+}
+const approvalPath = path.join(root, 'tests/fixtures/protocol/authoring-extension-approval-wire-golden.json');
+const approvalOutput = JSON.stringify({ schema: 'fsusblog.authoring-extension-approval-wire-golden.v1',
+    qualification: 'wire format only; no authorization or native/state acceptance', cases: approvalCases }, null, 2) + '\n';
+if (process.argv.includes('--check'))
+{
+    if (readFileSync(approvalPath, 'utf8') !== approvalOutput) throw new Error('approval_golden_drift');
+}
+else
+{
+    writeFileSync(approvalPath, approvalOutput);
+}

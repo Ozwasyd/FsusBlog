@@ -220,6 +220,28 @@ function semantic(name, lang, value)
 {
     const cs = lang === 'cs';
     const p = name => `${value}.${cs ? name : camel(name)}`;
+    if (name === 'AuthoringApprovalScopeView')
+    {
+        const fields = ['ExtensionId', 'ExtensionVersion', 'SiteId', 'UserId'];
+        return cs ? `if (${fields.map(field => `string.IsNullOrWhiteSpace(${p(field)}) || ${p(field)} != ${p(field)}.Trim() || ${p(field)}.Any(char.IsControl)`).join(' || ')}
+            || ${p('DocumentId')} is { } document && (string.IsNullOrWhiteSpace(document) || document != document.Trim() || document.Any(char.IsControl))) throw new ArgumentException("approval_wire_scope");`
+            : `if (${fields.map(field => `!isPropertyReadSiteScope(${p(field)})`).join(' || ')} || ${p('DocumentId')} !== null && !isPropertyReadSiteScope(${p('DocumentId')})) invalid();`;
+    }
+    if (name === 'AuthoringApprovalOperationContextView')
+    {
+        return cs ? `if (${p('AuthorizationPolicy')} != "canonical-state-scope-authority-required-v1") throw new ArgumentException("approval_wire_scope_policy");`
+            : `if (${p('AuthorizationPolicy')} !== 'canonical-state-scope-authority-required-v1') invalid();`;
+    }
+    if (name === 'AuthoringApprovalExecutionTargetView')
+    {
+        return cs ? `if (${p('Status')} != 0 || ${p('BlockedReason')} is not null || (${p('ExecutionClass')} == 0 ? ${p('TrustedAdapterId')} is null || ${p('TrustedAdapterIdentity')} is null : ${p('TrustedAdapterId')} is not null || ${p('TrustedAdapterIdentity')} is not null)) throw new ArgumentException("approval_wire_target_shape");`
+            : `if (${p('Status')} !== 0 || ${p('BlockedReason')} !== null || (${p('ExecutionClass')} === 0 ? ${p('TrustedAdapterId')} === null || ${p('TrustedAdapterIdentity')} === null : ${p('TrustedAdapterId')} !== null || ${p('TrustedAdapterIdentity')} !== null)) invalid();`;
+    }
+    if (name === 'AuthoringExtensionApprovalPreviewResponse')
+    {
+        return cs ? `if (${p('Operation')} == 1 ? ${p('DestinationScope')} is null || ${p('FrozenPlan')} is null || ${p('Measurement')} is not null || ${p('OrderedOldTargets')}.Count == 0 || ${p('OrderedNewTargets')}.Count == 0 || ${p('Retention')} != "retain-exact-source-and-destination-backups" : ${p('DestinationScope')} is not null || ${p('FrozenPlan')} is not null || ${p('Measurement')} is null || ${p('OrderedOldTargets')}.Count != 0 || ${p('OrderedNewTargets')}.Count != 0 || ${p('Retention')} != "purge-current-and-retained-backups") throw new ArgumentException("approval_wire_operation_shape");`
+            : `if (${p('Operation')} === 1 ? ${p('DestinationScope')} === null || ${p('FrozenPlan')} === null || ${p('Measurement')} !== null || ${p('OrderedOldTargets')}.length === 0 || ${p('OrderedNewTargets')}.length === 0 || ${p('Retention')} !== 'retain-exact-source-and-destination-backups' : ${p('DestinationScope')} !== null || ${p('FrozenPlan')} !== null || ${p('Measurement')} === null || ${p('OrderedOldTargets')}.length !== 0 || ${p('OrderedNewTargets')}.length !== 0 || ${p('Retention')} !== 'purge-current-and-retained-backups') invalid();`;
+    }
     if (name === 'ArticlePropertyValueInput')
     {
         return cs ? `if ((${p('Presence')} == ArticlePropertyValuePresence.Present) != (${p('Value')} is not null)) throw new ArgumentException("property_mutation_presence");` : `if ((${p('Presence')} === 2) !== (${p('Value')} !== null)) invalid();`;
@@ -269,7 +291,7 @@ function semantic(name, lang, value)
     }
     return '';
 }
-let cs = notice + '#nullable enable\nusing System.Buffers;\nusing System.Buffers.Binary;\nusing System.Text;\n\nusing FsusBlog.Shared.Contracts.ArticleProperties;\n\nnamespace FsusBlog.Core.Cache;\n\npublic static partial class PodBinaryCodec\n{\n    private static readonly UTF8Encoding s_propertyReadWireUtf8 = new(false, true);\n';
+let cs = notice + `#nullable enable\nusing System.Buffers;\nusing System.Buffers.Binary;\nusing System.Text;\n\n${schema.contractNamespaces.map(name => `using ${name};`).join('\n')}\n\nnamespace FsusBlog.Core.Cache;\n\npublic static partial class PodBinaryCodec\n{\n    private static readonly UTF8Encoding s_propertyReadWireUtf8 = new(false, true);\n`;
 let ts = notice + '// Int64/UTC ticks stay strings. Decimal stores all96 coefficient bits, scale and sign.\n';
 for (const [name, cases] of Object.entries(enums))
 {
@@ -437,7 +459,23 @@ for (const [name, record] of Object.entries(schema.records))
     for (const [index, field] of record.fields.entries())
     {
         const inner = { ...field, nullable: false, array: false };
-        if (capturesCoordinates && field.name === 'ArticleId')
+        if (name === 'AuthoringApprovalScopeView' && field.type === 'string')
+        {
+            if (field.nullable)
+            {
+                cpp += `    bool present${index}; if (!reader.Boolean(present${index})) return false;\n    if (present${index}) { std::string text; if (!reader.TextValue(text, ${field.maxChars}) || !IsScopeSite(text)) return false; }\n`;
+            }
+            else cpp += `    { std::string text; if (!reader.TextValue(text, ${field.maxChars}) || !IsScopeSite(text)) return false; }\n`;
+        }
+        else if (name === 'AuthoringApprovalOperationContextView' && field.name === 'AuthorizationPolicy')
+        {
+            cpp += `    { std::string policy; if (!reader.TextValue(policy, ${field.maxChars}) || policy != "canonical-state-scope-authority-required-v1") return false; }\n`;
+        }
+        else if (name === 'AuthoringExtensionApprovalPreviewResponse' && field.name === 'Retention')
+        {
+            cpp += `    std::string retention; if (!reader.TextValue(retention, ${field.maxChars})) return false;\n`;
+        }
+        else if (capturesCoordinates && field.name === 'ArticleId')
         {
             cpp += '    if (!reader.Signed32(coordinateFact.article) || coordinateFact.article <= 0) return false;\n';
         }
@@ -496,6 +534,14 @@ for (const [name, record] of Object.entries(schema.records))
         cpp += '    if (reader.snapshotCoordinates.size() != 1) return false;\n    const auto& actual = reader.snapshotCoordinates.front();\n    if (actual.article != coordinateFact.article || actual.revision != coordinateFact.revision || actual.propertyRevision != coordinateFact.propertyRevision || actual.publication != coordinateFact.publication || actual.draft) return false;\n';
     }
     if (name === 'ArticlePropertyValueInput') cpp += '    if ((field3 == 2) != present4) return false;\n';
+    if (name === 'AuthoringApprovalExecutionTargetView')
+    {
+        cpp += '    if (field0 != 0 || present10 || (field1 == 0 ? !present8 || !present11 : present8 || present11)) return false;\n';
+    }
+    if (name === 'AuthoringExtensionApprovalPreviewResponse')
+    {
+        cpp += '    if (field3 == 1 ? !present6 || !present11 || present12 || count15 == 0 || count16 == 0 || retention != "retain-exact-source-and-destination-backups" : present6 || present11 || !present12 || count15 != 0 || count16 != 0 || retention != "purge-current-and-retained-backups") return false;\n';
+    }
     if (capturesScope)
     {
         cpp += '    if (!IsScopeSite(scopeFact.site)) return false;\n';
