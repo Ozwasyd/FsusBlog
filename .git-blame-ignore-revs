@@ -39,3 +39,6 @@ a138a5000299457537cf7d43a11f454f21d8e255
 
 # Isolated original strict-build naming-owner whitespace pass (#3663).
 a5f53a1aaae8d410216ec1d5f25d526b9fd43a9d
+
+# Reviewed migration guard mechanical formatting for #3663.
+9a23051edcbd5cbb1b6d5209e2508c7fa58ae986
