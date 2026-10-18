@@ -1,0 +1,16 @@
+node --input-type=module <<'JS'
+import fs from 'node:fs';
+import { validatePublicContract, validateCommentPolicy, validateMarkerRegistration } from './tools/governance/check-code-intent.mjs';
+const registry=JSON.parse(fs.readFileSync('tests/governance/code-intent-registry.json','utf8'));
+const entries=registry.publicContracts.filter(c=>c.id.startsWith('memory-'));
+const errors=[];
+for(const entry of entries) errors.push(...validatePublicContract(entry,fs.readFileSync(entry.path,'utf8')));
+for(const path of [...new Set(entries.map(c=>c.path))]) {
+ const source=fs.readFileSync(path,'utf8');
+ errors.push(...validateCommentPolicy({path,source,registry,scoped:true}));
+ const markers=new Set(registry.intents.flatMap(i=>i.anchors??[]).filter(a=>a.path===path).map(a=>a.marker));
+ errors.push(...validateMarkerRegistration({path,source,registeredMarkers:markers}));
+}
+console.log(JSON.stringify({candidate:'a4be834f9e4e796f4a636cad3bd21ca289eba513',contracts:entries.length,errors},null,2));
+process.exitCode=errors.length?1:0;
+JS

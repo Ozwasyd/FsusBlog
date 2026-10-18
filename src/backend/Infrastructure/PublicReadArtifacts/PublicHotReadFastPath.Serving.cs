@@ -12,6 +12,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -260,29 +261,47 @@ public static partial class PublicHotReadFastPath
         }
 
         bool rebuildAlreadyPending = store.CoalescedRefreshPending;
-        if (store.TryGetRequestSnapshot(out PublicHotReadSnapshot snapshot, out string snapshotState))
+        if (store.TryGetRequestSnapshotForConsumption(out PublicHotReadSnapshot snapshot, out string snapshotState,
+            out IDisposable? hostHold, out MemoryFailure? hostFailure))
         {
-            bool lastGood = string.Equals(snapshotState, "last-good", StringComparison.Ordinal)
-                || string.Equals(snapshotState, "sticky", StringComparison.Ordinal);
-            if (classified)
+            try
             {
-                bool lastGoodWhileRebuild = string.Equals(snapshotState, "last-good", StringComparison.Ordinal)
-                    && rebuildAlreadyPending;
-                return route.Kind switch
+                bool lastGood = string.Equals(snapshotState, "last-good", StringComparison.Ordinal)
+                    || string.Equals(snapshotState, "sticky", StringComparison.Ordinal);
+                if (classified)
                 {
-                    PublicHotReadRouteKind.Category => ServeCategory(ctx, next, snapshot, counters, options, isDevelopment, lastGood, lastGoodWhileRebuild),
-                    PublicHotReadRouteKind.Tag => ServeTag(ctx, next, snapshot, counters, options, isDevelopment, lastGood, lastGoodWhileRebuild),
-                    PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, next, snapshot, counters, route.ArticleId, options, isDevelopment, lastGood, lastGoodWhileRebuild),
-                    PublicHotReadRouteKind.ArticleList => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
-                    PublicHotReadRouteKind.ArticleHot => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
-                    PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
-                    PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
-                    PublicHotReadRouteKind.PublicHtml => ServePublicHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
-                    _ => WriteRejected(ctx, counters, isDevelopment)
-                };
-            }
+                    bool lastGoodWhileRebuild = string.Equals(snapshotState, "last-good", StringComparison.Ordinal)
+                        && rebuildAlreadyPending;
+                    Task consumption = route.Kind switch
+                    {
+                        PublicHotReadRouteKind.Category => ServeCategory(ctx, next, snapshot, counters, options, isDevelopment, lastGood, lastGoodWhileRebuild),
+                        PublicHotReadRouteKind.Tag => ServeTag(ctx, next, snapshot, counters, options, isDevelopment, lastGood, lastGoodWhileRebuild),
+                        PublicHotReadRouteKind.ArticleDetail => ServeArticle(ctx, next, snapshot, counters, route.ArticleId, options, isDevelopment, lastGood, lastGoodWhileRebuild),
+                        PublicHotReadRouteKind.ArticleList => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
+                        PublicHotReadRouteKind.ArticleHot => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
+                        PublicHotReadRouteKind.ArticleFeatured => ServeList(ctx, next, snapshot, counters, route.ListKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
+                        PublicHotReadRouteKind.ArticleHtml => ServeHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
+                        PublicHotReadRouteKind.PublicHtml => ServePublicHtml(ctx, next, snapshot, counters, route.HtmlRouteKey, options, isDevelopment, lastGood, lastGoodWhileRebuild),
+                        _ => WriteRejected(ctx, counters, isDevelopment)
+                    };
+                    return CompleteHostConsumption(consumption, hostHold);
+                }
 
-            return WriteRejected(ctx, counters, isDevelopment);
+                return CompleteHostConsumption(WriteRejected(ctx, counters, isDevelopment), hostHold);
+            }
+            catch
+            {
+                hostHold?.Dispose();
+                throw;
+            }
+        }
+        if (hostFailure is not null)
+        {
+            if (hostFailure != MemoryFailure.BudgetRejected)
+            {
+                throw new InvalidOperationException($"Published snapshot host ownership rejected: {hostFailure}.");
+            }
+            return WriteStatus(ctx, StatusCodes.Status503ServiceUnavailable, isDevelopment);
         }
 
         if (!store.IsReadyFast && !options.FailOpenWhenNotReady)
@@ -302,6 +321,28 @@ public static partial class PublicHotReadFastPath
         }
 
         return next(ctx);
+    }
+
+    private static Task CompleteHostConsumption(Task consumption, IDisposable? hold)
+    {
+        if (hold is null)
+        {
+            return consumption;
+        }
+        if (consumption.IsCompletedSuccessfully)
+        {
+            hold.Dispose();
+            return consumption;
+        }
+        return AwaitHostConsumption(consumption, hold);
+    }
+
+    private static async Task AwaitHostConsumption(Task consumption, IDisposable hold)
+    {
+        using (hold)
+        {
+            await consumption.ConfigureAwait(false);
+        }
     }
 
     private static string ResolveRiskRouteKey(in PublicHotReadRoute route, string path)
@@ -706,7 +747,7 @@ public static partial class PublicHotReadFastPath
         return ServeHtml(ctx, next, snapshot, counters, localizedRouteKey, options, isDevelopment, lastGood, lastGoodWhileRebuild);
     }
 
-    private static Task WriteBinaryFrame(
+    internal static Task WriteBinaryFrame(
         HttpContext ctx,
         RequestDelegate next,
         PublicBinaryArtifact artifact,

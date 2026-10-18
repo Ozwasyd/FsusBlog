@@ -1,0 +1,1348 @@
+{
+  "schema": "fsusblog.memory.snapshot-host-ordinary-checkpoint.v1",
+  "runId": "ordinary-snapshot-host-6197e01b-f23e-4a35-8e1f-ea9b097a5836",
+  "generatedAt": "2026-10-09T11:01:04.979328+00:00",
+  "sourceHead": "00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b",
+  "sourceTree": "da98a600092e16866feba41eca3609ddab7e155f",
+  "sourceIncrement": "c6a49eeb0c109ab20c97c2665b2ff0682ea80588",
+  "retirementExceptionCleanupIncrement": "00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b",
+  "branch": "codex/mem-3444-compliant-integration",
+  "sourceRemoteReadbackConfirmed": true,
+  "verifiedOriginMaster": "57886f75213bd22c0dd3a8e2586073bdbdd97778",
+  "masterIncorporated": false,
+  "changedFiles": [
+    "docs/architecture/repository-layout.md",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshot.HostOwnership.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.HostOwnership.cs",
+    "tests/backend/Unit/OwnedPublicHotReadSnapshotTests.cs"
+  ],
+  "heldSourceFilesUnchanged": [
+    "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+    "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+    "src/backend/Infrastructure/PublicAot/ReservedCspNonceScratchWriter.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Routing.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadResidency.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSanity.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.Runtime.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/ReservedAedsFrameWriter.cs",
+    "tests/backend/Unit/PublicBinaryHostFrameTests.cs",
+    "tests/backend/Unit/PublicHotReadFastPathTests.cs",
+    "tests/backend/Unit/PublicHotReadSanityTests.cs",
+    "tests/backend/Unit/PublicHotReadVersionStickinessTests.cs",
+    "tests/backend/Unit/ReservedAedsFrameWriterTests.cs",
+    "tests/backend/Unit/ReservedCspNonceScratchWriterTests.cs"
+  ],
+  "passedCases": 29,
+  "failedCases": 0,
+  "skippedCases": 0,
+  "positiveMethods": 23,
+  "newManagedCases": 24,
+  "originalAffectedCases": 5,
+  "ordinaryBuild": {
+    "sdk": "10.0.401",
+    "restoreOrAuditPerformed": false,
+    "warningLines": 1515,
+    "errorLines": 0,
+    "fullSourceStageRun": false
+  },
+  "failedEarlierGuard": {
+    "phase": "preflight before any dotnet command",
+    "sourceSha": "00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b",
+    "exit": 1,
+    "assertion": "SoftRefresh_SameClientKeepsPinnedGenerationUntilWindowExpires",
+    "reason": "Guard assumed a direct call; unchanged original test delegates through its existing Serve wrapper.",
+    "resolution": "Require await Serve in each selected method and trace original private Serve definition to PublicHotReadFastPath.TryServeAsync; positive selection remains unchanged.",
+    "testDiscoveryStarted": false,
+    "testExecutionStarted": false
+  },
+  "implementation": "FromHostReadLease uses actual lease metadata and opaque identity ROM without custody transfer. WithHostReadLeases validates explicit inputs and takes exclusive disposal custody after successful binding validation. A finite shared hold group owns actual original read leases across immutable snapshot roots and consumers. Original current/last-good/sticky references remain publication-role authority; publication validation precedes claim and original pointer publication. Original classifier/security/selection/body writer remain active; response completion or exception ends its per-consumer hold. Original replacement/Drop/sticky expiry detach inactive roots and release outside store gate. Distributed copies release unpublished intermediate roots. No new publisher, registry, identity, evidence flag, allocator, native activation or protocol.",
+  "actualInputs": {
+    "lease": "IMemoryHostReadLease.Content / Location / Memory, supplied from original TryAcquireHostView(expectedLocation)",
+    "logicalRoles": "Existing PublicHotReadStore._current / _lastGood / _sticky object references; no fabricated role ID and no new physical role reservation",
+    "limit": "Caller-supplied positive maximumHolds; fixture-only values 1/2/3/8 are not production defaults or frozen policy"
+  },
+  "productionAutoActivated": false,
+  "essentialProductionGap": {
+    "producerApi": "PublicHotArtifactProjector.cs:31 IPublicHotArtifactProjector.BuildInitialSnapshotAsync(CancellationToken); lines 147-160 BuildSnapshotCoreAsync(existingHtml, ct) constructs array artifacts without an admitted host lease or authoritative memory Content/Location input.",
+    "requiredFactOwner": "Existing projector/materialization owner must supply real admitted qualified host leases/content/location from canonical controller/arena; existing P01/P02 policy authority must supply frozen shared-hold and metadata charge/admission bounds. Root snapshot/store code consumes those explicit inputs; it cannot manufacture production qualification or identity from artifact bytes.",
+    "compression": "PublicHotReadSanity compressed schema validation still allocates decoded output; new owned attachment refuses every precompressed binary variant before that array-only validation, and refuses opaque HTML. FromHostReadLease refuses precompression. No compressed/native/HTML production support claimed.",
+    "accounting": "Group sharing preserves one actual backing read lease and physical charge until all roots/consumers finish. Whole-group retention does not provide fine-grained removed-frame reclamation or update original residency projection; group metadata allocation/admission is not production qualified.",
+    "ordinaryFixtureEvidence": "Tests use existing CreateVerified fixture API with canonical AEDS and real managed backing. That controlled fixture is not a new verification flag, qualification receipt or production evidence authority.",
+    "retirementExceptions": "Source releases selected consumer hold if expired sticky retirement throws and attempts all detached roots. Failure injection/held retirement audits were not run."
+  },
+  "previousEvidenceNotRerun": {
+    "hostFrame21": "de0adc1a5ed4a32f5cdfc01b9c560f9b357cd250",
+    "nonce14": "ab2c589d02fabfa6ed15967f0e58800d2555398a"
+  },
+  "P06Criteria": {
+    "MEM-P06-AC01": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "NotRun: no qualified native host/Auto production selection or new production activation."
+    },
+    "MEM-P06-AC02": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial: ordinary managed identity GET/HEAD/304, actual original publication rejection/integrity and stickiness controls passed. Native/compressed/HTML full differential absent; prior nonce not rerun."
+    },
+    "MEM-P06-AC03": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial: real managed read leases survive source retirement, old publication replacement, real original Pipe backpressure, outer wait cancellation and request cancellation until original consumer completion. No native lease/race/alias/TOCTOU/custody/receipt audit or qualified T10/T11."
+    },
+    "MEM-P06-AC04": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial: actual supplied opaque managed ROM traverses existing snapshot and original body writer without adapter ToArray. No native qualified copy/capacity trace."
+    },
+    "MEM-P06-AC05": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "NotRun: no full L0 forbidden-operation-hook product proof."
+    },
+    "MEM-P06-AC06": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "No new nonce work; 14/14 remains bound to ab2c589d02fabfa6ed15967f0e58800d2555398a."
+    },
+    "MEM-P06-AC07": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial: ordinary managed single physical ledger charge/read lease is shared by immutable snapshot roots and consumers and returned once. Whole-group retention is conservative. Original production residency projection, native/generation accounting and admitted metadata budget remain incomplete."
+    },
+    "MEM-P06-AC08": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Partial: five original stickiness/integrity cases plus managed publication rejection, retain-last-good, Drop, repeated publication, sticky expiry and security-bypass controls passed. Full qualified route/revocation differential remains held."
+    },
+    "MEM-P06-AC09": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "Blocked: comparable finite frozen P01 performance gates are not supplied or accepted; no speedup claimed."
+    },
+    "MEM-P06-AC10": {
+      "acceptance": "NotAccepted",
+      "currentEvidence": "NotRun: production Auto/disable/drain integration not activated."
+    }
+  },
+  "issues": [
+    {
+      "issue": 3444,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Per-family actual consumer/release/capacity closure and qualified support/offline dependency evidence; source work remains open.",
+      "criteria": [
+        {
+          "id": "MEM-P00-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC08",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3445,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "A genuine systemd user manager and delegated canonical measurement supervisor; then comparable frozen workloads, numerical baseline and performance evidence.",
+      "criteria": [
+        {
+          "id": "MEM-P01-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC08",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3446,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Authoritative finite production P01/P02 values and release/runtime qualification inputs, then existing configuration owner composition.",
+      "criteria": [
+        {
+          "id": "MEM-P02-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC13",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC14",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3447,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Production composition across all resource consumers and frozen metadata/headroom limits; fixtures do not qualify production limits.",
+      "criteria": [
+        {
+          "id": "MEM-P03-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC08",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3448,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Complete production/cross-tier transport, interruption, pin and retirement matrix after accepted stage inputs.",
+      "criteria": [
+        {
+          "id": "MEM-P04-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3450,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Raw platform caller is implemented in PortableMemoryPressureSource.CapturePlatformObservations. Complete domain/ancestor/epoch and sampling provenance, actual v1/zram/Windows/macOS native rows, admitted metadata/probe costs, frozen P01/P02 bounds and canonical background/Auto/readiness remain unverified.",
+      "criteria": [
+        {
+          "id": "MEM-P08-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. Prior exact-source evidence retained; not rerun in this nonce increment. Prior source-bound result retained; not rerun in this nullable increment: Partial source composition: 34/34 ordinary selected tests at 69de9395d9855f7ccbac9105742a988311eab12d"
+    },
+    {
+      "issue": 3451,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "native module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Native owner release/runtime target qualification and source-to-product acceptance; unavailable target rows stay NotVerified.",
+      "criteria": [
+        {
+          "id": "MEM-P05-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3452,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified scoped P08 inputs and frozen comparable P01 calibration, original scheduler/reclaimer integration and measured outcomes remain missing. This repair changes no production policy or controller activation.",
+      "criteria": [
+        {
+          "id": "MEM-P09-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. Prior exact-source evidence retained; not rerun in this nonce increment. Minimal nullable-flow correction; five original governor replay controls passed at 4231fd4337817c62270336eb6b37964878ab27fc"
+    },
+    {
+      "issue": 3453,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "disk module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified root/capacity/physical-bound inputs and canonical automatic lifecycle; delegated whole-issue evidence remains open.",
+      "criteria": [
+        {
+          "id": "MEM-P10-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3454,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified baseline/governor/pressure and explicit physical bounds, then existing production startup/readiness/protected diagnostics. Drain APIs are no longer missing.",
+      "criteria": [
+        {
+          "id": "MEM-AUTO-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC15",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC13",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC14",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC16",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3455,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "disk module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified physical/root/inode policy and full default Auto lifecycle; delegated acceptance remains open.",
+      "criteria": [
+        {
+          "id": "MEM-P11-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC06",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3456,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Root-retained snapshot/store source now binds supplied real read leases through original publication roles and response completion. Canonical projector still supplies arrays without admitted/qualified lease/content/location inputs or frozen hold/metadata budget policy. Accepted P01/P05/Auto, native/compressed/HTML differential, backing-aware residency/statistics, original full qualified revocation flow, finite performance gates and production disable/drain remain missing. Nonce caller still lacks admitted scratch/pool inputs. No whole-stage acceptance.",
+      "criteria": [
+        {
+          "id": "MEM-P06-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC10",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "29/29 ordinary managed explicit-input controls at 00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b: 24 new snapshot/consumer cases and five original stickiness/integrity cases. Previous 21/21 remains at de0adc1a5ed4a32f5cdfc01b9c560f9b357cd250; nonce 14/14 remains at ab2c589d02fabfa6ed15967f0e58800d2555398a. Neither prior selection was rerun."
+    },
+    {
+      "issue": 3457,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Satisfied managed/native/governor/Auto/disk prerequisites; actual scoped pressure and qualified owned spill resources.",
+      "criteria": [
+        {
+          "id": "MEM-P12-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3458,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "OS module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "OS owner real platform/backing/locking/NUMA/I/O qualification and accepted Auto/governor integration; missing OS/architecture rows stay NotVerified.",
+      "criteria": [
+        {
+          "id": "MEM-P16-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC10",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3459,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Snapshot groups conservatively retain all attached representations until every group hold ends; original production residency projection remains unchanged. Compression/HTML/unknown-length workspace and metadata admission, independent shared-block reclamation, production producer binding and frozen performance gates remain incomplete.",
+      "criteria": [
+        {
+          "id": "MEM-P07-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "Immutable snapshot copies share supplied original read leases and return intermediate holds under ordinary managed distributed-fragment/removal controls, included in 29/29 at 00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b. Prior known-payload 21/21 remains bound to e55917ac097e33589766e8b20ab42fabbc51a5b5, not rerun."
+    },
+    {
+      "issue": 3460,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "GPU/peer module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Authoritative per-backend production physical upper bounds and actual supported GPU/driver hardware; accepted P04/P09/Auto/P12 qualification. Controlled observations do not qualify hardware.",
+      "criteria": [
+        {
+          "id": "MEM-P17-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3461,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Satisfied P12/P07 stages and canonical existing publisher/L1/L2 owner integration; source Current is not current-request qualification.",
+      "criteria": [
+        {
+          "id": "MEM-P13-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3462,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "GPU/peer module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified supported ReBAR/peer hardware and accepted GPU/backend/Auto inputs from sole owner.",
+      "criteria": [
+        {
+          "id": "MEM-P18-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3463,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "transient module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Satisfied P13 and production transient/DB/WebSocket ownership integration; fixture evidence does not qualify downstream publication.",
+      "criteria": [
+        {
+          "id": "MEM-P14-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3464,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "flat-index module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Accepted P14 plus production descriptor/index integration and complete corruption/overflow/performance/platform acceptance.",
+      "criteria": [
+        {
+          "id": "MEM-P15-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3465,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Child platform/product/default-policy/performance evidence, source-governance owner repair and canonical owner resolution of ArticleEndpoint generation/publication assertion failure.",
+      "criteria": [
+        {
+          "id": "MEM-P19-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC12",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3466,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Accepted P19, actual finite configuration/readiness/protected diagnostics inputs and safe transition operating tests.",
+      "criteria": [
+        {
+          "id": "MEM-P20-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC11",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    },
+    {
+      "issue": 3468,
+      "kind": "tracking_only",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Complete child criteria, independent P19 matrix and global conflict/review/merge barrier.",
+      "criteria": [
+        {
+          "id": "MEM-EPIC-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC12",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "No new acceptance run in this increment; prior evidence is retained at its original commit. NotRun; whole-issue acceptance remains blocked"
+    }
+  ],
+  "acceptedIssues": 0,
+  "criteriaAccepted": 0,
+  "checks": [
+    {
+      "command": "Exact positive 23-method / 29-case preflight, original dotnet test --no-restore --filter <preflight.json filter> --list-tests, then same filter --no-build --logger trx",
+      "exit": 0,
+      "evidence": "preflight.json, run-selected.py, list-tests.log, selected.log, selected.trx"
+    },
+    {
+      "command": "node tools/dotnet/check-csharp-style.mjs --mode changed --file src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs --file src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs --file src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs --file src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshot.HostOwnership.cs --file src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.HostOwnership.cs --file tests/backend/Unit/OwnedPublicHotReadSnapshotTests.cs",
+      "exit": 0,
+      "evidence": "style.log"
+    },
+    {
+      "command": "Scoped validateCommentPolicy and validateMarkerRegistration using original registry for six exact source/test files",
+      "exit": 0,
+      "evidence": "code-intent.json"
+    },
+    {
+      "command": "node tools/docs/generate-document-lifecycle.mjs --check",
+      "exit": 0,
+      "evidence": "document-lifecycle.log"
+    },
+    {
+      "command": "node tools/governance/check-change-contract.mjs --range cd79b28c255c35527496431e910fef7b6db66f80..00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b",
+      "exit": 0,
+      "evidence": "change-contract.log"
+    },
+    {
+      "command": "git diff --check cd79b28c255c35527496431e910fef7b6db66f80..00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b",
+      "exit": 0
+    }
+  ],
+  "notRun": [
+    "prior 21 and nonce 14 selections; other unchanged suites",
+    "held native/lease race/alias/TOCTOU/custody/receipt and retirement-fault audits",
+    "full SOURCE and whole PR/generated source admission; raw SOURCE-stage logs",
+    "production Auto/disable/drain, native/compressed/HTML qualification, actual network delivery",
+    "frozen P01 profiling/performance gates and full platform/driver/GPU matrix",
+    "fresh restore/audit, dependency download, production DB, deploy, merge, issue closure, metadata writes or cross-chain conflict resolution"
+  ]
+}

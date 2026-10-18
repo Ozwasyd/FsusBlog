@@ -1,0 +1,10 @@
+{
+  "phase": "preflight before any dotnet command",
+  "sourceSha": "00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b",
+  "exit": 1,
+  "assertion": "SoftRefresh_SameClientKeepsPinnedGenerationUntilWindowExpires",
+  "reason": "Guard assumed a direct call; unchanged original test delegates through its existing Serve wrapper.",
+  "resolution": "Require await Serve in each selected method and trace original private Serve definition to PublicHotReadFastPath.TryServeAsync; positive selection remains unchanged.",
+  "testDiscoveryStarted": false,
+  "testExecutionStarted": false
+}

@@ -4,6 +4,8 @@ using System.IO.Pipelines;
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Server.Infrastructure.Memory.Transient;
+
 namespace FsusBlog.Server.Infrastructure.PublicAot;
 
 /// <summary>
@@ -592,6 +594,37 @@ internal static class CspNonceHtmlResponseWriter
         Span<byte> nonceBytes = stackalloc byte[64];
         int nonceLength = Encoding.UTF8.GetBytes(nonce.AsSpan(), nonceBytes);
         template.Write(response.BodyWriter, nonceBytes[..nonceLength], cancellationToken);
+        return FlushBodyAsync(response, cancellationToken);
+    }
+
+    /// <summary>
+    /// Borrows caller-admitted nonce scratch under the existing transient operation hold.
+    /// The caller must retain exclusive, stable scratch ownership and keep it disjoint from
+    /// template and BodyWriter storage through completion. The hold does not exclude aliases.
+    /// A valid nonce may be encoded into scratch before an already-canceled token is rejected.
+    /// Cancellation therefore does not promise unchanged scratch; the original pool owns clearing.
+    /// Original template segments stream directly to BodyWriter; the hold ends only after
+    /// the original flush terminates. This overload supplies no pool, budget or template lease.
+    /// </summary>
+    internal static Task WriteBodyAsync(
+        HttpResponse response,
+        CspNonceUtf8Template template,
+        string nonce,
+        TransientBufferLease nonceScratch,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(template);
+        ArgumentNullException.ThrowIfNull(nonceScratch);
+        return nonceScratch.ConsumeAsync((memory, token) =>
+        {
+            ReservedCspNonceScratchWriter.Write(template, nonce, response.BodyWriter, memory.Span, token);
+            return new ValueTask(FlushBodyAsync(response, token));
+        }, cancellationToken).AsTask();
+    }
+
+    private static Task FlushBodyAsync(HttpResponse response, CancellationToken cancellationToken)
+    {
         ValueTask<FlushResult> flush = response.BodyWriter.FlushAsync(cancellationToken);
         if (flush.IsCompletedSuccessfully)
         {

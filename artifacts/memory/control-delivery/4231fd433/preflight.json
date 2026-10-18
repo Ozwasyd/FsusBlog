@@ -1,0 +1,50 @@
+{
+  "sourceSha": "4231fd4337817c62270336eb6b37964878ab27fc",
+  "expectedCases": 5,
+  "positiveFqnAllowlist": [
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.SameInputSequenceProducesSameTargetsReasonsAndOrderedDegradation",
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.OscillationResetsRecoveryWindowAndGrowthIsRateBounded",
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.WallClockForwardJumpCannotSkipTheMonotonicRecoveryWindow",
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.MissingPreviousDecisionCannotHideTheCanonicalEnforcedBound",
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.QualifiedRecoveryCanGrowIndependentSlotsAfterTheStableWindow"
+  ],
+  "filter": "(FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.SameInputSequenceProducesSameTargetsReasonsAndOrderedDegradation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.OscillationResetsRecoveryWindowAndGrowthIsRateBounded|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.WallClockForwardJumpCannotSkipTheMonotonicRecoveryWindow|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.MissingPreviousDecisionCannotHideTheCanonicalEnforcedBound|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.QualifiedRecoveryCanGrowIndependentSlotsAfterTheStableWindow)&Category!=Integration&Fixture!=LocalRedis",
+  "actualImportsAndHooksVerified": true,
+  "dataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory/governor-nullability-20261009/data",
+  "commands": [
+    [
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--filter",
+      "(FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.SameInputSequenceProducesSameTargetsReasonsAndOrderedDegradation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.OscillationResetsRecoveryWindowAndGrowthIsRateBounded|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.WallClockForwardJumpCannotSkipTheMonotonicRecoveryWindow|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.MissingPreviousDecisionCannotHideTheCanonicalEnforcedBound|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.QualifiedRecoveryCanGrowIndependentSlotsAfterTheStableWindow)&Category!=Integration&Fixture!=LocalRedis",
+      "--list-tests"
+    ],
+    [
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--filter",
+      "(FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.SameInputSequenceProducesSameTargetsReasonsAndOrderedDegradation|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.OscillationResetsRecoveryWindowAndGrowthIsRateBounded|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.WallClockForwardJumpCannotSkipTheMonotonicRecoveryWindow|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.MissingPreviousDecisionCannotHideTheCanonicalEnforcedBound|FullyQualifiedName=FsusBlog.Server.Tests.Unit.MemoryGovernorTests.QualifiedRecoveryCanGrowIndependentSlotsAfterTheStableWindow)&Category!=Integration&Fixture!=LocalRedis",
+      "--no-build",
+      "--results-directory",
+      "/workspace/.tmp-mem-3444-compliant/.tmp/memory/governor-nullability-20261009",
+      "--logger",
+      "trx;LogFileName=selected.trx"
+    ]
+  ],
+  "list-tests.log.exit": 0,
+  "discoveredCases": [
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.SameInputSequenceProducesSameTargetsReasonsAndOrderedDegradation",
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.OscillationResetsRecoveryWindowAndGrowthIsRateBounded",
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.WallClockForwardJumpCannotSkipTheMonotonicRecoveryWindow",
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.MissingPreviousDecisionCannotHideTheCanonicalEnforcedBound",
+    "FsusBlog.Server.Tests.Unit.MemoryGovernorTests.QualifiedRecoveryCanGrowIndependentSlotsAfterTheStableWindow"
+  ],
+  "listSelectionVerifiedBeforeExecution": true,
+  "freshOriginalBuildGovernorCs8602Count": 0,
+  "selected.log.exit": 0,
+  "passedCases": 5
+}

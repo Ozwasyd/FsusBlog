@@ -1,0 +1,12 @@
+{
+  "ids": [
+    "memory-macos-sysctl-observation",
+    "memory-macos-sysctl-capture",
+    "memory-macos-sysctl-reader",
+    "memory-macos-sysctl-capture-method",
+    "memory-windows-immediate-job-observation",
+    "memory-windows-immediate-job-reader",
+    "memory-platform-observation-caller"
+  ],
+  "errors": []
+}

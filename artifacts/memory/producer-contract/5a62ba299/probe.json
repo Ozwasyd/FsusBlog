@@ -1,0 +1,139 @@
+{
+  "schema": "fsusblog.memory.projector-missing-contract-source-probe.v1",
+  "runId": "projector-contract-d28a983f-1387-41ab-b868-af6241ed1770",
+  "observedUtc": "2026-10-09T11:13:22.037372+00:00",
+  "candidate": "5a62ba29959c0b116c71a49fd4bfa2d805116d19",
+  "candidateTree": "e7b9046848c0eec9af40538c884b00539e68a311",
+  "latestFetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "masterIncorporated": false,
+  "sevenChangedFilesAtOriginalSourceIncrement": [
+    "docs/architecture/repository-layout.md",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshot.HostOwnership.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.HostOwnership.cs",
+    "tests/backend/Unit/OwnedPublicHotReadSnapshotTests.cs"
+  ],
+  "canonicalSourceObservations": [
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+      "candidateSha256": "01109f9199aa0e7484684a9d464b3c2ed5115192e0b3730c995493b499e4cd02",
+      "masterSha256": "01109f9199aa0e7484684a9d464b3c2ed5115192e0b3730c995493b499e4cd02",
+      "candidateEqualsMaster": true,
+      "masterTypedInputCounts": {
+        "IMemoryHostReadLease": 0,
+        "IMemoryHostViewSource": 0,
+        "MemoryCapabilityController": 0,
+        "MemoryReservationCoordinator": 0,
+        "MemoryContentIdentity": 0,
+        "MemoryLocationToken": 0,
+        "maximumHolds": 0
+      }
+    },
+    {
+      "path": "src/backend/Infrastructure/Bootstrap/RuntimeInfrastructureServiceCollectionExtensions.cs",
+      "candidateSha256": "14379ad395ca2f0622e647284cfe79e6e5d64dbb2bc7b70133ca79c50c8ecb62",
+      "masterSha256": "14379ad395ca2f0622e647284cfe79e6e5d64dbb2bc7b70133ca79c50c8ecb62",
+      "candidateEqualsMaster": true,
+      "masterTypedInputCounts": {
+        "IMemoryHostReadLease": 0,
+        "IMemoryHostViewSource": 0,
+        "MemoryCapabilityController": 0,
+        "MemoryReservationCoordinator": 0,
+        "MemoryContentIdentity": 0,
+        "MemoryLocationToken": 0,
+        "maximumHolds": 0
+      }
+    },
+    {
+      "path": "config/application/backend-configuration-contract.json",
+      "candidateSha256": "a6360cad2cc964babc85c3a7b3354a23cad5e3c8743d21ac16ba5acefbd4ffd2",
+      "masterSha256": "a6360cad2cc964babc85c3a7b3354a23cad5e3c8743d21ac16ba5acefbd4ffd2",
+      "candidateEqualsMaster": true,
+      "masterTypedInputCounts": {
+        "IMemoryHostReadLease": 0,
+        "IMemoryHostViewSource": 0,
+        "MemoryCapabilityController": 0,
+        "MemoryReservationCoordinator": 0,
+        "MemoryContentIdentity": 0,
+        "MemoryLocationToken": 0,
+        "maximumHolds": 0
+      }
+    }
+  ],
+  "typedReferencesOutsideMemoryModule": [
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshot.HostOwnership.cs",
+      "terms": [
+        "IMemoryHostReadLease",
+        "maximumHolds"
+      ]
+    },
+    {
+      "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs",
+      "terms": [
+        "IMemoryHostReadLease",
+        "IMemoryHostViewSource",
+        "MemoryLocationToken"
+      ]
+    }
+  ],
+  "localWorktreeWriterObservation": [
+    {
+      "path": "/workspace/FsusBlog",
+      "head": "d9a9d6acb56bef597da3bc660a5ca11e354e9a58",
+      "uncommittedProjectorChanges": false
+    },
+    {
+      "path": "/workspace/.tmp-mem-3444-compliant",
+      "head": "5a62ba29959c0b116c71a49fd4bfa2d805116d19",
+      "uncommittedProjectorChanges": false
+    },
+    {
+      "path": "/workspace/.tmp-mem-3444-marker-handoff",
+      "head": "3c35b5833bba3da1c3c5abe6670effca55d162da",
+      "uncommittedProjectorChanges": false
+    },
+    {
+      "path": "/workspace/.tmp-mem-3444-native-os",
+      "head": "6a8b4c713da2af77b6763074ed1fcbbbc1224416",
+      "uncommittedProjectorChanges": false
+    },
+    {
+      "path": "/workspace/.tmp-mem-marker-arena-probe",
+      "head": "03f42fcef83c3318d2651ee36398dacad62b2620",
+      "uncommittedProjectorChanges": false
+    },
+    {
+      "path": "/workspace/.tmp-mem-marker-flat-probe",
+      "head": "f751ded59f3719d970b94642d96311ef63ea7307",
+      "uncommittedProjectorChanges": false
+    }
+  ],
+  "ownership": {
+    "projectorAdapter": "This root retained P06/P07 (#3456/#3459) ordinary producer/snapshot integration. No projector assignment to the released native/disk/OS/GPU/transient/flat-index modules; local worktrees show no pending projector write. Local checks do not certify every external coordinator session.",
+    "contentAndLocation": "Original PublicHotArtifactProjector owns public representation/eligibility. Canonical backing owner (ManagedMemoryBacking or released NativeMemoryArenaBuilder/slice) owns actual allocation/block/revision/epoch and returns the real lease. This root must connect supplied authentic content mappings to those owners; article DB coordinates are not MemoryContentIdentity.",
+    "holdAndMetadataPolicy": "This root owns P01/P02/P03 (#3445/#3446/#3447) source/finite policy contract work. P01 existing fixture/measurement/acceptance manifest authority freezes numerical rules before performance results; P02 revisioned configuration contract owns units/zero/omission semantics; P03 canonical ledger owns actual domains/admission/charge. No external prerequisite root owns these issues.",
+    "configurationComposition": "Existing config/application/backend-configuration-contract.json and RuntimeInfrastructureServiceCollectionExtensions retain production configuration/DI authority; there is no memory-policy producer registration in the inspected source."
+  },
+  "missingContract": {
+    "producerOwnership": "For each identity AEDS artifact key, an exclusively transferable actual IMemoryHostReadLease or actual IMemoryHostViewSource plus its current MemoryLocationToken, with stable immutable full frame bytes and the same canonical public eligibility/publication evidence.",
+    "contentIdentity": "Real MemoryContentIdentity(BlobId, ContentGeneration, RepresentationId) from the existing artifact/materialization owner. No mapping from article ID, publication timestamp, CurrentRevisionId, CurrentPublicationId or frame hash to all these owner identities currently exists in the projector.",
+    "backingAdmission": "Real payload/operation ResourceDomainId, current MemoryReservationCoordinator, admitted layout/capacity and hold limit, ResidencyRevision and DeviceEpoch from actual source owner. ManagedMemoryBacking.TryCreate requires these inputs; NativeMemoryArenaBuilder additionally requires frozen NativeMemoryArenaPolicy. The returned lease supplies Content/Location/Memory; raw arrays supply none of these facts.",
+    "qualifiedSelection": "For production capability selection, real MemoryCapabilityController/MemoryCapabilitySelection, current MemoryCapabilityWorkloadAdmission, MemoryGovernorDecision and original resource charges. Select/TryReserveOperation validate supplied facts; they neither create content identity nor return a materialized host read lease. No fabricated Qualified/Admitted status is permitted.",
+    "sharedHoldPolicy": "Frozen policy revision and positive maximumHolds including overlapping snapshot roots/immutable clones/current-last-good-sticky references and actual concurrent consumers, with explicit unit/count, exhaustion result, scope, zero/omission semantics and reload/drain behavior. Existing MaxArtifactObjects counts artifacts, not lease holds; MaxResidentBytes/overlap estimates are not a hold policy.",
+    "metadataAdmission": "Frozen bounded lease/representation/clone/consumer roster and conservative metadata capacity/headroom model for group arrays, HashSet/index entries, snapshot/gates and hold objects. Actual registered byte/operation domains, units, finite charge vector, reservation/conversion owner and release lifetime through final group/consumer completion are required before these allocations. Existing ledger entryLimit/eventCapacity bound ledger metadata, not snapshot ownership metadata. No physical layout or exact CLR header size may be fabricated."
+  },
+  "ordinaryCodeGap": "Original BuildSnapshotCoreAsync/materialization helpers do not receive a typed admitted backing result and therefore cannot call FromHostReadLease + WithHostReadLeases. Delta/view/taxonomy constructors also require producer-owned transfer of unchanged/new representation leases after authoritative inputs exist. The root ordinary attachment/consumer adapter already exists; adding a disconnected overload or wrapping raw arrays with new identities is not a genuine original-path connection.",
+  "decision": "Dependent production projector connection BlockedMissingAuthenticInputsAndFrozenPolicy; no production source edit or Auto activation. This is a specific missing contract within retained root stages, not a generic dependency on the parent.",
+  "sourceProbeExit": 0,
+  "runtimeTestsRunThisProbe": 0,
+  "wholeIssueOrCriterionAcceptance": "NotAccepted",
+  "previousControlsNotRerun": {
+    "snapshot29Source": "00e5f1a0b9c7de2a4c2b04a4e2ea9d0b6ea7846b",
+    "hostFrame21Source": "de0adc1a5ed4a32f5cdfc01b9c560f9b357cd250",
+    "nonce14Source": "ab2c589d02fabfa6ed15967f0e58800d2555398a"
+  },
+  "scope": "Read-only producer/type/configuration/writer inspection; no runtime, native, lease race, alias, TOCTOU, custody, receipt or full SOURCE audit. No issues/metadata changed."
+}

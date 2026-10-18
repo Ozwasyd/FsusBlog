@@ -81,6 +81,202 @@ its operation identity, following the existing native bootstrap owner. Compiling
 these original sources does not qualify native preservation, recovery or bootstrap
 acceptance.
 
+## Memory allocation discovery boundary
+
+`config/development/memory-allocation-boundaries.json` belongs to the existing
+`development-governance` directory owner in the configuration ownership registry.
+It is inventory-only governance input and records explicit source-path families and initial
+source traces for PublicHotRead snapshots, PublicAOT file materialization, ordinary L1,
+owned AEDS frames, notification fanout, and database materialization. The established
+snapshot store, AOT commit journal, revocation boundary, queue delivery catalog,
+configuration contract, and test matrix retain their respective responsibilities.
+The catalog grants no data migration, publication, delivery, or runtime configuration
+authority. Every recorded migration permission remains denied pending its class contract.
+
+The producer is `tools/governance/memory-allocation-inventory.mjs`. It binds the current
+Git commit, complete index digest, tracked-change digest, source bytes, dependency
+manifests, ownership inputs, and producer bytes to a worktree fingerprint. Its reader
+reopens the candidate and independently compares lexical discovery with ripgrep.
+Generated and vendor path candidates stay in the denominator; filenames do not certify
+source ownership, and unclassified surfaces remain owner-resolution-required.
+Output contains source locations
+and digests, rather than payloads or credentials. A changed source, replacement SHA,
+altered trace, omitted match, or forged resolved count is refused.
+
+```bash
+# Restore this package-free tool only against the installed offline SDK/cache.
+dotnet restore tools/governance/memory-syntax-observer/FsusBlog.MemorySyntaxObserver.csproj --locked-mode --source "$NUGET_PACKAGES" --ignore-failed-sources
+dotnet publish tools/governance/memory-syntax-observer/FsusBlog.MemorySyntaxObserver.csproj --no-restore -c Release --output .tmp/memory-inventory/syntax-observer
+export FSUS_MEMORY_SYNTAX_OBSERVER="$PWD/.tmp/memory-inventory/syntax-observer/FsusBlog.MemorySyntaxObserver.dll"
+node tools/governance/memory-allocation-inventory.mjs produce .tmp/memory-inventory/run.json <run-id>
+node tools/governance/memory-allocation-inventory.mjs verify .tmp/memory-inventory/run.json
+node tools/governance/memory-allocation-inventory.mjs verify .tmp/memory-inventory/run.json --require-complete
+node --test tests/tools/memory-allocation-inventory.test.mjs
+```
+
+Production creates a new file exclusively; repeat runs use new run identities and paths,
+preserving previous receipts. The ordinary reader verifies intake identity and discovery
+and recorded family/syntax projection only. Every matched source path must map to exactly
+one explicit family; extra, omitted, or duplicate source assignments are refused. A new
+source match requires an explicit catalog update. The observer uses Roslyn from the installed
+.NET SDK without additional packages and records containing types/members, operation arguments,
+capacity-model limits, comments, literals, declarations, and parse-error diagnostics. Its
+assembly closure and SDK version are bound to the receipt and replayed by the reader.
+This is syntax observation, not semantic compilation or a reference-lifetime proof. Mixed
+families retain unresolved class-specific eligibility and deny all migration. The strict
+command still refuses acceptance: complete consumer/release graphs, actual capacity and
+asynchronous release evidence remain unresolved. Six detailed source traces and the remaining
+family exclusions are observations, not runtime qualification.
+The registered regression owner is the existing static-governance test topology.
+
+All future configurable memory capabilities must default to Auto: bounded discovery and
+qualification, automatic activation and deterministic eligible selection after admission.
+Disabled must stop new probes and use before draining old owners. Required must preserve
+permissions, safety, qualification, and budgets. Discovery, qualification, online state,
+selection, and per-operation admission remain distinct. This inventory changes no serving
+behavior and claims no performance improvement.
+
+The common resource vector distinguishes `Inodes`, `OperationSlots`, and `Bytes`.
+An inode capacity domain needs its own identity and cap; available operation slots
+cannot stand in for free inodes. The coordinator rejects a complete vector when any
+domain is exhausted and retains live charges across policy reductions.
+`FrozenDiskPhysicalAllocationPolicy` retains an owner-supplied immutable physical
+upper bound, including volume/root identity, maximum logical and charged bytes,
+policy revision, and finite expiry. Missing, expired, mismatched, or out-of-range
+bounds reject use. Sampled file blocks do not establish a conservative metadata or
+extent bound. This adapter supplies neither filesystem qualification nor automatic
+activation; the disk owner must consume the independent inode domain, and the
+existing policy owner must establish a qualified bound before enabling physical
+admission. The current source-compatible disk path without a physical policy remains
+unqualified for Auto. No new setting or per-host enable authority is introduced.
+
+`MemoryCapabilityPolicyPlan` validates a complete bounded registration roster and
+policy revision before it can be consumed by the existing configuration owner.
+Omitted modes normalize to Auto; unknown keys, dependency cycles, transitive
+Required/Disabled conflicts and competing Required backends reject the revision.
+The dependency order is deterministic and copied inputs cannot mutate the plan.
+Backend selection requires current-revision online, release and runtime facts for
+the candidate and its dependencies, plus that candidate's qualified workload and
+operation admission. A budget rejection leaves online facts intact. A required
+unavailable backend cannot silently select another member of its exclusive group.
+This contract has no probe, driver, publication or readiness side effects and does
+not qualify a controller's supplied facts; production activation and safe draining
+remain with the common capability controller and the existing resource owners.
+
+The coordinator's optional `existingPhysicalDomains` roster declares internal
+persistent byte/inode accounting roles, not a user enable switch. The storage
+owner must verify and retain an already-existing object before calling
+`MemoryReservation.CommitObservedExisting`; this API does not create backing or
+qualify its content. It records that occupancy even above a reduced current cap
+and reports OverTarget. Only newly retained host/index resources can consume the
+existing scratch reservation, and overlapping persistent/new capacity, stale
+policy revision, descriptor mismatch, duplicate identity and arithmetic overflow
+are rejected without partially adopting the object. New disk growth still uses
+ordinary hard admission. Failed deletion leaves the physical owner charged; final
+disposal is legal only after the existing storage owner actually relinquishes the
+backing. Object replacement checks and namespace coordination stay with that owner.
+
+`LinuxProcMemoryPressureSource` provides background-only host availability/swap
+capacity and process RSS/swap occupancy observations from bounded `/proc` reads.
+It reserves the reusable buffer's full capacity before allocation; Disabled avoids
+both sampling and buffer admission, and disable drains the capture lock before
+clearing the buffer and releasing its charge. Missing fields retain Unknown;
+duplicate fields, unknown units, overflow and oversized files retain Malformed;
+expired captures retain Stale. Each observation carries its source, scope, domain
+revision and clock. Ledger inode observations keep their independent inode unit.
+The [kernel proc documentation](https://www.kernel.org/doc/html/latest/filesystems/proc.html)
+defines the host and process fields; host availability is not a scoped cgroup
+capacity and process swap occupancy does not prove swap activity or thrashing.
+This source registers no controller or diagnostics authority. Scoped cgroup
+membership/ancestor sampling, Windows/macOS adapters, automatic qualification and
+P01 sampling performance remain outstanding; no raw proc observation qualifies
+admission headroom or a platform support row.
+
+`MemoryGovernor` is a pure input-bound transition function. Its immutable policy
+requires explicit candidate/evidence identity and finite targets, headroom margins,
+growth rates, source ages and recovery windows from the existing frozen baseline
+owner. Missing/unqualified policy or pressure facts return UnmetPrerequisite and
+stop expansion while retaining the latest hard bounds. Scoped usage and capacity
+must match the resource domain/revision; overlapping host, GC, process, native and
+UMA counters are not summed. The ownership ledger still bounds allocated but
+untouched memory; matching scoped headroom additionally accounts for competition.
+Sample freshness uses both UTC and monotonic age; clock-range overflow freezes
+growth and retains the latest bound. Recovery uses the monotonic clock and bounded
+integral growth. Requested reclaim,
+allocator relinquishment, OS retention, pending and blocked feedback remain
+separate; target changes never dispose owners or spend projected reclaim credit.
+
+`MemoryReservationCoordinator.TryReserveUnderBounds` atomically checks the complete
+vector against configured and supplied bounds at the observed accounting revision.
+`ApplyGovernedBounds` additionally retains a revisioned derived bound in the same
+canonical ledger so existing raw managed/native factories cannot escape an accepted
+scope through another reservation call. It never increases the configured hard cap,
+drops a live charge or erases an existing scoped key. Fault/disable paths keep the
+last bound; recovery requires a newer compatible input-bound decision. The existing
+configuration revision remains independent of this decision sequence. These APIs
+expose both configured and actually enforced caps through the immutable accounting
+snapshot. A missing prior decision cannot conceal a retained bound; invalid inputs
+cannot raise it. Fresh qualified recovery still grows independent slot budgets
+only after the declared stable window and within its growth limit. These APIs
+have no qualification or scheduler authority. The pure governor and explicit ledger
+adapter are not registered for production startup; authoritative P01 inputs, actual
+scoped sources and operating/performance acceptance remain required.
+
+`MemoryCapabilityController` consumes the single immutable policy-plan roster and
+explicit frozen baseline, current governor decision, runtime identity and release
+qualification inputs. `TickAsync` is an explicit control-plane operation, not a new
+scheduler. Missing prerequisites return UnmetBaseline/UnmetGovernor without invoking
+a backend; Disabled starts no probe or reservation. An admitted callback owns its
+actual completion: caller cancellation or deadline expiry cannot release scratch
+while an uncooperative probe continues. Policy/identity generations reject late
+results. Retry windows, cooldown and circuit bounds come from the supplied policy;
+qualified recovery requires no second enable flag. Budget rejection is per operation
+and does not discard a healthy backend's online facts.
+
+Operation admission linearizes with runtime disable and uses the same canonical
+scoped ledger gate. Controller operation leases delay retirement until their actual
+completion; `MemoryCapabilityOwner.FromManaged`/`FromNative`/`FromGpu` then use
+those existing owners' retirement and actual Drained tasks. No logical target or IDisposable return is
+used as proof that readers, pins or native operations have relinquished storage.
+`FromDisk` accepts a caller-owned root and its complete borrower roster under a
+finite, existing ownership-policy limit. The caller transfers exclusive root
+ownership and stops new borrower creation. Each store stops new work and drains
+its real leases, I/O, temporaries and physical charges; the root closes only after
+every borrower succeeds. A failed borrower faults the composite without closing
+the root, while other actual drains remain observed. Store never closes a borrowed
+root. Faulted GPU/quarantine drain likewise preserves custody and reports DrainFault
+instead of Off or a permitted restart. These adapters do not qualify any platform.
+`MemoryCapabilityGpuAllocationPolicy` retains explicitly declared device/staging
+physical upper bounds, scoped to capability, device identity/epoch, policy and
+accounting revisions, and finite UTC/monotonic validity. Missing bounds reject use;
+request bytes and observed allocation size never invent a conservative upper bound.
+Resolution checks the enforced common byte/slot caps including shared UMA parents.
+The actual GPU module then reserves those bounds before allocation and commits the
+observed physical capacity, rechecking admission if pressure changed after resolution.
+This policy contract supplies no calibrated production values or hardware qualification.
+Read-only selection performs no probing or
+pressure-file I/O. These classes are not registered at startup or wired to public
+readiness/diagnostics routes; existing authorities retain those responsibilities.
+The new tests belong to the original backend Unit discovery and the existing
+`backend-unit` matrix/cache input closure. Their synthetic qualification and numeric
+inputs prove state transitions, actual managed ownership and real task-owned Linux
+file/descriptor drain. Controlled GPU driver callbacks do not establish hardware
+qualification. These tests do not establish calibration,
+platform qualification, production Auto activation or full A01-A20 acceptance.
+
+The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target
+or an available local toolchain does not establish product platform support. The catalog distinguishes the Dockerfile's `linux-musl-x64` shipping default from
+additional candidate targets and binds each row's source and required offline closure.
+The memory program's qualified release support contract and installed offline closure remain
+owner-resolution-required. Linux, Windows, and macOS on x64 and ARM64 are retained as
+NotVerified candidate rows, not asserted supported deployments; missing environments
+cannot be removed from subsequent qualification. A current Linux x64 SDK observation
+does not qualify a native, disk, GPU, or other platform backend. Docker validation remains
+with its authorized owner.
+
+Withdraw or revise the catalog and its producer through these existing governance owners
+to roll back inventory work. No product resources or serving state are changed.
+
 ## Configuration ownership
 
 Shared runtime, test, and observability configuration belongs in `config/`; only the .NET framework tool manifest uses `.config/`. Project-specific `appsettings*.json` and `Properties/launchSettings.json` stay with their owning project, so Docker Compose launch profiles live in `ops/docker/Properties/`. Root `configs/`, ownerless `Properties/`, and scattered JSON configuration are rejected by `tools/configuration/check-configuration-layout.mjs`. See [`docs/configuration-layout.md`](../configuration-layout.md) for the complete ownership table.
@@ -179,3 +375,274 @@ node --test tests/tools/zk-source-layout.test.mjs
 ```
 
 `tools/check-repository-source-layout.mjs` reads the top-level inventory from the Git index and rejects a reintroduced root `circuits/`, `deploy/`, or `release-evidence/`, undeclared top-level directories, unjustified source exceptions, old circuit-source references, source-hash drift, and manifest/R1CS source-binding drift. It also confirms that C# entry-point ownership policy/checkers remain attached to the canonical source-layout contract; the C# project/file-app/global-output/protocol-fixture checker aggregates those specific violations.
+
+`LinuxCgroupScopeResolver` parses bounded captured membership/mount metadata,
+resolves v1 memory or unified v2 paths and their observable ancestor roster, and
+retains namespace/mount/membership identity. Missing, denied, stale, malformed,
+ambiguous and namespace-escaping captures remain distinct unavailable results.
+The resolver performs no I/O and cannot qualify a source or grant growth. A live
+sampler must still verify actual directory inode/open identities, stable captures
+and matching per-ancestor usage/limits before existing qualification/admission.
+Its byte/record/ancestor bounds are explicit caller policy inputs, not defaults.
+Format references are the [kernel cgroup documentation](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+and [kernel proc mountinfo documentation](https://www.kernel.org/doc/Documentation/filesystems/proc.txt).
+
+`LinuxCgroupDirectoryReader` owns an actual read-only kernel directory descriptor
+on Linux x64/arm64. It checks the controller filesystem, statx mount/device/inode
+identity and namespace identity before opening a resolved ancestor. Scalar reads
+use fixed controller filenames, reject symlinks and another file domain, check
+directory identity before/after, and clear caller-owned bounded scratch on return.
+Disposal waits for the synchronous read and closes the descriptor; repeated
+disposal is safe. v1 combined memsw is not reported as swap occupancy. Missing,
+denied, malformed and unlimited values remain distinct from a real numeric zero.
+The raw observed-directory API requires the complete prior native identity; it
+does not certify process membership. Raw identity and scalar captures retain
+`NotVerified`. Stable process membership/mount recapture, complete ancestor
+sampling, qualification, measured metadata/descriptor costs and canonical
+governor composition remain required. The supplied read bound is caller policy;
+the test's 64-byte buffer is not a production default.
+
+`LinuxCgroupContextReader` reads this process's membership/mount metadata into
+separate caller-owned admitted buffers under explicit byte/record/ancestor/time
+bounds. It checks actual cgroup and mount namespace links before/after the read,
+retains their observed identities even when path resolution fails, and reports
+UTC/monotonic capture provenance. It clears both used scratch spans on success,
+unavailable capture or clock exception. Overlapping/undersized spans reject before
+capture. Context comparison invalidates changed membership, mounts, namespaces,
+ancestors, source or clock, including expiry and checked timestamp overflow.
+Matching contexts remain `NotVerified`; complete ancestor sampling, actual inode
+continuity, measured metadata bounds and canonical qualification are still required.
+The existing background/capability owner controls discovery, disabled behavior and
+admitted buffer/metadata lifetime. This raw capture surface installs no timer,
+request hook, capability registry or growth policy.
+
+The directory reader's v2 counter surface uses the same descriptor owner,
+fixed-filename read, directory/file inode checks, overflow byte and scratch clearing
+as scalar capture. `LinuxCgroupCounterParser` reads selected native `memory.stat`
+keys, explicitly local `memory.events.local` events and `memory.pressure` totals.
+Bytes, event counts and cumulative PSI microseconds have separate units. High
+events are distinct from max/OOM events; major faults are not attributed to swap.
+Key order is not assumed; duplicates, missing keys, overflow and unknown target
+formats cannot produce zero. PSI averages are checked for the supported native
+format, while returned totals retain microseconds. The v2 counter surface keeps
+v1 counters unavailable instead of interpreting combined RSS/swap-cache or
+substituting a v2 format. The separate `CaptureV1Stat` surface uses the same native
+directory owner, fixed memory.stat read, overflow byte and used-scratch clearing.
+`LinuxCgroupV1StatParser` preserves native keys, local/total/hierarchical-limit
+scopes and units. A v2 directory returns Unknown without a v1 read. Actual v1
+runtime evidence, context binding and qualification remain required.
+
+`LinuxCgroupTimedCounterReader` borrows that directory owner for one counter read
+and records the UTC and monotonic endpoints around the actual read, with an
+explicit caller-supplied duration bound. Clock reversal, frequency changes,
+timestamp overflow or an excessive read window remove the usable value while
+retaining the observed endpoints. Disabled mode captures neither a counter nor
+time. The caller-supplied scratch span is cleared on every exit, including clock
+and ownership exceptions; those exceptions remain visible and the borrowed owner
+is not disposed. Source identity includes a process-instance identity. A read
+window does not supply an exact point timestamp, a rate, a qualified process
+binding or a production default for sampling costs. Existing context/ancestor
+binding, admitted metadata lifetime and frozen P01/P02 limits remain required.
+`LinuxCgroupCounterNormalizer` consumes agreeing raw directory/context identities
+to distinguish byte-gauge changes from cumulative counter resets. Its contexts
+do not timestamp counters, so every result leaves `PerSecond` absent; source
+comparison alone does not establish sample freshness or directory-to-roster binding.
+The timed reader's comparison checks its actual read windows and capture freshness
+before calling that normalizer. Fresh contexts cannot rescue missing, stale or
+discontinuous counter windows; these composed results still provide no rate.
+
+`LinuxVmStatActivityReader` calls `LinuxVmStatActivityParser` on an actual bounded
+read of `/proc/vmstat`, with operation-owned file disposal and caller-owned admitted
+scratch cleared on all exits. It retains independent swap page and major-fault
+fields, actual read endpoints and `Environment.SystemPageSize` for checked swap
+byte conversion. An overflow byte refuses truncated input; unavailable fields and
+invalid clocks retain nonnumeric states. These are unqualified host counters,
+separate from the existing meminfo/status occupancy source. The reader adds no
+timer, process attribution, swap-thrashing classification, public diagnostics or
+production defaults. Complete host/domain binding, admitted metadata costs and
+frozen sampling/performance limits remain required.
+
+`LinuxZramMemoryStatParser` accepts captured text, an explicit supported layout
+identity and capture validity. Its current layout retains five byte fields and
+four page counts separately. Parsing neither discovers a device nor supplies a
+device identity, reset epoch, sample window or physical headroom. A genuine
+version-bound device read owner and runtime evidence remain required.
+
+These raw counters do not classify thrashing, grant headroom or qualify a process
+domain. Native meanings follow the [cgroup v2 interfaces](https://docs.kernel.org/admin-guide/cgroup-v2.html),
+[PSI interface](https://docs.kernel.org/accounting/psi.html) and
+[v1 memory statistics](https://docs.kernel.org/admin-guide/cgroup-v1/memory.html).
+
+The established `PublicHotReadBinaryArtifactFactory.ConsumeReservedPayloadAsync`
+composes `ReservedAedsFrameWriter` with the existing
+`TransientBufferLease.ConsumeAsync` operation hold. It accepts caller-admitted
+storage and a stable, caller-owned payload, checks the canonical artifact ceiling
+and logical destination length, rejects overlapping source/destination, and awaits
+the frame consumer before releasing that hold. Cancellation of an outer wait
+does not return storage still used by the consumer. The borrowed frame cannot
+outlive the callback; captured memory rejects access after operation completion.
+The finite managed fixture budgets are not production defaults or native
+qualification. This operation surface adds no allocator or publication authority.
+The scoped callback cannot supply long-lived snapshot custody. Explicit snapshot
+read-lease attachment is described below; production source/destination/workspace
+admission remains required. Existing array construction and unbounded compression
+do not supply that admission.
+Unknown-length producers and compression workspace remain separate unverified
+work; they cannot publish the callback's borrowed memory.
+
+`PublicHotReadBinaryArtifactFactory.ConsumeHostFrameAsync` accepts an existing
+`IMemoryHostViewSource`, its expected `MemoryLocationToken`, explicit artifact
+metadata/options and a consumer. It acquires the original source's CPU-readable
+read lease and awaits the consumer before disposal. Its callback receives the
+existing `PublicBinaryArtifact` with borrowed `ReadOnlyMemory<byte>`; common
+frame validation and ETag generation work on spans. No full-sized compatibility
+array is created. Array callers retain their original compression path. This
+explicit identity-only adapter rejects precompression requests before acquisition
+rather than silently omitting requested variants or starting unadmitted work.
+The source owns immutable bytes and its existing read-hold limit/accounting;
+the caller owns admission for all additional consumer work. Cancellation of an
+outer wait is not completion. Consumer failure or actual cancellation ends the
+read hold only when that consumer has stopped using the borrowed artifact.
+The callback must not publish, retain or return the artifact beyond its scope.
+The original `WriteBinaryFrame` remains the response owner; its internal access
+allows ordinary source composition controls without another response writer.
+This adapter adds no snapshot lifetime owner, publication/qualification authority,
+compression reservation, capability probe, native allocation or Auto activation.
+The separate explicit snapshot path below supplies source ownership wiring.
+Canonical production content-to-location binding and native transport evidence
+remain unverified.
+
+`FromHostReadLease` creates original binary metadata over an actual supplied read
+lease without taking disposal custody. `PublicHotReadSnapshot.WithHostReadLeases`
+then attaches exclusive disposal custody to a new immutable snapshot. This path
+rejects precompressed variants before the existing array-only compression schema
+validator runs. Every opaque identity representation must match an actual lease's ROM, and content/location
+tokens come from that lease. No IDs or visibility evidence are generated here.
+The supplied positive shared-hold bound applies to snapshot copies and actual
+consumers. Current, last-good and sticky remain the original store's references;
+`Publish` claims disposal custody only after its original visibility, age, budget
+and integrity gates pass. Ownership claim is not qualification. A rejected candidate
+remains caller-owned and supports explicit unpublished cleanup.
+
+The original request classifier/security flow selects an owned generation and
+retains consumption under the existing store lock before accessing its bytes.
+Original serving Tasks retain the supplied real read holds through completion,
+abort and backpressure. Array snapshots keep their original selection path.
+Shared-hold refusal uses the existing 503 response; it does not enter an endpoint
+or silently copy data. Replacement and DropToEmpty detach inactive roots; the
+source's actual read lease ends only after all snapshot/consumer holds end.
+Expired owned sticky references are reaped on consumption. Original distributed
+fragment/HTML copies preserve shared ownership and clean unpublished intermediate
+copies on success or interruption. Actual source-lease disposal occurs outside
+the publication lock, except intermediate reference returns that cannot be final
+while their preserved current generation still holds the group.
+
+This attachment conservatively retains all original supplied leases while any
+derived snapshot uses their group, including removed representations. The canonical
+ledger continues charging their actual backing; historical logical residency does
+not become measured retained capacity. Fine-grained release/projection remains work.
+Opaque HTML attachment is unsupported. No Auto activation, native qualification,
+new publisher/registry or compression reservation is introduced. The original
+`PublicHotArtifactProjector` still produces arrays and visibility evidence; it has
+no admitted host read lease or authoritative memory content/location binding input.
+Production must supply that typed materialization and frozen P01/P02 shared-hold
+and metadata limits through its existing owners. This code supplies retention,
+not those missing producer facts or qualification results.
+
+`PublicHotRead:SnapshotOwnership` binds through the existing `PublicHotReadOptions`
+configuration section. Its twelve canonical backend configuration metadata rows
+are handed to that shared registration owner for integration. Its typed options
+have no numerical defaults. `PublicHotReadSnapshotOwnershipPolicy.TryCreate` requires
+every field, an independently supplied candidate-bound frozen baseline and actual
+registered byte/operation domains from the canonical ledger. An independent immutable
+`PublicHotReadSnapshotOwnershipLimits` input from that policy owner must match every
+configured value; an old baseline binding cannot authorize substituted numerical values.
+It copies the limits;
+shape validation never measures CLR sizes or verifies baseline evidence. Missing,
+unfrozen, unqualified or mismatched inputs refuse admission without changing Auto.
+Required count/revision/capacity values must be positive; omitted values are unknown,
+not zero or unlimited. Explicit zero metadata headroom reserves no extra bytes.
+
+Counts apply per shared ownership group: a representation limit applies to each
+live snapshot; lease, simultaneous snapshot/root and consumer rosters are finite.
+MaximumHolds must cover both root and consumer maxima. The frozen metadata upper
+bound must cover these complete rosters and construction/sealing overlap; upper
+bound plus explicit headroom must fit MetadataCapacityBytes. The code reserves
+that byte sum and MaximumHolds operation slots atomically under the ledger's current
+enforced caps/accounting revision, before constructing attached group metadata.
+It does not invent a physical allocation descriptor or derive the bound from fixture
+counts. Existing backing and already-created producer/snapshot metadata retain their
+own admission requirements; this contract does not qualify or bound those earlier peaks.
+
+The original store's explicit `TryApplySnapshotOwnershipPolicy` and
+`TryAttachSnapshotHostOwnership` consume this contract and genuine supplied read
+leases. Group copies and consumers enforce their respective roster limits. The
+original publisher remains the only publication authority. Final successful source
+lease disposal after the last group hold returns the byte/slot reservation once.
+A release failure leaves it charged and cannot complete a policy drain.
+
+ReloadDisposition is explicitly DrainBeforeApply and ReleaseDisposition is explicitly
+FinalSharedHold; neither has an omission default. A higher policy revision needs new
+frozen evidence. A pending revision stops new group admission, retains existing
+bounded published groups/consumers and applies only after their actual final release.
+Original publication/retirement controls when those roots retire; reload does not
+replace them or claim a logical target is reclaimed memory. Invalid/stale replacements
+leave the current revision intact; the pending roster is bounded to one revision.
+No production frozen values are shipped or Auto path activated here. The canonical
+projector still needs actual admitted content/location/source facts and original
+qualification inputs before this explicit policy can enter production admission.
+
+The established `CspNonceHtmlResponseWriter.WriteBodyAsync` has an explicit
+`TransientBufferLease` overload for caller-admitted nonce scratch.
+`ReservedCspNonceScratchWriter` checks the actual UTF-8 nonce size against the
+logical span and invokes the original `CspNonceUtf8Template.Write`. Immutable
+template segments stream directly into the original response BodyWriter; no
+whole-HTML destination is created. Both overloads use the same original flush
+and canceled/completed-reader handling. The transient operation hold covers that
+flush's terminal event, including backpressure and request cancellation; canceling
+an outer wait cannot refund scratch still held by the response operation. The
+caller retains its own lease until disposal, and the original pool owns clearing
+and retained-capacity accounting. Fixture budgets do not qualify production bounds.
+The caller must preserve exclusive stable scratch ownership and keep its storage
+disjoint from both the immutable template and BodyWriter destination through
+completion. An operation hold preserves lifetime; it does not establish exclusivity
+or detect aliases. For a valid nonce, encoding may write scratch before the original
+template rejects an already-canceled token, so cancellation does not promise an
+unchanged buffer. Pool-owned clearing remains tied to the actual last hold.
+`PublicHotReadFastPath.ServeHtmlWithNonce` currently supplies no admitted scratch
+lease or pool/budget binding, so its default path continues to use the original
+overload. Actual production scratch admission, immutable template/read ownership,
+representation qualification and accepted P01/P05/Auto evidence remain required.
+
+`WindowsNativeMemoryPressureReader` is a raw 64-bit Windows PSAPI2 observation
+surface using system32 `GlobalMemoryStatusEx`, `K32GetPerformanceInfo` and
+`K32GetProcessMemoryInfo`. It fills fixed caller-owned admitted value storage,
+retains native API/scope and per-call UTC/monotonic provenance, and checks page
+conversion and capture clock validity. Omitted mode is Auto; Disabled clears old
+output and makes no native or clock capture. Unsupported targets are separate
+from disabled mode and report unavailable values. Current-process pseudo-handles
+remain borrowed. Physical availability, system commit, process private commit and
+page-fault counts are distinct observations; commit limits are not promoted to
+hard physical/job capacity, private commit is not swap occupancy, and page faults
+are not classified as swap activity. The API/ABI guard (PSAPI2 Windows 6.1+,
+x64/arm64) is not a product support or qualification declaration. All results
+remain `NotVerified`; job/compression/pressure APIs, actual Windows rows, measured
+probe/metadata costs and canonical Auto/readiness integration remain required.
+Native ABI/meanings follow [PERFORMANCE_INFORMATION](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-performance_information)
+and [PROCESS_MEMORY_COUNTERS_EX](https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters_ex).
+
+`PortableMemoryPressureSource.CapturePlatformObservations` is the existing
+observation owner's raw platform caller. It uses its clock and caller-admitted
+output spans to invoke `MacOsSysctlMemoryReader` and
+`WindowsCurrentJobMemoryReader`, with an explicit finite Job query duration.
+Invalid shape or policy clears both owned prefixes before any probe; exceptions
+clear partial rows and preserve caller-owned tails. Disabled makes no native or
+clock capture. The returned metadata and output rows retain each reader's states,
+native meanings and `NotVerified`; they are not inserted into portable comparable
+history. macOS `hw.memsize` is host physical total, while `vm.swapusage` is host
+swap occupancy. Immediate Windows Job limits retain class 9 flags, separate peaks
+and class 13 notification-time occupancy. Query time is not notification time;
+missing Job identity/epoch prohibits cross-frame comparison. No host metric,
+process attribution, headroom or qualification is inferred. Genuine Windows/macOS
+runtime rows, admitted metadata/probe costs, frozen policy, original background
+caller and canonical Auto activation/readiness remain required.

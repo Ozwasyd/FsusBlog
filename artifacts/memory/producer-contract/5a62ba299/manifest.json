@@ -1,0 +1,22 @@
+{
+  "candidate": "5a62ba29959c0b116c71a49fd4bfa2d805116d19",
+  "latestFetchedMaster": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "runId": "projector-contract-d28a983f-1387-41ab-b868-af6241ed1770",
+  "files": [
+    {
+      "path": "contract.md",
+      "size": 7242,
+      "sha256": "54352f2c82d95775aaf3c82448efa47655ac77bdb13f55717e4d133f8520c08e"
+    },
+    {
+      "path": "probe.json",
+      "size": 9583,
+      "sha256": "04d29dc9d26c399eb814da25223fd9c8c12b87acdb55ae1f9f1cdc1ef84f2409"
+    },
+    {
+      "path": "produce-contract.py",
+      "size": 18125,
+      "sha256": "29dab0ae0dd8991dc49e8258f2c964c4a1e2375a1b1ec68a95de232d52893ec7"
+    }
+  ]
+}

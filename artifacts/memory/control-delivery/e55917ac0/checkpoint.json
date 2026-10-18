@@ -1,0 +1,1270 @@
+{
+  "schema": "fsusblog.memory.source-composition-checkpoint.v1",
+  "runId": "mem-3444-platform-aeds-20261009-e55917ac0",
+  "generatedAt": "2026-10-09T08:29:40.125724+00:00",
+  "sourceHead": "e55917ac097e33589766e8b20ab42fabbc51a5b5",
+  "sourceTree": "5654e2f25bb0f0683eccf152c3aad5ccc5b2ec5c",
+  "branch": "codex/mem-3444-compliant-integration",
+  "verifiedOriginMaster": "c04f6bfcac4849638a9ee59e4a3aa34ceb5bb07f",
+  "masterIncorporated": false,
+  "masterDelta": "19 ArticleGraph/FsusUI motion files; no overlap with this increment",
+  "runs": [
+    {
+      "label": "aeds-initial",
+      "sourceSha": "1b917080d4a0aad4ec52c837bf4625b1857608d6",
+      "passed": 20,
+      "failed": 0,
+      "skipped": 0,
+      "selectionPreflight": "aeds-initial/preflight.json",
+      "trx": "aeds-initial/selected.trx"
+    },
+    {
+      "label": "platform",
+      "sourceSha": "69de9395d9855f7ccbac9105742a988311eab12d",
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "selectionPreflight": "platform/preflight.json",
+      "trx": "platform/selected.trx"
+    },
+    {
+      "label": "aeds-cancel",
+      "sourceSha": "e55917ac097e33589766e8b20ab42fabbc51a5b5",
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "selectionPreflight": "aeds-cancel/preflight.json",
+      "trx": "aeds-cancel/selected.trx"
+    }
+  ],
+  "platformSourceBindings": [
+    {
+      "path": "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs",
+      "testedSource": "69de9395d9855f7ccbac9105742a988311eab12d",
+      "unchangedAt": "e55917ac097e33589766e8b20ab42fabbc51a5b5",
+      "sha256": "00d8f9e93de45468330452e3d447a77c5b9e5dfbe0e926c613e5ddc54af4300f"
+    },
+    {
+      "path": "tests/backend/Unit/PlatformMemoryPressureCompositionTests.cs",
+      "testedSource": "69de9395d9855f7ccbac9105742a988311eab12d",
+      "unchangedAt": "e55917ac097e33589766e8b20ab42fabbc51a5b5",
+      "sha256": "d0e4db5682168da4205f6adb0113b91d8544ae0c025f6ca5a1bf8883ea44dffb"
+    }
+  ],
+  "workerEvidenceTipReportedByParent": "02e2ee94073534328a7092cfc9bbe8b4ccc08c33 (writer source remains 556a7d70cdf2912bd9345e13bc039f60bf106b45); supplied audited locked setup is distinct from the historical audit-off run. Current root tests used existing locked assets and no restore; they do not claim a fresh audit-on restore.",
+  "checks": [
+    {
+      "command": "node tools/dotnet/check-csharp-style.mjs --mode changed --file src/backend/Infrastructure/PublicReadArtifacts/ReservedAedsFrameWriter.cs --file tests/backend/Unit/ReservedAedsFrameWriterTests.cs --file src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs --file tests/backend/Unit/ReservedAedsTransientCompositionTests.cs --file src/backend/Infrastructure/Memory/Platform/MacOsSysctlMemoryReader.cs --file tests/backend/Unit/MacOsSysctlMemoryReaderTests.cs --file src/backend/Infrastructure/Memory/Platform/WindowsCurrentJobMemoryReader.cs --file tests/backend/Unit/WindowsCurrentJobMemoryReaderTests.cs --file src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs --file tests/backend/Unit/PlatformMemoryPressureCompositionTests.cs",
+      "exit": 0,
+      "selectedFiles": 10,
+      "evidence": "style-final.log"
+    },
+    {
+      "command": "node tools/governance/check-change-contract.mjs --range 6811bdc6b98ba41efea42733aa44f38de83330c4..e55917ac097e33589766e8b20ab42fabbc51a5b5",
+      "exit": 0,
+      "evidence": "change-contract.log"
+    },
+    {
+      "command": "node tools/docs/generate-document-lifecycle.mjs --check",
+      "exit": 0,
+      "evidence": "document-lifecycle.log"
+    }
+  ],
+  "issues": [
+    {
+      "issue": 3444,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Per-family actual consumer/release/capacity closure and qualified support/offline dependency evidence; source work remains open.",
+      "criteria": [
+        {
+          "id": "MEM-P00-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC08",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3445,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "A genuine systemd user manager and delegated canonical measurement supervisor; then comparable frozen workloads, numerical baseline and performance evidence.",
+      "criteria": [
+        {
+          "id": "MEM-P01-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC08",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3446,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Authoritative finite production P01/P02 values and release/runtime qualification inputs, then existing configuration owner composition.",
+      "criteria": [
+        {
+          "id": "MEM-P02-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC13",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC14",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3447,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Production composition across all resource consumers and frozen metadata/headroom limits; fixtures do not qualify production limits.",
+      "criteria": [
+        {
+          "id": "MEM-P03-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC08",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3448,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Complete production/cross-tier transport, interruption, pin and retirement matrix after accepted stage inputs.",
+      "criteria": [
+        {
+          "id": "MEM-P04-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3450,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Raw platform caller is implemented in PortableMemoryPressureSource.CapturePlatformObservations. Complete domain/ancestor/epoch and sampling provenance, actual v1/zram/Windows/macOS native rows, admitted metadata/probe costs, frozen P01/P02 bounds and canonical background/Auto/readiness remain unverified.",
+      "criteria": [
+        {
+          "id": "MEM-P08-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "Partial source composition: 34/34 ordinary selected tests at 69de9395d9855f7ccbac9105742a988311eab12d"
+    },
+    {
+      "issue": 3451,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "native module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Native owner release/runtime target qualification and source-to-product acceptance; unavailable target rows stay NotVerified.",
+      "criteria": [
+        {
+          "id": "MEM-P05-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3452,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified scoped P08 inputs and frozen comparable P01 calibration; existing scheduler/reclaimer integration and actual outcomes.",
+      "criteria": [
+        {
+          "id": "MEM-P09-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3453,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "disk module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified root/capacity/physical-bound inputs and canonical automatic lifecycle; delegated whole-issue evidence remains open.",
+      "criteria": [
+        {
+          "id": "MEM-P10-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3454,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified baseline/governor/pressure and explicit physical bounds, then existing production startup/readiness/protected diagnostics. Drain APIs are no longer missing.",
+      "criteria": [
+        {
+          "id": "MEM-AUTO-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC15",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC13",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC14",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC16",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3455,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "disk module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified physical/root/inode policy and full default Auto lifecycle; delegated acceptance remains open.",
+      "criteria": [
+        {
+          "id": "MEM-P11-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC06",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3456,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Accepted P01/P05/Auto stage prerequisites followed by implementation at the existing PublicHotRead owner. Concrete P06.4 nonce-scratch source slice identified; no adapter or product caller integration implemented in this run.",
+      "criteria": [
+        {
+          "id": "MEM-P06-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC10",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3457,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Satisfied managed/native/governor/Auto/disk prerequisites; actual scoped pressure and qualified owned spill resources.",
+      "criteria": [
+        {
+          "id": "MEM-P12-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3458,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "OS module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "OS owner real platform/backing/locking/NUMA/I/O qualification and accepted Auto/governor integration; missing OS/architecture rows stay NotVerified.",
+      "criteria": [
+        {
+          "id": "MEM-P16-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC10",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3459,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Known-payload reserved writer and actual TransientBufferLease callback composition are implemented. PublicBinaryArtifact has no transferable body lease and FromFrame still requires byte[]. Unknown-length sizing, source/destination/workspace admission, compression budgets, shared-block publication and frozen performance gates remain incomplete.",
+      "criteria": [
+        {
+          "id": "MEM-P07-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "Partial known-payload composition: 21/21 ordinary selected tests at e55917ac097e33589766e8b20ab42fabbc51a5b5"
+    },
+    {
+      "issue": 3460,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "GPU/peer module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Authoritative per-backend production physical upper bounds and actual supported GPU/driver hardware; accepted P04/P09/Auto/P12 qualification. Controlled observations do not qualify hardware.",
+      "criteria": [
+        {
+          "id": "MEM-P17-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3461,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Satisfied P12/P07 stages and canonical existing publisher/L1/L2 owner integration; source Current is not current-request qualification.",
+      "criteria": [
+        {
+          "id": "MEM-P13-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3462,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "GPU/peer module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Qualified supported ReBAR/peer hardware and accepted GPU/backend/Auto inputs from sole owner.",
+      "criteria": [
+        {
+          "id": "MEM-P18-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3463,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "transient module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Satisfied P13 and production transient/DB/WebSocket ownership integration; fixture evidence does not qualify downstream publication.",
+      "criteria": [
+        {
+          "id": "MEM-P14-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC07",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3464,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "flat-index module task; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Accepted P14 plus production descriptor/index integration and complete corruption/overflow/performance/platform acceptance.",
+      "criteria": [
+        {
+          "id": "MEM-P15-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC09",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3465,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Child platform/product/default-policy/performance evidence, source-governance owner repair and canonical owner resolution of ArticleEndpoint generation/publication assertion failure.",
+      "criteria": [
+        {
+          "id": "MEM-P19-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC12",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3466,
+      "kind": "execution",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Accepted P19, actual finite configuration/readiness/protected diagnostics inputs and safe transition operating tests.",
+      "criteria": [
+        {
+          "id": "MEM-P20-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC12",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC11",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    },
+    {
+      "issue": 3468,
+      "kind": "tracking_only",
+      "wholeIssueAcceptance": "NotAccepted",
+      "owner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "remainingGate": "Complete child criteria, independent P19 matrix and global conflict/review/merge barrier.",
+      "criteria": [
+        {
+          "id": "MEM-EPIC-AC01",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC02",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC03",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC04",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC05",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC06",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC07",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC08",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC09",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC10",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC11",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC12",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "currentRun": "NotRun; acceptance remains blocked"
+    }
+  ],
+  "acceptedIssues": 0,
+  "criteriaAccepted": 0,
+  "preservedFailures": [
+    "style-first-using-failure.log: source 69de9395d, own import ordering, corrected",
+    "style-cancel-working-tree-whitespace-failure.log: uncommitted cancellation test patch, own property whitespace, corrected",
+    "Parent worker strict-warnings prerequisite failures and NU1903 remain separate; normal original builds were not strict gate acceptance."
+  ],
+  "notRun": [
+    "Windows/macOS native runtime or SDK qualification",
+    "native backing/publication, domain/epoch comparison, final product acceptance",
+    "Docker tests",
+    "held source/runtime audits and canonical profiler",
+    "unchanged historical 402-case suite (still bound to 80558c678)",
+    "fresh root restore/audit (no dependencies changed)",
+    "merge/deploy/issue closure or cross-chain conflict phase"
+  ],
+  "publicationBlocker": "No GitHub content-write slot: integration draft PR/update remains queued. Existing #3845 belongs to the older candidate branch, not this increment."
+}

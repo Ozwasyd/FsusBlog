@@ -1,0 +1,9 @@
+{
+  "files": [
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs",
+    "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
+    "tests/backend/Unit/PublicBinaryHostFrameTests.cs"
+  ],
+  "errors": [],
+  "scope": "comment/marker only; full SOURCE not run"
+}

@@ -1,0 +1,38 @@
+{
+  "sourceSha": "e55917ac097e33589766e8b20ab42fabbc51a5b5",
+  "observedAfter": "aeds-cancel selected test terminal success",
+  "files": {
+    "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll": {
+      "size": 20197376,
+      "sha256": "6e19cf7582761916960312d5ef4664133c4eeb574b0b7b1cfc170eff34a74329"
+    },
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": {
+      "size": 20197376,
+      "sha256": "6e19cf7582761916960312d5ef4664133c4eeb574b0b7b1cfc170eff34a74329"
+    },
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": {
+      "size": 15166976,
+      "sha256": "5816665924bca300750a8514db22be0e876939b23ac7436eb68e8fbdef8fba80"
+    },
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Core.dll": {
+      "size": 769024,
+      "sha256": "99f2bed822b6b015866494061ff999d78e10a3f8ecf7269d5462bd39e70d5809"
+    },
+    "tests/backend/obj/project.assets.json": {
+      "size": 291225,
+      "sha256": "0bd7f2a64098eec7cf243c7995bb24e258325579c63e564278436a494ddf7f06"
+    },
+    "src/backend/obj/project.assets.json": {
+      "size": 163660,
+      "sha256": "e52a3f5fb6131d17dc456eada9da119fe98b0bdb2f498982ada7e8b422389063"
+    },
+    "tests/backend/packages.lock.json": {
+      "size": 36957,
+      "sha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9"
+    },
+    "src/backend/packages.lock.json": {
+      "size": 25374,
+      "sha256": "faf347073d76a55c4f48b4621a8591d33d7f2f45fd6330ed9eda3f07ec3ed51c"
+    }
+  }
+}

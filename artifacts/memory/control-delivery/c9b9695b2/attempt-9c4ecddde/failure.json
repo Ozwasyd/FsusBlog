@@ -1,0 +1,7 @@
+{
+  "source": "9c4ecdddedab1515ad0b8f88298432a2532600f6",
+  "phase": "original project discovery/build",
+  "exit": 1,
+  "testExecutionStarted": false,
+  "errors": "New fixture used wrong original TryServeAsync signature and nonexistent Invalidate/DropToEmptyUntilPublish names; production source compiled."
+}

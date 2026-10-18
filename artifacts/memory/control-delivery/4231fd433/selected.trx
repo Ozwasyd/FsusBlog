@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="4a5ee112-5a29-4c26-8540-4f7085a84497" name="@702a19d189ee 2026-10-09 08:39:58" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-09T08:39:58.4792757+00:00" queuing="2026-10-09T08:39:58.4792758+00:00" start="2026-10-09T08:39:55.9872985+00:00" finish="2026-10-09T08:39:58.4848045+00:00" />
+  <TestSettings name="default" id="d63ba658-8428-48d7-bbfe-b1e003dae5a7">
+    <Deployment runDeploymentRoot="_702a19d189ee_2026-10-09_08_39_58" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="129ddaa4-787a-4b06-8217-e9b7f1d565b2" testId="4c49b5f9-4cf5-9bb6-079b-b2248948c90d" testName="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.SameInputSequenceProducesSameTargetsReasonsAndOrderedDegradation" computerName="702a19d189ee" duration="00:00:00.0787022" startTime="2026-10-09T08:39:58.3249757+00:00" endTime="2026-10-09T08:39:58.3914514+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="129ddaa4-787a-4b06-8217-e9b7f1d565b2" />
+    <UnitTestResult executionId="ac856c24-d195-4243-b16c-ce42aff3c381" testId="97103db3-1454-1787-efda-0877d67c85a0" testName="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.OscillationResetsRecoveryWindowAndGrowthIsRateBounded" computerName="702a19d189ee" duration="00:00:00.0009796" startTime="2026-10-09T08:39:58.4022100+00:00" endTime="2026-10-09T08:39:58.4022555+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ac856c24-d195-4243-b16c-ce42aff3c381" />
+    <UnitTestResult executionId="d998bf25-c1ed-40ca-8b75-91d2d3fd8952" testId="e556755f-ed96-83fa-c351-b984e945c54a" testName="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.WallClockForwardJumpCannotSkipTheMonotonicRecoveryWindow" computerName="702a19d189ee" duration="00:00:00.0003822" startTime="2026-10-09T08:39:58.4024864+00:00" endTime="2026-10-09T08:39:58.4025284+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d998bf25-c1ed-40ca-8b75-91d2d3fd8952" />
+    <UnitTestResult executionId="68a5e7fa-bb23-4f0a-acb5-fc68567b5706" testId="7e1a9425-0c15-22ef-0fc3-28de976d6117" testName="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.QualifiedRecoveryCanGrowIndependentSlotsAfterTheStableWindow" computerName="702a19d189ee" duration="00:00:00.0005070" startTime="2026-10-09T08:39:58.4023611+00:00" endTime="2026-10-09T08:39:58.4023991+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="68a5e7fa-bb23-4f0a-acb5-fc68567b5706" />
+    <UnitTestResult executionId="40e29fb7-8130-4189-a20e-36a170664f4c" testId="6326d8df-f5bc-fc1f-c3f5-eebd3b957008" testName="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.MissingPreviousDecisionCannotHideTheCanonicalEnforcedBound" computerName="702a19d189ee" duration="00:00:00.0034672" startTime="2026-10-09T08:39:58.4013414+00:00" endTime="2026-10-09T08:39:58.4014658+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="40e29fb7-8130-4189-a20e-36a170664f4c" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.QualifiedRecoveryCanGrowIndependentSlotsAfterTheStableWindow" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="7e1a9425-0c15-22ef-0fc3-28de976d6117">
+      <Execution id="68a5e7fa-bb23-4f0a-acb5-fc68567b5706" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.MemoryGovernorTests" name="QualifiedRecoveryCanGrowIndependentSlotsAfterTheStableWindow" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.OscillationResetsRecoveryWindowAndGrowthIsRateBounded" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="97103db3-1454-1787-efda-0877d67c85a0">
+      <Execution id="ac856c24-d195-4243-b16c-ce42aff3c381" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.MemoryGovernorTests" name="OscillationResetsRecoveryWindowAndGrowthIsRateBounded" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.WallClockForwardJumpCannotSkipTheMonotonicRecoveryWindow" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="e556755f-ed96-83fa-c351-b984e945c54a">
+      <Execution id="d998bf25-c1ed-40ca-8b75-91d2d3fd8952" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.MemoryGovernorTests" name="WallClockForwardJumpCannotSkipTheMonotonicRecoveryWindow" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.SameInputSequenceProducesSameTargetsReasonsAndOrderedDegradation" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="4c49b5f9-4cf5-9bb6-079b-b2248948c90d">
+      <Execution id="129ddaa4-787a-4b06-8217-e9b7f1d565b2" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.MemoryGovernorTests" name="SameInputSequenceProducesSameTargetsReasonsAndOrderedDegradation" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.MemoryGovernorTests.MissingPreviousDecisionCannotHideTheCanonicalEnforcedBound" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="6326d8df-f5bc-fc1f-c3f5-eebd3b957008">
+      <Execution id="40e29fb7-8130-4189-a20e-36a170664f4c" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.MemoryGovernorTests" name="MissingPreviousDecisionCannotHideTheCanonicalEnforcedBound" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="4c49b5f9-4cf5-9bb6-079b-b2248948c90d" executionId="129ddaa4-787a-4b06-8217-e9b7f1d565b2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="97103db3-1454-1787-efda-0877d67c85a0" executionId="ac856c24-d195-4243-b16c-ce42aff3c381" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e556755f-ed96-83fa-c351-b984e945c54a" executionId="d998bf25-c1ed-40ca-8b75-91d2d3fd8952" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e1a9425-0c15-22ef-0fc3-28de976d6117" executionId="68a5e7fa-bb23-4f0a-acb5-fc68567b5706" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6326d8df-f5bc-fc1f-c3f5-eebd3b957008" executionId="40e29fb7-8130-4189-a20e-36a170664f4c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="5" executed="5" passed="5" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.41]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:01.82]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:01.90]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:02.03]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

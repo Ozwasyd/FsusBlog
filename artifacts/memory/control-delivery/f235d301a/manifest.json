@@ -1,0 +1,112 @@
+{
+  "schema": "fsusblog.memory-source-delivery.v1",
+  "candidate": "f235d301ac94bb647d02626b5c71822fcbc771ba",
+  "runId": "mem-f235d301a-20261008-windows-pressure-source-controls",
+  "evidence": [
+    {
+      "path": "chain-status.json",
+      "sha256": "cdda6fe933a2aeb15d6021b6d33eee1d05eecf357161a1c28d992e3d27c17764",
+      "bytes": 80120
+    },
+    {
+      "path": "chain-status.md",
+      "sha256": "eb6424d33aed6478ae27f941cd8cc1f106d78c6456b8c4f30cd96c7bb06fa154",
+      "bytes": 13049
+    },
+    {
+      "path": "commit-contract.log",
+      "sha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08",
+      "bytes": 54
+    },
+    {
+      "path": "docs.log",
+      "sha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6",
+      "bytes": 38
+    },
+    {
+      "path": "failed-development-0b37c3a68/runtime-checks.json",
+      "sha256": "0aa82c428953751038c4352343f831a0885e1a59b33de2f2e30aad5becb95bb6",
+      "bytes": 1139
+    },
+    {
+      "path": "failed-development-0b37c3a68/source-checks.json",
+      "sha256": "a838130209bc2db2f5fefa1d08bf2e9ec3ea8905f80445d2bd47ce7b76907ce6",
+      "bytes": 2935
+    },
+    {
+      "path": "failed-development-0b37c3a68/test-results/memory-0b37c3a68.trx",
+      "sha256": "0b181368c5ec57244f5f765cb2179ad9dbbddbc96b9b1a5eb1f4dc3ff27431f2",
+      "bytes": 201092
+    },
+    {
+      "path": "failed-development-0b37c3a68/tests.log",
+      "sha256": "fe7004c00260a9a13510b75820bbb7d7a9e1dabaf3cffe2421f07443cb1c2657",
+      "bytes": 446283
+    },
+    {
+      "path": "inventory-produce.log",
+      "sha256": "c31aaad464e76fc0897133e800dd7ec37bcb147124274bba07c019cefe1f964f",
+      "bytes": 227
+    },
+    {
+      "path": "inventory-replay.log",
+      "sha256": "edf9ce0f2b8d7c517fd06049f463ac97074a16d2dc354aaf52b7a6ac708d2d0c",
+      "bytes": 166
+    },
+    {
+      "path": "inventory-strict.log",
+      "sha256": "83942e1a82ef2e97d74ff86a36551a63ae8dba7b3a22cbf947b8f6b42a69f823",
+      "bytes": 99
+    },
+    {
+      "path": "inventory-summary.json",
+      "sha256": "7050c9d7fb3efe4883a7a6d290c94a39bb9c3b8b90fd382445145c61a9f1f60c",
+      "bytes": 405755
+    },
+    {
+      "path": "native-reference-binding.json",
+      "sha256": "1b832840d6f198be62152e5e7c2697e7ac93032ad6436d34f21ee63e05b59564",
+      "bytes": 701
+    },
+    {
+      "path": "official-header-commit.json",
+      "sha256": "9ae56e1678c38a93d6c545599be00e934d10d51683027bf6bb13716f197b3653",
+      "bytes": 81
+    },
+    {
+      "path": "owned-style.log",
+      "sha256": "bbfb2e234c051cd60397d2f1e4e6e2d51cccf51df4e3d95746c9967ed6234027",
+      "bytes": 45
+    },
+    {
+      "path": "platform-capabilities.json",
+      "sha256": "1fde1b7f2b432dc32f4b5f2a76f9a4a8768abab395e6bf82a565a2d73052aeaa",
+      "bytes": 684
+    },
+    {
+      "path": "runtime-checks.json",
+      "sha256": "b615e7702a2d4a42069873ac491d0465b6c26d15e017be644fa51802a817aff6",
+      "bytes": 1139
+    },
+    {
+      "path": "scoped-code-intent.json",
+      "sha256": "f061737c7028a7d227943d377f16539afdb440b15fda73306f99fb103cae440b",
+      "bytes": 381
+    },
+    {
+      "path": "source-checks.json",
+      "sha256": "24b9181137b6e3c55921c4a72854c5dc88bb5c47cfbf0bd1240128214402232c",
+      "bytes": 2935
+    },
+    {
+      "path": "test-results/memory-f235d301a.trx",
+      "sha256": "6cc887aaaeef8663233a19b2989caac51e08dcc2ec5e369568b0fc536ab48f04",
+      "bytes": 199419
+    },
+    {
+      "path": "tests.log",
+      "sha256": "354602081b64bbf726702ba3d025a19b717874b0c3dd3b7961086ba5c54c1406",
+      "bytes": 445476
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "originalCommit": "d9a7cf7c469e51f81e77dafa6796aae59400c7e7",
+  "correctedSubjectCommit": "0868dbaf781fa04365bfd42de256868402c3d534",
+  "treeIdentical": true,
+  "originalPreservedLocalRef": "codex/mem-3444-counter-invalid-scope-receipt",
+  "reason": "Own unpublished commit used disallowed tests scope; corrected to test. Original raw112/113 native PSI-unavailable failure and commit gate1 remain preserved, not promoted. No published/frozen source/evidence commit was rewritten; remote updated normally without force."
+}

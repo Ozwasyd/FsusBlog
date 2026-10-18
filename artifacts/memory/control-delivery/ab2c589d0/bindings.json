@@ -1,0 +1,34 @@
+{
+  "sourceSha": "ab2c589d02fabfa6ed15967f0e58800d2555398a",
+  "observedAfter": "14 ordinary original-project controls completed",
+  "files": {
+    "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll": {
+      "size": 20198400,
+      "sha256": "987d4061303eb10ebd9573c906840422b29c71f85c069e497312f37e2daa1146"
+    },
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": {
+      "size": 20198400,
+      "sha256": "987d4061303eb10ebd9573c906840422b29c71f85c069e497312f37e2daa1146"
+    },
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": {
+      "size": 15201792,
+      "sha256": "38616180225a85c59559777859c4c9a68b92e63c01a862b4cee99ae080d42d97"
+    },
+    "src/backend/Infrastructure/PublicAot/CspNonceUtf8Template.cs": {
+      "size": 21755,
+      "sha256": "c86c6c4c3ac2e808589661b045b2954f8d4afddbfbb69a44324c9b195a2fbf35"
+    },
+    "tests/backend/Unit/CspNonceTransientResponseTests.cs": {
+      "size": 17157,
+      "sha256": "33822561477e3e46c54e4dd6f27fbe3b1a4c1c6a2a94b77abb3195c2c9d64009"
+    },
+    "tests/backend/obj/project.assets.json": {
+      "size": 291225,
+      "sha256": "0bd7f2a64098eec7cf243c7995bb24e258325579c63e564278436a494ddf7f06"
+    },
+    "src/backend/obj/project.assets.json": {
+      "size": 163660,
+      "sha256": "e52a3f5fb6131d17dc456eada9da119fe98b0bdb2f498982ada7e8b422389063"
+    }
+  }
+}

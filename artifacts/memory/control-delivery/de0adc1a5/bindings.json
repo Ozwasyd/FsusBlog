@@ -1,0 +1,137 @@
+[
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs",
+    "size": 29797,
+    "sha256": "9b0b8de9244eb8a3d93a6aa011b63e030a2bc18a79711a0e03659482425a1be5"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
+    "size": 39764,
+    "sha256": "535eed2bc8f736b2d3ca39d0a17f03047efdd9bb691c5e58b800ffa65db01297"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+    "size": 55266,
+    "sha256": "2dae874d73ca294ad6682523b2c9c88826ba1ff470f0bcfc0dfe0599264935e9"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Routing.cs",
+    "size": 19966,
+    "sha256": "1e883a645825ae8d8e4726491f4a405d39146f22a12fea78dd3617b8625fed61"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.Runtime.cs",
+    "size": 8475,
+    "sha256": "467a94531021669d0a45de2548ad7884c7bb4a3c1bbeeda957b95b3d90e7b2e9"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSanity.cs",
+    "size": 16297,
+    "sha256": "8526b1127f59fc2378fa55242464688a4939e1130bbb2441a1f9369930f13e24"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadResidency.cs",
+    "size": 13947,
+    "sha256": "5b781bd7ac5327b2fa142f3c2235e87036c45690e1c0f9559db8d38790c1b99e"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+    "size": 2170,
+    "sha256": "a3fa7fce58ce87e67a92035c1a88b49f1e16d3f1729da59ec84a483c420b669d"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+    "size": 1582,
+    "sha256": "738c50a12419495f231fd38b7055a5aaac0203379d0b3227c240913d7c14d7d4"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+    "size": 18610,
+    "sha256": "a21cd1a3e48234715631c96ce40bd17b6d49c91cd75a46d72b4b48cf3cce2ce7"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+    "size": 4677,
+    "sha256": "d17ac9ca03ec2e5dfb40bf83a761514e82e711ce25319b7f685bf7a2ba973586"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+    "size": 13899,
+    "sha256": "4ec6a62a779ca24c835a465a8cd757df446dcecd4f5a52b37a0a8685bf8653d9"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+    "size": 27304,
+    "sha256": "eea87e039915ebad6b33898cab9e84d74e7edc47be92c7f0cf1e6b1621493209"
+  },
+  {
+    "path": "tests/backend/Unit/PublicBinaryHostFrameTests.cs",
+    "size": 18783,
+    "sha256": "d68e4179cb500e986155eb599b38c85435b261df55e6e7566e86cbdb597c7740"
+  },
+  {
+    "path": "tests/backend/Unit/PublicHotReadFastPathTests.cs",
+    "size": 99424,
+    "sha256": "d675886b1c49a3b53755bf86f5dfe7b819bb214c9ddf7b59c38657c0cf923801"
+  },
+  {
+    "path": "tests/backend/FsusBlog.Server.Tests.csproj",
+    "size": 2812,
+    "sha256": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/ReservedAedsFrameWriter.cs",
+    "size": 3577,
+    "sha256": "ac21d70188d98164c57fa4760f2f19ea24a483075f2ee68edd4b1b9e199019ff"
+  },
+  {
+    "path": "tests/backend/Unit/ReservedAedsFrameWriterTests.cs",
+    "size": 6206,
+    "sha256": "ee1179e3ac7b3d7fab8dfce093e64378f7ba9c974f1f334ac79efdc6ab80707c"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicAot/ReservedCspNonceScratchWriter.cs",
+    "size": 1226,
+    "sha256": "a1a9627a1d849911f71b39b01b66fbc3bc1ef422b1ab979bf8b2ce97ab5ad130"
+  },
+  {
+    "path": "tests/backend/Unit/ReservedCspNonceScratchWriterTests.cs",
+    "size": 9464,
+    "sha256": "782d010cf834308a1ac7322292a08b29dab6ee7496656d146c093b7ea3fa2759"
+  },
+  {
+    "path": "docs/architecture/repository-layout.md",
+    "size": 49918,
+    "sha256": "948ad05c2c3a847f2358785dd71ade5e174c71e439e2b0e3465ab8819a872ace"
+  },
+  {
+    "path": "tests/backend/obj/project.assets.json",
+    "size": 291225,
+    "sha256": "0bd7f2a64098eec7cf243c7995bb24e258325579c63e564278436a494ddf7f06"
+  },
+  {
+    "path": "src/backend/obj/project.assets.json",
+    "size": 163660,
+    "sha256": "e52a3f5fb6131d17dc456eada9da119fe98b0bdb2f498982ada7e8b422389063"
+  },
+  {
+    "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+    "size": 20200448,
+    "sha256": "adc37cd794f208699fc4d7c520e5dbf6a51eeb2e99b644ef340797e18cc62b37"
+  },
+  {
+    "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+    "size": 20200448,
+    "sha256": "adc37cd794f208699fc4d7c520e5dbf6a51eeb2e99b644ef340797e18cc62b37"
+  },
+  {
+    "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+    "size": 15229952,
+    "sha256": "b8a75b8691d3d20755971fdca99db459b1406707a2173d22a3ec06d2d0895a7f"
+  },
+  {
+    "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.pdb",
+    "size": 3144404,
+    "sha256": "911560134ba04473dd1e6f16f2d8436b124e1993be6aa5eda6dfebe5d4ecebf6"
+  }
+]

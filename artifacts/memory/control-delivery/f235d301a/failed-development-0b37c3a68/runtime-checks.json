@@ -1,0 +1,21 @@
+{
+  "candidate": "0b37c3a685dfbb272548fb7216b2954bbcdcdc2b",
+  "sourceAfter": "0b37c3a685dfbb272548fb7216b2954bbcdcdc2b",
+  "runId": "mem-0b37c3a68-20261008-windows-pressure-source-controls",
+  "startedAt": "2026-10-08T15:11:50.757943+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~WindowsNativeMemoryPressureReaderTests|FullyQualifiedName~LinuxCgroupCounterParserTests|FullyQualifiedName~LinuxCgroupContextReaderTests|FullyQualifiedName~LinuxCgroupDirectoryReaderTests|FullyQualifiedName~LinuxCgroupScopeResolverTests|FullyQualifiedName~LinuxProcMemoryPressureTests|FullyQualifiedName~PortableMemoryPressureTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests",
+    "--logger",
+    "trx;LogFileName=memory-0b37c3a68.trx",
+    "--results-directory",
+    ".tmp/memory-integration/0b37c3a68/test-results"
+  ],
+  "exitCode": 1,
+  "artifact": ".tmp/memory-integration/0b37c3a68/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/0b37c3a68/data"
+}

@@ -1,0 +1,1896 @@
+{
+  "schema": "fsusblog.memory-chain-progress.v1",
+  "baseline": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "candidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+  "runId": "mem-3bf5fbf9f-20261008-gpu-frozen-physical-inputs",
+  "branch": "codex/mem-3444-compliant-integration",
+  "preservedPreviousBranch": "codex/mem-3444-pre-metadata-repair",
+  "preservedPreviousHead": "091818b633a4d1c0edc2c9dc16dfcd0a6fae11df",
+  "pr": {
+    "preservedDraftUrl": "https://github.com/Ozwasyd/FsusBlog/pull/3845",
+    "preservedDraftHead": "d5f0c0ca919c85e7003f4c3e5b6cd9e6c4f8439a",
+    "containsCurrentCandidate": false,
+    "newDraftCreated": false,
+    "blocker": "Coordinating parent content-write queue has not granted PR creation or metadata writes."
+  },
+  "executionIssues": 22,
+  "trackingIssues": 1,
+  "acceptedIssues": 0,
+  "issues": [
+    {
+      "issue": 3444,
+      "title": "[HIGH DIFFICULTY] [MEM-P00] Establish the candidate-bound allocation inventory and ownership boundaries",
+      "kind": "execution",
+      "status": "84 families/3762 lexical sites produced and independently replayed on this candidate. Strict completion refuses unresolved semantic lifetime/support. Shared source registrations separately published and tested against exact arena/flat closures.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [],
+      "smallestMissingCapability": "Per-family actual consumer/release/capacity closure and qualified support/offline dependency evidence; source work remains open.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P00-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P00-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 4,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3445,
+      "title": "[HIGH DIFFICULTY] [MEM-P01] Freeze comparable workload baselines, byte-level oracles, and numerical acceptance gates",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Ten current serving/HTTP/ArticleProjection byte-oracle controls pass. Last actual canonical P01 lane on 4b1971ca3 failed before measurement; no new supervisor or comparable numerical baseline is available.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3444
+      ],
+      "smallestMissingCapability": "A genuine systemd user manager and delegated canonical measurement supervisor; then comparable frozen workloads, numerical baseline and performance evidence.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P01-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P01-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 3,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3446,
+      "title": "[HIGH DIFFICULTY] [MEM-P02] Define memory contracts and the default Auto capability policy",
+      "kind": "execution",
+      "status": "Existing Auto contracts retained. Frozen GPU policy retains explicit physical device/staging bounds, identity/epoch/revisions/expiry and shared canonical caps. Missing bounds reject without invented defaults.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3444
+      ],
+      "smallestMissingCapability": "Authoritative finite production P01/P02 values and release/runtime qualification inputs, then existing configuration owner composition.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P02-AC11",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC13",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC12",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC14",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P02-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 2,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3447,
+      "title": "[HIGH DIFFICULTY] [MEM-P03] Implement exact allocation accounting and atomic multi-resource reservations",
+      "kind": "execution",
+      "status": "Canonical existing byte/inode adoption consumed by real disk source.10 ledger,5 existing,5 admission controls pass. Actual controlled GPU observation32 charges32 within prior explicit admission.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3446
+      ],
+      "smallestMissingCapability": "Production composition across all resource consumers and frozen metadata/headroom limits; fixtures do not qualify production limits.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P03-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P03-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 2,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3448,
+      "title": "[HIGH DIFFICULTY] [MEM-P04] Prove asynchronous ownership and lease-safe retirement on managed backing",
+      "kind": "execution",
+      "status": "Real1dec reader/root/store/GPU drain166-test receipt preserved. Current4 owner integration tests pass, including repeated/cancelled wait, retention and bounded rejection. Dispose return is never drain proof.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3447
+      ],
+      "smallestMissingCapability": "Complete production/cross-tier transport, interruption, pin and retirement matrix after accepted stage inputs.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P04-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P04-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 3,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3450,
+      "title": "[HIGH DIFFICULTY] [MEM-P08] Implement provenance-aware portable and platform memory-pressure sources",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Eleven portable and fourteen Linux-proc controls pass, including available real Linux observations and independent inode units. Qualified scoped external input types exist; actual cgroup/release scope qualification remains missing.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3447
+      ],
+      "smallestMissingCapability": "Actual cgroup membership/mount/ancestor identity qualification and scoped source implementation; Windows/macOS native adapters and their real environments; frozen sampling performance gates and Auto integration.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P08-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P08-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 2,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3451,
+      "title": "[HIGH DIFFICULTY] [MEM-P05] Implement a BCL-only segmented native arena with explicit owners",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Supplied native source is consumed; 28 original-project native arena controls pass. Native owner retirement uses its real Drained task. Production qualification and P01 gates remain open.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3445,
+        3448
+      ],
+      "smallestMissingCapability": "Native owner release/runtime target qualification and source-to-product acceptance; unavailable target rows stay NotVerified.",
+      "missingCapabilityOwner": "native module task; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P05-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P05-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "native module task",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3452,
+      "title": "[HIGH DIFFICULTY] [MEM-P09] Implement the adaptive memory governor and measured reclamation feedback",
+      "kind": "execution",
+      "status": "16 governor and5 admission controls pass. Enforced cap retention and measured feedback remain separate from requested reclamation.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3445,
+        3450
+      ],
+      "smallestMissingCapability": "Qualified scoped P08 inputs and frozen comparable P01 calibration; existing scheduler/reclaimer integration and actual outcomes.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P09-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P09-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3453,
+      "title": "[HIGH DIFFICULTY] [MEM-P10] Implement shared-volume disk budgets and an owned spill-root safety boundary",
+      "kind": "execution",
+      "status": "Disk owner979253b6513ebcbf2ff69c513e5f926050e4eee2 consumed. Real borrowing stores/root and canonical existing-resource adoption integrated; current affected store75 controls pass.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3447,
+        3450
+      ],
+      "smallestMissingCapability": "Qualified root/capacity/physical-bound inputs and canonical automatic lifecycle; delegated whole-issue evidence remains open.",
+      "missingCapabilityOwner": "disk module task; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P10-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P10-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "disk module task",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3454,
+      "title": "[HIGH DIFFICULTY] [MEM-AUTO] Implement automatic capability discovery, activation, disable, and bounded recovery",
+      "kind": "execution",
+      "status": "Actual GPU and store Drained tasks now consumed. Caller transfers complete bounded root borrower roster; root closes only after every success, faults retain custody.15 controller,4 owner integration and10 frozen GPU policy controls pass.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3446,
+        3447,
+        3448,
+        3450,
+        3452
+      ],
+      "smallestMissingCapability": "Qualified baseline/governor/pressure and explicit physical bounds, then existing production startup/readiness/protected diagnostics. Drain APIs are no longer missing.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-AUTO-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC15",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC11",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC13",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC12",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC14",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-AUTO-AC16",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3455,
+      "title": "[HIGH DIFFICULTY] [MEM-P11] Implement bounded disk segments, recovery, and lease-aware compaction",
+      "kind": "execution",
+      "status": "Actual sole-owner Drained API consumed;75 affected segment/recovery/compaction/drain controls pass. Root remains caller-owned until every declared borrower drains.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3453
+      ],
+      "smallestMissingCapability": "Qualified physical/root/inode policy and full default Auto lifecycle; delegated acceptance remains open.",
+      "missingCapabilityOwner": "disk module task; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P11-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P11-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "disk module task",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3456,
+      "title": "[HIGH DIFFICULTY] [MEM-P06] Integrate native PublicHotRead payloads without changing serving semantics",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Ten current serving/byte-oracle and sixteen owned-frame controls pass. Native PublicHotRead publication/lease integration and production equivalence remain unimplemented pending P01/native/Auto acceptance. Earlier broad suite failures are retained.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3445,
+        3451,
+        3454
+      ],
+      "smallestMissingCapability": "Accepted P01/P05/Auto stage prerequisites followed by implementation at the existing PublicHotRead owner.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P06-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P06-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3457,
+      "title": "[HIGH DIFFICULTY] [MEM-P12] Implement revision-safe tier migration and proactive no-swap spill",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Revision-safe native/disk tier migration and proactive no-swap spill remain unimplemented. Accepted managed/native/governor/Auto/disk prerequisites and qualified pressure/eligibility inputs are still absent.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3448,
+        3451,
+        3452,
+        3454,
+        3455
+      ],
+      "smallestMissingCapability": "Satisfied managed/native/governor/Auto/disk prerequisites; actual scoped pressure and qualified owned spill resources.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P12-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P12-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3458,
+      "title": "[HIGH DIFFICULTY] [MEM-P16] Implement auto-selected OS page, NUMA, locking, and advanced I/O backends",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Delegated source consumed; 31 OS page/NUMA controls pass. Actual supported platform/page/locking/NUMA/I/O and automatic selection qualification remain NotVerified.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3450,
+        3451,
+        3452,
+        3454
+      ],
+      "smallestMissingCapability": "OS owner real platform/backing/locking/NUMA/I/O qualification and accepted Auto/governor integration; missing OS/architecture rows stay NotVerified.",
+      "missingCapabilityOwner": "OS module task; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P16-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P16-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "OS module task",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3459,
+      "title": "[HIGH DIFFICULTY] [MEM-P07] Bound snapshot build, compression, overlay, and shared-block peaks",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Three bounded single-flight, sixteen owned-frame, thirteen release-topology and eighteen release-lifecycle controls pass. Complete snapshot build/compression/overlay/shared-block peak governance awaits accepted P06 integration and frozen P01 measurements.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3456
+      ],
+      "smallestMissingCapability": "Accepted native serving integration P06 before changing its canonical build/retirement owners.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P07-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P07-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3460,
+      "title": "[HIGH DIFFICULTY] [MEM-P17] Implement auto-discovered GPU memory backends and operation-owned staging in C#",
+      "kind": "execution",
+      "status": "Exact5b4305,01fd2dba,b8b855 source consumed.132 GPU/native/Metal/peer controls pass in this consumer run, plus root10 frozen-bound controls. Actual observation is committed, unusable observations reject, stopped faults retain custody.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3448,
+        3452,
+        3454,
+        3457
+      ],
+      "smallestMissingCapability": "Authoritative per-backend production physical upper bounds and actual supported GPU/driver hardware; accepted P04/P09/Auto/P12 qualification. Controlled observations do not qualify hardware.",
+      "missingCapabilityOwner": "GPU/peer module task; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P17-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC12",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC11",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P17-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "GPU/peer module task",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3461,
+      "title": "[HIGH DIFFICULTY] [MEM-P13] Integrate PublicAOT and L1/L2 ownership without duplicating publication authorities",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Existing release topology/lifecycle boundaries have 31 passing controls. Complete PublicAOT/L1/L2 governed tier integration remains blocked by P12/P07; publication/revocation authorities remain unchanged.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3457,
+        3459
+      ],
+      "smallestMissingCapability": "Satisfied P12/P07 stages and canonical existing publisher/L1/L2 owner integration; source Current is not current-request qualification.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P13-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P13-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3462,
+      "title": "[HIGH DIFFICULTY] [MEM-P18] Implement qualified automatic ReBAR mappings and supported peer-transfer paths",
+      "kind": "execution",
+      "status": "Current39 peer capability/mapping/transfer controls pass within132 GPU total; no mapping/BAR hardware support promoted.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3460
+      ],
+      "smallestMissingCapability": "Qualified supported ReBAR/peer hardware and accepted GPU/backend/Auto inputs from sole owner.",
+      "missingCapabilityOwner": "GPU/peer module task; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P18-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P18-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "GPU/peer module task",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3463,
+      "title": "[HIGH DIFFICULTY] [MEM-P14] Govern transient buffers, pools, database materialization, and WebSocket fanout",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Delegated transient source consumed; seven pool, four DB materialization and three notification payload controls pass. Actual governed production fanout/materialization and all required integration/performance evidence remain open.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3461
+      ],
+      "smallestMissingCapability": "Satisfied P13 and production transient/DB/WebSocket ownership integration; fixture evidence does not qualify downstream publication.",
+      "missingCapabilityOwner": "transient module task; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P14-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P14-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "transient module task",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3464,
+      "title": "[HIGH DIFFICULTY] [MEM-P15] Implement flat unmanaged descriptors and indexes with a reference oracle",
+      "kind": "execution",
+      "status": "Historical3ab receipt retained, not rerun in this focused272 run: Delegated flat index source consumed; fourteen flat-index/reference-oracle controls pass. Complete descriptors/index scope and frozen candidate performance acceptance remain open.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3463
+      ],
+      "smallestMissingCapability": "Accepted P14 plus production descriptor/index integration and complete corruption/overflow/performance/platform acceptance.",
+      "missingCapabilityOwner": "flat-index module task; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P15-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P15-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "flat-index module task",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336"
+    },
+    {
+      "issue": 3465,
+      "title": "[HIGH DIFFICULTY] [MEM-P19] Close the complete correctness, automatic-behavior, platform, and performance evidence matrix",
+      "kind": "execution",
+      "status": "All22 execution and tracking3468 accounted;237 mandatory criteria still NotAccepted. Current272 focused controls pass; failed301 expanded run and independent ArticleEndpoint failure retained. Complete matrix remains unclosed.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3458,
+        3462,
+        3464
+      ],
+      "smallestMissingCapability": "Child platform/product/default-policy/performance evidence, source-governance owner repair and canonical owner resolution of ArticleEndpoint generation/publication assertion failure.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P19-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC11",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P19-AC12",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3466,
+      "title": "[HIGH DIFFICULTY] [MEM-P20] Ship default Auto configuration, safe transitions, diagnostics, and complete operating documentation",
+      "kind": "execution",
+      "status": "Current ownership/Auto/GPU physical policy boundaries documented; no production startup/default activation or diagnostics route wired. Historical receipts preserved.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [
+        3465
+      ],
+      "smallestMissingCapability": "Accepted P19, actual finite configuration/readiness/protected diagnostics inputs and safe transition operating tests.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-P20-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC12",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-P20-AC11",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 0,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    },
+    {
+      "issue": 3468,
+      "title": "[HIGH DIFFICULTY] [MEM-EPIC] Deliver the complete C# memory and residency system with default Auto capabilities",
+      "kind": "tracking_only",
+      "status": "Tracking only: all22 execution children/237 criteria retained NotAccepted; shared registry and drain/policy source handoffs recorded; no parent implementation.",
+      "sourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "acceptancePrerequisites": [],
+      "smallestMissingCapability": "Complete child criteria, independent P19 matrix and global conflict/review/merge barrier.",
+      "missingCapabilityOwner": "this root; qualification/resource authority for missing release/runtime evidence",
+      "criteria": [
+        {
+          "id": "MEM-EPIC-AC01",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC02",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC03",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC04",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC05",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC06",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC07",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC08",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC09",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC10",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC11",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        },
+        {
+          "id": "MEM-EPIC-AC12",
+          "status": "NotVerified",
+          "acceptance": "NotAccepted"
+        }
+      ],
+      "owner": "this root",
+      "accepted": false,
+      "currentIssueState": "OPEN",
+      "currentCommentCount": 4,
+      "evidenceLimit": "Passed development/source controls are separate from unmet prerequisites, runtime/platform qualification and whole-issue acceptance. Fixture qualified facts are not production qualification.",
+      "blockedStage": "Stage prerequisites and required evidence remain unsatisfied; source/contract fixtures do not qualify the downstream production stage.",
+      "testedCandidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    }
+  ],
+  "notRun": [
+    "Docker acceptance (delivery-agent prohibition; authorized owner required)",
+    "Windows/macOS/ARM64 actual platform tests",
+    "GPU/ReBAR/peer real hardware qualification",
+    "Product runtime/automatic behavior/performance acceptance and full-scope matrix",
+    "Unchanged broad-suite repeat: prior 540-test source run had six unresolved PublicHotRead/shared-budget assertions; current 416-test focused run does not certify them."
+  ],
+  "limits": [
+    "Official locked NuGet restores executed using configured SDK/cache; original backend and benchmark compilation ran successfully.",
+    "No gate, threshold, issue definition, or frozen evidence weakened; no fabricated platform/runtime receipt.",
+    "No production mutation, merge, deployment, issue closure, default-branch push, force push or GitHub content API write."
+  ],
+  "acceptanceNotes": [
+    "All 23 current issue bodies/comments read, and all 237 mandatory criterion IDs unchanged. Every criterion remains NotAccepted; passing source/development controls are recorded separately.",
+    "Original frozen/source receipts preserved; failed and superseded test output retained. No numerical gate, test predicate, issue dependency or platform support row weakened.",
+    "Downstream product stages remain blocked by their actual prerequisites. No source fixture, host observation, portable observation or legacy receipt is promoted to automatic/platform/product qualification."
+  ],
+  "sourceAssertions": {
+    "baseline": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "latestMasterIsAncestor": false,
+    "commitContractExitCode": 0,
+    "ownedChangedCSharpStyleExitCode": 0,
+    "inventoryFamilies": 84,
+    "lexicalSites": 3762,
+    "resolvedLexicalSites": 0,
+    "strictInventoryExitCode": 1,
+    "sourceAdmissionExitCode": 1,
+    "codeIntentExitCode": 1,
+    "unrelatedCodeIntentFailure": "src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp:338 unbounded no allocation claim",
+    "oldCurrentMasterAncestryAndRootRefsBlockersResolvedInNewCandidate": true,
+    "oldFrozenReceiptsUnchanged": true,
+    "incorporatedMasterIsAncestor": true,
+    "inventoryCandidateFingerprint": "sha256:b368ea66a5174f371f63d69f30aa677b169a4ba753a7b66547108d043e6b14ae",
+    "wholeSourceGate": "NotRun on current metadata-only candidate; existing unchanged failure on b8cdf988e and cd11cfee5 retained"
+  },
+  "remainingGateRequests": [
+    {
+      "owner": "measurement environment authority",
+      "issue": 3445,
+      "input": "Genuine booted systemd user manager/delegated canonical supervisor; PID1 tail and readonly uid_map denial unchanged. Freeze comparable P01 gates before results."
+    },
+    {
+      "owner": "capability qualification/policy authority",
+      "issues": [
+        3446,
+        3454,
+        3460
+      ],
+      "input": "Device/backend/driver-specific explicit MaximumObservedDeviceCapacityBytes and MaximumObservedStagingCapacityBytes, identity/revisions/finite validity and qualified production policy. No32-byte fixture default."
+    },
+    {
+      "owner": "parent to identify canonical ArticleEndpoint generation/publication owner",
+      "issues": [
+        3456,
+        3465
+      ],
+      "input": "Exact source repair and original assertion evidence for ArticleEndpointServiceTests.GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame:382. Expanded300/301 and independent0/1 fail; service/test/PublicReadArtifacts unchanged since1dec."
+    },
+    {
+      "owner": "canonical C# governance owner",
+      "input": "Preserved delegate return-type and singular Access enum parser failures; no GPU rename or waiver."
+    },
+    {
+      "owner": "coordinating parent content-write queue",
+      "input": "Issue/PR content-write slot; draft3845 remains old head."
+    }
+  ],
+  "ciPolicy": {
+    "githubCiDispatched": false,
+    "protectedBranchAcceptance": "Not claimed; separate review/merge phase owner",
+    "localChecks": "Current source/fixture evidence only; failures retained and runtime/product/platform prerequisites remain open."
+  },
+  "latestOriginMaster": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "currentIncrement": {
+    "sourceCommits": [
+      "1dec415048d363c3839867b25c886a9f7a260379",
+      "3a0af76e0d281e5446e4e0c95b720eee2d8c0697",
+      "3bf5fbf9f9a4502b9df262b993f0af836be35d2c"
+    ],
+    "scope": "Actual GPU/store drain consumption and caller-owned disk root composition; frozen explicit GPU physical-bound policy with canonical observed CommitPhysical; no production startup or serving activation",
+    "runtime": "272 exact affected controls passed; real1dec166 source receipt preserved. Expanded300/301 and independent ArticleEndpoint0/1 failures retained."
+  },
+  "publication": {
+    "branch": "codex/mem-3444-compliant-integration",
+    "remoteSourceCommit": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+    "remoteVerified": true,
+    "newPrCreated": false,
+    "markerEvidenceBranch": "codex/mem-3444-marker-handoff-evidence",
+    "markerEvidenceCommit": "33c59592443f579d285677eadc4c54549f5fdcf8"
+  },
+  "consumedExactHandoffs": {
+    "diskSource": "89fe3fcb77d123f85a8c94ccb9048545577aad4d",
+    "diskHead": "979253b6513ebcbf2ff69c513e5f926050e4eee2",
+    "osHead": "123468f7accbc2ef0f77e352ee106c7b771bf330",
+    "nativeComment": "c357adcceece375736a4f683915735771215fb0c",
+    "gpuComments": "5f96d97c9c1018b3777d3c14211d37bc5d908d18",
+    "transientHead": "11eb86ddf707a631578dccd792d95e804e79da34",
+    "transientVerificationProjectionPrefixSupplied": "a034dd071",
+    "projectionPrefixNotConsumedAsCommit": true,
+    "diskImplementationParents": [
+      "bb6fbdc602a82f2aa496a2c373fd5281db50f558",
+      "89fe3fcb77d123f85a8c94ccb9048545577aad4d"
+    ],
+    "gpuDrain": "5b4305a92a015e17768bd2b37098f638b2ce8f1e",
+    "diskDrain": "fa255376f7b25721b12860279bf444899852373a",
+    "gpuCleanup": "01fd2dba07c325f17afd351db04c531a65c0966e",
+    "gpuPhysicalObservation": "b8b855fc7c95085899f91435f9daff650d6c48f2"
+  },
+  "contractHandoff": {
+    "sourceCommit": "56d502a929a1d394d1e071eae7550b1129b9f3f5",
+    "testedCandidate": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "file": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+    "constructorAdditionalOptionalArgument": "IEnumerable<ResourceDomainId>? existingPhysicalDomains = null",
+    "consumerMethod": "MemoryReservation.CommitObservedExisting(MemoryAllocationDescriptor descriptor, IReadOnlyList<MemoryResourceCharge> observedExistingPhysicalCharges, IReadOnlyList<MemoryResourceCharge> newlyAdmittedCharges, ulong observedPolicyRevision)",
+    "testsPassed": 5,
+    "scope": "Existing storage owner verifies identity and retains backing; actual object adoption, replacement safety and failed deletion charge retention stay with Disk owner; not fresh disk credit or automatic qualification.",
+    "governorSource": "8f239179be65e56fdd213df1a9eef9a8fdb5694d",
+    "autoSource": "b8cdf988e2134883fdd7ddf87bd448cbde6b6815",
+    "clockFix": "a74f87df104be90a864c53ce0fcbe7ffc1b6f7de",
+    "actualDiskComposition": "DiskSegmentStoreTests Fixture uses canonical coordinator existingPhysicalDomains [disk,inode]",
+    "enforcedSnapshotSource": "3ab22813a1e593a9157e25b6a029b295c0721336",
+    "enforcedSnapshotContract": "HardCaps records configured limits; EnforcedHardCaps is a detached immutable snapshot of configured/governed minimums. The seven-argument snapshot constructor remains source-compatible."
+  },
+  "verification": {
+    "runtime": {
+      "candidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "sourceAfter": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+      "runId": "mem-3bf5fbf9f-20261008-gpu-frozen-physical-inputs",
+      "startedAt": "2026-10-08T13:22:18.320195+00:00",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--filter",
+        "FullyQualifiedName~MemoryCapabilityControllerTests|FullyQualifiedName~MemoryCapabilityOwnerIntegrationTests|FullyQualifiedName~MemoryCapabilityGpuAllocationPolicyTests|FullyQualifiedName~.Gpu|FullyQualifiedName~DiskSegmentStoreTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests|FullyQualifiedName~MemoryReservationCoordinatorTests|FullyQualifiedName~MemoryExistingAllocationTests",
+        "--logger",
+        "trx;LogFileName=memory-3bf5fbf9f.trx",
+        "--results-directory",
+        ".tmp/memory-integration/3bf5fbf9f/test-results"
+      ],
+      "exitCode": 0,
+      "artifact": ".tmp/memory-integration/3bf5fbf9f/tests.log",
+      "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/3bf5fbf9f/data",
+      "compiledAtCandidate": "3a0af76e0d281e5446e4e0c95b720eee2d8c0697",
+      "metadataOnlyDelta": [
+        "config/development/memory-allocation-boundaries.json"
+      ],
+      "binariesBefore": {
+        "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "911902f5669d70b8417b76ed2ea9ea6a0181bc6684b4d48b0ad4b04f2e91d21d",
+        "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "04e14500bb8f63ad5a19c252685157efdd2649694b11917be0680b4c55e6bf5c"
+      },
+      "binariesAfter": {
+        "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "911902f5669d70b8417b76ed2ea9ea6a0181bc6684b4d48b0ad4b04f2e91d21d",
+        "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "04e14500bb8f63ad5a19c252685157efdd2649694b11917be0680b4c55e6bf5c"
+      },
+      "previousExpandedFilterFailedReceipt": ".tmp/memory-integration/3a0af76e0/runtime-checks.json",
+      "scope": "Exact affected classes; previous Gpu substring unexpectedly selected DuringPublication tests. The failed 301-test result is retained and not waived."
+    },
+    "inventoryCoverage": {
+      "discoveredSites": 3762,
+      "resolvedSites": 0,
+      "unresolvedSites": 3762
+    },
+    "families": 84,
+    "strictExitCode": 1,
+    "scopedCodeIntent": {
+      "errors": [],
+      "checkedFiles": 3,
+      "scopedFiles": 0
+    },
+    "failedExpandedRun": "previous-expanded-3a0af76e0/runtime-checks.json",
+    "failedIndependentArticleDiagnostic": "article-diagnostic.trx"
+  },
+  "statusUpdatedAt": "2026-10-08T13:29:10.209522+00:00",
+  "incorporatedMaster": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "currentIssueReads": [
+    ".tmp/memory-integration/issue-3459-current.json",
+    ".tmp/memory-integration/issue-3450-current.json",
+    ".tmp/memory-integration/issue-3444-current.json",
+    ".tmp/memory-integration/issue-3468-current.json",
+    ".tmp/memory-integration/issue-3454-current.json",
+    ".tmp/memory-integration/issue-3465-current.json",
+    ".tmp/memory-integration/issue-3456-current.json",
+    ".tmp/memory-integration/issue-3466-current.json",
+    ".tmp/memory-integration/issue-3461-current.json",
+    ".tmp/memory-integration/issue-3457-current.json"
+  ]
+}

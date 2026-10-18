@@ -1,0 +1,202 @@
+[
+  {
+    "path": "config/application/backend-configuration-contract.json",
+    "size": 300811,
+    "sha256": "a6360cad2cc964babc85c3a7b3354a23cad5e3c8743d21ac16ba5acefbd4ffd2"
+  },
+  {
+    "path": "docs/architecture/repository-layout.md",
+    "size": 55752,
+    "sha256": "8527f512327cb5121c25d3d2c6ebd90a4b4bfdfbc83aaa170d4812ce703a2017"
+  },
+  {
+    "path": "docs/configuration/backend-configuration-reference.generated.md",
+    "size": 125466,
+    "sha256": "3b28d314180366eba6aff048fcabb0e11114d0ba35a2102a9e5fece026de6ab7"
+  },
+  {
+    "path": "src/backend/Entities/SystemConfig.cs",
+    "size": 465,
+    "sha256": "3b09c11f460dd45770c4e4c1d437fb0f974245b6c20a557c03dc296e65a56e7a"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+    "size": 27304,
+    "sha256": "eea87e039915ebad6b33898cab9e84d74e7edc47be92c7f0cf1e6b1621493209"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+    "size": 2170,
+    "sha256": "a3fa7fce58ce87e67a92035c1a88b49f1e16d3f1729da59ec84a483c420b669d"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+    "size": 1582,
+    "sha256": "738c50a12419495f231fd38b7055a5aaac0203379d0b3227c240913d7c14d7d4"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+    "size": 4677,
+    "sha256": "d17ac9ca03ec2e5dfb40bf83a761514e82e711ce25319b7f685bf7a2ba973586"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+    "size": 13899,
+    "sha256": "4ec6a62a779ca24c835a465a8cd757df446dcecd4f5a52b37a0a8685bf8653d9"
+  },
+  {
+    "path": "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+    "size": 18610,
+    "sha256": "a21cd1a3e48234715631c96ce40bd17b6d49c91cd75a46d72b4b48cf3cce2ce7"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicAot/ReservedCspNonceScratchWriter.cs",
+    "size": 1226,
+    "sha256": "a1a9627a1d849911f71b39b01b66fbc3bc1ef422b1ab979bf8b2ce97ab5ad130"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotArtifactProjector.cs",
+    "size": 68883,
+    "sha256": "01109f9199aa0e7484684a9d464b3c2ed5115192e0b3730c995493b499e4cd02"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Routing.cs",
+    "size": 19966,
+    "sha256": "1e883a645825ae8d8e4726491f4a405d39146f22a12fea78dd3617b8625fed61"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs",
+    "size": 41166,
+    "sha256": "8272a9861da2a59f3005d772878cbb219ec7de6301c3577561cb50f023ffb089"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.cs",
+    "size": 58999,
+    "sha256": "4e15e5eed9e20dba509ee5fb3ef92473f898a688cea0098dcddbb5f7e9683da9"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadMetrics.cs",
+    "size": 30704,
+    "sha256": "98e8deab9bd7cf3e1ea7e68373598dba17b14ff4e4e1bf46cc73615f972276f0"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadResidency.cs",
+    "size": 13947,
+    "sha256": "5b781bd7ac5327b2fa142f3c2235e87036c45690e1c0f9559db8d38790c1b99e"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSanity.cs",
+    "size": 16297,
+    "sha256": "8526b1127f59fc2378fa55242464688a4939e1130bbb2441a1f9369930f13e24"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshot.HostOwnership.cs",
+    "size": 10626,
+    "sha256": "bef737fcc6d2df6493f8afd460995e7b0a87b4380efc282cc75ce324b64a379e"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+    "size": 10877,
+    "sha256": "2bde55276e66b5e9f97df05de8c6558325f073a0b063db6e5437f65943b84ac8"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.HostOwnership.cs",
+    "size": 7251,
+    "sha256": "81171ea453b4d020d0efe5ebfc1ce583ca5d17f2193e406796b1ff622f448467"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadStore.Runtime.cs",
+    "size": 8475,
+    "sha256": "467a94531021669d0a45de2548ad7884c7bb4a3c1bbeeda957b95b3d90e7b2e9"
+  },
+  {
+    "path": "src/backend/Infrastructure/PublicReadArtifacts/ReservedAedsFrameWriter.cs",
+    "size": 3577,
+    "sha256": "ac21d70188d98164c57fa4760f2f19ea24a483075f2ee68edd4b1b9e199019ff"
+  },
+  {
+    "path": "src/backend/Interfaces/ISystemService.cs",
+    "size": 1105,
+    "sha256": "eab1f21307372b4ccd1795ec80572f5d4080da77524c1156a4dc699c8a34a3c4"
+  },
+  {
+    "path": "src/backend/Services/SystemService.cs",
+    "size": 41698,
+    "sha256": "b918f3ce2f511d19c762fe4f81f1f7223406c59276f94f6fd68b505bfda0803e"
+  },
+  {
+    "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+    "size": 20226560,
+    "sha256": "3492fad02561718bdf9a12a24595016415050e7901dc94655cc59d9fdec2ab9f"
+  },
+  {
+    "path": "src/backend/obj/project.assets.json",
+    "size": 163660,
+    "sha256": "e52a3f5fb6131d17dc456eada9da119fe98b0bdb2f498982ada7e8b422389063"
+  },
+  {
+    "path": "tests/backend/FsusBlog.Server.Tests.csproj",
+    "size": 2812,
+    "sha256": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c"
+  },
+  {
+    "path": "tests/backend/Unit/OwnedPublicHotReadSnapshotTests.cs",
+    "size": 25328,
+    "sha256": "7f85a7fa25be024b21b0341efa29d0b9fa1d24b1e6dd96831f7344a064a73e39"
+  },
+  {
+    "path": "tests/backend/Unit/PublicBinaryHostFrameTests.cs",
+    "size": 18783,
+    "sha256": "d68e4179cb500e986155eb599b38c85435b261df55e6e7566e86cbdb597c7740"
+  },
+  {
+    "path": "tests/backend/Unit/PublicHotReadFastPathTests.cs",
+    "size": 99424,
+    "sha256": "d675886b1c49a3b53755bf86f5dfe7b819bb214c9ddf7b59c38657c0cf923801"
+  },
+  {
+    "path": "tests/backend/Unit/PublicHotReadSanityTests.cs",
+    "size": 26774,
+    "sha256": "f5c2fdb54cecb347b4369b5435360d95d1fd558c843d402c4bc6e4f2115ca356"
+  },
+  {
+    "path": "tests/backend/Unit/PublicHotReadSnapshotOwnershipPolicyTests.cs",
+    "size": 26437,
+    "sha256": "b3a9d0465c0b3e1443ffd45b7dc82d0e7185cde43fc9ba82187167a3718fa325"
+  },
+  {
+    "path": "tests/backend/Unit/PublicHotReadVersionStickinessTests.cs",
+    "size": 18683,
+    "sha256": "98aebb398c8aa354cfccab5543cc6257f49a952e3d9dfdbb7db84f5cbdb6ba12"
+  },
+  {
+    "path": "tests/backend/Unit/ReservedAedsFrameWriterTests.cs",
+    "size": 6206,
+    "sha256": "ee1179e3ac7b3d7fab8dfce093e64378f7ba9c974f1f334ac79efdc6ab80707c"
+  },
+  {
+    "path": "tests/backend/Unit/ReservedCspNonceScratchWriterTests.cs",
+    "size": 9464,
+    "sha256": "782d010cf834308a1ac7322292a08b29dab6ee7496656d146c093b7ea3fa2759"
+  },
+  {
+    "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+    "size": 15285248,
+    "sha256": "8bcbead325d529311489479099371fc5ad4113a8808d848a55fbf2a5b2cec416"
+  },
+  {
+    "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.pdb",
+    "size": 3157376,
+    "sha256": "8e2fa25142ac033792bf3adc3dd394492495af1062a250d5c86d825e52d38bc2"
+  },
+  {
+    "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+    "size": 20226560,
+    "sha256": "3492fad02561718bdf9a12a24595016415050e7901dc94655cc59d9fdec2ab9f"
+  },
+  {
+    "path": "tests/backend/obj/project.assets.json",
+    "size": 291225,
+    "sha256": "0bd7f2a64098eec7cf243c7995bb24e258325579c63e564278436a494ddf7f06"
+  }
+]

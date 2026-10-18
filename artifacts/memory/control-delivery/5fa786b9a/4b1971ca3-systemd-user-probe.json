@@ -1,0 +1,14 @@
+{
+  "candidate": "4b1971ca3d5b6d6a645d2ce98c09407136c3e4df",
+  "command": [
+    "timeout",
+    "10",
+    "/usr/lib/systemd/systemd",
+    "--user",
+    "--log-target=console"
+  ],
+  "exitCode": 1,
+  "artifact": ".tmp/memory-integration/4b1971ca3/systemd-user-probe.log",
+  "taskOwnedRuntimeDirectory": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/4b1971ca3/systemd-runtime",
+  "capturedAt": "2026-10-08T10:05:19.611660+00:00"
+}

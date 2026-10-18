@@ -1,0 +1,7 @@
+  Determining projects to restore...
+  Restored /workspace/.tmp-mem-3444-compliant/src/shared/FsusBlog.Shared.csproj (in 232 ms).
+  Restored /workspace/.tmp-mem-3444-compliant/src/core/FsusBlog.Core.csproj (in 337 ms).
+  Restored /workspace/.tmp-mem-3444-compliant/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 362 ms).
+  Restored /workspace/.tmp-mem-3444-compliant/src/migration/FsusBlog.Migration.csproj (in 376 ms).
+  Restored /workspace/.tmp-mem-3444-compliant/src/backend/FsusBlog.Server.csproj (in 51 ms).
+  Restored /workspace/.tmp-mem-3444-compliant/tests/backend/FsusBlog.Server.Tests.csproj (in 94 ms).

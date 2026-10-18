@@ -1,0 +1,335 @@
+{
+  "baseSource": "c1ac6630e86a899f4acf59283ea10a4fcdd69894",
+  "authority": "config/application/backend-configuration-contract.json",
+  "generatedReference": "docs/configuration/backend-configuration-reference.generated.md",
+  "rows": [
+    {
+      "key": "PublicHotRead:SnapshotOwnership:Revision",
+      "owner": "public-delivery",
+      "purpose": "Positive snapshot ownership policy revision; omission or zero refuses admission",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:AccountingRevision",
+      "owner": "public-delivery",
+      "purpose": "Positive canonical ledger revision; stale revisions refuse admission",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:MaximumHolds",
+      "owner": "public-delivery",
+      "purpose": "Finite reference/operation-slot count per shared group; includes snapshot and consumer holds",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:MaximumRepresentations",
+      "owner": "public-delivery",
+      "purpose": "Finite representation count per live snapshot within the shared group",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:MaximumLeases",
+      "owner": "public-delivery",
+      "purpose": "Finite original host-read-lease roster count per shared group",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:MaximumSnapshots",
+      "owner": "public-delivery",
+      "purpose": "Finite simultaneous immutable snapshot/root count per shared group",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:MaximumConsumers",
+      "owner": "public-delivery",
+      "purpose": "Finite simultaneous consumer count per shared group",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:MetadataUpperBoundBytes",
+      "owner": "public-delivery",
+      "purpose": "Frozen conservative bytes covering the declared group rosters and metadata construction overlap; not a measured CLR layout",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:MetadataCapacityBytes",
+      "owner": "public-delivery",
+      "purpose": "Finite per-group metadata budget in bytes; upper bound plus headroom must fit",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:MetadataHeadroomBytes",
+      "owner": "public-delivery",
+      "purpose": "Explicit additional reserved bytes; zero means no extra headroom, omission refuses admission",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:ReleaseDisposition",
+      "owner": "public-delivery",
+      "purpose": "Explicit FinalSharedHold: return metadata/slot reservation after actual final source/consumer release",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    },
+    {
+      "key": "PublicHotRead:SnapshotOwnership:ReloadDisposition",
+      "owner": "public-delivery",
+      "purpose": "Explicit DrainBeforeApply: stop new group admission and apply newer frozen revision after old groups drain",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "deployment-configuration"
+      ],
+      "environmentVariables": [],
+      "secret": false,
+      "requiredStatus": "conditional",
+      "requiredWhen": "required for snapshot host-ownership admission; omission refuses admission without changing requested Auto",
+      "repositoryValuePolicy": "runtime-only frozen numerical policy input; no repository defaults",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "feature-gate",
+        "owner": "PublicHotReadSnapshotOwnershipPolicy.TryCreate and PublicHotReadStore.TryAttachSnapshotHostOwnership"
+      },
+      "documentation": "docs/architecture/repository-layout.md",
+      "consumer": "src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadSnapshotOwnershipPolicy.cs",
+      "runtimeOnly": true,
+      "deprecation": null
+    }
+  ],
+  "patchSha256": "575f6d2b710a81e7b2bc4441e1c658474ae57f7c8c128152ebf64e4b67d23bb9",
+  "disposition": "Pending coordinator/registration-owner integration; independent memory source does not write shared registration files",
+  "originalPreflightPatchSha256": "a392b704a1fc4c7ec9c0f383e3b88ef5f176ce556bddf0e343168b7a27529de8",
+  "serializationRepair": "Three empty context line prefixes removed; Git apply check passes; twelve registration rows and target files unchanged."
+}

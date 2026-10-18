@@ -1,0 +1,8 @@
+{
+  "title": "feat(backend): establish bounded memory ownership and source composition",
+  "sections": 14,
+  "errors": [],
+  "check": "structure-only",
+  "fullPrAdmissionRun": false,
+  "qualification": false
+}

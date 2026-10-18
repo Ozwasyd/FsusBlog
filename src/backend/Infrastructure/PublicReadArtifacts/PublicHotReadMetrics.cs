@@ -12,6 +12,9 @@ using System.Text;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Binary;
 using FsusBlog.Server.Infrastructure.Bootstrap;
+using FsusBlog.Server.Infrastructure.Memory.Contracts;
+using FsusBlog.Server.Infrastructure.Memory.Lifetime;
+using FsusBlog.Server.Infrastructure.Memory.Transient;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -517,6 +520,104 @@ internal static class PublicHotReadRouteKeys
 
 internal static class PublicHotReadBinaryArtifactFactory
 {
+    /// <summary>
+    /// Creates only metadata over a supplied real read lease. The caller retains custody until
+    /// explicit snapshot attachment; unlike ConsumeHostFrameAsync this can enter that transfer.
+    /// It provides no new lease, compression allocation, content identity or publication evidence.
+    /// </summary>
+    internal static PublicBinaryArtifact FromHostReadLease(IMemoryHostReadLease lease,
+        AedsFrameType frameType, string cacheControl, long version, PublicHotReadOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.EnablePrecompressedBinaryVariants)
+        {
+            throw new NotSupportedException("Owned host frame construction requires explicit identity-only options.");
+        }
+        return FromFrame(lease.Memory, frameType, cacheControl, version, options);
+    }
+
+    /// <summary>
+    /// Borrows an already host-readable identity frame under the source's actual read lease.
+    /// The callback must finish every consumer before returning and must not publish or retain
+    /// the borrowed artifact. The existing owner keeps its bytes immutable through completion.
+    /// Compression requests are rejected; no compatibility copy or production admission is supplied.
+    /// </summary>
+    internal static async ValueTask<MemoryOperationResult<MemoryOperationCompletion>> ConsumeHostFrameAsync(
+        IMemoryHostViewSource source,
+        MemoryLocationToken expectedLocation,
+        AedsFrameType frameType,
+        string cacheControl,
+        long version,
+        PublicHotReadOptions options,
+        Func<PublicBinaryArtifact, CancellationToken, ValueTask> consumer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(consumer);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (options.EnablePrecompressedBinaryVariants)
+        {
+            return MemoryOperationResult<MemoryOperationCompletion>.Reject(MemoryFailure.UnsupportedCapability);
+        }
+
+        MemoryOperationResult<IMemoryHostReadLease> acquisition = source.TryAcquireHostView(expectedLocation);
+        if (!acquisition.Succeeded)
+        {
+            return MemoryOperationResult<MemoryOperationCompletion>.Reject(acquisition.Failure!.Value);
+        }
+        using IMemoryHostReadLease lease = acquisition.Value!;
+        cancellationToken.ThrowIfCancellationRequested();
+        PublicBinaryArtifact artifact = FromFrame(lease.Memory, frameType, cacheControl, version, options);
+        await consumer(artifact, cancellationToken).ConfigureAwait(false);
+        return MemoryOperationResult<MemoryOperationCompletion>.Success(MemoryOperationCompletion.Completed);
+    }
+
+    /// <summary>
+    /// Encodes into the caller's admitted lease and awaits a consumer under its operation hold.
+    /// The caller keeps the payload stable and charged through completion. The frame borrows
+    /// the callback memory; it cannot become a published artifact or outlive the callback.
+    /// </summary>
+    internal static ValueTask ConsumeReservedPayloadAsync(
+        IAedsEncoder encoder,
+        AedsFrameType frameType,
+        ReadOnlyMemory<byte> payload,
+        TransientBufferLease destination,
+        PublicHotReadOptions options,
+        Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask> consumer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(encoder);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(consumer);
+        int frameLength = ReservedAedsFrameWriter.GetFrameLength(payload.Length, options);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (destination.Memory.Length < frameLength)
+        {
+            throw new ArgumentException("Admitted lease is too small for the AEDS frame.", nameof(destination));
+        }
+
+        return destination.ConsumeAsync(async (memory, token) =>
+        {
+            token.ThrowIfCancellationRequested();
+            if (payload.Span.Overlaps(memory.Span))
+            {
+                throw new ArgumentException("AEDS source and reserved destination must not overlap.", nameof(payload));
+            }
+
+            ReadOnlyMemory<byte> frame = ReservedAedsFrameWriter.WriteFrame(encoder, frameType, payload.Span, memory, options);
+            if (!LooksLikeExpectedAedsFrame(frame.Span, frameType))
+            {
+                throw new InvalidOperationException("Reserved AEDS frame validation failed.");
+            }
+
+            token.ThrowIfCancellationRequested();
+            // The existing operation hold covers encoding and the consumer's terminal event.
+            await consumer(frame, token).ConfigureAwait(false);
+        }, cancellationToken);
+    }
+
     internal static PublicBinaryArtifact FromPayload(
         IAedsEncoder encoder,
         AedsFrameType frameType,
@@ -550,17 +651,7 @@ internal static class PublicHotReadBinaryArtifactFactory
         long version,
         PublicHotReadOptions options)
     {
-        if (frame.Length > options.MaxFrameBytes)
-        {
-            throw new InvalidOperationException($"public hot-read frame too large: {frameType} {frame.Length} bytes");
-        }
-
-        if (!LooksLikeExpectedAedsFrame(frame, frameType))
-        {
-            throw new InvalidOperationException($"public hot-read frame validation failed: {frameType}");
-        }
-
-        string etag = CreateEtag(frame);
+        PublicBinaryArtifact artifact = FromFrame((ReadOnlyMemory<byte>)frame, frameType, cacheControl, version, options);
         ReadOnlyMemory<byte> brotliFrame = default;
         string brotliEtag = string.Empty;
         ReadOnlyMemory<byte> gzipFrame = default;
@@ -588,7 +679,33 @@ internal static class PublicHotReadBinaryArtifactFactory
             }
         }
 
-        return new PublicBinaryArtifact(frame, etag, cacheControl, version, frameType, brotliFrame, brotliEtag, gzipFrame, gzipEtag);
+        return artifact with
+        {
+            BrotliFrame = brotliFrame,
+            BrotliETag = brotliEtag,
+            GzipFrame = gzipFrame,
+            GzipETag = gzipEtag
+        };
+    }
+
+    private static PublicBinaryArtifact FromFrame(
+        ReadOnlyMemory<byte> frame,
+        AedsFrameType frameType,
+        string cacheControl,
+        long version,
+        PublicHotReadOptions options)
+    {
+        if (frame.Length > options.MaxFrameBytes)
+        {
+            throw new InvalidOperationException($"public hot-read frame too large: {frameType} {frame.Length} bytes");
+        }
+
+        if (!LooksLikeExpectedAedsFrame(frame.Span, frameType))
+        {
+            throw new InvalidOperationException($"public hot-read frame validation failed: {frameType}");
+        }
+
+        return new PublicBinaryArtifact(frame, CreateEtag(frame.Span), cacheControl, version, frameType);
     }
 
     private static string CreateEtag(ReadOnlySpan<byte> bytes)
