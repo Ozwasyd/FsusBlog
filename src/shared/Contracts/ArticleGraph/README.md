@@ -10,8 +10,25 @@ expansion, counts, budgets and truncation. Return no anonymous targets or hidden
 totals. Bind the actor/site/permission, root revision/document epoch and index
 generation exactly. The port receives the hard budgets and cancellation token;
 the source must bound index operations and payload before materializing results.
-The facade additionally refuses oversized, stale and malformed projections and
-enforces a deadline even if an integration ignores cancellation.
+The facade additionally refuses oversized, stale and malformed projections.
+`QueryMilliseconds` (maximum/default 250 ms) is the fact-admission window and
+cancellation-request deadline, measured across query admission and response sealing.
+No complete/truncated facts are accepted after that window, including facts returned
+by a source that ignores cancellation. Source completion must include outstanding
+borrowed commands/readers and their awaited disposal; the facade awaits that task
+before returning or releasing its cancellation scope. Npgsql cancellation/cleanup
+may exceed the admission window. This contract promises neither cleanup nor a hard
+real-time response within 250 ms, and grants no authority to switch or dispose the
+caller client. A source without supported cancellation/completion semantics remains
+unavailable; the production integration guard remains until those semantics are
+integrated and verified.
+
+This corrects the earlier facade's `WaitAsync` early return and its corresponding
+uncooperative-source test: the old implementation denied late facts but could return
+while source work still used a borrowed client. The regression now requests
+cancellation, checks that the query remains pending until source completion, and
+discards late facts/faults. Issues #2474 clauses 9–10 and #1870 require query time
+budgets and cancellation safety; they specify no numeric cleanup deadline.
 The response seal binds a separately computed admitted-request digest, including
 scope, filters and budgets. Invalid requests are never serialized into a refusal
 receipt and cannot amplify its payload.

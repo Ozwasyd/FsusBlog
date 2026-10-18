@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleGraphNodeCandidateResolver.cs"
+            ],
+            "reason": "Preserve the C# adapter surface for original canonical coordinate lookup; internal candidates are not a protocol or authority."
+        }
+    ]
+}

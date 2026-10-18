@@ -169,19 +169,133 @@ public sealed class ArticleGraphQueryTests : IDisposable
         {
             Budget = ArticleGraphBudget.Default with
             {
-                QueryMilliseconds = 10
+                QueryMilliseconds = 250
             }
         };
         Source source = new()
         {
-            Pending = new(TaskCreationOptions.RunContinuationsAsynchronously)
+            Pending = new(TaskCreationOptions.RunContinuationsAsynchronously),
+            CleanupPending = new(TaskCreationOptions.RunContinuationsAsynchronously)
         };
-        ArticleGraphResult result = await new ArticleGraphQueryService(source).QueryAsync(request, _cancellation.Token);
+        Task<ArticleGraphResult> query = new ArticleGraphQueryService(source).QueryAsync(request, _cancellation.Token);
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using CancellationTokenRegistration registration = source.Token.Register(() => cancelled.TrySetResult());
+        try
+        {
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(source.BorrowedClientInUse);
+            await AssertPendingAsync(query);
+            source.Pending.TrySetResult(Projection(request));
+            await source.CleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(source.BorrowedClientInUse);
+            await AssertPendingAsync(query);
+        }
+        finally
+        {
+            // End the simulated borrowed operation even if a regression assertion fails.
+            source.Pending.TrySetResult(Projection(request));
+            source.CleanupPending.TrySetResult();
+        }
+        ArticleGraphResult result = await query.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(ArticleGraphStatus.Cancelled, result.Projection.Status);
         Assert.Equal("time-budget", result.Projection.Reason);
         Assert.True(source.Token.IsCancellationRequested);
-        source.Pending.SetResult(Projection(request));
         Assert.Empty(result.Projection.Nodes);
+        Assert.Empty(result.Projection.Edges);
+        Assert.Equal(new ArticleGraphUsage(0, 0, 0, 0), result.Projection.Usage);
+        Assert.False(source.BorrowedClientInUse);
+        Assert.True(source.CleanupCompleted);
+    }
+
+    [Fact]
+    public async Task CallerCancellationWaitsForSourceCompletionAndDiscardsLateFacts()
+    {
+        ArticleGraphRequest request = Request(1);
+        Source source = new()
+        {
+            Pending = new(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        Task<ArticleGraphResult> query = new ArticleGraphQueryService(source).QueryAsync(request, _cancellation.Token);
+        try
+        {
+            _cancellation.Cancel();
+            Assert.True(source.Token.IsCancellationRequested);
+            Assert.True(source.BorrowedClientInUse);
+            await AssertPendingAsync(query);
+        }
+        finally
+        {
+            source.Pending.TrySetResult(Projection(request));
+        }
+        ArticleGraphResult result = await query.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(ArticleGraphStatus.Cancelled, result.Projection.Status);
+        Assert.Equal("cancelled", result.Projection.Reason);
+        Assert.Empty(result.Projection.Nodes);
+        Assert.Empty(result.Projection.Edges);
+        Assert.False(source.BorrowedClientInUse);
+        Assert.True(source.CleanupCompleted);
+    }
+
+    [Fact]
+    public async Task FaultDuringCancellationIsObservedAfterSourceCompletionWithoutPrivateDiagnostics()
+    {
+        Source source = new()
+        {
+            Pending = new(TaskCreationOptions.RunContinuationsAsynchronously),
+            CleanupPending = new(TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+        Task<ArticleGraphResult> query = new ArticleGraphQueryService(source).QueryAsync(Request(1), _cancellation.Token);
+        try
+        {
+            _cancellation.Cancel();
+            await AssertPendingAsync(query);
+            source.Pending.TrySetException(new InvalidOperationException("private-driver-diagnostics"));
+            await source.CleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.True(source.BorrowedClientInUse);
+            await AssertPendingAsync(query);
+        }
+        finally
+        {
+            source.Pending.TrySetException(new InvalidOperationException("private-driver-diagnostics"));
+            source.CleanupPending.TrySetResult();
+        }
+        ArticleGraphResult result = await query.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal("cancelled", result.Projection.Reason);
+        Assert.Equal(ArticleGraphStatus.Cancelled, result.Projection.Status);
+        Assert.DoesNotContain("private-driver-diagnostics", System.Text.Json.JsonSerializer.Serialize(result));
+        Assert.False(source.BorrowedClientInUse);
+        Assert.True(source.CleanupCompleted);
+    }
+
+    [Fact]
+    public async Task AlreadyCancelledRequestNeverStartsSourceWork()
+    {
+        Source source = new();
+        _cancellation.Cancel();
+        ArticleGraphResult result = await new ArticleGraphQueryService(source).QueryAsync(Request(1), _cancellation.Token);
+        Assert.Equal(0, source.Calls);
+        Assert.Equal(ArticleGraphStatus.Cancelled, result.Projection.Status);
+        Assert.Equal("cancelled", result.Projection.Reason);
+    }
+
+    [Fact]
+    public async Task CancellationDuringProjectionFreezeCannotSealLateFacts()
+    {
+        ArticleGraphRequest request = Request(1);
+        ArticleGraphProjection projection = Projection(request);
+        Source source = new()
+        {
+            Value = projection with
+            {
+                Nodes = new CancellingNodes(projection.Nodes, _cancellation)
+            }
+        };
+        ArticleGraphResult result = await new ArticleGraphQueryService(source).QueryAsync(request, _cancellation.Token);
+        Assert.True(source.CleanupCompleted);
+        Assert.Equal(ArticleGraphStatus.Cancelled, result.Projection.Status);
+        Assert.Equal("cancelled", result.Projection.Reason);
+        Assert.Empty(result.Projection.Nodes);
+        Assert.Empty(result.Projection.Edges);
     }
 
     private static ArticleGraphRequest Request(int? depth) => new(1, new(new("actor", "site", new string('a', 64)), "root", "revision", "epoch", "index"), "session", 0, ArticleGraphScope.CurrentEditable, depth, false, new([], [], Enum.GetValues<ArticleGraphEdgeKind>()), ArticleGraphBudget.Default);
@@ -203,8 +317,46 @@ public sealed class ArticleGraphQueryTests : IDisposable
 
     private static ArticleGraphProjection Projection(ArticleGraphRequest request) => new(request.Identity, request.RequestedDepth ?? 1, request.RequestedDepth ?? 1, ArticleGraphStatus.Complete, null, [new("root", "revision", "Root", ArticleRelationLifecycleState.Draft)], [], new(1, 0, 0, 1), new string('a', 64));
 
+    private static async Task AssertPendingAsync(Task pending)
+    {
+        // Let cancellation continuations run while the fake borrowed-work gate stays closed.
+        // This is an observation window, not a production cleanup/response-time bound.
+        Task observation = Task.Delay(TimeSpan.FromMilliseconds(25));
+        Assert.Same(observation, await Task.WhenAny(pending, observation).WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.False(pending.IsCompleted);
+    }
+
+    private sealed class CancellingNodes(IReadOnlyList<ArticleGraphNode> nodes, CancellationTokenSource cancellation)
+        : IReadOnlyList<ArticleGraphNode>
+    {
+        public int Count => nodes.Count;
+        public ArticleGraphNode this[int index] => nodes[index];
+
+        public IEnumerator<ArticleGraphNode> GetEnumerator()
+        {
+            cancellation.Cancel();
+            return nodes.GetEnumerator();
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
     private sealed class Source : IArticleGraphRelationProjection
     {
+        // Controlled lifetime model only; it is not a real Npgsql/client-reuse receipt.
+        public bool BorrowedClientInUse
+        {
+            get; private set;
+        }
+        public bool CleanupCompleted
+        {
+            get; private set;
+        }
+        public TaskCompletionSource CleanupStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource? CleanupPending
+        {
+            get; set;
+        }
         public int Calls
         {
             get; private set;
@@ -222,11 +374,25 @@ public sealed class ArticleGraphQueryTests : IDisposable
             get; private set;
         }
 
-        public Task<ArticleGraphProjection?> ReadAsync(ArticleGraphRequest request, CancellationToken cancellationToken)
+        public async Task<ArticleGraphProjection?> ReadAsync(ArticleGraphRequest request, CancellationToken cancellationToken)
         {
             Calls++;
             Token = cancellationToken;
-            return Pending?.Task ?? Task.FromResult(Value);
+            BorrowedClientInUse = true;
+            try
+            {
+                return Pending is null ? Value : await Pending.Task;
+            }
+            finally
+            {
+                CleanupStarted.TrySetResult();
+                if (CleanupPending is not null)
+                {
+                    await CleanupPending.Task;
+                }
+                BorrowedClientInUse = false;
+                CleanupCompleted = true;
+            }
         }
     }
 }
