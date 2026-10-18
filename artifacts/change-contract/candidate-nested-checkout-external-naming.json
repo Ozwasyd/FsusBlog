@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release-candidate/collect-source-aliases.mjs"
+            ],
+            "reason": "preserve Git's external GIT_OPTIONAL_LOCKS, GIT_NO_LAZY_FETCH, GIT_CONFIG_NOSYSTEM and GIT_CONFIG_GLOBAL environment variable spellings in the original read-only Git adapter used for recursive checkout observation; adapter functions and local variables retain internal camelCase names, and this declaration adds no registry, policy or admission exception"
+        }
+    ]
+}

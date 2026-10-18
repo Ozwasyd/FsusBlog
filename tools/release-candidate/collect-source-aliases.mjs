@@ -7,6 +7,7 @@ const { canonicalJson, digestCanonical, sealContentDigest, sha256 } = await impo
 const { snapshotRepositorySourceIdentity, verifyRepositorySourceSnapshot } = await import(new URL('../test/repository-source-snapshot.mjs', import.meta.url));
 
 export const submoduleCheckoutIdentitySchema = 'fsusblog.candidate-submodule-checkouts.v1';
+const maximumCheckoutDepth = 16;
 
 function git(root, args, allowedStatuses = [0])
 {
@@ -80,7 +81,7 @@ function urlClass(value)
 function declarations(root, parentSnapshot)
 {
     const pointers = Object.keys(parentSnapshot.submoduleEntries).sort();
-    const source = parentSnapshot.worktreeEntries['.gitmodules'];
+    const source = parentSnapshot.worktreeEntries['.gitmodules'] ?? parentSnapshot.untrackedEntries['.gitmodules'];
     if (!source || source.fileType === 'missing')
     {
         if (pointers.length)
@@ -89,7 +90,9 @@ function declarations(root, parentSnapshot)
         }
         return [];
     }
-    if (source.fileType !== 'file' || !parentSnapshot.indexEntries['.gitmodules'])
+    const declarationIndex = parentSnapshot.indexEntries['.gitmodules'];
+    if (source.fileType !== 'file' || declarationIndex?.length !== 1 || declarationIndex[0].stage !== 0
+        || !['100644', '100755'].includes(declarationIndex[0].mode))
     {
         throw new Error('.gitmodules must be a tracked regular source input');
     }
@@ -126,12 +129,16 @@ function declarations(root, parentSnapshot)
 
 function checkoutDirty(root, snapshot)
 {
-    if (Object.keys(snapshot.untrackedEntries).length || git(root, ['diff', '--no-ext-diff', '--no-textconv', '--cached', '--quiet', 'HEAD', '--'], [0, 1]).status === 1)
+    if (Object.keys(snapshot.untrackedEntries).length || git(root, ['diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=none', '--cached', '--quiet', 'HEAD', '--'], [0, 1]).status === 1)
     {
         return true;
     }
     for (const [relative, index] of Object.entries(snapshot.indexEntries))
     {
+        if (Object.hasOwn(snapshot.submoduleEntries, relative))
+        {
+            continue;
+        }
         const actual = snapshot.worktreeEntries[relative];
         if (index.length !== 1 || index[0].stage !== 0 || !actual || actual.fileType === 'missing'
             || actual.mode !== index[0].mode || sha256(git(root, ['cat-file', 'blob', index[0].objectId]).stdout) !== actual.contentDigest)
@@ -144,7 +151,11 @@ function checkoutDirty(root, snapshot)
 
 /** Independently usable submodule portion of #2658. This is NOT an alias
  * fragment or aggregate admission. No checkout/init/fetch/install is invoked.
- * Nested checkout support and declaration-owner alias inventory remain unmet. */
+ * targetPolicies must exactly cover all checkout paths relative to the parent
+ * root. Ancestor repository identities cannot recur; at most 16 checkout edges
+ * are admitted. Nonleaf entries bind declarations and nested checkouts, while
+ * leaf receipt fields remain unchanged. Dirty descendants mark ancestors dirty.
+ * Declaration-owner alias inventory remains unmet. */
 export function collectSubmoduleCheckoutIdentities({ repositoryRoot, parentSnapshot, targetPolicies })
 {
     verifyRepositorySourceSnapshot(parentSnapshot);
@@ -155,39 +166,69 @@ export function collectSubmoduleCheckoutIdentities({ repositoryRoot, parentSnaps
         throw new Error('submodule parent source snapshot is stale/cross-source');
     }
     const inventory = declarations(root, parentSnapshot);
-    if (!targetPolicies || Object.getPrototypeOf(targetPolicies) !== Object.prototype
-        || canonicalJson(Object.keys(targetPolicies).sort()) !== canonicalJson(inventory.map((module) => module.path).sort()))
+    if (!targetPolicies || Object.getPrototypeOf(targetPolicies) !== Object.prototype)
     {
         throw new Error('submodule target policies must exactly cover declared checkout paths');
     }
-    const checkouts = {};
+    const policyPaths = Object.keys(targetPolicies).map(relativePath).sort();
+    const consumedPolicies = new Set();
     const observed = [];
-    for (const module of inventory)
+    function collect(currentRoot, currentSnapshot, currentInventory, prefix, ancestors, depth)
     {
-        const pointer = parentSnapshot.submoduleEntries[module.path];
-        if (pointer.length !== 1 || pointer[0].stage !== 0 || pointer[0].mode !== '160000')
+        const checkouts = {};
+        for (const module of currentInventory)
         {
-            throw new Error(`submodule parent pointer is conflicted/ambiguous: ${module.id}`);
+            if (depth > maximumCheckoutDepth)
+            {
+                throw new Error('submodule checkout closure exceeds maximum depth');
+            }
+            const relative = prefix ? `${prefix}/${module.path}` : module.path;
+            const pointer = currentSnapshot.submoduleEntries[module.path];
+            if (pointer.length !== 1 || pointer[0].stage !== 0 || pointer[0].mode !== '160000')
+            {
+                throw new Error(`submodule parent pointer is conflicted/ambiguous: ${relative}`);
+            }
+            if (!Object.hasOwn(targetPolicies, relative) || consumedPolicies.has(relative))
+            {
+                throw new Error('submodule target policies must exactly cover declared checkout paths');
+            }
+            consumedPolicies.add(relative);
+            const checkoutRoot = physicalCheckout(currentRoot, module.path);
+            const snapshot = snapshotRepositorySourceIdentity(checkoutRoot, { sourcePolicy: targetPolicies[relative] });
+            if (snapshot.commit !== pointer[0].objectId)
+            {
+                throw new Error(`submodule pointer/checkout HEAD mismatch: ${relative}`);
+            }
+            if (ancestors.has(snapshot.repositoryIdentityDigest))
+            {
+                throw new Error(`submodule checkout repository identity cycle: ${relative}`);
+            }
+            const nestedInventory = declarations(checkoutRoot, snapshot);
+            const nested = collect(checkoutRoot, snapshot, nestedInventory, relative,
+                new Set([...ancestors, snapshot.repositoryIdentityDigest]), depth + 1);
+            const entry = { path: module.path, parentPointer: pointer[0].objectId, checkoutCommit: snapshot.commit,
+                repositoryIdentityDigest: snapshot.repositoryIdentityDigest, worktreeFingerprint: snapshot.snapshotDigest,
+                sourcePolicyDigest: snapshot.sourcePolicyDigest, urlIdentityClass: module.urlIdentityClass,
+                initialized: true, dirty: checkoutDirty(checkoutRoot, snapshot) || Object.values(nested).some((child) => child.dirty) };
+            if (nestedInventory.length)
+            {
+                entry.declarationDigest = digestCanonical(nestedInventory);
+                entry.checkouts = nested;
+            }
+            checkouts[module.id] = entry;
+            observed.push({ root: checkoutRoot, relative, snapshot });
         }
-        const checkoutRoot = physicalCheckout(root, module.path);
-        const snapshot = snapshotRepositorySourceIdentity(checkoutRoot, { sourcePolicy: targetPolicies[module.path] });
-        if (snapshot.commit !== pointer[0].objectId)
-        {
-            throw new Error(`submodule pointer/checkout HEAD mismatch: ${module.id}`);
-        }
-        if (Object.keys(snapshot.submoduleEntries).length)
-        {
-            throw new Error(`nested submodule checkout closure capability is required: ${module.id}`);
-        }
-        checkouts[module.id] = { path: module.path, parentPointer: pointer[0].objectId, checkoutCommit: snapshot.commit,
-            repositoryIdentityDigest: snapshot.repositoryIdentityDigest, worktreeFingerprint: snapshot.snapshotDigest,
-            sourcePolicyDigest: snapshot.sourcePolicyDigest, urlIdentityClass: module.urlIdentityClass,
-            initialized: true, dirty: checkoutDirty(checkoutRoot, snapshot) };
-        observed.push({ root: checkoutRoot, snapshot });
+        return checkouts;
+    }
+    const checkouts = collect(root, parentSnapshot, inventory, '', new Set([parentSnapshot.repositoryIdentityDigest]), 1);
+    if (canonicalJson(policyPaths) !== canonicalJson([...consumedPolicies].sort()))
+    {
+        throw new Error('submodule target policies must exactly cover declared checkout paths');
     }
     for (const target of observed)
     {
-        if (snapshotRepositorySourceIdentity(target.root, { sourcePolicy: target.snapshot.sourcePolicy }).snapshotDigest !== target.snapshot.snapshotDigest)
+        if (physicalCheckout(root, target.relative) !== target.root
+            || snapshotRepositorySourceIdentity(target.root, { sourcePolicy: target.snapshot.sourcePolicy }).snapshotDigest !== target.snapshot.snapshotDigest)
         {
             throw new Error('submodule checkout changed during collection');
         }
