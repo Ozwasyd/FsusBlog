@@ -372,6 +372,189 @@ public sealed class TaxonomyMutationReceiptPostgresTests(PostgresSchemaMigration
         Assert.Equal(1, await CountAsync(db));
     }
 
+    [Fact]
+    public async Task CreateCapture_MispairedUpdateProbe_DemonstratesTrustedStatementKindBoundary()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        int id = await BinaryEndpoints.CreateTagAsync(db, "existing target", "before", CancellationToken.None);
+        db.Ado.BeginTran();
+        Capture capture = await CaptureCreateAsync(db, TargetKind.Tag, "intended insert name");
+        int updated = await db.Updateable<Tag>().SetColumns(row => row.Name == "intended insert name")
+            .Where(row => row.Id == id).ExecuteCommandAsync();
+        Assert.Equal(1, updated);
+
+        // Deliberate caller-contract violation, not an original endpoint defect: native writer
+        // ownership authenticates neither INSERT kind nor the caller's claimed absent identity.
+        Receipt probe = await PersistAsync(db, capture, id, updated);
+        Assert.Equal(MutationOperation.Create, probe.Operation);
+        Assert.Null(probe.Before);
+        Assert.Equal(new Identity(id, "intended insert name", "before"), probe.After);
+        db.Ado.RollbackTran();
+        Assert.Equal("existing target", (await db.Queryable<Tag>().SingleAsync()).Name);
+        Assert.Equal(0, await CountAsync(db));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CreateCapture_RejectsCommittedForeignWriter_EvenAfterForeignSavepoint(bool useSavepoint)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        using SqlSugarClient foreign = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        db.Ado.BeginTran();
+        Capture capture = await CaptureCreateAsync(db, TargetKind.Tag, "foreign inserted row");
+        foreign.Ado.BeginTran();
+        if (useSavepoint)
+        {
+            await foreign.Ado.ExecuteCommandAsync("SAVEPOINT foreign_write;");
+        }
+        int id = await BinaryEndpoints.CreateTagAsync(foreign, "foreign inserted row", "foreign facts", CancellationToken.None);
+        if (useSavepoint)
+        {
+            await foreign.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT foreign_write;");
+        }
+        foreign.Ado.CommitTran();
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => PersistAsync(db, capture, id, 1));
+        Assert.Equal("taxonomy_receipt_original_dml_required", error.Message);
+        Assert.Equal(0, await CountAsync(db));
+        db.Ado.RollbackTran();
+        Assert.Equal(new Identity(id, "foreign inserted row", "foreign facts"),
+            await ReadTagIdentityAsync(db, id));
+    }
+
+    [Theory]
+    [InlineData(MutationOperation.Create, false, false)]
+    [InlineData(MutationOperation.Create, false, true)]
+    [InlineData(MutationOperation.Create, true, false)]
+    [InlineData(MutationOperation.Create, true, true)]
+    [InlineData(MutationOperation.Update, false, false)]
+    [InlineData(MutationOperation.Update, false, true)]
+    [InlineData(MutationOperation.Update, true, false)]
+    [InlineData(MutationOperation.Update, true, true)]
+    [InlineData(MutationOperation.Delete, false, false)]
+    [InlineData(MutationOperation.Delete, false, true)]
+    [InlineData(MutationOperation.Delete, true, false)]
+    [InlineData(MutationOperation.Delete, true, true)]
+    public async Task OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(
+        MutationOperation operation, bool captureInsideSavepoint, bool releaseBeforePersist)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        int id = operation == MutationOperation.Create ? 0
+            : await BinaryEndpoints.CreateTagAsync(db, "savepoint tag", "before", CancellationToken.None);
+        db.Ado.BeginTran();
+        object originalTransaction = db.Ado.Transaction;
+        Capture? capture = captureInsideSavepoint ? null : await CaptureTagAsync(db, operation, id);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT original_mutation;");
+        capture ??= await CaptureTagAsync(db, operation, id);
+        (id, int affected) = await ExecuteTagMutationAsync(db, operation, id, "after");
+        if (releaseBeforePersist)
+        {
+            await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT original_mutation;");
+        }
+        Receipt receipt = await PersistAsync(db, capture, id, affected);
+        Assert.Same(originalTransaction, db.Ado.Transaction);
+        Assert.Equal(operation, receipt.Operation);
+        Assert.Equal(id, receipt.TargetId);
+        Assert.Equal(operation == MutationOperation.Create ? null : new Identity(id, "savepoint tag", "before"), receipt.Before);
+        Assert.Equal(operation == MutationOperation.Delete ? null : new Identity(id, "savepoint tag", "after"), receipt.After);
+        Assert.Equal(0, await CountAsync(observer));
+        if (!releaseBeforePersist)
+        {
+            await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT original_mutation;");
+        }
+        db.Ado.CommitTran();
+        Assert.Equal(1, await CountAsync(observer));
+        Assert.Equal(receipt.After, await ReadTagIdentityAsync(observer, id));
+    }
+
+    [Theory]
+    [InlineData(MutationOperation.Create)]
+    [InlineData(MutationOperation.Update)]
+    [InlineData(MutationOperation.Delete)]
+    public async Task RollbackToSavepoint_RemovesDmlAndReceipt_AndRetainedCaptureCanRetry(MutationOperation operation)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        int id = operation == MutationOperation.Create ? 0
+            : await BinaryEndpoints.CreateTagAsync(db, "savepoint tag", "before", CancellationToken.None);
+        db.Ado.BeginTran();
+        Capture capture = await CaptureTagAsync(db, operation, id);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT original_mutation;");
+        (id, int affected) = await ExecuteTagMutationAsync(db, operation, id, "rolled back");
+        Receipt rolledBack = await PersistAsync(db, capture, id, affected);
+        Assert.Equal(1, await CountAsync(db));
+        await db.Ado.ExecuteCommandAsync("ROLLBACK TO SAVEPOINT original_mutation;");
+        Assert.Equal(0, await CountAsync(db));
+        Assert.Equal(operation == MutationOperation.Create ? null : new Identity(id, "savepoint tag", "before"),
+            await ReadTagIdentityAsync(db, id));
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => PersistAsync(db, capture, id, affected));
+        Assert.Equal("taxonomy_receipt_no_actual_mutation", error.Message);
+
+        (id, affected) = await ExecuteTagMutationAsync(db, operation, id, "retry");
+        Receipt retry = await PersistAsync(db, capture, id, affected);
+        Assert.Equal(rolledBack.ReceiptId, retry.ReceiptId);
+        Assert.Equal(operation == MutationOperation.Delete ? null : new Identity(id, "savepoint tag", "retry"), retry.After);
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT original_mutation;");
+        db.Ado.CommitTran();
+        Assert.Equal(1, await CountAsync(db));
+        Assert.Equal(retry.After, await ReadTagIdentityAsync(db, id));
+    }
+
+    [Theory]
+    [InlineData(MutationOperation.Create)]
+    [InlineData(MutationOperation.Update)]
+    [InlineData(MutationOperation.Delete)]
+    public async Task RollbackPastCapture_RefusesAllOperationsAfterFamilyReacquisition(MutationOperation operation)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        int id = operation == MutationOperation.Create ? 0
+            : await BinaryEndpoints.CreateTagAsync(db, "savepoint tag", "before", CancellationToken.None);
+        db.Ado.BeginTran();
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT before_capture;");
+        Capture capture = await CaptureTagAsync(db, operation, id);
+        await db.Ado.ExecuteCommandAsync("ROLLBACK TO SAVEPOINT before_capture;");
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT before_capture;");
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db);
+        (id, int affected) = await ExecuteTagMutationAsync(db, operation, id, "unreceipted");
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => PersistAsync(db, capture, id, affected));
+        Assert.Equal("taxonomy_receipt_capture_rolled_back", error.Message);
+        Assert.Equal(0, await CountAsync(db));
+        db.Ado.RollbackTran();
+        Assert.Equal(operation == MutationOperation.Create ? null : new Identity(id, "savepoint tag", "before"),
+            await ReadTagIdentityAsync(db, id));
+    }
+
+    private static Task<Capture> CaptureTagAsync(SqlSugarClient db, MutationOperation operation, int id)
+        => operation == MutationOperation.Create
+            ? CaptureCreateAsync(db, TargetKind.Tag, "savepoint tag")
+            : CaptureExistingAsync(db, TargetKind.Tag, operation, id);
+
+    private static async Task<(int Id, int Affected)> ExecuteTagMutationAsync(
+        SqlSugarClient db, MutationOperation operation, int id, string description)
+    {
+        if (operation == MutationOperation.Create)
+        {
+            int insertedId = await BinaryEndpoints.CreateTagAsync(db, "savepoint tag", description, CancellationToken.None);
+            Assert.True(insertedId > 0);
+            return (insertedId, 1);
+        }
+        if (operation == MutationOperation.Update)
+        {
+            int updated = await db.Updateable<Tag>().SetColumns(row => row.Description == description)
+                .Where(row => row.Id == id).ExecuteCommandAsync();
+            return (id, updated);
+        }
+        Assert.Equal(BinaryEndpoints.TagDeleteOutcome.Deleted, await BinaryEndpoints.DeleteTagIfUnlinkedAsync(db, id));
+        return (id, 1);
+    }
+
+    private static async Task<Identity?> ReadTagIdentityAsync(SqlSugarClient db, int id)
+    {
+        Tag? tag = await db.Queryable<Tag>().Where(row => row.Id == id).SingleAsync();
+        return tag is null ? null : new Identity(tag.Id, tag.Name, tag.Description);
+    }
+
     private async Task<SqlSugarClient> DatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
