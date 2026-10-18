@@ -107,6 +107,8 @@ function hasDomReferenceAuthority(source, isCSharp = false)
         ? tokens.slice(index + 1, matching.get(index)) : [];
     const scopes = [new Map()];
     const functionScopes = new Set(scopes);
+    const flowSnapshots = new Map();
+    const conditionalBlocks = new Set(['if', 'for', 'while', 'switch', 'catch', 'with']);
     const bindingScope = (name) =>
     {
         for (let index = scopes.length - 1; index >= 0; index--)
@@ -162,15 +164,36 @@ function hasDomReferenceAuthority(source, isCSharp = false)
             scopes.push(scope);
             const previous = tokens[index - 1];
             const parameters = matching.get(index - 1);
-            if (previous === '=>' || (previous === ')' && parameters !== undefined
-                && !['if', 'for', 'while', 'switch', 'catch', 'with'].includes(tokens[parameters - 1])))
+            const isFunction = previous === '=>' || (previous === ')' && parameters !== undefined
+                && !conditionalBlocks.has(tokens[parameters - 1]));
+            const maySkip = ['else', 'try', 'finally', 'do'].includes(previous)
+                || (previous === ')' && conditionalBlocks.has(tokens[parameters - 1]));
+            if (isFunction)
             {
                 functionScopes.add(scope);
+            }
+            if (isFunction || maySkip)
+            {
+                flowSnapshots.set(scope, { isFunction,
+                    bindings: scopes.slice(0, -1).map((owner) => [owner, new Map(owner)]) });
             }
         }
         else if (token === '}' && scopes.length > 1)
         {
-            scopes.pop();
+            const snapshot = flowSnapshots.get(scopes.pop());
+            // Ordinary blocks execute in sequence. A conditional block may not run;
+            // a function body is analyzed locally without assuming an invocation.
+            for (const [owner, prior] of snapshot?.bindings ?? [])
+            {
+                if (snapshot.isFunction)
+                {
+                    owner.clear();
+                }
+                for (const [name, derived] of prior)
+                {
+                    owner.set(name, snapshot.isFunction ? derived : derived || owner.get(name));
+                }
+            }
         }
         else if (token === 'AuthoringCanvasReferenceTarget' && tokens[index - 1] === 'new'
             && tokens[index + 1] === '(')

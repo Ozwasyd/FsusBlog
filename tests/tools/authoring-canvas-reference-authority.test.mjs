@@ -492,3 +492,45 @@ export function canvasReference(element: HTMLElement, target: { targetHeadingIde
         }
     });
 }
+
+for (const [name, rejected, source] of [
+    ['a conditional canonical write cannot erase the unexecuted DOM path', true, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }, allow: boolean) {
+    let observed = element.getAttribute("id");
+    if (allow) { observed = target.targetHeadingIdentity; }
+    return { targetHeadingIdentity: observed };
+}
+`],
+    ['an uncalled function cannot erase the outer DOM binding', true, `
+let observed = document.querySelector("article")?.id;
+function paint(target: { targetHeadingIdentity: string }) { observed = target.targetHeadingIdentity; }
+export const canvasReferenceTarget = { targetHeadingIdentity: observed };
+`],
+    ['a canonical write is visible within its conditional block', false, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }, allow: boolean) {
+    let observed = element.getAttribute("id");
+    if (allow) {
+        observed = target.targetHeadingIdentity;
+        return { targetHeadingIdentity: observed };
+    }
+    return null;
+}
+`]
+])
+{
+    test(`binding flow preserves refusal boundaries: ${name}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, 'src/frontend/canvas-reference.ts', source);
+        const result = checkAuthoringCanvasReferenceAuthority(repositoryRoot);
+        if (rejected)
+        {
+            assert.equal(result.length, 1);
+            assert.match(result[0], domAuthorityViolation);
+        }
+        else
+        {
+            assert.deepEqual(result, []);
+        }
+    });
+}
