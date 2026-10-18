@@ -40,7 +40,9 @@ public sealed class AuthoringExtensionProductionComposition
         ImmutableHashSet<string> coreOrUserShortcuts,
         IAuthorSavedViewQueryValidator queryValidator,
         LinuxBubblewrapWorkerOptions? workerOptions = null,
-        LinuxBubblewrapServiceOptions? serviceOptions = null)
+        LinuxBubblewrapServiceOptions? serviceOptions = null,
+        AuthoringExtensionApprovalAuthority? approvalAuthority = null,
+        AuthoringExtensionApprovalAuthority.ApprovedClaim? approvedClaim = null)
     {
         ArgumentNullException.ThrowIfNull(packages);
         ArgumentNullException.ThrowIfNull(grants);
@@ -55,13 +57,22 @@ public sealed class AuthoringExtensionProductionComposition
             service = serviceOptions is null ? null : new LinuxBubblewrapAuthoringServiceRuntime(serviceOptions);
         }
         Providers = new(worker, service);
-        Preflight = new(packages, grants, stateStore, receipts, timeProvider, platform, scope, purpose, Providers);
+        ApprovalClaim = approvedClaim;
+        Approvals = approvalAuthority;
+        Preflight = new(packages, grants, stateStore, receipts, timeProvider, platform, scope, purpose, Providers,
+            approvalAuthority, approvedClaim);
         HostResources = new(Preflight, grants, coreAuthorities, coreOrUserShortcuts, queryValidator);
         Resources = new(HostResources);
         Coordinator = new(Resources, Preflight, stateStore, receipts, grants);
     }
 
     public AuthoringExtensionProductionPreflight Preflight { get; }
+
+    public AuthoringExtensionApprovalAuthority.ApprovedClaim? ApprovalClaim { get; }
+
+    public IAuthoringExtensionApprovalAuthority? Approvals { get; }
+
+    public AuthoringExtensionOperationContext? OperationContext => ApprovalClaim?.OperationContext;
 
     public AuthoringProductionRuntimeProviders Providers { get; }
 
@@ -70,6 +81,40 @@ public sealed class AuthoringExtensionProductionComposition
     public AuthoringExtensionLifecycleResources Resources { get; }
 
     public AuthoringExtensionLifecycleCoordinator Coordinator { get; }
+
+    /// <summary>
+    /// Binds the original issuer's actual claimed state operation. Scope and actor
+    /// context come exclusively from that claim; no admin-ID/user-ID mapping,
+    /// approval policy or ScopeDigest encoding is introduced by this consumer.
+    /// Runtime staging and common publication remain unqualified and closed.
+    /// </summary>
+    public static AuthoringExtensionProductionComposition ForApprovedOperation(
+        LocalAuthoringPackageRuntime packages,
+        IAuthoringCapabilityGrantCatalog grants,
+        IAuthoringFencedExtensionStateStore stateStore,
+        IAuthoringLifecycleReceiptStore receipts,
+        TimeProvider timeProvider,
+        AuthoringHostPlatform platform,
+        IAuthoringExtensionApprovalAuthority approvals,
+        AuthoringExtensionApprovalAuthority.ApprovedClaim claim,
+        string grantPurpose,
+        AuthoringCoreAuthorityRegistry coreAuthorities,
+        ImmutableHashSet<string> coreOrUserShortcuts,
+        IAuthorSavedViewQueryValidator queryValidator,
+        LinuxBubblewrapWorkerOptions? workerOptions = null,
+        LinuxBubblewrapServiceOptions? serviceOptions = null)
+    {
+        ArgumentNullException.ThrowIfNull(claim);
+        // The interface has no current-claim read port. Consume the real issuer's
+        // SQL-backed ReadAsync rather than substitute caller-supplied claim facts.
+        if (approvals is not AuthoringExtensionApprovalAuthority issuer)
+        {
+            throw new AuthoringExtensionContractException("production_approval_read_owner_missing");
+        }
+        return new(packages, grants, stateStore, receipts, timeProvider, platform,
+            AuthoringExtensionProductionPreflight.ScopeFor(claim), grantPurpose,
+            coreAuthorities, coreOrUserShortcuts, queryValidator, workerOptions, serviceOptions, issuer, claim);
+    }
 
     /// <summary>
     /// Observes only an original native worker capability and retained descriptor.
