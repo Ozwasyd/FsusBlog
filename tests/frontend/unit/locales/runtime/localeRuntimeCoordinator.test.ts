@@ -1,31 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { LocaleMessages, SupportedLocale } from '@/locales/keys'
+import { prepareLocaleDomains } from '@/locales/runtime/localeRuntimeComposition'
+import type { SupportedLocale } from '@/locales/keys'
 import type { LocaleDomain } from '@/locales/localeDomains'
 import {
   LocaleRuntimeCoordinator,
   type LocaleFontPreparationPort,
   type LocalePreferenceCommitPort,
-  type LocaleRuntimePorts,
-  type PreparedLocaleDomains
+  type LocaleRuntimePorts
 } from '@/locales/runtime/localeRuntimeCoordinator'
 
 const PUBLIC_DOMAINS = Object.freeze(['common', 'layout', 'public'] as const satisfies readonly LocaleDomain[])
-
-function snapshotFor(
-  locale: SupportedLocale,
-  domains: readonly LocaleDomain[] = PUBLIC_DOMAINS
-): PreparedLocaleDomains {
-  const messages = Object.freeze(
-    Object.fromEntries(domains.map((domain) => [domain, Object.freeze({ ok: true })]))
-  ) as LocaleMessages
-  return Object.freeze({
-    locale,
-    domains: Object.freeze([...domains]),
-    messages,
-    identities: Object.freeze(domains.map((domain) => Object.freeze({ locale, domain })))
-  })
-}
 
 function createPorts(options?: {
   domainDelayMs?: Partial<Record<SupportedLocale, number>>
@@ -67,12 +52,12 @@ function createPorts(options?: {
       if (options?.domainErrors?.[locale]) {
         throw new Error(options.domainErrors[locale])
       }
-      return snapshotFor(locale, domains)
+      return prepareLocaleDomains(locale, domains, signal)
     })
   }
 
   const fontPreparationPort: LocaleFontPreparationPort = {
-    prepareLocaleFonts: vi.fn(async (locale, _weights, signal) => {
+    prepareLocaleFonts: vi.fn<LocaleFontPreparationPort['prepareLocaleFonts']>(async (locale, _weights, signal) => {
       fontCalls.push(locale)
       if (signal?.aborted) {
         throw new DOMException('Locale transaction aborted', 'AbortError')
