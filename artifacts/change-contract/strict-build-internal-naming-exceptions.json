@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/CurrentSchemaOwnedTargetProducer.cs",
+                "src/migration/OfflineMigrationBackupAdmission.cs",
+                "src/migration/OfflineMigrationSourceObserver.Providers.cs",
+                "src/migration/OfflineMigrationSourceObserver.cs",
+                "src/migration/PgLegacyNonArticlePreparation.cs",
+                "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs"
+            ],
+            "reason": "The existing trusted registry assigns these eight C# paths to its process-environment surface. This candidate acknowledges that path-level ownership while preserving every original external process/environment spelling and its existing adapters. The renamed managed fields and constants still obey internal C# naming; this declaration introduces no environment key and grants no naming exception to those internal identifiers. Native FieldOffset/StructLayout and libc EntryPoint attributes, SQL/JSON/wire literals and retained-reader bootstrap bytes remain unchanged."
+        }
+    ]
+}
