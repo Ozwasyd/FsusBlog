@@ -5,18 +5,25 @@ import type {
     MarkdownEditorResolvedSelection,
     MarkdownSourceRange
 } from '@/fsusui/articlePositionMaps';
+import { createMarkdownAnchorMap } from '@/fsusui/articlePositionMaps';
 
 import {
     createArticleDocumentContext,
+    articleDocumentContextSchema,
+    inspectArticleDocumentEditorSessionAssociation,
     validateArticleDocumentContext,
     type ArticleDocumentContext,
-    type ArticleDocumentContextAdapter
+    type ArticleDocumentContextAdapter,
+    type ArticleDocumentEditorSessionAssociation
 } from './articleDocumentContext';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
+
+import type { ArticleEditorMountedSessionPort } from './articleEditorContinuity';
 
 export const articleAnchorContextSchema = 'fsusblog.article-anchor-context.v1' as const;
 export const articleAnchorCommandSchema = 'fsusblog.article-anchor-command.v1' as const;
 export const articleScrollIntentPolicy = Object.freeze({ idleResumeMs: 1200, syncDebounceMs: 16 });
+export const articleAnchorOwnershipPolicy = Object.freeze({ maxCaptures: 64, maxTransactions: 32 });
 
 export type ArticleAnchorSurface = 'live' | 'source';
 export type ArticleAnchorTool = 'none' | 'publish-preview' | 'source-compare';
@@ -62,6 +69,45 @@ export interface ArticleAnchorCaptureOptions {
     readonly surface: ArticleAnchorSurface;
     readonly tool: ArticleAnchorTool;
 }
+
+/** A node-bound lookup key, never a complete context or an owner capability. */
+export interface ArticleAnchorCaptureReference {
+    readonly nodeId: string | null;
+    readonly range: MarkdownSourceRange;
+    readonly affinity: MarkdownAnchorAffinity;
+    readonly document: Pick<ArticleDocumentContext, 'articleId' | 'draftId' | 'documentId' | 'documentEpoch'
+        | 'sourceRevision' | 'draftRevision' | 'siteScope' | 'userScope' | 'sourceIdentityDigest' | 'contentDigest' | 'contextDigest'>;
+    readonly anchorContextDigest: string;
+}
+
+/** Only this controlled call path records native dispatch maps; no caller-result-array admission exists. */
+export interface ArticleAnchorPositionProducer {
+    binding(): ArticlePositionMapBinding | null;
+    capture(options: ArticleAnchorCaptureOptions): ArticleAnchorContext | null;
+    resolveCapture(reference: ArticleAnchorCaptureReference): ArticleAnchorContext | null;
+    transactions(saved: ArticleAnchorContext): readonly MarkdownEditorDispatchResult[] | null;
+    dispatch(transaction: Parameters<ArticleEditorMountedSessionPort['dispatchTransaction']>[0]): MarkdownEditorDispatchResult;
+    undo(): MarkdownEditorDispatchResult;
+    redo(): MarkdownEditorDispatchResult;
+    inspectFailure(): unknown;
+    dispose(): void;
+}
+
+/** Required application loan of UI961's real public methods, not SDK declarations or a fallback implementation. */
+export interface ArticleAnchorNativeEditorPort extends ArticleEditorMountedSessionPort {
+    undo(): MarkdownEditorDispatchResult;
+    redo(): MarkdownEditorDispatchResult;
+}
+
+interface OwnedPositionTransaction {
+    readonly result: MarkdownEditorDispatchResult;
+    readonly before: ArticleDocumentContext;
+    readonly after: ArticleDocumentContext;
+    readonly value: string;
+    readonly map: NonNullable<MarkdownEditorDispatchResult['positionMap']>;
+}
+
+const positionProducers = new WeakMap<ArticleDocumentContextAdapter, ArticleAnchorPositionProducer>();
 
 export interface ArticleAnchorCommand {
     readonly schema: typeof articleAnchorCommandSchema;
@@ -165,6 +211,20 @@ export function validateArticleAnchorContext(value: unknown): value is ArticleAn
         && validIntent(value.intent) && validSeal(value);
 }
 
+export function createArticleAnchorCaptureReference(anchor: ArticleAnchorContext): ArticleAnchorCaptureReference
+{
+    if (!validateArticleAnchorContext(anchor))
+    {
+        throw new Error('article-anchor-reference-invalid');
+    }
+    const document = anchor.document;
+    return Object.freeze({ nodeId: anchor.nodeId, range: anchor.range, affinity: anchor.affinity,
+        document: Object.freeze({ articleId: document.articleId, draftId: document.draftId, documentId: document.documentId,
+            documentEpoch: document.documentEpoch, sourceRevision: document.sourceRevision, draftRevision: document.draftRevision,
+            siteScope: document.siteScope, userScope: document.userScope, sourceIdentityDigest: document.sourceIdentityDigest,
+            contentDigest: document.contentDigest, contextDigest: document.contextDigest }), anchorContextDigest: anchor.contentDigest });
+}
+
 export function validateArticleAnchorCommand(value: unknown): value is ArticleAnchorCommand
 {
     if (!exactKeys(value, commandKeys) || value.schema !== articleAnchorCommandSchema
@@ -200,6 +260,9 @@ export class ArticleAnchorContextAdapter
     private synchronizationEnabled = false;
     private lastSyncAt = -Infinity;
     private readonly log: ArticleAnchorCommand[] = [];
+    readonly #ownedCaptures = new Map<string, ArticleAnchorContext>();
+    #positionProducer: ArticleAnchorPositionProducer | null = null;
+    #ownedDisposed = false;
 
     public constructor(owner: ArticleDocumentContextAdapter)
     {
@@ -223,16 +286,342 @@ export class ArticleAnchorContextAdapter
     /** Read-only admission through the original owner; anchorless effects need the same map checks as restore/capture. */
     public isCurrentPositionBinding(binding: ArticlePositionMapBinding): boolean
     {
+        if (this.#ownedDisposed)
+        {
+            return false;
+        }
         const current = this.owner.context;
         try
         {
             this.assertBinding(binding);
-            return this.owner.context === current && this.owner.isCurrentContext(current);
+            return !this.#ownedDisposed && this.owner.context === current && this.owner.isCurrentContext(current);
         }
         catch
         {
             return false;
         }
+    }
+
+    /** Query only this original issuer's bounded captures in its still-current document lifetime. */
+    public resolveOwnedCapture(reference: ArticleAnchorCaptureReference): ArticleAnchorContext | null
+    {
+        if (!this.#ownedCurrent() || this.#positionProducer && !this.#positionProducer.binding())
+        {
+            return null;
+        }
+        const document = this.owner.context;
+        const saved = this.#resolveOwnedCapture(reference);
+        return this.#ownedCurrent() && this.owner.context === document
+            && (!this.#positionProducer || this.#positionProducer.binding())
+            && saved && this.#ownedCaptures.get(saved.contentDigest) === saved ? saved : null;
+    }
+
+    #resolveOwnedCapture(reference: ArticleAnchorCaptureReference): ArticleAnchorContext | null
+    {
+        try
+        {
+            const saved = this.#ownedCaptures.get(reference.anchorContextDigest);
+            return saved && calculateOpenArticleDocumentDigest(createArticleAnchorCaptureReference(saved))
+                === calculateOpenArticleDocumentDigest(reference) ? saved : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    #ownedCurrent(): boolean
+    {
+        if (this.#ownedDisposed)
+        {
+            return false;
+        }
+        this.resetForDocument();
+        if (!this.owner.isCurrentContext(this.owner.context))
+        {
+            this.dispose();
+            return false;
+        }
+        return true;
+    }
+
+    /** Dispose is terminal for this capture issuer; it cannot be rebound under reused IDs. */
+    public dispose(): void
+    {
+        if (this.#ownedDisposed)
+        {
+            return;
+        }
+        this.#ownedDisposed = true;
+        this.#ownedCaptures.clear();
+        this.#positionProducer?.dispose();
+    }
+
+    /** Borrow the real public native session using the original two-issuer relation, never string equality. */
+    public bindOwnedPositionProducer(association: ArticleDocumentEditorSessionAssociation,
+        editor: ArticleAnchorNativeEditorPort): ArticleAnchorPositionProducer
+    {
+        if (!this.#ownedCurrent() || this.#positionProducer || positionProducers.has(this.owner))
+        {
+            throw new Error('article-anchor-position-owner-unavailable');
+        }
+        const original = inspectArticleDocumentEditorSessionAssociation(association, this.owner);
+        if (!original)
+        {
+            throw new Error('article-anchor-session-association-required');
+        }
+        if (typeof editor.getSession !== 'function' || typeof editor.dispatchTransaction !== 'function'
+            || typeof editor.undo !== 'function' || typeof editor.redo !== 'function')
+        {
+            throw new Error('article-anchor-native-position-port-unavailable');
+        }
+        const session = editor.getSession(original.registryEditorSessionRef);
+        if (session.editorSessionRef !== original.registryEditorSessionRef)
+        {
+            throw new Error('article-anchor-native-session-ref-mismatch');
+        }
+        const dispatchNative = editor.dispatchTransaction.bind(editor);
+        const undoNative = editor.undo.bind(editor);
+        const redoNative = editor.redo.bind(editor);
+        const nativeAuthority = session.documentAuthority;
+        if (!nativeAuthority)
+        {
+            throw new Error('article-anchor-native-authority-required');
+        }
+        const initial = original.document;
+        const maps: OwnedPositionTransaction[] = [];
+        let revision = initial.sourceRevision;
+        let closed = false;
+        let busy = false;
+        let failure: unknown;
+        let producer: ArticleAnchorPositionProducer | null = null;
+        const stopContext = this.owner.subscribeContext(context =>
+        {
+            if (context === null || !sameDocument(initial, context))
+            {
+                retire(new Error('article-anchor-position-lifetime-retired'));
+            }
+        });
+        const retire = (cause?: unknown): void =>
+        {
+            closed = true;
+            failure ??= cause;
+            maps.length = 0;
+            this.#ownedCaptures.clear();
+            stopContext();
+            this.#ownedDisposed = true;
+            if (producer && positionProducers.get(this.owner) === producer)
+            {
+                positionProducers.delete(this.owner);
+            }
+        };
+        type Ticket = NonNullable<ReturnType<typeof nativeAuthority.capture>>;
+        const admit = (context: ArticleDocumentContext, ticket: Ticket): void =>
+        {
+            const observed = inspectArticleDocumentEditorSessionAssociation(association, this.owner);
+            if (closed || this.#ownedDisposed || this.#positionProducer !== producer || positionProducers.get(this.owner) !== producer
+                || observed?.document !== context
+                || !sameDocument(initial, context)
+                || observed.registry !== original.registry || observed.handle !== original.handle
+                || observed.registryEditorSessionRef !== original.registryEditorSessionRef
+                || editor.getSession(original.registryEditorSessionRef) !== session
+                || session.editorSessionRef !== original.registryEditorSessionRef || !nativeAuthority.hasCustody(ticket))
+            {
+                throw new Error('article-anchor-position-admission-changed');
+            }
+        };
+        const frame = (): { binding: ArticlePositionMapBinding; ticket: Ticket; } =>
+        {
+            const observed = inspectArticleDocumentEditorSessionAssociation(association, this.owner);
+            const context = observed?.document;
+            const ticket = nativeAuthority.capture();
+            if (!context || !ticket || context.sourceRevision !== revision || ticket.documentKey !== context.documentId
+                || ticket.documentEpoch !== context.documentEpoch || ticket.revision !== context.sourceRevision)
+            {
+                throw new Error('article-anchor-position-native-gap');
+            }
+            let binding: ArticlePositionMapBinding | null = null;
+            const native = session.inspectContentDigest(source =>
+            {
+                binding = Object.freeze({ document: context,
+                    map: createMarkdownAnchorMap({ identity: this.owner.documentIdentity, source }) });
+                return createArticleDocumentContext({ ...context, content: source }).contentDigest;
+            }, { documentIdentity: this.owner.documentIdentity, revision, assertAdmission: () => admit(context, ticket) });
+            admit(context, ticket);
+            if (!binding || native.editorContentDigest !== context.contentDigest || !this.isCurrentPositionBinding(binding))
+            {
+                throw new Error('article-anchor-position-map-invalid');
+            }
+            admit(context, ticket);
+            return { binding, ticket };
+        };
+        const read = <Value>(operation: () => Value): Value | null =>
+        {
+            if (closed || busy || this.#ownedDisposed)
+            {
+                return null;
+            }
+            busy = true;
+            try
+            {
+                return operation();
+            }
+            catch (error)
+            {
+                retire(error);
+                return null;
+            }
+            finally
+            {
+                busy = false;
+            }
+        };
+        const mutate = (invoke: () => MarkdownEditorDispatchResult,
+            transaction?: Parameters<ArticleEditorMountedSessionPort['dispatchTransaction']>[0]): MarkdownEditorDispatchResult =>
+        {
+            if (closed || busy || this.#ownedDisposed)
+            {
+                throw new Error('article-anchor-position-dispatch-unavailable');
+            }
+            busy = true;
+            try
+            {
+                const before = frame();
+                const context = before.binding.document;
+                if (transaction && (transaction.expectedRevision !== revision || transaction.documentIdentity?.id !== context.documentId
+                    || transaction.documentIdentity.epoch !== context.documentEpoch))
+                {
+                    throw new Error('article-anchor-position-dispatch-context-invalid');
+                }
+                admit(context, before.ticket);
+                const result = invoke();
+                if (!result.accepted)
+                {
+                    frame();
+                    return result;
+                }
+                const ticket = nativeAuthority.capture();
+                const current = this.owner.context;
+                if (!ticket || !sameDocument(initial, current) || result.beforeRevision !== context.sourceRevision
+                    || result.documentIdentity?.id !== context.documentId || result.documentIdentity.epoch !== context.documentEpoch
+                    || result.revision < result.beforeRevision || ticket.revision !== result.revision)
+                {
+                    throw new Error('article-anchor-position-dispatch-invalid');
+                }
+                const digest = calculateOpenArticleDocumentDigest({ schema: articleDocumentContextSchema, content: result.value });
+                const native = session.inspectContentDigest(source => calculateOpenArticleDocumentDigest({ schema: articleDocumentContextSchema, content: source }),
+                    { documentIdentity: this.owner.documentIdentity, revision: result.revision, assertAdmission: () => admit(current, ticket) });
+                if (native.editorContentDigest !== digest)
+                {
+                    throw new Error('article-anchor-position-dispatch-source-mismatch');
+                }
+                if (result.revision === context.sourceRevision)
+                {
+                    frame();
+                    return result;
+                }
+                if (!result.positionMap || !Object.isFrozen(result.positionMap)
+                    || typeof result.positionMap.map !== 'function' || typeof result.positionMap.mapRange !== 'function')
+                {
+                    throw new Error('article-anchor-position-dispatch-map-missing');
+                }
+                if (current === context)
+                {
+                    this.owner.updateSource(result.value, result.revision);
+                }
+                else if (current.sourceRevision !== result.revision || current.contentDigest !== digest)
+                {
+                    throw new Error('article-anchor-position-document-commit-mismatch');
+                }
+                revision = result.revision;
+                const after = frame();
+                maps.push({ result, before: context, after: after.binding.document, value: result.value, map: result.positionMap });
+                if (maps.length > articleAnchorOwnershipPolicy.maxTransactions)
+                {
+                    maps.shift();
+                }
+                return result;
+            }
+            catch (error)
+            {
+                retire(error);
+                throw error;
+            }
+            finally
+            {
+                busy = false;
+            }
+        };
+        producer = Object.freeze({
+            binding: () => read(() => frame().binding),
+            capture: (options: ArticleAnchorCaptureOptions) => read(() =>
+            {
+                const current = frame();
+                const context = current.binding.document;
+                const snapshot = session.captureSnapshot(source => createArticleDocumentContext({ ...context, content: source }).contentDigest,
+                    { documentIdentity: this.owner.documentIdentity, revision, assertAdmission: () => admit(context, current.ticket) });
+                const saved = this.capture(current.binding, snapshot.selection, options);
+                admit(context, current.ticket);
+                return saved;
+            }),
+            resolveCapture: (reference: ArticleAnchorCaptureReference) => read(() =>
+            {
+                const current = frame();
+                const saved = this.#resolveOwnedCapture(reference);
+                admit(current.binding.document, current.ticket);
+                return saved;
+            }),
+            transactions: (saved: ArticleAnchorContext) => read(() =>
+            {
+                const current = frame();
+                if (this.#ownedCaptures.get(saved.contentDigest) !== saved || !sameDocument(saved.document, current.binding.document))
+                {
+                    return null;
+                }
+                let expected = saved.document;
+                const result: MarkdownEditorDispatchResult[] = [];
+                for (const record of maps)
+                {
+                    if (record.after.sourceRevision <= expected.sourceRevision)
+                    {
+                        continue;
+                    }
+                    if (record.before.contextDigest !== expected.contextDigest)
+                    {
+                        return null;
+                    }
+                    const actual = record.result;
+                    if (!actual.accepted || actual.beforeRevision !== record.before.sourceRevision || actual.revision !== record.after.sourceRevision
+                        || actual.value !== record.value || actual.documentIdentity?.id !== record.before.documentId
+                        || actual.documentIdentity.epoch !== record.before.documentEpoch || actual.positionMap !== record.map
+                        || !Object.isFrozen(record.map))
+                    {
+                        throw new Error('article-anchor-owned-map-mutated');
+                    }
+                    result.push(actual);
+                    expected = record.after;
+                }
+                admit(current.binding.document, current.ticket);
+                return expected.contextDigest === current.binding.document.contextDigest ? Object.freeze(result) : null;
+            }),
+            dispatch: (transaction: Parameters<ArticleEditorMountedSessionPort['dispatchTransaction']>[0]) => mutate(() => dispatchNative(transaction), transaction),
+            undo: () => mutate(undoNative),
+            redo: () => mutate(redoNative),
+            inspectFailure: () => failure,
+            dispose: () => retire()
+        });
+        this.#positionProducer = producer;
+        positionProducers.set(this.owner, producer);
+        try
+        {
+            frame();
+        }
+        catch (error)
+        {
+            retire(error);
+            throw error;
+        }
+        return producer;
     }
 
     public manual(kind: ArticleManualScrollKind, pane: ArticleAnchorPane, now: number): void
@@ -291,7 +680,7 @@ export class ArticleAnchorContextAdapter
         });
         const source = binding.map.visualAnchorToSourceSelection(visual);
         const point = binding.map.sourcePositionToVisual({ offset: source.focus, affinity: options.affinity });
-        return seal({
+        const captured = seal({
             schema: articleAnchorContextSchema,
             document: binding.document,
             range: Object.freeze({ start: Math.min(source.anchor, source.focus), end: Math.max(source.anchor, source.focus) }),
@@ -300,6 +689,17 @@ export class ArticleAnchorContextAdapter
             ...options,
             intent: this.intent
         });
+        const previous = this.#ownedCaptures.get(captured.contentDigest);
+        if (previous)
+        {
+            return previous;
+        }
+        this.#ownedCaptures.set(captured.contentDigest, captured);
+        if (this.#ownedCaptures.size > articleAnchorOwnershipPolicy.maxCaptures)
+        {
+            this.#ownedCaptures.delete(this.#ownedCaptures.keys().next().value!);
+        }
+        return captured;
     }
 
     public restore(
@@ -497,8 +897,13 @@ export class ArticleAnchorContextAdapter
 
     private resetForDocument(): void
     {
+        if (this.#ownedDisposed)
+        {
+            throw new Error('article-anchor-owner-disposed');
+        }
         if (!sameDocument(this.intentDocument, this.owner.context))
         {
+            this.#ownedCaptures.clear();
             this.intentDocument = this.owner.context;
             this.intent = Object.freeze({ state: 'automatic', pane: null, kind: null, generation: ++this.sequence, changedAt: 0, resume: 'initial' });
             this.lastSyncAt = -Infinity;
