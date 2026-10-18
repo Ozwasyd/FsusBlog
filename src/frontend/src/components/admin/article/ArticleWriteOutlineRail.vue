@@ -734,6 +734,7 @@ const revealRange = (item: MarkdownEditorOutlineItem): void =>
 .article-write-outline-tree
  {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--fsus-space-1);
 }
 

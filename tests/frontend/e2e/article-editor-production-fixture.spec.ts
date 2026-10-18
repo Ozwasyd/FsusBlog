@@ -1622,7 +1622,18 @@ test.describe('article editor production outline content styles', () => {
         await page.keyboard.press('Tab')
         await item.focus()
         await expect(item).toBeFocused()
-        await page.screenshot({ path: testInfo.outputPath(`outline-content-${width}-${theme}.png`), fullPage: true })
+        for (const scale of contract.zoom) {
+          await page.evaluate((value: number) => { document.documentElement.style.zoom = String(value) }, scale)
+          const treeWrap = panel.locator('.article-write-outline-tree-wrap')
+          await expect.poll(() => treeWrap.evaluate((element: HTMLElement) => element.scrollWidth <= element.clientWidth)).toBe(true)
+          await expect.poll(() => item.evaluate((element: HTMLElement) => {
+            const box = element.getBoundingClientRect()
+            const parent = element.closest('.article-write-outline-tree-wrap')!.getBoundingClientRect()
+            return box.left >= parent.left && box.right <= parent.right
+          })).toBe(true)
+          expect(await item.getAttribute('aria-label')).toBe('一个可访问且足够长的标题，用于验证完整 accessible name 与稳定换行行为')
+          await page.screenshot({ path: testInfo.outputPath(`outline-content-${width}-${theme}-css-scale-${scale}.png`), fullPage: true })
+        }
         expect(await content.evaluate((element: HTMLElement) => getComputedStyle(element).display)).toBe('grid')
         expect(await header.evaluate((element: HTMLElement) => getComputedStyle(element).display)).toBe('flex')
         expect(await item.evaluate((element: HTMLElement) => getComputedStyle(element).display)).toBe('flex')
