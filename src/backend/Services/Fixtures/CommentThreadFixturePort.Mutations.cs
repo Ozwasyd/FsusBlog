@@ -122,12 +122,20 @@ public sealed partial class CommentThreadFixturePort
         if (before.ModerationEvents[^1].Id != plan.ExpectedLastModerationEventId)
             throw new InvalidOperationException("Comment mutation moderation event is stale.");
 
-        if (plan.Command is CommentFixtureAppeal
-            && (beforeRow.ModerationStatus is not (CommentModerationStatus.Rejected or CommentModerationStatus.Hidden)
-                || before.ModerationEvents.Where(item => item.EventType is CommentModerationEventTypes.Reject
-                    or CommentModerationEventTypes.Hide).OrderByDescending(item => item.Id).FirstOrDefault()?.Id
-                    != plan.ExpectedAppealTargetEventId))
-            throw new InvalidOperationException("Comment mutation appeal decision is missing or stale.");
+        if (plan.Command is CommentFixtureAppeal)
+        {
+            CommentFixtureModerationEventObservation? appealTarget = before.ModerationEvents
+                .SingleOrDefault(item => item.Id == plan.ExpectedAppealTargetEventId);
+            if (beforeRow.ModerationStatus is not (CommentModerationStatus.Rejected or CommentModerationStatus.Hidden)
+                || appealTarget is null
+                || appealTarget.EventType is not (CommentModerationEventTypes.Reject or CommentModerationEventTypes.Hide))
+                throw new InvalidOperationException("Comment mutation appeal decision is missing or stale.");
+
+            // Exact target ownership does not make an older decision current.
+            if (before.ModerationEvents.Any(item => item.Id > appealTarget.Id
+                    && item.EventType is CommentModerationEventTypes.Reject or CommentModerationEventTypes.Hide))
+                throw new InvalidOperationException("Comment mutation appeal decision is missing or stale.");
+        }
 
         long? reportId = null;
         long? appealId = null;
