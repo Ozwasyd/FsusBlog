@@ -3075,3 +3075,39 @@ bundle, dependency plan/request and fresh dependency inputs. Those root inputs
 are not minted here. A matching existing revision reference is current ledger
 fact, not an explicit resource reuse decision. All observation `Can*` flags remain
 false; no production Vault consumer is activated by these methods.
+
+## Current asset frozen export candidate
+
+`ArticlePackageFrozenExportCandidateWriter.ReadCurrentAssetsAndWriteCandidateAsync`
+composes the original current article source, owned upload-session/native asset
+reader and `ReadCurrentAssetsAndBindCandidatePlanAsync`. The backend retains an
+expected plan obtained through the original current producer. The writer accepts
+that expectation separately from original article inputs, selected requests,
+principal, inventory, readers and `DocumentExportFrozenInput` bytes. It creates no
+principal, session, asset record, mapper, file reader or permission observation.
+
+A fresh original authorized read binds the complete selected source closure and
+all original `AssetRecord` fields, including storage key, owner and UTC times, to
+the retained expectation. Actual owned native bytes also bind the frozen document
+assets through the strict snapshot writer. After the ordinal/checksum/stored ZIP
+pipeline and original ZIP/byte/media read-back, another original authorized
+read/bind must succeed and selected observations must remain identical before a
+candidate is released. The frozen input user must match the original principal.
+Failure or cancellation returns no candidate, including after ZIP construction.
+This is a bounded consistency fence, not an atomic permission/export fence.
+
+The source providers retain their current-revision, original owned-session,
+public active-asset and native regular-file restrictions. Selected edges are not
+complete revision-ledger enumeration. The writer retains its 64 MiB byte budget,
+256 document assets per input and the original reader file/archive limits. Font
+presentation bytes remain document inputs and never become content asset files.
+The existing package v2/property-v1 format is preserved; future versions and
+non-null frozen dependency inputs have no silent fallback. The legacy
+`TryWriteCandidate` entry refuses every v2 asset-root plan; finite callers must
+use the explicit retained-snapshot entry.
+
+`RequireExportAuthority`, package/archive authority and asset rights/retention
+remain unavailable. No download route, accepted import/export operation,
+persistent staging/cleanup/idempotency receipt or provider registration follows
+from this candidate. Document metadata/property digests retain their own domains;
+this bridge does not manufacture missing persisted metadata or property authority.

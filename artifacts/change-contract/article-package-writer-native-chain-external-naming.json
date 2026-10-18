@@ -4,6 +4,7 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.CurrentAssets.cs",
                 "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs",
                 "src/backend/Services/Authoring/ArticlePackageImportAssetCandidateValidator.cs",
                 "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
@@ -20,7 +21,14 @@
                 "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
                 "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs"
             ],
-            "reason": "Preserve original dependency source spellings byte-for-byte at this source-composition stage. These exact changed paths retain their existing trusted naming registration; no new environment access, naming policy or authority switch is introduced."
+            "reason": "Bind original dependency source and the own writer partials to the existing C# environment-variable registration. Preserve original external spellings and fail-closed source/session/record/byte checks; add no environment access, naming policy or authority switch."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Append the own current-writer public boundary and its qualification limits while preserving existing canonical document, JSON and external contract spellings. Do not change authority, generated sections, registry or policy."
         }
     ]
 }

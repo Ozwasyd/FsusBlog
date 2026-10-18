@@ -79,7 +79,7 @@ public sealed class ArticlePackageFrozenExportCandidate
 /// No provider registration, store read, renderer, external asset lookup, temporary file or download.
 /// Content assets require the explicit v2 plan; complete dependencies remain unavailable.
 /// </summary>
-public static class ArticlePackageFrozenExportCandidateWriter
+public static partial class ArticlePackageFrozenExportCandidateWriter
 {
     public const long MaxFrozenInputBytes = 64L * 1024 * 1024;
     public const int MaxAssetsPerInput = 256;
@@ -131,25 +131,10 @@ public static class ArticlePackageFrozenExportCandidateWriter
             // Bound both backend snapshots before the planner takes defensive byte copies.
             foreach (ArticlePackageManifestCandidatePlan snapshotPlan in new[] { expected, plan })
             {
-                if (snapshotPlan.Assets!.Count > ArticlePackageImportCandidateBytes.MaxFiles - snapshotPlan.Articles.Count - 2)
+                ArticlePackageManifestCandidateResult budget = CheckSnapshotBudget(snapshotPlan, cancellationToken);
+                if (!budget.IsValid)
                 {
-                    return Invalid("article_package_export_file_budget_exceeded");
-                }
-                long plannedBytes = 0;
-                foreach (ArticlePackageManifestPlannedArticle article in snapshotPlan.Articles)
-                {
-                    if (!AddBytes(ref plannedBytes, article.Manifest.SourceBytes.ByteLength))
-                    {
-                        return Invalid("article_package_export_byte_budget_exceeded");
-                    }
-                }
-                foreach (ArticlePackageManifestPlannedAsset asset in snapshotPlan.Assets)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (!AddBytes(ref plannedBytes, asset.Source.SourceBytes.Length))
-                    {
-                        return Invalid("article_package_export_byte_budget_exceeded");
-                    }
+                    return budget;
                 }
             }
             ArticlePackageManifestCandidateResult bound = ArticlePackageManifestCandidatePlanner.TryBindCandidatePlanToSnapshot(
@@ -175,6 +160,37 @@ public static class ArticlePackageFrozenExportCandidateWriter
             // Foreign article collections cannot expose diagnostics or a partially bound result.
             return Invalid("article_package_export_input_invalid");
         }
+    }
+
+    private static ArticlePackageManifestCandidateResult CheckSnapshotBudget(
+        ArticlePackageManifestCandidatePlan plan, CancellationToken cancellationToken)
+    {
+        if (plan.Assets is null)
+        {
+            return Invalid("article_package_export_asset_record_snapshot_required");
+        }
+        if (plan.Assets.Count > ArticlePackageImportCandidateBytes.MaxFiles - plan.Articles.Count - 2)
+        {
+            return Invalid("article_package_export_file_budget_exceeded");
+        }
+        long plannedBytes = 0;
+        foreach (ArticlePackageManifestPlannedArticle article in plan.Articles)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!AddBytes(ref plannedBytes, article.Manifest.SourceBytes.ByteLength))
+            {
+                return Invalid("article_package_export_byte_budget_exceeded");
+            }
+        }
+        foreach (ArticlePackageManifestPlannedAsset asset in plan.Assets)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!AddBytes(ref plannedBytes, asset.Source.SourceBytes.Length))
+            {
+                return Invalid("article_package_export_byte_budget_exceeded");
+            }
+        }
+        return new(true, null);
     }
 
     private static ArticlePackageManifestCandidateResult TryWriteCandidateCore(
