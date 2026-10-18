@@ -382,6 +382,77 @@ public sealed class AuthoringCanvasInFlightSessionPostgresTests(PostgresSchemaMi
             .SetColumns(session => new AdminSession { RevokedAtUtc = DateTime.UtcNow, ValidationVersion = 2 })
             .Where(session => session.SessionId == sessionId).ExecuteCommandAsync();
 
+    [Theory]
+    [InlineData(true, 10_000)]
+    [InlineData(false, 10_000)]
+    [InlineData(true, 10_001)]
+    [InlineData(false, 10_001)]
+    public async Task FactSource_BatchBudgetAppliesBeforeSiteRefusal(bool primarySite, int targetCount)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
+        var owner = new AuthoringCanvasOwner(s_owner.AdminPrincipalId, primarySite ? "primary-site" : "other-site");
+        var lifetime = new AuthoringCanvasRequestLifetime(db);
+        var source = new AuthoringCanvasReferenceFactSource(new PostgresAuthoringCanvasArticleReferenceReader(db),
+            new AuthoringCanvasCoordinateFactProvider([]), lifetime);
+        AuthoringCanvasReferenceResolutionRequest request = await CreateRequestAsync(db);
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate = await source.ReadAuthorityCoordinateAsync(
+            owner, AuthoringCanvasReferencePermission.ArticleRead);
+        AuthoringCanvasReferenceTarget[] targets = Enumerable.Range(0, targetCount)
+            .Select(_ => new AuthoringCanvasReferenceTarget(Guid.CreateVersion7(), AuthoringCanvasNodeType.ArticleReference,
+                204, null, null, null, null)).ToArray();
+        var query = new AuthoringCanvasReferenceFactQuery(request.CanvasId, request.CanvasRevision,
+            request.CanvasContentDigest, owner, AuthoringCanvasReferencePermission.ArticleRead, coordinate, targets);
+        using var borrowed = new CancellationTokenSource();
+        db.Ado.CancellationToken = borrowed.Token;
+        IDbTransaction? transaction = db.Ado.Transaction;
+        int reads = 0;
+        db.Aop.OnLogExecuting = (_, _) => reads++;
+        try
+        {
+            if (targetCount > AuthoringCanvasReferenceContract.MaxBatchSize)
+            {
+                AuthoringCanvasBudgetExceededException failure = await Assert.ThrowsAsync<AuthoringCanvasBudgetExceededException>(
+                    () => source.ReadBatchAsync(query));
+                Assert.Equal("canvas_reference_batch_budget_exceeded", failure.Code);
+                Assert.Equal(0, reads);
+            }
+            else
+            {
+                IReadOnlyList<AuthoringCanvasReferenceFact> facts = await source.ReadBatchAsync(query);
+                Assert.Equal(AuthoringCanvasReferenceContract.MaxBatchSize, facts.Count);
+                Assert.Equal(targets.Select(static target => target.NodeId), facts.Select(static fact => fact.NodeId));
+                Assert.Equal(primarySite ? 3 : 0, reads);
+                if (primarySite)
+                {
+                    Assert.All(facts, static fact => Assert.Equal("Private summary", fact.ContextSnippet));
+                }
+                else
+                {
+                    Assert.All(facts, static fact =>
+                    {
+                        Assert.Equal(AuthoringCanvasArticleState.PermissionDeniedOrUnknown, fact.ArticleState);
+                        Assert.Null(fact.Title);
+                        Assert.Null(fact.ContextSnippet);
+                        Assert.Null(fact.StableRoute);
+                        Assert.Null(fact.DisplayProjectionReference);
+                        Assert.Equal(0, fact.CurrentRevision);
+                        Assert.Equal(0, fact.ResolvedRevision);
+                    });
+                }
+            }
+            Assert.Equal(borrowed.Token, db.Ado.CancellationToken);
+            Assert.Same(transaction, db.Ado.Transaction);
+            using AuthoringCanvasRequestLifetime.Borrow current = lifetime.Acquire(owner, CancellationToken.None);
+            current.EnsureCurrent();
+        }
+        finally
+        {
+            db.Aop.OnLogExecuting = null;
+            db.Ado.CancellationToken = null;
+        }
+    }
+
     [Fact]
     public async Task OriginalFactSource_Resolves10000TargetsInOneMetadataBatchUnderHeldAuthority()
     {
