@@ -1067,7 +1067,7 @@
         "tools/style/markdown-toolchain/package-lock.json"
       ],
       "versioning": "npm",
-      "group": "build-tooling",
+      "group": "frontend-test-tooling",
       "stabilityPolicy": "stable-only",
       "fieldPaths": [
         "/devDependencies/markdownlint-cli2"
