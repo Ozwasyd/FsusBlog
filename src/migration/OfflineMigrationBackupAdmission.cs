@@ -2,9 +2,9 @@ using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text.Json;
 
-using Microsoft.Win32.SafeHandles;
-
 using FsusBlog.Contracts.Migration;
+
+using Microsoft.Win32.SafeHandles;
 
 namespace FsusBlog.Migration;
 

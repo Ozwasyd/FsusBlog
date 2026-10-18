@@ -5,9 +5,9 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-using Npgsql;
-
 using FsusBlog.Contracts.Migration;
+
+using Npgsql;
 
 namespace FsusBlog.Migration;
 

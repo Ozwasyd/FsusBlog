@@ -6,12 +6,12 @@ using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
+
 using Microsoft.Data.Sqlite;
 
 using MySqlConnector;
-
-using FsusBlog.Contracts.Migration;
-using FsusBlog.Contracts.Schema;
 
 namespace FsusBlog.Migration;
 

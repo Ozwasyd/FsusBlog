@@ -1,9 +1,9 @@
 using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 
-using Npgsql;
-
 using FsusBlog.Contracts.SchemaMigration;
+
+using Npgsql;
 
 namespace FsusBlog.Migration;
 

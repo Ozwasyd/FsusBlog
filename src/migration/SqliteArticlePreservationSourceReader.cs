@@ -1,10 +1,10 @@
 using System.Data.Common;
 using System.Runtime.ExceptionServices;
 
-using Microsoft.Data.Sqlite;
-
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Shared.Contracts.Outputs;
+
+using Microsoft.Data.Sqlite;
 
 namespace FsusBlog.Migration;
 

@@ -4,15 +4,15 @@ using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
+using FsusBlog.Shared.Algorithms.Schema;
+
 using Microsoft.Data.Sqlite;
 
 using MySqlConnector;
 
 using SqlSugar;
-
-using FsusBlog.Contracts.Migration;
-using FsusBlog.Contracts.Schema;
-using FsusBlog.Shared.Algorithms.Schema;
 
 namespace FsusBlog.Migration;
 
@@ -190,7 +190,10 @@ internal static class OfflineMigrationStateStore
             if (await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) != 1)
                 throw new InvalidOperationException("offline_apply_journal_append_failed");
         }
-        catch (Exception failure) { first = failure; }
+        catch (Exception failure)
+        {
+            first = failure;
+        }
         try
         {
             await command.DisposeAsync().ConfigureAwait(false);
