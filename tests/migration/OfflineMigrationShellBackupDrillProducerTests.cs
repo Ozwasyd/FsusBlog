@@ -63,7 +63,10 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
     {
         using var fixture = new ShellFixture("exit 0\n");
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            fixture.RunAsync(fixture.Options with { OperationDeadline = null }));
+            fixture.RunAsync(fixture.Options with
+            {
+                OperationDeadline = null
+            }));
         Assert.Equal("offline_backup_shell_original_operation_deadline_required", error.Message);
         fixture.AssertNotStarted();
     }
@@ -109,12 +112,12 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
         {
             cancellation.Cancel();
             try
-        {
-            await pending;
-        }
+            {
+                await pending;
+            }
             catch (InvalidOperationException)
-        {
-        }
+            {
+            }
         }
     }
 
@@ -132,7 +135,10 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
             [name] = "caller-value"
         };
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.RunAsync(configuration:
-            fixture.Configuration with { ExecutionEnvironment = environment }));
+            fixture.Configuration with
+            {
+                ExecutionEnvironment = environment
+            }));
         fixture.AssertNotStarted();
     }
 
@@ -145,7 +151,11 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
     {
         using var fixture = new ShellFixture("exit 0\n");
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.RunAsync(configuration:
-            fixture.Configuration with { TerminateGraceSeconds = terminate, KillReapSeconds = reap }));
+            fixture.Configuration with
+            {
+                TerminateGraceSeconds = terminate,
+                KillReapSeconds = reap
+            }));
         fixture.AssertNotStarted();
     }
 
@@ -195,7 +205,8 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
         await Assert.ThrowsAsync<IOException>(() => fixture.RunAsync(createRaw: path =>
         {
             calls++;
-            if (calls == 2) throw new IOException("fixture raw creation failure");
+            if (calls == 2)
+                throw new IOException("fixture raw creation failure");
             return ShellFixture.CreateRaw(path);
         }));
         Assert.Equal(2, calls);
@@ -216,7 +227,8 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
         Task<OfflineMigrationBackupDrillTerminal> pending = fixture.RunAsync(token: cancellation.Token);
         try
         {
-            while (!File.Exists(fixture.OutputRoot + ".ready")) await Task.Delay(10, cancellation.Token);
+            while (!File.Exists(fixture.OutputRoot + ".ready"))
+                await Task.Delay(10, cancellation.Token);
             // The parent exits independently; the actual descendant still owns stdout.
             Assert.False(pending.IsCompleted);
         }
@@ -246,7 +258,8 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
         Task<OfflineMigrationBackupDrillTerminal> pending = fixture.RunAsync(token: cancellation.Token);
         try
         {
-            while (!File.Exists(fixture.OutputRoot + ".ready")) await Task.Delay(10, cancellation.Token);
+            while (!File.Exists(fixture.OutputRoot + ".ready"))
+                await Task.Delay(10, cancellation.Token);
             cancellation.Cancel();
             InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => pending);
             Assert.Equal("offline_backup_shell_invocation_failed_or_cancelled", error.Message);
@@ -262,18 +275,21 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
         {
             cancellation.Cancel();
             try
-        {
-            await pending;
-        }
+            {
+                await pending;
+            }
             catch (InvalidOperationException)
-        {
-        }
+            {
+            }
         }
     }
 
     private sealed class FixtureClock : TimeProvider
     {
-        internal long Seconds { get; set; }
+        internal long Seconds
+        {
+            get; set;
+        }
         public override long TimestampFrequency => 1;
         public override long GetTimestamp() => Seconds;
     }
@@ -284,9 +300,18 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
         internal string Invocation { get; } = Guid.NewGuid().ToString("N");
         internal string OutputRoot => Path.Combine(Parent, "new-output");
         internal FixtureClock Clock { get; } = new();
-        internal OfflineMigrationPlanCommandOptions Options { get; }
-        internal OfflineMigrationShellBackupDrillConfiguration Configuration { get; }
-        internal bool TerminalObserved { get; set; }
+        internal OfflineMigrationPlanCommandOptions Options
+        {
+            get;
+        }
+        internal OfflineMigrationShellBackupDrillConfiguration Configuration
+        {
+            get;
+        }
+        internal bool TerminalObserved
+        {
+            get; set;
+        }
 
         internal ShellFixture(string fakeBody)
         {
@@ -302,7 +327,8 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
             string package = Path.Combine(Parent, "package");
             string identity = Path.Combine(Parent, "identity");
             string assembly = Path.Combine(Parent, "migration.dll");
-            foreach (string path in new[] { package, identity, assembly }) File.WriteAllText(path, "fixture-not-authenticated");
+            foreach (string path in new[] { package, identity, assembly })
+                File.WriteAllText(path, "fixture-not-authenticated");
             Configuration = new(repository, "/usr/bin/bash", "/usr/bin/setsid", "/usr/bin/bash", assembly,
                 identity, null, new Dictionary<string, string> { ["PATH"] = "/usr/bin" }, 2, 2);
             Options = new(new(CurrentSchemaProviderKind.PostgreSql, "fixture-instance", "fixture-database"),
@@ -348,7 +374,8 @@ public sealed class OfflineMigrationShellBackupDrillProducerTests
         {
             // Failed/unverified child ownership retains this exact fixture root, never a
             // broad sweep or deletion while an unknown child may still use its resources.
-            if (TerminalObserved) Directory.Delete(Parent, recursive: true);
+            if (TerminalObserved)
+                Directory.Delete(Parent, recursive: true);
         }
     }
 }
