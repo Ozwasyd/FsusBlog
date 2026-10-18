@@ -3,6 +3,8 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
+using Npgsql;
+
 using FsusBlog.Server.Services.Authoring;
 
 namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
@@ -34,7 +36,8 @@ public sealed class AuthoringProductionRuntimeProviders
 /// route, initialize state, mint consent, or manufacture lifecycle generations.
 /// The original coordinator owns every receipt and Resources owns every Track call.
 /// </summary>
-public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLifecycleResourceAuthorityV1
+public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLifecycleResourceAuthorityV1,
+    IAuthoringExtensionApprovalExecutionResultSource
 {
     private readonly Lock _generationLock = new();
     private readonly Dictionary<string, PreparedGeneration> _generations = new(StringComparer.Ordinal);
@@ -106,6 +109,33 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
     }
 
     public IAuthoringFencedLifecycleResourceAuthorityV1 Resources => this;
+
+    public IAuthoringExtensionApprovalExecutionResultSource ExecutionResults => this;
+
+    public async ValueTask<IAuthoringExtensionApprovalExecutionResultScope> AcquireAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction,
+        AuthoringExtensionApprovalAuthority.ApprovedClaim claim, long generation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(transaction);
+        ArgumentNullException.ThrowIfNull(claim);
+        cancellationToken.ThrowIfCancellationRequested();
+        // The original approval owner supplies its already actor-pinned final
+        // transaction. Never create, commit, dispose or replace that transaction.
+        AuthoringExtensionProductionPreflight.Require(ReferenceEquals(transaction.Connection, connection)
+            && connection.State == System.Data.ConnectionState.Open, "production_approval_transaction_not_owned");
+        AuthoringExtensionProductionPreflight.Require(ReferenceEquals(ApprovalClaim, claim),
+            "production_execution_claim_not_owned");
+        PreparedGeneration? prepared;
+        lock (_generationLock)
+        {
+            _generations.TryGetValue(claim.Scope.ExtensionId, out prepared);
+            AuthoringExtensionProductionPreflight.Require(prepared is not null && prepared.Generation == generation,
+                "production_execution_generation_custody_unavailable");
+        }
+        return await prepared!.AcquireExecutionResultScopeAsync(cancellationToken).ConfigureAwait(false);
+    }
 
     public AuthoringExtensionLifecycleCoordinator Coordinator
     {
@@ -274,6 +304,30 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         internal long Generation
         {
             get;
+        }
+
+        internal async ValueTask<IAuthoringExtensionApprovalExecutionResultScope> AcquireExecutionResultScopeAsync(
+            CancellationToken cancellationToken)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                AuthoringExtensionProductionPreflight.Require(!_aborting && !_aborted
+                    && _everPublished && _stage.Published && !_startupCustodyUnknown,
+                    "production_execution_generation_custody_unavailable");
+                VerifyNativeOwners();
+                // This is the final actor-pinned transaction path. Do not call
+                // VerifyCoreAsync: its unjoined diagnostics read issuer/receipt
+                // owners independently. No state scope acquired before actor
+                // pinning, copied snapshot or result record can be imported here.
+                // Actual native acceptance and old-settlement producers have no
+                // consumed live contract yet, so no result scope is manufactured.
+                throw new AuthoringExtensionContractException("production_joined_native_custody_unavailable");
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
 
         internal async ValueTask StartAsync(CancellationToken cancellationToken)
