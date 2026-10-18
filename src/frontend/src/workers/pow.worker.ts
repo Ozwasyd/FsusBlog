@@ -1,6 +1,6 @@
 import { AppErrorCode, createAppError, isAppError, toAppError } from '@/utils/appError';
 
-import { initPowModule, type PowEngineKind } from '@wasm/pow';
+import { initPowModule, type PowEngineKind, type PowModule } from '@wasm/pow';
 
 /**
  * FsusPow Engine - Worker
@@ -11,8 +11,30 @@ import { initPowModule, type PowEngineKind } from '@wasm/pow';
 const ctx = self as Pick<MessagePort, 'onmessage' | 'postMessage'> & { readonly name: string; };
 const workerRole = String(ctx.name || '').startsWith('FsusPowShard') ? 'shard' : 'main';
 
-let powModule: any = null;
-let modulePromise: Promise<any> | null = null;
+// Views of the existing usePow and shard-dispatch messages.
+type PowWorkerInput = {
+    salt?: unknown;
+    difficulty?: unknown;
+    startNonce?: unknown;
+    step?: unknown;
+    runId?: unknown;
+    timeoutMs?: unknown;
+} & (
+  | { type: 'PING'; browserFp?: undefined; }
+  | { type: 'CALC' | 'CALC_SHARD'; browserFp: string; }
+);
+
+type PowShardResponse = {
+    nonce?: unknown;
+    error?: string;
+    type?: unknown;
+} & (
+  | { success: true; engine: PowEngineKind | 'UNKNOWN'; }
+  | { success?: false; engine?: PowEngineKind | 'UNKNOWN'; }
+);
+
+let powModule: PowModule | null = null;
+let modulePromise: Promise<PowModule | null> | null = null;
 let isWarmedUp = false;
 let engineType: PowEngineKind | 'UNKNOWN' = 'UNKNOWN';
 let activeShardWorkers: Worker[] = [];
@@ -111,7 +133,7 @@ function assertWithinDeadline(deadlineAt: number)
 }
 
 async function calculateWithBoundedSolver(
-    engine: any,
+    engine: PowModule,
     salt: string,
     browserFp: string,
     difficulty: number,
@@ -188,7 +210,7 @@ function calculateWithShardWorkers(salt: string, browserFp: string, difficulty: 
             });
             activeShardWorkers.push(worker);
 
-            worker.onmessage = (event: MessageEvent) =>
+            worker.onmessage = (event: MessageEvent<PowShardResponse>) =>
             {
                 const { success, nonce, error, engine, type } = event.data;
                 if (type !== 'CALC_RESULT' && type !== 'CALC_ERROR')
@@ -233,7 +255,7 @@ function calculateWithShardWorkers(salt: string, browserFp: string, difficulty: 
 /**
  * 消息中心
  */
-ctx.onmessage = async (e: MessageEvent) =>
+ctx.onmessage = async (e: MessageEvent<PowWorkerInput>) =>
 {
     terminateShardWorkers();
     const { salt, browserFp, difficulty, startNonce, step, type, runId, timeoutMs } = e.data;
@@ -246,12 +268,12 @@ ctx.onmessage = async (e: MessageEvent) =>
             await getEngine();
             return ctx.postMessage({ type: 'PONG', engine: engineType });
         }
-        catch (err: any)
+        catch (err)
         {
             console.error('[Worker] PING Failed:', err);
             return ctx.postMessage({
                 success: false,
-                error: `INIT_FAIL: ${err.message}`,
+                error: `INIT_FAIL: ${(err as Pick<Error, 'message'>).message}`,
                 type: 'CALC_ERROR'
             });
         }
@@ -272,7 +294,8 @@ ctx.onmessage = async (e: MessageEvent) =>
     {
         try
         {
-            const engine = await getEngine(true);
+            // Preserve the original unchecked module dereference.
+            const engine = (await getEngine(true))!;
             if (typeof engine.solve_pow_range !== 'function')
             {
                 throw createAppError(AppErrorCode.InvariantViolation, "WASM_RANGE_METHOD_NOT_FOUND");
@@ -293,7 +316,7 @@ ctx.onmessage = async (e: MessageEvent) =>
                 type: 'CALC_RESULT'
             });
         }
-        catch (err: any)
+        catch (err)
         {
             const normalized = isAppError(err) ? err : toAppError(err, 'UNKNOWN_SHARD_ERROR');
             return ctx.postMessage({
@@ -308,7 +331,8 @@ ctx.onmessage = async (e: MessageEvent) =>
     // 3. 执行核心逻辑
     try
     {
-        const engine = await getEngine();
+        // Preserve the original unchecked module dereference.
+        const engine = (await getEngine())!;
 
         if (typeof engine.solve_pow !== 'function')
         {
@@ -344,10 +368,10 @@ ctx.onmessage = async (e: MessageEvent) =>
                 nonce = await calculateWithBoundedSolver(engine, salt, browserFp || '', diffNum, deadlineAt);
             }
         }
-        catch (wasmError: any)
+        catch (wasmError)
         {
             console.error(`[Worker] WASM Runtime Crash:`, wasmError);
-            throw createAppError(AppErrorCode.InfraFailure, `WASM_CRASH: ${wasmError.message}`);
+            throw createAppError(AppErrorCode.InfraFailure, `WASM_CRASH: ${(wasmError as Pick<Error, 'message'>).message}`);
         }
 
         const duration = performance.now() - startTime;
@@ -363,7 +387,7 @@ ctx.onmessage = async (e: MessageEvent) =>
         });
 
     }
-    catch (err: any)
+    catch (err)
     {
         const normalized = isAppError(err) ? err : toAppError(err, 'UNKNOWN_CALC_ERROR');
         ctx.postMessage({

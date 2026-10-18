@@ -104,7 +104,7 @@ const prover = createCommentPrivacyWasmProver();
 ctx.onmessage = (event: MessageEvent<CommentPrivacyWorkerRequest>) =>
 {
     const request = event.data;
-    if (!request || request.v !== 1)
+    if (request ? request.v !== 1 : true)
     {
         return;
     }
