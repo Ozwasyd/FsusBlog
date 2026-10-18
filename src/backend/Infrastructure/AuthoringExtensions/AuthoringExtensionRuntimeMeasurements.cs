@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.Versioning;
+using System.Text;
+using System.Text.Json;
 
 namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
@@ -450,13 +452,19 @@ public sealed class AuthoringNativeStateSnapshotAcceptance : IAsyncDisposable
 // state/result/approval model or a caller-issued acceptance handle.
 internal sealed class AuthoringNativeStateSnapshotBinding
 {
-    private AuthoringNativeStateSnapshotBinding(object descriptor, byte[] bytes, string binding, TimeSpan wallClock)
+    private AuthoringNativeStateSnapshotBinding(object descriptor, byte[] bytes, string binding, TimeSpan wallClock,
+        int maximumRequestBytes, int maximumResponseBytes)
     {
         Descriptor = descriptor;
         Bytes = bytes;
         TransportBinding = binding;
         MaximumWallClock = wallClock;
+        _maximumRequestBytes = maximumRequestBytes;
+        _maximumResponseBytes = maximumResponseBytes;
     }
+
+    private readonly int _maximumRequestBytes;
+    private readonly int _maximumResponseBytes;
 
     internal object Descriptor
     {
@@ -521,7 +529,10 @@ internal sealed class AuthoringNativeStateSnapshotBinding
             frozen.PackageIdentity != package.PackageIdentity || target.Status != AuthoringExecutionResolutionStatus.Ready ||
             target.BlockedReason is not null || target.ExtensionId != manifest.Id ||
             target.ExtensionVersion != manifest.Version || target.PackageSha256 != manifest.PackageSha256 ||
-            contribution is null || contribution.Kind != target.ContributionKind ||
+            contribution is null || target.TrustedAdapterId is not null || target.TrustedAdapterIdentity is not null ||
+            !string.Equals(target.RuntimeIdentity,
+                AuthoringExecutionResolver.ComputeRuntimeIdentity(package, contribution, null), StringComparison.Ordinal) ||
+            contribution.Kind != target.ContributionKind ||
             contribution.ExecutionClass != target.ExecutionClass || contribution.Entrypoint.PathOrAdapterId != target.EntrypointIdentity ||
             AuthoringExtensionStateContract.ValueBytes(frozen) > manifest.Limits.MaximumStateBytes ||
             bytes.Length > manifest.Limits.MaximumRequestBytes || bytes.Length > manifest.Limits.MaximumResponseBytes ||
@@ -544,8 +555,51 @@ internal sealed class AuthoringNativeStateSnapshotBinding
             OperationSha256 = operationSha256,
             SnapshotContentSha256 = frozen.ContentSha256
         }));
-        return new AuthoringNativeStateSnapshotBinding(descriptor, bytes, binding, manifest.Limits.WallClock);
+        var result = new AuthoringNativeStateSnapshotBinding(descriptor, bytes, binding, manifest.Limits.WallClock,
+            manifest.Limits.MaximumRequestBytes, manifest.Limits.MaximumResponseBytes);
+        result.ValidateTransportBounds();
+        return result;
     }
+
+    // Both runtimes use the same bounded metadata and conservative complete-frame envelope.
+    // This runs before a native transport lock/IO, so invalid input cannot terminate a live owner.
+    private void ValidateTransportBounds()
+    {
+        string nonce = new('0', 64);
+        if (TransportBinding.Length > Math.Min(_maximumRequestBytes, _maximumResponseBytes) ||
+            Encoding.UTF8.GetByteCount(CreateWorkerRequestFrame(true, nonce)) > _maximumRequestBytes * 2L + 4096 ||
+            Encoding.UTF8.GetByteCount(CreateWorkerStateFrame("state-accepted", nonce, true, null)) > _maximumResponseBytes * 2L + 4096 ||
+            Encoding.UTF8.GetByteCount(CreateServiceRequestFrame(true, nonce)) > _maximumRequestBytes * 2L + 4096 ||
+            Encoding.UTF8.GetByteCount(string.Join('\t', "STATE_ACCEPTED", "1", nonce,
+                TransportBinding, Convert.ToBase64String(Bytes))) > _maximumResponseBytes * 2L + 4096)
+        {
+            throw new AuthoringExtensionContractException("Native snapshot metadata or complete frame exceeds the shared transport budget.");
+        }
+    }
+
+    internal string CreateWorkerRequestFrame(bool load, string nonce, JsonSerializerOptions? options = null) =>
+        CreateWorkerStateFrame(load ? "state-load" : "state-verify", nonce, load, options);
+
+    private string CreateWorkerStateFrame(string kind, string nonce, bool includeState, JsonSerializerOptions? options) =>
+        includeState
+            ? JsonSerializer.Serialize(new
+            {
+                kind,
+                schemaVersion = 1,
+                nonce,
+                binding = TransportBinding,
+                payload = Convert.ToBase64String(Bytes)
+            }, options)
+            : JsonSerializer.Serialize(new
+            {
+                kind,
+                schemaVersion = 1,
+                nonce
+            }, options);
+
+    internal string CreateServiceRequestFrame(bool load, string nonce) => load
+        ? string.Join('\t', "STATE_APPLY", "1", nonce, TransportBinding, Convert.ToBase64String(Bytes))
+        : string.Join('\t', "STATE_VERIFY", "1", nonce);
 
     internal void VerifyReadback(string? binding, string? payload)
     {

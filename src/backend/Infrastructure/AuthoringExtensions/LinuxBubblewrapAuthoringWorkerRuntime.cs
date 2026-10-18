@@ -142,12 +142,14 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                 throw new Error('state-frame-not-closed');
               }
               if (load) {
-                acceptedStateBinding = null;
-                if (typeof request.binding !== 'string' || request.binding.length > 4096 ||
+                if (typeof request.binding !== 'string' ||
+                    request.binding.length > Math.min(maximumRequestBytes, maximumResponseBytes) ||
+                    Buffer.from(request.binding, 'base64').toString('base64') !== request.binding ||
                     typeof request.payload !== 'string') throw new Error('state-load-frame-invalid');
                 const payload = Buffer.from(request.payload, 'base64');
                 if (payload.toString('base64') !== request.payload || payload.byteLength > maximumRequestBytes ||
                     payload.byteLength > maximumResponseBytes) throw new Error('state-load-outside-budget');
+                acceptedStateBinding = null;
                 const pointer = Number(allocate(payload.byteLength));
                 if (!Number.isSafeInteger(pointer) || pointer < 0 || pointer + payload.byteLength > memory.buffer.byteLength) {
                   throw new Error('state-load-memory-outside-boundary');
@@ -817,21 +819,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             AuthoringNativeStateSnapshotBinding binding, bool load, CancellationToken cancellationToken)
         {
             string nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-            string frame = load
-                ? JsonSerializer.Serialize(new
-                {
-                    kind = "state-load",
-                    schemaVersion = 1,
-                    nonce,
-                    binding = binding.TransportBinding,
-                    payload = Convert.ToBase64String(binding.Bytes)
-                }, json)
-                : JsonSerializer.Serialize(new
-                {
-                    kind = "state-verify",
-                    schemaVersion = 1,
-                    nonce
-                }, json);
+            string frame = binding.CreateWorkerRequestFrame(load, nonce, json);
             if (Encoding.UTF8.GetByteCount(frame) > descriptor.MaximumRequestBytes * 2 + 4096)
             {
                 throw new AuthoringExtensionContractException("Native snapshot request exceeds the original transport budget.");
