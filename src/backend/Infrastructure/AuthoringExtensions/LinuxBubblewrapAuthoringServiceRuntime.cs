@@ -713,9 +713,7 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
             AuthoringNativeStateSnapshotBinding binding, bool load, CancellationToken cancellationToken)
         {
             string nonce = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
-            string frame = load
-                ? string.Join('\t', "STATE_APPLY", "1", nonce, binding.TransportBinding, Convert.ToBase64String(binding.Bytes))
-                : string.Join('\t', "STATE_VERIFY", "1", nonce);
+            string frame = binding.CreateServiceRequestFrame(load, nonce);
             if (Encoding.UTF8.GetByteCount(frame) > descriptor.MaximumRequestBytes * 2 + 4096)
             {
                 throw new AuthoringExtensionContractException("Native snapshot request exceeds the original transport budget.");

@@ -161,7 +161,10 @@ public interface IAuthoringInstalledPackageAuthority
 /// </summary>
 public interface IAuthoringInstalledPackageReadScope : IDisposable
 {
-    VerifiedAuthoringPackage ActivePackage { get; }
+    VerifiedAuthoringPackage ActivePackage
+    {
+        get;
+    }
 }
 
 /// <summary>
@@ -582,7 +585,8 @@ public sealed class AuthoringExecutionResolver(
             _ => false
         };
 
-    private static string ComputeRuntimeIdentity(
+    // Identity computation is shared with native binding; it grants no activation or permission.
+    internal static string ComputeRuntimeIdentity(
         VerifiedAuthoringPackage package,
         AuthoringContributionDeclaration contribution,
         string? trustedAdapterIdentity)
