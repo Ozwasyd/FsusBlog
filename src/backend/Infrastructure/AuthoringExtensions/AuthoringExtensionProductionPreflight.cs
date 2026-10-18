@@ -175,7 +175,8 @@ public sealed class AuthoringExtensionProductionPreflight(
             "production_target_set_incomplete");
         AuthoringExtensionStateContract.ValidateScope(scope);
         Require(scope.ExtensionId == manifest.Id && scope.ExtensionVersion == manifest.Version
-            && scope.SchemaVersion == manifest.StateSchemaVersion && scope.DocumentId is not null
+            && scope.SchemaVersion == manifest.StateSchemaVersion
+            && (scope.DocumentId is not null || approvedClaim is not null)
             && !string.IsNullOrWhiteSpace(purpose) && purpose.Length <= 256
             && purpose == purpose.Trim() && !purpose.Any(char.IsControl)
             && !purpose.Equals("all", StringComparison.OrdinalIgnoreCase), "production_host_scope_invalid");

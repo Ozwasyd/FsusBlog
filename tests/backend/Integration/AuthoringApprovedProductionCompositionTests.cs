@@ -681,7 +681,6 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         public NpgsqlDataSource Source => source;
         public PostgresAuthoringLifecycleReceiptStore Receipts => receipts;
         public AuthoringProductionPreflightFixture Target => target;
-        public AuthoringProductionPreflightFixture OldPackage => oldPackage;
         public AuthoringExtensionApprovalAuthority Authority => authority;
         public PostgresAuthoringExtensionApprovalStore ApprovalStore => approvalStore;
         public AuthoringExtensionScopeProvenanceAuthority ScopeAuthority => scopeAuthority!;
