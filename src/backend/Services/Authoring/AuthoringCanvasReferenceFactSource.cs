@@ -51,13 +51,14 @@ public sealed class AuthoringCanvasReferenceFactSource(
         using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(query.Owner, cancellationToken);
         using IDisposable databaseCancellation = _requestLifetime.BindDatabaseCancellation(authorityScope);
         cancellationToken = authorityScope.Token;
-        if (!string.Equals(query.Owner.SiteScope, "primary-site", StringComparison.Ordinal))
-        {
-            return query.Targets.Select(Denied).ToArray();
-        }
+        // Denied facts still consume the same batch budget as readable facts.
         if (query.Targets.Count > AuthoringCanvasReferenceContract.MaxBatchSize)
         {
             throw new AuthoringCanvasBudgetExceededException("canvas_reference_batch_budget_exceeded");
+        }
+        if (!string.Equals(query.Owner.SiteScope, "primary-site", StringComparison.Ordinal))
+        {
+            return query.Targets.Select(Denied).ToArray();
         }
         AuthoringCanvasArticleReadAuthority authority = await articles.ReadAuthorityAsync(
             query.Owner,
