@@ -132,7 +132,15 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         {
             // Unqualified original scope/result custody cannot start a process or receive state.
             // There is no caller-supplied flag to skip this qualification boundary.
-            Preflight.RequireQualifiedEffects();
+            // A real Applied observation proves the supplied Apply bytes while
+            // its original state keys remain held. This read-only preflight is
+            // not the later settled-state/native lifetime required by Complete.
+            await using (IAuthoringExtensionStateObservation observed = await Preflight.AcquireAppliedStateObservationAsync(
+                ApprovalClaim!.OldPackage, package, ApprovalClaim.FrozenPlan!, snapshot, cancellationToken).ConfigureAwait(false))
+            {
+                await observed.VerifyCurrentAsync(cancellationToken).ConfigureAwait(false);
+                Preflight.RequireQualifiedEffects();
+            }
             stage = HostResources.StageHeldPackage(held, orderedTargets);
             held = null;
             lock (_generationLock)
