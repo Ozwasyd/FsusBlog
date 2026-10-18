@@ -1,20 +1,8 @@
 using System.Collections.Immutable;
 using System.Security.Claims;
+using System.Text.Json;
 
 using Fido2NetLib;
-
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using Npgsql;
-
-using SqlSugar;
-
-using StackExchange.Redis;
 
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -27,6 +15,19 @@ using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using Npgsql;
+
+using NSubstitute;
+
+using SqlSugar;
+
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Integration;
 
@@ -70,11 +71,11 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         Assert.Same(host.Claim, composition.ApprovalClaim);
         Assert.Same(host.Authority, composition.Approvals);
         Assert.Equal(host.Claim.OperationContext, composition.OperationContext);
-        Assert.Equal("7", composition.OperationContext!.StateUserId);
+        AuthoringStateScope issued = await host.AssertClaimIdentityAsync();
+        Assert.Equal(issued.UserId, composition.OperationContext!.StateUserId);
         Assert.NotEqual("1", composition.OperationContext.StateUserId);
         Assert.Equal(host.Target.Scope.SiteId, composition.OperationContext.SiteId);
         Assert.Equal(host.Target.Scope.DocumentId, composition.OperationContext.DocumentId);
-        await host.Target.StoreGrantAsync();
 
         AuthoringProductionPreflightObservation observed = await composition.Preflight.InspectAsync(
             host.Target.Package, host.Target.Targets);
@@ -84,12 +85,17 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         Assert.Contains("production_approval_qualification_pending", observed.Blockers);
         Assert.Contains("production_starting_publication_ports_unavailable", observed.Blockers);
         Assert.Equal(host.Claim.ExpectedLifecycleReceipt.ReceiptSha256, observed.LifecycleReceiptSha256);
-        Assert.True(await composition.Preflight.HasRequiredPermissionsAsync(host.Target.Package, host.Target.Targets, default));
+        Assert.Contains("production_document_grant_scope_unavailable", observed.Blockers);
         Assert.False(await composition.Preflight.VerifyAsync(host.Target.Package, host.Target.Targets, default));
         Assert.Equal(new(0, 1), await composition.HostResources.InspectRegistrationsAsync(host.Target.Package, host.Target.Targets));
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await composition.HostResources.ActivateAtomicallyAsync(host.Target.Package, host.Target.Targets, default));
         Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(host.Claim.DecisionId)).Status);
+        // Preserve the original positive document-grant obligation. The real
+        // site-only issuer cannot supply it, and a raw diagnostic grant seed
+        // would not establish authenticated document consent.
+        Assert.True(await composition.Preflight.HasRequiredPermissionsAsync(host.Target.Package, host.Target.Targets, default),
+            "The original document-scope and consent producers must supply a genuine authorized grant.");
     }
 
     [Theory]
@@ -162,6 +168,40 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await host.Compose(wider).Preflight.InspectAsync(host.Target.Package, host.Target.Targets));
         Assert.Equal("production_approval_scope_drift", error.Message);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task IssuedClaim_RefusesAnotherGenuinelyIssuedUserOwnedByTheSameActor(bool migration)
+    {
+        await using Harness host = await CreateAsync(migration);
+        AuthoringStateScope claimed = await host.AssertClaimIdentityAsync();
+        AuthoringStateScope sibling = await host.IssueSiblingAsync();
+        Assert.NotEqual(claimed.UserId, sibling.UserId);
+        Assert.Equal(claimed.SiteId, sibling.SiteId);
+        Assert.Null(sibling.DocumentId);
+        Assert.Equal(sibling, await host.AssertIssuedScopeAsync(host.Target.Package, sibling));
+
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        AuthoringStateMeasurement measurement = await host.State.MeasureAsync(host.Target.Package, sibling, deadline.Token);
+        await using (var actor = await host.ApprovalStore.BeginAsync(host.Claim.Actor.PrincipalId,
+            host.Claim.Actor.SessionId, sibling.SiteId, deadline.Token))
+        {
+            await using IAuthoringExtensionStateObservation custody = await host.State.ObserveDeletionAsync(
+                host.Target.Package, measurement, deadline.Token);
+            await using IAuthoringExtensionApprovalScope access = await host.ScopeAuthority.AcquireWithStateCustodyAsync(
+                host.Context, AuthoringApprovalOperation.Deletion, sibling, null, custody, deadline.Token);
+            await access.VerifyCurrentAsync(deadline.Token);
+            await custody.VerifyCurrentAsync(deadline.Token);
+        }
+
+        // Even actual authority over both users cannot transfer this sealed claim.
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await host.Compose(sibling).Preflight.InspectAsync(host.Target.Package, host.Target.Targets, deadline.Token));
+        Assert.Equal("production_approval_scope_drift", error.Message);
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(host.Claim.DecisionId)).Status);
+        Assert.Equal(measurement, await host.State.MeasureAsync(host.Target.Package, sibling, deadline.Token));
     }
 
     [Theory]
@@ -690,6 +730,58 @@ public sealed class AuthoringApprovedProductionCompositionTests(
 
         public AuthoringExtensionApprovalAuthority CompletingAuthority(AuthoringExtensionProductionComposition composition) =>
             new(contexts, configuration, approvalStore, state, receipts, administrators, scopeAuthority, composition.ExecutionResults);
+
+        public async Task<AuthoringStateScope> AssertIssuedScopeAsync(VerifiedAuthoringPackage package, AuthoringStateScope scope)
+        {
+            await using NpgsqlConnection observed = await source.OpenConnectionAsync();
+            await using var query = new NpgsqlCommand("""
+                SELECT owner_admin_principal_id,status,creation_seen,scope_payload,package_identity
+                FROM authoring_extension_scope_provenance WHERE scope_id=$1;
+                """, observed);
+            query.Parameters.AddWithValue(AuthoringExtensionStateContract.ScopeId(scope));
+            await using NpgsqlDataReader row = await query.ExecuteReaderAsync();
+            Assert.True(await row.ReadAsync());
+            Assert.True(Context.User.TryGetAdminPrincipalId(out long principalId));
+            Assert.Equal(principalId, row.GetInt64(0));
+            Assert.Equal(1, row.GetInt32(1));
+            Assert.True(row.GetBoolean(2));
+            byte[] payload = row.GetFieldValue<byte[]>(3);
+            AuthoringStateScope issued = JsonSerializer.Deserialize<AuthoringStateScope>(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+            Assert.Equal(AuthoringExtensionStateContract.Encode(issued), payload);
+            Assert.Equal(scope, issued);
+            Assert.Equal(package.PackageIdentity, row.GetString(4));
+            Assert.False(await row.ReadAsync());
+            return issued;
+        }
+
+        public async Task<AuthoringStateScope> AssertClaimIdentityAsync()
+        {
+            Assert.True(Context.User.Identity!.IsAuthenticated);
+            Assert.True(Context.User.TryGetAdminPrincipalId(out long principalId));
+            Assert.Equal(principalId, Claim.Actor.PrincipalId);
+            Assert.Equal(Context.User.GetAdminSessionId(), Claim.Actor.SessionId);
+            Assert.Equal(configuration["AuthoringExtensions:SiteId"], Claim.Actor.SiteId);
+            Assert.Equal(AuthoringExtensionStateContract.Digest(Claim.Actor), Claim.OperationContext.ActorBindingSha256);
+            AuthoringStateScope sourceScope = await AssertIssuedScopeAsync(oldPackage.Package, Claim.Scope);
+            AuthoringStateScope resultScope = await AssertIssuedScopeAsync(target.Package, target.Scope);
+            Assert.Matches("^[0-9a-f]{64}$", sourceScope.UserId);
+            Assert.NotEqual(principalId.ToString(System.Globalization.CultureInfo.InvariantCulture), sourceScope.UserId);
+            Assert.NotEqual("7", sourceScope.UserId);
+            Assert.Equal(sourceScope.UserId, resultScope.UserId);
+            Assert.Equal(resultScope.UserId, Claim.OperationContext.StateUserId);
+            Assert.Equal(AuthoringExtensionStateContract.ScopeId(sourceScope), Claim.OperationContext.SourceScopeSha256);
+            Assert.Equal(Claim.FrozenPlan is null ? null : AuthoringExtensionStateContract.ScopeId(resultScope),
+                Claim.OperationContext.DestinationScopeSha256);
+            return resultScope;
+        }
+
+        public async Task<AuthoringStateScope> IssueSiblingAsync()
+        {
+            var provenance = new PostgresAuthoringExtensionScopeProvenanceStore(source, configuration);
+            var issuer = new AuthoringExtensionStateScopeIssuer(source, configuration, provenance);
+            AuthoringExtensionScopeRegistration registration = await issuer.BeginAsync(Context, target.Package);
+            return await issuer.CompleteAsync(Context, target.Package, registration.RegistrationId);
+        }
 
         public async ValueTask<AuthoringStateSnapshot> ApplyAsync()
         {
