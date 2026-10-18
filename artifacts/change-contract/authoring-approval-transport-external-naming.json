@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalAuthority.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalContract.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalStorageSchema.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionApprovalStore.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateStorageSchema.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionStateStore.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringLifecycleReceiptStore.cs"
+            ],
+            "reason": "Preserve exact frozen original authoring approval issuer and required state/lifecycle source blobs; this transport successor supplies no substitute authority or production registration."
+        }
+    ]
+}
