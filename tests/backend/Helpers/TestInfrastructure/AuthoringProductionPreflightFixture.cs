@@ -28,16 +28,23 @@ internal sealed class AuthoringProductionPreflightFixture : IDisposable
     {
         get; private set;
     }
-    public AuthoringStateScope Scope => new(Package.Contract.Manifest.Id, "1.0.0", "primary-site", "7", "document-1", 1);
+    public AuthoringStateScope Scope => new(Package.Contract.Manifest.Id, Package.Contract.Manifest.Version,
+        "primary-site", "7", "document-1", Package.Contract.Manifest.StateSchemaVersion);
 
     public static async Task<AuthoringProductionPreflightFixture> CreateAsync(
         Func<AuthoringExtensionManifest, AuthoringExtensionManifest>? mutate = null,
-        bool omitMetadata = false)
+        bool omitMetadata = false,
+        DateTimeOffset? now = null,
+        string version = "1.0.0")
     {
         var fixture = new AuthoringProductionPreflightFixture();
+        if (now is not null)
+        {
+            fixture.Clock.Now = now.Value;
+        }
         try
         {
-            await fixture.InitializeAsync(mutate, omitMetadata);
+            await fixture.InitializeAsync(mutate, omitMetadata, version);
             return fixture;
         }
         catch
@@ -48,9 +55,9 @@ internal sealed class AuthoringProductionPreflightFixture : IDisposable
     }
 
     private async Task InitializeAsync(
-        Func<AuthoringExtensionManifest, AuthoringExtensionManifest>? mutate, bool omitMetadata)
+        Func<AuthoringExtensionManifest, AuthoringExtensionManifest>? mutate, bool omitMetadata, string version)
     {
-        var filter = new AuthoringFilterContribution(1, "acme.author-tools", "1.0.0", new string('a', 64),
+        var filter = new AuthoringFilterContribution(1, "acme.author-tools", version, new string('a', 64),
             "acme.author-tools.filter.status", 1, 1,
             [new("acme.author-tools.operator.status", 1, "identity.equals",
                 new(AuthorSavedViewFieldKind.LifecycleStatus, AuthorSavedViewContract.LifecycleStatusField),
@@ -69,6 +76,7 @@ internal sealed class AuthoringProductionPreflightFixture : IDisposable
         AuthoringExtensionManifest template = AuthoringExtensionContractsTests.CreateManifest();
         AuthoringExtensionManifest manifest = template with
         {
+            Version = version,
             PackageSha256 = AuthoringPackageVerifier.ComputePackageDigest(entries),
             ContentSha256 = AuthoringPackageVerifier.ComputeContentDigest(entries),
             Contributions = [template.Contributions[0] with
