@@ -1,0 +1,517 @@
+{
+    "reviewedBase": "a52639b904335c5a70480fca1d2e59a23b21c1c6",
+    "reviewedHead": "8fe951bd802f4907e90c33f57feef2d7d0e59a47",
+    "reviewedTree": "798aa7c9db32899ec0a338fa9cdcce68fa93acf4",
+    "dependencyPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/4531",
+    "issue": "https://github.com/Ozwasyd/FsusBlog/issues/2517",
+    "issueDisposition": "keep-open",
+    "originalSuites": {
+        "head-contracts": {
+            "counters": {
+                "total": "105",
+                "executed": "105",
+                "passed": "105",
+                "failed": "0",
+                "error": "0",
+                "timeout": "0",
+                "aborted": "0",
+                "inconclusive": "0",
+                "passedButRunAborted": "0",
+                "notRunnable": "0",
+                "notExecuted": "0",
+                "disconnected": "0",
+                "warning": "0",
+                "completed": "0",
+                "inProgress": "0",
+                "pending": "0"
+            },
+            "failures": [],
+            "trxSha256": "0f486f896a4c478690da5a28bc4f6fcc90f5c025f048015f4fed3384989fbc43"
+        },
+        "head-regression": {
+            "counters": {
+                "total": "260",
+                "executed": "260",
+                "passed": "258",
+                "failed": "2",
+                "error": "0",
+                "timeout": "0",
+                "aborted": "0",
+                "inconclusive": "0",
+                "passedButRunAborted": "0",
+                "notRunnable": "0",
+                "notExecuted": "0",
+                "disconnected": "0",
+                "warning": "0",
+                "completed": "0",
+                "inProgress": "0",
+                "pending": "0"
+            },
+            "failures": [
+                {
+                    "name": "FsusBlog.Server.Tests.AuthoringCommandContributionTests.TransactionAdapter_AppliesMutationThroughCanonicalRpcOnce",
+                    "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Mutation preview does not bind the exact approved plan and host context."
+                },
+                {
+                    "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(text: \"a\\n\\0é\\ud834\\udd1e���\", digest: \"89f57d854aa2b871834c31342c1451edd26c031936a43cfd44\"···)",
+                    "message": "Assert.Equal() Failure: Strings differ\n           ↓ (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"···\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"···\n           ↑ (pos 0)"
+                }
+            ],
+            "trxSha256": "b1b6f484844eba13fb3eca2df6833d22e70f24dec7cdd8fa186a5df43343d2c9"
+        },
+        "base-regression": {
+            "counters": {
+                "total": "184",
+                "executed": "184",
+                "passed": "182",
+                "failed": "2",
+                "error": "0",
+                "timeout": "0",
+                "aborted": "0",
+                "inconclusive": "0",
+                "passedButRunAborted": "0",
+                "notRunnable": "0",
+                "notExecuted": "0",
+                "disconnected": "0",
+                "warning": "0",
+                "completed": "0",
+                "inProgress": "0",
+                "pending": "0"
+            },
+            "failures": [
+                {
+                    "name": "FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(text: \"a\\n\\0é\\ud834\\udd1e���\", digest: \"89f57d854aa2b871834c31342c1451edd26c031936a43cfd44\"···)",
+                    "message": "Assert.Equal() Failure: Strings differ\n           ↓ (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"···\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"···\n           ↑ (pos 0)"
+                },
+                {
+                    "name": "FsusBlog.Server.Tests.AuthoringCommandContributionTests.TransactionAdapter_AppliesMutationThroughCanonicalRpcOnce",
+                    "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Mutation preview does not bind the exact approved plan and host context."
+                }
+            ],
+            "trxSha256": "cd9afa8508b7a6688e96af3b574e6b50108f12725d5c50246aa9a68b4110c976"
+        }
+    },
+    "independentControls": {
+        "ReviewedHead": "8fe951bd802f4907e90c33f57feef2d7d0e59a47",
+        "AssemblySha256": "64169e14d860995d62e9b02f42a88725d1d9147a85ab58d5280206fad37ec29e",
+        "Total": 58,
+        "Passed": 56,
+        "Failed": 2,
+        "Results": [
+            {
+                "Name": "positive-required-False-severity-Info",
+                "Status": "PASS"
+            },
+            {
+                "Name": "positive-required-False-severity-Warning",
+                "Status": "PASS"
+            },
+            {
+                "Name": "positive-required-False-severity-Blocking",
+                "Status": "PASS"
+            },
+            {
+                "Name": "positive-required-True-severity-Info",
+                "Status": "PASS"
+            },
+            {
+                "Name": "positive-required-True-severity-Warning",
+                "Status": "PASS"
+            },
+            {
+                "Name": "positive-required-True-severity-Blocking",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Required-nested-False",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Required-nested-True",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-CoreResults-nested-False",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-CoreResults-nested-True",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-PassOverride-nested-False",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-PassOverride-nested-True",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Html-nested-False",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Html-nested-True",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Dom-nested-False",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Dom-nested-True",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-SourcePatch-nested-False",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-SourcePatch-nested-True",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Executable-nested-False",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Executable-nested-True",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Budget-nested-False",
+                "Status": "PASS"
+            },
+            {
+                "Name": "closed-output-Budget-nested-True",
+                "Status": "PASS"
+            },
+            {
+                "Name": "duplicate-decoded-json-property",
+                "Status": "PASS"
+            },
+            {
+                "Name": "missing-nullable-output-member",
+                "Status": "PASS"
+            },
+            {
+                "Name": "unknown-output-schema",
+                "Status": "PASS"
+            },
+            {
+                "Name": "unknown-completion",
+                "Status": "PASS"
+            },
+            {
+                "Name": "empty-findings",
+                "Status": "PASS"
+            },
+            {
+                "Name": "nofindings-with-facts",
+                "Status": "PASS"
+            },
+            {
+                "Name": "explicit-nofindings",
+                "Status": "PASS"
+            },
+            {
+                "Name": "html-escaped-json",
+                "Status": "PASS"
+            },
+            {
+                "Name": "unknown-code",
+                "Status": "PASS"
+            },
+            {
+                "Name": "severity-downgrade",
+                "Status": "PASS"
+            },
+            {
+                "Name": "severity-upgrade",
+                "Status": "PASS"
+            },
+            {
+                "Name": "duplicate-facts",
+                "Status": "PASS"
+            },
+            {
+                "Name": "core-fact-namespace",
+                "Status": "PASS"
+            },
+            {
+                "Name": "core-fact-already-in-diagnostic-namespace",
+                "Status": "PASS"
+            },
+            {
+                "Name": "whole-document",
+                "Status": "PASS"
+            },
+            {
+                "Name": "split-whole-document",
+                "Status": "PASS"
+            },
+            {
+                "Name": "unknown-metadata",
+                "Status": "PASS"
+            },
+            {
+                "Name": "duplicate-metadata",
+                "Status": "PASS"
+            },
+            {
+                "Name": "fact-range-outside-admitted-read",
+                "Status": "PASS"
+            },
+            {
+                "Name": "deadline-exact-boundary",
+                "Status": "PASS"
+            },
+            {
+                "Name": "foreign-registry-core-digest",
+                "Status": "PASS"
+            },
+            {
+                "Name": "foreign-registry-requiredness",
+                "Status": "PASS"
+            },
+            {
+                "Name": "changed-document-epoch",
+                "Status": "PASS"
+            },
+            {
+                "Name": "changed-config",
+                "Status": "PASS"
+            },
+            {
+                "Name": "changed-range-text",
+                "Status": "PASS"
+            },
+            {
+                "Name": "unknown-declaration-member",
+                "Status": "PASS"
+            },
+            {
+                "Name": "capability-DocumentFullRead",
+                "Status": "PASS"
+            },
+            {
+                "Name": "capability-ArticleQuery",
+                "Status": "PASS"
+            },
+            {
+                "Name": "capability-NetworkDestination",
+                "Status": "PASS"
+            },
+            {
+                "Name": "capability-FileSystemRootRead",
+                "Status": "PASS"
+            },
+            {
+                "Name": "capability-DocumentMutationRequest",
+                "Status": "PASS"
+            },
+            {
+                "Name": "host-effective-output-byte-boundary",
+                "Status": "PASS"
+            },
+            {
+                "Name": "host-cannot-expand-declared-budget",
+                "Status": "PASS"
+            },
+            {
+                "Name": "duplicate-host-policy",
+                "Status": "PASS"
+            },
+            {
+                "Name": "core-check-alias-through-contribution-id",
+                "Status": "FAIL",
+                "Error": "Expected AuthoringExtensionContractException; exact-head API accepted the forbidden input."
+            },
+            {
+                "Name": "core-check-alias-through-extension-id",
+                "Status": "FAIL",
+                "Error": "Expected AuthoringExtensionContractException; exact-head API accepted the forbidden input."
+            }
+        ]
+    },
+    "unchangedOriginalBlobs": [
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionContracts.cs",
+            "baseBlob": "44c69e45449b270b7620dcd28374db948b153763",
+            "headBlob": "44c69e45449b270b7620dcd28374db948b153763"
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+            "baseBlob": "63c6d8ef501274265c2c22ea7df8960735634514",
+            "headBlob": "63c6d8ef501274265c2c22ea7df8960735634514"
+        },
+        {
+            "path": "tests/backend/Unit/AuthoringExtensionContractsTests.cs",
+            "baseBlob": "b0e8843a9eed99090f562bec9dba95ceb1c6cb0d",
+            "headBlob": "b0e8843a9eed99090f562bec9dba95ceb1c6cb0d"
+        },
+        {
+            "path": "tests/backend/Unit/AuthoringCommandContributionTests.cs",
+            "baseBlob": "74bea3f64246391282fd3eadf691d8c39c2ab3e4",
+            "headBlob": "74bea3f64246391282fd3eadf691d8c39c2ab3e4"
+        },
+        {
+            "path": "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+            "baseBlob": "081ffad3608925cacb6901695436b79795189d62",
+            "headBlob": "081ffad3608925cacb6901695436b79795189d62"
+        }
+    ],
+    "sourceIntegration": "PASS; source stage only; no runtime/release qualification",
+    "headDocumentAndCommitRangeChecks": "PASS",
+    "localFsusUi": {
+        "root": "/workspace/FsusUI",
+        "head": "f2d929a5d045439c35e93b4771f912ce50ec2337",
+        "aliasTypecheck": "PASS",
+        "oneShotInstallVerifier": "FAIL: source package dependency directory already exists; shared links preserved"
+    },
+    "findings": [
+        {
+            "priority": "P2",
+            "file": "src/backend/Infrastructure/AuthoringExtensions/AuthoringPrepublishDiagnosticRegistry.cs",
+            "line": 89,
+            "title": "Reject core check collisions with manifest extension/contribution IDs",
+            "failingControls": [
+                "core-check-alias-through-contribution-id",
+                "core-check-alias-through-extension-id"
+            ],
+            "scope": "Admission conflict; no executed core override or publication bypass demonstrated."
+        }
+    ],
+    "rawEvidence": [
+        {
+            "localPath": "/workspace/diagnostic-independent-results/head-restore.log",
+            "sha256": "e6b06c8efe97968b74a61e48107ddf5f96b848038b53cbf34c37daa7570461ad"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/base-restore.log",
+            "sha256": "7c6700ef077b092c7047bde0521526a63b4637d37c9ffbab26d6697e80c122d6"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/head-contracts.log",
+            "sha256": "8cdce64871dc6c64eb21cd6d1ee0aa3b8821fc999c89ead9fa94a385c914250c"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/head-contracts.trx",
+            "sha256": "0f486f896a4c478690da5a28bc4f6fcc90f5c025f048015f4fed3384989fbc43"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/head-regression.log",
+            "sha256": "52c1fb9bcbae8231b831226a58a67fddfa3f4ab5ff55150857c2303d848c5f83"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/head-regression.trx",
+            "sha256": "b1b6f484844eba13fb3eca2df6833d22e70f24dec7cdd8fa186a5df43343d2c9"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/base-regression.log",
+            "sha256": "3381de877d837fc8eb65774ba42b72ba5737295f6e39d9190646a2337b6df927"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/base-regression.trx",
+            "sha256": "cd9afa8508b7a6688e96af3b574e6b50108f12725d5c50246aa9a68b4110c976"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/head-source.log",
+            "sha256": "a5b2dc0ac15818595750123c9bf4f3dc8d4028b4cc996e218751f64c0981188b"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/head-docs.log",
+            "sha256": "039d1266a69138af993cb3becfe07d0f868630a38cd3c3b7c9d0f73d89be5ebd"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/head-change-contract.log",
+            "sha256": "163a65e48ed1f1cda2c108d5f9cdc00e307d4354954acda17c3ff1b6e240bbfa"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/fsusui-verify.log",
+            "sha256": "065577bdbaa59326bc7c439cffb8a8bedb5ff1d94f0a5e2a3b705ae4d26aadf4"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/fsusui-typecheck.log",
+            "sha256": "8815decefcd50a7c34bbf372593da7dc676cca39c71f6604b93e5120957102f8"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/review-style.log",
+            "sha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/review-probe-restore.log",
+            "sha256": "dcc6b0e8ce4981224fc5954a41f0fdbb32d9939f1787b627b8aff1b441202bc5"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/review-probe-build.log",
+            "sha256": "a0f0b4c9576350d56c9ed4e6c4b36c9877dfa3f0f0be99571194a41d6a6b2d2a"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/review-probe-results.json",
+            "sha256": "7b5128fe61d7f0e79f1e024d199f57f8ecd7f189d71e9532570fb55e22a4bebc"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/review-source.log",
+            "sha256": "192ff5db39447a5aff73c7fcfd962e185aa4044bde6025a6f0cc89fe7774c83d"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/review-markdown.log",
+            "sha256": "b84092c07267dffaba9fa32003f470e28b30104f98b363cc04403850bd4954e5"
+        },
+        {
+            "localPath": "/workspace/diagnostic-independent-results/base-broad-markdown.log",
+            "sha256": "b84092c07267dffaba9fa32003f470e28b30104f98b363cc04403850bd4954e5"
+        }
+    ],
+    "runnerSourceSha256": "1807791d9bd3f21e66078a87b14fd2f70a095459deb909375d38c6ef7fa0dfd9",
+    "notExecuted": [
+        "entire backend suite",
+        "compiled/native/runtime/release qualification matrix",
+        "browser visual acceptance",
+        "live diagnostic adapter/combiner/cache/receipt integration",
+        "remote CI qualification"
+    ],
+    "reviewBranchSourceIntegration": {
+        "status": "FAIL",
+        "reason": "unsupported-source-stage-language for the added standalone .csproj",
+        "results": [
+            {
+                "checker": "tools/dotnet/check-csharp-style.mjs",
+                "files": [
+                    "tests/diagnostic-contract-review/Program.cs"
+                ],
+                "exitCode": 0
+            },
+            {
+                "checker": "tools/style/check-native-tooling-style.mjs",
+                "files": [
+                    "artifacts/reviews/authoring-prepublish-diagnostic-review.md"
+                ],
+                "exitCode": 0
+            },
+            {
+                "checker": "unsupported-source-stage-language",
+                "files": [
+                    "tests/diagnostic-contract-review/DiagnosticContractReview.csproj"
+                ],
+                "exitCode": null,
+                "status": "unsupported",
+                "qualificationEligible": false
+            }
+        ]
+    },
+    "reviewBranchStrictCSharp": "PASS; 1 file, 0 violations",
+    "reviewRunnerBuild": "PASS; 0 warnings, 0 errors",
+    "reviewCommitRangeChangeContract": "PASS",
+    "extraBroadMarkdownLint": {
+        "head": "FAIL",
+        "base": "FAIL",
+        "files": 367,
+        "diagnostics": 711,
+        "filesWithDiagnostics": 33,
+        "orderedDiagnosticRosterIdentical": true,
+        "command": "markdownlint-cli2 artifacts/reviews/authoring-prepublish-diagnostic-review.md",
+        "note": "Repository config adds global globs and excludes artifacts; not a focused artifact check."
+    }
+}
