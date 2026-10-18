@@ -153,6 +153,8 @@ public sealed class AuthoringServiceGrantValidator(
     TimeProvider timeProvider,
     ImmutableHashSet<string> allowedFileRoots)
 {
+    internal TimeProvider TimeProvider => timeProvider;
+
     public async ValueTask ValidateNetworkAsync(
         AuthoringNetworkGrant grant,
         string runtimeIdentity,

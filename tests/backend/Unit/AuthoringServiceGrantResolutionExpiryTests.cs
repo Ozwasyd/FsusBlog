@@ -11,6 +11,15 @@ public sealed class AuthoringServiceGrantResolutionExpiryTests
     private static readonly ImmutableArray<IPAddress> s_addresses = [IPAddress.Parse("93.184.216.34")];
     private static readonly string s_root = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "fsusblog-grant-expiry-owned"));
 
+    [Fact]
+    public void TimeProvider_IsTheInjectedOwnerClock()
+    {
+        var clock = new MutableTimeProvider(s_start);
+        var validator = CreateValidator(clock, new ControlledAddressResolver(new ResolutionGate(), 0), new ControlledPathVerifier(new ResolutionGate()));
+
+        Assert.Same(clock, validator.TimeProvider);
+    }
+
     [Theory]
     [InlineData(1, -1, false)]
     [InlineData(1, 0, false)]
