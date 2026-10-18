@@ -16,7 +16,10 @@ public interface IAdminSessionValidationService
 
 public sealed record AdminSessionValidationResult(bool IsValid, string Reason)
 {
-    internal AdminAuthenticatedRequestLifetime? RequestLifetime { get; init; }
+    internal AdminAuthenticatedRequestLifetime? RequestLifetime
+    {
+        get; init;
+    }
 
     public static readonly AdminSessionValidationResult Valid = new(true, "ok");
 
@@ -81,11 +84,11 @@ public sealed class AdminSessionValidationService : IAdminSessionValidationServi
         try
         {
             _touchScheduler.TrySchedule(new AdminSessionTouchRequest(
-            sessionId,
-            validation.SessionVersion,
-            tokenHash,
-            validation.IdleExpiresAtUtc,
-            validation.AbsoluteExpiresAtUtc));
+                sessionId,
+                validation.SessionVersion,
+                tokenHash,
+                validation.IdleExpiresAtUtc,
+                validation.AbsoluteExpiresAtUtc));
         }
         catch
         {

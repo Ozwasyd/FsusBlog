@@ -5,7 +5,10 @@ namespace FsusBlog.Server.Infrastructure.Security;
 /// <summary>Server-only proof of actual projection admission during JWT authentication.</summary>
 internal interface IAdminAuthenticatedRequestFeature
 {
-    AdminAuthenticatedRequestLifetime Lifetime { get; }
+    AdminAuthenticatedRequestLifetime Lifetime
+    {
+        get;
+    }
 }
 
 internal sealed record AdminAuthenticatedRequestFeature(AdminAuthenticatedRequestLifetime Lifetime)
@@ -23,6 +26,7 @@ internal sealed class AdminAuthenticatedRequestLifetime : IDisposable
     private readonly object _notificationGate = new();
     private CancellationTokenRegistration _requestAborted;
     private ITimer? _timer;
+    private bool _requestBound;
     private bool _disposed;
     private bool _notificationStarted;
     private bool _notificationComplete;
@@ -34,23 +38,35 @@ internal sealed class AdminAuthenticatedRequestLifetime : IDisposable
         Invalidated = _invalidated.Token;
     }
 
-    internal string BindingDigest { get; }
-    internal CancellationToken Invalidated { get; }
+    internal string BindingDigest
+    {
+        get;
+    }
+    internal CancellationToken Invalidated
+    {
+        get;
+    }
     internal bool IsCurrent => _owner.IsRequestCurrent(this);
 
     internal void SetTimer(ITimer timer) => _timer = timer;
+
+    internal void RestrictToTokenExpiry(DateTimeOffset expiresAtUtc)
+        => _owner.RestrictRequestDeadline(this, expiresAtUtc);
+
+    internal void ChangeDeadline(TimeSpan remaining) => _timer!.Change(remaining, Timeout.InfiniteTimeSpan);
 
     internal void BindRequest(CancellationToken requestAborted)
     {
         CancellationTokenRegistration registration = requestAborted.Register(Dispose);
         lock (_notificationGate)
         {
-            if (_disposed || _notificationStarted)
+            if (_disposed || _notificationStarted || _requestBound)
             {
                 registration.Unregister();
             }
             else
             {
+                _requestBound = true;
                 _requestAborted = registration;
             }
         }

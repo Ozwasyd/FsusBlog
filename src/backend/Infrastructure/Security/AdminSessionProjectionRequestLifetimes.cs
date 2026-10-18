@@ -8,7 +8,7 @@ public sealed partial class AdminSessionProjection
 {
     // Separate fixed registration budget; active entries are never evicted for admission.
     internal const int MaxRequestLifetimes = 4096;
-    internal static readonly TimeSpan MaxRequestLifetime = TimeSpan.FromMinutes(2);
+    internal static TimeSpan MaxRequestLifetime => TimeSpan.FromMinutes(2);
     private readonly Dictionary<AdminAuthenticatedRequestLifetime, RequestRegistration> _requests = [];
     private readonly ConcurrentQueue<AdminAuthenticatedRequestLifetime> _pendingInvalidations = new();
 
@@ -29,41 +29,74 @@ public sealed partial class AdminSessionProjection
         ReadOnlySpan<byte> accessTokenHash,
         out AdminAuthenticatedRequestLifetime? lifetime)
     {
-        using (EnterGate())
+        lifetime = null;
+        try
         {
-            lifetime = null;
-            AdminSessionProjectionValidationResult result = Validate(sessionId, principalId, accessTokenHash);
-            if (!result.IsValid)
+            using (EnterGate())
             {
+                AdminSessionProjectionValidationResult result = Validate(sessionId, principalId, accessTokenHash);
+                if (!result.IsValid)
+                {
+                    return result;
+                }
+                InvalidateChangedRequestsLocked();
+                if (_requests.Count >= MaxRequestLifetimes)
+                {
+                    return AdminSessionProjectionValidationResult.Invalid("admin_request_lifetime_capacity");
+                }
+
+                SessionEntry session = _sessions[sessionId];
+                PrincipalEntry principal = _principals[principalId];
+                DateTimeOffset now = _timeProvider.GetUtcNow();
+                DateTimeOffset deadline = new[]
+                {
+                    session.IdleExpiresAtUtc, session.AbsoluteExpiresAtUtc, now + MaxRequestLifetime
+                }.Min();
+                var binding = new AdminRequestBinding(sessionId, principalId, session.AccessTokenHash,
+                    session.Version, principal.Version, Math.Max(session.Generation, principal.Generation),
+                    session.IdleExpiresAtUtc, session.AbsoluteExpiresAtUtc, deadline);
+                // A fresh random domain salt prevents the digest becoming a reusable identity oracle.
+                string digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+                    $"admin-request-v1:{Guid.NewGuid():N}:{sessionId}:{principalId}:{binding.SessionVersion}:{binding.PrincipalVersion}:{binding.Generation}")));
+                lifetime = new AdminAuthenticatedRequestLifetime(this, digest);
+                _requests.Add(lifetime, new RequestRegistration(binding, session, principal));
+                AdminAuthenticatedRequestLifetime registered = lifetime;
+                ITimer timer = _timeProvider.CreateTimer(_ => ReleaseRequest(registered), null,
+                    Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+                lifetime.SetTimer(timer);
+                timer.Change(deadline - now, Timeout.InfiniteTimeSpan);
                 return result;
             }
-            InvalidateChangedRequestsLocked();
-            if (_requests.Count >= MaxRequestLifetimes)
-            {
-                return AdminSessionProjectionValidationResult.Invalid("admin_request_lifetime_capacity");
-            }
+        }
+        catch
+        {
+            // Timer creation/change can fail. Cleanup occurs after the projection gate exits.
+            lifetime?.Dispose();
+            lifetime = null;
+            throw;
+        }
+    }
 
-            SessionEntry session = _sessions[sessionId];
-            PrincipalEntry principal = _principals[principalId];
-            DateTimeOffset now = _timeProvider.GetUtcNow();
-            DateTimeOffset deadline = new[]
+    internal void RestrictRequestDeadline(AdminAuthenticatedRequestLifetime lifetime, DateTimeOffset deadline)
+    {
+        using (EnterGate())
+        {
+            if (_requests.TryGetValue(lifetime, out RequestRegistration? registration)
+                && deadline < registration.Binding.DeadlineUtc)
             {
-                session.IdleExpiresAtUtc, session.AbsoluteExpiresAtUtc, now + MaxRequestLifetime
-            }.Min();
-            var binding = new AdminRequestBinding(sessionId, principalId, session.AccessTokenHash,
-                session.Version, principal.Version, Math.Max(session.Generation, principal.Generation),
-                session.IdleExpiresAtUtc, session.AbsoluteExpiresAtUtc, deadline);
-            // A fresh random domain salt prevents the digest becoming a reusable identity oracle.
-            string digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-                $"admin-request-v1:{Guid.NewGuid():N}:{sessionId}:{principalId}:{binding.SessionVersion}:{binding.PrincipalVersion}:{binding.Generation}")));
-            lifetime = new AdminAuthenticatedRequestLifetime(this, digest);
-            _requests.Add(lifetime, new RequestRegistration(binding, session, principal));
-            AdminAuthenticatedRequestLifetime registered = lifetime;
-            ITimer timer = _timeProvider.CreateTimer(_ => ReleaseRequest(registered), null,
-                Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-            lifetime.SetTimer(timer);
-            timer.Change(deadline - now, Timeout.InfiniteTimeSpan);
-            return result;
+                _requests[lifetime] = registration with
+                {
+                    Binding = registration.Binding with
+                    {
+                        DeadlineUtc = deadline
+                    }
+                };
+                TimeSpan remaining = deadline - _timeProvider.GetUtcNow();
+                if (remaining > TimeSpan.Zero)
+                {
+                    lifetime.ChangeDeadline(remaining);
+                }
+            }
         }
     }
 
@@ -102,6 +135,10 @@ public sealed partial class AdminSessionProjection
 
     private void InvalidateChangedRequestsLocked()
     {
+        if (_requests.Count == 0)
+        {
+            return;
+        }
         DateTimeOffset now = _timeProvider.GetUtcNow();
         foreach ((AdminAuthenticatedRequestLifetime lifetime, RequestRegistration registration) in _requests.ToArray())
         {

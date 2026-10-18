@@ -350,6 +350,8 @@ public static class JwtServiceExtensions
                         }
                         else if (adminResult.RequestLifetime is { } lifetime)
                         {
+                            lifetime.RestrictToTokenExpiry(new DateTimeOffset(
+                                DateTime.SpecifyKind(context.SecurityToken.ValidTo, DateTimeKind.Utc)));
                             lifetime.BindRequest(context.HttpContext.RequestAborted);
                             context.HttpContext.Response.RegisterForDispose(lifetime);
                             if (!lifetime.IsCurrent)

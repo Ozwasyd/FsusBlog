@@ -87,6 +87,14 @@ internal static class AdminRequestSqlFence
                 throw Denied();
             }
         }
+        // A locking SELECT may wait; check database time again only after both locks are held.
+        command.Parameters.Clear();
+        command.CommandText = "SELECT clock_timestamp() AT TIME ZONE 'UTC';";
+        DateTimeOffset authorityNow = Utc((DateTime)(await command.ExecuteScalarAsync(linked.Token))!);
+        if (authorityNow >= binding.IdleExpiresAtUtc || authorityNow >= binding.AbsoluteExpiresAtUtc)
+        {
+            throw Denied();
+        }
         _ = lifetime.RequireBinding();
         linked.Token.ThrowIfCancellationRequested();
     }
