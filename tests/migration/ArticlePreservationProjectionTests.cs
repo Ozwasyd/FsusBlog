@@ -81,7 +81,10 @@ public sealed class ArticlePreservationProjectionTests
             "actor-negative" => data.Coordinates with { CreatedByAdminPrincipalId = -1 },
             _ => throw new ArgumentOutOfRangeException(nameof(missing))
         };
-        var changed = ReplaceCurrent(fixture, data with { Coordinates = coordinates });
+        var changed = ReplaceCurrent(fixture, data with
+        {
+            Coordinates = coordinates
+        });
         long selectedCoordinate = missing switch
         {
             "content-block" => coordinates.ContentBlockId,
@@ -106,8 +109,14 @@ public sealed class ArticlePreservationProjectionTests
         var fixture = Fixture();
         ArticlePreservationCurrentData data = fixture.Current.Articles[0].Data;
         ArticleResponsibilityDraft draft = missingAuthors
-            ? data.Responsibility with { Authors = [] }
-            : data.Responsibility with { ResponsiblePersonConfirmed = false };
+            ? data.Responsibility with
+            {
+                Authors = []
+            }
+            : data.Responsibility with
+            {
+                ResponsiblePersonConfirmed = false
+            };
         Assert.Contains(ArticleResponsibilityGovernance.Evaluate(draft), static issue => issue.Severity == "error");
         Assert.Throws<InvalidOperationException>(() => Project(ReplaceCurrent(fixture, data with { Responsibility = draft })));
     }
@@ -116,8 +125,14 @@ public sealed class ArticlePreservationProjectionTests
     public void PureProjection_RejectsAResealedPartialSourceCollection()
     {
         var fixture = Fixture();
-        ArticlePreservationSourceData data = fixture.Source.Data with { ExpectedArticleCount = 2 };
-        var changed = fixture with { Source = Source(data) };
+        ArticlePreservationSourceData data = fixture.Source.Data with
+        {
+            ExpectedArticleCount = 2
+        };
+        var changed = fixture with
+        {
+            Source = Source(data)
+        };
 
         Assert.Single(changed.Source.Data.Articles);
         Assert.Equal(2, changed.Source.Data.ExpectedArticleCount);
@@ -136,17 +151,29 @@ public sealed class ArticlePreservationProjectionTests
         };
         ArticlePreservationCurrentData data = fixture.Current.Articles[0].Data with
         {
-            Article = fixture.Current.Articles[0].Data.Article with { CategoryId = 20 }
+            Article = fixture.Current.Articles[0].Data.Article with
+            {
+                CategoryId = 20
+            }
         };
-        var changed = ReplaceCurrent(fixture with { Source = Source(source) }, data);
-        changed = changed with { Current = Current([new(1, "same", 10, "explicit A"), new(2, "same", 20, "explicit B")],
-            changed.Current.Tags, changed.Current.Articles) };
+        var changed = ReplaceCurrent(fixture with
+        {
+            Source = Source(source)
+        }, data);
+        changed = changed with
+        {
+            Current = Current([new(1, "same", 10, "explicit A"), new(2, "same", 20, "explicit B")],
+            changed.Current.Tags, changed.Current.Articles)
+        };
 
         ArticlePreservationWritePlan plan = Project(changed);
         Assert.Equal(20, plan.Articles[0].Current.Article.CategoryId);
         Assert.Equal(new[] { 1, 2 }, plan.Categories.Select(static map => map.SourceId).ToArray());
-        var collapsed = changed with { Current = Current(
-            [new(1, "same", 10, "same"), new(2, "same", 10, "same")], changed.Current.Tags, changed.Current.Articles) };
+        var collapsed = changed with
+        {
+            Current = Current(
+            [new(1, "same", 10, "same"), new(2, "same", 10, "same")], changed.Current.Tags, changed.Current.Articles)
+        };
         Assert.Throws<InvalidOperationException>(() => Project(collapsed));
     }
 
@@ -154,7 +181,10 @@ public sealed class ArticlePreservationProjectionTests
     public void PureProjection_RejectsMissingCurrentPackagesAndCancelledAttemptsWithoutPartialPlan()
     {
         var fixture = Fixture();
-        var missing = fixture with { Current = Current(fixture.Current.Categories, fixture.Current.Tags, []) };
+        var missing = fixture with
+        {
+            Current = Current(fixture.Current.Categories, fixture.Current.Tags, [])
+        };
         Assert.Throws<InvalidOperationException>(() => Project(missing));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
@@ -166,7 +196,13 @@ public sealed class ArticlePreservationProjectionTests
     public void PureProjection_ByteSealsDoNotAcceptTamperedArtifacts()
     {
         var fixture = Fixture();
-        var changed = fixture with { Source = fixture.Source with { Bytes = [1, 2, 3] } };
+        var changed = fixture with
+        {
+            Source = fixture.Source with
+            {
+                Bytes = [1, 2, 3]
+            }
+        };
         Assert.NotEqual(changed.Source.Artifact.Sha256, ArticlePreservationSemanticReceipt.HashBytes(changed.Source.Bytes.AsSpan()));
         Assert.Throws<InvalidOperationException>(() => Project(changed));
     }
@@ -212,7 +248,14 @@ public sealed class ArticlePreservationProjectionTests
         var fixture = Fixture();
         ArticlePreservationCurrentData data = fixture.Current.Articles[0].Data;
         DateTime? schedule = includePastSchedule ? data.Coordinates.PublicationTime.AddMinutes(-1) : null;
-        var target = data with { Article = data.Article with { Status = status, ScheduledPublishAt = schedule } };
+        var target = data with
+        {
+            Article = data.Article with
+            {
+                Status = status,
+                ScheduledPublishAt = schedule
+            }
+        };
 
         Assert.NotNull(ArticleStatusTransitionPolicy.ValidateTarget(status, schedule, target.Coordinates.PublicationTime));
         Assert.Throws<InvalidOperationException>(() => Project(ReplaceCurrent(fixture, target)));
@@ -222,7 +265,13 @@ public sealed class ArticlePreservationProjectionTests
     public void PureProjection_UnknownSourceProfileCannotBorrowTheKnownRowsOrDefaultPolicy()
     {
         var fixture = Fixture();
-        var unknown = fixture with { Source = Source(fixture.Source.Data with { FingerprintId = "unknown-profile" }) };
+        var unknown = fixture with
+        {
+            Source = Source(fixture.Source.Data with
+            {
+                FingerprintId = "unknown-profile"
+            })
+        };
         Assert.NotEqual(OfflineMigrationSourceFingerprints.LegacyId, unknown.Source.Data.FingerprintId);
         Assert.Equal(fixture.Source.Data.Articles, unknown.Source.Data.Articles);
         Assert.Throws<InvalidOperationException>(() => Project(unknown));
@@ -232,7 +281,10 @@ public sealed class ArticlePreservationProjectionTests
     public void PureProjection_AbsentCurrentRightsCannotBeReplacedWithAuthoringDefaults()
     {
         var fixture = Fixture();
-        var missing = ReplaceCurrent(fixture, fixture.Current.Articles[0].Data with { Rights = null! });
+        var missing = ReplaceCurrent(fixture, fixture.Current.Articles[0].Data with
+        {
+            Rights = null!
+        });
         Assert.Null(missing.Current.Articles[0].Data.Rights);
         Assert.Throws<InvalidOperationException>(() => Project(missing));
     }
@@ -264,7 +316,10 @@ public sealed class ArticlePreservationProjectionTests
         {
             Articles = [original.Source.Data.Articles[0] with { IsDeleted = deleted }]
         };
-        InputFixture fixture = WithStoredDefaults(original with { Source = Source(source) });
+        InputFixture fixture = WithStoredDefaults(original with
+        {
+            Source = Source(source)
+        });
         ArticlePreservationArticleWritePlan article = Assert.Single(Project(fixture).Articles);
 
         Assert.Equal(deleted ? ArticleStatusValues.Deleted : ArticleCurrentPolicyDefaults.Status, article.Current.Article.Status);
@@ -306,12 +361,18 @@ public sealed class ArticlePreservationProjectionTests
     {
         InputFixture fixture = WithStoredDefaults(Fixture());
         ArticlePreservationDefaultPolicyExport policy = fixture.Current.DefaultPolicy!;
-        ArticlePreservationDefaultPolicyData data = policy.Data with { RevisionCreatorId = 777 };
+        ArticlePreservationDefaultPolicyData data = policy.Data with
+        {
+            RevisionCreatorId = 777
+        };
         byte[] bytes = ArticlePreservationSemanticReceipt.Serialize(data);
         var changedPolicy = new ArticlePreservationDefaultPolicyExport(
             new(policy.Artifact.Reference, ArticlePreservationSemanticReceipt.HashBytes(bytes)), bytes.ToImmutableArray(), data);
         Assert.Throws<InvalidOperationException>(() => ArticlePreservationPolicyExporter.RequireDefaultPolicy(fixture.Source, changedPolicy));
-        var changedSource = Source(fixture.Source.Data with { ConfiguredSiteAuthor = "Different source setting" });
+        var changedSource = Source(fixture.Source.Data with
+        {
+            ConfiguredSiteAuthor = "Different source setting"
+        });
         Assert.NotEqual(fixture.Source.Artifact.Sha256, changedSource.Artifact.Sha256);
         Assert.Throws<InvalidOperationException>(() => ArticlePreservationPolicyExporter.RequireDefaultPolicy(changedSource, policy));
         Assert.NotEqual(policy.Artifact.Sha256, policy.Data.PolicyDigest);
@@ -324,7 +385,10 @@ public sealed class ArticlePreservationProjectionTests
         InputFixture original = WithStoredDefaults(Fixture());
         InputFixture configured = WithStoredDefaults(Fixture() with
         {
-            Source = Source(Fixture().Source.Data with { ConfiguredSiteAuthor = "  configured author  " })
+            Source = Source(Fixture().Source.Data with
+            {
+                ConfiguredSiteAuthor = "  configured author  "
+            })
         });
         ArticlePreservationArticleWritePlan first = Assert.Single(Project(original).Articles);
         ArticlePreservationArticleWritePlan second = Assert.Single(Project(configured).Articles);
@@ -342,14 +406,20 @@ public sealed class ArticlePreservationProjectionTests
         [new("sys_user", 4, "outside_article_preservation_scope"), new("comment", 42, "outside_article_preservation_scope"),
             new("sys_message", 3, "outside_article_preservation_scope"), new("sys_user_message", 2, "outside_article_preservation_scope"),
             new("sys_visit_log", 1, "outside_article_preservation_scope")];
-        ArticlePreservationSourceData data = fixture.Source.Data with { DiscardedDomains = discarded };
+        ArticlePreservationSourceData data = fixture.Source.Data with
+        {
+            DiscardedDomains = discarded
+        };
         OfflineMigrationSourceShape shape = OfflineMigrationSourceFingerprints.Shape(CurrentSchemaProviderKind.PostgreSql, true);
         // Unit observation only: actual SQL observation is an independent integration obligation.
         var observation = new OfflineMigrationSourceObservation(new(CurrentSchemaProviderKind.PostgreSql, "unit-instance", "unit-database"),
             shape.ExtractorId, shape.ExtractorVersion, shape.Schema, shape.History, shape.BusinessShape, data.FullSourceContentDigest);
         var read = new ArticlePreservationSourceReadResult(data, observation, discarded, null);
         ArticlePreservationSourceExport source = ArticlePreservationPolicyExporter.PrepareSource(read, "fixture://read-source", default);
-        ArticlePreservationArticleWritePlan article = Assert.Single(Project(WithStoredDefaults(fixture with { Source = source })).Articles);
+        ArticlePreservationArticleWritePlan article = Assert.Single(Project(WithStoredDefaults(fixture with
+        {
+            Source = source
+        })).Articles);
 
         Assert.Equal(0, article.Current.Coordinates.CreatedByAdminPrincipalId);
         Assert.Equal(42, Assert.Single(source.Data.DiscardedDomains!, static domain => domain.Name == "comment").Count);
@@ -357,7 +427,13 @@ public sealed class ArticlePreservationProjectionTests
         Assert.DoesNotContain("password", bytes, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("refreshtoken", bytes, StringComparison.OrdinalIgnoreCase);
         Assert.Throws<InvalidOperationException>(() => ArticlePreservationPolicyExporter.PrepareSource(
-            read with { Data = data with { FullSourceContentDigest = new string('c', 64) } }, "fixture://forged-source", default));
+            read with
+            {
+                Data = data with
+                {
+                    FullSourceContentDigest = new string('c', 64)
+                }
+            }, "fixture://forged-source", default));
     }
 
     [Theory]
@@ -505,7 +581,13 @@ public sealed class ArticlePreservationProjectionTests
         ImmutableArray<ArticlePreservationTaxonomyMap> tags, ImmutableArray<ArticlePreservationCurrentPackage> articles,
         ArticlePreservationDefaultPolicyExport? defaultPolicy = null)
     {
-        byte[] bytes = ArticlePreservationSemanticReceipt.Serialize(new { Categories = categories, Tags = tags, Articles = articles, DefaultPolicy = defaultPolicy });
+        byte[] bytes = ArticlePreservationSemanticReceipt.Serialize(new
+        {
+            Categories = categories,
+            Tags = tags,
+            Articles = articles,
+            DefaultPolicy = defaultPolicy
+        });
         return new(new("fixture://current", ArticlePreservationSemanticReceipt.HashBytes(bytes)), bytes.ToImmutableArray(), categories, tags, articles, defaultPolicy);
     }
     private static ArticleMediaInventory Media(ArticlePreservationSourceData source)
@@ -515,24 +597,46 @@ public sealed class ArticlePreservationProjectionTests
             ArticleMediaPreservation.AppendSourceDocument(hash, new(row.Id, null, row.Markdown!, source.DocumentBase));
         var media = new ArticleMediaInventory("fixture-root-identity",
             Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant(), [], 0, "");
-        return media with { ManifestDigest = ArticleMediaPreservation.ComputeManifestDigest(media) };
+        return media with
+        {
+            ManifestDigest = ArticleMediaPreservation.ComputeManifestDigest(media)
+        };
     }
     private static InputFixture ReplaceCurrent(InputFixture fixture, ArticlePreservationCurrentData data)
-        => fixture with { Current = Current(fixture.Current.Categories, fixture.Current.Tags, [Package(data)]) };
+        => fixture with
+        {
+            Current = Current(fixture.Current.Categories, fixture.Current.Tags, [Package(data)])
+        };
     private static InputFixture ChangeMarkdown(InputFixture fixture, string markdown, bool rebuildMedia)
     {
-        ArticlePreservationSourceData source = fixture.Source.Data with { Articles = [fixture.Source.Data.Articles[0] with { Markdown = markdown }] };
+        ArticlePreservationSourceData source = fixture.Source.Data with
+        {
+            Articles = [fixture.Source.Data.Articles[0] with { Markdown = markdown }]
+        };
         ArticlePreservationCurrentData data = fixture.Current.Articles[0].Data with
         {
-            Article = fixture.Current.Articles[0].Data.Article with { MarkdownContent = markdown }
+            Article = fixture.Current.Articles[0].Data.Article with
+            {
+                MarkdownContent = markdown
+            }
         };
-        var changed = ReplaceCurrent(fixture with { Source = Source(source) }, data);
-        return rebuildMedia ? changed with { Media = Media(source) } : changed;
+        var changed = ReplaceCurrent(fixture with
+        {
+            Source = Source(source)
+        }, data);
+        return rebuildMedia ? changed with
+        {
+            Media = Media(source)
+        } : changed;
     }
 
     private static InputFixture WithSecondArticle(InputFixture fixture, string markdown, long blockId)
     {
-        LegacyArticlePreservationRow row = fixture.Source.Data.Articles[0] with { Id = 2, Markdown = markdown };
+        LegacyArticlePreservationRow row = fixture.Source.Data.Articles[0] with
+        {
+            Id = 2,
+            Markdown = markdown
+        };
         ArticlePreservationSourceData source = fixture.Source.Data with
         {
             ExpectedArticleCount = 2,
@@ -542,11 +646,20 @@ public sealed class ArticlePreservationProjectionTests
         ArticlePreservationCurrentData second = first with
         {
             SourceArticleId = 2,
-            Article = first.Article with { ArticleId = 2, ArticleRevisionId = 102, PublicRouteKey = "article:2", MarkdownContent = markdown },
+            Article = first.Article with
+            {
+                ArticleId = 2,
+                ArticleRevisionId = 102,
+                PublicRouteKey = "article:2",
+                MarkdownContent = markdown
+            },
             Coordinates = first.Coordinates with
             {
-                ContentBlockId = blockId, RightsPolicyId = 302, RightsSnapshotId = 402,
-                ResponsibilitySnapshotId = 502, PublicationId = 602
+                ContentBlockId = blockId,
+                RightsPolicyId = 302,
+                RightsSnapshotId = 402,
+                ResponsibilitySnapshotId = 502,
+                PublicationId = 602
             }
         };
         return fixture with
