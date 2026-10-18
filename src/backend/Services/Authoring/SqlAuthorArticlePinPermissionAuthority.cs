@@ -89,10 +89,7 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         cancellationToken.ThrowIfCancellationRequested();
         AuthorArticlePinContract.ValidateOwner(request.Owner);
         AuthorArticlePinContract.ValidateRequestId(request.RequestId);
-        int[] articleIds = [.. request.ArticleIds];
-        if (articleIds.Length > AuthorArticlePinContract.MaxPinsPerOwner
-            || articleIds.Any(static articleId => articleId <= 0)
-            || articleIds.Distinct().Count() != articleIds.Length)
+        if (!TryCaptureArticleIds(request.ArticleIds, cancellationToken, out int[] articleIds))
         {
             return Unavailable(request.Owner, "article_pin_permission_request_invalid");
         }
@@ -192,6 +189,68 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         string configured = configuration["SITE_BASEURL"]
             ?? PublicSiteIdentityDefaults.SiteBaseUrl;
         return configured.Trim().TrimEnd('/');
+    }
+
+    private static bool TryCaptureArticleIds(
+        IReadOnlyList<int> source,
+        CancellationToken cancellationToken,
+        out int[] articleIds)
+    {
+        articleIds = [];
+        int count = source.Count;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (count < 0 || count > AuthorArticlePinContract.MaxPinsPerOwner)
+        {
+            return false;
+        }
+
+        // Never enumerate caller-owned input or let a changing Count extend either pass.
+        var captured = new int[count];
+        var seen = new HashSet<int>();
+        try
+        {
+            for (int index = 0; index < count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int articleId = source[index];
+                cancellationToken.ThrowIfCancellationRequested();
+                if (articleId <= 0 || !seen.Add(articleId))
+                {
+                    return false;
+                }
+                captured[index] = articleId;
+            }
+            int capturedCount = source.Count;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (capturedCount != count)
+            {
+                return false;
+            }
+            // Recheck identities too: equal counts alone do not establish a stable capture.
+            for (int index = 0; index < count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int articleId = source[index];
+                cancellationToken.ThrowIfCancellationRequested();
+                if (articleId != captured[index])
+                {
+                    return false;
+                }
+            }
+            int verifiedCount = source.Count;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (verifiedCount != count)
+            {
+                return false;
+            }
+        }
+        catch (Exception error) when (error is ArgumentOutOfRangeException or IndexOutOfRangeException)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return false;
+        }
+        articleIds = captured;
+        return true;
     }
 
     private async Task<PermissionState?> ReadPermissionStateAsync(
