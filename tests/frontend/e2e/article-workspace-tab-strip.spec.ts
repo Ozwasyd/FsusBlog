@@ -35,10 +35,11 @@ async function openFixture(page: Page, count: number, theme: 'light' | 'dark'): 
             <meta name="viewport" content="width=device-width,initial-scale=1">
             <title>Article workspace tab fixture</title></head><body>
             <main id="article-workspace-tab-fixture"></main><script type="module">
-            const fixture = await import(${JSON.stringify(fixtureModule)});
-            await fixture.mountArticleWorkspaceTabFixture(${count}, ${JSON.stringify(theme)});
+            import { mountArticleWorkspaceTabFixture } from ${JSON.stringify(fixtureModule)};
+            await mountArticleWorkspaceTabFixture(${count}, ${JSON.stringify(theme)});
             </script></body></html>`
     }));
+    // Static module dependencies participate in load; readiness then measures the mounted fixture.
     await page.goto(`/__article-workspace-tab-fixture?count=${count}&theme=${theme}`);
     await expect(page.locator('html')).toHaveAttribute('data-workspace-tab-fixture-ready', 'true');
     await expect(page).toHaveTitle('Article workspace tab fixture');
