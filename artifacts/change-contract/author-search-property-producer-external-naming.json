@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchContracts.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchIndex.Properties.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchIndex.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchIndexVerifier.cs"
+            ],
+            "reason": "Preserve registered C# source spellings while consuming the sole canonical typed property snapshot, definition/value digests and field binding in the existing author index. No environment key, new payload/operator registry, permission authority, registration or wire transport is introduced."
+        }
+    ]
+}

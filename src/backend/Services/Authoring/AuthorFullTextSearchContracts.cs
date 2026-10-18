@@ -127,6 +127,9 @@ public static partial class AuthorFullTextSearchContract
         Require(document.Field.Kind is AuthorSearchFieldKind.Category or AuthorSearchFieldKind.Tag
             ? document.Field.TaxonomyId > 0
             : document.Field.TaxonomyId is null, "author_search_taxonomy_identity_invalid");
+        Require(document.Field.Kind == AuthorSearchFieldKind.Property
+            || document.Field.DefinitionDigest is null && document.Field.PropertyValueDigest is null,
+            "author_search_property_identity_invalid");
         if (document.Field.Kind == AuthorSearchFieldKind.Property)
         {
             Require(definitions.TryGetValue(document.Field.PropertyDefinitionId!.Value,
@@ -139,6 +142,8 @@ public static partial class AuthorFullTextSearchContract
                 "author_search_property_schema_stale");
             Require(definition.ValueType == document.Field.PropertyValueType,
                 "author_search_property_type_mismatch");
+            Require(document.Field.DefinitionDigest is null || document.Field.DefinitionDigest == definition.ContentDigest,
+                "author_search_property_schema_stale");
         }
         Require(document.Source.SourceRevision == document.Identity.CurrentRevision,
             "author_search_range_revision_stale");
@@ -516,10 +521,15 @@ public sealed record AuthorSearchDocumentIdentity(
     long PermissionRevision, long IndexGeneration, string Locale, ArticleStatus Status, AuthorSearchScope Scope,
     AuthorSearchPermissionState Permission, AuthorSearchVisibilityScope VisibilityScope, string PermissionPolicyDigest);
 
+/// <summary>
+/// Property fields supplied to the index additionally bind the canonical definition and
+/// value digests. Shape/token validation alone does not admit a typed property source.
+/// </summary>
 public sealed record AuthorSearchFieldReference(
     AuthorSearchFieldKind Kind, string ContentDigest, string? HeadingIdentity,
     Guid? PropertyDefinitionId, long? DefinitionSchemaRevision,
-    int? TaxonomyId = null, ArticlePropertyValueType? PropertyValueType = null);
+    int? TaxonomyId = null, ArticlePropertyValueType? PropertyValueType = null,
+    string? DefinitionDigest = null, string? PropertyValueDigest = null);
 
 /// <summary>
 /// Raw, half-open coordinates from the canonical parse package. UTF-16 is FsusUI's
