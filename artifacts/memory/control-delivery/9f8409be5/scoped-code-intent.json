@@ -1,0 +1,11 @@
+{
+  "candidate": "9f8409be5efadf76241fd10f8344d1e59de64f0a",
+  "files": [
+    "src/backend/Infrastructure/Memory/Platform/LinuxCgroupContextReader.cs",
+    "tests/backend/Unit/LinuxCgroupContextReaderTests.cs"
+  ],
+  "command": "original checkCodeIntent({root,files}); full registry validation retained",
+  "errors": [],
+  "checkedFiles": 2,
+  "scopedFiles": 0
+}

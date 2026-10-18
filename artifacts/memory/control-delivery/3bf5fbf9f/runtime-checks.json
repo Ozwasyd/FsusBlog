@@ -1,0 +1,36 @@
+{
+  "candidate": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+  "sourceAfter": "3bf5fbf9f9a4502b9df262b993f0af836be35d2c",
+  "runId": "mem-3bf5fbf9f-20261008-gpu-frozen-physical-inputs",
+  "startedAt": "2026-10-08T13:22:18.320195+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--no-build",
+    "--filter",
+    "FullyQualifiedName~MemoryCapabilityControllerTests|FullyQualifiedName~MemoryCapabilityOwnerIntegrationTests|FullyQualifiedName~MemoryCapabilityGpuAllocationPolicyTests|FullyQualifiedName~.Gpu|FullyQualifiedName~DiskSegmentStoreTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests|FullyQualifiedName~MemoryReservationCoordinatorTests|FullyQualifiedName~MemoryExistingAllocationTests",
+    "--logger",
+    "trx;LogFileName=memory-3bf5fbf9f.trx",
+    "--results-directory",
+    ".tmp/memory-integration/3bf5fbf9f/test-results"
+  ],
+  "exitCode": 0,
+  "artifact": ".tmp/memory-integration/3bf5fbf9f/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/3bf5fbf9f/data",
+  "compiledAtCandidate": "3a0af76e0d281e5446e4e0c95b720eee2d8c0697",
+  "metadataOnlyDelta": [
+    "config/development/memory-allocation-boundaries.json"
+  ],
+  "binariesBefore": {
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "911902f5669d70b8417b76ed2ea9ea6a0181bc6684b4d48b0ad4b04f2e91d21d",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "04e14500bb8f63ad5a19c252685157efdd2649694b11917be0680b4c55e6bf5c"
+  },
+  "binariesAfter": {
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "911902f5669d70b8417b76ed2ea9ea6a0181bc6684b4d48b0ad4b04f2e91d21d",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "04e14500bb8f63ad5a19c252685157efdd2649694b11917be0680b4c55e6bf5c"
+  },
+  "previousExpandedFilterFailedReceipt": ".tmp/memory-integration/3a0af76e0/runtime-checks.json",
+  "scope": "Exact affected classes; previous Gpu substring unexpectedly selected DuringPublication tests. The failed 301-test result is retained and not waived."
+}

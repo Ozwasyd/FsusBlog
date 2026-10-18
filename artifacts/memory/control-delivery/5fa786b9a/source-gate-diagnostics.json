@@ -1,0 +1,90 @@
+{
+  "candidate": "b8cdf988e2134883fdd7ddf87bd448cbde6b6815",
+  "command": [
+    "node",
+    "tools/run-test-matrix.mjs",
+    "ci-pr-smart",
+    "--stage",
+    "source-integration",
+    "--base-ref",
+    "origin/master"
+  ],
+  "exitCode": 1,
+  "checker": "tools/dotnet/check-csharp-style.mjs",
+  "ruleImplementationLocations": {
+    "type-name": 1289,
+    "enum-name": 1371
+  },
+  "diagnostics": [
+    "[csharp-style] src/backend/Infrastructure/Memory/Devices/GpuPeerMapping.cs:8 enum-name: non-flags enum must use a singular name [GpuMappedAccess]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Devices/GpuPeerTransfer.cs:6 enum-name: non-flags enum must use a singular name [GpuPeerAllocationAccess]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:169 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:171 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:173 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:175 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:177 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:179 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:181 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:183 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:185 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:187 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:189 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:191 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:193 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:195 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:197 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:199 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:201 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:203 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs:205 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:157 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:159 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:161 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:163 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:165 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:167 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:169 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:171 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:173 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:175 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:177 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:179 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:181 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs:183 type-name: type must use PascalCase [int]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:245 type-name: type must use PascalCase [nint]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:247 type-name: type must use PascalCase [nint]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:249 type-name: type must use PascalCase [nint]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:251 type-name: type must use PascalCase [void]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:253 type-name: type must use PascalCase [nint]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:255 type-name: type must use PascalCase [ulong]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:257 type-name: type must use PascalCase [byte]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:259 type-name: type must use PascalCase [byte]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:261 type-name: type must use PascalCase [nint]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:263 type-name: type must use PascalCase [nint]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:265 type-name: type must use PascalCase [void]",
+    "[csharp-style] src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs:267 type-name: type must use PascalCase [void]",
+    "[csharp-style] tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs:9 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.AuthoringExtensions]",
+    "[csharp-style] tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs:3 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.Security]",
+    "[csharp-style] tests/backend/Unit/TaxonomyExactMetadataTests.cs:3 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Core.Algorithms]",
+    "[csharp-style] tests/backend/Unit/TaxonomyExactMetadataTests.cs:9 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Server.Infrastructure.PublicAot]"
+  ],
+  "notWaived": true,
+  "unchangedOnCurrentSource": true,
+  "productionExamples": [
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs",
+      "line": 169,
+      "source": "internal delegate int Init(uint flags);"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuPeerMapping.cs",
+      "line": 8,
+      "source": "public enum GpuMappedAccess"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Devices/GpuPeerTransfer.cs",
+      "line": 6,
+      "source": "public enum GpuPeerAllocationAccess"
+    }
+  ]
+}
