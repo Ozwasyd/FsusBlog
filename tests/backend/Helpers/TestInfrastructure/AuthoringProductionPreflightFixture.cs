@@ -28,8 +28,15 @@ internal sealed class AuthoringProductionPreflightFixture : IDisposable
     {
         get; private set;
     }
-    public AuthoringStateScope Scope => new(Package.Contract.Manifest.Id, Package.Contract.Manifest.Version,
+    private AuthoringStateScope? _issuedStateScope;
+    public AuthoringStateScope Scope => _issuedStateScope ?? new(Package.Contract.Manifest.Id, Package.Contract.Manifest.Version,
         "primary-site", "7", "document-1", Package.Contract.Manifest.StateSchemaVersion);
+
+    internal void UseIssuedStateScope(AuthoringStateScope originalScope)
+    {
+        AuthoringExtensionStateContract.ValidateOwner(Package, originalScope);
+        _issuedStateScope = originalScope;
+    }
 
     public static async Task<AuthoringProductionPreflightFixture> CreateAsync(
         Func<AuthoringExtensionManifest, AuthoringExtensionManifest>? mutate = null,

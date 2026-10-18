@@ -121,12 +121,7 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(claim);
         cancellationToken.ThrowIfCancellationRequested();
-        // The original approval owner supplies its already actor-pinned final
-        // transaction. Never create, commit, dispose or replace that transaction.
-        AuthoringExtensionProductionPreflight.Require(ReferenceEquals(transaction.Connection, connection)
-            && connection.State == System.Data.ConnectionState.Open, "production_approval_transaction_not_owned");
-        AuthoringExtensionProductionPreflight.Require(ReferenceEquals(ApprovalClaim, claim),
-            "production_execution_claim_not_owned");
+        RequireOwnedApprovalTransaction(connection, transaction, claim);
         PreparedGeneration? prepared;
         lock (_generationLock)
         {
@@ -134,7 +129,37 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
             AuthoringExtensionProductionPreflight.Require(prepared is not null && prepared.Generation == generation,
                 "production_execution_generation_custody_unavailable");
         }
-        return await prepared!.AcquireExecutionResultScopeAsync(cancellationToken).ConfigureAwait(false);
+        return await prepared!.AcquireExecutionResultScopeAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
+    }
+
+    private void RequireOwnedApprovalTransaction(NpgsqlConnection connection, NpgsqlTransaction transaction,
+        AuthoringExtensionApprovalAuthority.ApprovedClaim claim)
+    {
+        // The original approval owner supplies its already actor-pinned final
+        // transaction. Pair identity alone does not establish actor custody.
+        // Never create, commit, dispose or replace the supplied transaction.
+        AuthoringExtensionProductionPreflight.Require(ReferenceEquals(transaction.Connection, connection)
+            && connection.State == System.Data.ConnectionState.Open, "production_approval_transaction_not_owned");
+        AuthoringExtensionProductionPreflight.Require(ReferenceEquals(ApprovalClaim, claim),
+            "production_execution_claim_not_owned");
+    }
+
+    internal ValueTask<IAuthoringExtensionStateObservation> AcquireSettledStateCustodyAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(transaction);
+        cancellationToken.ThrowIfCancellationRequested();
+        AuthoringExtensionApprovalAuthority.ApprovedClaim claim = ApprovalClaim
+            ?? throw new AuthoringExtensionContractException("production_migration_claim_required");
+        RequireOwnedApprovalTransaction(connection, transaction, claim);
+        AuthoringExtensionProductionPreflight.Require(claim.Operation == AuthoringApprovalOperation.Migration
+            && claim.FrozenPlan is not null, "production_migration_claim_required");
+        // Return the original observation itself. The canonical result scope
+        // must expose this identical object for ordered provenance borrowing;
+        // no copied observation or second state key/SELECT supplies custody.
+        return Preflight.AcquireSettledStateObservationAsync(claim.OldPackage, claim.NewPackage,
+            claim.FrozenPlan!, AuthoringStateMigrationPhase.Completed, cancellationToken);
     }
 
     public AuthoringExtensionLifecycleCoordinator Coordinator
@@ -307,7 +332,7 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         }
 
         internal async ValueTask<IAuthoringExtensionApprovalExecutionResultScope> AcquireExecutionResultScopeAsync(
-            CancellationToken cancellationToken)
+            NpgsqlConnection connection, NpgsqlTransaction transaction, CancellationToken cancellationToken)
         {
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
@@ -321,6 +346,9 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
                 // owners independently. No state scope acquired before actor
                 // pinning, copied snapshot or result record can be imported here.
                 await VerifyNativeSnapshotsAsync(cancellationToken).ConfigureAwait(false);
+                await using IAuthoringExtensionStateObservation stateCustody = await _owner.AcquireSettledStateCustodyAsync(
+                    connection, transaction, cancellationToken).ConfigureAwait(false);
+                await stateCustody.VerifyCurrentAsync(cancellationToken).ConfigureAwait(false);
                 // The original old-generation settlement lifetime is still
                 // required alongside that same original settled-state scope.
                 // Native acceptance alone cannot manufacture the result scope.
