@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 /// transaction; callers must not share that client concurrently or supply an ambient transaction.
 /// Persistent scope fences serialize independent clients, including after host restart.
 /// </summary>
-public sealed class PostgresAuthoringExtensionStateStore(ISqlSugarClient db) : IAuthoringFencedExtensionStateStore
+public sealed partial class PostgresAuthoringExtensionStateStore(ISqlSugarClient db) : IAuthoringFencedExtensionStateStore, IAuthoringExtensionStateObservationStore
 {
     private sealed record StoredScope(AuthoringStateSnapshot Snapshot, string? Fence);
     private sealed record StoredMigration(int Phase);
@@ -77,11 +77,16 @@ public sealed class PostgresAuthoringExtensionStateStore(ISqlSugarClient db) : I
 
     public async ValueTask DeleteAsync(VerifiedAuthoringPackage package, AuthoringFencedStateDeletion approval, CancellationToken cancellationToken)
     {
+        _ = await DeleteCoreAsync(package, approval, capture: false, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask<AuthoringStateObservation?> DeleteCoreAsync(VerifiedAuthoringPackage package, AuthoringFencedStateDeletion approval, bool capture, CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(approval);
         ArgumentNullException.ThrowIfNull(approval.Expected);
         ValidateOwner(package, approval.Expected.Scope);
         Require(IsField(approval.ApprovalReceiptId, 256), "state_delete_approval_missing");
-        await TransactionAsync([approval.Expected.Scope], async token =>
+        return await TransactionAsync<AuthoringStateObservation?>([approval.Expected.Scope], async token =>
         {
             StoredScope stored = await ReadOwnedAsync(package, approval.Expected.Scope, token).ConfigureAwait(false);
             Require(stored.Fence is null, "state_scope_fenced");
@@ -92,7 +97,7 @@ public sealed class PostgresAuthoringExtensionStateStore(ISqlSugarClient db) : I
             _ = await db.Ado.ExecuteCommandAsync(
                 "DELETE FROM authoring_extension_state_backup WHERE scope_id = @ScopeId;",
                 new SugarParameter("@ScopeId", ScopeId(current.Scope))).ConfigureAwait(false);
-            return true;
+            return capture ? await ReadDeletionObservationAsync(package, current.Scope, token).ConfigureAwait(false) : null;
         }, cancellationToken).ConfigureAwait(false);
     }
 
@@ -160,24 +165,25 @@ public sealed class PostgresAuthoringExtensionStateStore(ISqlSugarClient db) : I
         }, cancellationToken, prepared.Remaining).ConfigureAwait(false);
     }
 
-    public ValueTask RollbackAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken) =>
-        SettleAsync(oldPackage, newPackage, plan, rollback: true, cancellationToken);
+    public async ValueTask RollbackAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken) =>
+        _ = await SettleAsync(oldPackage, newPackage, plan, rollback: true, capture: false, cancellationToken).ConfigureAwait(false);
 
-    public ValueTask CompleteAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken) =>
-        SettleAsync(oldPackage, newPackage, plan, rollback: false, cancellationToken);
+    public async ValueTask CompleteAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken) =>
+        _ = await SettleAsync(oldPackage, newPackage, plan, rollback: false, capture: false, cancellationToken).ConfigureAwait(false);
 
-    private async ValueTask SettleAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, bool rollback, CancellationToken cancellationToken)
+    private async ValueTask<AuthoringStateObservation?> SettleAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, bool rollback, bool capture, CancellationToken cancellationToken)
     {
         var prepared = PreparePlan(oldPackage, newPackage, plan, cancellationToken);
         plan = prepared.Plan;
-        await TransactionAsync([plan.From, plan.To], async token =>
+        return await TransactionAsync<AuthoringStateObservation?>([plan.From, plan.To], async token =>
         {
             StoredMigration migration = await RequireMigrationAsync(plan, token).ConfigureAwait(false);
             int terminal = rollback ? 2 : 3;
             if (migration.Phase == terminal)
             {
                 // A settled retry cannot rewind subsequent writes or resurrect purged backups.
-                return true;
+                Require(!capture, "state_effect_already_settled_requires_recovery");
+                return null;
             }
             Require(rollback ? migration.Phase is 0 or 1 : migration.Phase == 1, "state_migration_phase_conflict");
             (StoredScope from, StoredScope to, AuthoringStateSnapshot backupFrom, AuthoringStateSnapshot backupTo) =
@@ -185,7 +191,7 @@ public sealed class PostgresAuthoringExtensionStateStore(ISqlSugarClient db) : I
             await SaveAsync(from, Advance(rollback ? backupFrom : from.Snapshot, from.Snapshot.Revision), null).ConfigureAwait(false);
             await SaveAsync(to, Advance(rollback ? backupTo : to.Snapshot, to.Snapshot.Revision), null).ConfigureAwait(false);
             await ChangePhaseAsync(plan, migration.Phase, terminal).ConfigureAwait(false);
-            return true;
+            return capture ? await ReadMigrationObservationAsync(oldPackage, newPackage, plan, (AuthoringStateMigrationPhase)terminal, token).ConfigureAwait(false) : null;
         }, cancellationToken, prepared.Remaining).ConfigureAwait(false);
     }
 
@@ -261,7 +267,7 @@ public sealed class PostgresAuthoringExtensionStateStore(ISqlSugarClient db) : I
         await ReadMigrationAsync(plan, token).ConfigureAwait(false)
             ?? throw new AuthoringExtensionContractException("state_migration_unknown");
 
-    private async Task<AuthoringStateMeasurement> MeasureCoreAsync(AuthoringStateSnapshot snapshot, CancellationToken token)
+    private async Task<AuthoringStateMeasurement> MeasureCoreAsync(AuthoringStateSnapshot snapshot, CancellationToken token, string? activePlanId = null)
     {
         var backups = new List<object>();
         long records = snapshot.Entries.Length;
@@ -274,7 +280,8 @@ public sealed class PostgresAuthoringExtensionStateStore(ISqlSugarClient db) : I
             """, new SugarParameter("@ScopeId", ScopeId(snapshot.Scope))).ConfigureAwait(false);
         while (await reader.ReadAsync(token).ConfigureAwait(false))
         {
-            Require(backups.Count < MaximumBackups && reader.GetInt16(2) is 2 or 3, "state_backup_unsettled_or_unbounded");
+            Require(backups.Count < MaximumBackups && (reader.GetInt16(2) is 2 or 3 ||
+                (activePlanId == reader.GetString(0) && reader.GetInt16(2) is 0 or 1)), "state_backup_unsettled_or_unbounded");
             AuthoringStateSnapshot backup = DecodeSnapshot(reader.GetFieldValue<byte[]>(1));
             Require(backup.Scope == snapshot.Scope && backup.PackageIdentity == snapshot.PackageIdentity &&
                 backup.Revision < snapshot.Revision, "state_backup_identity_invalid");
