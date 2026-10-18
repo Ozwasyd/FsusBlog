@@ -2359,8 +2359,10 @@ publication 拒绝、异常或 digest/page slice 不一致时返回空的 `Unava
 与本次读取快照逐项一致。另一快照的有效结果不能证明本次读取；不匹配时返回空的 `Unavailable`，不发布缓存投影。
 caller-facing verifier 只有在当前权限快照有效且所有 history entry 均可投影时才返回 collection revision、总计数
 与完整 authority digest；任一 entry 被拒绝时返回通用拒绝理由，所有 verifier 事实清空，空集合的有效校验不受影响。
-terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则保留原 status/reason，
-但使用 canonical empty projection，不返回 collection facts 或无权摘要。正常读取仍按服务端权限过滤可见 entry。
+terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则使用 canonical empty projection。
+正常读取在有效当前权限快照中发现任一 entry 不可投影时，在 CAS/cursor 比较前统一返回 `Unavailable`，
+不返回 entry、collection revision、permission digest、projection/cache reference 或 cursor，也不发布缓存。
+这不改变持久 history revision 或写入 CAS；真正空集合与全部可见集合仍按真实服务端事实返回 `Current`。
 
 ### Admin Author Workbench
 

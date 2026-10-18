@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorRecentArticleHistoryProjectionService.cs"
+            ],
+            "reason": "Preserve existing caller-visible history status, reason and reference spellings while enforcing the current permission boundary."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve documented history contract spellings while specifying fail-closed collection metadata disclosure."
+        }
+    ]
+}
