@@ -19,7 +19,7 @@
 
             <FsusUiDataList
                 class="moderation-regions-mobile-list"
-                :rows="displayRegions"
+                :rows="regionNavigationRows"
                 :columns="regionMobileColumns"
                 row-key="regionCode"
                 :active-key="selectedRegionCode"
@@ -36,9 +36,7 @@
                         v-if="column.key === 'region'"
                         class="moderation-regions-mobile-summary"
                         :class="{
-                            'moderation-regions-mobile-summary--child': isChildRegion(
-                                row as ModerationRegionDefinition,
-                            ),
+                            'moderation-regions-mobile-summary--child': row.isChild,
                         }"
                     >
                         <span
@@ -52,9 +50,9 @@
                         </span>
                         <span
                             class="moderation-regions-mobile-cell moderation-regions-mobile-meta"
-                            :title="formatRegionListMeta(row as ModerationRegionDefinition)"
+                            :title="readRuleField(row, 'meta')"
                         >
-                            {{ formatRegionListMeta(row as ModerationRegionDefinition) }}
+                            {{ readRuleField(row, 'meta') }}
                         </span>
                     </span>
                     <span
@@ -506,6 +504,14 @@ const formatRegionListMeta = (region: ModerationRegionDefinition): string =>
 
     return parts.join(" · ");
 };
+
+const regionNavigationRows = computed<FsusUiDataListRow[]>(() =>
+    displayRegions.value.map((region) => ({
+        regionCode: region.regionCode,
+        isChild: isChildRegion(region),
+        meta: formatRegionListMeta(region)
+    }))
+);
 
 const formatSourceId = (sourceId?: string | null): string =>
 {
