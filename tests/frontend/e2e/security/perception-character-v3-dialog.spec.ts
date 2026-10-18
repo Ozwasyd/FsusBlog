@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import type { SecurityChallengeContext, SecurityChallengeProofLease } from '@/security/challenge-client'
 
 const mediaVectors = JSON.parse(readFileSync(
   new URL('../../../fixtures/security/perception-character-v3-vectors.json', import.meta.url),
@@ -140,7 +141,7 @@ async function openChallenge(
       current = buildIssue(state.representation)
       return current
     }
-    coordinator.challengeClient.replace = async (_context, nextRepresentation) => {
+    coordinator.challengeClient.replace = async (_context: SecurityChallengeContext, nextRepresentation: Representation) => {
       const previousId = current.assignment.challengeId
       if (state.replacementOutcome === 'failure') {
         state.cancelled.push(previousId)
@@ -199,7 +200,7 @@ async function openChallenge(
     void coordinator.run(
       { action: 'comment.create', routeKey: 'article:42' },
       { kind: 'mutation_with_identity', mutationIdentity: 'comment-42' },
-      async (proof) => {
+      async (proof: SecurityChallengeProofLease | null) => {
         state.commandExecutions += 1
         if (!proof) {
           throw new BinaryTransportError({
@@ -213,7 +214,7 @@ async function openChallenge(
         }
         return 'resumed'
       }
-    ).then((value) => { state.result = value }).catch((error) => {
+    ).then((value: string) => { state.result = value }).catch((error: unknown) => {
       state.rejection = error instanceof Error ? error.message : String(error)
     })
   }, {

@@ -16,7 +16,6 @@ import type {
     PerceptionChallengeAssignment,
     PerceptionChallengeClient,
     PerceptionChallengeKind,
-    PerceptionChallengeRenderPayload,
     PerceptionChallengeRenderer,
     PerceptionChallengeSubmitPayload,
     PerceptionChallengeVerifyResult
@@ -135,7 +134,8 @@ export function createPerceptionChallengeRenderer(workerClient: PerceptionV2Work
     return {
         async render(challenge)
         {
-            const recipe = parseRecipe(String(challenge.meta?.recipeJson ?? ''));
+            const recipeJson = challenge.meta?.recipeJson;
+            const recipe = parseRecipe(typeof recipeJson === 'string' ? recipeJson : undefined);
             if (!recipe)
             {
                 throw createAppError(AppErrorCode.InfraFailure, GENERIC_PERCEPTION_UNAVAILABLE);
@@ -147,7 +147,7 @@ export function createPerceptionChallengeRenderer(workerClient: PerceptionV2Work
                 throw createAppError(AppErrorCode.InfraFailure, GENERIC_PERCEPTION_UNAVAILABLE);
             }
 
-            return rendered.result as PerceptionChallengeRenderPayload;
+            return rendered.result;
         }
     };
 }
@@ -172,7 +172,7 @@ export function buildPerceptionVerifyProviderPayload(
 
     if (submitPayload.kind !== 'micro-interaction')
     {
-        throw createAppError(AppErrorCode.ContractViolation, GENERIC_PERCEPTION_FAILURE);
+        throw createAppError(AppErrorCode.ProtocolFailure, GENERIC_PERCEPTION_FAILURE);
     }
 
     payload.stepSummary = submitPayload.steps.join(',');
@@ -211,7 +211,7 @@ function resolvePerceptionKind(kind: SecurityChallengeKind, taskKind?: string): 
     {
         return 'micro-interaction';
     }
-    throw createAppError(AppErrorCode.ContractViolation, GENERIC_PERCEPTION_UNAVAILABLE);
+    throw createAppError(AppErrorCode.ProtocolFailure, GENERIC_PERCEPTION_UNAVAILABLE);
 }
 
 function parseRecipe(value: string | undefined): RenderRecipeV2 | null
@@ -244,7 +244,7 @@ function resolveGrid(recipe: RenderRecipeV2 | null, payload: Record<string, stri
 
 function toPositiveInt(value: unknown): number
 {
-    const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+    const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number.parseInt(value, 10) : 0;
     return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 0;
 }
 
