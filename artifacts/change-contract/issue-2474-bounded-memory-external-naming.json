@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleGraphQueryService.cs"
+            ],
+            "reason": "The unchanged trusted registry covers managed src files under its broad environment-variable surface. Preserve the existing graph reason strings and source contract spellings; this bounded snapshot fix introduces no process key, external name or adapter and does not modify the naming policy."
+        }
+    ]
+}
