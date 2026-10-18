@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
