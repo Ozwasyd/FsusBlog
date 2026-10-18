@@ -64,6 +64,9 @@ if (PerformanceObserver.supportedEntryTypes.includes('longtask')) {
 }
 
 if (PerformanceObserver.supportedEntryTypes.includes('event')) {
+  const observerOptions: PerformanceObserverInit & { durationThreshold: number } = {
+    type: 'event', buffered: true, durationThreshold: 16
+  }
   new PerformanceObserver(list => {
     for (const entry of list.getEntries() as PerformanceEventTiming[]) {
       if (entry.name !== 'click') continue
@@ -74,7 +77,7 @@ if (PerformanceObserver.supportedEntryTypes.includes('event')) {
         durationMs: entry.duration
       })
     }
-  }).observe({ type: 'event', buffered: true, durationThreshold: 16 })
+  }).observe(observerOptions)
 }
 
 function recordProbe(event: Event): void {
