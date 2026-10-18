@@ -6,6 +6,125 @@ public sealed class AuthorSavedViewExecutionPreparationTests
 {
     private static readonly AuthorSavedViewOwner s_owner = new(42, "https://site.test");
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(64)]
+    public async Task CanonicalValuesBoundary_PreparationAndVerifierUseOnlyBoundedIndexes(int count)
+    {
+        var fixture = await CreateAsync(Math.Max(1, count));
+        IReadOnlyList<string> input = fixture.Source.Query.Conditions[0].Values;
+        var supplied = new AuthorSavedViewContractTests.CanonicalValuesSupply(() => count, (index, _) => input[index]);
+        var validator = new AlteredValidator(fixture.Validator, result => WithCanonicalValues(result, supplied));
+        var service = new AuthorSavedViewExecutionPreparationService(fixture.Boundary.Facade, validator);
+
+        AuthorSavedViewResolvedPlan plan = (await service.PrepareAsync(Request(fixture.Source))).Plan!;
+        AuthorSavedViewQueryValidationResult current = await validator.ValidateAsync(s_owner, fixture.Source.Query);
+
+        Assert.Equal(count, plan.Dependencies[0].CanonicalValues.Count);
+        Assert.Equal(input, plan.Query.Conditions[0].Values);
+        Assert.True(AuthorSavedViewExecutionPreparationVerifier.VerifyResolvedPlan(plan, fixture.Source, current, 25).Valid);
+        Assert.Equal(0, supplied.EnumeratorCalls);
+    }
+
+    [Theory]
+    [InlineData("overcount")]
+    [InlineData("wrong-count")]
+    [InlineData("count-throws")]
+    [InlineData("index-throws")]
+    [InlineData("same-count-values-change")]
+    [InlineData("spurious-cancellation")]
+    public async Task CanonicalValuesBoundary_PreparationRefusesUnstableValidatorValues(string mutation)
+    {
+        var fixture = await CreateAsync();
+        var supplied = Supply(mutation);
+        var validator = new AlteredValidator(fixture.Validator, result => WithCanonicalValues(result, supplied));
+        var service = new AuthorSavedViewExecutionPreparationService(fixture.Boundary.Facade, validator);
+
+        await Assert.ThrowsAsync<AuthorSavedViewValidationException>(() => service.PrepareAsync(Request(fixture.Source)));
+        Assert.Equal(0, supplied.EnumeratorCalls);
+        if (mutation is "overcount" or "wrong-count")
+        {
+            Assert.Equal(0, supplied.IndexReads);
+        }
+    }
+
+    [Theory]
+    [InlineData("overcount")]
+    [InlineData("wrong-count")]
+    [InlineData("count-throws")]
+    [InlineData("index-throws")]
+    [InlineData("same-count-values-change")]
+    [InlineData("spurious-cancellation")]
+    public async Task CanonicalValuesBoundary_IndependentVerifierRefusesUnstablePlanValues(string mutation)
+    {
+        var fixture = await CreateAsync();
+        AuthorSavedViewResolvedPlan original = (await fixture.Service.PrepareAsync(Request(fixture.Source))).Plan!;
+        AuthorSavedViewQueryValidationResult current = await fixture.Validator.ValidateAsync(s_owner, fixture.Source.Query);
+        var supplied = Supply(mutation);
+        AuthorSavedViewResolvedPlan plan = original with
+        {
+            Dependencies = [original.Dependencies[0] with { CanonicalValues = supplied }, .. original.Dependencies.Skip(1)]
+        };
+
+        Assert.False(AuthorSavedViewExecutionPreparationVerifier.VerifyResolvedPlan(plan, fixture.Source, current, 25).Valid);
+        Assert.Equal(0, supplied.EnumeratorCalls);
+    }
+
+    [Fact]
+    public async Task CanonicalValuesBoundary_ConfirmationSnapshotSurvivesFinalAwaitBufferMutation()
+    {
+        var fixture = await CreateAsync();
+        string[] values = ["category:7"];
+        var validator = new AlteredValidator(fixture.Validator, result => WithCanonicalValues(result, values));
+        var service = new AuthorSavedViewExecutionPreparationService(fixture.Boundary.Facade, validator);
+        fixture.Boundary.Store.BeforeReturn = () =>
+        {
+            if (fixture.Boundary.Store.Calls.Count == 3)
+            {
+                values[0] = "category:changed";
+            }
+        };
+
+        AuthorSavedViewResolvedPlan plan = (await service.PrepareAsync(Request(fixture.Source))).Plan!;
+
+        Assert.Equal("category:changed", values[0]);
+        Assert.Equal("category:7", Assert.Single(plan.Dependencies[0].CanonicalValues));
+        AuthorSavedViewQueryValidationResult current = await fixture.Validator.ValidateAsync(s_owner, fixture.Source.Query);
+        Assert.True(AuthorSavedViewExecutionPreparationVerifier.VerifyResolvedPlan(plan, fixture.Source, current, 25).Valid);
+    }
+
+    [Fact]
+    public async Task CanonicalValuesBoundary_PreparationHonorsCancellationDuringIndexedSupply()
+    {
+        var fixture = await CreateAsync();
+        using var cancellation = new CancellationTokenSource();
+        var supplied = new AuthorSavedViewContractTests.CanonicalValuesSupply(() => 1, (_, _) =>
+        {
+            cancellation.Cancel();
+            return "category:7";
+        }, throwEnumerator: false);
+        var validator = new AlteredValidator(fixture.Validator, result => WithCanonicalValues(result, supplied));
+        var service = new AuthorSavedViewExecutionPreparationService(fixture.Boundary.Facade, validator);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.PrepareAsync(Request(fixture.Source), cancellation.Token));
+        Assert.Equal(0, supplied.EnumeratorCalls);
+    }
+
+    private static AuthorSavedViewContractTests.CanonicalValuesSupply Supply(string mutation)
+        => new(() => mutation == "spurious-cancellation" ? throw new OperationCanceledException("private supplier cancellation")
+            : mutation == "count-throws" ? throw new InvalidOperationException("private count failure")
+            : mutation == "overcount" ? 65 : mutation == "wrong-count" ? 2 : 1,
+            (_, reads) => mutation == "index-throws" ? throw new InvalidOperationException("private index failure")
+                : mutation == "same-count-values-change" && reads > 1 ? "category:changed" : "category:7");
+
+    private static AuthorSavedViewQueryValidationResult WithCanonicalValues(
+        AuthorSavedViewQueryValidationResult result, IReadOnlyList<string> values)
+        => result with
+        {
+            Resolutions = [result.Resolutions[0] with { CanonicalValues = values }, .. result.Resolutions.Skip(1)]
+        };
+
     [Fact]
     public async Task Preparation_PreservesClosedQueryAndBindingsWithOnlyBoundedAuthorityReads()
     {
@@ -302,12 +421,13 @@ public sealed class AuthorSavedViewExecutionPreparationTests
         Assert.Equal(plan.QueryDigest, AuthorSavedViewContract.ComputeQueryDigest(plan.Query));
     }
 
-    private static async Task<Fixture> CreateAsync()
+    private static async Task<Fixture> CreateAsync(int valueCount = 1)
     {
         var provider = new MutableProvider();
         var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
         var query = new AuthorSavedViewQuery(AuthorSavedViewContract.SchemaVersion,
-            [new(new(AuthorSavedViewFieldKind.Category, "category:7"), "identity.equals", ["category:7"])],
+            [new(new(AuthorSavedViewFieldKind.Category, "category:7"), valueCount == 1 ? "identity.equals" : "identity.any-of",
+                [.. Enumerable.Range(0, valueCount).Select(index => $"category:{index + 7}")])],
             new(new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.UpdatedAtField),
                 AuthorSavedViewSortDirection.Descending, AuthorSavedViewNullPlacement.Last, "temporal", TimeZoneId: "UTC"),
             [new(AuthorSavedViewFieldKind.LifecycleStatus, AuthorSavedViewContract.LifecycleStatusField)], 25);

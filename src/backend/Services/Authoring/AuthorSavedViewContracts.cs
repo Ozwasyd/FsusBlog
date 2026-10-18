@@ -332,6 +332,63 @@ public static class AuthorSavedViewContract
         return canonical.Finish();
     }
 
+    /// <summary>
+    /// Detaches a bounded canonical-values supply by index. Count and values must remain
+    /// consistent across both observations; provider enumerators are never requested.
+    /// An empty supply retains the existing passthrough meaning rather than erasing input.
+    /// </summary>
+    internal static IReadOnlyList<string> SnapshotCanonicalValues(
+        IReadOnlyList<string> values,
+        int expectedCount,
+        CancellationToken cancellationToken = default,
+        string errorCode = "saved_view_dependency_values_tampered")
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (values is null || expectedCount is < 0 or > MaxValuesPerCondition)
+        {
+            throw new AuthorSavedViewValidationException(errorCode);
+        }
+        try
+        {
+            int count = values.Count;
+            if (count is < 0 or > MaxValuesPerCondition || (count != 0 && count != expectedCount))
+            {
+                throw new AuthorSavedViewValidationException(errorCode);
+            }
+            var snapshot = new string[count];
+            for (int index = 0; index < count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                snapshot[index] = values[index];
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (values.Count != count)
+            {
+                throw new AuthorSavedViewValidationException(errorCode);
+            }
+            for (int index = 0; index < count; index++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!string.Equals(snapshot[index], values[index], StringComparison.Ordinal))
+                {
+                    throw new AuthorSavedViewValidationException(errorCode);
+                }
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (values.Count != count)
+            {
+                throw new AuthorSavedViewValidationException(errorCode);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return Array.AsReadOnly(snapshot);
+        }
+        catch (Exception)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new AuthorSavedViewValidationException(errorCode);
+        }
+    }
+
     public static AuthorSavedViewOperatorDescriptor? FindBuiltInOperator(string operatorId)
         => s_operators.GetValueOrDefault(operatorId);
 
@@ -643,7 +700,13 @@ public sealed class AuthorSavedViewQueryValidator(
                 owner,
                 condition,
                 cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             ValidateResolution(condition, resolution);
+            resolution = resolution with
+            {
+                CanonicalValues = AuthorSavedViewContract.SnapshotCanonicalValues(
+                    resolution.CanonicalValues, condition.Values.Count, cancellationToken)
+            };
             resolutions.Add(resolution);
             canonicalValues.Add(index, NormalizeValues(condition, resolution));
             if (resolution.Status is not AuthorSavedViewDependencyStatus.Current
@@ -657,7 +720,13 @@ public sealed class AuthorSavedViewQueryValidator(
             owner,
             query.Sort,
             cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         ValidateProjectionResolution(query.Sort.Field, "sort", sortResolution);
+        sortResolution = sortResolution with
+        {
+            CanonicalValues = AuthorSavedViewContract.SnapshotCanonicalValues(
+                sortResolution.CanonicalValues, 0, cancellationToken)
+        };
         resolutions.Add(sortResolution);
         if (sortResolution.Status is not AuthorSavedViewDependencyStatus.Current
             and not AuthorSavedViewDependencyStatus.RenamedLabelOnly)
@@ -672,7 +741,13 @@ public sealed class AuthorSavedViewQueryValidator(
                     owner,
                     projectionField,
                     cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             ValidateProjectionResolution(projectionField, "projection", projectionResolution);
+            projectionResolution = projectionResolution with
+            {
+                CanonicalValues = AuthorSavedViewContract.SnapshotCanonicalValues(
+                    projectionResolution.CanonicalValues, 0, cancellationToken)
+            };
             resolutions.Add(projectionResolution);
             if (projectionResolution.Status is not AuthorSavedViewDependencyStatus.Current
                 and not AuthorSavedViewDependencyStatus.RenamedLabelOnly)
@@ -689,8 +764,7 @@ public sealed class AuthorSavedViewQueryValidator(
                 Operator = resolution.Operator with
                 {
                     FieldKinds = Array.AsReadOnly(resolution.Operator.FieldKinds.ToArray())
-                },
-                CanonicalValues = Array.AsReadOnly(resolution.CanonicalValues.ToArray())
+                }
             })
         ];
         return new AuthorSavedViewQueryValidationResult(
@@ -793,24 +867,24 @@ public sealed class AuthorSavedViewQueryValidator(
         AuthorSavedViewCondition condition,
         AuthorSavedViewDependencyResolution resolution)
     {
-        string[] values = resolution.CanonicalValues.Count == 0
-            ? [.. condition.Values]
-            : [.. resolution.CanonicalValues];
-        if (values.Length != condition.Values.Count)
+        IReadOnlyList<string> values = resolution.CanonicalValues.Count == 0
+            ? Array.AsReadOnly(condition.Values.ToArray())
+            : resolution.CanonicalValues;
+        if (values.Count != condition.Values.Count)
         {
             throw new AuthorSavedViewValidationException("saved_view_dependency_values_tampered");
         }
 
         AuthorSavedViewCondition canonicalCondition = condition with
         {
-            Values = Array.AsReadOnly(values)
+            Values = values
         };
         AuthorSavedViewContract.ValidateConditionShape(canonicalCondition);
         ValidateResolution(canonicalCondition, resolution);
 
         return resolution.Operator.Cardinality == AuthorSavedViewOperatorCardinality.MultipleSet
             ? Array.AsReadOnly(values.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray())
-            : Array.AsReadOnly(values);
+            : values;
     }
 
     private static void ValidateProjectionResolution(
@@ -889,7 +963,8 @@ public sealed class AuthorSavedViewDependencyCatalog(
             return Unknown(condition.Field, condition.OperatorId, missingStatus, descriptor);
         }
 
-        return ResolutionFromFact(condition.Field, condition.OperatorId, descriptor, fact);
+        return ResolutionFromFact(condition.Field, condition.OperatorId, descriptor, fact,
+            condition.Values.Count, cancellationToken);
     }
 
     public async ValueTask<AuthorSavedViewDependencyResolution> ResolveSortAsync(
@@ -926,7 +1001,7 @@ public sealed class AuthorSavedViewDependencyCatalog(
             {
                 Status = AuthorSavedViewDependencyStatus.DuplicateAuthority
             };
-        return ProjectionFromFact(sort.Field, "sort", selected);
+        return ProjectionFromFact(sort.Field, "sort", selected, cancellationToken);
     }
 
     public async ValueTask<AuthorSavedViewDependencyResolution> ResolveProjectionAsync(
@@ -963,7 +1038,7 @@ public sealed class AuthorSavedViewDependencyCatalog(
             {
                 Status = AuthorSavedViewDependencyStatus.DuplicateAuthority
             };
-        return ProjectionFromFact(field, "projection", selected);
+        return ProjectionFromFact(field, "projection", selected, cancellationToken);
     }
 
     private async ValueTask<AuthorSavedViewDependencyFact?> ResolveFromProvidersAsync(
@@ -996,32 +1071,38 @@ public sealed class AuthorSavedViewDependencyCatalog(
         AuthorSavedViewFieldReference expectedField,
         string expectedOperatorId,
         AuthorSavedViewOperatorDescriptor descriptor,
-        AuthorSavedViewDependencyFact fact)
+        AuthorSavedViewDependencyFact fact,
+        int expectedCount,
+        CancellationToken cancellationToken)
     {
-        ValidateFact(expectedField, expectedOperatorId, fact, allowCanonicalValues: true);
+        IReadOnlyList<string> canonicalValues = ValidateFact(expectedField, expectedOperatorId, fact,
+            allowCanonicalValues: true, expectedCount, cancellationToken);
         return new AuthorSavedViewDependencyResolution(
             fact.Dependency,
             fact.OperatorId,
             fact.Status,
             fact.AuthorityRevision,
             descriptor,
-            fact.CanonicalValues);
+            canonicalValues);
     }
 
     private static AuthorSavedViewDependencyResolution ProjectionFromFact(
         AuthorSavedViewFieldReference expectedField,
         string expectedOperation,
-        AuthorSavedViewDependencyFact fact)
+        AuthorSavedViewDependencyFact fact,
+        CancellationToken cancellationToken)
     {
-        ValidateFact(expectedField, expectedOperation, fact, allowCanonicalValues: false);
+        ValidateFact(expectedField, expectedOperation, fact, allowCanonicalValues: false, 0, cancellationToken);
         return Projection(expectedField, expectedOperation, fact.Status, fact.AuthorityRevision);
     }
 
-    private static void ValidateFact(
+    private static IReadOnlyList<string> ValidateFact(
         AuthorSavedViewFieldReference expectedField,
         string expectedOperatorId,
         AuthorSavedViewDependencyFact fact,
-        bool allowCanonicalValues)
+        bool allowCanonicalValues,
+        int expectedCount,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(fact);
         ArgumentNullException.ThrowIfNull(fact.Dependency);
@@ -1031,11 +1112,12 @@ public sealed class AuthorSavedViewDependencyCatalog(
             || !Enum.IsDefined(fact.Status)
             || string.IsNullOrWhiteSpace(fact.AuthorityRevision)
             || fact.AuthorityRevision.Length > AuthorSavedViewContract.MaxIdentityLength
-            || fact.AuthorityRevision.Any(static character => char.IsControl(character) || char.IsWhiteSpace(character))
-            || (!allowCanonicalValues && fact.CanonicalValues.Count != 0))
+            || fact.AuthorityRevision.Any(static character => char.IsControl(character) || char.IsWhiteSpace(character)))
         {
             throw new AuthorSavedViewValidationException("saved_view_dependency_fact_tampered");
         }
+        return AuthorSavedViewContract.SnapshotCanonicalValues(fact.CanonicalValues, expectedCount,
+            cancellationToken, allowCanonicalValues ? "saved_view_dependency_values_tampered" : "saved_view_dependency_fact_tampered");
     }
 
     private static AuthorSavedViewDependencyResolution Unknown(
