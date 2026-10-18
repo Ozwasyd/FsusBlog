@@ -271,8 +271,13 @@ string escaping, counted in bounded scratch chunks without a second document-siz
 copy. That internal size measurement is not a JSON public transport or fallback.
 
 The source component does not create a production canonical document reader or
-consent issuer or durable production grant store. The persistent package scope
-does not create a grant store, a consent policy, a production RPC registration or
+consent issuer. The separate `LocalAuthoringCapabilityGrantStore` implements the
+existing RPC read-scope and lifecycle catalog ports over one protected local fact
+set, with exact queries, persistent revocation tombstones and held cross-process
+exclusion. Its Linux file-identity, initialization, byte/count and recovery limits
+are defined by the [grant security boundary](../security/authoring-extension-capability-isolation.md#persistent-grant-facts).
+It remains uncomposed and supplies no broker I/O approval scope. The persistent
+package scope does not create a grant store, a consent policy, a production RPC registration or
 a document reader. A missing canonical read port, original resolver or either
 original store exclusion port is blocked;
 simulated public-handler controls are not actual consent, browser or native
@@ -511,6 +516,12 @@ owner are still required before restart recovery or atomic data deletion can be
 claimed as terminal acceptance. Removing the scoped registration is the rollback
 boundary; preserve existing receipt rows for audit and do not recreate an empty
 store as a recovery shortcut.
+This commit defines the generic lifecycle/resource interfaces and orchestration;
+it does not register a command contribution or a second editor authority. Durable
+production receipt/state stores and a real host registration owner are still
+required. The local grant store's synthetic same-root/key restart tests do not
+qualify whole lifecycle restart recovery or atomic data deletion as terminal
+acceptance.
 
 ## Resource budgets, crash isolation, and telemetry
 
