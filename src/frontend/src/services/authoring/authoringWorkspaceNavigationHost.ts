@@ -6,21 +6,14 @@ import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
 import { createAuthoringNavigationOwnedMountedEditor } from './authoringNavigationEntrypoints';
 import { calculateOpenArticleDocumentDigest } from './openArticleDocumentRegistry';
 
-import type { ArticleAnchorCaptureOptions, ArticleAnchorContextAdapter, ArticleAnchorPrimaryRetainedAdmission } from './articleAnchorContext';
+import type { ArticleAnchorCommand, ArticleAnchorContextAdapter, ArticleAnchorPrimaryRetainedAdmission } from './articleAnchorContext';
 import type { ArticleDocumentContextAdapter, ArticleDocumentContextAuthority, ArticleDocumentRetainedScopeReaders } from './articleDocumentContext';
 import type { ArticleEditorMountedSessionPort } from './articleEditorContinuity';
 import type { ArticleWorkspaceMountedEditorSource } from './articleWorkspaceMountedEditorResolver';
 import type { AuthoringNavigationOwnedMountedEditor, AuthoringNavigationRevealEditor } from './authoringNavigationEntrypoints';
+import type { AuthoringWorkspaceNavigationView, AuthoringWorkspaceNavigationViewPort } from './authoringWorkspaceNavigationView';
 import type { OpenArticleDocumentEntry, OpenArticleDocumentRegistry } from './openArticleDocumentRegistry';
-
-/** Borrowed source-scroll facts, never focus/visibility completion or navigation admission. */
-export interface AuthoringWorkspaceNavigationView
-{
-    readonly documentIdentity: Readonly<{ id: string; epoch: number; }>;
-    readonly revision: number;
-    readonly capture: ArticleAnchorCaptureOptions;
-    readonly viewport: Readonly<{ height: number; reducedMotion: boolean; }>;
-}
+import type { MarkdownEditorSourceNavigationGesture } from '@ozwasyd/element-plus';
 
 /** Require the real additional public capability without changing the existing primary getter. */
 export function isAuthoringWorkspaceNavigationEditor(editor: ArticleEditorMountedSessionPort): editor is AuthoringNavigationRevealEditor
@@ -40,7 +33,7 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
     signal: AbortSignal;
     isCurrent: () => boolean;
     readNative: () => ArticleEditorMountedSessionPort | null;
-    viewOwner: Readonly<{ read(): AuthoringWorkspaceNavigationView | null; }> | null;
+    viewOwner: AuthoringWorkspaceNavigationViewPort | null;
     refreshNativeIdentity: () => Promise<void>;
 }>)
 {
@@ -113,20 +106,48 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
         }
     }
 
-    function readView(): AuthoringWorkspaceNavigationView
+    function guard(entry: OpenArticleDocumentEntry, request: AbortSignal): void
     {
-        if (!currentMount())
+        request.throwIfAborted();
+        check();
+        if (!currentMount() || !matchesEntry(entry))
         {
             throw new Error('authoring-workspace-navigation-mount-unavailable');
         }
+        request.throwIfAborted();
+    }
+
+    function assertView(view: AuthoringWorkspaceNavigationView, entry: OpenArticleDocumentEntry, request: AbortSignal): void
+    {
+        guard(entry, request);
         const context = options.document.context;
-        const view = options.viewOwner?.read();
-        if (view?.documentIdentity.id !== context.documentId || view.documentIdentity.epoch !== context.documentEpoch
-            || view.revision !== context.sourceRevision || !Number.isFinite(view.viewport.height) || view.viewport.height <= 0
-            || typeof view.viewport.reducedMotion !== 'boolean' || !currentMount() || options.document.context !== context)
+        // Check wrapper/native custody before reading a candidate's properties.
+        if (!options.viewOwner?.isCurrentSourceNavigationView(view)
+            || view.source.editorSessionRef !== sessionRef || view.source.documentIdentity.id !== context.documentId
+            || view.source.documentIdentity.epoch !== context.documentEpoch || view.source.revision !== context.sourceRevision)
         {
             throw new Error('authoring-workspace-navigation-view-unavailable');
         }
+        guard(entry, request);
+        if (options.document.context !== context)
+        {
+            throw new Error('authoring-workspace-navigation-context-changed');
+        }
+    }
+
+    function readView(entry: OpenArticleDocumentEntry, request: AbortSignal): AuthoringWorkspaceNavigationView
+    {
+        guard(entry, request);
+        const editor = native!;
+        const session = editor.getSession(entry.editorSessionRef);
+        const expected = session.inspectDocumentState();
+        const view = options.viewOwner?.readSourceNavigationView({ session, expected,
+            signal: AbortSignal.any([signal, request]), assertAdmission: () => guard(entry, request) });
+        if (!view || native !== editor || editor.getSession(entry.editorSessionRef) !== session)
+        {
+            throw new Error('authoring-workspace-navigation-view-unavailable');
+        }
+        assertView(view, entry, request);
         return view;
     }
 
@@ -140,7 +161,7 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
             && options.registry.getRevision() === revision;
     }
 
-    function current(entry: OpenArticleDocumentEntry): AuthoringNavigationOwnedMountedEditor | null
+    function currentOwned(entry: OpenArticleDocumentEntry): AuthoringNavigationOwnedMountedEditor | null
     {
         try
         {
@@ -230,7 +251,7 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
         }
     }
 
-    async function wait(entry: OpenArticleDocumentEntry, request: AbortSignal): Promise<AuthoringNavigationOwnedMountedEditor | null>
+    async function borrow(entry: OpenArticleDocumentEntry, request: AbortSignal): Promise<AuthoringNavigationOwnedMountedEditor | null>
     {
         request.throwIfAborted();
         // Absence is an owner-input gap, never an after/0/0 capture default.
@@ -238,7 +259,7 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
         {
             return null;
         }
-        const existing = current(entry);
+        const existing = currentOwned(entry);
         if (existing)
         {
             request.throwIfAborted();
@@ -252,12 +273,12 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
             {
                 return null;
             }
-            readView();
+            readView(entry, request);
             mounted = createAuthoringNavigationOwnedMountedEditor({ document: prepared.binding.adapter, anchors: prepared.anchors,
                 association: prepared.association, editor: native, isCurrent: currentMount,
-                captureOptions: () => readView().capture, viewport: () => readView().viewport });
+                captureOptions: () => readView(entry, signal).capture, viewport: () => readView(entry, signal).source.viewport });
             request.throwIfAborted();
-            const result = current(entry);
+            const result = currentOwned(entry);
             request.throwIfAborted();
             if (!result)
             {
@@ -267,9 +288,118 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
         }
         catch
         {
-            dispose();
+            // A temporarily unavailable observation is not a retired retained owner.
             return null;
         }
+    }
+
+    /** Synchronous original Anchor capture with one exact spatial observation around every owner call. */
+    async function capture(entry: OpenArticleDocumentEntry, request: AbortSignal)
+    {
+        const owned = await borrow(entry, request);
+        if (!owned)
+        {
+            return null;
+        }
+        const view = readView(entry, request);
+        const binding = owned.binding();
+        assertView(view, entry, request);
+        const selection = owned.selection();
+        assertView(view, entry, request);
+        const observed = view.source.selection;
+        if (selection.start !== observed.start || selection.end !== observed.end || selection.direction !== observed.direction)
+        {
+            throw new Error('authoring-workspace-navigation-selection-changed');
+        }
+        const captured = owned.anchors.capture(binding, selection, view.capture);
+        assertView(view, entry, request);
+        if (owned.binding().document !== binding.document || options.document.context !== binding.document)
+        {
+            throw new Error('authoring-workspace-navigation-context-changed');
+        }
+        assertView(view, entry, request);
+        return captured;
+    }
+
+    /** Original public completion plus a new spatial observation; no old-view geometry exemption. */
+    async function reveal(entry: OpenArticleDocumentEntry, command: ArticleAnchorCommand | null, request: AbortSignal,
+        assertAdmission: () => void)
+    {
+        const owned = await borrow(entry, request);
+        if (!owned)
+        {
+            return null;
+        }
+        const admission = (): void =>
+        {
+            guard(entry, request);
+            assertAdmission();
+            guard(entry, request);
+        };
+        admission();
+        const before = readView(entry, request);
+        const expected = command?.range
+            ? { start: command.range.start, end: command.range.end, direction: command.direction } : before.source.selection;
+        assertView(before, entry, request);
+        // Selection/scroll may retire `before` inside the real reveal. Its token
+        // is never used to assert spatial currentness after this boundary.
+        const completion = await owned.reveal(command, AbortSignal.any([signal, request]), admission);
+        admission();
+        const after = readView(entry, request);
+        if (after.source.selection.start !== expected.start || after.source.selection.end !== expected.end
+            || after.source.selection.direction !== expected.direction)
+        {
+            throw new Error('authoring-workspace-navigation-post-reveal-selection-changed');
+        }
+        admission();
+        assertView(after, entry, request);
+        return Object.freeze({ completion, view: after });
+    }
+
+    function manual(event: MarkdownEditorSourceNavigationGesture): void
+    {
+        try
+        {
+            check();
+            const editor = options.readNative();
+            const context = options.document.context;
+            if (!editor || event.documentIdentity.id !== context.documentId || event.documentIdentity.epoch !== context.documentEpoch
+                || event.revision !== context.sourceRevision)
+            {
+                return;
+            }
+            check();
+            if (options.readNative() !== editor || options.document.context !== context)
+            {
+                return;
+            }
+            const kind = { wheel: 'wheel', touch: 'touch', pointer: 'drag', keyboard: 'selection' } as const;
+            options.anchors.manual(kind[event.gesture], 'source', Date.now());
+        }
+        catch
+        {
+            // A retired original wrapper cannot update another document's intent.
+        }
+    }
+
+    function resume(reason: 'input' | 'navigation' | 'idle'): boolean
+    {
+        return currentMount() && options.anchors.resume(reason, Date.now());
+    }
+
+    // The frozen navigation factory exposes an unscoped captureOptions callback
+    // and registers its exact returned object in private custody. Do not publish
+    // that raw object (or an unregistered proxy) as a fully fenced navigation port.
+    function current(entry: OpenArticleDocumentEntry): null
+    {
+        void entry;
+        return null;
+    }
+    function wait(entry: OpenArticleDocumentEntry, request: AbortSignal): Promise<null>
+    {
+        void entry;
+        request.throwIfAborted();
+        return Promise.resolve(null);
     }
 
     const stopAuth = watch(privateSurfaceRuntime.authGeneration, dispose, { flush: 'sync' });
@@ -278,7 +408,7 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
     {
         dispose();
     }
-    return Object.freeze({ prepare, current, wait, dispose });
+    return Object.freeze({ prepare, capture, reveal, manual, resume, current, wait, dispose });
 }
 
 export type AuthoringWorkspaceNavigationHost = ReturnType<typeof createAuthoringWorkspaceNavigationHost>;

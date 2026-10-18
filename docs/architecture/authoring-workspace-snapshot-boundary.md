@@ -4,6 +4,30 @@ This source capability implements #2302–#2305 domain code under #1856. It is n
 terminal #2306 acceptance. The integration owner retains shared wire/DI/endpoint/
 migration registration, article/session/router/group owners and the live shell.
 
+## Provisional source navigation observation
+
+The Write host can borrow the original public source view through
+`ArticleWriteEditor → MarkdownEditorAdapter → MarkdownTextEditor`, using FsusUI
+source `b915bf6d79635d2226f98b1f3b671c558916c94a` (#1073). The wrapper keeps the
+exact issued object and binds its product surface/tool to the original wrapper
+generation. It adds no native measurements, capture defaults or admission authority.
+
+The host's bounded `capture` uses the original retained Document/Anchor/session
+association and checks one issued spatial observation around selection and original
+Anchor capture. Its bounded `reveal` uses the original owned factory/public native
+completion, rechecks lifetime/admission after await, then obtains and fences a fresh
+spatial observation. Deliberate selection/scroll changes do not preserve old tokens.
+Trusted native source gestures reach the original Anchor manual policy; programmatic
+scroll does not imply manual intent, and timer expiry does not resume it. Resume is
+an explicit call to the same original Anchor policy.
+
+This remains a provisional source integration. General navigation `current/wait`
+still refuse: the frozen original navigation factory lacks a scoped capture and
+post-reveal observation boundary, and its private issued-object custody cannot be
+replaced with a proxy. These bounded host operations install no router, History
+executor or full snapshot owner. Source-reader, package, original-lock, full Write
+auth/backend, native/IME and independent UX qualification remain separate holds.
+
 ## Root source integration
 
 The runtime composition now registers one scoped PostgreSQL persistence, snapshot
