@@ -428,7 +428,15 @@ const formatChecksum = (checksum?: string | null): string =>
 
 const getRegionParentCode = (
     region: ModerationRegionDefinition
-): string | null => region.parentRegion?.trim() || null;
+): string | null =>
+{
+    const parentCode = region.parentRegion?.trim();
+    if (!parentCode)
+    {
+        return null;
+    }
+    return parentCode;
+};
 
 const isChildRegion = (region: ModerationRegionDefinition): boolean =>
     getRegionParentCode(region) !== null;
@@ -572,8 +580,9 @@ const regionPreviewHref = (regionCode: string): string =>
     }).href;
 };
 
-const getRegionCode = (row: FsusUiDataListRow): string =>
-    String(row.regionCode ?? "");
+const getRegionCode = (
+    row: { regionCode?: FsusUiDataListRowKey | null; }
+): string => String(row.regionCode ?? "");
 const regionPreviewHrefForRow = (row: FsusUiDataListRow): string =>
     regionPreviewHref(getRegionCode(row));
 const handleMobileRegionClick = (
