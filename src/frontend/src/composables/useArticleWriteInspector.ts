@@ -1,4 +1,4 @@
-import { nextTick, ref, shallowReactive } from 'vue';
+import { getCurrentScope, nextTick, onScopeDispose, ref, shallowReactive } from 'vue';
 
 export const articleWriteInspectorRegistry = [
     { id: 'publish', label: '发布' },
@@ -28,6 +28,46 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
     const pendingLoads = new Map<ArticleWriteInspectorView, Promise<void>>();
     let focusReturnTarget: HTMLElement | null = null;
     let closingInspector: ArticleWriteInspectorView | null = null;
+    let focusGeneration = 0;
+    let disposed = false;
+    let pendingFocusFrame: { id: number; finish: () => void; } | null = null;
+
+    const invalidateFocusRestore = (): void =>
+    {
+        focusGeneration += 1;
+        const frame = pendingFocusFrame;
+        pendingFocusFrame = null;
+        if (frame)
+        {
+            if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function')
+            {
+                window.cancelAnimationFrame(frame.id);
+            }
+            // Cancellation must also settle callers awaiting the old frame.
+            frame.finish();
+        }
+    };
+
+    const canRestoreFocus = (target: HTMLElement | null): target is HTMLElement =>
+    {
+        if (!target?.isConnected || target.matches(':disabled, [aria-disabled="true"]'))
+        {
+            return false;
+        }
+        for (let element: HTMLElement | null = target; element; element = element.parentElement)
+        {
+            if (element.hidden || element.hasAttribute('inert') || element.getAttribute('aria-hidden') === 'true')
+            {
+                return false;
+            }
+            const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+            if (style?.display === 'none' || style?.visibility === 'hidden' || style?.visibility === 'collapse')
+            {
+                return false;
+            }
+        }
+        return true;
+    };
 
     const rememberScroll = (view: ArticleWriteInspectorView | null): void =>
     {
@@ -46,6 +86,10 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
     const restoreScroll = async (view: ArticleWriteInspectorView): Promise<void> =>
     {
         await nextTick();
+        if (disposed || activeInspector.value !== view)
+        {
+            return;
+        }
         const container = scrollContainers.get(view);
         if (container)
         {
@@ -81,6 +125,12 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
         trigger?: HTMLElement | null
     ): Promise<void> =>
     {
+        if (disposed)
+        {
+            return Promise.resolve();
+        }
+        invalidateFocusRestore();
+        closingInspector = null;
         if (activeInspector.value !== view)
         {
             rememberScroll(activeInspector.value);
@@ -95,6 +145,12 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
 
     const switchTo = (view: ArticleWriteInspectorView): Promise<void> =>
     {
+        if (disposed)
+        {
+            return Promise.resolve();
+        }
+        invalidateFocusRestore();
+        closingInspector = null;
         if (activeInspector.value !== view)
         {
             rememberScroll(activeInspector.value);
@@ -108,6 +164,11 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
 
     const close = (): void =>
     {
+        if (disposed || activeInspector.value === null)
+        {
+            return;
+        }
+        invalidateFocusRestore();
         closingInspector = activeInspector.value;
         rememberScroll(closingInspector);
         activeInspector.value = null;
@@ -132,6 +193,10 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
         element: HTMLElement | null
     ): void =>
     {
+        if (disposed)
+        {
+            return;
+        }
         if (element)
         {
             railTriggers.set(view, element);
@@ -145,6 +210,10 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
         element: HTMLElement | null
     ): void =>
     {
+        if (disposed)
+        {
+            return;
+        }
         if (!element)
         {
             scrollContainers.delete(view);
@@ -165,20 +234,57 @@ export function useArticleWriteInspector(options: ArticleWriteInspectorOptions =
 
     const restoreFocus = async (): Promise<void> =>
     {
+        if (disposed || activeInspector.value !== null || closingInspector === null)
+        {
+            return;
+        }
+        invalidateFocusRestore();
+        const generation = focusGeneration;
         await nextTick();
+        if (disposed || generation !== focusGeneration || activeInspector.value !== null)
+        {
+            return;
+        }
         if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function')
         {
             await new Promise<void>((resolve) =>
             {
-                window.requestAnimationFrame(() => resolve());
+                const frame = { id: 0, finish: resolve };
+                pendingFocusFrame = frame;
+                frame.id = window.requestAnimationFrame(() =>
+                {
+                    if (pendingFocusFrame === frame)
+                    {
+                        pendingFocusFrame = null;
+                    }
+                    resolve();
+                });
             });
         }
-        const target = focusReturnTarget
-      ?? (closingInspector ? railTriggers.get(closingInspector) ?? null : null);
-        target?.focus({ preventScroll: true });
+        if (disposed || generation !== focusGeneration || activeInspector.value !== null)
+        {
+            return;
+        }
+        const fallback = closingInspector ? railTriggers.get(closingInspector) ?? null : null;
+        const target = canRestoreFocus(focusReturnTarget) ? focusReturnTarget
+            : canRestoreFocus(fallback) ? fallback : null;
         focusReturnTarget = null;
         closingInspector = null;
+        target?.focus({ preventScroll: true });
     };
+
+    if (getCurrentScope())
+    {
+        onScopeDispose(() =>
+        {
+            disposed = true;
+            invalidateFocusRestore();
+            focusReturnTarget = null;
+            closingInspector = null;
+            railTriggers.clear();
+            scrollContainers.clear();
+        });
+    }
 
     if (activeInspector.value)
     {
