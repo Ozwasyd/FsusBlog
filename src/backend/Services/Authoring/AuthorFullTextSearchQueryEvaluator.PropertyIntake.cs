@@ -4,8 +4,8 @@ using System.Text.Json;
 namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
-/// Bounded typed input and original index-stage evidence only. The properties have not
-/// filtered these candidates. IndexEvidence retains the original request instance and
+/// Bounded detached typed input and original index-stage evidence only. These detached
+/// operands do not filter candidates; only typed clauses inside the query AST execute. IndexEvidence retains the original request instance and
 /// generation; intake cannot bind them to a replacement writer. This is not a typed
 /// query AST, current value projection, permission grant, result, cursor, receipt
 /// or full-source fingerprint.
@@ -19,9 +19,10 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator
 {
     /// <summary>
     /// Accepts the original typed operands directly, without parsing Saved View strings.
-    /// Reuses the original query/index inspector and canonical operand validator. The
-    /// original source port has no typed entry/field-digest binding, so no property
-    /// predicate, value comparison, facet or source permission is executed here.
+    /// Reuses the original query/index inspector and canonical operand validator.
+    /// These detached operands remain input evidence, never extra query predicates.
+    /// Executable operands must be bound to clauses in the sole v4 query AST. This
+    /// intake grants no current source permission, admitted result or facet.
     /// </summary>
     public async Task<AuthorSearchPropertyOperandIntake> InspectPropertyOperandsAsync(
         AuthorSearchQuery query,

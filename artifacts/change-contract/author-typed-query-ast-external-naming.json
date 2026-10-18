@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchContract.PropertyOperands.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchContracts.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.PropertyIntake.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryGrammar.cs"
+            ],
+            "reason": "Preserve the original canonical author-search contract, reason and schema names while versioning the same typed clause/query AST. No process environment key, second query API, new payload type or permission authority is introduced."
+        }
+    ]
+}

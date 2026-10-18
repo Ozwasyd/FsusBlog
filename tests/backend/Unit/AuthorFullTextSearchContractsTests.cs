@@ -359,7 +359,7 @@ public sealed class AuthorFullTextSearchContractsTests
             Range(raw, start, end), string.Empty));
 
     private static AuthorSearchQuery Query(params AuthorSearchClause[] clauses)
-        => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.SchemaVersion,
+        => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.QuerySchemaVersion,
             AuthorFullTextSearchContract.QuerySchema, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
             Guid.NewGuid(), 42, "site-a", 1, 1, AuthorSearchScope.CurrentArticle,

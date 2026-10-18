@@ -79,7 +79,7 @@ public sealed class AuthorFullTextSearchQueryGrammarTests
     }
 
     private static AuthorSearchQuery Query(ImmutableArray<AuthorSearchClause> clauses)
-        => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.SchemaVersion,
+        => AuthorFullTextSearchContract.SealQuery(new(AuthorFullTextSearchContract.QuerySchemaVersion,
             AuthorFullTextSearchContract.QuerySchema, AuthorFullTextSearchContract.TokenizerVersion,
             AuthorFullTextSearchContract.RankingVersion, AuthorFullTextSearchContract.IndexOwner,
             Guid.NewGuid(), 42, "primary", 1, 1, AuthorSearchScope.CurrentArticle, clauses, 20, null, string.Empty,

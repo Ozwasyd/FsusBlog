@@ -5,7 +5,7 @@ namespace FsusBlog.Server.Services.Authoring;
 
 public static partial class AuthorFullTextSearchContract
 {
-    public const string QueryGrammarVersion = "conjunctive-author-clauses.v1";
+    public const string QueryGrammarVersion = "conjunctive-author-clauses.v2";
 
     /// <summary>
     /// Parses the sole author content grammar; it never executes queries. Whitespace is
@@ -95,6 +95,29 @@ public static partial class AuthorFullTextSearchContract
             clauses.Add(clause);
         }
         Require(clauses.Count > 0, "author_search_query_budget_invalid");
+        return clauses.ToImmutable();
+    }
+
+    /// <summary>
+    /// Extends the same ordered conjunctive AST with already typed owner operands.
+    /// Property strings remain forbidden. No value, Saved View or second grammar is
+    /// parsed here; definition/schema/digest validation belongs to ValidateQuery.
+    /// </summary>
+    public static ImmutableArray<AuthorSearchClause> ParseClauses(
+        string text, IEnumerable<AuthorSearchPropertyOperand> propertyOperands)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(propertyOperands);
+        ImmutableArray<AuthorSearchClause> textClauses = string.IsNullOrWhiteSpace(text) ? [] : ParseClauses(text);
+        ImmutableArray<AuthorSearchPropertyOperand> held = propertyOperands.Take(MaxQueryClauses + 1).ToImmutableArray();
+        Require(textClauses.Length + held.Length is >= 1 and <= MaxQueryClauses, "author_search_query_budget_invalid");
+        var clauses = textClauses.ToBuilder();
+        foreach (AuthorSearchPropertyOperand operand in held)
+        {
+            Require(operand is not null, "author_search_property_operand_missing");
+            clauses.Add(new(AuthorSearchClauseKind.Property, AuthorSearchFieldKind.Property,
+                operand.DefinitionId, operand.OperatorId, [], operand));
+        }
         return clauses.ToImmutable();
     }
 
