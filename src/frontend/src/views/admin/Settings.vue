@@ -599,11 +599,12 @@
                                         </ElFormItem>
                                         <ElFormItem label="版权起始年份">
                                             <ElInputNumber
-                                                v-model="complianceForm.copyrightStartYear"
+                                                :model-value="complianceForm.copyrightStartYear ?? undefined"
                                                 :min="1990"
                                                 :max="new Date().getFullYear()"
                                                 :disabled="complianceFormDisabled"
                                                 controls-position="right"
+                                                @update:model-value="complianceForm.copyrightStartYear = $event ?? null"
                                             />
                                         </ElFormItem>
                                     </div>

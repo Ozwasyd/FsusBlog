@@ -250,7 +250,7 @@
                                                 v-for="option in field.enumValues"
                                                 :key="String(option)"
                                                 :label="String(option)"
-                                                :value="option"
+                                                :value="option as PluginOptionValue"
                                             />
                                         </ElSelect>
                                         <ElInputNumber
@@ -503,6 +503,10 @@ import {
 } from '@/fsusui';
 import { confirmDanger, confirmWarning, toast } from '@/fsusui/feedback';
 import { showErrorToast } from '@/utils/errorPresentation';
+
+import type { ElOption } from '@ozwasyd/element-plus';
+
+type PluginOptionValue = InstanceType<typeof ElOption>['$props']['value'];
 
 interface ConfigField {
     name: string;
