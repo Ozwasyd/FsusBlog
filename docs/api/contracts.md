@@ -889,6 +889,13 @@ desired coordinate 漂移返回 `Stale`；无变化返回 `NoChange`；缺失/�
 这些取消观察点不提供原子提交。
 
 `ArticleEmbedRefreshPlan.CanExecute` 恒为 false；选中子图不是完整 host persisted graph 的提交资格。
+`ArticleEmbedHostSourceReader.ReadAsync` 是 server `HttpContext` 上可消费的只读 source adapter：
+复用已注册的 `IAuthoringDraftLifecycle.GetDraftAsync` 与当前 principal/session/article.write authority，
+以实际 owner、article id、exact draft key/server revision 读取，并重读 source/权限检测漂移；
+`VerifyAsync` 重新读取真实 repository，而不是信任 candidate digest。原始 UTF-8 source（含 BOM/CRLF）
+不被解析、规范化或写回。该 observation 只具有本地 article id 和 persisted server revision，
+不虚构 portable identity、editor document epoch 或 source revision 映射；`HasCompleteDependencyRoster`
+恒为 false，不把 source 中是否出现 token 或一个空数组当作完整引用证明，也不授 refresh/execute 资格。
 Policy/Pipeline/Graph 源码组合不提供执行能力；缺少真实 host dependency read、
 current permission/whole-host graph revalidation、expected revision CAS/idempotency 和 canonical
 no-source-change revision/outbox/audit commit 时不得启用。计划不修改 source bytes/token、target、
