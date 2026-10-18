@@ -764,6 +764,24 @@ does not mint that binding. Preflight reports the missing document grant scope a
 returns permission refusal without querying the catalog with a null document or
 substituting a default document.
 
+The approval actor and the opaque state user are different identities. The exact
+user comes from the original Active provenance registration and its insertion
+witness; migration preserves that user across the original source and destination
+registrations. Even another genuinely issued scope owned by the same authenticated
+actor cannot replace the scope bound into a sealed claim.
+
+The current grant issuer is a host primitive: `AuthoringCapabilityGrantAuthority`
+accepts a bounded `ApprovalReceiptId` string but has no authenticated document or
+consent-receipt authority dependency. Its digest and protected storage do not prove
+that consent was issued. A production path still needs the original document/scope
+owner to authorize the exact actor, site, opaque state user and document, plus a
+server consent producer binding the actual target, runtime, capability, purpose
+and grant lifetime to a verified receipt. The state approval context supplies no
+document-enable consent or grant purpose. These missing owners cannot be replaced
+by a consumer relabeling a site scope or seeding a grant record. `ArticleQuery`
+also retains its existing contract requiring the full-read revision fields to be
+absent; `DocumentFullRead` cannot be substituted for it.
+
 Preflight supplies a five-second cooperative cancellation deadline. The original
 state owner binds it to ADO and a SQL timeout. The original receipt owner binds
 its caller token to ADO for advisory-lock, reader and insert commands, restores
