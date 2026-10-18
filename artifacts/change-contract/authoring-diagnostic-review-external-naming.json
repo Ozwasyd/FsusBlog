@@ -2,7 +2,7 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
-            "id": "json-api-field",
+            "id": "json-wire-key",
             "paths": [
                 "tests/diagnostic-contract-review/packages.lock.json"
             ],

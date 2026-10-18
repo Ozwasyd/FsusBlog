@@ -1350,6 +1350,6 @@
     "publishedMetadataCorrections": {
         "initialPrContract": "FAIL: test title cannot claim Behavior change; new NuGet lock requires registered external naming declaration",
         "initialPublishedSource": "FAIL: selected base was not yet an ancestor of evidence branch",
-        "repair": "Replay only own evidence commits onto exact final target; correct metadata and add existing-policy json-api-field declaration; leave unsupported .csproj dispatch visible"
+        "repair": "Replay only own evidence commits onto exact final target; correct metadata and add existing-policy json-wire-key declaration; leave unsupported .csproj dispatch visible"
     }
 }
