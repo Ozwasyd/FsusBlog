@@ -69,6 +69,77 @@ public interface IAuthoringFencedExtensionStateStore : IAuthoringExtensionStateS
     ValueTask CompleteAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken);
 }
 
+/// <summary>The durable migration phases; no phase implies lifecycle or approval authority.</summary>
+public enum AuthoringStateMigrationPhase
+{
+    BackedUp = 0,
+    Applied = 1,
+    RolledBack = 2,
+    Completed = 3
+}
+
+/// <summary>Actual persisted state, its explicit fence, and current plus retained backup measurement.</summary>
+public sealed record AuthoringObservedState(
+    AuthoringStateSnapshot Snapshot,
+    string? Fence,
+    AuthoringStateMeasurement Measurement);
+
+/// <summary>
+/// Actual ordered From/To observations, never a reconstructed Apply result. To and Phase
+/// are absent for deletion. A fenced measurement cannot authorize deletion.
+/// </summary>
+public sealed record AuthoringStateObservation(
+    AuthoringObservedState From,
+    AuthoringObservedState? To,
+    AuthoringStateMigrationPhase? Phase);
+
+/// <summary>
+/// Exclusive state observation lifetime. VerifyCurrentAsync reads through the same held
+/// connection and fails closed on drift. Cancellation or any verification failure releases
+/// custody; all later use must fail. The caller must dispose after its terminal CAS.
+/// This is neither approval nor native execution-result authority.
+/// </summary>
+public interface IAuthoringExtensionStateObservation : IAsyncDisposable
+{
+    AuthoringStateObservation State
+    {
+        get;
+    }
+    ImmutableArray<string> AcquiredScopeIds
+    {
+        get;
+    }
+    ValueTask VerifyCurrentAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Opt-in observation port, separate from the original persistence API. Acquires exactly
+/// hashtextextended('authoring-extension-state:' + ScopeId, 2143), deduplicated and sorted
+/// by ordinal ScopeId, on an owned connection/transaction. Never call independently
+/// transactional Read/Measure/Apply while holding these keys. The approval owner must
+/// verify one cross-owner order for final admin/session, provenance/document, state,
+/// decision and lifecycle receipt locks; current #4610 Change/Complete orders are not
+/// certified globally safe by this leaf. No cross-store atomicity is supplied.
+/// Every exception from an effects-and-observe call (including cancellation, timeout
+/// or connection loss) requires recovery to determine committed effects before retry.
+/// </summary>
+public interface IAuthoringExtensionStateObservationStore
+{
+    ValueTask<IAuthoringExtensionStateObservation> ObserveInitialAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken);
+    ValueTask<IAuthoringExtensionStateObservation> ObserveFencedAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, AuthoringStateMigrationPhase phase, CancellationToken cancellationToken);
+    /// <summary>
+    /// Commits completion before acquiring observation. A gap winner causes
+    /// state_observation_drift_requires_recovery; do not repeat destructive effects.
+    /// A settled retry refuses rather than inventing historical output.
+    /// </summary>
+    ValueTask<IAuthoringExtensionStateObservation> CompleteAndObserveAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken);
+    /// <summary>Same commit/gap/recovery boundary as CompleteAndObserveAsync, restoring original backups.</summary>
+    ValueTask<IAuthoringExtensionStateObservation> RollbackAndObserveAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken);
+    ValueTask<IAuthoringExtensionStateObservation> ObserveDeletionAsync(VerifiedAuthoringPackage package, AuthoringStateMeasurement expected, CancellationToken cancellationToken);
+    /// <summary>Commits the original exact deletion comparison, then observes its actual tombstone and purged backups; drift requires recovery.</summary>
+    ValueTask<IAuthoringExtensionStateObservation> DeleteAndObserveAsync(VerifiedAuthoringPackage package, AuthoringFencedStateDeletion approval, CancellationToken cancellationToken);
+}
+
 /// <summary>Closed canonical encoding, ownership validation and strict transforms for state v1.</summary>
 public static class AuthoringExtensionStateContract
 {
