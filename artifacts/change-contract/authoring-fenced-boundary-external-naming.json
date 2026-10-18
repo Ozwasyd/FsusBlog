@@ -6,14 +6,14 @@
             "paths": [
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs"
             ],
-            "reason": "The existing registry glob governs src C# files. Preserve original external spellings while wiring the existing fenced state and receipt contracts; add no process environment access or new naming exception rule."
+            "reason": "Preserve existing external API spellings in the registered C# surface while refusing unsupported fenced lifecycle commands; no environment access or new naming rule is added."
         },
         {
             "id": "css-like-contract",
             "paths": [
                 "docs/architecture/authoring-extension-host-boundary.md"
             ],
-            "reason": "Preserve exact current .NET API, path and contract spellings while documenting the typed coordinator's source-only wiring and missing production admission, settlement and runtime owners."
+            "reason": "Preserve exact existing host contract spellings while documenting the refusal boundary and missing approved-intent and runtime settlement owners."
         }
     ]
 }

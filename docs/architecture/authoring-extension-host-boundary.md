@@ -1,5 +1,22 @@
 # Authoring extension host boundary
 
+## Fenced coordinator refusal boundary
+
+The original coordinator rejects its legacy migration and deletion arguments before
+receipt access, resource/grant revocation or state-store work when the supplied store
+implements `IAuthoringFencedExtensionStateStore`. It also rejects receipt-only result
+admission for that store: a Running row and generation do not prove migration
+settlement, current approval or runtime ownership. Non-fenced behavior is unchanged.
+
+This refusal boundary supplies no typed migration/deletion successor, approval issuer,
+durable approved-intent repository, staged runtime preparation or DI registration.
+Those owners must bind the exact approved canonical plan, applied snapshot and ordered
+targets before Running publication and completion. Missing approval or a missing full
+plan remains recovery-required; neither a plan digest nor a caller receipt ID can
+reconstruct or authorize it. Native incarnation custody alone does not establish
+snapshot acceptance or lifecycle generation. The prepare/publication port is still
+unimplemented; static preflight must not require an already-live instance.
+
 The authoring extension host is an internal and experimental subsystem for bounded
 authoring extensions. It is separate from the general `.fspkg` Hook and Jint/Lua
 plugin system. The C# declarations under
@@ -522,58 +539,6 @@ production receipt/state stores and a real host registration owner are still
 required. The local grant store's synthetic same-root/key restart tests do not
 qualify whole lifecycle restart recovery or atomic data deletion as terminal
 acceptance.
-
-### Fenced coordinator source wiring
-
-The coordinator has explicit `AuthoringFencedStateMigration` and
-`AuthoringFencedStateDeletion` overloads. They use the original fenced state
-port; they never convert the legacy hash, counts or approval ID into authority.
-The legacy migration/deletion overloads refuse a fenced state store before any
-receipt or data write. The canonical plan validator freezes the full plan and
-ordered transforms before the first host await.
-
-Typed migration requires the original preflight owner to implement
-`IAuthoringFencedLifecyclePreflight` and the startup owner to implement
-`IAuthoringFencedLifecycleResourceAuthority`. Admission must authenticate the
-actual exact user decision and current actor/site/user/document/package/runtime
-facts, exclude competing lifecycle commands, and revalidate those facts during
-its non-thread-affine scope. An approval ID, caller boolean or digest does not
-satisfy this contract. Neither a production admission producer nor a default
-startup adapter is provided or registered here; missing ports refuse before
-mutation. Controlled host implementations in the PostgreSQL tests establish
-source wiring only, not consent or runtime qualification.
-
-Migration stops old resources and revokes grants before backup. Apply returns the
-actual canonical still-fenced snapshot to typed host startup, including its exact
-scope, package identity, revision and bytes. Startup uses the generation of the
-next original `Running` receipt. The existing receipt construction/hash chain is
-shared, not replaced by another issuer. Completion follows accepted persistent
-`Running` and an exact head read-back. An append failure is reconciled only by
-observing that exact prepared receipt in the original store; an unobservable or
-changed head never authorizes a guessed rollback or completion.
-
-Before accepted Running, failure rolls back only after runtime/grant containment
-and a confirmed receipt head; rollback or containment failure leaves explicit
-recovery work. After accepted Running, completion failure cannot roll data back
-underneath it: runtime/grants are revoked and an exact failure successor is
-attempted. A Complete call whose commit succeeded before a transport error may
-already have released its fence; this component does not guess, retry or overwrite
-that outcome. Old runtimes and revoked capabilities are never automatically
-resurrected. Cleanup diagnostics retain fixed identifiers, not state or database
-exception payloads.
-
-Deletion requires the separate original admission and the complete exact current
-plus retained-backup measurement, including revision and content digest. Equal
-counts do not authorize changed bytes. Removed is appended after typed deletion;
-a receipt failure does not recreate purged data or claim cross-store atomicity.
-The legacy receipt-only result-admission method refuses fenced state because a
-Running row alone cannot establish settlement and current runtime/approval facts.
-Restore remains a receipt read, not enabled-runtime reconstruction.
-
-Each persistence owner still owns its own transaction. Durable approved-intent
-storage, receipt-to-plan/target binding, restart settlement, production preflight,
-authenticated confirmation, migrations, DI and runtime composition remain open.
-This source slice does not close the lifecycle issue or authorize production use.
 
 ## Resource budgets, crash isolation, and telemetry
 
