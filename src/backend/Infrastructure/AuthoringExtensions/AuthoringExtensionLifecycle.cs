@@ -289,6 +289,10 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         AuthoringStateMigrationPlan plan,
         CancellationToken cancellationToken = default)
     {
+        if (stateStore is IAuthoringFencedExtensionStateStore)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_migration_authority_unavailable");
+        }
         ValidateMigration(oldPackage, newPackage, plan);
         ValidateTargets(newPackage, newTargets);
         AuthoringLifecycleReceipt? previous = await receiptStore.GetLatestAsync(oldPackage.Contract.Manifest.Id, cancellationToken);
@@ -465,6 +469,10 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         AuthoringDeleteDataApproval approval,
         CancellationToken cancellationToken = default)
     {
+        if (stateStore is IAuthoringFencedExtensionStateStore)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_deletion_authority_unavailable");
+        }
         ValidateOwnedScope(package, approval.Scope);
         AuthoringLifecycleReceipt? receipt = await receiptStore.GetLatestAsync(package.Contract.Manifest.Id, cancellationToken);
         if (receipt?.State != AuthoringLifecycleState.RetainedData ||
@@ -530,6 +538,11 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         long generation,
         CancellationToken cancellationToken = default)
     {
+        if (stateStore is IAuthoringFencedExtensionStateStore)
+        {
+            // A Running row alone proves neither fenced settlement nor current runtime authority.
+            throw new AuthoringExtensionContractException("fenced_lifecycle_result_authority_unavailable");
+        }
         AuthoringLifecycleReceipt? receipt = await receiptStore.GetLatestAsync(extensionId, cancellationToken);
         return receipt?.State == AuthoringLifecycleState.Running && receipt.Generation == generation;
     }

@@ -552,6 +552,12 @@ newer revision and keeps plan metadata. Another scope's current/backup data is
 untouched. At most 32 retained backups per scope are admitted; further migration
 refuses until the host's explicit retention/deletion policy settles them.
 
+The original fenced lifecycle refusal checkpoint rejects legacy update, deletion
+and receipt-only result acceptance before touching a real fenced state store.
+An opaque caller receipt ID, ready target or Running row cannot replace the
+missing approved-operation and prepared-resource ports. This dependency preserves
+that refusal; it does not install a replacement lifecycle implementation.
+
 ## Durable authoring state approval producer (WIP consumers)
 
 `AuthoringExtensionApprovalAuthority` prepares migration and independent data-deletion
