@@ -1,13 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using SqlSugar;
-
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.Schema;
 using FsusBlog.Contracts.SchemaMigration;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Shared.Algorithms.Schema;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests;
 

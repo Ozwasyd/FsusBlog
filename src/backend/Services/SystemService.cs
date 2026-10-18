@@ -14,9 +14,9 @@ using FsusBlog.Server.Models.Requests;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
 
-using static FsusBlog.Shared.Contracts.Outputs.PublicSiteAuthorPolicy;
-
 using SqlSugar;
+
+using static FsusBlog.Shared.Contracts.Outputs.PublicSiteAuthorPolicy;
 
 namespace FsusBlog.Server.Services;
 
