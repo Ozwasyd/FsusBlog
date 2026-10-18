@@ -620,12 +620,8 @@ import {
     userStepUpPasskeyBegin,
     userStepUpPasskeyComplete,
     verifyMfaSetup,
-    type MfaChallengeResult,
     type MfaProfile,
-    type MfaSetupStart,
-    type MfaSetupVerify,
     type PasskeyCredentialSummary,
-    type PasskeyLoginBeginResponse,
     type UserSessionSummary
 } from '@/api/auth';
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue';
@@ -673,7 +669,7 @@ const errorCopy = computed(() => identityCopy.value.errors);
 
 const sectionMetaByRoute = computed(() => identityCopy.value.meta);
 
-type IdentityRouteName = keyof typeof sectionMetaByRoute;
+type IdentityRouteName = keyof typeof sectionMetaByRoute.value;
 type IdentityPolicyState = 'open' | 'active' | 'closed' | 'muted';
 
 const stepUpErrorCodes = new Set([
