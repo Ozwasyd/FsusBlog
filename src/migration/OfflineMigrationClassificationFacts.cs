@@ -1753,6 +1753,27 @@ public static class OfflineMigrationClassificationFacts
                     "article_property_definition_history_write_isolation"
                 ]));
 
+        result.Add(
+            "20261018-post-article-source-generation",
+            new OfflineMigrationClassificationFact(
+                "20261018-post-article-source-generation",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261018-article-source-generation"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write"
+                ]));
+
         foreach (string id in result.Keys.ToArray())
         {
             result[id] = result[id] with

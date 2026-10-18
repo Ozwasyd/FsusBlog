@@ -1,3 +1,4 @@
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Contracts.Articles;
 using System.Data.Common;
 using System.Diagnostics;
@@ -190,6 +191,7 @@ public sealed class ScheduledPublishWorker(
         int insertedOutboxEvents = 0;
         var tran = await db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             var due = new List<ScheduledPublicationCandidate>();
             using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 ScheduledPublishQuery.ClaimDueArticlesSql,
@@ -250,6 +252,11 @@ public sealed class ScheduledPublishWorker(
             if (insertedOutboxEvents != claimedArticleIds.Count)
             {
                 throw new InvalidOperationException("Scheduled publish outbox batch did not match claimed article count.");
+            }
+
+            foreach (ArticleMutationOutboxEvent outbox in outboxEvents)
+            {
+                await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
             }
 
             string mutationKey = string.Create(

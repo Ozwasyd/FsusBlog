@@ -292,6 +292,7 @@ public sealed class IntegrityProofScheduler(
         long rightsProofId = 0;
         var proofTransaction = await db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             rightsProofId = await UpsertArticleRightsProofAsync(finalized, signature, failureCode, cancellationToken)
                 .ConfigureAwait(false);
             ArticleMutationOutboxEvent outboxEvent = await BuildRightsProofProjectionOutboxEventAsync(
@@ -305,6 +306,7 @@ public sealed class IntegrityProofScheduler(
             {
                 throw new InvalidOperationException("Article rights proof projection outbox insert did not persist exactly one row.");
             }
+            await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outboxEvent.EventId, cancellationToken).ConfigureAwait(false);
         }).ConfigureAwait(false);
         if (!proofTransaction.IsSuccess)
         {

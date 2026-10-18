@@ -428,17 +428,20 @@ fsusMetadataJson: {encodedMetadata}
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
+            using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
                 SELECT 1
                 FROM article
                 WHERE id = @ArticleId
                 FOR UPDATE;
                 """,
-                new SugarParameter("@ArticleId", articleId));
-            if (!await reader.ReadAsync(cancellationToken))
+                new SugarParameter("@ArticleId", articleId)))
             {
-                throw new InvalidOperationException("Article must exist before restoring imported revisions.");
+                if (!await reader.ReadAsync(cancellationToken))
+                {
+                    throw new InvalidOperationException("Article must exist before restoring imported revisions.");
+                }
             }
 
             await db.Deleteable<ArticleRevision>().Where(it => it.ArticleId == articleId).ExecuteCommandAsync(cancellationToken);
@@ -452,6 +455,11 @@ fsusMetadataJson: {encodedMetadata}
                 revision.MarkdownContent = string.Empty;
             }
             await db.Insertable(revisions).ExecuteCommandAsync(cancellationToken);
+            ArticleMutationOutboxEvent outbox = await ArticleMutationOutboxProducer.CreateCurrentAsync(
+                db, articleId, ArticleMutationEventTypes.Updated, DateTime.UtcNow, cancellationToken)
+                .ConfigureAwait(false);
+            await db.Insertable(outbox).ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
         });
         if (!transaction.IsSuccess)
         {

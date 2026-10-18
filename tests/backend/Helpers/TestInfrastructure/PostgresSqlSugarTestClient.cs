@@ -159,5 +159,14 @@ internal static class PostgresSqlSugarTestClient
     }
 
     public static void InitTables(SqlSugarClient db, params Type[] entityTypes)
-        => db.CodeFirst.InitTables(entityTypes);
+    {
+        db.CodeFirst.InitTables(entityTypes);
+        if (entityTypes.Contains(typeof(FsusBlog.Server.Entities.ArticleMutationOutboxEvent)))
+        {
+            db.CodeFirst.InitTables(
+                typeof(FsusBlog.Server.Entities.ArticleSourceGeneration),
+                typeof(FsusBlog.Server.Entities.ArticleSourceSequence),
+                typeof(FsusBlog.Server.Entities.ArticleSourceMutation));
+        }
+    }
 }

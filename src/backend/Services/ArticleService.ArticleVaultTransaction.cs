@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Services.Articles;
 
 namespace FsusBlog.Server.Services;
 
@@ -62,12 +63,13 @@ public partial class ArticleService
     }
 
     private async Task<ArticleMutationTransactionResult<T>> ExecuteArticleMutationTransactionAsync<T>(
-        Func<Task<T>> action)
+        Func<Task<T>> action, CancellationToken cancellationToken)
     {
         if (IsArticleVaultGroupTransaction && _db.Ado.Transaction is not null)
         {
             try
             {
+                await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(_db, cancellationToken).ConfigureAwait(false);
                 return ArticleMutationTransactionResult<T>.Succeeded(await action().ConfigureAwait(false));
             }
             catch (Exception exception)
@@ -78,8 +80,12 @@ public partial class ArticleService
 
         var transaction = await ExecuteForegroundWriteAsync(
             "article-publication-write",
-            _ => _db.Ado.UseTranAsync(action),
-            Ct).ConfigureAwait(false);
+            _ => _db.Ado.UseTranAsync(async () =>
+            {
+                await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(_db, cancellationToken).ConfigureAwait(false);
+                return await action().ConfigureAwait(false);
+            }),
+            cancellationToken).ConfigureAwait(false);
         return transaction.IsSuccess
             ? ArticleMutationTransactionResult<T>.Succeeded(transaction.Data)
             : ArticleMutationTransactionResult<T>.Failed(
@@ -87,12 +93,13 @@ public partial class ArticleService
     }
 
     private async Task<ArticleMutationTransactionResult> ExecuteArticleMutationTransactionAsync(
-        Func<Task> action)
+        Func<Task> action, CancellationToken cancellationToken)
     {
         if (IsArticleVaultGroupTransaction && _db.Ado.Transaction is not null)
         {
             try
             {
+                await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(_db, cancellationToken).ConfigureAwait(false);
                 await action().ConfigureAwait(false);
                 return ArticleMutationTransactionResult.Succeeded();
             }
@@ -104,8 +111,12 @@ public partial class ArticleService
 
         var transaction = await ExecuteForegroundWriteAsync(
             "article-publication-write",
-            _ => _db.Ado.UseTranAsync(action),
-            Ct).ConfigureAwait(false);
+            _ => _db.Ado.UseTranAsync(async () =>
+            {
+                await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(_db, cancellationToken).ConfigureAwait(false);
+                await action().ConfigureAwait(false);
+            }),
+            cancellationToken).ConfigureAwait(false);
         return transaction.IsSuccess
             ? ArticleMutationTransactionResult.Succeeded()
             : ArticleMutationTransactionResult.Failed(

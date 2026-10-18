@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.Text;
 
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -821,6 +822,7 @@ public static partial class BinaryEndpoints
         TaxonomyUpdateApplyResult result = new(TaxonomyUpdateOutcome.NotFound, false, false);
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             Category? current = await db.Queryable<Category>()
                 .Where(category => category.Id == categoryId)
                 .FirstAsync(cancellationToken);
@@ -918,6 +920,7 @@ public static partial class BinaryEndpoints
         TaxonomyUpdateApplyResult result = new(TaxonomyUpdateOutcome.NotFound, false, false);
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             Tag? currentTag = await db.Queryable<Tag>()
                 .Where(tag => tag.Id == tagId)
                 .FirstAsync(cancellationToken);
@@ -1084,6 +1087,10 @@ public static partial class BinaryEndpoints
                 $"taxonomy projection outbox insert persisted {inserted} of {events.Count} rows");
         }
 
+        foreach (ArticleMutationOutboxEvent outbox in events)
+        {
+            await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
+        }
         return inserted;
     }
 

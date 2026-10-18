@@ -694,28 +694,36 @@ public sealed class CanonicalArticleLifecycleFixturePortIntegrationTests(Postgre
 
         // The public port uses a scenario-owned chain.  A stale expected revision is rejected
         // by the shared writer before its revision persistence seam can insert anything.
-        ArticleRevisionConflictException exception = await Assert.ThrowsAsync<ArticleRevisionConflictException>(() =>
-            ArticleLifecycleTransitionWriter.UpdateAsync(
-                db,
-                Configuration(),
-                new ArticleLifecycleTransitionWriter.RevisionRequest(
-                    created.Receipt.ArticleId,
-                    created.Receipt.CurrentRevisionId + 1,
-                    "stale update",
-                    "stale update body",
-                    "summary",
-                    null,
-                    categoryId,
-                    [tagId],
-                    ArticleStatus.Published,
-                    null,
-                    s_now.AddMinutes(1),
-                    adminId,
-                    null,
-                    Responsibility(),
-                    ArticlePublicationTransitionKinds.ImmediatePublish,
-                    "stale-base")));
-        Assert.Equal("article_revision_conflict", exception.Message);
+        db.Ado.BeginTran();
+        try
+        {
+            ArticleRevisionConflictException exception = await Assert.ThrowsAsync<ArticleRevisionConflictException>(() =>
+                ArticleLifecycleTransitionWriter.UpdateAsync(
+                    db,
+                    Configuration(),
+                    new ArticleLifecycleTransitionWriter.RevisionRequest(
+                        created.Receipt.ArticleId,
+                        created.Receipt.CurrentRevisionId + 1,
+                        "stale update",
+                        "stale update body",
+                        "summary",
+                        null,
+                        categoryId,
+                        [tagId],
+                        ArticleStatus.Published,
+                        null,
+                        s_now.AddMinutes(1),
+                        adminId,
+                        null,
+                        Responsibility(),
+                        ArticlePublicationTransitionKinds.ImmediatePublish,
+                        "stale-base")));
+            Assert.Equal("article_revision_conflict", exception.Message);
+        }
+        finally
+        {
+            db.Ado.RollbackTran();
+        }
         Assert.Equal(1, await CountAsync(db, "article_revision"));
         Assert.Equal(1, await CountAsync(db, "article_publication"));
         Assert.Equal(1, await CountAsync(db, "article_mutation_outbox"));

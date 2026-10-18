@@ -12,6 +12,8 @@ using FsusBlog.Shared.Contracts.ArticleVault;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using Npgsql;
+
 using NSubstitute;
 
 using SqlSugar;
@@ -155,6 +157,84 @@ public sealed class ArticleVaultExecutionPostgresIntegrationTests(PostgresSchema
             typeof(ArticleVaultGroupResultEntity),
             typeof(ArticleVaultExecutionResultEntity));
         return db;
+    }
+
+    [Fact]
+    public async Task TwoOperationCommittedGroup_EnlistsEveryActualEventAndReplayDoesNotAllocateAgain()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (int categoryId, int tagId, long adminId) = await SeedAuthoritiesAsync(db);
+        ArticleVaultSealedExecutionBundle bundle = CreateCreateBundle(
+            adminId, categoryId, tagId, ["first source\n", "second source\n"], rejectSecond: false);
+        var store = new PostgresArticleVaultExecutionStore(db, new FixedTimeProvider(s_now));
+        await store.SealAsync(bundle);
+        ArticleService service = CreateService(db, store, ArticlePublicationValidatorTestFactory.CreateAllowing());
+        var executor = new ArticleVaultSyncPlanExecutor(store, service, service, new FixedTimeProvider(s_now));
+
+        ArticleVaultExecutionResult result = await executor.ExecuteAsync(bundle.PlanReference, bundle.PlanSha256);
+        ArticleVaultExecutionResult replay = await executor.ExecuteAsync(bundle.PlanReference, bundle.PlanSha256);
+
+        Assert.Equal(ArticleVaultExecutionOutcome.Completed, result.Outcome);
+        Assert.Equal(result.ContentSha256, replay.ContentSha256);
+        Assert.Equal(2, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        Assert.Equal(new long[] { 1, 2 }, await db.Queryable<ArticleSourceMutation>()
+            .OrderBy(row => row.SourceGeneration).Select(row => row.SourceGeneration).ToArrayAsync());
+        Assert.All(await db.Queryable<ArticleSourceSequence>().ToListAsync(),
+            row => Assert.Equal(1, row.SourceSequence));
+        Assert.Equal(0, await db.Ado.GetIntAsync("""
+            SELECT COUNT(*) FROM article_mutation_outbox event
+            FULL JOIN article_source_mutation journal ON journal.event_id = event.event_id
+            WHERE event.event_id IS NULL OR journal.event_id IS NULL;
+            """));
+    }
+
+    [Fact]
+    public async Task ActualGroup_WaitsForSourceFamilyBeforeItsIdempotencyAdvisoryOrArticleLocks()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        (int categoryId, int tagId, long adminId) = await SeedAuthoritiesAsync(db);
+        ArticleVaultSealedExecutionBundle bundle = CreateCreateBundle(
+            adminId, categoryId, tagId, ["lock order source\n"], rejectSecond: false);
+        var store = new PostgresArticleVaultExecutionStore(db, new FixedTimeProvider(s_now));
+        await store.SealAsync(bundle);
+        ArticleService service = CreateService(db, store, ArticlePublicationValidatorTestFactory.CreateAllowing());
+        var executor = new ArticleVaultSyncPlanExecutor(store, service, service, new FixedTimeProvider(s_now));
+        using SqlSugarClient blocker = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        blocker.Ado.BeginTran();
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(blocker);
+        Task<ArticleVaultExecutionResult> execution = executor.ExecuteAsync(bundle.PlanReference, bundle.PlanSha256);
+        try
+        {
+            await using var monitor = new NpgsqlConnection(db.CurrentConnectionConfig.ConnectionString);
+            await monitor.OpenAsync();
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            await using var waiter = new NpgsqlCommand("""
+                SELECT pid FROM pg_locks
+                WHERE locktype = 'advisory' AND NOT granted
+                    AND classid = 1179866444::oid AND objid = 1::oid AND objsubid = 2
+                    AND database = (SELECT oid FROM pg_database WHERE datname = current_database());
+                """, monitor);
+            int? pid = null;
+            while (!pid.HasValue)
+            {
+                pid = await waiter.ExecuteScalarAsync(deadline.Token) as int?;
+                await Task.Yield();
+                deadline.Token.ThrowIfCancellationRequested();
+            }
+            await using var heldLocks = new NpgsqlCommand("""
+                SELECT COUNT(*) FROM pg_locks WHERE pid = @Pid AND granted
+                    AND (relation = 'article'::regclass OR locktype = 'advisory');
+                """, monitor);
+            heldLocks.Parameters.AddWithValue("Pid", pid.Value);
+            Assert.Equal(0L, (long)(await heldLocks.ExecuteScalarAsync(deadline.Token))!);
+        }
+        finally
+        {
+            blocker.Ado.RollbackTran();
+        }
+        ArticleVaultExecutionResult result = await execution;
+        Assert.Equal(ArticleVaultExecutionOutcome.Completed, result.Outcome);
+        Assert.Equal(1, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
     }
 
     private static async Task<(int CategoryId, int TagId, long AdminId)> SeedAuthoritiesAsync(ISqlSugarClient db)
@@ -410,6 +490,9 @@ public sealed class ArticleVaultExecutionPostgresIntegrationTests(PostgresSchema
         Assert.Equal(articles, await db.Queryable<Article>().CountAsync());
         Assert.Equal(revisions, await db.Queryable<ArticleRevision>().CountAsync());
         Assert.Equal(outbox, await db.Queryable<ArticleMutationOutboxEvent>().CountAsync());
+        Assert.Equal(outbox, await db.Queryable<ArticleSourceMutation>().CountAsync());
+        Assert.Equal(outbox == 0 ? (long?)null : outbox,
+            await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
         Assert.Equal(audits, await db.Queryable<AuditLog>().CountAsync());
         Assert.Equal(groups, await db.Queryable<ArticleVaultGroupResultEntity>().CountAsync());
         Assert.Equal(results, await db.Queryable<ArticleVaultExecutionResultEntity>().CountAsync());
