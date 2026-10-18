@@ -130,6 +130,8 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         {
             return await _newRead().ReadAsync(request, cancellationToken).ConfigureAwait(false);
         }
+        // Only this invocation's acquired/captured prior token may explain its refusal.
+        CancellationToken priorCancellation = default;
         try
         {
             AuthorArticlePinContract.ValidateOwner(request.Owner);
@@ -146,9 +148,9 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             var budget = new ReadBudget(request.RemainingReadOperations, request.RemainingMilliseconds);
             // Reserve the complete two-pass allocation before touching the server or permission source.
             budget.RequireCapacity(26);
-            using IDisposable? custody = _nativeRead?.Enter(cancellationToken);
+            using IDisposable? custody = _nativeRead?.Enter(cancellationToken, out priorCancellation);
             using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken, _nativeRead?.PriorCancellation ?? default);
+                cancellationToken, priorCancellation);
             deadline.CancelAfter(budget.RemainingTime());
             CancellationToken token = deadline.Token;
             SessionStamp initial = await ProbeAsync(budget, null, token).ConfigureAwait(false);
@@ -204,7 +206,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         catch (Exception)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _nativeRead?.PriorCancellation.ThrowIfCancellationRequested();
+            priorCancellation.ThrowIfCancellationRequested();
             return null;
         }
     }

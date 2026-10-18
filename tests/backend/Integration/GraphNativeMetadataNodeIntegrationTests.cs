@@ -288,6 +288,138 @@ public sealed class GraphNativeMetadataNodeIntegrationTests(PostgresSchemaMigrat
     }
 
     [Theory]
+    [InlineData("none", "none")]
+    [InlineData("none", "caller")]
+    [InlineData("none", "prior")]
+    [InlineData("none", "both")]
+    [InlineData("transaction", "none")]
+    [InlineData("transaction", "caller")]
+    [InlineData("transaction", "prior")]
+    [InlineData("transaction", "both")]
+    [InlineData("auto-close", "none")]
+    [InlineData("auto-close", "caller")]
+    [InlineData("auto-close", "prior")]
+    [InlineData("auto-close", "both")]
+    public async Task ReusedReaderAttributesCancellationOnlyToCurrentInvocation(string custody, string cancellation)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var factory = new SqlArticleGraphPersistedMetadataReader(db, new(), Permissions(db));
+        // Warm the native path without changing the original 26-operation/250ms allocation.
+        _ = await factory.ReadAsync(Metadata(1));
+        using var oldPrior = new CancellationTokenSource();
+        using var currentPrior = new CancellationTokenSource();
+        using var caller = new CancellationTokenSource();
+        db.Ado.CancellationToken = oldPrior.Token;
+        SqlArticleGraphPersistedMetadataReader read = factory.BeginRead();
+        Assert.NotNull(await read.ReadAsync(Metadata(1)));
+        db.Ado.CancellationToken = currentPrior.Token;
+        oldPrior.Cancel();
+        if (custody == "transaction")
+        {
+            await db.Ado.BeginTranAsync(IsolationLevel.ReadCommitted);
+        }
+        else if (custody == "auto-close")
+        {
+            db.CurrentConnectionConfig.IsAutoCloseConnection = true;
+        }
+        IDbConnection connection = db.Ado.Connection;
+        IDbTransaction? transaction = db.Ado.Transaction;
+        try
+        {
+            if (cancellation is "caller" or "both")
+            {
+                caller.Cancel();
+            }
+            if (cancellation is "prior" or "both")
+            {
+                currentPrior.Cancel();
+            }
+            using var trace = new Commands();
+            if (cancellation == "none")
+            {
+                ArticleGraphPersistedMetadataResult? result = await read.ReadAsync(Metadata(1), caller.Token);
+                if (custody == "none")
+                {
+                    Assert.NotNull(result);
+                    Assert.Equal(21, trace.Sql.Count);
+                }
+                else
+                {
+                    Assert.Null(result);
+                    Assert.Empty(trace.Sql);
+                }
+            }
+            else
+            {
+                OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                    () => read.ReadAsync(Metadata(1), caller.Token));
+                Assert.Equal(caller.IsCancellationRequested ? caller.Token : currentPrior.Token, error.CancellationToken);
+                Assert.Empty(trace.Sql);
+            }
+            Assert.Same(connection, db.Ado.Connection);
+            Assert.Same(transaction, db.Ado.Transaction);
+            Assert.Equal(currentPrior.Token, db.Ado.CancellationToken);
+        }
+        finally
+        {
+            db.CurrentConnectionConfig.IsAutoCloseConnection = false;
+            db.Ado.CancellationToken = null;
+            if (custody == "transaction")
+            {
+                await db.Ado.RollbackTranAsync();
+            }
+        }
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReusedReaderPreflightRefusalDoesNotObserveReleasedPrior(bool candidateLimit)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var factory = new SqlArticleGraphPersistedMetadataReader(db, new(), Permissions(db));
+        _ = await factory.ReadAsync(Metadata(1));
+        using var oldPrior = new CancellationTokenSource();
+        using var currentPrior = new CancellationTokenSource();
+        db.Ado.CancellationToken = oldPrior.Token;
+        SqlArticleGraphPersistedMetadataReader read = factory.BeginRead();
+        Assert.NotNull(await read.ReadAsync(Metadata(1)));
+        db.Ado.CancellationToken = currentPrior.Token;
+        oldPrior.Cancel();
+        try
+        {
+            using var trace = new Commands();
+            ArticleGraphPersistedMetadataRequest request = candidateLimit ? Metadata(65) : Metadata(1) with
+            {
+                RemainingReadOperations = 25
+            };
+            Assert.Null(await read.ReadAsync(request));
+            Assert.Empty(trace.Sql);
+            Assert.Equal(currentPrior.Token, db.Ado.CancellationToken);
+            Assert.NotNull(await read.ReadAsync(Metadata(1)));
+        }
+        finally
+        {
+            db.Ado.CancellationToken = null;
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CrossArticlePointerAndSourceOwnershipRemainExact(bool sourceOwnership)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var metadata = new SqlArticleGraphPersistedMetadataReader(db, new(), Permissions(db));
+        _ = await metadata.ReadAsync(Metadata(1));
+        await db.Ado.ExecuteCommandAsync(sourceOwnership
+            ? "UPDATE article_relation_source_coordinate SET article_id = 2 WHERE revision_id = 1"
+            : "UPDATE article SET current_revision_id = 2 WHERE id = 1");
+        Assert.Null(await metadata.ReadAsync(Metadata(1)));
+    }
+
+    [Theory]
     [InlineData(IsolationLevel.RepeatableRead)]
     [InlineData(IsolationLevel.Serializable)]
     public async Task NativeSnapshotTransactionsRefuseBeforeAnySql(IsolationLevel isolation)
