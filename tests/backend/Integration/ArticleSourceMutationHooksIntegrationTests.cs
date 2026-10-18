@@ -25,7 +25,7 @@ namespace FsusBlog.Server.Tests.Integration;
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
-public sealed class ArticleSourceMutationHooksIntegrationTests(PostgresSchemaMigrationFixture fixture)
+public sealed partial class ArticleSourceMutationHooksIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly DateTime s_now = new(2026, 10, 18, 0, 0, 0, DateTimeKind.Utc);
 
