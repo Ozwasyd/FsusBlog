@@ -52,10 +52,16 @@ public sealed class ArticlePackageManifestCandidate
         ArticlePackageManifestArticle[] articles,
         string semanticDigest,
         ArticlePackageManifestAssetCollectionCandidate assets)
-        => new(articles, semanticDigest) { Assets = assets };
+        => new(articles, semanticDigest)
+        {
+            Assets = assets
+        };
 
     /// <summary>Null means the legacy article-only format, never an implicitly empty collection.</summary>
-    public ArticlePackageManifestAssetCollectionCandidate? Assets { get; private init; }
+    public ArticlePackageManifestAssetCollectionCandidate? Assets
+    {
+        get; private init;
+    }
 
     public int SchemaVersion => Assets is null
         ? ArticlePackageManifestVersionRegistry.Current.Versions.SchemaVersion
