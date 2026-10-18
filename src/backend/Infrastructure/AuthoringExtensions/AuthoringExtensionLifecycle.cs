@@ -174,6 +174,40 @@ public interface IAuthoringLifecycleReceiptStore
     ValueTask AppendAsync(AuthoringLifecycleReceipt receipt, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Versioned host resource preparation, not approval or a default activation adapter.
+/// The fenced Apply caller must supply its actual returned snapshot and exact ordered targets;
+/// an ordinary state read cannot cross the held fence. Preparation stages native resources for
+/// the proposed Running generation without publishing them or completing the state migration.
+/// </summary>
+public interface IAuthoringFencedLifecycleResourceAuthorityV1 : IAuthoringLifecycleResourceAuthority
+{
+    ValueTask<IAuthoringPreparedLifecycleGenerationV1> PrepareAsync(
+        VerifiedAuthoringPackage package,
+        ImmutableArray<AuthoringExecutionTarget> orderedTargets,
+        AuthoringStateSnapshot appliedSnapshot,
+        long runningGeneration,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// The original resource owner retains staged native custody, exact snapshot acceptance and
+/// generation checks. These methods confer no approval. VerifyCurrentAsync must inspect actual
+/// current owners and readiness; PublishAsync must bind the exact durable Running receipt.
+/// AbortAsync reports resources still unsettled. Disposal never implies successful publication
+/// or complete containment. No implementation or positive coordinator path is supplied here.
+/// </summary>
+public interface IAuthoringPreparedLifecycleGenerationV1 : IAsyncDisposable
+{
+    ValueTask VerifyCurrentAsync(CancellationToken cancellationToken);
+
+    ValueTask PublishAsync(
+        AuthoringLifecycleReceipt exactRunningReceipt,
+        CancellationToken cancellationToken);
+
+    ValueTask<AuthoringLifecycleResourceReport> AbortAsync(CancellationToken cancellationToken);
+}
+
 public sealed class AuthoringExtensionLifecycleCoordinator(
     IAuthoringLifecycleResourceAuthority resources,
     IAuthoringLifecyclePreflight preflight,
@@ -289,6 +323,10 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         AuthoringStateMigrationPlan plan,
         CancellationToken cancellationToken = default)
     {
+        if (stateStore is IAuthoringFencedExtensionStateStore)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_migration_authority_unavailable");
+        }
         ValidateMigration(oldPackage, newPackage, plan);
         ValidateTargets(newPackage, newTargets);
         AuthoringLifecycleReceipt? previous = await receiptStore.GetLatestAsync(oldPackage.Contract.Manifest.Id, cancellationToken);
@@ -465,6 +503,10 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         AuthoringDeleteDataApproval approval,
         CancellationToken cancellationToken = default)
     {
+        if (stateStore is IAuthoringFencedExtensionStateStore)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_deletion_authority_unavailable");
+        }
         ValidateOwnedScope(package, approval.Scope);
         AuthoringLifecycleReceipt? receipt = await receiptStore.GetLatestAsync(package.Contract.Manifest.Id, cancellationToken);
         if (receipt?.State != AuthoringLifecycleState.RetainedData ||
@@ -530,6 +572,11 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         long generation,
         CancellationToken cancellationToken = default)
     {
+        if (stateStore is IAuthoringFencedExtensionStateStore)
+        {
+            // A Running row alone proves neither fenced settlement nor current runtime authority.
+            throw new AuthoringExtensionContractException("fenced_lifecycle_result_authority_unavailable");
+        }
         AuthoringLifecycleReceipt? receipt = await receiptStore.GetLatestAsync(extensionId, cancellationToken);
         return receipt?.State == AuthoringLifecycleState.Running && receipt.Generation == generation;
     }

@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycle.cs"
+            ],
+            "reason": "Preserve existing external API spellings in the registered C# surface while defining staged resource preparation interfaces and refusing unsupported fenced commands; no environment access or new naming rule is added."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve exact host contract spellings while documenting the versioned staged resource interfaces, refusal boundary and missing approval and runtime settlement implementations."
+        }
+    ]
+}

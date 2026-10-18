@@ -1,5 +1,48 @@
 # Authoring extension host boundary
 
+## Fenced coordinator refusal boundary
+
+The original coordinator rejects its legacy migration and deletion arguments before
+receipt access, resource/grant revocation or state-store work when the supplied store
+implements `IAuthoringFencedExtensionStateStore`. It also rejects receipt-only result
+admission for that store: a Running row and generation do not prove migration
+settlement, current approval or runtime ownership. Non-fenced behavior is unchanged.
+
+This refusal boundary supplies no typed migration/deletion successor, approval issuer,
+durable approved-intent repository, staged runtime preparation or DI registration.
+Those owners must bind the exact approved canonical plan, applied snapshot and ordered
+targets before Running publication and completion. Missing approval or a missing full
+plan remains recovery-required; neither a plan digest nor a caller receipt ID can
+reconstruct or authorize it. Native incarnation custody alone does not establish
+snapshot acceptance or lifecycle generation. The prepare/publication port is still
+without a production implementation; static preflight must not require an already-live
+instance.
+
+The original `AuthoringExtensionLifecycle.cs` declares the versioned
+`IAuthoringFencedLifecycleResourceAuthorityV1` and
+`IAuthoringPreparedLifecycleGenerationV1` host interfaces. `PrepareAsync` takes the
+verified package, exact ordered targets, actual applied snapshot and proposed Running
+generation. The snapshot must come directly from the real fenced `ApplyAsync` caller;
+ordinary state reads must not be used to cross a held fence. Preparation stages native
+custody without publishing resources or completing migration. The prepared lifetime
+exposes current-owner/readiness verification, exact durable Running receipt publication,
+an abort report of unsettled resources and asynchronous disposal. The original resource
+owner must implement those operations; method success or disposal alone is not approval,
+snapshot acceptance or proof of complete containment. There is no default activation
+adapter, successful stub, issuer call or coordinator consumption of this interface here.
+The three fenced refusal guards remain in force. Implementations must reuse these
+declarations instead of introducing another lifecycle port.
+
+The staged-resource contract consumes the original snapshot, receipt and generation
+types also used by the sole approval owner's execution-result contract. Approval claims
+bind the exact ordered old/new targets; completion consumes the actual execution result,
+whose digest is the terminal receipt scope binding. Manifest payload hashes remain the
+receipt/target package identity; snapshots retain the compound package identity. Type
+compatibility and resource-port availability do not establish the missing canonical
+scope, settled-state or native snapshot-acceptance custody. The coordinator does not
+consume approval claims or execution results until those original owners can supply
+and hold the required facts; its three refusal guards remain unchanged.
+
 The authoring extension host is an internal and experimental subsystem for bounded
 authoring extensions. It is separate from the general `.fspkg` Hook and Jint/Lua
 plugin system. The C# declarations under
