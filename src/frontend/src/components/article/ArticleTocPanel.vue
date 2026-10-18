@@ -13,7 +13,7 @@
                 native-type="button"
                 text
                 size="small"
-                class="article-toc-panel__item"
+                class="article-toc-panel__item blog-motion-reading-control"
                 :class="{
                     'article-toc-panel__item--h3': item.level === 3,
                     'article-toc-panel__item--active': item.id === activeId
@@ -45,7 +45,7 @@
                 native-type="button"
                 text
                 size="small"
-                class="article-toc-drawer__item"
+                class="article-toc-drawer__item blog-motion-reading-control"
                 :class="{
                     'article-toc-drawer__item--h3': item.level === 3,
                     'article-toc-drawer__item--active': item.id === activeId
@@ -147,6 +147,16 @@ const handleDrawerNavigate = (id: string): void =>
     margin-left: 0;
 }
 
+.article-toc-panel__item.blog-motion-reading-control,
+.article-toc-drawer__item.blog-motion-reading-control
+ {
+    transition:
+        background-color var(--blog-motion-fast) var(--blog-motion-ease),
+        border-color var(--blog-motion-fast) var(--blog-motion-ease),
+        color var(--blog-motion-fast) var(--blog-motion-ease),
+        opacity var(--blog-motion-fast) var(--blog-motion-ease);
+}
+
 .article-toc-panel__item--h3,
 .article-toc-drawer__item--h3
  {
@@ -160,16 +170,30 @@ const handleDrawerNavigate = (id: string): void =>
 }
 
 .article-toc-panel__item--active::after,
-.article-toc-drawer__item--active::after
+.article-toc-drawer__item--active::after,
+.article-toc-panel__item:hover::after,
+.article-toc-drawer__item:hover::after,
+.article-toc-panel__item:focus-visible::after,
+.article-toc-drawer__item:focus-visible::after
  {
+    /* Keep chapter feedback independent of the public Button border on touch. */
     position: absolute;
     top: 0;
     bottom: 0;
     left: 0;
     width: 2px;
-    background: var(--fsusblog-color-primary);
+    box-sizing: border-box;
+    border-left: 2px solid transparent;
+    border-left-color: var(--fsusblog-color-primary);
     pointer-events: none;
     content: '';
+}
+
+.article-toc-panel__item:focus-visible,
+.article-toc-drawer__item:focus-visible
+ {
+    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
+    color: var(--fsusblog-text-primary);
 }
 
 .article-toc-drawer__nav
