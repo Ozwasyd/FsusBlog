@@ -224,6 +224,63 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
     }
 
     [Fact]
+    public async Task OrderedProvenanceAcquisition_UsesHeldStateConnectionBehindQueuedTruncate()
+    {
+        await using Harness host = await CreateAsync();
+        await host.InitializeGenuineProvenanceAsync();
+        await using var approval = await host.ApprovalStore.BeginAsync(1, "first-session", "synthetic-site", default);
+        await using IAuthoringExtensionStateObservation stateCustody = await host.State.ObserveInitialAsync(
+            host.OldPackage, host.NewPackage, host.Plan, default);
+        await using var blocker = await host.OpenConnectionAsync();
+        await using var blockerTransaction = await blocker.BeginTransactionAsync();
+        await using (var command = new NpgsqlCommand("SELECT scope_id FROM authoring_extension_scope_provenance FOR UPDATE;", blocker))
+        {
+            await command.ExecuteNonQueryAsync();
+        }
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        Task<IAuthoringExtensionApprovalScope>? acquisition = null;
+        Task? truncate = null;
+        bool blockerReleased = false;
+        try
+        {
+            acquisition = host.GenuineScopeAuthority.AcquireWithStateCustodyAsync(host.Context.HttpContext!,
+                AuthoringApprovalOperation.Migration, host.From, host.To, stateCustody, cancellation.Token).AsTask();
+            await host.WaitForDatabaseLockAsync("query LIKE '%authoring_extension_scope_provenance%FOR SHARE%' AND wait_event_type='Lock'");
+            truncate = host.RunGenuineProvenanceWriterAsync("truncate");
+            await host.WaitForDatabaseLockAsync("query LIKE 'TRUNCATE authoring_extension_state_scope%' AND wait_event_type='Lock'");
+            await blockerTransaction.RollbackAsync();
+            blockerReleased = true;
+            // A state SELECT on a new provenance connection queues behind TRUNCATE, while
+            // TRUNCATE waits for original observation's AccessShare: the provider must verify
+            // through the actual already-held state connection instead.
+            IAuthoringExtensionApprovalScope held = await acquisition.WaitAsync(TimeSpan.FromSeconds(5));
+            await held.VerifyCurrentAsync(default);
+        }
+        finally
+        {
+            if (!blockerReleased)
+            {
+                await blockerTransaction.RollbackAsync();
+            }
+            cancellation.Cancel();
+            if (acquisition is not null)
+            {
+                _ = await Record.ExceptionAsync(async () =>
+                {
+                    IAuthoringExtensionApprovalScope held = await acquisition;
+                    await held.DisposeAsync();
+                });
+            }
+            await stateCustody.DisposeAsync();
+            await approval.Transaction.RollbackAsync();
+            if (truncate is not null)
+            {
+                await truncate;
+            }
+        }
+    }
+
+    [Fact]
     public async Task ActorFirst_PrincipalDeletionWithOriginalCanvasCascadeWaitsBeforeDocument()
     {
         await using Harness host = await CreateAsync();
@@ -1080,6 +1137,9 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
 
         public AuthoringExtensionApprovalAuthority NewAuthority() => new(Context, configuration,
             new PostgresAuthoringExtensionApprovalStore(source, protection), State, Receipts, admins, new FixtureScopeAuthority(source));
+
+        public IAuthoringExtensionApprovalScopeAuthority GenuineScopeAuthority =>
+            new AuthoringExtensionScopeProvenanceAuthority(_provenance!);
 
         public async Task InitializeGenuineProvenanceAsync()
         {

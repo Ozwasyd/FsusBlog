@@ -29,7 +29,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "Preserve the original collection schema and every existing member while registering the actual 52 cases in the owned approval PostgreSQL class; pre-existing global collection drift remains visible."
+            "reason": "Preserve the original collection schema and every existing member while registering the actual 53 cases in the owned approval PostgreSQL class; pre-existing global collection drift remains visible."
         }
     ]
 }

@@ -703,8 +703,11 @@ verifies state through that held owner connection. It must not execute a state-t
 SELECT on its separate provenance connection: a queued TRUNCATE can otherwise wait
 for observation's AccessShare while that new SELECT waits behind TRUNCATE. Missing
 ordered acquisition refuses approval_ordered_scope_authority_unavailable, without
-falling back to the standalone scope adapter. The genuine scope producer dependency
-must implement this ordered port before its approval path qualifies. The canonical
+falling back to the standalone scope adapter. The genuine scope producer implements this ordered port by borrowing the original
+observation and retaining its own provenance rows. Its standalone old entry refuses;
+there is no provenance-first state wait adapter. Activation pins actor/session in its
+own final transaction before state and provenance, with post-wait time/site/package
+checks. Actual combined race tests and independent reviews still gate qualification. The canonical
 execution-result scope exposes its original StateCustody; Complete checks the same
 observation's actual phase, snapshots/measurement and exact scope IDs before terminal
 CAS. No result-source implementation or native publication authority is supplied here.
