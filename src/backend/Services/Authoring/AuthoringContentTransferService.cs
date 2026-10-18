@@ -131,6 +131,7 @@ public sealed class AuthoringContentTransferService(
 
     public async Task<ContentImportResponse> ImportArticleAsync(ContentImportRequest request, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ParsedFrontmatter parsed = ParseFrontmatter(request.MarkdownWithFrontmatter);
         ArticleStatus status = request.Publish
             ? ArticleStatus.Published
@@ -146,7 +147,7 @@ public sealed class AuthoringContentTransferService(
                 (int)status,
                 status == ArticleStatus.Scheduled ? parsed.ScheduledPublishAt : null,
                 Rights: null,
-                RightsMutation: FsusBlog.Core.Mapping.Models.ArticleRightsMutationMode.Preserve)));
+                RightsMutation: FsusBlog.Core.Mapping.Models.ArticleRightsMutationMode.Preserve)), cancellationToken);
         int articleId = createResult.IsSuccess ? createResult.Value : 0;
         int restoredRevisionCount = articleId > 0 && request.PreserveRevisions
             ? await RestoreImportedRevisionsAsync(articleId, parsed.Metadata, cancellationToken)

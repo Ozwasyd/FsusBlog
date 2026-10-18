@@ -6,6 +6,7 @@ using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -64,6 +65,39 @@ public sealed class AuthoringRevisionRestoreTests(PostgresSchemaMigrationFixture
         Assert.Equal(77, result.ArticleId);
         Assert.Null(captured.Article.Rights);
         Assert.Equal(ArticleRightsMutationMode.Preserve, captured.Article.RightsMutation);
+    }
+
+    [Fact]
+    public async Task ImportArticleAsync_ForwardsCallerCancellationToTheOriginalCreateOwner()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        using var caller = new CancellationTokenSource();
+        var core = Substitute.For<IArticleCoreService>();
+        core.CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Result<int>.Success(77));
+
+        ContentImportResponse result = await CreateService(db, core).ImportArticleAsync(
+            new ContentImportRequest("---\ntitle: Imported\ncategoryId: 1\n---\n\n# body",
+                Publish: false, PreserveRevisions: false), caller.Token);
+
+        Assert.Equal(77, result.ArticleId);
+        await core.Received(1).CreateAsync(Arg.Any<CreateArticleCommand>(), caller.Token);
+    }
+
+    [Fact]
+    public async Task ImportArticleAsync_PreCanceledCallerDoesNotInvokeCreateOrInitializeSource()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        using var caller = new CancellationTokenSource();
+        caller.Cancel();
+        var core = Substitute.For<IArticleCoreService>();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateService(db, core).ImportArticleAsync(
+            new ContentImportRequest("---\ntitle: Imported\n---\n\n# body", Publish: false), caller.Token));
+
+        await core.DidNotReceive().CreateAsync(Arg.Any<CreateArticleCommand>(), Arg.Any<CancellationToken>());
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        Assert.Equal(0, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public';"));
     }
 
     private static Task<int> InvokeRestoreImportedRevisionsAsync(
