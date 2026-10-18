@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePackageImportAssetCandidateValidator.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs"
+            ],
+            "reason": "Bind only the three changed C# sources classified by the trusted registry's existing environment-variable surface. Preserve existing caller-visible candidate names and internal C# naming; no process environment access, external variable spelling, trusted policy or registry changes are introduced."
+        }
+    ]
+}
