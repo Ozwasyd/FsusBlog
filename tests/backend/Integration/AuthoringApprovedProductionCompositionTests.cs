@@ -40,6 +40,29 @@ public sealed class AuthoringApprovedProductionCompositionTests(
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task MissingCanonicalScopeOwner_OriginalIssuerRefusesBeforeIssuingClaim(bool migration)
+    {
+        bool observed = false;
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+        {
+            await using Harness host = await CreateAsync(migration, async refused =>
+            {
+                Assert.Equal(0, await refused.Db.Ado.GetIntAsync("SELECT count(*) FROM authoring_extension_approval_decision;"));
+                Assert.Equal(0, await refused.Db.Ado.GetIntAsync("SELECT count(*) FROM authoring_extension_approval_event;"));
+                AuthoringStateSnapshot state = await refused.ReadTargetAsync();
+                Assert.Equal(migration ? 0 : 1, state.Revision);
+                AuthoringLifecycleReceipt? current = await refused.Receipts.GetLatestAsync(refused.Target.Package.Contract.Manifest.Id, default);
+                Assert.Equal(migration ? AuthoringLifecycleState.Enabled : AuthoringLifecycleState.RetainedData, current!.State);
+                observed = true;
+            });
+        });
+        Assert.Equal("approval_exact_scope_authority_unavailable", error.Message);
+        Assert.True(observed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task GenuineClaim_BindsOriginalContextAndScope_WithoutRuntimeAdmission(bool migration)
     {
         await using Harness host = await CreateAsync(migration);
@@ -197,9 +220,10 @@ public sealed class AuthoringApprovedProductionCompositionTests(
     public async Task OriginalIssuer_MustRejectMismatchedTerminalReceipt(string field)
     {
         await using Harness host = await CreateAsync(false);
+        AuthoringExtensionApprovalExecutionResult execution = await host.DeleteAsync(host.Claim.ExpectedLifecycleReceipt.Generation + 1);
         AuthoringLifecycleReceipt result = Next(host.Claim.ExpectedLifecycleReceipt, AuthoringLifecycleState.Removed) with
         {
-            ScopeDigest = host.Claim.Digest
+            ScopeDigest = execution.ContentSha256
         };
         result = Sign(field == "version" ? result with
         {
@@ -211,7 +235,7 @@ public sealed class AuthoringApprovedProductionCompositionTests(
                 DataSchemaVersion = 88
             });
         await host.Receipts.AppendAsync(result, default);
-        Exception? error = await Record.ExceptionAsync(async () => await host.Authority.CompleteAsync(host.Claim, result));
+        Exception? error = await Record.ExceptionAsync(async () => await host.Authority.CompleteAsync(host.Claim, execution, result));
         if (error is null)
         {
             host.MarkSettledForCleanup();
@@ -225,20 +249,15 @@ public sealed class AuthoringApprovedProductionCompositionTests(
     public async Task OriginalIssuer_MustFenceRunningReceiptAcrossSettlement()
     {
         await using Harness host = await CreateAsync(true);
-        AuthoringLifecycleReceipt receipt = Next(host.Claim.ExpectedLifecycleReceipt, AuthoringLifecycleState.Disabled);
-        await host.Receipts.AppendAsync(receipt, default);
-        receipt = Next(receipt, AuthoringLifecycleState.Updating);
-        await host.Receipts.AppendAsync(receipt, default);
-        receipt = Sign(Next(receipt, AuthoringLifecycleState.Migrating) with
+        AuthoringStateSnapshot applied = await host.ApplyAsync();
+        AuthoringLifecycleReceipt receipt = await host.AppendStartingAsync(host.Target.Package.Contract.Manifest.PackageSha256);
+        AuthoringExtensionApprovalExecutionResult execution = AuthoringExtensionApprovalContract.MigrationResult(
+            host.Claim, applied, host.Claim.OrderedOldTargets, host.Target.Targets, receipt.Generation + 1);
+        await host.CompleteStateAsync();
+        AuthoringLifecycleReceipt running = Sign(Next(receipt, AuthoringLifecycleState.Running) with
         {
-            PackageSha256 = host.Target.Package.PackageIdentity,
-            Version = host.Target.Package.Contract.Manifest.Version,
-            ScopeDigest = host.Claim.Digest
+            ScopeDigest = execution.ContentSha256
         });
-        await host.Receipts.AppendAsync(receipt, default);
-        receipt = Next(receipt, AuthoringLifecycleState.Starting);
-        await host.Receipts.AppendAsync(receipt, default);
-        AuthoringLifecycleReceipt running = Next(receipt, AuthoringLifecycleState.Running);
         await host.Receipts.AppendAsync(running, default);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await using NpgsqlConnection blocker = await host.Source.OpenConnectionAsync(deadline.Token);
@@ -249,7 +268,7 @@ public sealed class AuthoringApprovedProductionCompositionTests(
             command.Parameters.AddWithValue(host.Claim.DecisionId);
             await command.ExecuteScalarAsync(deadline.Token);
         }
-        Task completion = host.Authority.CompleteAsync(host.Claim, running, deadline.Token).AsTask();
+        Task completion = host.Authority.CompleteAsync(host.Claim, execution, running, deadline.Token).AsTask();
         Task? advance = null;
         bool transactionCommitted = false;
         try
@@ -319,7 +338,7 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         }
     }
 
-    private async Task<Harness> CreateAsync(bool migration)
+    private async Task<Harness> CreateAsync(bool migration, Func<Harness, Task>? verifyRefusal = null)
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(postgres);
         SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
@@ -357,6 +376,10 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         // Only off-path FIDO/JWT/audit collaborators are substituted. The exercised
         // step-up proof issuer/one-time consumer, Redis, SQL actor checks, durable
         // approval issuer, package verification, state and receipts are real.
+        // No scope or execution-result adapter is supplied. Successor 1647fc953
+        // correctly refuses the retained positive cases at that missing real
+        // dependency; their failure is recorded as unsupported, never skipped or
+        // replaced by a permissive test scope to manufacture an approved claim.
         var administrators = new AdminPrincipalService(Substitute.For<IFido2>(), db, cache, cache,
             Substitute.For<IJwtHelper>(), configuration, NullLogger<AdminPrincipalService>.Instance,
             Substitute.For<IAdminAuditLogChannel>());
@@ -382,7 +405,7 @@ public sealed class AuthoringApprovedProductionCompositionTests(
             await state.InitializeAsync(oldPackage.Package, oldPackage.Scope, default);
             await state.WriteAsync(oldPackage.Package, oldPackage.Scope, 0, new("old", [1, 2]), default);
             AuthoringLifecycleReceipt receipt = Sign(new(1, 1, oldPackage.Package.Contract.Manifest.Id,
-                oldPackage.Package.PackageIdentity, "1.0.0", 1, 1, AuthoringLifecycleState.Installed,
+                oldPackage.Package.Contract.Manifest.PackageSha256, "1.0.0", 1, 1, AuthoringLifecycleState.Installed,
                 AuthoringLifecycleState.Enabled, 1, new string('c', 64), null, new string('0', 64), ""));
             await receipts.AppendAsync(receipt, default);
             if (migration)
@@ -397,10 +420,13 @@ public sealed class AuthoringApprovedProductionCompositionTests(
                 {
                     ContentSha256 = AuthoringExtensionStateContract.ComputeContentSha256(plan)
                 };
-                AuthoringExtensionApprovalPreview preview = await authority.PrepareMigrationAsync(oldPackage.Package, target.Package, plan, receipt);
+                AuthoringExtensionApprovalPreview preview = await authority.PrepareMigrationAsync(oldPackage.Package, target.Package,
+                    plan, oldPackage.Targets, target.Targets, receipt);
                 string proof = await administrators.CreateAdminStepUpProofTokenAsync(1, "production-approval-session", "admin-sensitive", TimeSpan.FromMinutes(5));
-                await authority.ConfirmMigrationAsync(preview.DecisionId, oldPackage.Package, target.Package, plan, receipt, preview.Digest, proof);
-                host.Claim = await authority.ClaimMigrationAsync(preview.DecisionId, oldPackage.Package, target.Package, plan, receipt);
+                await authority.ConfirmMigrationAsync(preview.DecisionId, oldPackage.Package, target.Package,
+                    plan, oldPackage.Targets, target.Targets, receipt, preview.Digest, proof);
+                host.Claim = await authority.ClaimMigrationAsync(preview.DecisionId, oldPackage.Package, target.Package,
+                    plan, oldPackage.Targets, target.Targets, receipt);
             }
             else
             {
@@ -417,7 +443,17 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         }
         catch
         {
-            await host.DisposeAsync();
+            try
+            {
+                if (verifyRefusal is not null)
+                {
+                    await verifyRefusal(host);
+                }
+            }
+            finally
+            {
+                await host.DisposeAsync();
+            }
             throw;
         }
     }
@@ -472,6 +508,15 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         public ValueTask<AuthoringStateSnapshot> ReadTargetAsync() => state.ReadAsync(target.Package, target.Scope, default);
 
         public ValueTask RollbackAsync() => state.RollbackAsync(oldPackage.Package, target.Package, Claim.FrozenPlan!, default);
+
+        public ValueTask CompleteStateAsync() => state.CompleteAsync(oldPackage.Package, target.Package, Claim.FrozenPlan!, default);
+
+        public async ValueTask<AuthoringExtensionApprovalExecutionResult> DeleteAsync(long generation)
+        {
+            await state.DeleteAsync(target.Package, Claim.FencedDeletion!, default);
+            AuthoringStateMeasurement deleted = await state.MeasureAsync(target.Package, target.Scope, default);
+            return AuthoringExtensionApprovalContract.DeletionResult(Claim, deleted, generation);
+        }
 
         public async ValueTask<AuthoringLifecycleReceipt> AppendStartingAsync(string packageSha256)
         {
