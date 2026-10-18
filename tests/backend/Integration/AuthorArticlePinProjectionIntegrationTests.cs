@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Runtime.ExceptionServices;
 using System.Security.Claims;
 
@@ -212,6 +213,116 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
         });
     }
 
+    private async Task AssertBoundedPermissionInputAsync(int count, bool priorToken, bool callerTransaction)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        if (count > 0)
+        {
+            await db.Ado.ExecuteCommandAsync(
+                """
+                INSERT INTO article_revision(id, article_id, revision_no)
+                SELECT 10000 + article_id, article_id, 1
+                FROM generate_series(5, 1000) AS generated(article_id);
+                INSERT INTO article(id, title, status, isdeleted, current_revision_id)
+                SELECT article_id, concat('title-', article_id::text), 2, FALSE, 10000 + article_id
+                FROM generate_series(5, 1000) AS generated(article_id);
+                """);
+        }
+        db.CurrentConnectionConfig.IsAutoCloseConnection = false;
+        await db.Ado.OpenAsync();
+        if (callerTransaction)
+        {
+            await db.Ado.BeginTranAsync(System.Data.IsolationLevel.ReadCommitted);
+        }
+        var connection = db.Ado.Connection;
+        var transaction = db.Ado.Transaction;
+        using var previous = new CancellationTokenSource();
+        CancellationToken? before = priorToken ? previous.Token : null;
+        db.Ado.CancellationToken = before;
+        int[] values = Enumerable.Range(1, count).ToArray();
+        var input = new PermissionInputList(values);
+        int commands = 0;
+        db.Ado.IsEnableLogEvent = true;
+        db.Aop.OnLogExecuting = (_, _) =>
+        {
+            commands++;
+            // The permission read must use the captured identities even if the caller changes later.
+            Array.Fill(values, -1);
+        };
+        try
+        {
+            AuthorArticlePinPermissionSnapshot result = await CreatePermissionAuthority(db).ResolveAsync(
+                new(s_owner, Guid.CreateVersion7(), input));
+
+            Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Current, result.Status);
+            Assert.Equal(Enumerable.Range(1, count), result.Decisions.Select(static decision => decision.ArticleId));
+            Assert.All(result.Decisions, static decision => Assert.True(decision.CanProject && decision.CanOpen));
+            Assert.Equal(AuthorArticlePinProjectionContract.ComputePermissionDigest(result), result.ContentDigest);
+            Assert.Equal(count == 0 ? 1 : 2, commands);
+            Assert.Equal(count * 2, input.IndexReads);
+            Assert.Equal(0, input.EnumeratorCalls);
+            Assert.Equal(before, db.Ado.CancellationToken);
+            Assert.Same(connection, db.Ado.Connection);
+            Assert.Same(transaction, db.Ado.Transaction);
+
+            db.Aop.OnLogExecuting = null;
+            await db.Ado.ExecuteCommandAsync(
+                "UPDATE admin_session SET revokedatutc = CURRENT_TIMESTAMP WHERE sessionid = 'pin-session';");
+            AuthorArticlePinPermissionSnapshot denied = await CreatePermissionAuthority(db).ResolveAsync(
+                new(s_owner, Guid.CreateVersion7(), Enumerable.Range(1, count).ToArray()));
+            Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Unavailable, denied.Status);
+            Assert.Equal("article_pin_permission_session_denied", denied.ReasonCode);
+            Assert.Equal(before, db.Ado.CancellationToken);
+            Assert.Same(transaction, db.Ado.Transaction);
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+        }
+        finally
+        {
+            db.Aop.OnLogExecuting = null;
+            db.Ado.CancellationToken = null;
+            if (callerTransaction)
+            {
+                await db.Ado.RollbackTranAsync();
+            }
+        }
+    }
+
+    private async Task AssertInvalidPermissionInputAsync(bool replaceIdentities)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await db.Ado.BeginTranAsync(System.Data.IsolationLevel.ReadCommitted);
+        var connection = db.Ado.Connection;
+        var transaction = db.Ado.Transaction;
+        using var previous = new CancellationTokenSource();
+        db.Ado.CancellationToken = previous.Token;
+        var input = new PermissionInputList(
+            Enumerable.Range(1, replaceIdentities ? 2 : 1001).ToArray(), replaceIdentities);
+        int commands = 0;
+        db.Ado.IsEnableLogEvent = true;
+        db.Aop.OnLogExecuting = (_, _) => commands++;
+        try
+        {
+            AuthorArticlePinPermissionSnapshot result = await CreatePermissionAuthority(db).ResolveAsync(
+                new(s_owner, Guid.CreateVersion7(), input));
+
+            Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Unavailable, result.Status);
+            Assert.Equal("article_pin_permission_request_invalid", result.ReasonCode);
+            Assert.Empty(result.Decisions);
+            Assert.Equal(0, commands);
+            Assert.Equal(replaceIdentities ? 3 : 0, input.IndexReads);
+            Assert.Equal(0, input.EnumeratorCalls);
+            Assert.Equal(previous.Token, db.Ado.CancellationToken);
+            Assert.Same(connection, db.Ado.Connection);
+            Assert.Same(transaction, db.Ado.Transaction);
+        }
+        finally
+        {
+            db.Aop.OnLogExecuting = null;
+            db.Ado.CancellationToken = null;
+            await db.Ado.RollbackTranAsync();
+        }
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
@@ -252,6 +363,12 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
                 await db.Ado.RollbackTranAsync();
             }
         }
+        foreach (int count in new[] { 0, AuthorArticlePinContract.MaxPinsPerOwner })
+        {
+            await AssertBoundedPermissionInputAsync(count, priorToken, callerTransaction);
+        }
+        await AssertInvalidPermissionInputAsync(replaceIdentities: false);
+        await AssertInvalidPermissionInputAsync(replaceIdentities: true);
     }
 
     [Theory]
@@ -500,6 +617,35 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
             accessor,
             configuration,
             TimeProvider.System);
+    }
+
+    private sealed class PermissionInputList(IReadOnlyList<int> values, bool replaceOnRecheck = false) : IReadOnlyList<int>
+    {
+        public int Count => values.Count;
+        public int IndexReads
+        {
+            get; private set;
+        }
+        public int EnumeratorCalls
+        {
+            get; private set;
+        }
+        public int this[int index]
+        {
+            get
+            {
+                IndexReads++;
+                return replaceOnRecheck && IndexReads > Count ? values[index] + Count : values[index];
+            }
+        }
+
+        public IEnumerator<int> GetEnumerator()
+        {
+            EnumeratorCalls++;
+            throw new InvalidOperationException("Caller input must not be enumerated.");
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private sealed class RecordingArticleSource(IAuthorArticlePinArticleProjectionSource inner)

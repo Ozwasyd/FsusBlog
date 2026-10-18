@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs"
+            ],
+            "reason": "Preserve the existing SITE_BASEURL configuration key and SQL adapter spellings while bounding caller-owned permission input; internal capture identifiers follow the C# mother standard."
+        }
+    ]
+}
