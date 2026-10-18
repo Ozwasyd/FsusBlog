@@ -534,6 +534,83 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         await broker.RevokeStagedWriteAsync(receipt);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Broker_UsesValidatorClockForLiveGrantEvenWhenSystemClockIsLater(int operation)
+    {
+        using var fixture = new IoFixture();
+        var clock = new ManualTimerTimeProvider(new DateTimeOffset(2001, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        fixture.Clock = clock;
+        DateTimeOffset expiresAt = clock.Now.AddMinutes(1);
+        var broker = fixture.Broker();
+        if (operation == 0)
+        {
+            AuthoringNetworkGrant grant = fixture.NetworkGrant(expiresAt);
+            AuthoringServiceIoResult result = await broker.FetchAsync(grant, grant.RuntimeIdentity, grant.Purpose, "/");
+            Assert.Equal(new byte[] { 7, 8, 9 }, result.Payload.ToArray());
+        }
+        else if (operation == 1)
+        {
+            AuthoringFileGrant grant = fixture.FileGrant(false, expiresAt);
+            AuthoringServiceIoResult result = await broker.ReadFileAsync(grant, grant.RuntimeIdentity, grant.Purpose);
+            Assert.Equal(new byte[] { 1, 2, 3 }, result.Payload.ToArray());
+        }
+        else
+        {
+            AuthoringFileGrant grant = fixture.FileGrant(true, expiresAt);
+            AuthoringServiceIoReceipt receipt = await broker.StageProposedWriteAsync(grant, grant.RuntimeIdentity, grant.Purpose, [4, 5, 6]);
+            Assert.Equal(new byte[] { 4, 5, 6 }, File.ReadAllBytes(Path.Combine(fixture.Staging, receipt.ArtifactReference!)));
+            await broker.RevokeStagedWriteAsync(receipt);
+        }
+        Assert.NotNull(clock.Timer);
+        Assert.Equal(TimeSpan.FromMinutes(1), clock.Timer.DueTime);
+        Assert.True(clock.Timer.Disposed);
+        Assert.Empty(Directory.EnumerateFiles(fixture.Staging));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Broker_UsesValidatorClockAtExpiryEvenWhenSystemClockIsEarlier(int operation)
+    {
+        using var fixture = new IoFixture();
+        var clock = new ManualTimerTimeProvider(new DateTimeOffset(2100, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        fixture.Clock = clock;
+        DateTimeOffset expiresAt = clock.Now.AddMinutes(1);
+        Task Expire(CancellationToken token)
+        {
+            clock.Now = expiresAt;
+            clock.Timer?.Fire();
+            return Task.CompletedTask;
+        }
+        fixture.GetResponse = Expire;
+        fixture.ResolvePath = Expire;
+        var broker = fixture.Broker();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            if (operation == 0)
+            {
+                AuthoringNetworkGrant grant = fixture.NetworkGrant(expiresAt);
+                await broker.FetchAsync(grant, grant.RuntimeIdentity, grant.Purpose, "/");
+            }
+            else if (operation == 1)
+            {
+                AuthoringFileGrant grant = fixture.FileGrant(false, expiresAt);
+                await broker.ReadFileAsync(grant, grant.RuntimeIdentity, grant.Purpose);
+            }
+            else
+            {
+                AuthoringFileGrant grant = fixture.FileGrant(true, expiresAt);
+                await broker.StageProposedWriteAsync(grant, grant.RuntimeIdentity, grant.Purpose, [4, 5, 6]);
+            }
+        });
+        Assert.Empty(Directory.EnumerateFiles(fixture.Staging));
+        Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(fixture.Input));
+    }
+
     private sealed class OwnedStageStream(
         FileStream inner,
         bool blockDispose,
@@ -657,6 +734,7 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         public Func<CancellationToken, Task> ResolveAddress { get; set; } = _ => Task.CompletedTask;
         public Func<CancellationToken, Task> ResolvePath { get; set; } = _ => Task.CompletedTask;
         public Func<CancellationToken, Task> GetResponse { get; set; } = _ => Task.CompletedTask;
+        public TimeProvider Clock { get; set; } = TimeProvider.System;
         public int NetworkCalls
         {
             get; private set;
@@ -670,7 +748,7 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         }
 
         public AuthoringExtensionServiceIoBroker Broker() => new(
-            new AuthoringServiceGrantValidator(this, this, TimeProvider.System,
+            new AuthoringServiceGrantValidator(this, this, Clock,
                 ImmutableHashSet.Create(StringComparer.Ordinal, Owned)), this, Staging);
 
         public AuthoringNetworkGrant NetworkGrant(DateTimeOffset expiresAt) => new(
