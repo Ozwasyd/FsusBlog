@@ -46,7 +46,7 @@ const resizer = defineComponent({
 });
 
 function mountCenter(port = createPort()) {
-    const wrapper = shallowMount(ExportCenter, {
+    const wrapper = shallowMount(ExportCenter<DocumentExportPresentation, unknown>, {
         props: { visible: true, identity: 'user/site/session', port },
         attachTo: document.body,
         slots: { 'markdown-package': '<a href="/existing-package-entry">Markdown package</a>' },
