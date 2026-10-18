@@ -151,8 +151,20 @@ function physicalObservation(allowed, cores)
         for (const sibling of siblings.filter((id) => allowed.value.includes(id)))
         {
             const peer = byCpu.get(sibling);
-            if (!peer || peer.package !== row.package || peer.core !== row.core
-                || cpuDigest(parseCpuList(peer.siblings)) !== cpuDigest(siblings))
+            if (!peer || peer.package !== row.package || peer.core !== row.core)
+            {
+                return unknown('sibling identity collision');
+            }
+            let peerSiblings;
+            try
+            {
+                peerSiblings = parseCpuList(peer.siblings);
+            }
+            catch
+            {
+                return unknown('SMT sibling mapping unavailable');
+            }
+            if (cpuDigest(peerSiblings) !== cpuDigest(siblings))
             {
                 return unknown('sibling identity collision');
             }
