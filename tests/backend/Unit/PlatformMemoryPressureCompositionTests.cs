@@ -19,7 +19,7 @@ public sealed class PlatformMemoryPressureCompositionTests
         var macOs = new MacOsSysctlMemoryObservation[MacOsSysctlMemoryReader.ObservationCount];
         var windowsJob = new WindowsJobMemoryObservation[WindowsCurrentJobMemoryReader.ObservationCount];
 
-        var capture = source.CapturePlatformObservations(macOs, windowsJob, TimeSpan.FromSeconds(1), mode);
+        var capture = source.CapturePlatformObservations(macOs, windowsJob, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), mode);
 
         Assert.Equal(mode, capture.MacOs.Mode);
         Assert.Equal(mode, capture.WindowsJob.Mode);
@@ -73,7 +73,7 @@ public sealed class PlatformMemoryPressureCompositionTests
             Value = 123
         });
 
-        var capture = source.CapturePlatformObservations(macOs, windowsJob, TimeSpan.FromSeconds(1), MemoryCapabilityMode.Disabled);
+        var capture = source.CapturePlatformObservations(macOs, windowsJob, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), MemoryCapabilityMode.Disabled);
 
         Assert.False(capture.MacOs.Captured);
         Assert.False(capture.WindowsJob.Captured);
@@ -96,10 +96,12 @@ public sealed class PlatformMemoryPressureCompositionTests
         PortableMemoryPressureSource source = Create(clock);
         foreach (var input in new[]
         {
-            (MacOsLength: 3, WindowsLength: 6, Duration: TimeSpan.FromSeconds(1), Mode: MemoryCapabilityMode.Auto),
-            (MacOsLength: 4, WindowsLength: 5, Duration: TimeSpan.FromSeconds(1), Mode: MemoryCapabilityMode.Auto),
-            (MacOsLength: 4, WindowsLength: 6, Duration: TimeSpan.Zero, Mode: MemoryCapabilityMode.Auto),
-            (MacOsLength: 4, WindowsLength: 6, Duration: TimeSpan.FromSeconds(1), Mode: (MemoryCapabilityMode)99)
+            (MacOsLength: 3, WindowsLength: 6, MacOsDuration: TimeSpan.FromSeconds(1), JobDuration: TimeSpan.FromSeconds(1), Mode: MemoryCapabilityMode.Auto),
+            (MacOsLength: 4, WindowsLength: 5, MacOsDuration: TimeSpan.FromSeconds(1), JobDuration: TimeSpan.FromSeconds(1), Mode: MemoryCapabilityMode.Auto),
+            (MacOsLength: 4, WindowsLength: 6, MacOsDuration: TimeSpan.FromSeconds(1), JobDuration: TimeSpan.Zero, Mode: MemoryCapabilityMode.Auto),
+            (MacOsLength: 4, WindowsLength: 6, MacOsDuration: TimeSpan.Zero, JobDuration: TimeSpan.FromSeconds(1), Mode: MemoryCapabilityMode.Auto),
+            (MacOsLength: 4, WindowsLength: 6, MacOsDuration: TimeSpan.FromTicks(-1), JobDuration: TimeSpan.FromSeconds(1), Mode: MemoryCapabilityMode.Auto),
+            (MacOsLength: 4, WindowsLength: 6, MacOsDuration: TimeSpan.FromSeconds(1), JobDuration: TimeSpan.FromSeconds(1), Mode: (MemoryCapabilityMode)99)
         })
         {
             var macOs = new MacOsSysctlMemoryObservation[5];
@@ -115,7 +117,7 @@ public sealed class PlatformMemoryPressureCompositionTests
                 Value = 123
             });
             Assert.ThrowsAny<ArgumentException>(() => source.CapturePlatformObservations(
-                macOs.AsSpan(0, input.MacOsLength), windowsJob.AsSpan(0, input.WindowsLength), input.Duration, input.Mode));
+                macOs.AsSpan(0, input.MacOsLength), windowsJob.AsSpan(0, input.WindowsLength), input.MacOsDuration, input.JobDuration, input.Mode));
             Assert.All(macOs[..input.MacOsLength], item => Assert.Null(item.Value));
             Assert.All(windowsJob[..input.WindowsLength], item => Assert.Null(item.Value));
             Assert.Equal(123, macOs[^1].Value);
@@ -134,7 +136,7 @@ public sealed class PlatformMemoryPressureCompositionTests
         var windowsJob = new WindowsJobMemoryObservation[WindowsCurrentJobMemoryReader.ObservationCount];
         for (int iteration = 0; iteration < 2; iteration++)
         {
-            var capture = source.CapturePlatformObservations(macOs, windowsJob, TimeSpan.FromSeconds(1));
+            var capture = source.CapturePlatformObservations(macOs, windowsJob, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
             Assert.Equal(MemoryCapabilityMode.Auto, capture.MacOs.Mode);
             Assert.Equal(MemoryCapabilityMode.Auto, capture.WindowsJob.Mode);
             Assert.Equal(MemoryQualification.NotVerified, capture.MacOs.Qualification);

@@ -18,7 +18,7 @@ public enum MacOsMemoryScope
 /// <summary>One raw host observation; swap occupancy is not process usage or qualified headroom.</summary>
 public readonly record struct MacOsSysctlMemoryObservation(MacOsMemoryMetric Metric, MacOsMemoryScope Scope,
     string Source, MemoryObservationState State, long? Value, MemoryFailure? Failure,
-    int? NativeError, DateTimeOffset? SampledAt)
+    int? NativeError, DateTimeOffset? SampledAt, long? Timestamp = null, long? TimestampFrequency = null)
 {
     public MemoryResourceUnit Unit => MemoryResourceUnit.Bytes;
     public MemoryQualification Qualification => MemoryQualification.NotVerified;
@@ -44,13 +44,20 @@ public static class MacOsSysctlMemoryReader
     private const nuint PhysicalSize = 8;
     private const nuint SwapSize = 32;
 
-    /// <summary>Disabled and unsupported targets refuse capture before clock or native calls.</summary>
-    public static MacOsSysctlMemoryCapture Capture(TimeProvider clock,
+    /// <summary>
+    /// Disabled and unsupported targets refuse before clock or native calls. The caller's
+    /// positive duration bounds accepted observations, not the uninterruptible sysctl call.
+    /// </summary>
+    public static MacOsSysctlMemoryCapture Capture(TimeProvider clock, TimeSpan maximumDuration,
         Span<MacOsSysctlMemoryObservation> admittedOutput, MemoryCapabilityMode mode = MemoryCapabilityMode.Auto)
     {
+        if (clock is null)
+        {
+            admittedOutput[..Math.Min(admittedOutput.Length, ObservationCount)].Clear();
+        }
         ArgumentNullException.ThrowIfNull(clock);
         Architecture architecture = RuntimeInformation.ProcessArchitecture;
-        if (admittedOutput.Length < ObservationCount || !Enum.IsDefined(mode))
+        if (admittedOutput.Length < ObservationCount || maximumDuration <= TimeSpan.Zero || !Enum.IsDefined(mode))
         {
             admittedOutput[..Math.Min(admittedOutput.Length, ObservationCount)].Clear();
             return new(mode, false, MemoryFailure.BoundsViolation, 0, architecture);
@@ -71,30 +78,119 @@ public static class MacOsSysctlMemoryReader
             SetFailure(output, MemoryObservationState.Unknown, MemoryFailure.UnsupportedCapability, null);
             return new(mode, false, MemoryFailure.UnsupportedCapability, 0, architecture);
         }
+        return CaptureTimed(clock, maximumDuration, output, mode, new NativeReader());
+    }
+
+    internal interface INativeReader
+    {
+        void ReadPhysical(Span<MacOsSysctlMemoryObservation> output, ref int attempts);
+        void ReadSwap(Span<MacOsSysctlMemoryObservation> output, ref int attempts);
+    }
+
+    private readonly struct NativeReader : INativeReader
+    {
+        public void ReadPhysical(Span<MacOsSysctlMemoryObservation> output, ref int attempts)
+            => MacOsSysctlMemoryReader.ReadPhysical(output, ref attempts);
+
+        public void ReadSwap(Span<MacOsSysctlMemoryObservation> output, ref int attempts)
+            => MacOsSysctlMemoryReader.ReadSwap(output, ref attempts);
+    }
+
+    // The public platform/admission guard selects the real native readers. Tests exercise
+    // this same timing/cleanup pipeline with synthetic native returns, never OS qualification.
+    internal static MacOsSysctlMemoryCapture CaptureTimed<TNativeReader>(TimeProvider clock, TimeSpan maximumDuration,
+        Span<MacOsSysctlMemoryObservation> output, MemoryCapabilityMode mode, TNativeReader native)
+        where TNativeReader : struct, INativeReader
+    {
         int attempts = 0;
         try
         {
-            output[0] = output[0] with
+            DateTimeOffset startedAt = clock.GetUtcNow();
+            long started = clock.GetTimestamp();
+            long frequency = clock.TimestampFrequency;
+            if (frequency <= 0)
             {
-                SampledAt = clock.GetUtcNow()
-            };
-            ReadPhysical(output, ref attempts);
-            DateTimeOffset swapAt = clock.GetUtcNow();
-            for (int index = 1; index < ObservationCount; index++)
-            {
-                output[index] = output[index] with
-                {
-                    SampledAt = swapAt
-                };
+                SetFailure(output, MemoryObservationState.Malformed, MemoryFailure.BoundsViolation, null);
+                return new(mode, false, MemoryFailure.BoundsViolation, 0, RuntimeInformation.ProcessArchitecture);
             }
-            ReadSwap(output[1..], ref attempts);
-            return new(mode, true, null, attempts, architecture);
+            Stamp(output[..1], clock);
+            native.ReadPhysical(output[..1], ref attempts);
+            Stamp(output[1..], clock);
+            native.ReadSwap(output[1..], ref attempts);
+            long completed = clock.GetTimestamp();
+            DateTimeOffset completedAt = clock.GetUtcNow();
+            long completedFrequency = clock.TimestampFrequency;
+            bool validClock;
+            try
+            {
+                long elapsed = checked(completed - started);
+                validClock = frequency == completedFrequency && completedAt >= startedAt
+                    && completedAt - startedAt <= maximumDuration && elapsed >= 0
+                    && elapsed / (decimal)frequency <= maximumDuration.Ticks / (decimal)TimeSpan.TicksPerSecond
+                    && ValidObservationWindow(output, startedAt, completedAt, started, completed, frequency);
+            }
+            catch (OverflowException)
+            {
+                validClock = false;
+            }
+            if (!validClock)
+            {
+                for (int index = 0; index < output.Length; index++)
+                {
+                    // A timing refusal invalidates successful values without erasing
+                    // native denial, unavailable or malformed-return evidence.
+                    if (output[index].State == MemoryObservationState.Available)
+                    {
+                        output[index] = output[index] with
+                        {
+                            State = MemoryObservationState.Stale,
+                            Value = null
+                        };
+                    }
+                }
+            }
+            return new(mode, true, null, attempts, RuntimeInformation.ProcessArchitecture);
         }
         catch
         {
             output.Clear();
             throw;
         }
+    }
+
+    private static void Stamp(Span<MacOsSysctlMemoryObservation> output, TimeProvider clock)
+    {
+        DateTimeOffset at = clock.GetUtcNow();
+        long timestamp = clock.GetTimestamp();
+        long frequency = clock.TimestampFrequency;
+        for (int index = 0; index < output.Length; index++)
+        {
+            output[index] = output[index] with
+            {
+                SampledAt = at,
+                Timestamp = timestamp,
+                TimestampFrequency = frequency
+            };
+        }
+    }
+
+    private static bool ValidObservationWindow(ReadOnlySpan<MacOsSysctlMemoryObservation> output,
+        DateTimeOffset startedAt, DateTimeOffset completedAt, long started, long completed, long frequency)
+    {
+        long previousTimestamp = started;
+        DateTimeOffset previousUtc = startedAt;
+        foreach (MacOsSysctlMemoryObservation item in output)
+        {
+            if (item.SampledAt is null || item.Timestamp is null || item.TimestampFrequency != frequency
+                || item.Timestamp < previousTimestamp || item.Timestamp > completed
+                || item.SampledAt < previousUtc || item.SampledAt > completedAt)
+            {
+                return false;
+            }
+            previousTimestamp = item.Timestamp.Value;
+            previousUtc = item.SampledAt.Value;
+        }
+        return true;
     }
 
     private static void ReadPhysical(Span<MacOsSysctlMemoryObservation> output, ref int attempts)

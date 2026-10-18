@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Platform/MacOsSysctlMemoryReader.cs",
+                "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs"
+            ],
+            "reason": "The trusted path-based registry governs these existing backend paths under environment-variable. Preserve their original native ABI, observation provenance and caller-visible identifiers while adding the caller-owned capture window; no process environment key, registry or policy authority is added or renamed."
+        }
+    ]
+}
