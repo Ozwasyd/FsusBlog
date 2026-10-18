@@ -77,6 +77,91 @@ describe('formal property mutation API through private binary client and registr
         expect(fetchBoundary.mock.calls.filter(([target]) => !String(target).includes('pow-challenge'))).toHaveLength(1);
     });
 
+    it('accepts uppercase value request GUID after canonical wire round-trip', async () =>
+    {
+        const command = wire.decodeArticlePropertyValueMutationCommand(bytes('value-0'));
+        const receipt = wire.decodeArticlePropertyValueMutationReceipt(bytes('persisted-value-receipt'));
+        const original = wire.encodeArticlePropertyValueMutationCommand(command);
+        command.requestId = command.requestId.toUpperCase();
+        expect(wire.encodeArticlePropertyValueMutationCommand(command)).toEqual(original);
+        respond(FrameType.ArticlePropertyValueMutationReceipt, wire.encodeArticlePropertyValueMutationReceipt(receipt));
+        await expect(articlePropertyValuesApi.mutate(command)).resolves.toEqual(receipt);
+    });
+
+    it('accepts uppercase definition request and definition GUIDs after canonical wire round-trip', async () =>
+    {
+        const command = wire.decodeArticlePropertyDefinitionCreateRequest(bytes('definition-create'));
+        const receipt = wire.decodeArticlePropertyDefinitionMutationReceipt(bytes('persisted-definition-receipt'));
+        const original = wire.encodeArticlePropertyDefinitionCreateRequest(command);
+        command.requestId = command.requestId.toUpperCase();
+        command.definitionId = command.definitionId.toUpperCase();
+        expect(wire.encodeArticlePropertyDefinitionCreateRequest(command)).toEqual(original);
+        respond(FrameType.ArticlePropertyDefinitionMutationReceipt, wire.encodeArticlePropertyDefinitionMutationReceipt(receipt));
+        await expect(articlePropertyDefinitionsApi.create(command)).resolves.toEqual(receipt);
+    });
+
+    it.each(['create', 'update', 'rename', 'deprecate', 'delete'] as const)('binds %s to its actual generated method, path and canonical GUID identity', async action =>
+    {
+        const request = { ...wire.decodeArticlePropertyDefinitionCreateRequest(bytes('definition-create')), expectedSchemaRevision: '1' };
+        request.requestId = request.requestId.toUpperCase();
+        request.definitionId = request.definitionId.toUpperCase();
+        const receipt = wire.decodeArticlePropertyDefinitionMutationReceipt(bytes('persisted-definition-receipt'));
+        receipt.commandKind = { create: 'create', update: 'change-settings', rename: 'rename', deprecate: 'deprecate', delete: 'delete' }[action];
+        receipt.previousSchemaRevision = action === 'create' ? '0' : '1';
+        receipt.schemaRevision = action === 'create' ? '1' : '2';
+        respond(FrameType.ArticlePropertyDefinitionMutationReceipt, wire.encodeArticlePropertyDefinitionMutationReceipt(receipt));
+        await expect(articlePropertyDefinitionsApi[action](request)).resolves.toEqual(receipt);
+        const [url, options] = mutationCall();
+        expect(options.method).toBe({ create: 'POST', update: 'PUT', rename: 'POST', deprecate: 'POST', delete: 'DELETE' }[action]);
+        expect(new Headers(options.headers).get('X-Fsus-Pow-Proof')).toBeTruthy();
+        if (action !== 'create') expect(url).toContain(receipt.definitionId);
+        const expectedFrame = { create: FrameType.ArticlePropertyDefinitionCreateRequest, update: FrameType.ArticlePropertyDefinitionUpdateRequest,
+            rename: FrameType.ArticlePropertyDefinitionRenameRequest, deprecate: FrameType.ArticlePropertyDefinitionDeprecateRequest,
+            delete: FrameType.ArticlePropertyDefinitionDeleteRequest }[action];
+        expect(new DataView(options.body as ArrayBuffer).getUint16(8, true)).toBe(expectedFrame);
+    });
+
+    it('holds value request identity and CAS coordinates across asynchronous transport', async () =>
+    {
+        const request = wire.decodeArticlePropertyValueMutationCommand(bytes('value-0'));
+        const receipt = wire.decodeArticlePropertyValueMutationReceipt(bytes('persisted-value-receipt'));
+        fetchBoundary.mockImplementation(async (url: string) =>
+        {
+            if (url.includes('pow-challenge')) return challenge();
+            request.requestId = '10112233-4455-6677-8899-aabbccddeeff';
+            request.expectedPropertyRevision = '2';
+            request.mode = 0;
+            return new Response(encodeAedsFrame(FrameType.ArticlePropertyValueMutationReceipt,
+                wire.encodeArticlePropertyValueMutationReceipt(receipt)));
+        });
+        await expect(articlePropertyValuesApi.mutate(request)).resolves.toEqual(receipt);
+    });
+
+    it('holds definition identity and CAS coordinates across asynchronous transport', async () =>
+    {
+        const request = wire.decodeArticlePropertyDefinitionCreateRequest(bytes('definition-create'));
+        const receipt = wire.decodeArticlePropertyDefinitionMutationReceipt(bytes('persisted-definition-receipt'));
+        fetchBoundary.mockImplementation(async (url: string) =>
+        {
+            if (url.includes('pow-challenge')) return challenge();
+            request.requestId = '10112233-4455-6677-8899-aabbccddeeff';
+            request.definitionId = '20112233-4455-6677-8899-aabbccddeeff';
+            request.expectedOwnerRevision = '2';
+            return new Response(encodeAedsFrame(FrameType.ArticlePropertyDefinitionMutationReceipt,
+                wire.encodeArticlePropertyDefinitionMutationReceipt(receipt)));
+        });
+        await expect(articlePropertyDefinitionsApi.create(request)).resolves.toEqual(receipt);
+    });
+
+    it('still refuses a receipt for another valid definition GUID', async () =>
+    {
+        const request = wire.decodeArticlePropertyDefinitionCreateRequest(bytes('definition-create'));
+        const receipt = wire.decodeArticlePropertyDefinitionMutationReceipt(bytes('persisted-definition-receipt'));
+        receipt.definitionId = '20112233-4455-6677-8899-aabbccddeeff';
+        respond(FrameType.ArticlePropertyDefinitionMutationReceipt, wire.encodeArticlePropertyDefinitionMutationReceipt(receipt));
+        await expect(articlePropertyDefinitionsApi.create(request)).rejects.toThrow('article_property_definition_receipt_binding_invalid');
+    });
+
     it.each(['requestId', 'articleId', 'definitionOwnerUserId', 'siteScope', 'expectedArticleRevisionId',
         'beforePropertyRevision', 'afterPropertyRevision', 'commandKind'] as const)('refuses altered receipt coordinate %s', async key =>
     {
