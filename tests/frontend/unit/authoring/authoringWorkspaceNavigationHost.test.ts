@@ -281,7 +281,7 @@ describe('bounded overlapping preparation lifecycle', () =>
             const first = f.host.prepare(f.entry, caller.signal);
             const issued = f.admission.mock.results[0]!.value;
             const work = f.primary.adapter.beginTask('attachment', 'original:overlap-work');
-            const mountedReads = vi.spyOn(f.mountedSource, 'readDocumentBinding');
+            const mountedReads = vi.spyOn(f.editor, 'getSession');
             mountedReads.mockClear();
             const other = new AbortController();
             expect(await f.host.prepare(f.entry, other.signal)).toBeNull();
