@@ -37,11 +37,17 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
         CurrentSchemaCompletePhysicalProjection expected = Expected();
         PgCurrentSchemaEffectObservation original = Effects("1", "revision BETWEEN 1 AND 10", ["revision"]);
         Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaOwnedTargetObserver.Compare(expected, expected.Tables,
-            original with { Expressions = original.Expressions.Where(static value => value.Kind != "default").ToArray() }));
+            original with
+            {
+                Expressions = original.Expressions.Where(static value => value.Kind != "default").ToArray()
+            }));
         Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaOwnedTargetObserver.Compare(expected, expected.Tables,
             Effects("1", "revision BETWEEN 1 AND 10", [])));
         Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaOwnedTargetObserver.Compare(expected, expected.Tables,
-            original with { StandardConformingStrings = false }));
+            original with
+            {
+                StandardConformingStrings = false
+            }));
     }
 
     [Fact]
@@ -57,9 +63,15 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
             [new("default", "probe", "revision", "nextval('public.probe_revision_seq'::regclass)", [], ["public.probe_revision_seq"])], [], [], []);
         Assert.Empty(PgCurrentSchemaOwnedTargetObserver.Compare(expected, snapshot, original));
         Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaOwnedTargetObserver.Compare(expected, snapshot,
-            original with { Expressions = [original.Expressions[0] with { SequenceReferences = ["foreign.probe_revision_seq"] }] }));
+            original with
+            {
+                Expressions = [original.Expressions[0] with { SequenceReferences = ["foreign.probe_revision_seq"] }]
+            }));
         Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaOwnedTargetObserver.Compare(expected, snapshot,
-            original with { Expressions = [original.Expressions[0] with { Expression = "nextval('public.probe_revision_seq'::regclass) + 1" }] }));
+            original with
+            {
+                Expressions = [original.Expressions[0] with { Expression = "nextval('public.probe_revision_seq'::regclass) + 1" }]
+            }));
     }
 
     [Theory]
@@ -106,46 +118,154 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
         SchemaConstraintModel check = constraints[control.Name + "_sequence_check"];
         switch (drift)
         {
-            case "missing-column": columns.Remove("entry_payload"); break;
-            case "extra-column": columns.Add("unexpected", payload with { Name = "unexpected" }); break;
-            case "type": columns["entry_payload"] = payload with { DataType = "int64", PhysicalType = "bigint" }; break;
-            case "length": columns["plan_digest"] = columns["plan_digest"] with { MaxLength = 65 }; break;
-            case "nullable": columns["entry_payload"] = payload with { IsNullable = true }; break;
-            case "primary-key": columns["sequence"] = columns["sequence"] with { IsPrimaryKey = false }; break;
-            case "identity": columns["sequence"] = columns["sequence"] with { IsIdentity = true, GenerationKind = "identity-always" }; break;
+            case "missing-column":
+                columns.Remove("entry_payload");
+                break;
+            case "extra-column":
+                columns.Add("unexpected", payload with
+                {
+                    Name = "unexpected"
+                });
+                break;
+            case "type":
+                columns["entry_payload"] = payload with
+                {
+                    DataType = "int64",
+                    PhysicalType = "bigint"
+                };
+                break;
+            case "length":
+                columns["plan_digest"] = columns["plan_digest"] with
+                {
+                    MaxLength = 65
+                };
+                break;
+            case "nullable":
+                columns["entry_payload"] = payload with
+                {
+                    IsNullable = true
+                };
+                break;
+            case "primary-key":
+                columns["sequence"] = columns["sequence"] with
+                {
+                    IsPrimaryKey = false
+                };
+                break;
+            case "identity":
+                columns["sequence"] = columns["sequence"] with
+                {
+                    IsIdentity = true,
+                    GenerationKind = "identity-always"
+                };
+                break;
             case "owned-sequence":
                 columns["sequence"] = columns["sequence"] with
                 {
                     OwnedSequence = new("public", "extra_sequence", control.Name, "sequence", "bigint", 1, 1, 1, long.MaxValue, 1, false)
                 };
                 break;
-            case "collation": columns["entry_payload"] = payload with { Collation = "pg_catalog.C" }; break;
+            case "collation":
+                columns["entry_payload"] = payload with
+                {
+                    Collation = "pg_catalog.C"
+                };
+                break;
             case "default":
-                effects = effects with { Expressions = [.. effects.Expressions, new("default", control.Name, "entry_payload", "'changed'::text", [], [])] };
+                effects = effects with
+                {
+                    Expressions = [.. effects.Expressions, new("default", control.Name, "entry_payload", "'changed'::text", [], [])]
+                };
                 break;
             case "default-null":
-                effects = effects with { Expressions = [.. effects.Expressions, new("default", control.Name, "entry_payload", "NULL::text", [], [])] };
+                effects = effects with
+                {
+                    Expressions = [.. effects.Expressions, new("default", control.Name, "entry_payload", "NULL::text", [], [])]
+                };
                 break;
-            case "computed": columns["entry_payload"] = payload with { ComputedExpression = "'changed'" }; break;
-            case "index-direction": indexes[index.Name] = index with { Keys = [index.Keys[0] with { Direction = "desc" }] }; break;
+            case "computed":
+                columns["entry_payload"] = payload with
+                {
+                    ComputedExpression = "'changed'"
+                };
+                break;
+            case "index-direction":
+                indexes[index.Name] = index with
+                {
+                    Keys = [index.Keys[0] with { Direction = "desc" }]
+                };
+                break;
             case "primary-index-direction":
                 SchemaIndexModel primary = indexes[control.Name + "_pkey"];
-                indexes[primary.Name] = primary with { Keys = primary.Keys.Select((key, position) =>
-                    position == 0 ? key with { Direction = "desc" } : key).ToArray() };
+                indexes[primary.Name] = primary with
+                {
+                    Keys = primary.Keys.Select((key, position) =>
+                    position == 0 ? key with
+                    {
+                        Direction = "desc"
+                    } : key).ToArray()
+                };
                 break;
-            case "index-opclass": indexes[index.Name] = index with { Keys = [index.Keys[0] with { OperatorClass = "pg_catalog.text_pattern_ops" }] }; break;
-            case "index-collation": indexes[index.Name] = index with { Keys = [index.Keys[0] with { Collation = "pg_catalog.C" }] }; break;
-            case "index-include": indexes[index.Name] = index with { IncludedColumns = ["parent_digest"] }; break;
-            case "index-null-distinct": indexes[index.Name] = index with { NullsNotDistinct = true }; break;
-            case "missing-constraint": constraints.Remove(check.Name); effects = effects with { Expressions = [] }; break;
-            case "missing-constraint-same-index": constraints.Remove(index.Name); break;
-            case "constraint-deferred": constraints[index.Name] = constraints[index.Name] with { IsDeferrable = true }; break;
-            case "constraint-unvalidated": constraints[check.Name] = check with { IsValidated = false }; break;
-            case "check": effects = effects with { Expressions = [effects.Expressions[0] with { Expression = "sequence >= 0" }] }; break;
+            case "index-opclass":
+                indexes[index.Name] = index with
+                {
+                    Keys = [index.Keys[0] with { OperatorClass = "pg_catalog.text_pattern_ops" }]
+                };
+                break;
+            case "index-collation":
+                indexes[index.Name] = index with
+                {
+                    Keys = [index.Keys[0] with { Collation = "pg_catalog.C" }]
+                };
+                break;
+            case "index-include":
+                indexes[index.Name] = index with
+                {
+                    IncludedColumns = ["parent_digest"]
+                };
+                break;
+            case "index-null-distinct":
+                indexes[index.Name] = index with
+                {
+                    NullsNotDistinct = true
+                };
+                break;
+            case "missing-constraint":
+                constraints.Remove(check.Name);
+                effects = effects with
+                {
+                    Expressions = []
+                };
+                break;
+            case "missing-constraint-same-index":
+                constraints.Remove(index.Name);
+                break;
+            case "constraint-deferred":
+                constraints[index.Name] = constraints[index.Name] with
+                {
+                    IsDeferrable = true
+                };
+                break;
+            case "constraint-unvalidated":
+                constraints[check.Name] = check with
+                {
+                    IsValidated = false
+                };
+                break;
+            case "check":
+                effects = effects with
+                {
+                    Expressions = [effects.Expressions[0] with { Expression = "sequence >= 0" }]
+                };
+                break;
             case "trigger":
-                effects = effects with { Triggers = [new(control.Name, "unexpected", "unexpected", 27, "O", null, 0, "", false, false, false, null, null)] };
+                effects = effects with
+                {
+                    Triggers = [new(control.Name, "unexpected", "unexpected", 27, "O", null, 0, "", false, false, false, null, null)]
+                };
                 break;
-            default: throw new InvalidOperationException("Unknown native control drift.");
+            default:
+                throw new InvalidOperationException("Unknown native control drift.");
         }
         var changed = new SchemaTableModel(control.Name, columns, indexes.Keys, indexes, constraints, control.Owner);
         var snapshot = new SchemaModelSnapshot(new Dictionary<string, SchemaTableModel> { [changed.Name] = changed },
@@ -171,13 +291,19 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
             IndependentSequences = [CurrentSchemaCanonicalAuthority.ProjectIndependentSequence(operation, SchemaProviderKind.PostgreSql)]
         };
         PgCurrentSequence sequence = new(operation.Name, "bigint", 1, 1, 1, long.MaxValue, 1, false);
-        PgCurrentSchemaEffectObservation effects = ControlEffects(control) with { Sequences = [sequence] };
+        PgCurrentSchemaEffectObservation effects = ControlEffects(control) with
+        {
+            Sequences = [sequence]
+        };
         Assert.Empty(PgCurrentSchemaOwnedTargetObserver.Compare(expected, snapshot, effects));
         switch (drift)
         {
             case "missing-control":
                 tables.Clear();
-                effects = effects with { Expressions = [] };
+                effects = effects with
+                {
+                    Expressions = []
+                };
                 break;
             case "missing-constraint-same-index":
                 var constraints = new Dictionary<string, SchemaConstraintModel>(control.Constraints);
@@ -185,9 +311,20 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
                 tables[control.Name] = new(control.Name, control.Columns, control.Indexes,
                     control.IndexDefinitions, constraints, control.Owner);
                 break;
-            case "missing-sequence": effects = effects with { Sequences = [] }; break;
-            case "sequence-cache": effects = effects with { Sequences = [sequence with { Cache = 2 }] }; break;
-            default: throw new InvalidOperationException("Unknown combined native drift.");
+            case "missing-sequence":
+                effects = effects with
+                {
+                    Sequences = []
+                };
+                break;
+            case "sequence-cache":
+                effects = effects with
+                {
+                    Sequences = [sequence with { Cache = 2 }]
+                };
+                break;
+            default:
+                throw new InvalidOperationException("Unknown combined native drift.");
         }
         var changed = new SchemaModelSnapshot(tables, provider: SchemaProviderKind.PostgreSql);
         Assert.NotEmpty(PgCurrentSchemaOwnedTargetObserver.Compare(expected, changed, effects));
@@ -201,7 +338,10 @@ public sealed class PgCurrentSchemaOwnedTargetObserverTests
         Assert.Empty(PgCurrentSchemaControlShape.CompareApplyJournal(
             new(new Dictionary<string, SchemaTableModel> { [control.Name] = control }, provider: SchemaProviderKind.PostgreSql), effects));
         Assert.NotEmpty(PgCurrentSchemaControlShape.CompareApplyJournal(
-            new(new Dictionary<string, SchemaTableModel>(), provider: SchemaProviderKind.PostgreSql), effects with { Expressions = [] }));
+            new(new Dictionary<string, SchemaTableModel>(), provider: SchemaProviderKind.PostgreSql), effects with
+            {
+                Expressions = []
+            }));
         Assert.NotEmpty(PgCurrentSchemaControlShape.CompareApplyJournal(new(new Dictionary<string, SchemaTableModel>
         {
             [control.Name] = control,

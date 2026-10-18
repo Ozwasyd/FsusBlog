@@ -196,7 +196,10 @@ public sealed class SqliteCurrentSchemaOwnedTargetObserverTests
             }.ToString());
         }
 
-        internal SqliteConnection Connection { get; }
+        internal SqliteConnection Connection
+        {
+            get;
+        }
         internal DbTransaction Transaction => _transaction!;
         internal CancellationToken Token => _cancellation.Token;
 

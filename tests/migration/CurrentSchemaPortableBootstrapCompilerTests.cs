@@ -46,7 +46,10 @@ public sealed class CurrentSchemaPortableBootstrapCompilerTests
         Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(input), compiled.Target);
         Assert.Equal(3, compiled.Commands.Count);
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(input,
-            input.Producer with { ProducerAssemblySha256 = new string('d', 64) }, provider, binding));
+            input.Producer with
+            {
+                ProducerAssemblySha256 = new string('d', 64)
+            }, provider, binding));
         input.RequiredRecipes[0].SemanticDescription!.Table.Columns["id"] = new("id", false, true, false, null, "int64", PhysicalType: "bigint");
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(input, input.Producer, provider, binding));
     }
@@ -97,13 +100,15 @@ public sealed class CurrentSchemaPortableBootstrapCompilerTests
         CurrentSchemaProjection valid = Projection();
         Assert.NotEmpty(CurrentSchemaPortableBootstrapCompiler.CompileEntitySubset(valid, provider).Commands);
         SchemaTableModel table = valid.Schema.Tables["probe"];
-        if (invalid == "index-incomplete") table.Indexes.Add("not_observed");
-        else table.Columns["name"] = table.Columns["name"] with
-        {
-            IsNullable = invalid == "null-order",
-            DefaultValue = invalid == "unknown-default" ? "unowned_function()" : "pending",
-            Name = invalid == "identifier-lf" ? "name\n" : "name"
-        };
+        if (invalid == "index-incomplete")
+            table.Indexes.Add("not_observed");
+        else
+            table.Columns["name"] = table.Columns["name"] with
+            {
+                IsNullable = invalid == "null-order",
+                DefaultValue = invalid == "unknown-default" ? "unowned_function()" : "pending",
+                Name = invalid == "identifier-lf" ? "name\n" : "name"
+            };
         // Reseal supported source facts so rejection exercises provider capability,
         // not merely an earlier semantic content hash mismatch.
         CurrentSchemaProjection changed = CurrentSchemaCanonicalAuthority.Generate(
@@ -116,13 +121,19 @@ public sealed class CurrentSchemaPortableBootstrapCompilerTests
     {
         CurrentSchemaProjection projection = Projection();
         SchemaTableModel table = projection.Schema.Tables["probe"];
-        table.Columns["name"] = table.Columns["name"] with { DefaultValue = @"'a\b'" };
+        table.Columns["name"] = table.Columns["name"] with
+        {
+            DefaultValue = @"'a\b'"
+        };
         CurrentSchemaProjection resealed = CurrentSchemaCanonicalAuthority.Generate(
             CurrentSchemaCanonicalAuthority.Create(projection.Schema.Tables, projection.Identity.SourceDigest));
         InvalidOperationException subset = Assert.Throws<InvalidOperationException>(() =>
             CurrentSchemaPortableBootstrapCompiler.CompileEntitySubset(resealed, SchemaProviderKind.MySql));
         Assert.Equal("portable_bootstrap_default_escape_unavailable", subset.Message);
-        CurrentSchemaBootstrapInput input = Input([]) with { EntityProjection = resealed };
+        CurrentSchemaBootstrapInput input = Input([]) with
+        {
+            EntityProjection = resealed
+        };
         string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
         // Original owner/input admission succeeds; refusal is the native dialect's
         // unsupported escape semantics, not an obsolete content seal.
@@ -141,10 +152,16 @@ public sealed class CurrentSchemaPortableBootstrapCompilerTests
     {
         CurrentSchemaProjection projection = Projection();
         SchemaTableModel table = projection.Schema.Tables["probe"];
-        table.Columns["name"] = table.Columns["name"] with { DefaultValue = literal };
+        table.Columns["name"] = table.Columns["name"] with
+        {
+            DefaultValue = literal
+        };
         CurrentSchemaProjection resealed = CurrentSchemaCanonicalAuthority.Generate(
             CurrentSchemaCanonicalAuthority.Create(projection.Schema.Tables, projection.Identity.SourceDigest));
-        CurrentSchemaBootstrapInput input = Input([]) with { EntityProjection = resealed };
+        CurrentSchemaBootstrapInput input = Input([]) with
+        {
+            EntityProjection = resealed
+        };
         CompiledCurrentSchemaBootstrap compiled = CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(input,
             input.Producer, provider, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input));
         Assert.Equal(CurrentSchemaOwnedTargetProjection.Observe(input), compiled.Target);
@@ -251,7 +268,10 @@ public sealed class CurrentSchemaPortableBootstrapCompilerTests
             column.Name, "recipe_probe", Column: column)]);
         string binding = CurrentSchemaBootstrapCompiler.OwnedInputDigest(input);
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(
-            input, input.Producer with { ContractAssemblySha256 = new string('e', 64) }, provider, binding));
+            input, input.Producer with
+            {
+                ContractAssemblySha256 = new string('e', 64)
+            }, provider, binding));
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaPortableBootstrapCompiler.CompileOwnedFacts(
             input, input.Producer, provider, new string('e', 64)));
         Assert.False(input.RequiredRecipes[0].SemanticDescription!.Table.Columns.ContainsKey(column.Name));
