@@ -910,9 +910,12 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
 
     private static T Construct<T>(params object[] arguments)
     {
-        object instance = Activator.CreateInstance(typeof(T),
-            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
-            null, arguments, null)!;
+        object instance = Activator.CreateInstance(
+            type: typeof(T),
+            bindingAttr: System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+            binder: null,
+            args: arguments,
+            culture: null)!;
         return (T)instance;
     }
 
