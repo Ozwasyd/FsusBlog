@@ -71,9 +71,10 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
         long owner, string session, VerifiedAuthoringPackage package, Action verifyRequest, CancellationToken token)
     {
         await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(token);
+        // Activation owns its principal/session custody on this same transaction, before any
+        // state/provenance resource. Approval scope acquisition never takes these actor locks.
+        await AuthoringExtensionStateScopeIssuer.RequireLiveActorAsync(connection, owner, session, token, holdRows: true);
         string scopeId = ScopeId(registration.Scope);
-        // Match the real original writer order. A state DELETE holds the state row before its
-        // provenance tombstone trigger; never wait on that row while holding provenance here.
         await using (var stateLock = new NpgsqlCommand(
             "SELECT pg_advisory_xact_lock(hashtextextended($1, 2143));", connection))
         {
@@ -111,6 +112,12 @@ public sealed class PostgresAuthoringExtensionScopeProvenanceStore(
             activate.Parameters.AddWithValue(registration.RegistrationId);
             Require(await activate.ExecuteNonQueryAsync(token) == 1, "scope_activation_cas_failed");
         }
+        // The UPDATE itself can wait (including inside real database triggers). Time and the
+        // configured request site can change during that wait even though actor rows are held.
+        // A failed final check rolls the UPDATE back, retaining the same non-authorizing Pending.
+        verifyRequest();
+        AuthoringExtensionStateScopeIssuer.ValidatePackage(package, stored.Scope);
+        await AuthoringExtensionStateScopeIssuer.RequireLiveActorAsync(connection, owner, session, token);
         await transaction.CommitAsync(token);
     }
 
