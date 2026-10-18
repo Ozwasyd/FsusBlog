@@ -20,24 +20,29 @@ beforeEach((context) => {
 afterEach((context) => {
   recordRuntimeTopology('finish', { id: context.task.id, name: context.task.name })
 })
-;(globalThis as { window?: Window }).window = unitWindow
-;(globalThis as { document?: Document }).document = unitWindow.document
-;(globalThis as { history?: History }).history = unitWindow.history
-;(globalThis as { location?: Location }).location = unitWindow.location
-;(globalThis as { Node?: typeof Node }).Node = unitWindow.Node
-;(globalThis as { Element?: typeof Element }).Element = unitWindow.Element
-;(globalThis as { HTMLElement?: typeof HTMLElement }).HTMLElement = unitWindow.HTMLElement
-;(globalThis as { SVGElement?: typeof SVGElement }).SVGElement = unitWindow.SVGElement
-;(globalThis as { localStorage?: Storage }).localStorage = unitWindow.localStorage
-;(globalThis as { sessionStorage?: Storage }).sessionStorage = unitWindow.sessionStorage
-;(globalThis as { getComputedStyle?: typeof globalThis.getComputedStyle }).getComputedStyle =
-  unitWindow.getComputedStyle.bind(unitWindow) as typeof globalThis.getComputedStyle
-;(globalThis as { requestAnimationFrame?: (cb: FrameRequestCallback) => number }).requestAnimationFrame =
-  animationFrames.request
-;(globalThis as { cancelAnimationFrame?: (id: number) => void }).cancelAnimationFrame =
-  animationFrames.cancel
-unitWindow.requestAnimationFrame = animationFrames.request
-unitWindow.cancelAnimationFrame = animationFrames.cancel
+// Install happy-dom's public objects on the Node host without claiming that they
+// implement the complete lib.dom interfaces.
+Object.assign(globalThis, {
+  window: unitWindow,
+  document: unitWindow.document,
+  history: unitWindow.history,
+  location: unitWindow.location,
+  Node: unitWindow.Node,
+  Element: unitWindow.Element,
+  HTMLElement: unitWindow.HTMLElement,
+  SVGElement: unitWindow.SVGElement,
+  localStorage: unitWindow.localStorage,
+  sessionStorage: unitWindow.sessionStorage,
+  getComputedStyle: unitWindow.getComputedStyle.bind(unitWindow)
+})
+// Both targets use the same unit frame port. Happy-dom's native port instead
+// returns NodeJS.Immediate; the unit environment owns its handles and disposal.
+const animationFrameGlobals = {
+  requestAnimationFrame: animationFrames.request,
+  cancelAnimationFrame: animationFrames.cancel
+}
+Object.assign(globalThis, animationFrameGlobals)
+Object.assign(unitWindow, animationFrameGlobals)
 
 afterAll(() => {
   animationFrames.dispose()

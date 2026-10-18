@@ -112,6 +112,16 @@ const threadMessage = (messageId: string, body = messageId): ConversationMessage
   createdAt: `2026-07-19T12:00:${messageId.padStart(2, '0').slice(-2)}Z`
 })
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 type Inbox = ReturnType<typeof useAccountMessagesInbox>
 type AdminCenter = ReturnType<typeof useAdminMessageCenter>
 let wrappers: VueWrapper[] = []
@@ -171,6 +181,8 @@ describe('message conversation cursor pagination', () => {
     vi.mocked(messageApi.markConversationRead).mockResolvedValue(null)
     vi.mocked(messageApi.adminGetConversationDetail).mockResolvedValue({
       conversationId: '30',
+      counterpartyAccountId: '30',
+      counterpartyAccountStatus: 0,
       readSnapshotMessageId: '300',
       subject: 'conversation-30',
       status: 0,
@@ -260,13 +272,13 @@ describe('message conversation cursor pagination', () => {
   it('uses the admin page size and cursor for the second request', async () => {
     vi.mocked(messageApi.adminGetConversations)
       .mockResolvedValueOnce({
-        items: [conversation('30', '2026-07-19T12:00:00Z')],
+        items: [adminConversation('30', '2026-07-19T12:00:00Z')],
         total: 2,
         nextCursor: 'admin-cursor-1',
         hasMore: true
       })
       .mockResolvedValueOnce({
-        items: [conversation('29', '2026-07-19T11:00:00Z')],
+        items: [adminConversation('29', '2026-07-19T11:00:00Z')],
         total: 2,
         nextCursor: null,
         hasMore: false
@@ -408,8 +420,8 @@ describe('message conversation cursor pagination', () => {
     await flushPromises()
     vi.clearAllMocks()
 
-    const slowList = Promise.withResolvers<Awaited<ReturnType<typeof messageApi.adminGetConversations>>>()
-    const slowDetail = Promise.withResolvers<Awaited<ReturnType<typeof messageApi.adminGetConversationDetail>>>()
+    const slowList = deferred<Awaited<ReturnType<typeof messageApi.adminGetConversations>>>()
+    const slowDetail = deferred<Awaited<ReturnType<typeof messageApi.adminGetConversationDetail>>>()
     vi.mocked(messageApi.adminGetConversations).mockReturnValue(slowList.promise)
     vi.mocked(messageApi.adminGetConversationDetail).mockReturnValue(slowDetail.promise)
     inboxStore.inboxBatch = [{
@@ -510,7 +522,7 @@ describe('message conversation cursor pagination', () => {
       nextCursor: null,
       hasMore: false
     })
-    const late = Promise.withResolvers<Awaited<ReturnType<typeof messageApi.getAccountConversationDetail>>>()
+    const late = deferred<Awaited<ReturnType<typeof messageApi.getAccountConversationDetail>>>()
     vi.mocked(messageApi.getAccountConversationDetail)
       .mockResolvedValueOnce({
         conversationId: '3', readSnapshotMessageId: '30', subject: 'three', status: 0,

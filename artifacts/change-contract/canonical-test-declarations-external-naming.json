@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/public-preview-quality.mjs",
+                "tools/docs/public-preview-registry.mjs",
+                "tools/frontend/generate-canonical-test-declarations.mjs",
+                "tools/test-fixtures/receipt/canonical.mjs",
+                "tools/test/playwright-browser-identity.mjs",
+                "tools/test/random-streams.mjs"
+            ],
+            "reason": "The trusted registry classifies these tooling source paths as process environment naming surfaces. Preserve existing external variable spellings and public tooling entrypoints during the declaration repair; the new producer consumes FSUSBLOG_LOCAL_FSUSUI_ROOT through the existing internal override adapter. No external environment variable is renamed."
+        }
+    ]
+}

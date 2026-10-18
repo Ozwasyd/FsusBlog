@@ -20,13 +20,28 @@ describe('FsusUI Markdown runtime consumer boundary', () => {
   })
 
   it('keeps runtime failure explicit instead of producing fallback HTML', () => {
-    expect(() => unwrapMarkdownRuntimeResult({
+    const envelope = {
       ok: false,
       error: {
-        code: 'runtime_unavailable',
+        code: 'infra',
         category: 'runtime',
-        message: 'unavailable'
+        message: 'markdown_wasm_runtime_unavailable'
       }
-    })).toThrow('markdown_runtime_failed:runtime_unavailable')
+    } satisfies Parameters<typeof unwrapMarkdownRuntimeResult>[0]
+
+    expect(() => unwrapMarkdownRuntimeResult(envelope)).toThrow('markdown_runtime_failed:infra')
+  })
+
+  it('preserves distinct public protocol failures instead of hardcoding infra', () => {
+    const envelope = {
+      ok: false,
+      error: {
+        code: 'protocol',
+        category: 'runtime',
+        message: 'protocol failure'
+      }
+    } satisfies Parameters<typeof unwrapMarkdownRuntimeResult>[0]
+
+    expect(() => unwrapMarkdownRuntimeResult(envelope)).toThrow('markdown_runtime_failed:protocol')
   })
 })

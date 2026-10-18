@@ -172,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, toRaw } from 'vue';
+import { computed, nextTick, ref, toRaw, type ComponentPublicInstance } from 'vue';
 
 import { useArticleWorkspaceTabs } from '@/composables/useArticleWorkspaceTabs';
 import { useMediaQuery } from '@/composables/useMediaQuery';
@@ -224,7 +224,7 @@ const visibleTabs = computed(() =>
 
 const tabButtonId = (tabId: string): string => `article-workspace-tab-${tabId}`;
 
-const registerTabElement = (tabId: string, element: Element | null): void =>
+const registerTabElement = (tabId: string, element: Element | ComponentPublicInstance | null): void =>
 {
     if (element instanceof HTMLElement)
     {
@@ -388,7 +388,7 @@ const handleTabListKeydown = (event: KeyboardEvent): void =>
     const activeIndex = currentIndex >= 0
         ? currentIndex
         : Math.max(0, renderedTabs.findIndex((tab) => tab.isActive));
-    let nextIndex = activeIndex;
+    let nextIndex: number;
     if (event.key === 'ArrowRight')
     {
         nextIndex = (activeIndex + 1) % buttons.length;

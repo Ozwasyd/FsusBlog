@@ -56,12 +56,12 @@ class PrivateSurfaceRuntime
         this.generationState.value = createOpaqueGeneration();
         privateRequestRuntime.advanceForAuthTransition(reason);
         const previousTransition = this.transition;
-        const currentTransition = (async () =>
+        let currentTransition: Promise<void> | null = null;
+        currentTransition = (async () =>
         {
             if (previousTransition)
             {
-                await previousTransition.catch(() =>
-                {});
+                await previousTransition.catch(() => undefined);
             }
 
             const terminationOutcomes = [...this.terminationHandlers].map(handler =>
@@ -72,7 +72,10 @@ class PrivateSurfaceRuntime
                 }
                 catch (error)
                 {
-                    return Promise.reject(error);
+                    return new Promise<void>(() =>
+                    {
+                        throw error;
+                    });
                 }
             });
             let clearOutcome: Promise<void>;
@@ -82,7 +85,10 @@ class PrivateSurfaceRuntime
             }
             catch (error)
             {
-                clearOutcome = Promise.reject(error);
+                clearOutcome = new Promise<void>(() =>
+                {
+                    throw error;
+                });
             }
             let navigationComplete = this.navigationHandler === null;
             try

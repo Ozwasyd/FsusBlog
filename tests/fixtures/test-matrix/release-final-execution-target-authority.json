@@ -1320,8 +1320,8 @@
         },
         {
             "path": "tests/frontend/checks/static/check-canonical-viewport-safe-area.mjs",
-            "contentDigest": "sha256:7121b82975658b4ba86102840f45b0a4cf0d1f95b688762565ef77d74e5d043f",
-            "indexDigest": "sha256:7121b82975658b4ba86102840f45b0a4cf0d1f95b688762565ef77d74e5d043f"
+            "contentDigest": "sha256:1bee76f268d7fc2b384c3efdcfa47af9f551d1cd3029192c13be1a3a689c2e77",
+            "indexDigest": "sha256:1bee76f268d7fc2b384c3efdcfa47af9f551d1cd3029192c13be1a3a689c2e77"
         },
         {
             "path": "tests/frontend/checks/static/check-challenge-capability-registry.mjs",
@@ -1355,8 +1355,8 @@
         },
         {
             "path": "tests/frontend/checks/static/check-document-viewport-source.mjs",
-            "contentDigest": "sha256:9d4fbbc23aef71c9482022760dac4bd5d3bd7f145224b0426ffd5d3590a1c03f",
-            "indexDigest": "sha256:9d4fbbc23aef71c9482022760dac4bd5d3bd7f145224b0426ffd5d3590a1c03f"
+            "contentDigest": "sha256:4085be595802e31c03fac2ed31f6549be02759cdeb9b157b51f68343d01ad82d",
+            "indexDigest": "sha256:4085be595802e31c03fac2ed31f6549be02759cdeb9b157b51f68343d01ad82d"
         },
         {
             "path": "tests/frontend/checks/static/check-dom-depth-static.mjs",
@@ -1815,8 +1815,8 @@
         },
         {
             "path": "tests/frontend/support/aeds-envelope.mjs",
-            "contentDigest": "sha256:b6cf56b6741d468685f0c277dcfcef8bbb70b81c04a4e9a691b61a5ce3b4ddda",
-            "indexDigest": "sha256:b6cf56b6741d468685f0c277dcfcef8bbb70b81c04a4e9a691b61a5ce3b4ddda"
+            "contentDigest": "sha256:dc0f31f7cc186a4737eb71888c4d3f91892a2207dfa69f72e8086f5e8a5f42c8",
+            "indexDigest": "sha256:dc0f31f7cc186a4737eb71888c4d3f91892a2207dfa69f72e8086f5e8a5f42c8"
         },
         {
             "path": "tests/frontend/support/auth-fixture-projection.mjs",
@@ -1860,18 +1860,18 @@
         },
         {
             "path": "tests/frontend/support/playwright/readiness.mjs",
-            "contentDigest": "sha256:cc847a4b07f00c2e2889e7dcd38d390788bd175b8a4663c3cef14619bbcc5b2e",
-            "indexDigest": "sha256:cc847a4b07f00c2e2889e7dcd38d390788bd175b8a4663c3cef14619bbcc5b2e"
+            "contentDigest": "sha256:f98713775c332eb3753d2ad7c507c8ac914b168595876ffbe1a0a258e9c69391",
+            "indexDigest": "sha256:f98713775c332eb3753d2ad7c507c8ac914b168595876ffbe1a0a258e9c69391"
         },
         {
             "path": "tests/frontend/support/public-fixtures.mjs",
-            "contentDigest": "sha256:3c188f8ad124c9beb7435b6815d4aa9488011dad025ece6e9a07b38e4f209e64",
-            "indexDigest": "sha256:3c188f8ad124c9beb7435b6815d4aa9488011dad025ece6e9a07b38e4f209e64"
+            "contentDigest": "sha256:d2f5dee1f8935fa45090837c6b13bc04a901fe77d7b431b9881cfb2edb2b02dd",
+            "indexDigest": "sha256:d2f5dee1f8935fa45090837c6b13bc04a901fe77d7b431b9881cfb2edb2b02dd"
         },
         {
             "path": "tests/frontend/support/runtime-browser-timeout.mjs",
-            "contentDigest": "sha256:90e1a3cec9fb4d28af5e2d2e326c4c48acb4434e04727178ec5c7019fc59c21e",
-            "indexDigest": "sha256:90e1a3cec9fb4d28af5e2d2e326c4c48acb4434e04727178ec5c7019fc59c21e"
+            "contentDigest": "sha256:c271d18bb85deb620de067b97637be626e1d58eb4ec72f5d39ef27fbf6e1c348",
+            "indexDigest": "sha256:c271d18bb85deb620de067b97637be626e1d58eb4ec72f5d39ef27fbf6e1c348"
         },
         {
             "path": "tests/frontend/support/runtime-resilience-audit.mjs",
@@ -1895,8 +1895,8 @@
         },
         {
             "path": "tests/frontend/support/system-chromium.mjs",
-            "contentDigest": "sha256:93d3ae618097394a17e663d69c2089f42cf1c5450b571284aeebf689dc313ace",
-            "indexDigest": "sha256:93d3ae618097394a17e663d69c2089f42cf1c5450b571284aeebf689dc313ace"
+            "contentDigest": "sha256:9beb4b1b8edcdb07d1bb8164242ad0a21de53e4973ee937c8d9c75b4a17e62a2",
+            "indexDigest": "sha256:9beb4b1b8edcdb07d1bb8164242ad0a21de53e4973ee937c8d9c75b4a17e62a2"
         },
         {
             "path": "tests/frontend/support/test-session.mjs",
@@ -3050,13 +3050,13 @@
         },
         {
             "path": "tools/docs/public-preview-quality.mjs",
-            "contentDigest": "sha256:64a902acbef5d0ff03c024b2f9155290e32f7e29b02de12ebca44d7688918b38",
-            "indexDigest": "sha256:64a902acbef5d0ff03c024b2f9155290e32f7e29b02de12ebca44d7688918b38"
+            "contentDigest": "sha256:85b5daa52db7cb0a8d99079a6a354224445c14f14da622a7ab9e3e22ae7f9951",
+            "indexDigest": "sha256:85b5daa52db7cb0a8d99079a6a354224445c14f14da622a7ab9e3e22ae7f9951"
         },
         {
             "path": "tools/docs/public-preview-registry.mjs",
-            "contentDigest": "sha256:c0bc6a2f66b0ea82e7fc3d7dab911fdf9c3303a39bcfa8a84a580895add7543a",
-            "indexDigest": "sha256:c0bc6a2f66b0ea82e7fc3d7dab911fdf9c3303a39bcfa8a84a580895add7543a"
+            "contentDigest": "sha256:907e6fa91f09db4fbe7ebd9484b7e5c1e595986d2af7e354c6d77981a436e314",
+            "indexDigest": "sha256:907e6fa91f09db4fbe7ebd9484b7e5c1e595986d2af7e354c6d77981a436e314"
         },
         {
             "path": "tools/docs/public-preview-runtime-identity.mjs",
@@ -4150,8 +4150,8 @@
         },
         {
             "path": "tools/test-fixtures/receipt/canonical.mjs",
-            "contentDigest": "sha256:ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819",
-            "indexDigest": "sha256:ab7288a3b91eb146dd74c5f4720415bc1598ca0d33700fd6488a8a18667f8819"
+            "contentDigest": "sha256:d3d245e7df249e197750d69c415a562fb0c08afb0ec2912febbea2b872c79f55",
+            "indexDigest": "sha256:d3d245e7df249e197750d69c415a562fb0c08afb0ec2912febbea2b872c79f55"
         },
         {
             "path": "tools/test-fixtures/receipt/comment-cleanup-contract.mjs",
@@ -5300,8 +5300,8 @@
         },
         {
             "path": "tools/test/playwright-browser-identity.mjs",
-            "contentDigest": "sha256:865ab5496801097858cc3cac60d0b251de9011529fd1c258a11cb3d04fbf8512",
-            "indexDigest": "sha256:865ab5496801097858cc3cac60d0b251de9011529fd1c258a11cb3d04fbf8512"
+            "contentDigest": "sha256:7f906314225b50dc448a4f6901e1a690b6bf44512f6aa5fd96313da908796abe",
+            "indexDigest": "sha256:7f906314225b50dc448a4f6901e1a690b6bf44512f6aa5fd96313da908796abe"
         },
         {
             "path": "tools/test/probe-release-reliability-runtime-smoke.mjs",
@@ -5325,8 +5325,8 @@
         },
         {
             "path": "tools/test/random-streams.mjs",
-            "contentDigest": "sha256:22607963b25ee9266dbc8b300042849f49c9766a315e58dc16bdddafbd036f66",
-            "indexDigest": "sha256:22607963b25ee9266dbc8b300042849f49c9766a315e58dc16bdddafbd036f66"
+            "contentDigest": "sha256:84045eab288390e31d21e5b118304b500f652d25085dc1bed62724337d46c55e",
+            "indexDigest": "sha256:84045eab288390e31d21e5b118304b500f652d25085dc1bed62724337d46c55e"
         },
         {
             "path": "tools/test/release-reliability-evidence-binding.mjs",

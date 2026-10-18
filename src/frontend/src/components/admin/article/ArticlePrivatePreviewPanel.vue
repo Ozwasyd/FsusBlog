@@ -63,7 +63,7 @@
                     class="author-preview__cover"
                 >
                     <img
-                        :src="preview.normalizedCoverImageUrl"
+                        :src="preview.normalizedCoverImageUrl ?? undefined"
                         alt=""
                         loading="lazy"
                         decoding="async"

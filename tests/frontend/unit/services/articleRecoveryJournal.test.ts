@@ -569,13 +569,13 @@ describe('article recovery decision helpers', () => {
   it('serializes compare/recover/discard and preserves an inline failure state', async () => {
     const states: Array<{ kind: string | null, error: string }> = []
     const run = createArticleRecoveryOperationRunner(state => states.push(state))
-    let finishFirst: (() => void) | null = null
+    const completion: { finishFirst: (() => void) | null } = { finishFirst: null }
     const first = run('compare', '比较失败', () => new Promise<void>((resolve) => {
-      finishFirst = resolve
+      completion.finishFirst = resolve
     }))
     const duplicate = await run('recover', '恢复失败', async () => {})
     expect(duplicate).toBe(false)
-    finishFirst?.()
+    completion.finishFirst?.()
     await first
 
     expect(await run('discard', '丢弃失败', async () => {
@@ -596,7 +596,10 @@ class MockBroadcastChannel {
   readonly messages: unknown[] = []
   private listener: ((event: MessageEvent) => void) | null = null
 
-  constructor(readonly name: string) {
+  readonly name: string
+
+  constructor(name: string) {
+    this.name = name
     MockBroadcastChannel.instances.push(this)
   }
 

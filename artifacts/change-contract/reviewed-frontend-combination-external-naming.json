@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/public-preview-quality.mjs",
+                "tools/docs/public-preview-registry.mjs",
+                "tools/frontend/generate-canonical-test-declarations.mjs",
+                "tools/test-fixtures/receipt/canonical.mjs",
+                "tools/test/playwright-browser-identity.mjs",
+                "tools/test/random-streams.mjs"
+            ],
+            "reason": "The existing registry classifies these tooling sources as process environment naming surfaces. Preserve their existing external variable spellings and public tooling entrypoints while consuming the reviewed declaration repair through the existing local UI override adapter. No external environment variable is renamed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "The original complete authority producer preserves every existing schema field and target identity while refreshing actual content and index digests for the reviewed committed source closure. Existing external JSON keys are unchanged."
+        }
+    ]
+}

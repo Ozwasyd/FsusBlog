@@ -4,12 +4,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAccountMessagesInbox } from '@/composables/useAccountMessagesInbox'
+import type { ConversationDetailResponse, ConversationListItemResponse, ConversationMessageResponse, messageApi } from '@/api/message'
 
 const mocks = vi.hoisted(() => ({
-  getAccountConversations: vi.fn(),
-  getAccountConversationDetail: vi.fn(),
-  replyAccountConversation: vi.fn(),
-  createAccountConversation: vi.fn(),
+  getAccountConversations: vi.fn<typeof messageApi.getAccountConversations>(),
+  getAccountConversationDetail: vi.fn<typeof messageApi.getAccountConversationDetail>(),
+  replyAccountConversation: vi.fn<typeof messageApi.replyAccountConversation>(),
+  createAccountConversation: vi.fn<typeof messageApi.createAccountConversation>(),
   routerReplace: vi.fn(),
   routeQuery: {} as Record<string, string>,
   showErrorToast: vi.fn(),
@@ -120,6 +121,41 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
+const messageFixture = (
+  messageId: string,
+  conversationId: string,
+  body: string,
+  createdAt = '2026-08-01T00:00:00.000Z',
+  senderType: ConversationMessageResponse['senderType'] = 1
+): ConversationMessageResponse => ({ messageId, conversationId, body, createdAt, senderType })
+
+const conversationFixture = (conversationId: string, subject: string): ConversationListItemResponse => ({
+  conversationId,
+  subject,
+  status: 1,
+  isSystemSource: false,
+  canReply: true,
+  unreadCount: 0,
+  lastMessageAt: '2026-08-01T00:00:00.000Z',
+  updatedAt: '2026-08-01T00:00:00.000Z'
+})
+
+const detailFixture = (
+  conversationId: string | number,
+  body = `Initial message for ${conversationId}`,
+  subject = `工单 ${conversationId}`
+): ConversationDetailResponse => ({
+  conversationId: String(conversationId),
+  subject,
+  status: 1,
+  isSystemSource: false,
+  canReply: true,
+  unreadCount: 0,
+  readSnapshotMessageId: `msg-${conversationId}-snapshot`,
+  lastMessageAt: '2026-08-01T00:00:00.000Z',
+  messages: [messageFixture(`msg-${conversationId}-1`, String(conversationId), body)]
+})
+
 async function mountInbox() {
   let inboxInstance: ReturnType<typeof useAccountMessagesInbox> | null = null
   const TestComp = defineComponent({
@@ -142,23 +178,13 @@ describe('useAccountMessagesInbox draft isolation and switch state machine', () 
     mocks.routeQuery = {}
     mocks.getAccountConversations.mockResolvedValue({
       items: [
-        { conversationId: 'c1', subject: '工单 1', status: 1, unreadCount: 0, lastMessageAt: '2026-08-01T00:00:00.000Z' },
-        { conversationId: 'c2', subject: '工单 2', status: 1, unreadCount: 0, lastMessageAt: '2026-08-01T00:00:00.000Z' }
+        conversationFixture('c1', '工单 1'),
+        conversationFixture('c2', '工单 2')
       ],
       total: 2,
       nextCursor: null
     })
-    mocks.getAccountConversationDetail.mockImplementation((id: string) => Promise.resolve({
-      conversationId: id,
-      subject: `工单 ${id}`,
-      status: 1,
-      canReply: true,
-      unreadCount: 0,
-      readSnapshotMessageId: `msg-${id}-snapshot`,
-      messages: [
-        { id: `msg-${id}-1`, body: `Initial message for ${id}`, createdAt: '2026-08-01T00:00:00.000Z', isSelf: false }
-      ]
-    }))
+    mocks.getAccountConversationDetail.mockImplementation((id) => Promise.resolve(detailFixture(id)))
   })
 
   it('switches conversation directly when current conversation has clean/empty reply draft', async () => {
@@ -277,8 +303,8 @@ describe('useAccountMessagesInbox draft isolation and switch state machine', () 
   })
 
   it('guards duplicate reply submissions and clears draft on success while preserving draft on failure', async () => {
-    let resolveReply: (val: unknown) => void = () => {}
-    mocks.replyAccountConversation.mockImplementation(() => new Promise((resolve) => {
+    let resolveReply: (val: ConversationMessageResponse) => void = () => {}
+    mocks.replyAccountConversation.mockImplementation(() => new Promise<ConversationMessageResponse>((resolve) => {
       resolveReply = resolve
     }))
 
@@ -294,7 +320,7 @@ describe('useAccountMessagesInbox draft isolation and switch state machine', () 
     expect(mocks.replyAccountConversation).toHaveBeenCalledTimes(1)
 
     // Settle reply
-    resolveReply({ id: 'msg-c1-2', body: '回复内容', createdAt: '2026-08-01T00:01:00.000Z', isSelf: true })
+    resolveReply(messageFixture('msg-c1-2', 'c1', '回复内容', '2026-08-01T00:01:00.000Z', 0))
     await Promise.all([p1, p2])
 
     expect(mocks.replyAccountConversation).toHaveBeenCalledTimes(1)
@@ -314,33 +340,17 @@ describe('useAccountMessagesInbox draft isolation and switch state machine', () 
   })
 
   it('ignores a late A detail response after B becomes the current selection', async () => {
-    const detailA = deferred<Record<string, unknown>>()
-    mocks.getAccountConversationDetail.mockImplementation((id: string) => id === 'c1'
+    const detailA = deferred<ConversationDetailResponse>()
+    mocks.getAccountConversationDetail.mockImplementation((id) => id === 'c1'
       ? detailA.promise
-      : Promise.resolve({
-          conversationId: 'c2',
-          subject: '工单 2',
-          status: 1,
-          canReply: true,
-          unreadCount: 0,
-          readSnapshotMessageId: 'msg-c2-snapshot',
-          messages: [{ id: 'msg-c2-1', body: 'B authoritative', createdAt: '2026-08-01T00:00:00.000Z', isSelf: false }]
-        }))
+      : Promise.resolve(detailFixture('c2', 'B authoritative', '工单 2')))
 
     const { wrapper, inbox } = await mountInbox()
     const selectA = inbox.selectConversation('c1')
     await flushPromises()
     const selectB = inbox.selectConversation('c2')
     await selectB
-    detailA.resolve({
-      conversationId: 'c1',
-      subject: '工单 1',
-      status: 1,
-      canReply: true,
-      unreadCount: 0,
-      readSnapshotMessageId: 'msg-c1-snapshot',
-      messages: [{ id: 'msg-c1-1', body: 'Late A', createdAt: '2026-08-01T00:00:00.000Z', isSelf: false }]
-    })
+    detailA.resolve(detailFixture('c1', 'Late A', '工单 1'))
     await selectA
 
     expect(inbox.selectedConversationId.value).toBe('c2')
@@ -350,7 +360,7 @@ describe('useAccountMessagesInbox draft isolation and switch state machine', () 
   })
 
   it('does not append a late A reply into B or clear the saved A draft after switching', async () => {
-    const reply = deferred<{ id: string; body: string; createdAt: string; isSelf: boolean }>()
+    const reply = deferred<ConversationMessageResponse>()
     mocks.replyAccountConversation.mockReturnValue(reply.promise)
     const { wrapper, inbox } = await mountInbox()
     await inbox.selectConversation('c1')
@@ -361,11 +371,11 @@ describe('useAccountMessagesInbox draft isolation and switch state machine', () 
     await inbox.saveDraftAndSwitch()
     expect(inbox.detail.value?.conversationId).toBe('c2')
 
-    reply.resolve({ id: 'msg-c1-2', body: 'Late reply for A', createdAt: '2026-08-01T00:01:00.000Z', isSelf: true })
+    reply.resolve(messageFixture('msg-c1-2', 'c1', 'Late reply for A', '2026-08-01T00:01:00.000Z', 0))
     await send
 
     expect(inbox.selectedConversationId.value).toBe('c2')
-    expect(inbox.detail.value?.messages.map((message) => message.id)).toEqual(['msg-c2-1'])
+    expect(inbox.detail.value?.messages.map((message) => message.messageId)).toEqual(['msg-c2-1'])
     expect(mocks.toastSuccess).not.toHaveBeenCalled()
     await inbox.selectConversation('c1')
     expect(inbox.replyBody.value).toBe('Late reply for A')

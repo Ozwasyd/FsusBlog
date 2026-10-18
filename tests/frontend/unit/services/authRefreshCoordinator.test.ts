@@ -5,8 +5,10 @@ class TestChannel {
   static readonly instances = new Set<TestChannel>()
   static readonly messages: unknown[] = []
   private readonly listeners = new Set<(event: MessageEvent) => void>()
+  readonly name: string
 
-  constructor(readonly name: string) {
+  constructor(name: string) {
+    this.name = name
     TestChannel.instances.add(this)
   }
 
@@ -164,14 +166,15 @@ describe('AuthRefreshCoordinator', () => {
   it('serializes callers through Web Locks and skips a refresh after leader settlement', async () => {
     let tail = Promise.resolve()
     const locks = {
-      request: vi.fn(async <T>(_name: string, _options: { mode: 'exclusive' }, callback: () => Promise<T>) => {
+      request: async <T>(_name: string, _options: { mode: 'exclusive' }, callback: () => Promise<T>) => {
         const previous = tail
         let release!: () => void
         tail = new Promise<void>((resolve) => { release = resolve })
         await previous
         try { return await callback() } finally { release() }
-      })
+      }
     }
+    vi.spyOn(locks, 'request')
     const first = new AuthRefreshCoordinator({ tabId: 'a', locks, createChannel: (name) => new TestChannel(name) })
     const second = new AuthRefreshCoordinator({ tabId: 'b', locks, createChannel: (name) => new TestChannel(name) })
     const refresh = vi.fn().mockResolvedValue(undefined)

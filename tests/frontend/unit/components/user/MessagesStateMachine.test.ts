@@ -120,7 +120,7 @@ describe('message center component state machines', () => {
       global: { stubs: globalStubs }
     })
 
-    expect(wrapper.get('[data-skeleton]').exists()).toBe(true)
+    expect(wrapper.find('[data-skeleton]').exists()).toBe(true)
 
     await wrapper.setProps({ loading: false })
     expect(wrapper.get('[data-empty-state]').text()).toContain('暂无站内信')
