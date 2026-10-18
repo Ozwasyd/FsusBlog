@@ -7,6 +7,7 @@ namespace FsusBlog.ArticleVault.Linux;
 
 internal static class LinuxVaultRootVerifier
 {
+    private const int MaxControlManifestBytes = 1024 * 1024;
     private static readonly HashSet<string> s_supportedFileSystems = new(StringComparer.Ordinal)
     {
         "btrfs",
@@ -260,13 +261,8 @@ internal static class LinuxVaultRootVerifier
         ArticleVaultRootManifest actual;
         try
         {
-            byte[] bytes = File.ReadAllBytes(manifestPath);
-            if (bytes.Length > 1024 * 1024)
-            {
-                throw new LinuxVaultWatcherException("linux_vault_root_manifest_too_large");
-            }
-
-            actual = ArticleVaultManifestCodec.DeserializeRoot(bytes);
+            using var stream = new FileStream(manifestPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1);
+            actual = ReadControlManifest(stream);
         }
         catch (LinuxVaultWatcherException)
         {
@@ -286,6 +282,20 @@ internal static class LinuxVaultRootVerifier
         {
             throw new LinuxVaultWatcherException("linux_vault_root_manifest_binding_mismatch");
         }
+    }
+
+    private static ArticleVaultRootManifest ReadControlManifest(Stream stream)
+    {
+        // The raw-byte budget includes one sentinel, even if the file grows after opening.
+        // Short reads are not EOF; never deserialize a truncated prefix of an oversized manifest.
+        byte[] bytes = new byte[MaxControlManifestBytes + 1];
+        int length = stream.ReadAtLeast(bytes, bytes.Length, throwOnEndOfStream: false);
+        if (length > MaxControlManifestBytes)
+        {
+            throw new LinuxVaultWatcherException("linux_vault_root_manifest_too_large");
+        }
+
+        return ArticleVaultManifestCodec.DeserializeRoot(bytes.AsSpan(0, length));
     }
 
     private static MountRecord ResolveMount(string canonicalPath)
