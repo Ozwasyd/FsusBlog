@@ -43,7 +43,11 @@ const DEFAULT_SITE_KEYWORDS = '.NET, 前端性能, 系统设计, UI 系统, 技�
 
 function nonEmptySeedText(value: string | null | undefined): string | undefined
 {
-    return value ? value : undefined;
+    if (value)
+    {
+        return value;
+    }
+    return undefined;
 }
 
 function resolveBaseUrl(): string
