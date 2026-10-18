@@ -107,8 +107,13 @@ export function captureCohort({ root, ledgerLocator, runLocators, expectedHead, 
     assert(/^[a-f0-9]{64}$/u.test(expectedHead), 'explicit previous ledger head required');
     const ledger = outputPath(root, ledgerLocator);
     const output = outputPath(root, outputLocator);
-    assert(!fs.existsSync(output), 'cohort snapshot already exists');
     const lock = `${ledger}.lock`;
+    // Refuse aliases before creating the ledger or its lock makes those outputs exist.
+    assert(path.relative(ledger, output) !== '' && path.relative(lock, output) !== '',
+        'cohort snapshot must be separate from ledger and lock');
+    const ledgerStat = fs.lstatSync(ledger, { throwIfNoEntry: false });
+    assert(!ledgerStat || ledgerStat.isFile() && !ledgerStat.isSymbolicLink(), 'ledger must select a regular file');
+    assert(!fs.lstatSync(output, { throwIfNoEntry: false }), 'cohort snapshot already exists');
     const lockFd = fs.openSync(lock, 'wx', 0o600);
     try
     {
