@@ -791,9 +791,14 @@ source revision and canonical target bytes against the retained actual `ApplyAsy
 return. A reconstructed or changed snapshot cannot substitute for that return.
 This read-only observation is disposed before separate state effects; the current
 qualification guard still refuses native startup. It is not final execution-result
-custody. To join final approval, the coordinator must call the original
-`CompleteAndObserveAsync` once and retain its actual returned scope through SQL
-CAS. A held Applied observation blocks independent completion, and an already
+custody. The canonical final result-source acquisition receives the original already
+actor-pinned approval `NpgsqlConnection`/`NpgsqlTransaction`. It must acquire state
+custody only after that pinning; a state scope held before actor pinning cannot be
+imported. At that phase the original `CompleteAndObserveAsync` runs once, and its
+actual returned scope remains held through SQL CAS. The result scope exposes that
+identical original object as `StateCustody` to provenance
+`AcquireWithStateCustodyAsync`; no copied snapshot, legacy fallback, second state
+query or replacement connection supplies it. A held Applied observation blocks independent completion, and an already
 completed retry refuses rather than reconstructing historical output. Commit/gap
 drift and effects-and-observe errors require recovery; consumers must not repeat
 destructive effects or reacquire an observation during final verification.
@@ -813,6 +818,13 @@ requests require document epoch/revision facts absent from the state snapshot.
 The consumer therefore explicitly refuses verification/publication with
 `production_runtime_snapshot_acceptance_unavailable`; it does not invent document
 facts, accept an echo as proof or overload a schema digest with snapshot content.
+The composition consumes the original canonical result-source interface, validates
+the supplied approval transaction and exact owned claim/generation, and consults
+its actual retained prepared group. This acquisition never calls the unjoined
+issuer/receipt diagnostic reads, commits/disposes the caller transaction or
+manufactures a result scope. Missing actual native acceptance and old-settlement
+lifetimes remain explicit refusals. This is a closed integration path, not a
+completed joined authority or production registration.
 Abort first hides the staged generation, then uses original Resources/native and
 grant owners to settle known custody. Failed or unobservable startup remains
 retained and fails closed. Published global resources cannot be reported empty
