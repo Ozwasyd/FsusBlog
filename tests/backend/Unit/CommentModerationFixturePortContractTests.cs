@@ -241,7 +241,8 @@ public sealed class CommentModerationFixturePortContractTests : IDisposable
                     Assert.True(runtime.SetGlobalState(ModerationGlobalStates.ReadOnly,
                         "intervening", null, "other-owner").IsSuccess);
                     intervening = runtime.Current;
-                } : null,
+                }
+            : null,
                 cause)
         };
 
@@ -322,7 +323,10 @@ public sealed class CommentModerationFixturePortContractTests : IDisposable
 
     private sealed class NullMessageException : Exception
     {
-        public int MessageReads { get; private set; }
+        public int MessageReads
+        {
+            get; private set;
+        }
         public override string Message
         {
             get

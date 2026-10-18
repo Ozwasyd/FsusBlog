@@ -26,7 +26,10 @@ internal sealed class PgLegacyCurrentSchemaPreparation
         OriginalSource = source;
     }
 
-    internal OfflineMigrationSourceObservation OriginalSource { get; }
+    internal OfflineMigrationSourceObservation OriginalSource
+    {
+        get;
+    }
     internal CurrentSchemaIdentity Target => _owned.Target;
     internal OwnedCurrentSchemaTarget OwnedTarget => _owned;
     internal string RequireRetainedSchemaName() => _quotedSchema[1..^1].Replace("\"\"", "\"", StringComparison.Ordinal);
@@ -40,7 +43,8 @@ internal sealed class PgLegacyCurrentSchemaPreparation
         OfflineMigrationSourceObserver.RequirePostgreSqlStageSession(connection, transaction);
         await owned.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
         CompiledCurrentSchemaBootstrap compiled = owned.Compile(SchemaProviderKind.PostgreSql);
-        if (compiled.Commands.Count == 0) throw new InvalidOperationException("legacy_target_prepare_empty_owned_commands");
+        if (compiled.Commands.Count == 0)
+            throw new InvalidOperationException("legacy_target_prepare_empty_owned_commands");
         var observer = new OfflineMigrationSourceObserver();
         OfflineMigrationSourceObservation before = await observer.ObserveLegacyAfterValidatedJournalAsync(
             connection, transaction, cancellationToken).ConfigureAwait(false);

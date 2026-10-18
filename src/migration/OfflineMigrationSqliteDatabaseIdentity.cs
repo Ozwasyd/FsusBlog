@@ -215,7 +215,10 @@ internal static class OfflineMigrationSqliteDatabaseIdentity
                 string.Create(CultureInfo.InvariantCulture, $"sqlite:{physical.DeviceMajor}:{physical.DeviceMinor}:{physical.Inode}"), filename);
         }
 
-        internal CurrentSchemaDatabaseIdentity Database { get; }
+        internal CurrentSchemaDatabaseIdentity Database
+        {
+            get;
+        }
 
         internal async Task ValidateAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
         {

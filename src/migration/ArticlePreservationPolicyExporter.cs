@@ -27,7 +27,8 @@ internal static class ArticlePreservationPolicyExporter
         ArticlePreservationSourceExport prepared = PrepareSource(read, absoluteOutputPath, cancellationToken);
         CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
             absoluteOutputPath, prepared.Bytes.AsMemory(), cancellationToken).ConfigureAwait(false);
-        if (published != prepared.Artifact) throw new InvalidOperationException("article_preservation_source_publication_binding");
+        if (published != prepared.Artifact)
+            throw new InvalidOperationException("article_preservation_source_publication_binding");
         return prepared;
     }
 
@@ -37,7 +38,8 @@ internal static class ArticlePreservationPolicyExporter
         ArticlePreservationDefaultPolicyExport prepared = PrepareDefaultPolicy(source, absoluteOutputPath, cancellationToken);
         CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
             absoluteOutputPath, prepared.Bytes.AsMemory(), cancellationToken).ConfigureAwait(false);
-        if (published != prepared.Artifact) throw new InvalidOperationException("article_preservation_policy_publication_binding");
+        if (published != prepared.Artifact)
+            throw new InvalidOperationException("article_preservation_policy_publication_binding");
         return prepared;
     }
 
@@ -51,7 +53,8 @@ internal static class ArticlePreservationPolicyExporter
             source, row, policy, categoryId, tagIds, coordinates, absoluteOutputPath, cancellationToken);
         CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
             absoluteOutputPath, prepared.Bytes.AsMemory(), cancellationToken).ConfigureAwait(false);
-        if (published != prepared.Artifact) throw new InvalidOperationException("article_preservation_package_publication_binding");
+        if (published != prepared.Artifact)
+            throw new InvalidOperationException("article_preservation_package_publication_binding");
         return prepared;
     }
 
@@ -65,7 +68,8 @@ internal static class ArticlePreservationPolicyExporter
             source, policy, categories, tags, articles, absoluteOutputPath, cancellationToken);
         CurrentSchemaArtifactReference published = await OfflineMigrationArtifactPublisher.PublishAsync(
             absoluteOutputPath, prepared.Bytes.AsMemory(), cancellationToken).ConfigureAwait(false);
-        if (published != prepared.Artifact) throw new InvalidOperationException("article_preservation_current_publication_binding");
+        if (published != prepared.Artifact)
+            throw new InvalidOperationException("article_preservation_current_publication_binding");
         return prepared;
     }
 
@@ -115,7 +119,13 @@ internal static class ArticlePreservationPolicyExporter
         if (categories.IsDefault || tags.IsDefault || articles.IsDefault || articles.Length != source.Data.ExpectedArticleCount)
             throw new InvalidOperationException("article_preservation_complete_current_collection_required");
         byte[] bytes = ArticlePreservationSemanticReceipt.Serialize(
-            new { Categories = categories, Tags = tags, Articles = articles, DefaultPolicy = policy });
+            new
+            {
+                Categories = categories,
+                Tags = tags,
+                Articles = articles,
+                DefaultPolicy = policy
+            });
         return new(Reference(artifactReference, bytes), bytes.ToImmutableArray(), categories, tags, articles, policy);
     }
 
@@ -150,12 +160,16 @@ internal static class ArticlePreservationPolicyExporter
             ArticleCurrentPolicyDefaults.ResponsibilityVersion,
             ArticleProductionNormalizers.NormalizeArticleRights(null),
             ArticleCurrentPolicyDefaults.ResponsibilityDraft(), ArticleCurrentPolicyDefaults.InitialLiveViews, string.Empty);
-        return policy with { PolicyDigest = ArticlePreservationSemanticReceipt.Digest("article-current-stored-defaults-v1", policy) };
+        return policy with
+        {
+            PolicyDigest = ArticlePreservationSemanticReceipt.Digest("article-current-stored-defaults-v1", policy)
+        };
     }
 
     private static CurrentSchemaArtifactReference Reference(string reference, byte[] bytes)
     {
-        if (string.IsNullOrWhiteSpace(reference)) throw new ArgumentException("An explicit artifact reference is required.", nameof(reference));
+        if (string.IsNullOrWhiteSpace(reference))
+            throw new ArgumentException("An explicit artifact reference is required.", nameof(reference));
         return new(reference, ArticlePreservationSemanticReceipt.HashBytes(bytes));
     }
 }

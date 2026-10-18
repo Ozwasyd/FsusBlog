@@ -44,9 +44,18 @@ internal sealed class ArticlePreservationProducer
         Observation = observation;
     }
 
-    internal ArticlePreservationSourceExport Source { get; }
-    internal ArticlePreservationCurrentExport Current { get; }
-    internal OfflineMigrationSourceObservation Observation { get; }
+    internal ArticlePreservationSourceExport Source
+    {
+        get;
+    }
+    internal ArticlePreservationCurrentExport Current
+    {
+        get;
+    }
+    internal OfflineMigrationSourceObservation Observation
+    {
+        get;
+    }
 
     /// <summary>Captures, validates and publishes a complete source/current artifact set.</summary>
     /// <remarks>

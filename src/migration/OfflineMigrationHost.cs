@@ -56,7 +56,11 @@ public static class OfflineMigrationHost
             }
             catch (OperationCanceledException)
             {
-                WriteJson(new { status = "failed", code = "schema_offline_source_operation_cancelled" });
+                WriteJson(new
+                {
+                    status = "failed",
+                    code = "schema_offline_source_operation_cancelled"
+                });
                 return 1;
             }
             catch (Exception exception)
@@ -64,7 +68,11 @@ public static class OfflineMigrationHost
                 // Provider faults must not publish credentials or raw historical row values.
                 string code = exception is InvalidOperationException
                     ? exception.Message.Split(':', 2)[0] : "schema_offline_source_observation_failed";
-                WriteJson(new { status = "failed", code });
+                WriteJson(new
+                {
+                    status = "failed",
+                    code
+                });
                 return 1;
             }
         }
@@ -86,12 +94,20 @@ public static class OfflineMigrationHost
             }
             catch (OperationCanceledException)
             {
-                WriteJson(new { status = "failed", code = "schema_offline_plan_operation_cancelled" });
+                WriteJson(new
+                {
+                    status = "failed",
+                    code = "schema_offline_plan_operation_cancelled"
+                });
                 return 1;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                WriteJson(new { status = "failed", code = exception.Message });
+                WriteJson(new
+                {
+                    status = "failed",
+                    code = exception.Message
+                });
                 return 1;
             }
         }
@@ -116,7 +132,11 @@ public static class OfflineMigrationHost
             }
             catch (OperationCanceledException)
             {
-                WriteJson(new { status = "failed", code = "schema_offline_apply_operation_cancelled" });
+                WriteJson(new
+                {
+                    status = "failed",
+                    code = "schema_offline_apply_operation_cancelled"
+                });
                 return 1;
             }
             catch (Exception error)
@@ -126,7 +146,11 @@ public static class OfflineMigrationHost
                         || error.Message.StartsWith("schema_", StringComparison.Ordinal)
                         || error.Message.StartsWith("current_", StringComparison.Ordinal))
                     ? error.Message.Split(':', 2)[0] : "schema_offline_apply_failed";
-                WriteJson(new { status = "failed", code });
+                WriteJson(new
+                {
+                    status = "failed",
+                    code
+                });
                 return 1;
             }
         }
@@ -148,7 +172,11 @@ public static class OfflineMigrationHost
             }
             catch (OperationCanceledException)
             {
-                WriteJson(new { status = "failed", code = "schema_offline_verify_operation_cancelled" });
+                WriteJson(new
+                {
+                    status = "failed",
+                    code = "schema_offline_verify_operation_cancelled"
+                });
                 return 1;
             }
             catch (Exception error)
@@ -158,7 +186,11 @@ public static class OfflineMigrationHost
                         || error.Message.StartsWith("schema_", StringComparison.Ordinal)
                         || error.Message.StartsWith("offline_", StringComparison.Ordinal))
                     ? error.Message.Split(':', 2)[0] : "schema_offline_verify_failed";
-                WriteJson(new { status = "failed", code });
+                WriteJson(new
+                {
+                    status = "failed",
+                    code
+                });
                 return 1;
             }
         }
@@ -324,7 +356,10 @@ public static class OfflineMigrationHost
         using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)), clock);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(callerToken, deadline.Token);
         operation.Token.ThrowIfCancellationRequested();
-        OfflineMigrationPlanCommandOptions invocation = options with { OperationDeadline = invocationDeadline };
+        OfflineMigrationPlanCommandOptions invocation = options with
+        {
+            OperationDeadline = invocationDeadline
+        };
         // Compiled owner composition may read retained inputs and publish article inputs.
         // It is part of this original operation, not a fresh per-stage timeout or a CLI plugin.
         IOfflineMigrationPlanningEvidence evidence = await createEvidence(invocation, operation.Token).ConfigureAwait(false);
@@ -496,7 +531,11 @@ public static class OfflineMigrationHost
         // Await the actual token-aware writer rather than abandoning a timed wait.
         try
         {
-            await output.WriteLineAsync(JsonSerializer.Serialize(new { status = "ok", receipt = published }).AsMemory(),
+            await output.WriteLineAsync(JsonSerializer.Serialize(new
+            {
+                status = "ok",
+                receipt = published
+            }).AsMemory(),
                 operation.Token).ConfigureAwait(false);
             await output.FlushAsync(operation.Token).ConfigureAwait(false);
         }
@@ -510,7 +549,8 @@ public static class OfflineMigrationHost
     {
         string[] lines = await File.ReadAllLinesAsync(environmentFilePath, cancellationToken).ConfigureAwait(false);
         string? value = ParseEnvironmentLines(lines).GetValueOrDefault("ConnectionStrings__DefaultConnection");
-        if (string.IsNullOrWhiteSpace(value)) throw new InvalidOperationException("schema_connection_string_missing");
+        if (string.IsNullOrWhiteSpace(value))
+            throw new InvalidOperationException("schema_connection_string_missing");
         return value;
     }
 
@@ -594,7 +634,11 @@ public static class OfflineMigrationHost
         OfflineMigrationPlanValidation.RequireDigest(captured.DumpSha256, "schema_source_capture_dump_digest_invalid");
         var evidence = new OfflineMigrationBackupCaptureEvidence(captured.Source, captured.SnapshotId,
             capturedAt, captured.Source.ExtractorId, captured.Source.ExtractorVersion, captured.DumpSha256, options.TimeoutSeconds);
-        await output.WriteLineAsync(JsonSerializer.Serialize(new { status = "ok", capture = evidence })
+        await output.WriteLineAsync(JsonSerializer.Serialize(new
+        {
+            status = "ok",
+            capture = evidence
+        })
             .AsMemory(), cancellationToken).ConfigureAwait(false);
         await output.FlushAsync(cancellationToken).ConfigureAwait(false);
     }

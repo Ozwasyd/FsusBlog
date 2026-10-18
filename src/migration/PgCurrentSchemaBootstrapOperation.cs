@@ -35,17 +35,29 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         RetainedTool = retainedTool;
         string semantic = OfflineMigrationPlanValidation.Digest(new
         {
-            Owner = StepReference, Source = EmptyPredicate, Target = TargetPredicate,
-            CurrentTarget = owned.Target, Input = CurrentSchemaOwnedTargetProjection.ComputeInputDigest(owned.ReadBoundInput())
+            Owner = StepReference,
+            Source = EmptyPredicate,
+            Target = TargetPredicate,
+            CurrentTarget = owned.Target,
+            Input = CurrentSchemaOwnedTargetProjection.ComputeInputDigest(owned.ReadBoundInput())
         });
         Identity = new(CurrentSchemaProviderKind.PostgreSql, "compiled-pg:" + StepReference, assemblyDigest, semantic, OfflineMigrationExecutionMode.Transaction);
         Step = new(StepReference, EmptyPredicate, TargetPredicate, [], "transactional-create-owned-target-from-empty.v1", false,
             new("current-owned-bootstrap-resume.v1", 0, "no-partial-transaction-watermark", TargetPredicate), [Identity]);
     }
 
-    internal override OfflineMigrationProviderOperation Identity { get; }
-    internal OfflineMigrationStep Step { get; }
-    internal CurrentSchemaVerifierIdentity RetainedTool { get; }
+    internal override OfflineMigrationProviderOperation Identity
+    {
+        get;
+    }
+    internal OfflineMigrationStep Step
+    {
+        get;
+    }
+    internal CurrentSchemaVerifierIdentity RetainedTool
+    {
+        get;
+    }
 
     internal static async Task<PgCurrentSchemaBootstrapOperation> CreateAsync(
         OwnedCurrentSchemaTarget owned, CurrentSchemaVerifierIdentity actualRetainedTool, CancellationToken cancellationToken)
@@ -59,7 +71,8 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         OfflineMigrationPlanValidation.RequireDigest(actualRetainedTool.ConfigurationDigest, "current_schema_bootstrap_tool_configuration_invalid");
         await owned.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
         CompiledCurrentSchemaBootstrap compiled = owned.Compile(SchemaProviderKind.PostgreSql);
-        if (compiled.Commands.Count == 0) throw new InvalidOperationException("current_schema_bootstrap_empty_commands");
+        if (compiled.Commands.Count == 0)
+            throw new InvalidOperationException("current_schema_bootstrap_empty_commands");
         string assemblyPath = Path.GetFullPath(typeof(PgCurrentSchemaBootstrapOperation).Assembly.Location);
         string digest = await HashOriginalAssemblyAsync(assemblyPath, cancellationToken).ConfigureAwait(false);
         var operation = new PgCurrentSchemaBootstrapOperation(owned, compiled, owned.ProjectExpectedPhysicalTarget(SchemaProviderKind.PostgreSql), actualRetainedTool, assemblyPath, digest);
@@ -91,10 +104,14 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
             actual = [.. Facts(("owned_shape_match", match ? "true" : "false")),
                 .. seedFacts];
         }
-        else throw new InvalidOperationException("current_schema_bootstrap_predicate_unknown");
+        else
+            throw new InvalidOperationException("current_schema_bootstrap_predicate_unknown");
         var observation = new OfflineMigrationPredicateObservation(predicateReference, Identity.OperationReference,
             Identity.OperationSourceDigest, Identity.SemanticDigest, expected, actual, string.Empty);
-        return observation with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation) };
+        return observation with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation)
+        };
     }
 
     internal override async Task<OfflineMigrationApplyUnit> ExecuteAsync(
@@ -102,7 +119,8 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
         RequireStep(step, Identity);
-        if (previousUnit is not null) throw new InvalidOperationException("current_schema_bootstrap_partial_transaction_not_resumable");
+        if (previousUnit is not null)
+            throw new InvalidOperationException("current_schema_bootstrap_partial_transaction_not_resumable");
         OfflineMigrationPredicateObservation before = await ObserveAsync(EmptyPredicate, connection, transaction, cancellationToken).ConfigureAwait(false);
         if (!before.ExpectedFacts.SequenceEqual(before.ActualFacts))
             throw new InvalidOperationException("current_schema_bootstrap_empty_source_required");
@@ -144,7 +162,8 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
             CurrentSchemaRecipeOperation seed = _expected.BootstrapDataEffects[index];
             (SchemaTableModel table, IReadOnlyList<string> columns, IReadOnlyList<string> values) = Seed(seed);
             int key = columns.ToList().IndexOf(seed.ConflictColumn!);
-            if (key < 0) throw new InvalidOperationException("current_schema_bootstrap_seed_key_missing");
+            if (key < 0)
+                throw new InvalidOperationException("current_schema_bootstrap_seed_key_missing");
             SchemaExpressionNode literal = PgCurrentSchemaExpressionParser.Parse(values[key], new Dictionary<string, SchemaColumnModel>());
             string digest = SchemaExpressionIdentity.Digest(ExpectedKey(table.Columns[columns[key]], literal));
             if (!keys.Add(table.Name + ":" + seed.ConflictColumn + ":" + digest))
@@ -154,7 +173,8 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
         }
         // The original core fact vector has 256 slots; do not fabricate a truncated
         // observation if a future owned source cannot fit its native vocabulary.
-        if (facts.Count + 1 > 256) throw new InvalidOperationException("current_schema_bootstrap_seed_fact_capacity_unavailable");
+        if (facts.Count + 1 > 256)
+            throw new InvalidOperationException("current_schema_bootstrap_seed_fact_capacity_unavailable");
         return facts.OrderBy(static fact => fact.Name, StringComparer.Ordinal).ToImmutableArray();
     }
 
@@ -175,10 +195,12 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
             while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
             {
                 count++;
-                if (count == 1) digest = SchemaExpressionIdentity.Digest(ActualKey(column, reader.GetValue(0)));
+                if (count == 1)
+                    digest = SchemaExpressionIdentity.Digest(ActualKey(column, reader.GetValue(0)));
                 // Two actual rows already prove a failed uniqueness/cardinality
                 // postcondition. Do not retain unbounded private row values.
-                if (count == 2) break;
+                if (count == 2)
+                    break;
             }
             facts.Add(new(SeedName(index, "count"), count.ToString(CultureInfo.InvariantCulture)));
             facts.Add(new(SeedName(index, "digest"), digest));
@@ -188,14 +210,18 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
 
     internal static SchemaExpressionNode ExpectedKey(SchemaColumnModel column, SchemaExpressionNode value)
     {
-        if (column.DataType == "string" && value.Kind == "string") return value;
+        if (column.DataType == "string" && value.Kind == "string")
+            return value;
         if (column.DataType is "int16" or "int32" or "int64")
             return PgCurrentSchemaExpressionParser.NormalizeIntegralStorageLiteral(value, column);
-        if (column.DataType == "boolean" && value.Kind == "boolean") return value;
+        if (column.DataType == "boolean" && value.Kind == "boolean")
+            return value;
         if (column.DataType == "uuid")
         {
-            if (value.Kind == "cast" && value.Value == "uuid" && value.Arguments.Count == 1) value = value.Arguments[0];
-            if (value.Kind == "string" && Guid.TryParse(value.Value, out Guid identity)) return new("uuid", identity.ToString("D"), []);
+            if (value.Kind == "cast" && value.Value == "uuid" && value.Arguments.Count == 1)
+                value = value.Arguments[0];
+            if (value.Kind == "string" && Guid.TryParse(value.Value, out Guid identity))
+                return new("uuid", identity.ToString("D"), []);
         }
         throw new InvalidOperationException("current_schema_bootstrap_stable_seed_key_capability_unavailable");
     }
@@ -227,7 +253,8 @@ internal sealed class PgCurrentSchemaBootstrapOperation : OfflineMigrationApplyO
             await using DbCommand command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = $"SELECT count(*) FROM public.{Quote(table.Name)} WHERE {predicate};";
-            if (Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)) != 1) return false;
+            if (Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false)) != 1)
+                return false;
         }
         return true;
     }

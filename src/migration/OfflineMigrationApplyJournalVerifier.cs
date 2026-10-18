@@ -78,7 +78,8 @@ public sealed class OfflineMigrationApplyJournalVerifier
                 {
                     if (identity.Mode != OfflineMigrationExecutionMode.Transaction)
                         throw new InvalidOperationException("offline_apply_media_transaction_required");
-                    if (identity.Provider == _plan.Source.Database.Provider) media.Add(step.StepId);
+                    if (identity.Provider == _plan.Source.Database.Provider)
+                        media.Add(step.StepId);
                 }
             }
         _mediaSteps.UnionWith(media);
@@ -297,7 +298,10 @@ public sealed class OfflineMigrationApplyJournalVerifier
                 throw new InvalidOperationException("offline_apply_media_preparation_repeated");
         }
         else if (_media?.State != OfflineMigrationApplyJournalState.MediaPrepared
-            || (entry.Media! with { GenerationIdentity = null }) != _media.Media
+            || (entry.Media! with
+            {
+                GenerationIdentity = null
+            }) != _media.Media
             || entry.Before.ContentDigest != _media.Before!.ContentDigest
             || string.IsNullOrWhiteSpace(entry.Media.GenerationIdentity) || entry.Media.GenerationIdentity.Length > 4096
             || entry.Media.GenerationIdentity.Any(char.IsControl))
@@ -307,7 +311,8 @@ public sealed class OfflineMigrationApplyJournalVerifier
 
     private bool MediaBindingValid(OfflineMigrationMediaJournalEvidence? evidence)
     {
-        if (evidence?.Binding is not { } binding) return false;
+        if (evidence?.Binding is not { } binding)
+            return false;
         return evidence.InvocationId == _invocation && binding.RunId != Guid.Empty
             && binding.PlanArtifactSha256 == _reference.Sha256 && binding.PlanContentDigest == _plan.ContentDigest
             && binding.SourceContentDigest == _plan.Source.ContentDigest && DigestValid(binding.ManifestDigest)
@@ -346,7 +351,10 @@ public sealed class OfflineMigrationApplyJournalVerifier
 
     /// <summary>Canonical observation digest; expected facts still require independent owner admission.</summary>
     public static string ComputeObservationDigest(OfflineMigrationPredicateObservation observation)
-        => Digest(observation with { ContentDigest = string.Empty });
+        => Digest(observation with
+        {
+            ContentDigest = string.Empty
+        });
     /// <summary>
     /// SHA of the canonical artifact bytes actually published by the plan writer, including
     /// its self-digest field. Admission must also hash and compare the original file bytes;
@@ -356,7 +364,10 @@ public sealed class OfflineMigrationApplyJournalVerifier
         => Convert.ToHexStringLower(SHA256.HashData(OfflineMigrationPlanCodec.Serialize(plan)));
     /// <summary>Canonical journal entry digest, excluding the digest field itself.</summary>
     public static string ComputeEntryDigest(OfflineMigrationApplyJournalEntry entry)
-        => Digest(entry with { ContentDigest = string.Empty });
+        => Digest(entry with
+        {
+            ContentDigest = string.Empty
+        });
     /// <summary>Semantic entry anchor, not the byte SHA of an exported artifact.</summary>
     public static OfflineMigrationJournalAnchor Reference(OfflineMigrationApplyJournalEntry entry)
         => new($"offline-apply/{(entry.Format == MediaFormat ? "v2" : "v1")}/{entry.ContentDigest}", entry.ContentDigest);
