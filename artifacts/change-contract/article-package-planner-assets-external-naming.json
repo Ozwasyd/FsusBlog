@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.Assets.cs",
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs"
+            ],
+            "reason": "These two planner files fall under the existing src/**/*.cs environment-variable registration. This candidate adds no environment reads or external process spellings and preserves existing external names. New internal members and locals follow the C# naming contract. This declaration binds only the two changed registered paths and does not expand the trusted exception registry."
+        }
+    ]
+}
