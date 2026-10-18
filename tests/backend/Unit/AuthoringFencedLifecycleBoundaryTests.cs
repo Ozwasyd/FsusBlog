@@ -31,10 +31,12 @@ public sealed class AuthoringFencedLifecycleBoundaryTests
         f.AssertUntouched();
     }
 
-    [Fact]
-    public async Task LegacyDeletion_WithCallerReceiptId_RefusesBeforeMeasurementOrDeletion()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LegacyDeletion_WithCallerReceiptId_RefusesBeforeMeasurementOrDeletion(bool preparedResourcePort)
     {
-        Fixture f = Create(AuthoringLifecycleState.RetainedData);
+        Fixture f = Create(AuthoringLifecycleState.RetainedData, preparedResourcePort);
         var approval = new AuthoringDeleteDataApproval(f.Package.Contract.Manifest.Id,
             f.Package.Contract.Manifest.PackageSha256, AuthoringStateProcessWorker.Scope(f.Package),
             1, 1, "caller-receipt-id-is-not-approval");
@@ -47,11 +49,15 @@ public sealed class AuthoringFencedLifecycleBoundaryTests
     }
 
     [Theory]
-    [InlineData(7)]
-    [InlineData(8)]
-    public async Task ReceiptOnlyResult_WithMatchingOrStaleGeneration_CannotProveFencedSettlement(long generation)
+    [InlineData(7, false)]
+    [InlineData(8, false)]
+    [InlineData(7, true)]
+    [InlineData(8, true)]
+    public async Task ReceiptOnlyResult_WithMatchingOrStaleGeneration_CannotProveFencedSettlement(
+        long generation,
+        bool preparedResourcePort)
     {
-        Fixture f = Create();
+        Fixture f = Create(preparedResourcePort: preparedResourcePort);
 
         AuthoringExtensionContractException failure = await Assert.ThrowsAsync<AuthoringExtensionContractException>(() =>
             f.Coordinator.AcceptResultAsync(f.Package.Contract.Manifest.Id, generation).AsTask());

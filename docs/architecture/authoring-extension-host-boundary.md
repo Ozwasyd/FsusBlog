@@ -33,6 +33,16 @@ adapter, successful stub, issuer call or coordinator consumption of this interfa
 The three fenced refusal guards remain in force. Implementations must reuse these
 declarations instead of introducing another lifecycle port.
 
+The staged-resource contract consumes the original snapshot, receipt and generation
+types also used by the sole approval owner's execution-result contract. Approval claims
+bind the exact ordered old/new targets; completion consumes the actual execution result,
+whose digest is the terminal receipt scope binding. Manifest payload hashes remain the
+receipt/target package identity; snapshots retain the compound package identity. Type
+compatibility and resource-port availability do not establish the missing canonical
+scope, settled-state or native snapshot-acceptance custody. The coordinator does not
+consume approval claims or execution results until those original owners can supply
+and hold the required facts; its three refusal guards remain unchanged.
+
 The authoring extension host is an internal and experimental subsystem for bounded
 authoring extensions. It is separate from the general `.fspkg` Hook and Jint/Lua
 plugin system. The C# declarations under
