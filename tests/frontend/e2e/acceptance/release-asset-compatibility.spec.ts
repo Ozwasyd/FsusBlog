@@ -61,9 +61,10 @@ test.describe('release asset compatibility drill', () => {
     let phase: Phase = 'old'
     let gcApplied = false
     let rejectOldAssetNetwork = false
-    let releaseDelayedRequests: (() => void) | null = null
+    let resolveDelayedRequests: (() => void) | null = null
+    const releaseDelayedRequests = () => resolveDelayedRequests?.()
     const delayedRequestGate = new Promise<void>((resolve) => {
-      releaseDelayedRequests = () => resolve()
+      resolveDelayedRequests = () => resolve()
     })
 
     const oldApplication = Buffer.from(`
@@ -223,7 +224,7 @@ test.describe('release asset compatibility drill', () => {
       await expect.poll(() => oldServiceWorkerArrived).toBe(true)
 
       phase = 'new'
-      releaseDelayedRequests?.()
+      releaseDelayedRequests()
       await expect(page.locator('#old-release')).toBeVisible()
       await expect.poll(async () => await page.evaluate(() => Boolean(
         (globalThis as typeof globalThis & { __FSUS_ASSET_DRILL__?: unknown }).__FSUS_ASSET_DRILL__
@@ -333,7 +334,7 @@ test.describe('release asset compatibility drill', () => {
       expect(consoleErrors).toEqual([])
       expect(networkFailures).toEqual([])
     } finally {
-      releaseDelayedRequests?.()
+      releaseDelayedRequests()
       await page.context().clearCookies()
       await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
     }

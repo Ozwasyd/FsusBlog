@@ -339,7 +339,7 @@ export async function installPublicBootstrapCausalProbe(
       evidence.overlayFinalCount = remote.loaderVisible ? 1 : 0
       return evidence
     },
-    async assertCausalOrder() {
+    async assertCausalOrder(this: CausalProbe) {
       const current = await this.snapshotEvidence()
       requirePublicBootstrapCausalOrder(current, options.scenario)
     },
