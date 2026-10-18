@@ -169,14 +169,12 @@ const handleDrawerNavigate = (id: string): void =>
     color: var(--fsusblog-text-primary);
 }
 
-.article-toc-panel__item--active::after,
-.article-toc-drawer__item--active::after,
-.article-toc-panel__item:hover::after,
-.article-toc-drawer__item:hover::after,
-.article-toc-panel__item:focus-visible::after,
-.article-toc-drawer__item:focus-visible::after
+.article-toc-panel__item::after,
+.article-toc-drawer__item::after
  {
     /* Keep chapter feedback independent of the public Button border on touch. */
+
+    /* The transparent idle border stays mounted for the reading color transition. */
     position: absolute;
     top: 0;
     bottom: 0;
@@ -184,9 +182,19 @@ const handleDrawerNavigate = (id: string): void =>
     width: 2px;
     box-sizing: border-box;
     border-left: 2px solid transparent;
-    border-left-color: var(--fsusblog-color-primary);
+    transition: inherit;
     pointer-events: none;
     content: '';
+}
+
+.article-toc-panel__item--active::after,
+.article-toc-drawer__item--active::after,
+.article-toc-panel__item:hover::after,
+.article-toc-drawer__item:hover::after,
+.article-toc-panel__item:focus-visible::after,
+.article-toc-drawer__item:focus-visible::after
+ {
+    border-left-color: var(--fsusblog-color-primary);
 }
 
 .article-toc-panel__item:focus-visible,
@@ -199,5 +207,14 @@ const handleDrawerNavigate = (id: string): void =>
 .article-toc-drawer__nav
  {
     padding-bottom: calc(var(--fsus-safe-area-inset-bottom) + 1rem);
+}
+
+@media (prefers-reduced-motion: reduce)
+ {
+    .article-toc-panel__item::after,
+    .article-toc-drawer__item::after
+     {
+        transition: none !important;
+    }
 }
 </style>

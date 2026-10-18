@@ -11,8 +11,9 @@ const visualStates: Array<{ theme: 'light' | 'dark'; reducedMotion: 'no-preferen
 
 async function readingFeedback(button: Locator)
 {
-    return button.evaluate((element: HTMLButtonElement) =>
+    return button.evaluate(async (element: HTMLButtonElement) =>
     {
+        await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
         const probe = document.createElement('span');
         probe.style.position = 'fixed';
         probe.style.color = 'var(--fsusblog-color-primary)';
@@ -37,6 +38,10 @@ async function readingFeedback(button: Locator)
             markerWidth: marker.borderLeftWidth,
             markerStyle: marker.borderLeftStyle,
             markerColor: marker.borderLeftColor,
+            markerProperties: marker.transitionProperty,
+            markerDuration: marker.transitionDuration,
+            markerEasing: marker.transitionTimingFunction,
+            markerContent: marker.content,
             primaryColor,
             focusColor,
             fastDuration,
@@ -66,6 +71,10 @@ function expectReadingFeedback(
     expect(feedback.markerWidth).toBe('2px');
     expect(feedback.markerStyle).toBe('solid');
     expect(feedback.markerColor).toBe(feedback.primaryColor);
+    expect(feedback.markerDuration).toBe(feedback.duration);
+    expect(feedback.markerProperties).toBe(feedback.properties);
+    expect(feedback.markerEasing).toBe(feedback.easing);
+    expect(feedback.markerContent).toBe('""');
     if (keyboardFocus)
     {
         expect(feedback.focusVisible).toBe(true);
@@ -137,6 +146,91 @@ test('empty article has no desktop chapter controls', async ({ page }: { page: P
     await expect(page.locator('.article-toc-panel')).toHaveCount(0);
     expect(errors).toEqual([]);
 });
+
+for (const { theme, reducedMotion } of visualStates)
+{
+    test(`visible marker ${theme} ${reducedMotion} retains its color transition through hover and idle`, async ({ page }: { page: Page }) =>
+    {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.emulateMedia({ reducedMotion });
+        const errors = await openFixture(page, theme);
+        const button = page.locator('.article-toc-panel__nav button').nth(2);
+        const idle = await button.evaluate((element: HTMLButtonElement) =>
+        {
+            const marker = getComputedStyle(element, '::after');
+            const initial = { content: marker.content, color: marker.borderLeftColor };
+            const records: Array<{ type: string; elapsed: number; duration?: number; start?: string; middle?: string }> = [];
+            element.dataset.markerTransitions = JSON.stringify(records);
+            const record = (event: TransitionEvent): void =>
+            {
+                if (event.pseudoElement !== '::after' || event.propertyName !== 'border-left-color') return;
+                const entry: typeof records[number] = { type: event.type, elapsed: event.elapsedTime };
+                if (event.type === 'transitionrun')
+                {
+                    const animation = element.getAnimations({ subtree: true }).find((candidate) =>
+                        candidate instanceof CSSTransition && candidate.transitionProperty === 'border-left-color'
+                        && candidate.effect instanceof KeyframeEffect && candidate.effect.pseudoElement === '::after');
+                    if (animation?.effect instanceof KeyframeEffect)
+                    {
+                        const duration = Number(animation.effect.getComputedTiming().duration);
+                        animation.pause();
+                        animation.currentTime = 0;
+                        entry.start = getComputedStyle(element, '::after').borderLeftColor;
+                        animation.currentTime = duration / 2;
+                        entry.middle = getComputedStyle(element, '::after').borderLeftColor;
+                        entry.duration = duration;
+                        animation.currentTime = 0;
+                        animation.play();
+                    }
+                }
+                records.push(entry);
+                element.dataset.markerTransitions = JSON.stringify(records);
+            };
+            element.addEventListener('transitionrun', record);
+            element.addEventListener('transitionend', record);
+            return initial;
+        });
+        await button.hover();
+        const feedback = await readingFeedback(button);
+        await test.info().attach('visible-marker-feedback', {
+            body: JSON.stringify({ idle, feedback }, null, 2),
+            contentType: 'application/json'
+        });
+        expectReadingFeedback(feedback, reducedMotion, false);
+        expect(idle.content).toBe('""');
+        expect(idle.color).toBe('rgba(0, 0, 0, 0)');
+        await page.mouse.move(0, 0);
+        await button.evaluate(async (element: HTMLButtonElement) =>
+            Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
+        const finalMarker = await button.evaluate((element: HTMLButtonElement) =>
+        {
+            const marker = getComputedStyle(element, '::after');
+            return { content: marker.content, color: marker.borderLeftColor };
+        });
+        expect(finalMarker).toEqual(idle);
+        if (reducedMotion === 'reduce')
+        {
+            await expect(button).toHaveAttribute('data-marker-transitions', '[]');
+        }
+        else
+        {
+            await expect.poll(async () => JSON.parse(await button.getAttribute('data-marker-transitions') ?? '[]').length).toBe(4);
+            const records: Array<{ type: string; elapsed: number; duration?: number; start?: string; middle?: string }> =
+                JSON.parse(await button.getAttribute('data-marker-transitions') ?? '[]');
+            const seconds = Number.parseFloat(feedback.fastDuration);
+            expect(records.map((entry) => entry.type)).toEqual(['transitionrun', 'transitionend', 'transitionrun', 'transitionend']);
+            for (const entry of records.filter((event) => event.type === 'transitionrun'))
+            {
+                expect(entry.duration).toBe(seconds * 1000);
+                expect(entry.middle).not.toBe(entry.start);
+                expect(entry.middle).not.toBe(feedback.primaryColor);
+                expect(entry.middle).not.toBe(idle.color);
+            }
+            expect(records.filter((entry) => entry.type === 'transitionend').map((entry) => entry.elapsed)).toEqual([seconds, seconds]);
+        }
+        expect(errors).toEqual([]);
+    });
+}
 
 test.describe('mobile coarse-pointer chapter controls', () =>
 {
