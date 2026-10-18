@@ -56,7 +56,7 @@ public sealed class ArticlePackageValidatedImportCandidate
 
 /// <summary>
 /// Validates already-read package bytes through the sole inventory, checksum, manifest and raw-byte
-/// owners. It reads no archive or filesystem and grants no syntax, asset, privacy or source authority.
+/// owners. It reads no archive or filesystem and grants no syntax, media, rights, privacy or source authority.
 /// </summary>
 public static class ArticlePackageImportCandidateBytes
 {
@@ -73,11 +73,38 @@ public static class ArticlePackageImportCandidateBytes
         IReadOnlyList<ArticlePackageFileBytes>? files,
         out ArticlePackageValidatedImportCandidate? candidate,
         CancellationToken cancellationToken = default)
+        => ValidateCore(inventory, files, null, false, out candidate, cancellationToken);
+
+    /// <summary>
+    /// Opts into the frozen v2 asset-root format with an explicit collection and independent input
+    /// inventory. Binds every asset's actual owned length and SHA-256 as well as checksums and root
+    /// metadata. Media inspection belongs to the backend adapter; success grants no asset authority.
+    /// Null collections, legacy roots and future versions cannot select an implicit fallback.
+    /// </summary>
+    public static ArticlePackageManifestCandidateResult Validate(
+        IReadOnlyList<ArticlePackageInventoryEntry>? inventory,
+        IReadOnlyList<ArticlePackageFileBytes>? files,
+        ArticlePackageManifestAssetCollectionCandidate? assets,
+        out ArticlePackageValidatedImportCandidate? candidate,
+        CancellationToken cancellationToken = default)
+        => ValidateCore(inventory, files, assets, true, out candidate, cancellationToken);
+
+    private static ArticlePackageManifestCandidateResult ValidateCore(
+        IReadOnlyList<ArticlePackageInventoryEntry>? inventory,
+        IReadOnlyList<ArticlePackageFileBytes>? files,
+        ArticlePackageManifestAssetCollectionCandidate? assets,
+        bool withAssets,
+        out ArticlePackageValidatedImportCandidate? candidate,
+        CancellationToken cancellationToken)
     {
         candidate = null;
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (withAssets && assets is null)
+            {
+                return Invalid("article_package_manifest_asset_root_input_invalid");
+            }
             if (!TryCopy(inventory, cancellationToken, out ArticlePackageInventoryEntry[] heldInventory)
                 || !TryCopy(files, cancellationToken, out ArticlePackageFileBytes[] heldFiles)
                 || heldInventory.Length != heldFiles.Length)
@@ -109,7 +136,7 @@ public static class ArticlePackageImportCandidateBytes
                     return Invalid("article_package_import_byte_budget_exceeded");
                 }
                 totalBytes += file.Bytes.Length;
-                if (file.Path.StartsWith("assets/", StringComparison.Ordinal))
+                if (!withAssets && file.Path.StartsWith("assets/", StringComparison.Ordinal))
                 {
                     return Invalid("article_package_manifest_assets_authority_unavailable");
                 }
@@ -129,14 +156,18 @@ public static class ArticlePackageImportCandidateBytes
                 return Invalid(checksumResult.ReasonCode!);
             }
             var byPath = ownedFiles.ToDictionary(file => file.Path, StringComparer.Ordinal);
-            ArticlePackageManifestCandidateResult manifestResult = ArticlePackageManifestCandidateCodec.TryParseCandidate(
-                byPath[ArticlePackageInventory.ManifestPath].Bytes.Span, out var manifest);
+            ArticlePackageManifestCandidate? manifest;
+            ArticlePackageManifestCandidateResult manifestResult = withAssets
+                ? ArticlePackageManifestCandidateCodec.TryParseCandidate(
+                    byPath[ArticlePackageInventory.ManifestPath].Bytes.Span, assets, heldInventory, out manifest)
+                : ArticlePackageManifestCandidateCodec.TryParseCandidate(
+                    byPath[ArticlePackageInventory.ManifestPath].Bytes.Span, out manifest);
             cancellationToken.ThrowIfCancellationRequested();
             if (!manifestResult.IsValid || manifest is null)
             {
                 return manifestResult;
             }
-            if (ownedFiles.Length != manifest.Articles.Count + 2)
+            if (ownedFiles.Length != manifest.Articles.Count + (manifest.Assets?.Assets.Count ?? 0) + 2)
             {
                 return Invalid("article_package_import_article_closure_mismatch");
             }
@@ -152,6 +183,20 @@ public static class ArticlePackageImportCandidateBytes
                 if (!byteResult.IsValid)
                 {
                     return Invalid(byteResult.ReasonCode!);
+                }
+            }
+            if (manifest.Assets is not null)
+            {
+                foreach (ArticlePackageManifestAssetMetadataCandidate asset in manifest.Assets.Assets)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    ArticlePackageManifestAssetMetadata metadata = asset.Metadata;
+                    if (!byPath.TryGetValue(metadata.PackagePath, out var file)
+                        || file.Bytes.Length != metadata.SizeBytes
+                        || Convert.ToHexStringLower(SHA256.HashData(file.Bytes.Span)) != metadata.Sha256)
+                    {
+                        return Invalid("article_package_import_asset_byte_binding_mismatch");
+                    }
                 }
             }
             Array.Sort(ownedFiles, static (left, right) => string.CompareOrdinal(left.Path, right.Path));

@@ -77,14 +77,107 @@ public sealed class ArticlePackageFrozenExportCandidate
 /// Sole finite package candidate writer. Binds actual supplied frozen revision bytes, writes the
 /// existing finite manifest/checksum layout through official ZIP, and reuses the actual byte reader.
 /// No provider registration, store read, renderer, external asset lookup, temporary file or download.
-/// Complete dependencies and content assets are refused until the package schema can represent them.
+/// Content assets require the explicit v2 plan; complete dependencies remain unavailable.
 /// </summary>
 public static class ArticlePackageFrozenExportCandidateWriter
 {
     public const long MaxFrozenInputBytes = 64L * 1024 * 1024;
     public const int MaxAssetsPerInput = 256;
 
+    /// <summary>
+    /// Legacy article-only entry. An asset-root plan cannot carry its own independent expected
+    /// private record snapshot; callers must use the explicit snapshot entry instead.
+    /// </summary>
     public static ArticlePackageManifestCandidateResult TryWriteCandidate(
+        ArticlePackageManifestCandidatePlan? plan,
+        IReadOnlyList<ArticlePackageFrozenExportCandidateInput>? inputs,
+        out ArticlePackageFrozenExportCandidate? candidate,
+        CancellationToken cancellationToken = default)
+    {
+        candidate = null;
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Invalid("article_package_export_cancelled");
+        }
+        if (plan?.Assets is not null || plan?.Manifest.Assets is not null)
+        {
+            return Invalid("article_package_export_asset_record_snapshot_required");
+        }
+        return TryWriteCandidateCore(plan, inputs, out candidate, cancellationToken);
+    }
+
+    /// <summary>
+    /// Requires the backend's independently retained expected plan and original article inputs.
+    /// Reuses the strict planner snapshot binder before writing the supplied plan/frozen bytes.
+    /// This finite comparison establishes no persisted source, permission or export authority;
+    /// the expected plan must not be replaced by a newly projected untrusted record set.
+    /// </summary>
+    public static ArticlePackageManifestCandidateResult TryWriteCandidateToSnapshot(
+        ArticlePackageManifestCandidatePlan? expected,
+        ArticlePackageManifestCandidatePlan? plan,
+        IReadOnlyList<ArticlePackageManifestCandidateInput>? articles,
+        IReadOnlyList<ArticlePackageFrozenExportCandidateInput>? inputs,
+        out ArticlePackageFrozenExportCandidate? candidate,
+        CancellationToken cancellationToken = default)
+    {
+        candidate = null;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (expected?.Assets is null || plan?.Assets is null || plan.Manifest.Assets is null)
+            {
+                return Invalid("article_package_export_asset_record_snapshot_required");
+            }
+            // Bound both backend snapshots before the planner takes defensive byte copies.
+            foreach (ArticlePackageManifestCandidatePlan snapshotPlan in new[] { expected, plan })
+            {
+                if (snapshotPlan.Assets!.Count > ArticlePackageImportCandidateBytes.MaxFiles - snapshotPlan.Articles.Count - 2)
+                {
+                    return Invalid("article_package_export_file_budget_exceeded");
+                }
+                long plannedBytes = 0;
+                foreach (ArticlePackageManifestPlannedArticle article in snapshotPlan.Articles)
+                {
+                    if (!AddBytes(ref plannedBytes, article.Manifest.SourceBytes.ByteLength))
+                    {
+                        return Invalid("article_package_export_byte_budget_exceeded");
+                    }
+                }
+                foreach (ArticlePackageManifestPlannedAsset asset in snapshotPlan.Assets)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!AddBytes(ref plannedBytes, asset.Source.SourceBytes.Length))
+                    {
+                        return Invalid("article_package_export_byte_budget_exceeded");
+                    }
+                }
+            }
+            ArticlePackageManifestCandidateResult bound = ArticlePackageManifestCandidatePlanner.TryBindCandidatePlanToSnapshot(
+                expected, articles, plan.Assets.Select(static asset => asset.Source).ToArray(),
+                plan.Manifest.Assets.References, plan.Inventory, out var snapshot, cancellationToken);
+            if (!bound.IsValid)
+            {
+                return bound;
+            }
+            if (plan.Manifest.SemanticDigest != snapshot!.Manifest.SemanticDigest
+                || !plan.Articles.Select(static article => article.Manifest).SequenceEqual(snapshot.Manifest.Articles))
+            {
+                return Invalid("article_package_export_source_binding_mismatch");
+            }
+            return TryWriteCandidateCore(plan, inputs, out candidate, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return Invalid("article_package_export_cancelled");
+        }
+        catch (Exception)
+        {
+            // Foreign article collections cannot expose diagnostics or a partially bound result.
+            return Invalid("article_package_export_input_invalid");
+        }
+    }
+
+    private static ArticlePackageManifestCandidateResult TryWriteCandidateCore(
         ArticlePackageManifestCandidatePlan? plan,
         IReadOnlyList<ArticlePackageFrozenExportCandidateInput>? inputs,
         out ArticlePackageFrozenExportCandidate? candidate,
@@ -97,6 +190,12 @@ public static class ArticlePackageFrozenExportCandidateWriter
             if (plan is null || inputs is null)
             {
                 return Invalid("article_package_export_input_invalid");
+            }
+            if ((plan.Manifest.Assets is null) != (plan.Assets is null)
+                || (plan.Manifest.Assets is not null && plan.Manifest.SchemaVersion != 2)
+                || !plan.Articles.Select(static article => article.Manifest).SequenceEqual(plan.Manifest.Articles))
+            {
+                return Invalid("article_package_export_source_binding_mismatch");
             }
             int count;
             try
@@ -116,6 +215,10 @@ public static class ArticlePackageFrozenExportCandidateWriter
                 || count != plan.Articles.Count)
             {
                 return Invalid("article_package_export_source_binding_mismatch");
+            }
+            if (plan.Assets?.Count > ArticlePackageImportCandidateBytes.MaxFiles - count - 2)
+            {
+                return Invalid("article_package_export_file_budget_exceeded");
             }
             var held = new ArticlePackageFrozenExportCandidateInput[count];
             long inputBytes = 0;
@@ -160,7 +263,7 @@ public static class ArticlePackageFrozenExportCandidateWriter
                     {
                         return Invalid("article_package_export_input_invalid");
                     }
-                    if (asset.Role != "font")
+                    if (asset.Role != "font" && plan.Assets is null)
                     {
                         return Invalid("article_package_manifest_assets_authority_unavailable");
                     }
@@ -180,7 +283,7 @@ public static class ArticlePackageFrozenExportCandidateWriter
                     }
                 };
             }
-            // The global raw/font byte budget is checked before the source owner's defensive
+            // The global raw/asset/font byte budget is checked before the source owner's defensive
             // array copies. Presentation fonts are validated there, not emitted as content assets.
             var byPortable = new Dictionary<string, DocumentExportFrozenInput>(StringComparer.Ordinal);
             foreach (ArticlePackageFrozenExportCandidateInput item in held)
@@ -191,10 +294,16 @@ public static class ArticlePackageFrozenExportCandidateWriter
                     return Invalid("article_package_export_source_binding_mismatch");
                 }
             }
+            byte[] manifestBytes = plan.Manifest.Assets is null
+                ? ArticlePackageManifestCandidateCodec.WriteCandidate(plan.Manifest)
+                : ArticlePackageManifestCandidateCodec.WriteCandidate(plan.Manifest, plan.Manifest.Assets, plan.Inventory);
             var files = new List<ArticlePackageFileBytes>(count + 2)
             {
-                new(ArticlePackageInventory.ManifestPath, ArticlePackageManifestCandidateCodec.WriteCandidate(plan.Manifest))
+                new(ArticlePackageInventory.ManifestPath, manifestBytes)
             };
+            var frozenAssets = new Dictionary<ArticlePackageIdentity, ArticlePackageAssetCollectionSource>();
+            var plannedAssets = plan.Assets?.ToDictionary(static asset => asset.Record.Id.ToString(), StringComparer.Ordinal);
+            var references = plan.Manifest.Assets?.References.ToLookup(static reference => reference.PortableArticle);
             long fileBytes = files[0].Bytes.Length;
             var bindings = new ArticlePackageFrozenExportSourceBinding[count];
             for (int index = 0; index < count; index++)
@@ -223,6 +332,48 @@ public static class ArticlePackageFrozenExportCandidateWriter
                 {
                     return Invalid("article_package_export_source_binding_mismatch");
                 }
+                var seenAssets = new HashSet<ArticlePackageIdentity>();
+                foreach (DocumentExportAsset asset in owned.Assets)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (asset.Role == "font")
+                    {
+                        continue;
+                    }
+                    if (plannedAssets is null || !plannedAssets.TryGetValue(asset.AssetId, out var planned)
+                        || !seenAssets.Add(planned.Metadata.Metadata.PortableAsset)
+                        || !references![article.Manifest.PortableArticle].Any(reference => reference.PortableAsset == planned.Metadata.Metadata.PortableAsset))
+                    {
+                        return Invalid("article_package_export_asset_binding_mismatch");
+                    }
+                    ArticlePackageManifestAssetMetadata metadata = planned.Metadata.Metadata;
+                    // Document digests use a sha256: prefix; package hashes are raw lowercase
+                    // hex. Recompute the package domain from bytes instead of equating claims.
+                    string rawHash = Convert.ToHexStringLower(SHA256.HashData(asset.Bytes.AsSpan()));
+                    if (asset.MediaType != metadata.MimeType || rawHash != metadata.Sha256
+                        || rawHash != planned.RawByteSha256 || asset.Bytes.Length != metadata.SizeBytes
+                        || !asset.Bytes.AsSpan().SequenceEqual(planned.Source.SourceBytes.Span))
+                    {
+                        return Invalid("article_package_export_asset_binding_mismatch");
+                    }
+                    ArticlePackageManifestCandidateResult media = ArticlePackageAssetMetadataMapper.ValidateCandidate(
+                        planned.Metadata, metadata.PortableAsset, planned.Record, asset.Bytes.AsSpan());
+                    if (!media.IsValid)
+                    {
+                        return media;
+                    }
+                    // Shared references emit once; each occurrence was independently revalidated.
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!frozenAssets.ContainsKey(metadata.PortableAsset))
+                    {
+                        frozenAssets.Add(metadata.PortableAsset, new(metadata.PortableAsset, planned.Record, asset.Bytes.ToArray()));
+                    }
+                }
+                if (references is not null && !seenAssets.SetEquals(
+                    references[article.Manifest.PortableArticle].Select(static reference => reference.PortableAsset)))
+                {
+                    return Invalid("article_package_export_asset_binding_mismatch");
+                }
                 byte[] markdown = article.CopySourceBytes();
                 if (!owned.MarkdownUtf8.AsSpan().SequenceEqual(markdown))
                 {
@@ -239,6 +390,28 @@ public static class ArticlePackageFrozenExportCandidateWriter
                     owned.AssetManifestDigest, owned.FontManifestDigest, owned.RendererDigest,
                     owned.ReadingStyleAuthorityDigest);
             }
+            if (plan.Manifest.Assets is not null)
+            {
+                ArticlePackageManifestCandidateResult collection = ArticlePackageAssetCollectionMapper.ValidateCandidate(
+                    plan.Manifest.Assets, frozenAssets.Values.ToArray(), plan.Manifest.Assets.References, plan.Inventory);
+                if (!collection.IsValid)
+                {
+                    return collection;
+                }
+                foreach (ArticlePackageManifestPlannedAsset asset in plan.Assets!)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!frozenAssets.TryGetValue(asset.Metadata.Metadata.PortableAsset, out var frozen))
+                    {
+                        return Invalid("article_package_export_asset_binding_mismatch");
+                    }
+                    if (!AddBytes(ref fileBytes, frozen.SourceBytes.Length))
+                    {
+                        return Invalid("article_package_export_byte_budget_exceeded");
+                    }
+                    files.Add(new(asset.Metadata.Metadata.PackagePath, frozen.SourceBytes));
+                }
+            }
             files.Sort(static (left, right) => string.CompareOrdinal(left.Path, right.Path));
             byte[] checksums = WriteChecksums(files);
             if (!AddBytes(ref fileBytes, checksums.Length))
@@ -249,8 +422,29 @@ public static class ArticlePackageFrozenExportCandidateWriter
             files.Sort(static (left, right) => string.CompareOrdinal(left.Path, right.Path));
             cancellationToken.ThrowIfCancellationRequested();
             byte[] archiveBytes = WriteArchive(files, cancellationToken);
-            ArticlePackageManifestCandidateResult read = ArticlePackageImportZipCandidateReader.TryReadCandidate(
-                archiveBytes, out ArticlePackageImportZipCandidate? archiveCandidate, cancellationToken);
+            ArticlePackageImportZipCandidate? archiveCandidate;
+            ArticlePackageManifestCandidateResult read;
+            if (plan.Manifest.Assets is null)
+            {
+                read = ArticlePackageImportZipCandidateReader.TryReadCandidate(
+                    archiveBytes, out archiveCandidate, cancellationToken);
+            }
+            else
+            {
+                // Planning inventory can carry placeholder metadata lengths. Bind the completed
+                // stored layout to actual output lengths without changing the semantic root.
+                ArticlePackageInventoryEntry[] inventory = [.. files.Select(static file =>
+                    new ArticlePackageInventoryEntry(file.Path, ArticlePackageEntryKind.RegularFile, file.Bytes.Length, file.Bytes.Length))];
+                ArticlePackageManifestCandidateResult collection = ArticlePackageManifestCandidateCodec.TryCreateAssetCollectionCandidate(
+                    plan.Manifest.Assets.Assets.Select(static asset => asset.Metadata).ToArray(),
+                    plan.Manifest.Assets.References, inventory, out var outputAssets);
+                if (!collection.IsValid || outputAssets!.ComponentDigest != plan.Manifest.Assets.ComponentDigest)
+                {
+                    return Invalid("article_package_export_asset_binding_mismatch");
+                }
+                read = ArticlePackageImportAssetCandidateValidator.TryReadCandidate(
+                    archiveBytes, outputAssets, out archiveCandidate, cancellationToken);
+            }
             if (!read.IsValid)
             {
                 return read.ReasonCode == "article_package_import_cancelled"
