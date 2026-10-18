@@ -1,0 +1,69 @@
+{
+    "schema": "fsusblog.format-source-observation.v1",
+    "base": "e5f0d2d21b21635232b37dc6175f1f744129c836",
+    "supersededDraft": {
+        "pr": 4708,
+        "head": "0d426557cd8d9050f50c574622e79d1c7e87db55",
+        "preserveRef": true,
+        "frozenEvidenceArchiveSha256": "62e65b17d3292a3755bc57889f8360f266cc4395cb2e8895995d804034c1c35f"
+    },
+    "intent": "Repair both original SOURCE import findings, preserving aliases, namespace targets, test identities, literals and assertions. SQLite import reorder is a real source change in a separate refactor commit. Formatter commit must preserve the post-import token stream. This observation provides no acceptance or allowed-debt ceiling.",
+    "paths": [
+        {
+            "path": "tests/migration/CurrentSchemaBootstrapCompilerTests.cs",
+            "baseGitBlob": "321e5384e16cf49b0eafdb0de12d405e403a40c4",
+            "baseSha256": "ebed1d4a0cf0278df2f2df1e38f1293b5d171ed7087ef63c858f66fdcacf4ef6"
+        },
+        {
+            "path": "tests/migration/CurrentSchemaPortableBootstrapCompilerTests.cs",
+            "baseGitBlob": "21a76bb13b1d6e87a1d70ea91fce4ae6771172b4",
+            "baseSha256": "2282e7969029ab12b51974f7ed0baa77d49c4560d44004d2cf8957782a760634"
+        },
+        {
+            "path": "tests/migration/PgArticlePreservationOperationTests.cs",
+            "baseGitBlob": "e5a1f9ec3bd4cd9eed23778a793f9e406b951165",
+            "baseSha256": "1f48642a8600f7b28995d4608060e86593fa00419989efaf48901d3d75d8ff24"
+        },
+        {
+            "path": "tests/migration/PgCurrentSchemaBootstrapOperationTests.cs",
+            "baseGitBlob": "8499e19e456faaea5e30412240df588c54921ab3",
+            "baseSha256": "d881204eef86034c9ed656727eb3303441eeb40bda3fbb57a800bf9a5241908d"
+        },
+        {
+            "path": "tests/migration/PgCurrentSchemaEffectObserverTests.cs",
+            "baseGitBlob": "9a6cdfb4e4755bc88c9f44da754b03822cd06b05",
+            "baseSha256": "04dc45502aaa1a60e357f7241d4eb879f8b90313d857fc92b61e17b7371a9a4b"
+        },
+        {
+            "path": "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs",
+            "baseGitBlob": "35b1b338733f2353d5b8648b13e61c519b9ef483",
+            "baseSha256": "acce379e265357c4bbb04e2fa361937b90fde514180d0b48ed52978a55d0ecce"
+        },
+        {
+            "path": "tests/migration/PgLegacyNonArticlePreparationTests.cs",
+            "baseGitBlob": "eca6ac0419bb995ab2f7da84bcbfc8175e6abadd",
+            "baseSha256": "2f00d237c6303218d4152188e187d50b367b27070a7efab9dca960ed836855d1"
+        },
+        {
+            "path": "tests/migration/PgLegacyNonArticleRecoveryTests.cs",
+            "baseGitBlob": "d817fe4ebdf9240eb1a83758e231e9ad436bccc1",
+            "baseSha256": "81a5fbc863b39f79711253302781690e6fe00cac1af6df3c435d0e3ca4c539c8"
+        },
+        {
+            "path": "tests/migration/SqliteCurrentSchemaOwnedTargetObserverTests.cs",
+            "baseGitBlob": "c34971ec0ccdd7a54dc6a4989221431eadc373b3",
+            "baseSha256": "ca16f928509825af967dc351914ecb55105c1450f8985f9f5cde7bb9d45e77f4"
+        }
+    ],
+    "toolProvenance": {
+        "dotnetSdk": "10.0.401",
+        "nodeSourceChecker": "24.16.0",
+        "nativeUsingNormalizer": {
+            "path": "tools/dotnet/check-csharp-style.mjs",
+            "gitBlob": "7a716357c0734cc4be39439348f23379c52554e5",
+            "sha256": "754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+            "mode": "--mode full --fix, explicit nine --file arguments; only native using normalization is applied by --fix"
+        }
+    },
+    "boundaries": "No policy/checker/lock/provider/fixture/generated-output/digest changes. Original aggregate format/naming refusals and eight separate SOURCE test-method rename HOLD remain unchanged. Actual strict, test, SOURCE and metadata gates must report their own results."
+}
