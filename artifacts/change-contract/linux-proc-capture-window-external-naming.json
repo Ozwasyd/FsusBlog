@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Platform/LinuxProcMemoryPressureSource.cs"
+            ],
+            "reason": "Preserve existing framework and procfs source identifiers in the exact registered C# reader path while correcting capture windows. No environment-variable interface or spelling changes are introduced; this declaration binds only the candidate's required naming metadata and grants no platform or runtime qualification."
+        }
+    ]
+}
