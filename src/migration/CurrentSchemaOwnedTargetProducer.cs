@@ -37,7 +37,10 @@ internal sealed class OwnedCurrentSchemaTarget
         Execution = execution;
     }
 
-    internal CurrentSchemaProducerExecution Execution { get; }
+    internal CurrentSchemaProducerExecution Execution
+    {
+        get;
+    }
 
     internal CurrentSchemaIdentity Target => _artifact.Target;
 
@@ -583,7 +586,10 @@ internal sealed class OwnedCurrentSchemaTarget
             {
                 foreach (CurrentSchemaProducerFile child in await SnapshotProducerAsync(entry, cancellationToken).ConfigureAwait(false))
                 {
-                    result.Add(child with { RelativePath = Path.Combine(Path.GetFileName(entry), child.RelativePath) });
+                    result.Add(child with
+                    {
+                        RelativePath = Path.Combine(Path.GetFileName(entry), child.RelativePath)
+                    });
                 }
             }
             else

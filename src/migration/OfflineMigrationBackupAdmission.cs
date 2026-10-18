@@ -398,7 +398,8 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
         }
         else if (value.ValueKind == JsonValueKind.Array)
         {
-            foreach (JsonElement item in value.EnumerateArray()) RejectDuplicateProperties(item);
+            foreach (JsonElement item in value.EnumerateArray())
+                RejectDuplicateProperties(item);
         }
     }
 
@@ -417,7 +418,8 @@ internal sealed class OfflineMigrationBackupAdmission(IOfflineMigrationBackupDri
 
     private static void Require(bool condition, string code)
     {
-        if (!condition) throw Failure(code);
+        if (!condition)
+            throw Failure(code);
     }
 
     private static InvalidOperationException Failure(string code) => new("offline_backup_owned_" + code);

@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using Microsoft.Data.Sqlite;
+
 using MySqlConnector;
 
 using FsusBlog.Contracts.Migration;
@@ -480,7 +481,10 @@ public sealed partial class OfflineMigrationSourceObserver
     private sealed class ScalarCountingReader(TextReader source) : TextReader
     {
         private readonly StringBuilder _prefix = new(32);
-        internal long Scalars { get; private set; }
+        internal long Scalars
+        {
+            get; private set;
+        }
         internal string Prefix => _prefix.ToString();
 
         public override async ValueTask<int> ReadAsync(Memory<char> buffer, CancellationToken cancellationToken = default)

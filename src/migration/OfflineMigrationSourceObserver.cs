@@ -386,7 +386,8 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
         {
             if (validatedJournal && row[0] == OfflineMigrationStateStore.ApplyJournalTableName)
             {
-                if (row[1] != "r") throw new InvalidOperationException("legacy_target_prepare_journal_relation_unowned");
+                if (row[1] != "r")
+                    throw new InvalidOperationException("legacy_target_prepare_journal_relation_unowned");
                 continue;
             }
             facts.Add(new($"table/{row[0]}", row[1] == "r" ? "base" : row[1]));
@@ -404,7 +405,13 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
                 continue;
             }
             string type = row[3] == "timestamp without time zone" ? "timestamp" : row[3];
-            string identity = row[6] switch { "d" => "by-default", "a" => "always", "" => "none", _ => row[6] };
+            string identity = row[6] switch
+            {
+                "d" => "by-default",
+                "a" => "always",
+                "" => "none",
+                _ => row[6]
+            };
             facts.Add(OfflineMigrationSourceFingerprints.ColumnFact(row[0], row[1], int.Parse(row[2], CultureInfo.InvariantCulture),
                 type, row[4] == "1", Default(row[5]), identity, int.Parse(row[7], CultureInfo.InvariantCulture)));
         }

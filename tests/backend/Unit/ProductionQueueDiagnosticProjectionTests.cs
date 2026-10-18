@@ -221,7 +221,10 @@ public sealed class ProductionQueueDiagnosticProjectionTests
         IReadOnlyDictionary<string, RequiredQueueOwnerDiagnosticSnapshot> diagnostics = ProductionReadinessProbe.CaptureRequiredQueueOwnerDiagnostics(provider);
 
         Assert.Null(projected.LastItemReference);
-        Assert.Equal(original with { LastItemReference = null }, projected);
+        Assert.Equal(original with
+        {
+            LastItemReference = null
+        }, projected);
         Assert.Equal(PrivateItem, original.LastItemReference);
         Assert.Equal("closed", diagnostics["audit-log"].LastDisposition);
         Assert.DoesNotContain(PrivateItem, JsonSerializer.Serialize(projected), StringComparison.Ordinal);
@@ -267,7 +270,10 @@ public sealed class ProductionQueueDiagnosticProjectionTests
     {
         public string Digest => "sha256:diagnostic-catalog";
 
-        public IReadOnlyList<BoundedChannelQueueContract> Queues { get; } =
+        public IReadOnlyList<BoundedChannelQueueContract> Queues
+        {
+            get;
+        } =
         [
             new("challenge-audit-high-value", "required", true, nameof(ChallengeAuditHighValueBoundedQueueDrainParticipant), "required"),
             new("challenge-audit-normal", "required", true, nameof(ChallengeAuditNormalBoundedQueueDrainParticipant), "required")
