@@ -88,7 +88,8 @@ export function classifyPerformanceRun(root, run)
     const metrics = run.resource.metrics.map(metric =>
     {
         exactKeys(metric, ['bundleId', 'stepId', 'name', 'status', 'value'], 'metric');
-        assert(typeof metric.bundleId === 'string' && typeof metric.stepId === 'string' && metricRegistry[metric.name]
+        assert(typeof metric.bundleId === 'string' && typeof metric.stepId === 'string'
+            && typeof metric.name === 'string' && Object.hasOwn(metricRegistry, metric.name)
             && !derivedNames.has(metric.name) && !healthNames.includes(metric.name), 'unknown/derived resource metric');
         assert(['measured', 'unsupported', 'unavailable'].includes(metric.status), 'unknown metric status');
         assert(metric.status === 'measured' ? Number.isFinite(metric.value) && metric.value >= 0 : metric.value === null,
