@@ -5,9 +5,9 @@ import {
 } from '@/utils/errorKinds'
 import { AppError, AppErrorCode } from '@/utils/appError'
 import { HttpApiError } from '@/api'
-import { BinaryTransportError } from '@/services/binaryTransport'
+import { BinaryTransportError, type TransportFailureKind } from '@/services/binaryTransport'
 
-function makeBinaryError(kind = 'network' as const, traceId?: string) {
+function makeBinaryError(kind: TransportFailureKind = 'network', traceId?: string) {
   return new BinaryTransportError({ kind, message: 'transport error', traceId })
 }
 
