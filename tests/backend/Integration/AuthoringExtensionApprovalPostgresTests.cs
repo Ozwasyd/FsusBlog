@@ -280,6 +280,57 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RecordedSettledHistory_ReacquiresOriginalCustodyWithoutRepeatingEffects(bool missingHistory)
+    {
+        await using Harness host = await CreateAsync();
+        await host.InitializeGenuineProvenanceAsync();
+        var pending = await host.PrepareMigrationAsync();
+        await host.ConfirmMigrationAsync(pending);
+        var claim = await host.ClaimMigrationAsync(pending);
+        // State-only recovery control: actual original effects and settlement journal, without
+        // fabricating a native result provider, Running admission or a user consent ceremony.
+        await host.State.BackupAsync(host.OldPackage, host.NewPackage, host.Plan, default);
+        AuthoringStateSnapshot applied = await host.State.ApplyAsync(host.OldPackage, host.NewPackage, host.Plan, default);
+        await host.State.CompleteAsync(host.OldPackage, host.NewPackage, host.Plan, default);
+        AuthoringStateSnapshot beforeFrom = await host.State.ReadAsync(host.OldPackage, host.From, default);
+        AuthoringStateSnapshot beforeTo = await host.State.ReadAsync(host.NewPackage, host.To, default);
+        Assert.Equal(1, await host.ScalarAsync("SELECT count(*) FROM authoring_extension_state_settlement;"));
+        if (missingHistory)
+        {
+            // Deliberately missing history in an isolated database; never manufacture a digest.
+            await host.ExecuteAsync("DELETE FROM authoring_extension_state_settlement;");
+        }
+        await using var approval = await host.ApprovalStore.BeginAsync(1, "first-session", "synthetic-site", default);
+        if (missingHistory)
+        {
+            var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.State.ObserveSettledMigrationAsync(
+                host.OldPackage, host.NewPackage, host.Plan, AuthoringStateMigrationPhase.Completed, default).AsTask());
+            Assert.Equal("state_settled_observation_not_recorded", error.Message);
+        }
+        else
+        {
+            await using IAuthoringExtensionStateObservation custody = await host.State.ObserveSettledMigrationAsync(
+                host.OldPackage, host.NewPackage, host.Plan, AuthoringStateMigrationPhase.Completed, default);
+            await custody.VerifyCurrentAsync(default);
+            await using (IAuthoringExtensionApprovalScope access = await host.GenuineScopeAuthority.AcquireWithStateCustodyAsync(
+                host.Context.HttpContext!, claim.Operation, host.From, host.To, custody, default))
+            {
+                await access.VerifyCurrentAsync(default);
+                AuthoringExtensionApprovalContract.ValidateSettledMigration(claim, applied,
+                    custody.State.From.Snapshot, custody.State.To!.Snapshot, default);
+            }
+            // Provenance borrows the same real observation and must not dispose it.
+            await custody.VerifyCurrentAsync(default);
+        }
+        await approval.Transaction.RollbackAsync();
+        Assert.Equal(missingHistory ? 0 : 1, await host.ScalarAsync("SELECT count(*) FROM authoring_extension_state_settlement;"));
+        Assert.Equal(beforeFrom.ContentSha256, (await host.State.ReadAsync(host.OldPackage, host.From, default)).ContentSha256);
+        Assert.Equal(beforeTo.ContentSha256, (await host.State.ReadAsync(host.NewPackage, host.To, default)).ContentSha256);
+    }
+
     [Fact]
     public async Task ActorFirst_PrincipalDeletionWithOriginalCanvasCascadeWaitsBeforeDocument()
     {
