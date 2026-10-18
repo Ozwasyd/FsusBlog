@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "The supplied canonical NuGet lock prerequisite preserves package-manager graph keys and names; internal naming cannot replace the locked consumer format."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "The supplied canonical lifecycle deduplication preserves the existing externally registered test, fixture-owner and receipt identities; renaming them would break retained evidence bindings."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs",
+                "src/backend/Services/DocumentExport/DocumentExportTaskQueue.cs",
+                "src/backend/Services/DocumentExport/DocumentExportSourceFreezer.cs",
+                "src/backend/Services/DocumentExport/DocumentExportTaskJournal.cs"
+            ],
+            "reason": "The supplied producer validation preserves canonical process environment identifiers. The scheduler, canonical source freezer and private task journal lie within the same registered C# source-path surface and preserve existing task/provider and library identifiers. They introduce or rename no process environment keys."
+        }
+    ]
+}
