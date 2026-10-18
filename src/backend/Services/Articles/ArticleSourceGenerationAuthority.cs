@@ -15,7 +15,7 @@ namespace FsusBlog.Server.Services.Articles;
 /// lock before article/advisory locks or mutations, enroll each inserted original outbox
 /// event before commit, and retain all transaction, lifecycle and publication ownership.
 /// </summary>
-public static class ArticleSourceGenerationAuthority
+public static partial class ArticleSourceGenerationAuthority
 {
     // One PostgreSQL advisory namespace for this canonical family, independent of caller.
     internal const int LockNamespace = 1179866444;

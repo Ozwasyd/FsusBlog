@@ -4,8 +4,10 @@ using System.Globalization;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Services.Articles;
 
 using SqlSugar;
+
 
 namespace FsusBlog.Server.Services.Authoring;
 
@@ -147,6 +149,7 @@ public sealed class PostgresArticlePropertyDefinitionPersistence(
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             _ = await db.Ado.GetScalarAsync(
                 "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 2442));",
                 new SugarParameter("@Identity", OwnerIdentity(owner))).ConfigureAwait(false);
@@ -339,6 +342,7 @@ public sealed class PostgresArticlePropertyDefinitionPersistence(
                 new SugarParameter("@CommandDigest", commandDigest),
                 new SugarParameter("@ReceiptId", mutation.Receipt.ReceiptId),
                 new SugarParameter("@CreatedAtUtc", mutation.Receipt.OccurredAtUtc)).ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordPropertyDefinitionAsync(db, mutation.Receipt.ReceiptId, cancellationToken).ConfigureAwait(false);
             result = mutation.Receipt;
         }).ConfigureAwait(false);
 

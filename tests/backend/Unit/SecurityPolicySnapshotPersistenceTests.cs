@@ -474,7 +474,11 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         => PostgresSqlSugarTestClient.InitTables(
             db,
             typeof(SecurityPolicySnapshot),
-            typeof(SecurityPolicyVersionCounter));
+            typeof(SecurityPolicyVersionCounter),
+            typeof(ArticleSourceGeneration),
+            typeof(ArticleSourceSequence),
+            typeof(ArticleSourceMutation),
+            typeof(ArticleSourceObservation));
 
     private static Task<T> StartBarrierTaskAsync<T>(Barrier barrier, Func<Task<T>> action)
         => Task.Factory.StartNew(

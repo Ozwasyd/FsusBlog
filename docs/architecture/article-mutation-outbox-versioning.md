@@ -27,7 +27,16 @@ The hooks cover the shared create and lifecycle writers, ArticleService's centra
 recorder and direct restore/trash transactions, Vault's outer group transaction,
 canonical publication/lifecycle fixture transactions, scheduled publication,
 authoring draft creation, taxonomy rename, responsibility save and rights-proof
-projection. The three source tables are registered by
+projection. Definition writes also acquire the same family lock before their
+original owner/definition advisory locks and enroll the actual persisted receipt
+and command journal before the original commit. Security policy activation and
+rollback enroll the original policy/version snapshot in their original transaction.
+These observations use the same original allocator and numeric family counter.
+`article_source_observation` provides cross-origin generation uniqueness and retains
+the actual article EventId projection alongside the original article event journal;
+non-article observations have no invented article ID or per-article sequence.
+
+The four source tables are registered by
 `20261018-post-article-source-generation`; the additive DDL also installs checks
 when CodeFirst created the tables first. This DDL is a code-compatible Expand;
 source baseline activation still requires the original rollout owner to drain
@@ -52,6 +61,18 @@ Offline migration requires RepeatableRead/Serializable and emits no
 article outbox event, so it cannot borrow this ReadCommitted-only authority without
 an original-owner transaction/event design. Direct demo/public fixture seeding and
 cleanup also remain outside the enrolled lifecycle path.
+
+The closed property-snapshot enrollment port reads the actual original canonical
+value snapshot/factset and immutable coordinates; it does not supply the missing
+value persistence producer on this branch. Complete taxonomy mutation receipts,
+locale changes/compensation, principal/session permission mutations and their
+original transaction participants remain required. An article clock plus the
+currently enrolled definition/policy changes must not be advertised as Search's
+complete source generation while any such source or baseline coverage is unavailable.
+Read-only RepeatableRead source snapshots can consistently consume committed
+generation/facts while the original ReadCommitted writers atomically commit changes;
+this does not admit an existing RepeatableRead migration write transaction to the
+ReadCommitted-only mutation API.
 
 Persisted source counters do not establish a verified corpus baseline or an
 `IndexGeneration`. Graph, Query and Canvas have not consumed these cursors. Code

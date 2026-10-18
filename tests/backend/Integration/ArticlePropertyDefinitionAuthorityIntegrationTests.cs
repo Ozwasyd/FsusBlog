@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Tests.Integration;
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
-public sealed class ArticlePropertyDefinitionAuthorityIntegrationTests(PostgresSchemaMigrationFixture fixture)
+public sealed partial class ArticlePropertyDefinitionAuthorityIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     private const string TamperKey = "article-property-definition-integration-tamper-key";
     private static readonly ArticlePropertyDefinitionActor s_actor = new(
@@ -605,6 +605,10 @@ public sealed class ArticlePropertyDefinitionAuthorityIntegrationTests(PostgresS
         }
         ISchemaMigrationDescriptor history = ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.BuildMigration();
         foreach (SchemaMigrationStep step in history.Steps)
+        {
+            await step.ExecuteAsync(db, CancellationToken.None);
+        }
+        foreach (SchemaMigrationStep step in ArticleSourceGenerationMigrationDefinitions.BuildMigration().Steps)
         {
             await step.ExecuteAsync(db, CancellationToken.None);
         }

@@ -11,7 +11,7 @@ using FsusBlog.Server.Entities;
 namespace FsusBlog.Server.Services.Articles;
 
 /// <summary>SQL implementation over the caller's original connection and transaction; no schema or lifecycle writer.</summary>
-internal static class ArticleSourceGenerationPersistence
+internal static partial class ArticleSourceGenerationPersistence
 {
     internal static NpgsqlConnection RequireConnection(ISqlSugarClient db)
     {
@@ -260,81 +260,9 @@ internal static class ArticleSourceGenerationPersistence
     internal static async Task<ArticleSourceCursor> AllocateAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         ArticleMutationOutboxEvent item, string facts, CancellationToken cancellationToken)
     {
-        long? generation = null;
-        await using (NpgsqlCommand clock = new(
-            "SELECT family_id, source_generation FROM article_source_generation FOR UPDATE;", connection, transaction))
-        await using (NpgsqlDataReader reader = await clock.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
-        {
-            if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-            {
-                generation = ReadClock(reader);
-                if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    throw new InvalidOperationException("article_source_family_invalid");
-                }
-            }
-        }
-        if (!generation.HasValue)
-        {
-            // An absent clock is uninitialized only when this authority has no durable state.
-            // Never silently recreate a lost clock from surviving sequences or enrollments.
-            await using NpgsqlCommand orphan = new("""
-                SELECT EXISTS (SELECT 1 FROM article_source_sequence)
-                    OR EXISTS (SELECT 1 FROM article_source_mutation);
-                """, connection, transaction);
-            if ((bool)(await orphan.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false))!)
-            {
-                throw new InvalidOperationException("article_source_clock_missing_for_persisted_state");
-            }
-        }
-        await using (NpgsqlCommand sequence = new(
-            "SELECT source_sequence FROM article_source_sequence WHERE article_id = @ArticleId FOR UPDATE;", connection, transaction))
-        {
-            sequence.Parameters.AddWithValue("ArticleId", item.AggregateId);
-            object? value = await sequence.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-            if (value is long persisted && (persisted <= 0 || !generation.HasValue || persisted > generation.Value))
-            {
-                throw new InvalidOperationException("article_source_sequence_invalid");
-            }
-            if (value is null)
-            {
-                await using NpgsqlCommand orphan = new(
-                    "SELECT EXISTS (SELECT 1 FROM article_source_mutation WHERE article_id = @ArticleId);", connection, transaction);
-                orphan.Parameters.AddWithValue("ArticleId", item.AggregateId);
-                if ((bool)(await orphan.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false))!)
-                {
-                    throw new InvalidOperationException("article_source_sequence_missing_for_persisted_state");
-                }
-            }
-            _ = checked((value is long current ? current : 0) + 1);
-        }
-        _ = checked((generation ?? 0) + 1);
-        await using NpgsqlCommand command = new("""
-            WITH clock AS (
-                INSERT INTO article_source_generation(family_id, source_generation) VALUES (1, 1)
-                ON CONFLICT (family_id) DO UPDATE
-                SET source_generation = article_source_generation.source_generation + 1
-                RETURNING source_generation
-            ), sequence AS (
-                INSERT INTO article_source_sequence(article_id, source_sequence) VALUES (@ArticleId, 1)
-                ON CONFLICT (article_id) DO UPDATE
-                SET source_sequence = article_source_sequence.source_sequence + 1
-                RETURNING source_sequence
-            )
-            INSERT INTO article_source_mutation(event_id, article_id, source_generation, source_sequence, event_facts)
-            SELECT @EventId, @ArticleId, clock.source_generation, sequence.source_sequence, @Facts
-            FROM clock CROSS JOIN sequence
-            RETURNING article_id, source_generation, source_sequence;
-            """, connection, transaction);
-        command.Parameters.AddWithValue("ArticleId", item.AggregateId);
-        command.Parameters.AddWithValue("EventId", item.EventId);
-        command.Parameters.AddWithValue("Facts", facts);
-        await using NpgsqlDataReader allocated = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await allocated.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            throw new InvalidOperationException("article_source_allocation_missing");
-        }
-        return new ArticleSourceCursor(allocated.GetInt32(0), allocated.GetInt64(1), allocated.GetInt64(2));
+        ArticleSourceObservationCursor allocated = await AllocateCoreAsync(connection, transaction,
+            "article", item.EventId, item.AggregateId, facts, cancellationToken).ConfigureAwait(false);
+        return new ArticleSourceCursor(item.AggregateId, allocated.SourceGeneration, allocated.SourceSequence!.Value);
     }
 
     private static long ReadClock(NpgsqlDataReader reader)

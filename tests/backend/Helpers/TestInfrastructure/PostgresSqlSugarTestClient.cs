@@ -166,7 +166,8 @@ internal static class PostgresSqlSugarTestClient
             db.CodeFirst.InitTables(
                 typeof(FsusBlog.Server.Entities.ArticleSourceGeneration),
                 typeof(FsusBlog.Server.Entities.ArticleSourceSequence),
-                typeof(FsusBlog.Server.Entities.ArticleSourceMutation));
+                typeof(FsusBlog.Server.Entities.ArticleSourceMutation),
+                typeof(FsusBlog.Server.Entities.ArticleSourceObservation));
         }
     }
 }

@@ -128,7 +128,9 @@ public sealed class ArticleImportImmutableHistoryPostgresTests(PostgresSchemaMig
     {
         long admin = await db.Insertable(new AdminPrincipal
         {
-            Handle = "import-admin", DisplayName = "Import tests", Status = AdminPrincipalStatus.Active,
+            Handle = "import-admin",
+            DisplayName = "Import tests",
+            Status = AdminPrincipalStatus.Active,
             Permissions = string.Join('\n', AdminPermissions.ArticleWrite, AdminPermissions.ArticlePublish),
             CreatedAtUtc = s_now
         }).ExecuteReturnBigIdentityAsync();
