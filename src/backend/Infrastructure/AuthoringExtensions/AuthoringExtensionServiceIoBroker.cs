@@ -266,6 +266,7 @@ public sealed class AuthoringExtensionServiceIoBroker
         }
 
         AuthoringServiceIoResult result = CreateResult(grant.GrantId, runtimeIdentity, purpose, response.Payload, "network-read");
+        deadline.Dispose();
         deadline.ThrowIfExpiredOrCancelled();
         return result;
     }
@@ -311,6 +312,7 @@ public sealed class AuthoringExtensionServiceIoBroker
 
         deadline.ThrowIfExpiredOrCancelled();
         AuthoringServiceIoResult result = CreateResult(grant.GrantId, runtimeIdentity, purpose, [.. payload], "file-read");
+        deadline.Dispose();
         deadline.ThrowIfExpiredOrCancelled();
         return result;
     }
@@ -358,6 +360,7 @@ public sealed class AuthoringExtensionServiceIoBroker
 
         try
         {
+            deadline.Dispose();
             deadline.ThrowIfExpiredOrCancelled();
             return receipt;
         }
@@ -488,6 +491,7 @@ public sealed class AuthoringExtensionServiceIoBroker
         private readonly CancellationToken _callerToken;
         private readonly CancellationTokenSource _expiry;
         private readonly CancellationTokenSource _linked;
+        private readonly CancellationToken _token;
         private readonly ITimer _timer;
         private bool _disposed;
         private bool _resourcesReleased;
@@ -507,6 +511,7 @@ public sealed class AuthoringExtensionServiceIoBroker
 
             _expiry = new CancellationTokenSource();
             _linked = CancellationTokenSource.CreateLinkedTokenSource(callerToken, _expiry.Token);
+            _token = _linked.Token;
             try
             {
                 _timer = _timeProvider.CreateTimer(static state => ((GrantIoDeadline)state!).OnTimer(),
@@ -522,7 +527,7 @@ public sealed class AuthoringExtensionServiceIoBroker
             }
         }
 
-        internal CancellationToken Token => _linked.Token;
+        internal CancellationToken Token => _token;
 
         internal void ThrowIfExpiredOrCancelled()
         {

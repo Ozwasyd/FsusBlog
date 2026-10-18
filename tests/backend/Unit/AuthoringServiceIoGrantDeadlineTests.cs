@@ -631,6 +631,64 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(fixture.Input));
     }
 
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    public async Task Broker_RejectsExpiryOrCancellationDuringDeadlineDisposal(int operation, bool cancel)
+    {
+        using var fixture = new IoFixture();
+        using var caller = new CancellationTokenSource();
+        var clock = new ManualTimerTimeProvider(DateTimeOffset.UtcNow);
+        fixture.Clock = clock;
+        DateTimeOffset expiresAt = clock.Now.AddMinutes(1);
+        clock.TimerDisposed = () =>
+        {
+            if (cancel)
+            {
+                caller.Cancel();
+            }
+            else
+            {
+                clock.Now = expiresAt;
+            }
+        };
+        var broker = fixture.Broker();
+        async Task Run()
+        {
+            if (operation == 0)
+            {
+                AuthoringNetworkGrant grant = fixture.NetworkGrant(expiresAt);
+                await broker.FetchAsync(grant, grant.RuntimeIdentity, grant.Purpose, "/", caller.Token);
+            }
+            else if (operation == 1)
+            {
+                AuthoringFileGrant grant = fixture.FileGrant(false, expiresAt);
+                await broker.ReadFileAsync(grant, grant.RuntimeIdentity, grant.Purpose, caller.Token);
+            }
+            else
+            {
+                AuthoringFileGrant grant = fixture.FileGrant(true, expiresAt);
+                await broker.StageProposedWriteAsync(grant, grant.RuntimeIdentity, grant.Purpose, [4, 5, 6], caller.Token);
+            }
+        }
+        if (cancel)
+        {
+            OperationCanceledException failure = await Assert.ThrowsAnyAsync<OperationCanceledException>(Run);
+            Assert.Equal(caller.Token, failure.CancellationToken);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(Run);
+        }
+        Assert.True(clock.Timer!.Disposed);
+        Assert.Empty(Directory.EnumerateFiles(fixture.Staging));
+        Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(fixture.Input));
+    }
+
     private sealed class OwnedStageStream(
         FileStream inner,
         bool blockDispose,
@@ -689,13 +747,17 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
     private sealed class ManualTimerTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = now;
+        public Action? TimerDisposed
+        {
+            get; set;
+        }
         public ManualTimer? Timer
         {
             get; private set;
         }
         public override DateTimeOffset GetUtcNow() => Now;
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period) =>
-            Timer = new ManualTimer(callback, state, dueTime);
+            Timer = new ManualTimer(callback, state, dueTime) { OnDispose = TimerDisposed };
     }
 
     private sealed class ManualTimer(TimerCallback callback, object? state, TimeSpan dueTime) : ITimer
@@ -711,7 +773,15 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
             return !Disposed;
         }
         public void Fire() => callback(state);
-        public void Dispose() => Disposed = true;
+        public Action? OnDispose
+        {
+            get; set;
+        }
+        public void Dispose()
+        {
+            Disposed = true;
+            OnDispose?.Invoke();
+        }
         public ValueTask DisposeAsync()
         {
             Dispose();
