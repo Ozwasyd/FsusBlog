@@ -201,7 +201,61 @@ refuses the family. Original publication inputs must replay frozen facts; the in
 also refuses publication rewrite/removal. This read port is now available to the
 original parser adapter owner, but does not itself implement that authority.
 
-The original observed parser/portable identity adapter, fresh permission admission,
+`CanonicalArticleRelationParserBridge` now supplies a closed internal parse envelope
+from the real `@ozwasyd/element-plus/markdown-runtime` public entry. Its only child
+script, `canonicalArticleRelationParserBridge.mjs`, calls
+`createMarkdownEditorProjection`, `stabilizeMarkdownEditorProjection`,
+`collectMarkdownAnchorNodes`, `collectMarkdownEmbedNodes` and
+`createMarkdownSourceCoordinateMap`. No C#/regex/DOM Markdown parser, private UI
+import or PublicAot worker receives the body. Standard WebAssembly host observation
+records the SHA-256 of the module actually compiled during that public call; expected
+public-entry bytes, module bytes and runtime version are explicit trusted host pins.
+The envelope also retains the runtime's actual parser/source/version identity and
+the original byte digest. Pins are verified, never learned from the private request.
+The local alias uses Node 24's native TypeScript stripping on the public entry;
+there is no tsx loader or child compilation service. Published-package mode resolves
+the same documented public export. The native .NET package remains unpublished.
+
+The original `AuthoringRevisionComparePackageReader` supplies exact selected revision
+or persisted draft bytes. Both reads use the same authorized selector and expected
+digest; completion rereads the full package and refuses metadata/context/body drift.
+There is no latest/path lookup. Portable source coordinates and the mounted document
+id/numeric epoch remain independent caller observations: the compare draft-context
+token is never converted to a mounted epoch. A fresh stable projection is scoped to
+that supplied mount; this bridge claims no cross-revision identity continuation.
+Raw BOM/CRLF/RTL/astral UTF-16 ranges use the public coordinate map, with UTF-8 and
+line/column round-trip controls. Both the original projection range and the literal
+link range are retained. Literal selection uses the map's forward start/backward end
+affinities, preserving a collapsed BOM or CRLF outside the Markdown link without
+reconstructing ranges from text. Links, anchors and embeds remain distinct. Parser
+diagnostics block whole producer binding. The pinned public runtime currently emits
+an embed projection inside a containing fenced-code projection for an embed-looking
+literal line. Such conflicting canonical ownership refuses the whole parse; the
+bridge neither repairs the UI parser nor admits that literal as a dependency. The
+control exercises this actual upstream behavior. URL destinations are candidates only. The explicit
+`ArticleBlockRelationProductionInput.FromCanonicalParsedSource` binding requires one
+original registry decision per link and delegates all block validation to the
+existing producer. It supplies no target resolver, non-block producer or embed
+admission. Duplicate, orphan or changed bindings fail closed.
+
+The process gate permits one in-flight read/parse and child at a time; concurrent
+submissions refuse before another body is materialized. Source/input/output/node limits are
+200,000 UTF-16 units, 1 MiB stdin, 2 MiB stdout and 4,096 projection nodes, with
+4 KiB stderr and a 10-second deadline. Node has a 96 MiB old-space and 8 MiB
+semi-space limit; the parent polls actual working set every 10 ms against 256 MiB
+and the child checks its own RSS before publishing. RSS monitoring is not a kernel
+allocation reservation or a measured storage/latency qualification. Caller
+cancellation, timeout and failed I/O kill the child tree and await actual exit and
+pipe cleanup. Body bytes travel only over bounded private stdin; exception/diagnostic
+messages are not forwarded to logs or argv/environment. The original backend project
+contains real process/WASM integration controls, separate from its parsed-fact unit
+fixtures. The localUI public-entry alias and saved Blog locks are unchanged.
+
+This remains WIP with no DI registration, endpoint or Graph enablement. Combining
+the original portable coordinate readers, fresh permission/target registry decisions
+and corpus source-generation observations into `IArticleBlockRelationParsedSource`
+is still open; a supplied permission record or successful parse is not that receipt.
+Fresh permission admission,
 durable registration, permission-safe target query (#2441), complete block diagnostic
 lifecycle persistence (#2443), transactional impact execution (#2447) and real package
 round-trip (#2450) remain integration work. The producer, source integration, index
