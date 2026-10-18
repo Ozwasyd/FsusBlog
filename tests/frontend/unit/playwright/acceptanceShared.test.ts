@@ -40,7 +40,7 @@ const fixturePayload = {
     { producerId: 'public-content', kind: 'category', id: '1', handle: 'Category', variantId: null },
     { producerId: 'public-content', kind: 'tag', id: '1', handle: 'Tag', variantId: null }
   ],
-  projectionDigest: null
+  projectionDigest: null as ReturnType<typeof digestCanonical> | null
 }
 const { digestCanonical } = await import('../../../../tools/test-fixtures/receipt/canonical.mjs')
 fixturePayload.projectionDigest = digestCanonical({ ...fixturePayload, projectionDigest: undefined })
