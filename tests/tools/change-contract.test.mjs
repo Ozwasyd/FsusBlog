@@ -3989,6 +3989,326 @@ test('format-only PR accepts later blame metadata but rejects any other semantic
     );
 });
 
+function historicalFormatFixture({ evidenceFooter = 'artifacts/style/idempotence.json', mutateFormat = () => {} } = {})
+{
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-historical-format-'));
+    execFileSync('git', ['init', '-q'], { cwd: repository });
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository });
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository });
+    const paths = ['source.cs', 'other.cs'];
+    writeRepositoryFile(repository, paths[0], 'class Fixture { int Read() => 1; }\n');
+    writeRepositoryFile(repository, paths[1], 'class Other { }\n');
+    writeRepositoryFile(repository, 'unknown.cs', 'class Unchanged { }\n');
+    writeRepositoryFile(repository, '.git-blame-ignore-revs', '');
+    const base = commitFixture(repository, 'fixture base');
+    writeRepositoryFile(repository, paths[0], 'class Fixture    {    int Read() => 1;    }\n');
+    writeRepositoryFile(repository, paths[1], 'class Other    {    }\n');
+    mutateFormat(repository);
+    const revision = commitFixture(repository, fixture('valid', 'format-only.txt')
+        .replace('artifacts/style/idempotence.json', evidenceFooter));
+    writeRepositoryFile(repository, '.git-blame-ignore-revs', `${revision}\n`);
+    writeFormatEvidence(repository, revision, paths);
+    const head = commitFixture(repository, 'chore(governance): bind historical format evidence\n\nRefs: #1163');
+    return { repository, base, revision, head, paths };
+}
+
+test('historical format receipts survive later docs, refactor, behavior, restore, and delete commits in a mixed range', () =>
+{
+    const { repository, base, revision } = historicalFormatFixture();
+    try
+    {
+        const receipt = readFileSync(join(repository, 'artifacts/style/idempotence.json'));
+        for (const [type, source] of [
+            ['docs', '/// <summary>Read the current value.</summary>\nclass Fixture { int Read() => 1; }\n'],
+            ['refactor', 'class Fixture { private int Read() => 1; }\n'],
+            ['fix', 'class Fixture { private int Read() => 2; }\n'],
+            ['revert', 'class Fixture { int Read() => 1; }\n']
+        ])
+        {
+            if (type === 'docs')
+            {
+                writeRepositoryFile(repository, 'docs/fixture.md', 'Explain the current immutable value.\n');
+            }
+            writeRepositoryFile(repository, 'source.cs', source);
+            const reverts = type === 'revert' ? `Reverts: ${revision}\n` : '';
+            commitFixture(repository, `${type}(governance): preserve mixed history fixture\n\n${reverts}Refs: #1163`);
+            assert.deepEqual(validateCommitRange(repository, `${base}..HEAD`), [], type);
+            assert.deepEqual(readFileSync(join(repository, 'artifacts/style/idempotence.json')), receipt);
+            assert.notDeepEqual(validateFormatOnlyPullRequest(repository, base, 'HEAD', revision,
+                'artifacts/style/idempotence.json'), [], type);
+        }
+        unlinkSync(join(repository, 'source.cs'));
+        commitFixture(repository, 'refactor(governance): remove obsolete fixture source\n\nRefs: #1163');
+        assert.deepEqual(validateCommitRange(repository, `${base}..HEAD`), []);
+    }
+    finally
+    {
+        rmSync(repository, { recursive: true, force: true });
+    }
+});
+
+for (const [label, mutate, expected] of [
+    ['second-pass digest', (evidence) => { evidence.secondPassTreeSha256 = '0'.repeat(64); }, /first\/second pass digests/u],
+    ['wrong revision', (evidence, context) => { evidence.revision = context.base; }, /revision must match/u],
+    ['mutable revision', (evidence) => { evidence.revision = 'HEAD'; }, /revision must match/u],
+    ['unknown revision', (evidence) => { evidence.revision = '0'.repeat(40); }, /revision must match/u],
+    ['wrong formatter', (evidence) => { evidence.formatter.identity = 'untrusted'; }, /declared formatter/u],
+    ['wrong version', (evidence) => { evidence.formatter.version = '0.0.0'; }, /declared formatter/u],
+    ['wrong command', (evidence) => { evidence.formatter.command = 'true'; }, /declared formatter/u],
+    ['wrong schema', (evidence) => { evidence.schema = 'unknown'; }, /schema must be/u],
+    ['false idempotence', (evidence) => { evidence.idempotent = false; }, /idempotent: true/u],
+    ['missing path', (evidence, { repository }) => {
+        evidence.paths.pop();
+        evidence.firstPassTreeSha256 = evidence.secondPassTreeSha256 = contentTreeDigest(repository, evidence.paths);
+    }, /include every format commit changed path/u],
+    ['unknown input', (evidence, { repository }) => {
+        evidence.paths.push('unknown.cs');
+        evidence.firstPassTreeSha256 = evidence.secondPassTreeSha256 = contentTreeDigest(repository, evidence.paths);
+    }, /paths must all be changed in this PR/u],
+    ['duplicate path', (evidence) => { evidence.paths.push(evidence.paths[0]); }, /paths must be unique/u],
+    ['absolute path', (evidence) => { evidence.paths[0] = '/tmp/source.cs'; }, /repository-relative paths/u],
+    ['traversal path', (evidence) => { evidence.paths[0] = '../source.cs'; }, /repository-relative paths/u],
+    ['pathspec wildcard', (evidence) => { evidence.paths[0] = '*.cs'; }, /repository-relative paths/u],
+    ['pathspec magic', (evidence) => { evidence.paths[0] = ':(glob)**'; }, /repository-relative paths/u],
+    ['non-string path', (evidence) => { evidence.paths[0] = null; }, /repository-relative paths/u],
+    ['missing historical path', (evidence) => { evidence.paths[0] = 'absent.cs'; }, /include every|cannot be read/u],
+    ['later source rehash', (evidence, { repository }) => {
+        writeRepositoryFile(repository, 'source.cs', 'class Changed { int Read() => 2; }\n');
+        evidence.firstPassTreeSha256 = evidence.secondPassTreeSha256 = contentTreeDigest(repository, evidence.paths);
+        evidence.formatCommit = 'HEAD';
+        evidence.contentRevision = 'HEAD';
+    }, /first\/second pass digests/u]
+])
+{
+    test(`historical format receipt rejects ${label}`, () =>
+    {
+        const context = historicalFormatFixture();
+        const { repository, base } = context;
+        try
+        {
+            const evidencePath = join(repository, 'artifacts/style/idempotence.json');
+            const evidence = JSON.parse(readFileSync(evidencePath, 'utf8'));
+            mutate(evidence, context);
+            writeFileSync(evidencePath, `${JSON.stringify(evidence)}\n`);
+            commitFixture(repository, 'test(governance): tamper historical evidence fixture\n\nRefs: #1163');
+            assert.match(validateCommitRange(repository, `${base}..HEAD`).join('\n'), expected);
+        }
+        finally
+        {
+            rmSync(repository, { recursive: true, force: true });
+        }
+    });
+}
+
+for (const evidenceFooter of ['none', '/tmp/idempotence.json'])
+{
+    test(`historical format receipt cannot override immutable footer ${evidenceFooter}`, () =>
+    {
+        const { repository, base, revision } = historicalFormatFixture({ evidenceFooter });
+        try
+        {
+            const errors = validateCommitRange(repository, `${base}..HEAD`).join('\n');
+            assert.match(errors, /requires Idempotence-Evidence/u);
+            assert.match(validateFormatOnlyPullRequest(repository, base, 'HEAD', revision,
+                'artifacts/style/idempotence.json').join('\n'), /must match its format commit.*footer/u);
+        }
+        finally
+        {
+            rmSync(repository, { recursive: true, force: true });
+        }
+    });
+}
+
+test('historical format receipt can cover an already formatted path changed earlier in the range', () =>
+{
+    const { repository, base, revision, paths } = historicalFormatFixture();
+    try
+    {
+        // Model a checked formatter input already modified by an earlier owner.
+        const earlier = execFileSync('git', ['rev-parse', `${revision}^`], { cwd: repository, encoding: 'utf8' }).trim();
+        const env = { ...process.env, GIT_INDEX_FILE: join(repository, '.git/fixture-index'), GIT_NO_REPLACE_OBJECTS: '1' };
+        const git = (args, input) => execFileSync('git', args, { cwd: repository, env, input, encoding: 'utf8' }).trim();
+        git(['read-tree', earlier]);
+        const blob = git(['hash-object', '-w', '--stdin'], 'class EarlierOwner { }\n');
+        git(['update-index', '--cacheinfo', `100644,${blob},unknown.cs`]);
+        const prior = commitTreeFixture(repository, git(['write-tree']), [earlier],
+            'refactor(governance): preserve earlier formatter input\n\nRefs: #1163');
+        git(['read-tree', revision]);
+        git(['update-index', '--cacheinfo', `100644,${blob},unknown.cs`]);
+        const format = commitTreeFixture(repository, git(['write-tree']), [prior], fixture('valid', 'format-only.txt'));
+        execFileSync('git', ['checkout', '-q', '--detach', format], { cwd: repository });
+        writeRepositoryFile(repository, '.git-blame-ignore-revs', `${format}\n`);
+        writeFormatEvidence(repository, format, [...paths, 'unknown.cs']);
+        commitFixture(repository, 'chore(governance): bind complete formatter input scope\n\nRefs: #1163');
+        assert.deepEqual(validateCommitRange(repository, `${base}..HEAD`), []);
+    }
+    finally
+    {
+        rmSync(repository, { recursive: true, force: true });
+    }
+});
+
+test('historical format receipt rejects symlink evidence and candidate worktree substitutions', () =>
+{
+    const { repository, base } = historicalFormatFixture();
+    try
+    {
+        const evidencePath = join(repository, 'artifacts/style/idempotence.json');
+        const evidence = readFileSync(evidencePath);
+        writeRepositoryFile(repository, 'source.cs', 'uncommitted arbitrary source');
+        writeFileSync(evidencePath, 'uncommitted invalid JSON');
+        assert.deepEqual(validateCommitRange(repository, `${base}..HEAD`), []);
+        writeFileSync(evidencePath, evidence);
+        writeRepositoryFile(repository, 'artifacts/style/forged.json', evidence);
+        unlinkSync(evidencePath);
+        symlinkSync('forged.json', evidencePath);
+        commitFixture(repository, 'test(governance): substitute receipt link\n\nRefs: #1163');
+        assert.match(validateCommitRange(repository, `${base}..HEAD`).join('\n'), /not a regular Git blob/u);
+    }
+    finally
+    {
+        rmSync(repository, { recursive: true, force: true });
+    }
+});
+
+for (const [label, mutateFormat] of [
+    ['source symlink', (repository) => {
+        unlinkSync(join(repository, 'source.cs'));
+        symlinkSync('other.cs', join(repository, 'source.cs'));
+    }],
+    ['executable mode', (repository) => { chmodSync(join(repository, 'source.cs'), 0o755); }],
+    ['semantic tokens', (repository) => { writeRepositoryFile(repository, 'source.cs', 'class Changed { }\n'); }]
+])
+{
+    test(`historical format receipt cannot certify ${label}`, () =>
+    {
+        const { repository, base } = historicalFormatFixture({ mutateFormat });
+        try
+        {
+            assert.match(validateCommitRange(repository, `${base}..HEAD`).join('\n'), /Format-only diff/u);
+        }
+        finally
+        {
+            rmSync(repository, { recursive: true, force: true });
+        }
+    });
+}
+
+test('historical format validation ignores replacement commits selecting a different tree or footer', () =>
+{
+    const { repository, base, revision } = historicalFormatFixture();
+    try
+    {
+        const tree = execFileSync('git', ['rev-parse', `${base}^{tree}`], { cwd: repository, encoding: 'utf8' }).trim();
+        const replacement = commitTreeFixture(repository, tree, [base],
+            fixture('valid', 'format-only.txt').replace('artifacts/style/idempotence.json', 'none'));
+        execFileSync('git', ['replace', revision, replacement], { cwd: repository });
+        assert.deepEqual(validateCommitRange(repository, `${base}..HEAD`), []);
+    }
+    finally
+    {
+        rmSync(repository, { recursive: true, force: true });
+    }
+});
+
+test('classification proof remains closed for private migration names and protected identities', () =>
+{
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-classification-proof-'));
+    execFileSync('git', ['init', '-q'], { cwd: repository });
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository });
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository });
+    const path = 'tests/backend/Unit/MigrationFixtureTests.cs';
+    const before = `class FixtureTests
+{
+    private const string MigrationFixture = "stable-fixture-id";
+    private sealed class ContractObserver
+    {
+        internal static readonly string MigrationState = "stable-wire-value";
+    }
+    public void MigrationContractTest() { Assert.Equal(MigrationFixture, "stable-fixture-id"); }
+}
+`;
+    try
+    {
+        writeRepositoryFile(repository, path, before);
+        const base = commitFixture(repository, 'fixture classification base');
+        for (const [label, source] of [
+            ['private constant rename remains unproved', before.replaceAll('MigrationFixture', 'FixtureName')],
+            ['effectively-private nested static rename remains unproved', before.replaceAll('MigrationState', 's_migrationState')],
+            ['test method identity', before.replace('MigrationContractTest', 'RenamedContractTest')],
+            ['stable ID literal', before.replaceAll('stable-fixture-id', 'changed-fixture-id')],
+            ['wire literal', before.replace('stable-wire-value', 'changed-wire-value')],
+            ['assertion', before.replace('Assert.Equal', 'Assert.NotEqual')],
+            ['nameof identity', before.replace('MigrationFixture,', 'nameof(MigrationFixture),')],
+            ['public member', before.replace('private const', 'public const')]
+        ])
+        {
+            writeRepositoryFile(repository, path, source);
+            const head = commitFixture(repository, 'fixture naming candidate');
+            const errors = validatePrContract({
+                title: 'style(csharp): preserve classification proof boundary',
+                body: pullRequestBody({ type: 'style', namingOnly: true, audience: 'none', category: 'none' }),
+                labels: ['release-note:none'], changedFiles: changedFilesBetween(repository, base, head),
+                root: repository, base, head, authorityRoot: null
+            });
+            assert.match(errors.join('\n'), /cannot rename database, API, or generated contract surfaces/u, label);
+        }
+        for (const protectedPath of ['src/backend/Migrations/Schema.cs', 'docs/api/schema.md',
+            'src/shared/Contracts/Validation/Schema.cs', 'docs/api/service.openapi.json', 'docs/api/aeds-protocol.json'])
+        {
+            assert.match(validatePrContract({
+                title: 'style(csharp): preserve classification proof boundary',
+                body: pullRequestBody({ type: 'style', namingOnly: true, audience: 'none', category: 'none' }),
+                labels: ['release-note:none'], changedFiles: [protectedPath]
+            }).join('\n'), /cannot rename database, API, or generated contract surfaces/u, protectedPath);
+        }
+    }
+    finally
+    {
+        rmSync(repository, { recursive: true, force: true });
+    }
+});
+
+test('classification proof keeps XML source comments, JSDoc types, and executable edits closed', () =>
+{
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-docs-proof-'));
+    execFileSync('git', ['init', '-q'], { cwd: repository });
+    execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: repository });
+    execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: repository });
+    const cases = [
+        ['src/backend/Reader.cs', '/// <summary>Read a value.</summary>\nclass Reader { int Read() => 1; }\n',
+            '/// <summary>Read the current immutable value.</summary>\nclass Reader { int Read() => 1; }\n'],
+        ['src/backend/Reader.cs', 'class Reader { int Read() => 1; }\n', 'class Reader { int Read() => 2; }\n'],
+        ['src/frontend/reader.js', '/** @type {number} */\nlet value;\n', '/** @type {string} */\nlet value;\n'],
+        ['src/frontend/reader.ts', '/** Read a value. */\nexport const value = 1;\n', '/** @ts-ignore */\nexport const value = 1;\n'],
+        ['src/backend/Reader.cs', 'class Reader { string Text = """\n/// literal value\n"""; }\n',
+            'class Reader { string Text = """\n/// changed literal value\n"""; }\n']
+    ];
+    try
+    {
+        const body = pullRequestBody({ type: 'docs', audience: 'none', category: 'none' });
+        for (const [path, before, after] of cases)
+        {
+            writeRepositoryFile(repository, path, before);
+            const base = commitFixture(repository, 'fixture docs base');
+            writeRepositoryFile(repository, path, after);
+            const head = commitFixture(repository, 'fixture docs candidate');
+            assert.match(validatePrContract({
+                title: 'docs(csharp): preserve documentation proof boundary', body, labels: ['release-note:none'],
+                changedFiles: changedFilesBetween(repository, base, head), root: repository, base, head, authorityRoot: null
+            }).join('\n'), /docs commit\/PR must not modify runtime logic/u);
+        }
+        assert.deepEqual(validatePrContract({
+            title: 'docs(governance): preserve documentation proof boundary', body,
+            labels: ['release-note:none'], changedFiles: ['docs/development/change-contract.md']
+        }), []);
+    }
+    finally
+    {
+        rmSync(repository, { recursive: true, force: true });
+    }
+});
+
 test('pull request actor authority comes from the PR author rather than the event sender', () =>
 {
     assert.equal(pullRequestActor({
