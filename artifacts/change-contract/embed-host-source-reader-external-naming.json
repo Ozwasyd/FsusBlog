@@ -4,10 +4,9 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Services/Authoring/ArticleEmbedHostSourceReader.cs",
-                "tests/backend/Unit/ArticleEmbedHostSourceReaderTests.cs"
+                "src/backend/Services/Authoring/ArticleEmbedHostSourceReader.cs"
             ],
-            "reason": "Preserve canonical administrator claim, registered service, persisted draft and permission contract spellings in the host source adapter and its PostgreSQL controls. No process environment key or naming policy is introduced."
+            "reason": "Preserve canonical administrator claim, registered service, persisted draft and permission contract spellings in the host source adapter. No process environment key or naming policy is introduced."
         },
         {
             "id": "css-like-contract",
