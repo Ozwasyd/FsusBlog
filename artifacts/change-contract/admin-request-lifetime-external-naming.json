@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                "src/backend/Infrastructure/Security/AdminAuthenticatedRequestLifetime.cs",
+                "src/backend/Infrastructure/Security/AdminRequestSqlFence.cs",
+                "src/backend/Infrastructure/Security/AdminSessionProjection.cs",
+                "src/backend/Infrastructure/Security/AdminSessionProjectionRequestLifetimes.cs",
+                "src/backend/Services/Security/AdminSessionValidationService.cs"
+            ],
+            "reason": "The trusted registry broadly governs all managed src files as process-environment surfaces. This original admin lifetime producer preserves existing claim, database, token and environment spellings and introduces no process key or internal naming exemption."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/security.md"
+            ],
+            "reason": "The trusted registry broadly governs docs Markdown as external CSS/token surfaces. These security semantics preserve all existing caller-visible spelling and introduce no selector, custom property, CSS adapter or internal naming exemption."
+        }
+    ]
+}
