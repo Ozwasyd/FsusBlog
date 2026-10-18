@@ -15,9 +15,23 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ArticlePackageManifestVersionRegistryTests
 {
     [Fact]
-    public void Registry_RegistersOnlyActualV1Identity()
+    public void Registry_RegistersOnlyLegacyAndExplicitAssetRootIdentities()
     {
-        ArticlePackageManifestVersionRegistration registration = Assert.Single(ArticlePackageManifestVersionRegistry.Registrations);
+        Assert.Equal(2, ArticlePackageManifestVersionRegistry.Registrations.Count);
+        ArticlePackageManifestVersionRegistration registration = ArticlePackageManifestVersionRegistry.Registrations[0];
+        var assetRoot = ArticlePackageManifestVersionRegistry.AssetCollection;
+        Assert.Same(assetRoot, ArticlePackageManifestVersionRegistry.Registrations[1]);
+        Assert.Equal(new(2, 1, 1), assetRoot.Versions);
+        Assert.True(ArticlePackageManifestVersionRegistry.TryGetRegistration(new(2, 1, 1), out var assets));
+        Assert.Same(assetRoot, assets);
+        Assert.Equal(ArticlePackageManifestMigrationDisposition.Identity,
+            ArticlePackageManifestVersionRegistry.GetDisposition(new(2, 1, 1), new(2, 1, 1)));
+        Assert.Equal(ArticlePackageManifestMigrationDisposition.Refused,
+            ArticlePackageManifestVersionRegistry.GetDisposition(new(1, 1, 1), new(2, 1, 1)));
+        Assert.Equal(ArticlePackageManifestMigrationDisposition.Refused,
+            ArticlePackageManifestVersionRegistry.GetDisposition(new(2, 1, 1), new(1, 1, 1)));
+        Assert.Equal(ArticlePackageManifestMigrationDisposition.Refused,
+            ArticlePackageManifestVersionRegistry.GetDisposition(new(2, 1, 1), new(2, 1, 1), requiresLossyConversion: true));
         Assert.Same(registration, ArticlePackageManifestVersionRegistry.Current);
         Assert.Equal(new(1, 1, 1), registration.Versions);
         Assert.Equal(ArticleCanonicalHashV1.HashVersion, registration.Versions.CanonicalHashVersion);
@@ -47,11 +61,11 @@ public sealed class ArticlePackageManifestVersionRegistryTests
         Assert.All(typeof(ArticlePackageManifestVersionRegistry).GetProperties(), property => Assert.False(property.CanWrite));
         ArticlePackageManifestVersions copy = current.Versions with
         {
-            SchemaVersion = 2
+            SchemaVersion = 3
         };
         Assert.False(ArticlePackageManifestVersionRegistry.TryGetRegistration(copy, out var refused));
         Assert.Null(refused);
-        Assert.Equal(new(1, 1, 1), Assert.Single(registrations).Versions);
+        Assert.Equal(new(1, 1, 1), registrations[0].Versions);
     }
 
     [Theory]
@@ -60,7 +74,7 @@ public sealed class ArticlePackageManifestVersionRegistryTests
     [InlineData(1, 0, 1)]
     [InlineData(1, 1, 0)]
     [InlineData(2, 2, 2)]
-    [InlineData(2, 1, 1)]
+    [InlineData(3, 1, 1)]
     [InlineData(1, 2, 1)]
     [InlineData(1, 1, 2)]
     [InlineData(-1, 1, 1)]
