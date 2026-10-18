@@ -1683,8 +1683,16 @@ test.describe('article editor production command bar narrow zoom', () => {
                 await expect(button).toBeVisible()
                 const box = await button.boundingBox()
                 if (!box) throw new Error('command_target_geometry_missing')
-                expect(box.width / scale).toBeGreaterThanOrEqual(40)
-                expect(box.height / scale).toBeGreaterThanOrEqual(44)
+                const target = await button.evaluate((element: Element) => {
+                  const style = getComputedStyle(element)
+                  return { width: Number.parseFloat(style.width), height: Number.parseFloat(style.height), dpr: devicePixelRatio }
+                })
+                expect(target.width).toBeGreaterThanOrEqual(40)
+                expect(target.height).toBeGreaterThanOrEqual(44)
+                // CSS dimensions retain the strict target contract; compare the
+                // zoomed rectangle in device pixels without inverse-zoom cancellation.
+                expect(Math.round(box.width * target.dpr)).toBeGreaterThanOrEqual(Math.ceil(40 * scale * target.dpr))
+                expect(Math.round(box.height * target.dpr)).toBeGreaterThanOrEqual(Math.ceil(44 * scale * target.dpr))
                 expect(box.x).toBeGreaterThanOrEqual(0)
                 expect(box.x + box.width).toBeLessThanOrEqual(width)
                 if (index === 0) await button.focus()
