@@ -1,7 +1,9 @@
 using System.Collections;
+using System.Security.Cryptography;
 using System.Text;
 
 using FsusBlog.Contracts.Articles;
+using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticlePackages;
 using FsusBlog.Shared.Contracts.ArticleProperties;
@@ -541,6 +543,492 @@ public sealed class ArticlePackageManifestCandidatePlannerTests
         Assert.Throws<ArgumentException>(() => new ArticlePackageManifestCandidateInput(input.Article,
             input.TitleBinding, input.PropertySnapshot, input.PropertyBindings, tooLarge));
         Assert.Single(Create([input]).Articles);
+    }
+
+    [Fact]
+    public void AssetPlannerUsesOriginalMappersAndRootAndOwnsCompleteSharedClosure()
+    {
+        ArticlePackageManifestCandidateInput[] inputs = [Input(18), Input(17)];
+        byte[] bytes = AssetBytes();
+        var source = AssetSource(1, bytes);
+        ArticlePackageAssetCollectionSource[] sources = [source];
+        ArticlePackageManifestAssetReference[] references = AssetReferences(inputs, source);
+        ArticlePackageInventoryEntry[] inventory = AssetInventory(inputs, sources);
+        ArticlePackageManifestCandidatePlan plan = CreateAssets(inputs, sources, references, inventory);
+        Assert.True(ArticlePackageAssetCollectionMapper.TryMapCandidate(sources, references, inventory, out var collection).IsValid);
+        Assert.True(ArticlePackageManifestCandidateCodec.TryCreateCandidate(
+            Create(inputs).Manifest.Articles, collection, inventory, out var root).IsValid);
+
+        Assert.Equal(root!.SemanticDigest, plan.Manifest.SemanticDigest);
+        Assert.Equal(2, plan.Manifest.SchemaVersion);
+        Assert.Equal(2, plan.Manifest.Assets!.References.Count);
+        ArticlePackageManifestPlannedAsset asset = Assert.Single(plan.Assets!);
+        Assert.Equal(source.Record, asset.Record);
+        Assert.NotSame(source.Record, asset.Record);
+        Assert.Equal(bytes, asset.CopySourceBytes());
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(bytes)), asset.RawByteSha256);
+        Assert.Equal(asset.RawByteSha256, asset.Metadata.Metadata.Sha256);
+        Assert.True(ArticlePackageAssetMetadataMapper.ValidateCandidate(asset.Metadata,
+            source.PortableAsset, asset.Record, asset.CopySourceBytes()).IsValid);
+        Assert.Equal(inventory.OrderBy(static entry => entry.Path, StringComparer.Ordinal), plan.Inventory!);
+        byte[] encoded = ArticlePackageManifestCandidateCodec.WriteCandidate(plan.Manifest, plan.Manifest.Assets, plan.Inventory);
+        Assert.True(ArticlePackageManifestCandidateCodec.TryParseCandidate(encoded, collection, inventory, out var parsed).IsValid);
+        Assert.True(ArticlePackageManifestCandidatePlanner.TryBindCandidatePlan(
+            parsed, inputs.Reverse().ToArray(), sources, references.Reverse().ToArray(), inventory.Reverse().ToArray(), out var rebound).IsValid);
+        Assert.Equal(encoded, ArticlePackageManifestCandidateCodec.WriteCandidate(rebound!.Manifest, rebound.Manifest.Assets, rebound.Inventory));
+        Assert.Equal(bytes, Assert.Single(rebound.Assets!).CopySourceBytes());
+        Assert.False(plan.RequirePackageAuthority().IsValid);
+        Assert.Equal("article_package_manifest_authority_unavailable", plan.RequirePackageAuthority().ReasonCode);
+        Assert.False(plan.Manifest.Assets.RequireAssetAuthority().IsValid);
+        Assert.False(asset.Metadata.RequireAssetAuthority().IsValid);
+        Assert.Null(Create(inputs).Assets);
+        Assert.Null(Create(inputs).Inventory);
+        Assert.False(ArticlePackageManifestCandidatePlanner.TryBindCandidatePlan(plan.Manifest, inputs, out _).IsValid);
+    }
+
+    [Fact]
+    public void AssetPlannerDistinguishesExplicitEmptyFromEveryMissingInput()
+    {
+        ArticlePackageManifestCandidateInput[] inputs = [Input()];
+        var inventory = AssetInventory(inputs, []);
+        var empty = CreateAssets(inputs, [], [], inventory);
+        Assert.Empty(empty.Assets!);
+        Assert.NotNull(empty.Manifest.Assets);
+        Assert.Empty(empty.Manifest.Assets.Assets);
+        Assert.False(empty.RequirePackageAuthority().IsValid);
+        RejectAssets(inputs, null, [], inventory);
+        RejectAssets(inputs, [], null, inventory);
+        RejectAssets(inputs, [], [], null);
+        Assert.False(ArticlePackageManifestCandidatePlanner.TryBindCandidatePlan(
+            null, inputs, [], [], inventory, out var absent).IsValid);
+        Assert.Null(absent);
+        Assert.False(ArticlePackageManifestCandidatePlanner.TryBindCandidatePlan(
+            Create(inputs).Manifest, inputs, [], [], inventory, out absent).IsValid);
+        Assert.Null(absent);
+    }
+
+    [Fact]
+    public void AssetPlannerOneThousandArticlesShareOneFrozenAssetInStableOrder()
+    {
+        var inputs = Enumerable.Range(1, 1000).Select(id => Input(id)).ToArray();
+        var sources = new[] { AssetSource(1, AssetBytes()) };
+        var references = AssetReferences(inputs, sources[0]);
+        var inventory = AssetInventory(inputs, sources);
+        var original = CreateAssets(inputs, sources, references, inventory);
+        var reversed = CreateAssets(inputs.Reverse().ToArray(), sources, references.Reverse().ToArray(), inventory.Reverse().ToArray());
+        Assert.Equal(1000, original.Articles.Count);
+        Assert.Single(original.Assets!);
+        Assert.Equal(1000, original.Manifest.Assets!.References.Count);
+        Assert.Equal(original.Manifest.SemanticDigest, reversed.Manifest.SemanticDigest);
+        Assert.Equal(ArticlePackageManifestCandidateCodec.WriteCandidate(original.Manifest, original.Manifest.Assets, original.Inventory),
+            ArticlePackageManifestCandidateCodec.WriteCandidate(reversed.Manifest, reversed.Manifest.Assets, reversed.Inventory));
+        RejectAssets([], sources, references, inventory);
+        RejectAssets([.. inputs, Input(1001)], sources, references, inventory);
+    }
+
+    [Theory]
+    [InlineData("bytes")]
+    [InlineData("record")]
+    [InlineData("references")]
+    [InlineData("inventory")]
+    [InlineData("article")]
+    public void AssetPlannerFreezesCallerStateAndBindReprojectsEveryChangedSource(string fault)
+    {
+        ArticlePackageManifestCandidateInput[] inputs = [Input()];
+        byte[] bytes = AssetBytes();
+        ArticlePackageAssetCollectionSource[] sources = [AssetSource(1, bytes)];
+        var references = AssetReferences(inputs, sources[0]);
+        var inventory = AssetInventory(inputs, sources);
+        var plan = CreateAssets(inputs, sources, references, inventory);
+        byte[] encoded = ArticlePackageManifestCandidateCodec.WriteCandidate(plan.Manifest, plan.Manifest.Assets, plan.Inventory);
+        byte[] detached = plan.Assets![0].CopySourceBytes();
+        detached[0] ^= 1;
+        switch (fault)
+        {
+            case "bytes":
+                bytes[^1] ^= 1;
+                break;
+            case "record":
+                sources[0] = sources[0] with
+                {
+                    Record = sources[0].Record with
+                    {
+                        Sha256 = new string('b', 64)
+                    }
+                };
+                break;
+            case "references":
+                references[0] = references[0] with
+                {
+                    PortableArticle = Portable(ArticlePackageIdentityKind.Article, 18)
+                };
+                break;
+            case "inventory":
+                inventory[^1] = inventory[^1] with
+                {
+                    CompressedBytes = inventory[^1].CompressedBytes + 1
+                };
+                break;
+            default:
+                // The canonical hash normalizes newlines; raw bytes must still be rebound independently.
+                var original = inputs[0];
+                var article = original.Article with
+                {
+                    MarkdownContent = original.Article.MarkdownContent.Replace("\r\n", "\n", StringComparison.Ordinal)
+                };
+                Assert.Equal(original.TitleBinding.SourceCanonicalHash, ArticleCanonicalHashV1.ComputeHashHex(article));
+                inputs[0] = new(article, original.TitleBinding, original.PropertySnapshot, original.PropertyBindings, Bytes(article.MarkdownContent));
+                inventory = AssetInventory(inputs, sources);
+                break;
+        }
+        Assert.False(ArticlePackageManifestCandidatePlanner.TryBindCandidatePlan(
+            plan.Manifest, inputs, sources, references, inventory, out var rebound).IsValid);
+        Assert.Null(rebound);
+        Assert.Equal(encoded, ArticlePackageManifestCandidateCodec.WriteCandidate(plan.Manifest, plan.Manifest.Assets, plan.Inventory));
+        Assert.Equal(AssetBytes(), plan.Assets[0].CopySourceBytes());
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(AssetBytes())), plan.Assets[0].RawByteSha256);
+        Assert.Equal(AssetSource(1, AssetBytes()).Record, plan.Assets[0].Record);
+    }
+
+    [Theory]
+    [InlineData("revision")]
+    [InlineData("draft")]
+    [InlineData("publication")]
+    [InlineData("duplicateSource")]
+    [InlineData("duplicateEdge")]
+    [InlineData("unknownAsset")]
+    [InlineData("unknownArticle")]
+    [InlineData("orphan")]
+    [InlineData("missingAsset")]
+    [InlineData("extraArticle")]
+    [InlineData("articleSize")]
+    [InlineData("assetSize")]
+    [InlineData("private")]
+    [InlineData("pendingDelete")]
+    [InlineData("forgedBytes")]
+    [InlineData("media")]
+    public void AssetPlannerCreateAndBindRefuseCoordinateClosureByteAndPermissionFaults(string fault)
+    {
+        ArticlePackageManifestCandidateInput[] inputs = [Input()];
+        ArticlePackageAssetCollectionSource[] sources = [AssetSource(1, AssetBytes())];
+        var references = AssetReferences(inputs, sources[0]);
+        var inventory = AssetInventory(inputs, sources);
+        var original = CreateAssets(inputs, sources, references, inventory);
+        switch (fault)
+        {
+            case "revision":
+            case "draft":
+            case "publication":
+                var input = inputs[0];
+                var coordinates = fault switch
+                {
+                    "revision" => input.PropertySnapshot.Coordinates with { ArticleRevisionId = 9999 },
+                    "draft" => input.PropertySnapshot.Coordinates with { DraftId = 3, DraftServerRevision = 2 },
+                    _ => input.PropertySnapshot.Coordinates with { PublicationId = 9 }
+                };
+                var snapshot = Snapshot(coordinates, input.PropertySnapshot.Values);
+                inputs[0] = new(input.Article, input.TitleBinding, snapshot, PropertyBindings(snapshot), input.SourceBytes);
+                break;
+            case "duplicateSource":
+                sources = [sources[0], sources[0]];
+                break;
+            case "duplicateEdge":
+                references = [references[0], references[0]];
+                break;
+            case "unknownAsset":
+                references[0] = references[0] with
+                {
+                    PortableAsset = AssetIdentity(2)
+                };
+                break;
+            case "unknownArticle":
+                references[0] = references[0] with
+                {
+                    PortableArticle = Portable(ArticlePackageIdentityKind.Article, 18)
+                };
+                break;
+            case "orphan":
+                references = [];
+                break;
+            case "missingAsset":
+                inventory = inventory.Where(static entry => !entry.Path.StartsWith("assets/", StringComparison.Ordinal)).ToArray();
+                break;
+            case "extraArticle":
+                inventory = [.. inventory, InventoryEntry("articles/" + Portable(ArticlePackageIdentityKind.Article, 18).FileNameToken + ".md", 1)];
+                break;
+            case "articleSize":
+                inventory[2] = inventory[2] with
+                {
+                    UncompressedBytes = inventory[2].UncompressedBytes + 1
+                };
+                break;
+            case "assetSize":
+                inventory[^1] = inventory[^1] with
+                {
+                    UncompressedBytes = inventory[^1].UncompressedBytes + 1
+                };
+                break;
+            case "private":
+                sources[0] = sources[0] with
+                {
+                    Record = sources[0].Record with
+                    {
+                        StorageClass = "private"
+                    }
+                };
+                break;
+            case "pendingDelete":
+                sources[0] = sources[0] with
+                {
+                    Record = sources[0].Record with
+                    {
+                        State = ContentAssetState.PendingDelete
+                    }
+                };
+                break;
+            case "forgedBytes":
+                sources[0] = sources[0] with
+                {
+                    SourceBytes = new byte[AssetBytes().Length]
+                };
+                break;
+            default:
+                sources[0] = sources[0] with
+                {
+                    Record = sources[0].Record with
+                    {
+                        WidthPixels = 2
+                    }
+                };
+                break;
+        }
+        RejectAssets(inputs, sources, references, inventory);
+        Assert.False(ArticlePackageManifestCandidatePlanner.TryBindCandidatePlan(
+            original.Manifest, inputs, sources, references, inventory, out var rebound).IsValid);
+        Assert.Null(rebound);
+        Assert.Single(CreateAssets([Input()], [AssetSource(1, AssetBytes())],
+            AssetReferences([Input()], AssetSource(1, AssetBytes())), AssetInventory([Input()], [AssetSource(1, AssetBytes())])).Assets!);
+    }
+
+    [Theory]
+    [InlineData("rootDigest")]
+    [InlineData("componentDigest")]
+    [InlineData("childDigest")]
+    [InlineData("rootArticle")]
+    [InlineData("childMetadata")]
+    [InlineData("references")]
+    public void AssetPlannerBindRejectsForgedCandidatesWithCopiedDigests(string fault)
+    {
+        ArticlePackageManifestCandidateInput[] inputs = [Input()];
+        ArticlePackageAssetCollectionSource[] sources = [AssetSource(1, AssetBytes())];
+        var references = AssetReferences(inputs, sources[0]);
+        var inventory = AssetInventory(inputs, sources);
+        var original = CreateAssets(inputs, sources, references, inventory);
+        var collection = original.Manifest.Assets!;
+        var metadata = collection.Assets[0].Metadata;
+        var child = Construct<ArticlePackageManifestAssetMetadataCandidate>(
+            fault == "childMetadata" ? metadata with
+            {
+                WidthPixels = 2
+            } : metadata,
+            fault == "childDigest" ? new string('b', 64) : collection.Assets[0].ComponentDigest);
+        var forgedCollection = Construct<ArticlePackageManifestAssetCollectionCandidate>(
+            new[] { child }, fault == "references" ? Array.Empty<ArticlePackageManifestAssetReference>() : references,
+            inventory.OrderBy(static entry => entry.Path, StringComparer.Ordinal).ToArray(), collection.TotalAssetBytes,
+            fault == "componentDigest" ? new string('b', 64) : collection.ComponentDigest);
+        var rows = original.Manifest.Articles.ToArray();
+        if (fault == "rootArticle")
+        {
+            rows[0] = rows[0] with
+            {
+                Source = rows[0].Source with
+                {
+                    ArticleRevisionId = rows[0].Source.ArticleRevisionId + 1
+                }
+            };
+        }
+        var forged = Construct<ArticlePackageManifestCandidate>(rows,
+            fault == "rootDigest" ? new string('b', 64) : original.Manifest.SemanticDigest);
+        typeof(ArticlePackageManifestCandidate).GetProperty(nameof(ArticlePackageManifestCandidate.Assets))!.SetValue(forged, forgedCollection);
+
+        Assert.False(ArticlePackageManifestCandidatePlanner.TryBindCandidatePlan(
+            forged, inputs, sources, references, inventory, out var result).IsValid);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void AssetPlannerChecksAggregateAndIndividualByteBudgetsBeforeCopyOrProjection()
+    {
+        ArticlePackageManifestCandidateInput[] inputs = [Input()];
+        byte[] boundary = new byte[ArticlePackageAssetMetadataMapper.MaxCandidateAssetBytes];
+        var sources = Enumerable.Range(1, 9).Select(index => AssetSource(index, boundary)).ToArray();
+        var inventory = AssetInventory(inputs, sources);
+        var result = ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan(inputs, sources, [], inventory, out var plan);
+        Assert.False(result.IsValid);
+        Assert.Equal("article_package_manifest_asset_collection_byte_budget_exceeded", result.ReasonCode);
+        Assert.Null(plan);
+        sources = [AssetSource(1, new byte[ArticlePackageAssetMetadataMapper.MaxCandidateAssetBytes + 1])];
+        result = ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan(inputs, sources, [], AssetInventory(inputs, sources), out plan);
+        Assert.Equal("article_package_manifest_asset_collection_byte_budget_exceeded", result.ReasonCode);
+        Assert.Null(plan);
+    }
+
+    [Theory]
+    [InlineData("sources")]
+    [InlineData("references")]
+    [InlineData("inventory")]
+    public void AssetPlannerBoundsAllCallerListsWithoutEnumerationOrCountRereads(string which)
+    {
+        ArticlePackageManifestCandidateInput[] inputs = [Input()];
+        var sources = new[] { AssetSource(1, AssetBytes()) };
+        var references = AssetReferences(inputs, sources[0]);
+        var inventory = AssetInventory(inputs, sources);
+        var sourceList = new AssetInputList<ArticlePackageAssetCollectionSource>(sources);
+        var referenceList = new AssetInputList<ArticlePackageManifestAssetReference>(references);
+        var inventoryList = new AssetInputList<ArticlePackageInventoryEntry>(inventory);
+        Assert.True(ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan(inputs,
+            sourceList, referenceList, inventoryList, out _).IsValid);
+        Assert.Equal(1, sourceList.CountReads);
+        Assert.Equal(1, referenceList.CountReads);
+        Assert.Equal(1, inventoryList.CountReads);
+        Assert.Equal(sources.Length, sourceList.IndexReads);
+        Assert.Equal(references.Length, referenceList.IndexReads);
+        Assert.Equal(inventory.Length, inventoryList.IndexReads);
+        RejectAssets(inputs,
+            which == "sources" ? new AssetInputList<ArticlePackageAssetCollectionSource>(sources, int.MaxValue) : sources,
+            which == "references" ? new AssetInputList<ArticlePackageManifestAssetReference>(references, int.MaxValue) : references,
+            which == "inventory" ? new AssetInputList<ArticlePackageInventoryEntry>(inventory, int.MaxValue) : inventory);
+        RejectAssets(inputs,
+            which == "sources" ? new AssetInputList<ArticlePackageAssetCollectionSource>(sources, failIndex: true) : sources,
+            which == "references" ? new AssetInputList<ArticlePackageManifestAssetReference>(references, failIndex: true) : references,
+            which == "inventory" ? new AssetInputList<ArticlePackageInventoryEntry>(inventory, failIndex: true) : inventory);
+    }
+
+    [Fact]
+    public void AssetPlannerCancellationBeforeAndDuringFreezeExposesNoPartialPlan()
+    {
+        ArticlePackageManifestCandidateInput[] inputs = [Input()];
+        var sources = new[] { AssetSource(1, AssetBytes()) };
+        var references = AssetReferences(inputs, sources[0]);
+        var inventory = AssetInventory(inputs, sources);
+        var original = CreateAssets(inputs, sources, references, inventory);
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        ArticlePackageManifestCandidatePlan? plan = null;
+        Assert.Throws<OperationCanceledException>(() => ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan(
+            inputs, sources, references, inventory, out plan, cancelled.Token));
+        Assert.Null(plan);
+        Assert.Throws<OperationCanceledException>(() => ArticlePackageManifestCandidatePlanner.TryBindCandidatePlan(
+            original.Manifest, inputs, sources, references, inventory, out plan, cancelled.Token));
+        Assert.Null(plan);
+        using var during = new CancellationTokenSource();
+        var cancelling = new AssetInputList<ArticlePackageAssetCollectionSource>(sources, onRead: during.Cancel);
+        Assert.Throws<OperationCanceledException>(() => ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan(
+            inputs, cancelling, references, inventory, out plan, during.Token));
+        Assert.Null(plan);
+        using var duringBind = new CancellationTokenSource();
+        cancelling = new AssetInputList<ArticlePackageAssetCollectionSource>(sources, onRead: duringBind.Cancel);
+        Assert.Throws<OperationCanceledException>(() => ArticlePackageManifestCandidatePlanner.TryBindCandidatePlan(
+            original.Manifest, inputs, cancelling, references, inventory, out plan, duringBind.Token));
+        Assert.Null(plan);
+        using var afterFreeze = new CancellationTokenSource();
+        var ordinary = Input(tags: [1]);
+        var changed = ordinary.Article with
+        {
+            TagIds = new AssetInputList<int>([1], onRead: afterFreeze.Cancel)
+        };
+        var lateInput = new ArticlePackageManifestCandidateInput(changed, ordinary.TitleBinding, ordinary.PropertySnapshot,
+            ordinary.PropertyBindings, ordinary.SourceBytes);
+        Assert.Throws<OperationCanceledException>(() => ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan(
+            [lateInput], sources, references, inventory, out plan, afterFreeze.Token));
+        Assert.Null(plan);
+    }
+
+    private static ArticlePackageManifestCandidatePlan CreateAssets(IReadOnlyList<ArticlePackageManifestCandidateInput> inputs,
+        IReadOnlyList<ArticlePackageAssetCollectionSource> sources, IReadOnlyList<ArticlePackageManifestAssetReference> references,
+        IReadOnlyList<ArticlePackageInventoryEntry> inventory)
+    {
+        var result = ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan(inputs, sources, references, inventory, out var plan);
+        Assert.True(result.IsValid, result.ReasonCode);
+        return Assert.IsType<ArticlePackageManifestCandidatePlan>(plan);
+    }
+
+    private static void RejectAssets(IReadOnlyList<ArticlePackageManifestCandidateInput> inputs,
+        IReadOnlyList<ArticlePackageAssetCollectionSource>? sources, IReadOnlyList<ArticlePackageManifestAssetReference>? references,
+        IReadOnlyList<ArticlePackageInventoryEntry>? inventory)
+    {
+        var result = ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan(inputs, sources, references, inventory, out var plan);
+        Assert.False(result.IsValid);
+        Assert.NotNull(result.ReasonCode);
+        Assert.Null(plan);
+    }
+
+    private static T Construct<T>(params object[] arguments)
+    {
+        object instance = Activator.CreateInstance(typeof(T), System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, arguments, null)!;
+        return (T)instance;
+    }
+
+    // Real canonical media/schema controls exercise the production mapper; these are not ledger observations.
+    private static byte[] AssetBytes()
+        => Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZgAAAABJRU5ErkJggg==");
+
+    private static ArticlePackageIdentity AssetIdentity(int number)
+    {
+        Assert.True(ArticlePackageIdentity.TryCreate(ArticlePackageIdentityKind.Asset,
+            $"portable-asset:50000000-0000-4000-8000-{number:x12}", out var identity).IsValid);
+        return identity;
+    }
+
+    private static ArticlePackageAssetCollectionSource AssetSource(int number, byte[] bytes)
+        => new(AssetIdentity(number), new(AssetId.Parse($"60000000-0000-4000-8000-{number:x12}"),
+            "public", AssetStorageKey.Parse("content/public/example.png"), "image/png", ".png", bytes.Length,
+            Convert.ToHexStringLower(SHA256.HashData(bytes)), 1, 1, 42, ContentAssetState.Active,
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch), bytes);
+
+    private static ArticlePackageManifestAssetReference[] AssetReferences(
+        IReadOnlyList<ArticlePackageManifestCandidateInput> inputs, ArticlePackageAssetCollectionSource source)
+        => inputs.Select(input => new ArticlePackageManifestAssetReference(input.TitleBinding.PortableArticle, source.PortableAsset)).ToArray();
+
+    private static ArticlePackageInventoryEntry[] AssetInventory(IReadOnlyList<ArticlePackageManifestCandidateInput> inputs,
+        IReadOnlyList<ArticlePackageAssetCollectionSource> sources)
+        => [InventoryEntry(ArticlePackageInventory.ManifestPath, 1), InventoryEntry(ArticlePackageInventory.ChecksumsPath, 1),
+            .. inputs.Select(input => InventoryEntry("articles/" + input.TitleBinding.PortableArticle.FileNameToken + ".md", input.SourceBytes.Length)),
+            .. sources.Select(source => InventoryEntry("assets/" + source.PortableAsset.FileNameToken + source.Record.Extension, source.SourceBytes.Length))];
+
+    private static ArticlePackageInventoryEntry InventoryEntry(string path, long size)
+        => new(path, ArticlePackageEntryKind.RegularFile, size, size);
+
+    private sealed class AssetInputList<T>(T[] values, int? count = null, bool failIndex = false, Action? onRead = null) : IReadOnlyList<T>
+    {
+        public int CountReads
+        {
+            get; private set;
+        }
+        public int IndexReads
+        {
+            get; private set;
+        }
+        public int Count
+        {
+            get
+            {
+                CountReads++;
+                int countReads = CountReads;
+                return countReads == 1 ? count ?? values.Length : int.MaxValue;
+            }
+        }
+        public T this[int index]
+        {
+            get
+            {
+                IndexReads++;
+                onRead?.Invoke();
+                return failIndex ? throw new IndexOutOfRangeException() : values[index];
+            }
+        }
+        public IEnumerator<T> GetEnumerator() => throw new InvalidOperationException("Bounded indexes required.");
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private static ArticlePackageManifestCandidatePlan Create(IReadOnlyList<ArticlePackageManifestCandidateInput> inputs)
