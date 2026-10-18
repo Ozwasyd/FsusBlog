@@ -17,7 +17,7 @@ function makeArticle(id: number, title: string): ArticleListItemResponse {
 
 function articlePatch(
   action: ArticleUpdatePayload['action'],
-  title = action,
+  title: string = action,
   eventId = 1
 ): NotificationStreamArticleRenderPatch {
   const payload: ArticleUpdatePayload = {
