@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "tools/test/run-with-dotnet-release-build-lock.sh dotnet format whitespace tests/migration/FsusBlog.Migration.Tests.csproj --no-restore --include tests/migration/ArticlePreservationMySqlStorageWriterTests.cs tests/migration/ArticlePreservationProducerTests.cs tests/migration/ArticlePreservationSourceReaderTests.cs tests/migration/ArticlePreservationStorageTests.cs tests/migration/CurrentArticleContractTests.cs tests/migration/OfflineMigrationArticlePreservationRouteTests.cs --verbosity minimal"
+    },
+    "paths": [
+        "tests/migration/ArticlePreservationMySqlStorageWriterTests.cs",
+        "tests/migration/ArticlePreservationProducerTests.cs",
+        "tests/migration/ArticlePreservationSourceReaderTests.cs",
+        "tests/migration/ArticlePreservationStorageTests.cs",
+        "tests/migration/CurrentArticleContractTests.cs",
+        "tests/migration/OfflineMigrationArticlePreservationRouteTests.cs"
+    ],
+    "revision": "cc9db368b3e701b63b5b58cbddfad4c69459dcd4",
+    "firstPassTreeSha256": "cfb28077840dbcd84d61a97bdc047509b3870e8088a7ada6b64b3f9020e3cffc",
+    "secondPassTreeSha256": "cfb28077840dbcd84d61a97bdc047509b3870e8088a7ada6b64b3f9020e3cffc",
+    "idempotent": true
+}
