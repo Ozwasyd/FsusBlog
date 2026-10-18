@@ -61,17 +61,17 @@ export function validateSafeAreaMatrix(safeArea: NonNullable<UxViewportMatrix["s
 export const UX_VIEWPORT_MOBILE_LANDSCAPE_CANARY_ROUTE_IDS: readonly string[];
 export const UX_VIEWPORT_MODEL_ROUTE_IDS: readonly string[];
 export const UX_SAFE_AREA_ASSERTION_NAMES: readonly string[];
-export type UxViewport<R extends ViewportRoute> = import("./acceptance-shared.js").UxViewport;
-export type UxViewportMatrix<R extends ViewportRoute> = import("./acceptance-shared.js").UxViewportMatrix;
-export type UxViewportMode<R extends ViewportRoute> = import("./acceptance-shared.js").UxViewportMode;
-export type UxSafeAreaProfile<R extends ViewportRoute> = import("./acceptance-shared.js").UxSafeAreaProfile;
-export type UxViewportMediaMode<R extends ViewportRoute> = import("./acceptance-shared.js").UxViewportMediaMode;
-export type ThemeMode<R extends ViewportRoute> = import("./acceptance-shared.js").ThemeMode;
-export type ViewportRoute<R extends ViewportRoute> = {
+export type UxViewport = import("./acceptance-shared.js").UxViewport;
+export type UxViewportMatrix = import("./acceptance-shared.js").UxViewportMatrix;
+export type UxViewportMode = import("./acceptance-shared.js").UxViewportMode;
+export type UxSafeAreaProfile = import("./acceptance-shared.js").UxSafeAreaProfile;
+export type UxViewportMediaMode = import("./acceptance-shared.js").UxViewportMediaMode;
+export type ThemeMode = import("./acceptance-shared.js").ThemeMode;
+export type ViewportRoute = {
     id: string;
     storage: "anonymous" | "user" | "admin";
 };
-export type UxViewportFilters<R extends ViewportRoute> = {
+export type UxViewportFilters = {
     routeIds?: string | readonly string[];
     themes?: string | readonly string[];
     viewportIds?: string | readonly string[];
@@ -82,7 +82,7 @@ export type UxViewportFilters<R extends ViewportRoute> = {
     safeAreaProfileIds?: string | readonly string[];
     safeAreaBrowsers?: string | readonly string[];
 };
-export type UxViewportStep<R extends ViewportRoute> = {
+export type UxViewportStep = {
     id: string;
     routeId: string;
     theme: ThemeMode;
@@ -95,7 +95,7 @@ export type UxViewportStep<R extends ViewportRoute> = {
     browser?: string;
     open?: string;
 };
-export type UxViewportGroup<R extends ViewportRoute> = {
+export type UxViewportGroup<R extends ViewportRoute = ViewportRoute> = {
     id: string;
     kind: "route-theme" | "safe-area";
     route: R;
@@ -115,7 +115,7 @@ export type UxViewportGroup<R extends ViewportRoute> = {
         steps: UxViewportStep[];
     }[];
 };
-export type UxViewportPlan<R extends ViewportRoute> = {
+export type UxViewportPlan<R extends ViewportRoute = ViewportRoute> = {
     version: string;
     matrixVersion: string;
     safeAreaVersion: string | null;
@@ -141,7 +141,7 @@ export type UxViewportPlan<R extends ViewportRoute> = {
     };
     fingerprint: string;
 };
-export type UxViewportCase<R extends ViewportRoute> = UxViewportStep & {
+export type UxViewportCase = UxViewportStep & {
     groupId: string;
     navigationId: string;
     kind: "route-theme" | "safe-area";

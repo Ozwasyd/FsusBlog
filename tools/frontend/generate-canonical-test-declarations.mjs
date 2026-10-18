@@ -149,6 +149,37 @@ function generate()
     {
         throw new Error('incomplete canonical declaration output roster');
     }
+    // Check the emitted API itself even when the original consuming project
+    // skips library checking. Other files keep their original program options.
+    const declarations = new Map([...outputs].map(([file, text]) => [path.join(root, file), text]));
+    const declarationOptions = { ...original.options, skipLibCheck: false };
+    const host = ts.createCompilerHost(declarationOptions);
+    const readFile = host.readFile.bind(host);
+    const fileExists = host.fileExists.bind(host);
+    host.readFile = (file) => declarations.get(file) ?? readFile(file);
+    host.fileExists = (file) => declarations.has(file) || fileExists(file);
+    const declarationProgram = ts.createProgram(
+        [...original.fileNames, ...declarations.keys()],
+        declarationOptions,
+        host
+    );
+    const declarationDiagnostics = [];
+    for (const file of declarations.keys())
+    {
+        const source = declarationProgram.getSourceFile(file);
+        declarationDiagnostics.push(
+            ...declarationProgram.getSyntacticDiagnostics(source),
+            ...declarationProgram.getSemanticDiagnostics(source)
+        );
+    }
+    if (declarationDiagnostics.length > 0)
+    {
+        throw new Error(ts.formatDiagnosticsWithColorAndContext(declarationDiagnostics, {
+            getCanonicalFileName: (file) => file,
+            getCurrentDirectory: () => root,
+            getNewLine: () => '\n'
+        }));
+    }
     const binding = {
         schema: 'fsusblog.generated-output-binding.v1',
         command: `node ${producer} --write`,

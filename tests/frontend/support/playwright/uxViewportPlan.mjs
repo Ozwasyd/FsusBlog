@@ -1,17 +1,50 @@
 /**
  * @typedef {import('./acceptance-shared.js').UxViewport} UxViewport
+ */
+
+/**
  * @typedef {import('./acceptance-shared.js').UxViewportMatrix} UxViewportMatrix
+ */
+
+/**
  * @typedef {import('./acceptance-shared.js').UxViewportMode} UxViewportMode
+ */
+
+/**
  * @typedef {import('./acceptance-shared.js').UxSafeAreaProfile} UxSafeAreaProfile
+ */
+
+/**
  * @typedef {import('./acceptance-shared.js').UxViewportMediaMode} UxViewportMediaMode
+ */
+
+/**
  * @typedef {import('./acceptance-shared.js').ThemeMode} ThemeMode
+ */
+
+/**
  * @typedef {{ id: string; storage: 'anonymous' | 'user' | 'admin'; }} ViewportRoute
+ */
+
+/**
  * @typedef {{ routeIds?: string | readonly string[]; themes?: string | readonly string[]; viewportIds?: string | readonly string[]; media?: string | readonly string[]; riskMatrix?: boolean; skipSafeArea?: boolean; safeAreaSurfaceIds?: string | readonly string[]; safeAreaProfileIds?: string | readonly string[]; safeAreaBrowsers?: string | readonly string[]; }} UxViewportFilters
+ */
+
+/**
  * @typedef {{ id: string; routeId: string; theme: ThemeMode; viewportId: string; media: UxViewportMediaMode; screenshot: boolean; safeArea?: boolean; profileId?: string; surfaceId?: string; browser?: string; open?: string; }} UxViewportStep
+ */
+
+/**
  * @template {ViewportRoute} [R=ViewportRoute]
  * @typedef {{ id: string; kind: 'route-theme' | 'safe-area'; route: R; theme: ThemeMode; storage: R['storage']; browser?: string; surface?: { id: string; surface: string; open: string; overlayRisk: true; }; profile?: UxSafeAreaProfile; viewports: { id: string; viewport: UxViewport; steps: UxViewportStep[]; }[]; }} UxViewportGroup
+ */
+
+/**
  * @template {ViewportRoute} [R=ViewportRoute]
  * @typedef {{ version: string; matrixVersion: string; safeAreaVersion: string | null; mode: UxViewportMode; groups: UxViewportGroup<R>[]; selection: { routeIds: string[]; themes: ThemeMode[]; viewportIds: string[]; media: UxViewportMediaMode[]; safeAreaProfileIds: string[]; safeAreaSurfaceIds: string[]; safeAreaBrowsers: string[]; safeAreaCaseIds: string[]; }; counts: { routes: number; routeThemeGroups: number; safeAreaGroups: number; navigations: number; cases: number; safeAreaCases: number; }; fingerprint: string; }} UxViewportPlan
+ */
+
+/**
  * @typedef {UxViewportStep & { groupId: string; navigationId: string; kind: 'route-theme' | 'safe-area'; }} UxViewportCase
  */
 

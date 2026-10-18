@@ -24,7 +24,7 @@
     "sourceProvenance": [
         {
             "path": "tools/frontend/generate-canonical-test-declarations.mjs",
-            "sha256": "7dd2ae3a2424f9142843846c640d4ef7c0fff514b2c869245e36667e36480033"
+            "sha256": "87e73a0508912f44ef2dc5292a34c053030dc1c808f690f0b213e2dc617bbfdd"
         },
         {
             "path": "tests/frontend/checks/static/check-canonical-viewport-safe-area.mjs",
@@ -52,7 +52,7 @@
         },
         {
             "path": "tests/frontend/support/playwright/uxViewportPlan.mjs",
-            "sha256": "655f2a45c09c18a8b4d34717abd8d018603fb011a747bf846a4127b0dcca31ac"
+            "sha256": "fd25ebc2ec7cbd7ea224773604e2dbd769a6c4118521d10eb2039a33255481bc"
         },
         {
             "path": "tests/frontend/support/public-fixtures.mjs",
@@ -150,7 +150,7 @@
         },
         {
             "path": "tests/frontend/support/playwright/uxViewportPlan.d.mts",
-            "sha256": "2ef7258fb345d6d585a0abadfcb1de72b387aa2c0bc36bbcf995c2bf5ea8d724"
+            "sha256": "7b3bd47177615e340030f69417fc8cbc83f8819a4fb2a90ac0acbc0356b8e38f"
         },
         {
             "path": "tests/frontend/support/public-fixtures.d.mts",
