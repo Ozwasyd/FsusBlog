@@ -2275,14 +2275,22 @@ test('canonical complete test CLI checks real SFC props and detects their invali
     const consumer = path.join(fixtureRoot, 'consumer.ts');
     const relativeConsumer = path.relative(root, consumer).replaceAll(path.sep, '/');
     const source = `import SemanticTime from '@/components/ui/SemanticTime.vue';
+import type { OnlyChildExpose } from '@element-plus/components/slot';
+import * as browserSecurity from '/src/api/security.ts';
 type Props = InstanceType<typeof SemanticTime>['$props'];
 type IsUntyped<T> = 0 extends (1 & T) ? true : false;
 const propsAreTyped: IsUntyped<Props> = false;
 const formatIsTyped: IsUntyped<Props['format']> = false;
+type ForwardRef = OnlyChildExpose['forwardRef']['value'];
+const forwardRefIsTyped: IsUntyped<ForwardRef> = false;
+const browserModuleIsTyped: IsUntyped<typeof browserSecurity> = false;
+const validRef: ForwardRef = document.createElement('button');
+// @ts-expect-error The real TSX exposure requires an HTML element.
+const invalidRef: ForwardRef = 'invalid-ref';
 const valid: Props = { format: 'datetime', value: new Date() };
 // @ts-expect-error The real SFC accepts only its declared format literals.
 const invalid: Props = { format: 'invalid-format' };
-void [propsAreTyped, formatIsTyped, valid, invalid];
+void [propsAreTyped, formatIsTyped, valid, invalid, forwardRefIsTyped, browserModuleIsTyped, validRef, invalidRef];
 `;
     const run = () => spawnSync(process.execPath, [
         path.join(root, 'src/frontend/scripts/run-local-fsusui-typecheck.mjs'), '--tests'
@@ -2295,12 +2303,14 @@ void [propsAreTyped, formatIsTyped, valid, invalid];
         assert.ok([0, 2].includes(positive.status), output(positive));
         assert.equal(output(positive).includes(relativeConsumer), false, output(positive));
 
-        writeFileSync(consumer, source.replace('// @ts-expect-error', '// negative control:'));
+        writeFileSync(consumer, source.replaceAll('// @ts-expect-error', '// negative control:'));
         const negative = run();
         assert.equal(negative.error, undefined, output(negative));
         assert.equal(negative.status, 2, output(negative));
         assert.ok(output(negative).split('\n').some(line => line.includes(relativeConsumer)
             && line.includes('error TS2322:') && line.includes('invalid-format')), output(negative));
+        assert.ok(output(negative).split('\n').some(line => line.includes(relativeConsumer)
+            && line.includes('error TS2322:') && line.includes("Type 'string'")), output(negative));
     }
     finally
     {
@@ -2353,5 +2363,35 @@ test('canonical complete tests bind real public declarations outside the fronten
     finally
     {
         rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('canonical complete projects preserve Vue JSX and resolve actual Vite browser source URLs', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const frontend = path.join(root, 'src/frontend');
+    const generated = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    const importer = path.join(root, 'tests/frontend/e2e/security/risk-control-console.spec.ts');
+    for (const project of [path.join(frontend, 'tsconfig.playwright.json'), generated])
+    {
+        const parsed = ts.getParsedCommandLineOfConfigFile(project, {}, {
+            ...ts.sys,
+            onUnRecoverableConfigFileDiagnostic(diagnostic)
+            {
+                assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+            }
+        });
+        assert.deepEqual(parsed.errors, []);
+        assert.equal(parsed.options.jsx, ts.JsxEmit.Preserve);
+        assert.equal(parsed.options.jsxImportSource, 'vue');
+        for (const source of ['api/security.ts', 'router/index.ts', 'bootstrap/fullApp.ts', 'security/challenge-capability-reload.ts'])
+        {
+            const specifier = `/src/${source}`;
+            const actual = ts.resolveModuleName(specifier, importer, parsed.options, ts.sys).resolvedModule;
+            assert.equal(actual?.resolvedFileName, path.join(frontend, 'src', source));
+            const withoutBinding = { ...parsed.options,
+                paths: Object.fromEntries(Object.entries(parsed.options.paths).filter(([name]) => name !== '/src/*')) };
+            assert.equal(ts.resolveModuleName(specifier, importer, withoutBinding, ts.sys).resolvedModule, undefined);
+        }
     }
 });

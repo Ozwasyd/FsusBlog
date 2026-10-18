@@ -128,6 +128,11 @@ configuration is `src/frontend/.tmp/typecheck/tsconfig.fsusui-local.tests.genera
 The complete test roots import real application and FsusUI `.vue` files.
 Plain `tsc` cannot read their component declarations; the Vue compiler checks
 those SFCs and their actual props without a catch-all component declaration.
+The canonical test configuration also preserves Vue JSX syntax and its `vue`
+import source, so transitive local UI TSX declarations remain typed. Its `/src/*`
+mapping reads the actual frontend sources addressed by Vite browser imports in
+the original end-to-end tests. These settings retain the complete original roots
+and strict/erasable checks; resolving a module can expose genuine consumer errors.
 Existing diagnostics in the complete program remain failures. Changing the
 compiler does not turn a smaller diagnostic count into acceptance.
 The test sources sit outside the frontend dependency directory's ancestry.

@@ -7,10 +7,15 @@
             "DOM.Iterable"
         ],
         "module": "ESNext",
+        "jsx": "preserve",
+        "jsxImportSource": "vue",
         "moduleResolution": "bundler",
         "ignoreDeprecations": "6.0",
         "baseUrl": ".",
         "paths": {
+            "/src/*": [
+                "src/*"
+            ],
             "@/*": [
                 "src/*"
             ],
