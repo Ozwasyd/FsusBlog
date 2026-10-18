@@ -185,6 +185,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             throw;
         }
 
+        Process? sandboxProcess = null;
         try
         {
             Task stderrDrain = process.StandardError.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
@@ -204,6 +205,8 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             }
 
             int sandboxProcessId = FindSandboxProcessId(process.Id);
+            sandboxProcess = Process.GetProcessById(sandboxProcessId);
+            ulong processStartTicks = AuthoringRuntimeIncarnationLease.ReadStartTicks(sandboxProcessId);
             string namespaceIdentity = ObserveNamespaceIsolation(sandboxProcessId);
             string profileIdentity = ComputeProfileIdentity(descriptor, namespaceIdentity);
             var capabilities = new AuthoringWorkerCapabilityReport(
@@ -219,18 +222,23 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                 ready.Globals,
                 true,
                 profileIdentity);
-            return new LinuxBubblewrapWorkerInstance(
+            var instance = new LinuxBubblewrapWorkerInstance(
                 process,
                 sandboxProcessId,
+                sandboxProcess,
+                processStartTicks,
                 instanceRoot,
                 descriptor,
                 capabilities,
                 s_json,
                 stderrDrain);
+            instance.IssueIncarnation();
+            return instance;
         }
         catch
         {
             await TerminateProcessTreeAsync(process);
+            sandboxProcess?.Dispose();
             process.Dispose();
             TryDeleteInstanceRoot(instanceRoot);
             throw;
@@ -456,7 +464,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
                 await process.WaitForExitAsync();
             }
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException) when (process.HasExited)
         {
         }
     }
@@ -498,9 +506,22 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
         string? Payload = null,
         string? StableReason = null);
 
+    internal static bool OwnsNativeCustody(
+        object owner,
+        object descriptor,
+        object authority,
+        Process custody,
+        Process sandbox,
+        ulong startTicks,
+        string profileIdentity) =>
+        owner is LinuxBubblewrapWorkerInstance native &&
+        native.OwnsNativeCustody(descriptor, authority, custody, sandbox, startTicks, profileIdentity);
+
     private sealed class LinuxBubblewrapWorkerInstance(
         Process process,
         int sandboxProcessId,
+        Process sandboxProcess,
+        ulong processStartTicks,
         string instanceRoot,
         AuthoringWorkerLaunchDescriptor descriptor,
         AuthoringWorkerCapabilityReport capabilityReport,
@@ -509,6 +530,27 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
     {
         private readonly SemaphoreSlim _messageLock = new(1, 1);
         private bool _terminated;
+        private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+        private readonly object _incarnationOwner = new();
+        private AuthoringRuntimeIncarnationLease? _incarnation;
+        private bool _disposed;
+
+        public void IssueIncarnation() =>
+            _incarnation = AuthoringRuntimeIncarnationLease.Issue(
+                this, descriptor, _incarnationOwner, process, sandboxProcess, processStartTicks, capabilityReport.RuntimeProfileSha256);
+
+        public bool OwnsNativeCustody(
+            object candidateDescriptor,
+            object authority,
+            Process custody,
+            Process sandbox,
+            ulong startTicks,
+            string profileIdentity) =>
+            _incarnation is null && ReferenceEquals(_incarnationOwner, authority) &&
+            ReferenceEquals(descriptor, candidateDescriptor) && ReferenceEquals(process, custody) &&
+            ReferenceEquals(sandboxProcess, sandbox) && processStartTicks == startTicks &&
+            FindSandboxProcessId(process.Id) == sandboxProcessId &&
+            string.Equals(profileIdentity, capabilityReport.RuntimeProfileSha256, StringComparison.Ordinal);
 
         public AuthoringWorkerCapabilityReport CapabilityReport { get; } = capabilityReport;
 
@@ -523,7 +565,7 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             await _messageLock.WaitAsync(cancellationToken);
             try
             {
-                if (_terminated || process.HasExited)
+                if (_terminated || _incarnation is null || !_incarnation.IsCurrentOwner(this))
                 {
                     throw new AuthoringExtensionContractException("Worker instance is terminated.");
                 }
@@ -577,17 +619,61 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
 
         public async ValueTask TerminateAsync(string reason, CancellationToken cancellationToken)
         {
+            // Revocation precedes every await, including failed or cancelled cleanup attempts.
+            _incarnation?.Revoke(this, _incarnationOwner);
             _terminated = true;
-            await TerminateProcessTreeAsync(process);
+            await _lifecycleLock.WaitAsync(CancellationToken.None);
+            try
+            {
+                if (!_disposed)
+                {
+                    await TerminateProcessTreeAsync(process);
+                    _incarnation?.ConfirmProcessExited(this, _incarnationOwner);
+                }
+            }
+            finally
+            {
+                _lifecycleLock.Release();
+            }
         }
 
         public async ValueTask DisposeAsync()
         {
-            await TerminateAsync("dispose", CancellationToken.None);
-            await stderrDrain;
-            process.Dispose();
-            _messageLock.Dispose();
-            TryDeleteInstanceRoot(instanceRoot);
+            _incarnation?.Revoke(this, _incarnationOwner);
+            _terminated = true;
+            await _lifecycleLock.WaitAsync(CancellationToken.None);
+            try
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                await TerminateProcessTreeAsync(process);
+                _incarnation?.ConfirmProcessExited(this, _incarnationOwner);
+                await stderrDrain;
+                await _messageLock.WaitAsync(CancellationToken.None);
+                try
+                {
+                    TryDeleteInstanceRoot(instanceRoot);
+                    if (Directory.Exists(instanceRoot))
+                    {
+                        throw new IOException("Native runtime working root cleanup has not settled.");
+                    }
+
+                    process.Dispose();
+                    _incarnation?.ReleaseCustody(this, _incarnationOwner);
+                    _disposed = true;
+                }
+                finally
+                {
+                    _messageLock.Release();
+                }
+            }
+            finally
+            {
+                _lifecycleLock.Release();
+            }
         }
     }
 }
