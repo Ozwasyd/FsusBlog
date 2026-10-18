@@ -226,16 +226,30 @@ export function findRequiredSurfaceFormulaViolations(options = {})
 /**
  * Geometry arithmetic helpers used by unit probes (0px tolerance).
  */
+/**
+ * @param {number} insetBottomPx
+ * @param {number} [baseRemPx]
+ * @returns {number}
+ */
 export function toastBottomOffsetPx(insetBottomPx, baseRemPx = 16)
 {
     return insetBottomPx + baseRemPx;
 }
 
+/**
+ * @param {number} viewportBlockSizePx
+ * @returns {number}
+ */
 export function accountDrawerBlockSizePx(viewportBlockSizePx)
 {
     return viewportBlockSizePx;
 }
 
+/**
+ * @param {number} insetBottomPx
+ * @param {number} [baseRemPx]
+ * @returns {number}
+ */
 export function articleTocDrawerPaddingBottomPx(insetBottomPx, baseRemPx = 16)
 {
     return insetBottomPx + baseRemPx;

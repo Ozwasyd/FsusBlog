@@ -36,6 +36,9 @@ function boundedTimeout(baseMs, multiplier, stepDeadlineMs, deadlineShare)
     return Math.max(baseMs, Math.min(scaled, deadlineCap));
 }
 
+/**
+ * @param {{ env?: Record<string, string | undefined>; cpuCount?: number; }} [options]
+ */
 export function resolveRuntimeBrowserTimeoutPlan({
     env = process.env,
     cpuCount = os.availableParallelism?.() ?? os.cpus().length
@@ -97,6 +100,12 @@ export function resolveRuntimeBrowserTimeoutPlan({
     };
 }
 
+/**
+ * @param {number} deadlineAtMs
+ * @param {number} preferredMs
+ * @param {number} [minimumMs]
+ * @returns {number}
+ */
 export function remainingRuntimeTimeout(deadlineAtMs, preferredMs, minimumMs = 1_000)
 {
     const remaining = Math.floor(Number(deadlineAtMs) - Date.now());

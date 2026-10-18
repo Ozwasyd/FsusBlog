@@ -54,6 +54,10 @@ export function shouldDisableChromiumDevShmUsage()
     return temporaryStorageAvailable > sharedMemoryAvailable;
 }
 
+/**
+ * @param {import('@playwright/test').LaunchOptions} [options]
+ * @returns {import('@playwright/test').LaunchOptions}
+ */
 export function systemChromiumLaunchOptions(options = {})
 {
     const executablePath = resolveSystemChromiumExecutablePath();
