@@ -23,13 +23,6 @@
                 "config/testing/release-reliability-scenario-catalog.json"
             ],
             "reason": "Preserve existing internal catalog/action JSON field spellings while strengthening the required measurement evidence. This changes no public wire names and grants no execution permission or qualification."
-        },
-        {
-            "id": "css-like-contract",
-            "paths": [
-                "docs/testing.md"
-            ],
-            "reason": "The trusted registry covers documentation paths as CSS-like external contract surfaces. This edit documents load scheduling and sample evidence; it changes no CSS selector, token or product presentation."
         }
     ]
 }
