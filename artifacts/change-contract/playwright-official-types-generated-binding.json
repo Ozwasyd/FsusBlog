@@ -1,13 +1,16 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
+        "src/frontend/package-lock.json",
+        "src/frontend/package.json",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
         "src/frontend/tsconfig.playwright.json",
         "tools/test-matrix/pr-impact-plan.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "ba034a94d6fa8fc1a9ba6b339b7cd1fcde729e29cca996bcbf495c3b804fce4e"
+            "sha256": "0577e5a1c48efca563e7b3398922f51b6463e7c7efdb29f55635a11600c2fc09"
         }
     ]
 }
