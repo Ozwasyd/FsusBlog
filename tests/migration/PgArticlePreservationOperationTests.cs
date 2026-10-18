@@ -105,7 +105,10 @@ public sealed class PgArticlePreservationOperationTests
     private sealed class FailingResource : IAsyncDisposable
     {
         internal Exception Failure { get; } = new InvalidOperationException("resource-dispose");
-        internal bool DisposeObserved { get; private set; }
+        internal bool DisposeObserved
+        {
+            get; private set;
+        }
         public ValueTask DisposeAsync()
         {
             DisposeObserved = true;
@@ -129,7 +132,10 @@ public sealed class PgArticlePreservationOperationTests
         {
             var value = new OfflineMigrationPredicateObservation(predicate, identity.OperationReference,
                 identity.OperationSourceDigest, identity.SemanticDigest, [new("rows", "2")], [new("rows", "2")], "");
-            return value with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(value) };
+            return value with
+            {
+                ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(value)
+            };
         }
         OfflineMigrationApplyJournalEntry Control(OfflineMigrationApplyJournalState state)
             => new(OfflineMigrationApplyJournalVerifier.Format, artifact, plan.ContentDigest, plan.Source.Database,
@@ -138,33 +144,54 @@ public sealed class PgArticlePreservationOperationTests
                 progress.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest, "", null,
                 new DateTimeOffset(2026, 10, 3, 0, 0, 0, TimeSpan.Zero));
         void Accept(OfflineMigrationApplyJournalEntry value)
-            => progress.Accept(value with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(value) });
+            => progress.Accept(value with
+            {
+                ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(value)
+            });
         Accept(Control(OfflineMigrationApplyJournalState.AttemptStarted));
         var evidence = new OfflineMigrationMediaJournalEvidence("opaque-invocation",
             new(Guid.Parse("8b2b3f9a-91d1-4c77-b478-005a1660e2a4"), artifact.Sha256, plan.ContentDigest,
                 plan.Source.ContentDigest, new string('b', 64), "source-root", "target-root", "generation"), null);
         Accept(Control(OfflineMigrationApplyJournalState.MediaPrepared) with
         {
-            Format = OfflineMigrationApplyJournalVerifier.MediaFormat, StepId = step.StepId,
-            OperationReference = identity.OperationReference, Mode = identity.Mode,
-            IdempotencyKey = step.IdempotencyDefinition, Before = Observation(step.SourcePrecondition), Media = evidence
+            Format = OfflineMigrationApplyJournalVerifier.MediaFormat,
+            StepId = step.StepId,
+            OperationReference = identity.OperationReference,
+            Mode = identity.Mode,
+            IdempotencyKey = step.IdempotencyDefinition,
+            Before = Observation(step.SourcePrecondition),
+            Media = evidence
         });
         Assert.False(PgArticlePreservationOperation.RequiresCommittedTarget(progress, step.StepId, identity));
         if (committed)
         {
-            evidence = evidence with { GenerationIdentity = "actual-fixture-generation" };
+            evidence = evidence with
+            {
+                GenerationIdentity = "actual-fixture-generation"
+            };
             Accept(Control(OfflineMigrationApplyJournalState.MediaPublished) with
             {
-                Format = OfflineMigrationApplyJournalVerifier.MediaFormat, StepId = step.StepId,
-                OperationReference = identity.OperationReference, Mode = identity.Mode,
-                IdempotencyKey = step.IdempotencyDefinition, Before = Observation(step.SourcePrecondition), Media = evidence
+                Format = OfflineMigrationApplyJournalVerifier.MediaFormat,
+                StepId = step.StepId,
+                OperationReference = identity.OperationReference,
+                Mode = identity.Mode,
+                IdempotencyKey = step.IdempotencyDefinition,
+                Before = Observation(step.SourcePrecondition),
+                Media = evidence
             });
             Accept(Control(OfflineMigrationApplyJournalState.TransactionCommitted) with
             {
-                Format = OfflineMigrationApplyJournalVerifier.MediaFormat, StepId = step.StepId,
-                OperationReference = identity.OperationReference, Mode = identity.Mode,
-                IdempotencyKey = step.IdempotencyDefinition, RowsProcessed = 2, ExpectedRows = 2, UnitComplete = true,
-                Before = Observation(step.SourcePrecondition), After = Observation(step.TargetPostcondition), Media = evidence
+                Format = OfflineMigrationApplyJournalVerifier.MediaFormat,
+                StepId = step.StepId,
+                OperationReference = identity.OperationReference,
+                Mode = identity.Mode,
+                IdempotencyKey = step.IdempotencyDefinition,
+                RowsProcessed = 2,
+                ExpectedRows = 2,
+                UnitComplete = true,
+                Before = Observation(step.SourcePrecondition),
+                After = Observation(step.TargetPostcondition),
+                Media = evidence
             });
         }
         Assert.Equal(committed, PgArticlePreservationOperation.RequiresCommittedTarget(progress.Fork(), step.StepId, identity));
@@ -206,7 +233,10 @@ public sealed class PgArticlePreservationOperationTests
         var plan = new OfflineMigrationPlan("fixture-plan-integrity-only", source, "fixture-profile", "v1", digest,
             new("v1", "v1", "v1", digest, digest), "fixture-dag", "v1", digest, [step], backup,
             new(new string('a', 40), digest, digest, digest), "");
-        return plan with { ContentDigest = OfflineMigrationPlanCodec.ComputeContentDigest(plan) };
+        return plan with
+        {
+            ContentDigest = OfflineMigrationPlanCodec.ComputeContentDigest(plan)
+        };
     }
 
     private sealed class JournalFixtureRegistry : IOfflineMigrationApplyOperationRegistry
