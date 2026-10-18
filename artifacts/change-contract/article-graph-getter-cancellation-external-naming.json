@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/SqlArticleGraphAdmissionReader.cs"
+            ],
+            "reason": "Preserve the registered C# reader and its existing external permission and PostgreSQL spellings while observing caller cancellation at getter and refusal boundaries. No environment key, permission authority, query registration or governance rule changes."
+        }
+    ]
+}
