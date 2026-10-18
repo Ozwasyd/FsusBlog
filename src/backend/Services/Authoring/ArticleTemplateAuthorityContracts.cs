@@ -103,6 +103,21 @@ public interface IArticleTemplateReferenceAuthority
         ArticleTemplateScope scope,
         ArticleTemplateDefaults defaults,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Validate all references and return canonical property values with current definition pins.</summary>
+    async Task<IReadOnlyList<ArticleTemplatePropertyPin>> ValidateAndPinAsync(
+        ArticleTemplateActor actor,
+        ArticleTemplateScope scope,
+        ArticleTemplateDefaults defaults,
+        CancellationToken cancellationToken = default)
+    {
+        await ValidateAsync(actor, scope, defaults, cancellationToken).ConfigureAwait(false);
+        if (defaults.PropertyDefaults.Count != 0)
+        {
+            throw new ArticleTemplateReferenceException("article_template_property_authority_unavailable");
+        }
+        return Array.Empty<ArticleTemplatePropertyPin>();
+    }
 }
 
 public interface IArticleTemplatePersistence

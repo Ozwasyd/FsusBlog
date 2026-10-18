@@ -9,6 +9,26 @@ public sealed class ArticleTemplateExpansionVerifier(
     IArticleTemplateExpansionPlanner planner,
     TimeProvider timeProvider) : IArticleTemplateExpansionVerifier
 {
+    public Task<ArticleTemplateVerificationResult> VerifyAsync(
+        ArticleTemplateExpansionPlan plan,
+        ArticleTemplateActor currentActor,
+        ArticlePropertyDefinitionOwner currentPropertyOwner,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArticleTemplateContract.ValidateActor(currentActor);
+        ArticlePropertyDefinitionContract.ValidateOwner(currentPropertyOwner);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!string.Equals(ArticleTemplateContract.ComputePermissionDigest(currentActor),
+                ArticleTemplateContract.ComputePermissionDigest(plan.Input.Actor), StringComparison.Ordinal)
+            || plan.Dependencies.PropertyPins.Any(pin => pin.Owner != currentPropertyOwner))
+        {
+            return Task.FromResult(new ArticleTemplateVerificationResult(false,
+                [new("expansion_plan_context_drift", "current actor or property owner differs from plan")]));
+        }
+        return VerifyAsync(plan, cancellationToken);
+    }
+
     public async Task<ArticleTemplateVerificationResult> VerifyAsync(
         ArticleTemplateExpansionPlan plan,
         CancellationToken cancellationToken = default)

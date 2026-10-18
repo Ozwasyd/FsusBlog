@@ -1,3 +1,5 @@
+using FsusBlog.Shared.Contracts.ArticleProperties;
+
 namespace FsusBlog.Server.Services.Authoring;
 
 public static partial class ArticleTemplateContract
@@ -30,6 +32,7 @@ public static partial class ArticleTemplateContract
         var values = new List<object?>
         {
             SchemaVersion,
+            "article-template-typed-definition-pins-v1",
             plan.Input.TemplateId,
             plan.Input.VersionId,
             plan.VersionNumber,
@@ -37,6 +40,7 @@ public static partial class ArticleTemplateContract
             (int)plan.Scope.Kind,
             plan.Scope.OwnerAdminPrincipalId,
             plan.Input.Actor.AdminPrincipalId,
+            ComputePermissionDigest(plan.Input.Actor),
             ComputeExpansionInputDigest(plan.Input),
             plan.ExpandedSourceDigest,
             plan.DefaultsDigest,
@@ -64,6 +68,30 @@ public static partial class ArticleTemplateContract
             values.Add(propertyDefault.CanonicalValue);
             values.Add(propertyDefault.OptionIds.Count);
             values.AddRange(propertyDefault.OptionIds.Cast<object?>());
+        }
+        values.Add(dependencies.PropertyPins.Count);
+        foreach (ArticleTemplatePropertyPin pin in dependencies.PropertyPins)
+        {
+            values.Add(pin.Owner.UserId);
+            values.Add(pin.Owner.SiteScope);
+            values.Add(pin.DefinitionId);
+            values.Add(pin.SchemaRevision);
+            values.Add(pin.DefinitionDigest);
+            values.Add((int)pin.ValueType);
+            values.Add((int)pin.Cardinality);
+            values.Add((int)pin.Status);
+            values.Add(pin.ConstraintDigest);
+            values.Add(pin.OptionsDigest);
+            values.Add(pin.PolicyDigest);
+            ArticlePropertyValueEntry value = pin.ValidatedValue;
+            values.Add(value.DefinitionId);
+            values.Add(value.DefinitionSchemaRevision);
+            values.Add(value.DefinitionDigest);
+            values.Add(value.ValueDigest);
+            // Recompute from the typed payload so a supplied value digest cannot hide tamper.
+            values.Add(ArticlePropertyValueDigest.ComputeValue(new ArticlePropertyValueInput(
+                value.DefinitionId, value.DefinitionSchemaRevision, value.DefinitionDigest,
+                value.Presence, value.Value), value.DefaultApplied));
         }
         AppendProfile(values, dependencies.RightsProfile);
         AppendProfile(values, dependencies.ResponsibilityProfile);

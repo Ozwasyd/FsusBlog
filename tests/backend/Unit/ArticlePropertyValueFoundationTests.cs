@@ -36,7 +36,8 @@ public sealed class ArticlePropertyValueFoundationTests
         Assert.Equal(ArticlePropertyValuePresence.Present, entry.Presence);
         Assert.Equal(ArticlePropertyValueDigest.ComputeValue(new ArticlePropertyValueInput(entry.DefinitionId,
             entry.DefinitionSchemaRevision, entry.DefinitionDigest, entry.Presence, entry.Value)), entry.ValueDigest);
-        await store.Received(1).GetAsync(s_actor, s_owner, definition.DefinitionId, Arg.Any<CancellationToken>());
+        await store.Received(1).GetManyAsync(s_actor, s_owner,
+            Arg.Is<IReadOnlyList<Guid>>(ids => ids.SequenceEqual(new[] { definition.DefinitionId })), Arg.Any<CancellationToken>());
         if (type == ArticlePropertyValueType.ArticleReference)
         {
             await references.Received(1).RequireAllowedAsync(Arg.Is<ArticlePropertyReferenceValueQuery>(query =>
@@ -310,6 +311,7 @@ public sealed class ArticlePropertyValueFoundationTests
         await Assert.ThrowsAsync<ArticlePropertyDefinitionValidationException>(() => validator.ValidateAsync(s_actor, s_owner, 7,
             Enumerable.Range(0, 1001).Select(_ => Input(definition, new ArticlePropertyTextValue("x"))).ToArray()));
         await store.DidNotReceiveWithAnyArgs().GetAsync(default!, default, default, default);
+        await store.DidNotReceiveWithAnyArgs().GetManyAsync(default!, default, default!, default);
     }
 
     [Fact]
@@ -321,6 +323,9 @@ public sealed class ArticlePropertyValueFoundationTests
         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
         store.GetAsync(s_actor, s_owner, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => byId[call.Arg<Guid>()]);
+        store.GetManyAsync(s_actor, s_owner, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult<IReadOnlyList<ArticlePropertyDefinition>>(
+                call.Arg<IReadOnlyList<Guid>>().Select(id => byId[id]).ToArray()));
         var validator = new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(),
             new UnavailableArticlePropertyReferenceValueAuthority());
 
@@ -438,6 +443,8 @@ public sealed class ArticlePropertyValueFoundationTests
         IArticlePropertyDefinitionStore store = Substitute.For<IArticlePropertyDefinitionStore>();
         store.GetAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
             Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(definition);
+        store.GetManyAsync(Arg.Any<ArticlePropertyDefinitionActor>(), Arg.Any<ArticlePropertyDefinitionOwner>(),
+            Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<ArticlePropertyDefinition>>([definition]));
         IArticlePropertyReferenceValueAuthority references = Substitute.For<IArticlePropertyReferenceValueAuthority>();
         return (new ArticlePropertyValueValidator(store, new ArticlePropertyDefinitionPermissionAuthority(), references), store, references);
     }

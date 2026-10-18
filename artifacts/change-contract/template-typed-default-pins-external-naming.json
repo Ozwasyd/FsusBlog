@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs",
+                "src/backend/Services/Authoring/ArticlePropertyDefinitionStore.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+                "src/backend/Services/Authoring/ArticleTemplateAuthorityContracts.cs",
+                "src/backend/Services/Authoring/ArticleTemplateExpansionContracts.cs",
+                "src/backend/Services/Authoring/ArticleTemplateExpansionDigest.cs",
+                "src/backend/Services/Authoring/ArticleTemplateExpansionPlanner.cs",
+                "src/backend/Services/Authoring/ArticleTemplateExpansionVerifier.cs",
+                "src/backend/Services/Authoring/ArticleTemplateReceiptContract.cs",
+                "src/backend/Services/Authoring/PostgresArticlePropertyDefinitionPersistence.cs",
+                "src/backend/Services/Authoring/PostgresArticleTemplateReferenceAuthority.cs"
+            ],
+            "reason": "These eleven changed C# source paths are covered by the existing environment-variable src/**/*.cs registration in config/development/native-tooling-style-exceptions.json. The canonical GetManyAsync source is preserved from 74fbe41da974442c10f90d581fd2fc92b0239475. The template changes reuse canonical property types and retain existing template default, plan, verifier and reference identifiers. They introduce, read and rename no process environment keys and leave the external uppercase-key/internal-option mapping unchanged. This exact-path declaration changes no shared registry, wire, ABI, schema or article write transaction and grants no general internal naming or acceptance exception."
+        }
+    ]
+}
