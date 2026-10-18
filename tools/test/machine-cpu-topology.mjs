@@ -79,7 +79,8 @@ function projectBoundary(raw)
         {
             throw new Error('finite boundary locator missing');
         }
-        if (!/^\d+$/u.test(limit.period) || Number(limit.period) <= 0)
+        if (typeof limit.period !== 'string' || !/^\d+$/u.test(limit.period)
+            || !Number.isFinite(Number(limit.period)) || Number(limit.period) <= 0)
         {
             throw new Error('finite boundary period invalid');
         }
@@ -87,11 +88,17 @@ function projectBoundary(raw)
         {
             return null;
         }
-        if (!/^\d+$/u.test(limit.quota) || Number(limit.quota) <= 0)
+        if (typeof limit.quota !== 'string' || !/^\d+$/u.test(limit.quota)
+            || !Number.isFinite(Number(limit.quota)) || Number(limit.quota) <= 0)
         {
             throw new Error('finite boundary quota invalid');
         }
-        return Number(limit.quota) / Number(limit.period);
+        const cores = Number(limit.quota) / Number(limit.period);
+        if (!Number.isFinite(cores) || cores <= 0)
+        {
+            throw new Error('finite boundary CPU ratio invalid');
+        }
+        return cores;
     }).filter((limit) => limit !== null);
     return limits.length ? observed({ kind: value.kind, cores: Math.min(...limits), verified: true })
         : { disposition: 'unlimited', reason: 'no finite CPU limit observed', value: null };

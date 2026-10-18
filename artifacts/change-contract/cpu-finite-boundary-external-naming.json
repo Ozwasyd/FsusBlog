@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/machine-cpu-topology.mjs"
+            ],
+            "reason": "Preserve the existing registered Node process and operating-system CPU observation interfaces while validating finite positive quota and period values; no environment setting or host policy is changed."
+        }
+    ]
+}
