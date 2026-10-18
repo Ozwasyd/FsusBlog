@@ -6,12 +6,13 @@
             "paths": [
                 "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs",
                 "src/backend/Services/Authoring/ArticlePackageImportAssetCandidateValidator.cs",
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.AssetRecords.cs",
                 "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.Assets.cs",
                 "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs",
                 "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
                 "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs"
             ],
-            "reason": "Bind the six changed C# source paths already classified by the trusted environment-variable registration. Supplier closure files remain byte-identical to their recorded heads; the original writer adds no environment reads or external spellings, preserves public contract names, and uses internal C# naming. This manifest changes no naming policy or authorization."
+            "reason": "Bind the changed C# source paths under the trusted environment-variable registration; consume exact supplier sources without adding environment access, spelling, authority or policy. The writer requires a separate expected backend snapshot for asset candidates."
         },
         {
             "id": "content-doc-exactness-authority",
