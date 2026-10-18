@@ -61,7 +61,7 @@ export interface AuthoringWorkspacePanelWriteBinding
 export type AuthoringWorkspacePanelHostBlockReason =
     | 'disposed' | 'reentrant' | 'invalid-query' | 'unknown-slot' | 'region-unavailable'
     | 'core-region-conflict' | 'binding-unavailable' | 'authority-unavailable'
-    | 'snapshot-document-mismatch' | 'unsupported-platform' | 'unsupported-viewport'
+    | 'snapshot-document-mismatch' | 'unsupported-role' | 'unsupported-platform' | 'unsupported-viewport'
     | 'size-unavailable' | 'editor-width-unavailable' | 'resource-limit' | 'changed';
 
 interface CapturedBinding
@@ -88,7 +88,7 @@ export interface AuthoringWorkspacePanelSpaceObservation
     readonly browserZoomPercent: number;
     readonly platform: 0;
     readonly viewport: 0 | 1;
-    readonly role: 0 | 1;
+    readonly role: 0;
     readonly maximumActivePanels: 1;
     readonly maximumResources: Resources;
     readonly scope: Readonly<{
@@ -390,6 +390,12 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
             {
                 return block('unknown-slot');
             }
+            // This deployed region registers ReadOnlySummary only. A caller's
+            // closed HostCommandList value cannot supply its missing owner.
+            if (query.role !== 0)
+            {
+                return block('unsupported-role');
+            }
             const before = capture();
             if (!resize || !mutation || !regionAvailable(before))
             {
@@ -479,7 +485,7 @@ export function createAuthoringWorkspacePanelHost(options: Readonly<{
                 regionRect: Object.freeze({ left: rect.left, top: rect.top, width: rect.width, height: rect.height }),
                 editorInline: Math.floor(editor.width),
                 minimumEditorInline: geometry.minimumUsableWidthCssPx, browserZoomPercent: measured.browserZoomPercent,
-                platform: 0, viewport, role: query.role, maximumActivePanels: 1, maximumResources,
+                platform: 0, viewport, role: 0, maximumActivePanels: 1, maximumResources,
                 scope: Object.freeze({ ...server.receipt.scope, workspaceId: 'default', sourceDigest: server.receipt.sourceDigest,
                     receiptDigest: server.receipt.contentDigest, snapshotDigest: snapshot.contentDigest }),
                 binding: Object.freeze({ groupId: before.entry.owningGroupId, tabId: before.entry.tabId,

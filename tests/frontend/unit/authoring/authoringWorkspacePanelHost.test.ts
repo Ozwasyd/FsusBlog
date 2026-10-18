@@ -197,6 +197,7 @@ describe('authoring workspace live panel host', () =>
         expect(result.scope).toMatchObject({ userId: 7, siteId: 'site:real', workspaceId: 'default', snapshotDigest: f.snapshot.contentDigest });
         expect(result.scope.siteId).not.toBe(f.adapter.context.siteScope);
         expect(result.commandsEnabled).toBe(false);
+        expect(result.role).toBe(0);
         expect(result.signal.aborted).toBe(false);
         expect(f.host.assertCurrent(result)).toBe(true);
         expect(f.host.assertCurrent({ ...result })).toBe(false);
@@ -303,7 +304,7 @@ describe('authoring workspace live panel host', () =>
         expect(f.host.observe(createQuery()).status).toBe('blocked');
     });
 
-    it.each(['platform', 'mobile', 'viewport', 'editor-width', 'budget', 'size-order', 'unknown-role', 'hole'])('keeps closed %s constraints', async reason =>
+    it.each(['platform', 'mobile', 'viewport', 'editor-width', 'budget', 'size-order', 'unknown-role', 'command-role', 'hole'])('keeps closed %s constraints', async reason =>
     {
         const f = createFixture();
         expect(await f.host.refreshAuthority()).toBe(true);
@@ -315,8 +316,10 @@ describe('authoring workspace live panel host', () =>
         if (reason === 'budget') query = createQuery({ budget: { ...query.budget, workers: 1 } });
         if (reason === 'size-order') query = createQuery({ minimumSize: { inline: 201, block: 20 } });
         if (reason === 'unknown-role') query = createQuery({ role: 2 as 0 });
+        if (reason === 'command-role') query = createQuery({ role: 1 });
         if (reason === 'hole') query = createQuery({ platforms: [0, ,] as unknown as readonly 0[] });
         expect(f.host.observe(query).status).toBe('blocked');
+        if (reason === 'command-role') expect(f.host.observe(query)).toMatchObject({ reason: 'unsupported-role' });
     });
 
     it('revokes real observation signals on ResizeObserver notification and position drift', async () =>

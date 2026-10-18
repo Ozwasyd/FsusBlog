@@ -1684,9 +1684,7 @@ onUnmounted(() =>
 // This is the actual document-flow region and original physical owner join.
 // Its empty natural-size DOM cannot produce available space until content exists.
 // Panel persistence/selection and command execution are not implemented here.
-watch([workspaceWriteElement, workspacePanelRegionElement, workspaceNativeMountElement, workspaceLayoutRef,
-       workspaceMountedSource, workspaceTabId, workspaceLayoutSource, workspacePrimaryMountOnly,
-       () => authoringDocumentContext.value.documentId, () => authoringDocumentContext.value.documentEpoch], () =>
+function refreshWorkspacePanelHost(): void
 {
     workspacePanelHost?.dispose();
     workspacePanelLifetime?.abort();
@@ -1698,7 +1696,8 @@ watch([workspaceWriteElement, workspacePanelRegionElement, workspaceNativeMountE
         return;
     }
     workspacePanelLifetime = new AbortController();
-    workspacePanelHost = createAuthoringWorkspacePanelHost({ root, region, signal: workspacePanelLifetime.signal,
+    workspacePanelHost = createAuthoringWorkspacePanelHost({
+        root, region, signal: workspacePanelLifetime.signal,
         readBinding: () =>
         {
             const editorElement = workspaceNativeMountElement.value;
@@ -1716,9 +1715,14 @@ watch([workspaceWriteElement, workspacePanelRegionElement, workspaceNativeMountE
                     tabId, layoutSource, layoutPort, mountedSource, nativeEditor,
                     readNativeEditor: () => articleEditorRef.value?.getAuthoringSessionPort?.() ?? null }
                 : null;
-        } });
+        }
+    });
     void workspacePanelHost.refreshAuthority();
-}, { flush: 'post' });
+}
+watch([workspaceWriteElement, workspacePanelRegionElement, workspaceNativeMountElement, workspaceLayoutRef,
+       workspaceMountedSource, workspaceTabId, workspaceLayoutSource, workspacePrimaryMountOnly,
+       () => authoringDocumentContext.value.documentId, () => authoringDocumentContext.value.documentEpoch],
+      refreshWorkspacePanelHost, { flush: 'post' });
 onBeforeUnmount(() =>
 {
     workspacePanelHost?.dispose();
