@@ -1,3 +1,14 @@
+/**
+ * @typedef {ArrayBuffer | SharedArrayBuffer | Uint8Array | readonly number[]} AedsFrameInput
+ * @typedef {string | number | bigint} WireInteger
+ * @typedef {{ offset: number; length: number; }} AedsSlice
+ * @typedef {null | boolean | number | string | PublicAotValue[] | { [key: string]: PublicAotValue; }} PublicAotValue
+ * @typedef {{ enabled?: boolean; licenseType?: string; copyrightHolder?: string; copyrightYear?: number | null; rightsStatement?: string; attributionTemplate?: string; copyPolicy?: string; maxExcerptChars?: number; allowCodeCopy?: boolean; showPublicBadge?: boolean; proofBindingEnabled?: boolean; }} ArticleRightsRequest
+ * @typedef {{ title?: string; content?: string; summary?: string; coverImageUrl?: string; categoryId?: number; tagIds?: number[]; status?: number; scheduledPublishAt?: string | number | Date | null; rightsMutation?: string | number; rights?: ArticleRightsRequest | null; baseRevisionId?: WireInteger | null; }} ArticleWriteRequest
+ * @typedef {{ accountId: number; identityKind: string; publicHandle: string | null; passkeyEnabled: boolean; recoveryEnabled: boolean; totpStepUpEnabled: boolean | null; anonymousCredentialStatus: string | null; anonymousCredentialLevel: string | null; status: number; banReason: string | null; deletedAt: string | null; }} IdentityAccountSnapshot
+ * @typedef {{ id?: string; rawId?: string; response?: { clientDataBytes?: string; attestationObject?: string; transports?: string[]; authenticatorData?: string; signature?: string; userHandle?: string | null; }; }} PasskeyCredentialInput
+ */
+
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -130,6 +141,10 @@ const SEARCH_MANIFEST_MAGIC = 0x4d495346;
 const SEARCH_MANIFEST_BINARY_VERSION = 1;
 const DOTNET_EPOCH_OFFSET_MS = 62135596800000;
 
+/**
+ * @param {string} name
+ * @returns {number}
+ */
 function frameType(name)
 {
     const value = AEDS_FRAME_TYPES.get(name);
@@ -140,36 +155,72 @@ function frameType(name)
     return value;
 }
 
+/**
+ * @param {DataView} view
+ * @param {number} offset
+ * @returns {number}
+ */
 function readUInt32(view, offset)
 {
     return view.getUint32(offset, true);
 }
 
+/**
+ * @param {DataView} view
+ * @param {number} offset
+ * @returns {number}
+ */
 function readUInt16(view, offset)
 {
     return view.getUint16(offset, true);
 }
 
+/**
+ * @param {DataView} view
+ * @param {number} offset
+ * @returns {number}
+ */
 function readInt32(view, offset)
 {
     return view.getInt32(offset, true);
 }
 
+/**
+ * @param {DataView} view
+ * @param {number} offset
+ * @returns {number}
+ */
 function readInt64Number(view, offset)
 {
     return Number(view.getBigInt64(offset, true));
 }
 
+/**
+ * @param {Uint8Array} bytes
+ * @param {number} offset
+ * @returns {number}
+ */
 function readInt64FromBytes(bytes, offset)
 {
     return Number(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigInt64(offset, true));
 }
 
+/**
+ * @param {Uint8Array} bytes
+ * @param {number} offset
+ * @returns {number}
+ */
 function readByte(bytes, offset)
 {
     return bytes[offset] ?? 0;
 }
 
+/**
+ * @param {Uint8Array} bytes
+ * @param {number} offset
+ * @param {number} length
+ * @returns {string}
+ */
 function readFixedUtf8(bytes, offset, length)
 {
     const slice = bytes.subarray(offset, offset + length);
@@ -177,6 +228,11 @@ function readFixedUtf8(bytes, offset, length)
     return UTF8_DECODER.decode(end >= 0 ? slice.subarray(0, end) : slice);
 }
 
+/**
+ * @param {Uint8Array} bytes
+ * @param {number} offset
+ * @returns {AedsSlice}
+ */
 function readSliceRef(bytes, offset)
 {
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -186,6 +242,11 @@ function readSliceRef(bytes, offset)
     };
 }
 
+/**
+ * @param {Uint8Array} blob
+ * @param {AedsSlice} slice
+ * @returns {Uint8Array}
+ */
 function readSliceBytes(blob, slice)
 {
     if (slice.offset < 0 || slice.length < 0 || slice.offset + slice.length > blob.byteLength)
@@ -195,11 +256,19 @@ function readSliceBytes(blob, slice)
     return blob.subarray(slice.offset, slice.offset + slice.length);
 }
 
+/**
+ * @param {Uint8Array} blob
+ * @param {AedsSlice} slice
+ * @returns {string}
+ */
 function readSliceText(blob, slice)
 {
     return UTF8_DECODER.decode(readSliceBytes(blob, slice));
 }
 
+/**
+ * @param {{ arrayBuffer?: () => Promise<ArrayBuffer>; body?: () => Promise<Uint8Array>; }} response
+ */
 export async function readAedsResponse(response)
 {
     if (typeof response.arrayBuffer === 'function')
@@ -215,6 +284,10 @@ export async function readAedsResponse(response)
     throw new Error('aeds_response_body_unavailable');
 }
 
+/**
+ * @param {AedsFrameInput} buffer
+ * @returns {{ frameType: number; payload: Uint8Array; }}
+ */
 export function decodeAedsFrame(buffer)
 {
     const bytes = new Uint8Array(buffer);
@@ -252,6 +325,9 @@ export function decodeAedsFrame(buffer)
     };
 }
 
+/**
+ * @param {AedsFrameInput} buffer
+ */
 export function decodeApiErrorFrame(buffer)
 {
     const frame = decodeAedsFrame(buffer);
@@ -276,6 +352,11 @@ export function decodeApiErrorFrame(buffer)
     };
 }
 
+/**
+ * @param {number} frameType
+ * @param {Uint8Array} payload
+ * @returns {ArrayBuffer}
+ */
 export function encodeAedsFrame(frameType, payload)
 {
     const frame = new Uint8Array(AEDS_HEADER_LENGTH + payload.byteLength);
@@ -305,6 +386,9 @@ export function encodeAuthAnonymousBootstrapRequest({ publicHandle = '', accepte
     return bytes;
 }
 
+/**
+ * @param {{ accountId?: number; identityKind?: string; status?: number; banReason?: string; deletedAt?: Date | null; }} [options]
+ */
 export function encodeCurrentUserSnapshotFrame({ accountId = 1, identityKind = 'anonymous_account', status = 0, banReason = '', deletedAt = null } = {})
 {
     const bytes = new Uint8Array(CURRENT_USER_SNAPSHOT_POD_SIZE);
@@ -322,6 +406,9 @@ export function encodeCurrentUserSnapshotFrame({ accountId = 1, identityKind = '
     return encodeAedsFrame(FRAME_CURRENT_USER_SNAPSHOT, bytes);
 }
 
+/**
+ * @param {{ accountId?: number; identityKind?: string; publicHandle?: string | null; passkeyEnabled?: boolean; recoveryEnabled?: boolean; totpStepUpEnabled?: boolean | null; anonymousCredentialStatus?: string | null; anonymousCredentialLevel?: string | null; status?: number; banReason?: string | null; deletedAt?: Date | null; }} [options]
+ */
 export function encodeIdentityAccountSnapshotFrame({
     accountId = 1,
     identityKind = 'anonymous_account',
@@ -404,6 +491,9 @@ export function encodeAdminPrincipalSnapshotFrame({
     })));
 }
 
+/**
+ * @param {{ fileName: string; mimeType: string; targetFormat: string; totalBytes: WireInteger; chunkSize: number; sha256?: string; }} payload
+ */
 export function encodeUploadInitRequest(payload)
 {
     const bytes = new Uint8Array(428);
@@ -417,6 +507,9 @@ export function encodeUploadInitRequest(payload)
     return bytes;
 }
 
+/**
+ * @param {string | null | undefined} sha256
+ */
 export function encodeUploadCompleteRequest(sha256)
 {
     const bytes = new Uint8Array(64);
@@ -424,6 +517,9 @@ export function encodeUploadCompleteRequest(sha256)
     return bytes;
 }
 
+/**
+ * @param {string | null | undefined} value
+ */
 export function encodeStringMutationRequest(value)
 {
     const encoded = UTF8_ENCODER.encode(value ?? '');
@@ -436,6 +532,10 @@ export function encodeStringMutationRequest(value)
     return bytes;
 }
 
+/**
+ * The legacy replyToUserId caller field is accepted but deliberately never encoded.
+ * @param {{ articleId?: number; anonymousScope?: string; displayLanguage?: string; proofToken?: string; zkProof?: Uint8Array | ArrayBuffer | number[]; content?: string; parentId?: WireInteger | null; rootId?: WireInteger | null; replyToCommentId?: WireInteger | null; replyToUserId?: WireInteger | null; authorMode?: string | number; publicSendExplicitlySelected?: boolean; }} data
+ */
 export function encodeCommentCreateV2Request(data)
 {
     const anonymousScope = UTF8_ENCODER.encode(data.anonymousScope ?? '');
@@ -473,6 +573,9 @@ export function encodeCommentCreateV2Request(data)
     return bytes;
 }
 
+/**
+ * @param {{ title?: string; description?: string; keywords?: string; author?: string; ogImage?: string; baseUrl?: string; faviconSvgUrl?: string; faviconIcoUrl?: string; faviconPngUrl?: string; appleTouchIconUrl?: string; manifestName?: string; manifestShortName?: string; pwaIcon192Url?: string; pwaIcon512Url?: string; pwaMaskableIconUrl?: string; themeColor?: string; backgroundColor?: string; siteLogoUrl?: string; siteLogoDarkUrl?: string; siteWordmarkUrl?: string; adminLogoUrl?: string; adminCollapsedIconUrl?: string; loginLogoUrl?: string; loginIconUrl?: string; }} data
+ */
 export function encodeSeoConfigPayload(data)
 {
     const description = UTF8_ENCODER.encode(data.description ?? '');
@@ -508,6 +611,9 @@ export function encodeSeoConfigPayload(data)
     return bytes;
 }
 
+/**
+ * @param {{ slug?: string; content?: string; }} data
+ */
 export function encodePageContentPayload(data)
 {
     const content = UTF8_ENCODER.encode(data.content ?? '');
@@ -521,6 +627,9 @@ export function encodePageContentPayload(data)
     return bytes;
 }
 
+/**
+ * @param {{ accountId?: number; status?: number; reason?: string; }} data
+ */
 export function encodeAdminChangeStatusRequest(data)
 {
     const reason = UTF8_ENCODER.encode(data.reason ?? '');
@@ -535,6 +644,9 @@ export function encodeAdminChangeStatusRequest(data)
     return bytes;
 }
 
+/**
+ * @param {{ subject?: string; body?: string; }} data
+ */
 export function encodeConversationCreateRequest(data)
 {
     const subject = UTF8_ENCODER.encode(data.subject ?? '');
@@ -551,6 +663,9 @@ export function encodeConversationCreateRequest(data)
     return bytes;
 }
 
+/**
+ * @param {WireInteger} readThroughMessageId
+ */
 export function encodeConversationReadRequest(readThroughMessageId)
 {
     const bytes = new Uint8Array(8);
@@ -558,6 +673,9 @@ export function encodeConversationReadRequest(readThroughMessageId)
     return bytes;
 }
 
+/**
+ * @param {{ body?: string; readThroughMessageId: WireInteger; }} data
+ */
 export function encodeAccountConversationReplyRequest(data)
 {
     const body = UTF8_ENCODER.encode(data.body ?? '');
@@ -571,6 +689,9 @@ export function encodeAccountConversationReplyRequest(data)
     return bytes;
 }
 
+/**
+ * @param {'pending' | 'closed' | 'active' | { status: string; reason?: string | null; }} input
+ */
 export function encodeConversationStatusRequest(input)
 {
     const status = typeof input === 'object' && input !== null ? input.status : input;
@@ -587,6 +708,9 @@ export function encodeConversationStatusRequest(input)
     return bytes;
 }
 
+/**
+ * @param {{ subject?: string; body?: string; targetAccountId?: WireInteger | null; }} data
+ */
 export function encodeSystemMessageRequest(data)
 {
     const subject = UTF8_ENCODER.encode(data.subject ?? '');
@@ -605,6 +729,9 @@ export function encodeSystemMessageRequest(data)
     return bytes;
 }
 
+/**
+ * @param {string | null | undefined} value
+ */
 export function encodeNameMutationRequest(value)
 {
     const bytes = new Uint8Array(128);
@@ -612,6 +739,9 @@ export function encodeNameMutationRequest(value)
     return bytes;
 }
 
+/**
+ * @param {ArticleWriteRequest} data
+ */
 export function encodeArticleWriteRequest(data)
 {
     const textParts = [
@@ -828,6 +958,9 @@ function encodeCommentAuthorMode(mode)
     }
 }
 
+/**
+ * @param {{ generatedAtUtc: string; entries?: { pageId?: string | number; articleId?: number | null; routeKey?: string; html?: string; bootstrapPayload?: string; hydrationPropsPayload?: string; rendererVersion?: string; islandsPayload?: string; title?: string; baseUrl?: string; }[]; }} bundle
+ */
 export function encodeAotBundleRequest(bundle)
 {
     const entries = Array.isArray(bundle.entries) ? bundle.entries : [];
@@ -882,6 +1015,9 @@ export function encodeAotBundleRequest(bundle)
     return bytes;
 }
 
+/**
+ * @param {{ sessionKey: string; attestation?: PasskeyCredentialInput; friendlyName?: string; mfaProofToken?: string; }} data
+ */
 export function encodePasskeyRegisterCompleteRequest(data)
 {
     const transports = Array.isArray(data.attestation?.response?.transports)
@@ -917,6 +1053,9 @@ export function encodePasskeyRegisterCompleteRequest(data)
     return bytes;
 }
 
+/**
+ * @param {{ challengeToken: string; assertion?: PasskeyCredentialInput; rememberMe?: boolean; }} data
+ */
 export function encodePasskeyLoginCompleteRequest(data)
 {
     const userHandle = data.assertion?.response?.userHandle;
@@ -944,6 +1083,9 @@ export function encodePasskeyLoginCompleteRequest(data)
     return bytes;
 }
 
+/**
+ * @param {{ password: string; code?: string; recoveryCode?: string; }} data
+ */
 export function encodeMfaPasswordProofRequest(data)
 {
     const { bytes, refs, blobLength } = encodeStringBlob([data.password, data.code ?? '', data.recoveryCode ?? '']);
@@ -955,6 +1097,9 @@ export function encodeMfaPasswordProofRequest(data)
     return bytes;
 }
 
+/**
+ * @param {{ challengeToken: string; action?: string; code?: string; recoveryCode?: string; }} data
+ */
 export function encodeMfaChallengeVerifyRequest(data)
 {
     const { bytes, refs, blobLength } = encodeStringBlob([
@@ -972,6 +1117,9 @@ export function encodeMfaChallengeVerifyRequest(data)
     return bytes;
 }
 
+/**
+ * @param {AedsFrameInput} buffer
+ */
 export function decodeKnownFrame(buffer)
 {
     const frame = decodeAedsFrame(buffer);
@@ -1052,6 +1200,9 @@ export function decodeKnownFrame(buffer)
     }
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeMutationId(payload)
 {
     if (payload.byteLength === 8)
@@ -1076,6 +1227,9 @@ function decodeMutationId(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeArticleHot(payload)
 {
     const reader = new BinaryReader(payload);
@@ -1103,6 +1257,9 @@ function decodeArticleHot(payload)
     return items;
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeArticleFeatured(payload)
 {
     const reader = new BinaryReader(payload);
@@ -1136,6 +1293,9 @@ function decodeArticleFeatured(payload)
     return items;
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeUploadInit(payload)
 {
     assertPayloadLength(payload, 568, 'upload_init_payload_invalid');
@@ -1152,6 +1312,9 @@ function decodeUploadInit(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeUploadStatus(payload)
 {
     assertPayloadLength(payload, 136, 'upload_status_payload_invalid');
@@ -1169,6 +1332,9 @@ function decodeUploadStatus(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeUploadPartMap(payload)
 {
     if (payload.byteLength < 72)
@@ -1190,6 +1356,9 @@ function decodeUploadPartMap(payload)
     return { uploadId: readFixedUtf8(payload, 0, 64), uploadedRanges };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeUploadPartAck(payload)
 {
     assertPayloadLength(payload, 92, 'upload_part_ack_payload_invalid');
@@ -1204,6 +1373,9 @@ function decodeUploadPartAck(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeUploadComplete(payload)
 {
     assertPayloadLength(payload, 648, 'upload_complete_payload_invalid');
@@ -1232,6 +1404,9 @@ function assertPayloadLengthAtLeast(payload, minimum, code)
     }
 }
 
+/**
+ * @param {Uint8Array} bytes
+ */
 export function decodeSearchManifest(bytes)
 {
     const payload = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -1341,6 +1516,10 @@ export function decodeSearchManifest(bytes)
     return manifest;
 }
 
+/**
+ * @param {string} text
+ * @returns {PublicAotValue[] | { [key: string]: PublicAotValue; }}
+ */
 export function decodePublicAotPayload(text)
 {
     const bytes = new Uint8Array(Buffer.from(String(text).trim().replace(/-/g, '+').replace(/_/g, '/'), 'base64'));
@@ -1359,6 +1538,9 @@ export function decodePublicAotPayload(text)
     return value;
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 export function decodeArticlePage(payload)
 {
     const reader = new BinaryReader(payload);
@@ -1483,6 +1665,9 @@ export function decodeArticlePage(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 export function decodeArticleDetail(payload)
 {
     if (payload.byteLength < ARTICLE_DETAIL_V3_HEADER_SIZE)
@@ -1663,6 +1848,11 @@ function isRangeWithin(offset, length, total)
     return offset >= 0 && length >= 0 && offset <= total && length <= total - offset;
 }
 
+/**
+ * @param {Uint8Array} bytes
+ * @param {number} offset
+ * @returns {number}
+ */
 function readInt32FromBytes(bytes, offset)
 {
     return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getInt32(offset, true);
@@ -1673,6 +1863,9 @@ function unixMsToIsoOrNull(value)
     return Number.isFinite(value) && value > 0 ? new Date(value).toISOString() : null;
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeSeoConfig(payload)
 {
     const reader = new BinaryReader(payload);
@@ -1706,6 +1899,9 @@ function decodeSeoConfig(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodePageContent(payload)
 {
     const reader = new BinaryReader(payload);
@@ -1717,6 +1913,10 @@ function decodePageContent(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ * @param {number} [itemSize]
+ */
 export function decodeTaxonomyList(payload, itemSize = 136)
 {
     void itemSize;
@@ -1746,6 +1946,9 @@ export function decodeTaxonomyList(payload, itemSize = 136)
     return items;
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodePasskeyRegisterBegin(payload)
 {
     const reader = new BinaryReader(payload);
@@ -1799,6 +2002,9 @@ function decodePasskeyRegisterBegin(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodePasskeyLoginBegin(payload)
 {
     const reader = new BinaryReader(payload);
@@ -1825,6 +2031,9 @@ function decodePasskeyLoginBegin(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodePasskeyCredentialList(payload)
 {
     const reader = new BinaryReader(payload);
@@ -1855,6 +2064,9 @@ function decodePasskeyCredentialList(payload)
     });
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodePasskeySignalState(payload)
 {
     const reader = new BinaryReader(payload);
@@ -1885,6 +2097,10 @@ function decodePasskeySignalState(payload)
     };
 }
 
+/**
+ * @param {BinaryReader} reader
+ * @param {number} count
+ */
 function readDescriptors(reader, count)
 {
     const descriptors = [];
@@ -1908,6 +2124,10 @@ function readDescriptors(reader, count)
     return descriptors;
 }
 
+/**
+ * @param {{ pod: Uint8Array; transports: number[]; }} descriptor
+ * @param {Uint8Array} blob
+ */
 function descriptorToView(descriptor, blob)
 {
     const podView = new DataView(descriptor.pod.buffer, descriptor.pod.byteOffset, descriptor.pod.byteLength);
@@ -1919,11 +2139,20 @@ function descriptorToView(descriptor, blob)
     };
 }
 
+/**
+ * @param {Uint8Array} blob
+ * @param {Uint8Array} pod
+ * @param {number} offset
+ * @returns {Uint8Array}
+ */
 function readBytes(blob, pod, offset)
 {
     return readSliceBytes(blob, readSliceRef(pod, offset));
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeAuthLoginFlow(payload)
 {
     if (payload.byteLength !== AUTH_LOGIN_FLOW_POD_SIZE)
@@ -1945,6 +2174,9 @@ function decodeAuthLoginFlow(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeCurrentUserSnapshot(payload)
 {
     if (payload.byteLength !== CURRENT_USER_SNAPSHOT_POD_SIZE)
@@ -1964,6 +2196,10 @@ function decodeCurrentUserSnapshot(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ * @returns {IdentityAccountSnapshot}
+ */
 function decodeIdentityAccountSnapshot(payload)
 {
     if (payload.byteLength < IDENTITY_ACCOUNT_SNAPSHOT_POD_SIZE + 4)
@@ -2010,6 +2246,9 @@ function decodeIdentityAccountSnapshot(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeUserSessions(payload)
 {
     const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
@@ -2040,6 +2279,9 @@ function decodeUserSessions(payload)
     return sessions;
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeMfaSetupStart(payload)
 {
     const reader = new BinaryReader(payload);
@@ -2054,6 +2296,9 @@ function decodeMfaSetupStart(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeMfaSetupVerify(payload)
 {
     assertPayloadLengthAtLeast(payload, MFA_SETUP_VERIFY_POD_SIZE, 'mfa_setup_verify_payload_invalid');
@@ -2079,6 +2324,9 @@ function decodeMfaSetupVerify(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeMfaProfile(payload)
 {
     assertPayloadLength(payload, MFA_PROFILE_POD_SIZE, 'mfa_profile_payload_invalid');
@@ -2089,6 +2337,9 @@ function decodeMfaProfile(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeMfaChallengeResult(payload)
 {
     assertPayloadLength(payload, MFA_CHALLENGE_RESULT_POD_SIZE, 'mfa_challenge_result_payload_invalid');
@@ -2105,6 +2356,9 @@ function decodeMfaChallengeResult(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeUserCommentCursor(payload)
 {
     const reader = new BinaryReader(payload);
@@ -2140,6 +2394,9 @@ function decodeUserCommentCursor(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeConversationList(payload)
 {
     let payloadBody = payload;
@@ -2184,6 +2441,9 @@ function decodeConversationList(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeConversationDetail(payload)
 {
     const reader = new BinaryReader(payload);
@@ -2212,6 +2472,9 @@ function decodeConversationDetail(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeConversationDetailV2(payload)
 {
     const reader = new BinaryReader(payload);
@@ -2241,6 +2504,9 @@ function decodeConversationDetailV2(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeConversationDetailV3(payload)
 {
     const reader = new BinaryReader(payload);
@@ -2278,6 +2544,9 @@ function decodeConversationDetailV3(payload)
     };
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodeConversationMessageFrame(payload)
 {
     const reader = new BinaryReader(payload);
@@ -2286,6 +2555,10 @@ function decodeConversationMessageFrame(payload)
     return readConversationMessage(pod, blob);
 }
 
+/**
+ * @param {Uint8Array} pod
+ * @param {Uint8Array} blob
+ */
 function readConversationListItem(pod, blob)
 {
     const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength);
@@ -2304,6 +2577,10 @@ function readConversationListItem(pod, blob)
     };
 }
 
+/**
+ * @param {Uint8Array} pod
+ * @param {Uint8Array} blob
+ */
 function readConversationPreview(pod, blob)
 {
     const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength);
@@ -2315,6 +2592,10 @@ function readConversationPreview(pod, blob)
     };
 }
 
+/**
+ * @param {Uint8Array} pod
+ * @param {Uint8Array} blob
+ */
 function readConversationMessage(pod, blob)
 {
     const view = new DataView(pod.buffer, pod.byteOffset, pod.byteLength);
@@ -2328,16 +2609,30 @@ function readConversationMessage(pod, blob)
     };
 }
 
+/**
+ * @param {Uint8Array} bytes
+ * @param {number} offset
+ * @returns {string}
+ */
 function readInt64String(bytes, offset)
 {
     return String(new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigInt64(offset, true));
 }
 
+/**
+ * @param {Uint8Array} pod
+ * @param {Uint8Array} blob
+ * @param {number} offset
+ * @returns {string}
+ */
 function readBlobText(pod, blob, offset)
 {
     return readSliceText(blob, readSliceRef(pod, offset));
 }
 
+/**
+ * @param {Uint8Array} payload
+ */
 function decodePowChallengePayload(payload)
 {
     if (payload.byteLength !== 204)
@@ -2354,6 +2649,10 @@ function decodePowChallengePayload(payload)
     };
 }
 
+/**
+ * @param {(string | null | undefined)[]} values
+ * @returns {{ bytes: Uint8Array<ArrayBuffer>; refs: AedsSlice[]; blobLength: number; }}
+ */
 function encodeStringBlob(values)
 {
     const encodedValues = values.map((value) => UTF8_ENCODER.encode(value ?? ''));
@@ -2383,6 +2682,11 @@ function writeFixedUtf8(target, offset, length, value)
     target.set(encoded.subarray(0, length), offset);
 }
 
+/**
+ * @param {number} headerLength
+ * @param {readonly Uint8Array[]} parts
+ * @returns {{ bytes: Uint8Array<ArrayBuffer>; refs: AedsSlice[]; blobLength: number; }}
+ */
 function encodeBinaryBlob(headerLength, parts)
 {
     const blobLength = parts.reduce((sum, part) => sum + part.byteLength, 0);
@@ -2476,6 +2780,7 @@ function transportToInt(value)
 
 class BinaryReader
 {
+    /** @param {Uint8Array} bytes */
     constructor(bytes)
     {
         this.bytes = bytes;
@@ -2510,6 +2815,7 @@ class BinaryReader
         return value;
     }
 
+    /** @param {number} length */
     readSpan(length)
     {
         if (length < 0 || this.remaining() < length)
@@ -2539,6 +2845,7 @@ class BinaryReader
 
 class PublicAotValueReader
 {
+    /** @param {Uint8Array} bytes */
     constructor(bytes)
     {
         this.bytes = bytes;
@@ -2551,6 +2858,7 @@ class PublicAotValueReader
         return this.bytes.byteLength - this.offset;
     }
 
+    /** @returns {PublicAotValue} */
     readValue()
     {
         const kind = this.readByte();
@@ -2657,6 +2965,7 @@ class PublicAotValueReader
         return value;
     }
 
+    /** @returns {{ [key: string]: PublicAotValue; }} */
     readObject()
     {
         const count = this.readInt32();
@@ -2672,6 +2981,7 @@ class PublicAotValueReader
         return value;
     }
 
+    /** @returns {PublicAotValue[]} */
     readArray()
     {
         const count = this.readInt32();

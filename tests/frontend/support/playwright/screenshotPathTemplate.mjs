@@ -58,6 +58,10 @@ function createScreenshotPathInfo({
     return info;
 }
 
+/**
+ * @param {{ pathTemplate?: string; projectName: string; snapshotSuffix?: string; testFile: string; testDir: string; snapshotDir: string; configDir: string; name: string | string[]; }} options
+ * @returns {string}
+ */
 export function resolvePlaywrightScreenshotPath({
     pathTemplate = playwrightScreenshotPathTemplate,
     projectName,
