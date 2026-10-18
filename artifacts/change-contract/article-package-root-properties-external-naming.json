@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestVersionRegistry.cs"
+            ],
+            "reason": "The trusted registry classifies these source paths through its src/**/*.cs environment naming surface. Existing external environment spelling is preserved; no environment API or variable is added. Explicit JSON wire keys stay inside the original codec with PascalCase internal adapters."
+        }
+    ]
+}

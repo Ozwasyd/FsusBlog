@@ -38,7 +38,8 @@ public sealed class ArticlePackageManifestVersionRegistration
 }
 
 /// <summary>
-/// Closed candidate-codec registry. The legacy (1,1,1) and asset-root (2,1,1) identities are registered;
+/// Closed candidate-codec registry. The legacy (1,1,1), asset-root (2,1,1), and
+/// property-payload (3,1,1) identities are registered;
 /// it grants no source, permission, migration or complete-package admission.
 /// </summary>
 public static class ArticlePackageManifestVersionRegistry
@@ -49,12 +50,18 @@ public static class ArticlePackageManifestVersionRegistry
     // domain; neither identity registers a converter between these candidate formats.
     private static readonly ArticlePackageManifestVersionRegistration s_assetCollection = new(
         new(2, 1, 1), ArticlePackageManifestMigrationDisposition.Identity);
+    // V3 adds exact article-bound property payloads to the asset root. Component schemas and
+    // their v1 domains stay unchanged; no downgrade or cross-tuple converter is registered.
+    private static readonly ArticlePackageManifestVersionRegistration s_propertyPayload = new(
+        new(3, 1, 1), ArticlePackageManifestMigrationDisposition.Identity);
     private static readonly IReadOnlyList<ArticlePackageManifestVersionRegistration> s_registrations
-        = Array.AsReadOnly(new[] { s_current, s_assetCollection });
+        = Array.AsReadOnly(new[] { s_current, s_assetCollection, s_propertyPayload });
 
     public static ArticlePackageManifestVersionRegistration Current => s_current;
     /// <summary>Explicit asset-root format; Current remains the legacy article-only default.</summary>
     public static ArticlePackageManifestVersionRegistration AssetCollection => s_assetCollection;
+    /// <summary>Explicit property-payload format, retaining the complete asset-root binding.</summary>
+    public static ArticlePackageManifestVersionRegistration PropertyPayload => s_propertyPayload;
     public static IReadOnlyList<ArticlePackageManifestVersionRegistration> Registrations => s_registrations;
 
     /// <summary>Refuses unregistered tuples and drift from the actual canonical/property implementations.</summary>
@@ -63,13 +70,14 @@ public static class ArticlePackageManifestVersionRegistry
         out ArticlePackageManifestVersionRegistration? registration)
     {
         registration = null;
-        if ((versions != s_current.Versions && versions != s_assetCollection.Versions)
+        if ((versions != s_current.Versions && versions != s_assetCollection.Versions && versions != s_propertyPayload.Versions)
             || versions.CanonicalHashVersion != ArticleCanonicalHashV1.HashVersion
             || versions.PropertySchemaVersion != ArticlePropertyValueSnapshot.CurrentSchemaVersion)
         {
             return false;
         }
-        registration = versions == s_current.Versions ? s_current : s_assetCollection;
+        registration = versions == s_current.Versions ? s_current
+            : versions == s_assetCollection.Versions ? s_assetCollection : s_propertyPayload;
         return true;
     }
 
