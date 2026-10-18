@@ -201,7 +201,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 505,
+      "estimatedFacts": 515,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -547,6 +547,10 @@
         {
           "path": "Integration/AuthoringLifecycleReceiptPostgresTests.cs",
           "class": "AuthoringLifecycleReceiptPostgresTests"
+        },
+        {
+          "path": "Integration/AuthoringProductionPreflightPostgresTests.cs",
+          "class": "AuthoringProductionPreflightPostgresTests"
         }
       ]
     }
