@@ -7,6 +7,27 @@ namespace FsusBlog.Server.Tests;
 public sealed class AuthoringLifecycleSettlementScopeTests
 {
     [Fact]
+    public async Task CallerSuppliedZeroReportsCannotBecomeOriginalSettlementFacts()
+    {
+        Fixture fixture = await CreateAsync(trackInstances: false);
+        var scope = await fixture.HoldAsync();
+        object foreign = new();
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            scope.RecordCleanupReport(foreign, new AuthoringLifecycleResourceReport(0, 0, 0, 0, 0, 0, 0)));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            scope.RecordHostReport(foreign, new AuthoringLifecycleHostResourceReport(0, 0, 0, 0, 0)));
+        Assert.Throws<AuthoringExtensionContractException>(() => scope.MarkAcquisitionFailed(foreign, true));
+        Assert.Throws<AuthoringExtensionContractException>(() => scope.AttachHostScope(foreign, null));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            new AuthoringExtensionLifecycleResources.SettlementScope(fixture.Resources, fixture.Id, 1, foreign));
+        Assert.Null(scope.CleanupReport);
+        Assert.Null(scope.HostCleanupReport);
+        await scope.SettleAsync();
+        Assert.True(scope.CleanupReport!.IsEmpty);
+        scope.Dispose();
+    }
+
+    [Fact]
     public async Task ExactOriginalRosterAndMissingNativeHistoryRemainHeldAndUnqualified()
     {
         Fixture fixture = await CreateAsync();
