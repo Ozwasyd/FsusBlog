@@ -173,7 +173,7 @@ export function createBrowserTaskScheduler(options: BrowserTaskSchedulerOptions 
                     await waitWithAbort(environment.scheduler.yield(), signal);
                     path = 'native';
                 }
-                catch (error)
+                catch
                 {
                     throwIfAborted(signal);
                     nativeFailure = 'rejected';

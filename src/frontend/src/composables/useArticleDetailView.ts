@@ -19,46 +19,49 @@ import {
 } from '@/api/comment';
 import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap';
 import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness';
-import type MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue';
 import { useAbortableTask } from '@/composables/useAbortableTask';
 import { useArticleCommentStream, type CommentTreeViewNode } from '@/composables/useArticleCommentStream';
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm';
 import { usePow } from '@/composables/usePow';
 import { usePublicPageLifecycle } from '@/composables/usePublicPageLifecycle';
 import { useRiskChallengeCommand } from '@/composables/useRiskChallengeCommand';
-import { alertInfo, promptText, toast  } from '@/fsusui/feedback'
-import { useNotificationStreamStore } from '@/store/notificationStream';
+import { alertInfo, promptText, toast } from '@/fsusui/feedback';
 import { isStrongAnonymousCommentAvailable } from '@/policies/commentPolicy';
 import {
-  createAnonymousThreadScope,
-  createAnonymousTopLevelScope
-} from '@/privacy/commentAnonymousScope'
+    createAnonymousThreadScope,
+    createAnonymousTopLevelScope
+} from '@/privacy/commentAnonymousScope';
 import {
-  createArticleDetailPageViewContract,
-  createArticleDetailHeaderViewContract,
-  emptyArticleDetailHeaderView,
-  emptyArticleDetailPageView
-} from '@/view-contracts/articleDetail'
+    COMMENT_MANAGEMENT_CAPABILITY_LOSS_NOTICE,
+    getCommentManagementCapabilityVault
+} from '@/privacy/commentManagementCapabilityVault';
 import {
-  COMMENT_MANAGEMENT_CAPABILITY_LOSS_NOTICE,
-  getCommentManagementCapabilityVault
-} from '@/privacy/commentManagementCapabilityVault'
-import {
-  getCommentPrivacyRuntime,
-  type CommentPrivacyPreparedTicket,
-  type CommentPrivacyUiState
-} from '@/privacy/commentPrivacyRuntime'
+    getCommentPrivacyRuntime,
+    type CommentPrivacyPreparedTicket,
+    type CommentPrivacyUiState
+} from '@/privacy/commentPrivacyRuntime';
 import { consumePublicPageSeed } from '@/public-renderers/pageSeed';
 import { fixedRiskChallengeContext, riskChallengeRoutes } from '@/security/risk-challenge-routes';
 import type { NotificationStreamArticleRenderPatch, NotificationStreamCommentRenderPatch } from '@/services/notificationStreamTypes';
 import { isPublicReadHydrationSuppressed } from '@/services/publicReadHydrationGuard';
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime';
+import { useNotificationStreamStore } from '@/store/notificationStream';
 import { useUserStore } from '@/store/user';
 import { normalizeCommentContentPolicy, validateCommentContent } from '@/utils/contentFilter';
 import { showErrorToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
+import {
+    createArticleDetailPageViewContract,
+    createArticleDetailHeaderViewContract,
+    emptyArticleDetailHeaderView,
+    emptyArticleDetailPageView
+} from '@/view-contracts/articleDetail';
 
 interface ArticleSignalPayload { articleId: string | number; }
+
+interface ArticleRendererView {
+    rootEl?: HTMLElement | { value?: HTMLElement | null; } | null;
+}
 
 type CommentAddedSignalPayload = ArticleSignalPayload & {
     comment: {
@@ -183,7 +186,7 @@ export function useArticleDetailView()
         }
     };
 
-    const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null);
+    const articleRendererRef = ref<ArticleRendererView | null>(null);
     const commentContent = ref('');
     const commentAuthorMode = ref<CommentAuthorMode>('zk_anonymous');
     const publicSendConfirmed = ref(false);
@@ -332,7 +335,7 @@ export function useArticleDetailView()
 
     const runSmoothUpdate = async (updateAction: () => Promise<void>): Promise<void> =>
     {
-        const containerRef = articleRendererRef.value?.rootEl as HTMLElement | { value?: HTMLElement | null; } | null | undefined;
+        const containerRef = articleRendererRef.value?.rootEl;
         const container = containerRef instanceof HTMLElement ? containerRef : containerRef?.value ?? null;
         if (!container || !article.value)
         {
@@ -361,7 +364,7 @@ export function useArticleDetailView()
         if (foundAnchor && anchorIndex !== -1)
         {
             await nextTick();
-            const freshContainerRef = articleRendererRef.value?.rootEl as HTMLElement | { value?: HTMLElement | null; } | null | undefined;
+            const freshContainerRef = articleRendererRef.value?.rootEl;
             const freshContainer = freshContainerRef instanceof HTMLElement ? freshContainerRef : freshContainerRef?.value ?? null;
             if (freshContainer && freshContainer.children.length > anchorIndex)
             {
