@@ -19,7 +19,6 @@ import {
 } from '@/api/comment';
 import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap';
 import { markCurrentRouteContentReady, markCurrentRouteFailed } from '@/bootstrap/routeReadiness';
-import type MarkdownRenderer from '@/components/ui/MarkdownRenderer.vue';
 import { useAbortableTask } from '@/composables/useAbortableTask';
 import { useArticleCommentStream, type CommentTreeViewNode } from '@/composables/useArticleCommentStream';
 import { requestGlobalConfirm } from '@/composables/useGlobalConfirm';
@@ -59,6 +58,10 @@ import {
 } from '@/view-contracts/articleDetail';
 
 interface ArticleSignalPayload { articleId: string | number; }
+
+interface ArticleRendererView {
+    rootEl?: HTMLElement | { value?: HTMLElement | null; } | null;
+}
 
 type CommentAddedSignalPayload = ArticleSignalPayload & {
     comment: {
@@ -183,7 +186,7 @@ export function useArticleDetailView()
         }
     };
 
-    const articleRendererRef = ref<InstanceType<typeof MarkdownRenderer> | null>(null);
+    const articleRendererRef = ref<ArticleRendererView | null>(null);
     const commentContent = ref('');
     const commentAuthorMode = ref<CommentAuthorMode>('zk_anonymous');
     const publicSendConfirmed = ref(false);
@@ -332,7 +335,7 @@ export function useArticleDetailView()
 
     const runSmoothUpdate = async (updateAction: () => Promise<void>): Promise<void> =>
     {
-        const containerRef = articleRendererRef.value?.rootEl as HTMLElement | { value?: HTMLElement | null; } | null | undefined;
+        const containerRef = articleRendererRef.value?.rootEl;
         const container = containerRef instanceof HTMLElement ? containerRef : containerRef?.value ?? null;
         if (!container || !article.value)
         {
@@ -361,7 +364,7 @@ export function useArticleDetailView()
         if (foundAnchor && anchorIndex !== -1)
         {
             await nextTick();
-            const freshContainerRef = articleRendererRef.value?.rootEl as HTMLElement | { value?: HTMLElement | null; } | null | undefined;
+            const freshContainerRef = articleRendererRef.value?.rootEl;
             const freshContainer = freshContainerRef instanceof HTMLElement ? freshContainerRef : freshContainerRef?.value ?? null;
             if (freshContainer && freshContainer.children.length > anchorIndex)
             {
