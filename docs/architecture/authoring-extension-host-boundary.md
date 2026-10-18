@@ -68,6 +68,13 @@ diagnostic contribution. Category schema version 1 binds diagnostic ID/version,
 entrypoint content digest, execution class, minimal input schema, permissions,
 policy reference and diagnostic resource ceilings to that original manifest.
 
+The category join rejects an intersection between the complete manifest identity
+roster (every extension and every contribution, including other categories) and
+the supplied core check IDs. A different diagnostic alias cannot hide a manifest
+collision. Identity comparison retains the original ordinal semantics: manifest
+IDs follow their strict lowercase ASCII grammar, core references retain their
+exact accepted spelling, and neither is trimmed, case-folded or Unicode-normalized.
+
 `ExpectedDiagnostics` exposes the complete canonical immutable registration
 roster, ordered by ordinal diagnostic ID. Each registration carries host-owned
 requiredness and declaration/policy digests; the roster binds its schema version,
@@ -88,6 +95,22 @@ differs from an actually empty registry; an uninitialized array is rejected.
 The caller must still bind outcomes to one current invocation and recheck live
 authority. Coverage supplies no core combination, publication decision or receipt,
 and does not change the existing version-1 plugin input/output fields or digests.
+
+The existing `RuntimeIdentity` is a package/configuration identity, not a running
+incarnation witness. `AuthoringExtensionLifecycleCoordinator.RecordAsync` owns
+receipt generation advancement and `AuthoringExtensionLifecycleResources` tracks
+workers/services under that generation. However, the diagnostic contract has no
+owner-issued observation that binds the current generation, a particular live
+runtime instance and the diagnostic result. The worker's existing
+`ComputeInstanceIdentity` also hashes target/request coordinates without a lifecycle
+generation or unique launch identity; its receipt cannot distinguish restarting
+the same request. The service result has no equivalent incarnation binding.
+`AcceptResultAsync` checks a supplied generation against a receipt store; a receipt
+or generation number constructed by a caller is not that missing witness. A real
+lifecycle/runtime owner must issue and revalidate the binding before a diagnostic
+consumer can prove same-package restart or cross-runtime-instance rejection.
+No self-reported `LifecycleGeneration` field is added to pretend this capability
+exists; current host-context fields and their structural validation remain unchanged.
 
 The host supplies each code's exact severity, requiredness, inert fix command
 references and effective budgets. Unknown, duplicate, conflicting or core-owned

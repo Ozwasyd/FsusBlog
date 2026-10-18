@@ -46,6 +46,10 @@ public sealed partial class AuthoringPrepublishDiagnosticRegistry
             !coreResults.IsDefault && coreResults.Length <= MaximumDiagnostics,
             "Diagnostic, host policy or core observation roster is missing or unbounded.");
 
+        var manifestIds = verified.Contracts.SelectMany(static contract =>
+            contract.Manifest.Contributions.Select(static declaration => declaration.Id).Append(contract.Manifest.Id))
+            .ToImmutableHashSet(StringComparer.Ordinal);
+
         var reserved = ImmutableHashSet.CreateBuilder<string>(StringComparer.Ordinal);
         reserved.UnionWith(verified.CoreAuthorities.CommandIds);
         reserved.UnionWith(verified.CoreAuthorities.RouteIds);
@@ -63,6 +67,7 @@ public sealed partial class AuthoringPrepublishDiagnosticRegistry
             reserved.Add(core.CheckId);
         }
 
+        Require(!manifestIds.Overlaps(coreIds), "Manifest extension or contribution identity conflicts with a core check.");
         _reservedIds = reserved.ToImmutable();
         CoreResults = [.. coreResults.OrderBy(static result => result.CheckId, StringComparer.Ordinal)];
         CoreResultsSha256 = Digest(CoreResults);
@@ -76,9 +81,6 @@ public sealed partial class AuthoringPrepublishDiagnosticRegistry
 
         var builder = ImmutableDictionary.CreateBuilder<string, Entry>(StringComparer.Ordinal);
         var contributionIds = new HashSet<string>(StringComparer.Ordinal);
-        var manifestIds = verified.Contracts.SelectMany(static contract =>
-            contract.Manifest.Contributions.Select(static declaration => declaration.Id).Append(contract.Manifest.Id))
-            .ToImmutableHashSet(StringComparer.Ordinal);
         foreach (AuthoringPrepublishDiagnosticContribution contribution in contributions)
         {
             Require(contribution is not null, "Diagnostic contribution is null.");
