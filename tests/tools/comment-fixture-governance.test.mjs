@@ -5,8 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const {buildCommentFixtureAcceptanceReceipt, buildCanonicalCommentFixtureRuntimeEvidence, buildCommentFixtureCleanupReceipt, buildCommentFixtureModelReport, COMMENT_FIXTURE_REPOSITORY_ROOT, verifyCommentFixtureAcceptanceReceipt} = await import(new URL('../../tools/test/comment-fixture-governance.mjs', import.meta.url));
-const {digestCommentFixtureValue, readCommentFixtureContract} = await import(new URL('../../tools/test/comment-fixture-contract.mjs', import.meta.url));
+const {buildCommentFixtureAcceptanceReceipt, buildCanonicalCommentFixtureRuntimeEvidence, buildCommentFixtureCleanupReceipt, buildCommentFixtureModelReport, COMMENT_FIXTURE_REPOSITORY_ROOT, resolveCommentFixtureSourceIdentity, verifyCommentFixtureAcceptanceReceipt, verifyCommentFixtureCleanupReceipt} = await import(new URL('../../tools/test/comment-fixture-governance.mjs', import.meta.url));
+const {commentFixtureOwnershipErrors, digestCommentFixtureValue, readCommentFixtureContract} = await import(new URL('../../tools/test/comment-fixture-contract.mjs', import.meta.url));
 const {collectSimulatedCommentFixtureRuntimeEvidence} = await import(new URL('../../tools/test/run-comment-fixture-simulated-runtime.mjs', import.meta.url));
 const {normalizeCleanupContract: normalizeCommentCleanupContract} = await import(new URL('../../tools/test-fixtures/receipt/comment-cleanup-contract.mjs', import.meta.url));
 const {buildProducerReceipt, digestCanonical, validateProducerReceipt} = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
@@ -461,15 +461,25 @@ test('existing collector entrypoint writes an explicit model-only artifact and d
     assert.notEqual(runCommentFixtureCli(['--model-contract', file]).status, 0);
 });
 
+const threadHelperPaths = [
+    'src/backend/Services/Fixtures/CommentFixtureQueuePageReader.cs',
+    'src/backend/Services/Fixtures/CommentFixtureReplyMessagePageReader.cs',
+    'src/backend/Services/Fixtures/CommentFixtureTimelineVerifier.cs',
+    'src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs',
+    'src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs'
+];
+
 function temporaryScannerGit(t)
 {
     const root = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-comment-scanner-git-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));
     const { ownership } = readCommentFixtureContract();
     const support = (ownership.supportImplementations ?? []).map((item) => item.implementation);
-    const expected = [ownership.producer.implementation, ownership.composition.implementation,
-        ...ownership.ports.map((item) => item.implementation), ...support,
+    const markerOwners = [ownership.producer.implementation, ownership.composition.implementation,
+        ...ownership.ports.map((item) => item.implementation),
         ...ownership.gateways.map((item) => item.implementation)];
+    const expected = [...new Set([...markerOwners, ...support, ...threadHelperPaths,
+        ...ownership.ports.flatMap((item) => item.implementationPaths ?? [])])];
     const consumers = ownership.consumers.map((item) => item.implementation);
     const retired = 'tools/test/lanes/backend-qps.sh';
     const runtime = 'tools/test/lanes/runtime-cache-evidence.sh';
@@ -477,7 +487,7 @@ function temporaryScannerGit(t)
     {
         const file = path.join(root, relative);
         mkdirSync(path.dirname(file), { recursive: true });
-        writeFileSync(file, expected.includes(relative) && !support.includes(relative)
+        writeFileSync(file, markerOwners.includes(relative)
             ? `// fixture-${'catalog: producer comment-moderation'}\n`
             : '// Temporary Git scanner fixture, not runtime evidence.\n');
     }
@@ -495,6 +505,151 @@ function temporaryScannerGit(t)
     git('commit', '--quiet', '-m', 'temporary comment scanner fixture');
     return { root, ownership, expected, consumers, retired, runtime, git };
 }
+
+test('thread ownership closes the complete implementation roster', () =>
+{
+    const { inventory, ownership } = readCommentFixtureContract();
+    const port = ownership.ports.find((item) => item.id === 'comment-thread-lifecycle');
+    const complete = [...threadHelperPaths, port.implementation].sort();
+    assert.deepEqual(port.implementationPaths, complete);
+    assert.deepEqual(commentFixtureOwnershipErrors(inventory, ownership), []);
+    const invalid = [
+        undefined, null, port.implementation, [], [port.implementation],
+        ...complete.map((relative) => complete.filter((item) => item !== relative)),
+        [...complete, complete[0]].sort(), [...complete].reverse(),
+        [...complete, 'src/backend/Services/CommentService.cs'].sort(),
+        [...complete, '../foreign.cs'].sort()
+    ];
+    for (const implementationPaths of invalid)
+    {
+        const changed = structuredClone(ownership);
+        const target = changed.ports.find((item) => item.id === port.id);
+        if (implementationPaths === undefined)
+        {
+            delete target.implementationPaths;
+        }
+        else
+        {
+            target.implementationPaths = implementationPaths;
+        }
+        assert.ok(commentFixtureOwnershipErrors(inventory, changed).length > 0,
+            `accepted incomplete or foreign thread sources: ${JSON.stringify(implementationPaths)}`);
+    }
+    const foreignPort = structuredClone(ownership);
+    foreignPort.ports[0].implementationPaths = complete;
+    assert.ok(commentFixtureOwnershipErrors(inventory, foreignPort).length > 0);
+});
+
+test('legitimate synthetic fixture with unmarked thread sources passes the original cleanup producer', (t) =>
+{
+    const fixture = temporaryScannerGit(t);
+    const receipt = buildCommentFixtureCleanupReceipt({ root: fixture.root });
+    assert.equal(receipt.scanner.status, 'accepted');
+    assert.equal(receipt.exactOwnership, true);
+    assert.deepEqual(receipt.scanner.violations, []);
+    assert.deepEqual(receipt.warnings, []);
+    assert.deepEqual(verifyCommentFixtureCleanupReceipt(receipt, { root: fixture.root }), receipt);
+});
+
+for (const relative of threadHelperPaths)
+{
+    test(`thread SQL mutation is rejected: ${relative}`, (t) =>
+    {
+        const fixture = temporaryScannerGit(t);
+        const file = path.join(fixture.root, relative);
+        writeFileSync(file, `${readFileSync(file, 'utf8')}\nExecuteSql("DELETE FROM comment WHERE id = 1");\n`);
+        const receipt = buildCommentFixtureCleanupReceipt({ root: fixture.root });
+        assert.equal(receipt.scanner.status, 'rejected');
+        assert.ok(receipt.scanner.violations.some((item) => item.id === 'direct-comment-storage'
+            && item.path === relative));
+        assert.throws(() => verifyCommentFixtureCleanupReceipt(receipt, { root: fixture.root }), /rejected/u);
+    });
+
+    test(`missing thread implementation is rejected: ${relative}`, (t) =>
+    {
+        const fixture = temporaryScannerGit(t);
+        rmSync(path.join(fixture.root, relative));
+        const receipt = buildCommentFixtureCleanupReceipt({ root: fixture.root });
+        assert.equal(receipt.scanner.status, 'rejected');
+        assert.equal(receipt.exactOwnership, false);
+        assert.ok(receipt.scanner.violations.some((item) => item.id === 'owned-implementation-missing'
+            && item.path === relative));
+    });
+
+    test(`foreign thread source alias is rejected: ${relative}`, (t) =>
+    {
+        const fixture = temporaryScannerGit(t);
+        const foreignRoot = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-comment-foreign-source-'));
+        t.after(() => rmSync(foreignRoot, { recursive: true, force: true }));
+        const foreign = path.join(foreignRoot, 'foreign.cs');
+        writeFileSync(foreign, '// Foreign source must not impersonate an owned file.\n');
+        const file = path.join(fixture.root, relative);
+        rmSync(file);
+        symlinkSync(foreign, file);
+        const receipt = buildCommentFixtureCleanupReceipt({ root: fixture.root });
+        assert.equal(receipt.scanner.status, 'rejected');
+        assert.equal(receipt.exactOwnership, false);
+        assert.ok(receipt.scanner.violations.some((item) => item.id === 'source-file-identity'
+            && item.path === relative));
+        assert.throws(() => verifyCommentFixtureCleanupReceipt(receipt, { root: fixture.root }), /rejected/u);
+    });
+
+    test(`thread sources retain first-row rejection and exact-identity reads: ${relative}`, (t) =>
+    {
+        const fixture = temporaryScannerGit(t);
+        const file = path.join(fixture.root, relative);
+        writeFileSync(file, 'db.Queryable<Comment>().FirstAsync();\n');
+        const rejected = buildCommentFixtureCleanupReceipt({ root: fixture.root });
+        assert.equal(rejected.scanner.status, 'rejected');
+        assert.ok(rejected.scanner.violations.some((item) => item.id === 'first-row-discovery'
+            && item.path === relative));
+        writeFileSync(file, 'db.Queryable<Comment>().Where(item => item.Id == ownedId).FirstAsync();\n');
+        const accepted = buildCommentFixtureCleanupReceipt({ root: fixture.root });
+        assert.equal(accepted.scanner.status, 'accepted');
+        verifyCommentFixtureCleanupReceipt(accepted, { root: fixture.root });
+    });
+
+    test(`thread helper cannot add a second producer marker: ${relative}`, (t) =>
+    {
+        const fixture = temporaryScannerGit(t);
+        const file = path.join(fixture.root, relative);
+        writeFileSync(file, `${readFileSync(file, 'utf8')}\n// fixture-${'catalog: producer comment-moderation'}\n`);
+        const receipt = buildCommentFixtureCleanupReceipt({ root: fixture.root });
+        assert.equal(receipt.scanner.status, 'rejected');
+        assert.equal(receipt.exactOwnership, false);
+        assert.ok(receipt.scanner.violations.some((item) => item.id === 'second-producer'
+            && item.path === relative));
+    });
+}
+
+test('each owned source drift changes canonical identity and invalidates the prior cleanup receipt', (t) =>
+{
+    const fixture = temporaryScannerGit(t);
+    const receipt = buildCommentFixtureCleanupReceipt({ root: fixture.root });
+    const identity = resolveCommentFixtureSourceIdentity(fixture.root);
+    assert.deepEqual(receipt.source, identity);
+    for (const relative of [...fixture.expected, ...fixture.consumers])
+    {
+        const file = path.join(fixture.root, relative);
+        const original = readFileSync(file, 'utf8');
+        try
+        {
+            writeFileSync(file, `${original}\n// Harmless owned source drift.\n`);
+            const changed = buildCommentFixtureCleanupReceipt({ root: fixture.root });
+            assert.equal(changed.scanner.status, 'accepted');
+            assert.equal(changed.source.commit, identity.commit);
+            assert.notEqual(changed.source.worktreeFingerprint, identity.worktreeFingerprint, relative);
+            assert.deepEqual(changed.source, resolveCommentFixtureSourceIdentity(fixture.root));
+            assert.throws(() => verifyCommentFixtureCleanupReceipt(receipt, { root: fixture.root }), /stale/u);
+            assert.deepEqual(verifyCommentFixtureCleanupReceipt(changed, { root: fixture.root }), changed);
+        }
+        finally
+        {
+            writeFileSync(file, original);
+        }
+    }
+    assert.deepEqual(verifyCommentFixtureCleanupReceipt(receipt, { root: fixture.root }), receipt);
+});
 
 test('real temporary Git dirty-deleted nonowned source is excluded without restoring retired QPS', (t) =>
 {

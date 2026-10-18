@@ -419,17 +419,32 @@ export function commentFixtureOwnershipErrors(inventory, ownership)
         ['comment-thread-lifecycle', ['src/backend/Services/Fixtures/CommentThreadFixturePort.cs', 'production-comment-command-and-management-services']]
     ]);
     const ports = ownership?.ports ?? [];
+    const threadImplementationPaths = [
+        'src/backend/Services/Fixtures/CommentFixtureQueuePageReader.cs',
+        'src/backend/Services/Fixtures/CommentFixtureReplyMessagePageReader.cs',
+        'src/backend/Services/Fixtures/CommentFixtureTimelineVerifier.cs',
+        'src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs',
+        'src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs',
+        'src/backend/Services/Fixtures/CommentThreadFixturePort.cs'
+    ];
     if (ports.length !== expectedPorts.size || new Set(ports.map((item) => item?.id)).size !== expectedPorts.size)
     {
         errors.push('ownership must expose exactly two typed comment lifecycle ports');
     }
     for (const port of ports)
     {
-        exactKeys(port, ['id', 'implementation', 'storageWrites'], `ownership port ${port?.id}`, errors);
+        exactKeys(port, ['id', 'implementation', 'storageWrites',
+            ...(port?.id === 'comment-thread-lifecycle' ? ['implementationPaths'] : [])],
+        `ownership port ${port?.id}`, errors);
         const expected = expectedPorts.get(port?.id);
         if (!expected || port?.implementation !== expected[0] || port?.storageWrites !== expected[1])
         {
             errors.push(`port ${port?.id} crosses its production ownership boundary`);
+        }
+        if (port?.id === 'comment-thread-lifecycle'
+            && !exactArray(port.implementationPaths, threadImplementationPaths))
+        {
+            errors.push('comment-thread-lifecycle implementationPaths must equal the complete sorted owned source set');
         }
     }
 
