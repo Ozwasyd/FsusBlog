@@ -19,24 +19,27 @@ internal sealed class GraphNativePermissionRead(ISqlSugarClient db, SqlAuthorArt
     private int _backendId;
     private string? _transactionId;
     private int _entered;
-    internal CancellationToken PriorCancellation
-    {
-        get; private set;
-    }
+    private CancellationToken _priorCancellation;
 
-    internal IDisposable Enter(CancellationToken token)
+    internal IDisposable Enter(CancellationToken token, out CancellationToken priorCancellation)
     {
+        priorCancellation = default;
         token.ThrowIfCancellationRequested();
         Require(Interlocked.CompareExchange(ref _entered, 1, 0) == 0);
         try
         {
+            // Capture after acquiring our gate, before custody can refuse. The out value
+            // belongs to this invocation and survives disposal for cancellation attribution.
+            priorCancellation = db.Ado.CancellationToken ?? default;
+            token.ThrowIfCancellationRequested();
+            priorCancellation.ThrowIfCancellationRequested();
             Validate(token);
-            PriorCancellation = db.Ado.CancellationToken ?? default;
-            PriorCancellation.ThrowIfCancellationRequested();
+            _priorCancellation = priorCancellation;
             return new Borrow(this);
         }
         catch
         {
+            _priorCancellation = default;
             Interlocked.Exchange(ref _entered, 0);
             throw;
         }
@@ -86,7 +89,7 @@ internal sealed class GraphNativePermissionRead(ISqlSugarClient db, SqlAuthorArt
             take();
         }).ConfigureAwait(false);
         Validate(token);
-        Require((db.Ado.CancellationToken ?? default) == PriorCancellation);
+        Require((db.Ado.CancellationToken ?? default) == _priorCancellation);
         return result;
     }
 
@@ -100,6 +103,15 @@ internal sealed class GraphNativePermissionRead(ISqlSugarClient db, SqlAuthorArt
 
     private sealed class Borrow(GraphNativePermissionRead owner) : IDisposable
     {
-        public void Dispose() => Interlocked.Exchange(ref owner._entered, 0);
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                owner._priorCancellation = default;
+                Interlocked.Exchange(ref owner._entered, 0);
+            }
+        }
     }
 }

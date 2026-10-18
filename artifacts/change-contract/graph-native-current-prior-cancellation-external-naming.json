@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/GraphNativePermissionRead.cs",
+                "src/backend/Services/Authoring/SqlArticleGraphPersistedMetadataReader.cs"
+            ],
+            "reason": "Preserve the original native SQL/ADO adapter spellings while scoping prior cancellation to the current allocated read; no permission, SQL, configuration, wire or database identity is changed."
+        }
+    ]
+}
