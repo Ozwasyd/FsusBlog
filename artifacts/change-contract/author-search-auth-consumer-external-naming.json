@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchContract.Permissions.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.CurrentPermissions.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.PropertyIntake.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.cs"
+            ],
+            "reason": "Preserve the original canonical Search reason, digest and schema spellings while consuming unchanged SQL-owner observations. No environment key, SQL identifier, second query DTO, alternate hash authority or current-permission producer is introduced."
+        }
+    ]
+}

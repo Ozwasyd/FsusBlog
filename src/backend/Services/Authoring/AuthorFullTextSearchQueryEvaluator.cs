@@ -40,9 +40,14 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
     /// Property token fields additionally revalidate their canonical typed binding and
     /// supplied definitions before and after the final await. This grants no fresh access.
     /// </summary>
-    public async Task<AuthorSearchTokenEvaluation> InspectIndexAsync(
+    internal Task<AuthorSearchTokenEvaluation> InspectIndexAsync(
         AuthorSearchQuery query, IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions,
         CancellationToken cancellationToken = default)
+        => InspectIndexCoreAsync(query, definitions, null, cancellationToken);
+
+    private async Task<AuthorSearchTokenEvaluation> InspectIndexCoreAsync(
+        AuthorSearchQuery query, IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions,
+        CurrentPermissionFence? permissionFence, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         AuthorFullTextSearchContract.ValidateQuery(query, definitions);
@@ -64,6 +69,11 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         {
             throw new AuthorSearchContractException("author_search_registry_tampered_or_stale");
         }
+        if (permissionFence is not null)
+        {
+            await permissionFence.BindAsync(snapshot, cancellationToken).ConfigureAwait(false);
+            permissionFence.RequireIndexCurrent(index);
+        }
         AuthorFullTextSearchContract.ValidateQuery(query, definitions);
         ValidatePropertyPredicates(query, definitions);
         ImmutableArray<CompiledClause> clauses = Compile(query.Clauses);
@@ -71,7 +81,7 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         foreach (AuthorSearchIndexedArticle article in snapshot.Articles.Values)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (article.Deleted)
+            if (permissionFence is not null && !permissionFence.Allows(article) || article.Deleted)
             {
                 continue;
             }
@@ -150,6 +160,11 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         cancellationToken.ThrowIfCancellationRequested();
         AuthorSearchIndexReadSnapshot current = await index.ReadSnapshotAsync(query.UserId,
             query.SiteScope, query.IndexInstanceId, query.IndexGeneration, cancellationToken).ConfigureAwait(false);
+        if (permissionFence is not null)
+        {
+            await permissionFence.CheckAsync(cancellationToken).ConfigureAwait(false);
+            permissionFence.RequireIndexCurrent(index);
+        }
         if (current.IndexInstanceId != snapshot.IndexInstanceId
             || current.SourceGeneration != snapshot.SourceGeneration
             || current.RegistryDigest != snapshot.RegistryDigest
@@ -163,6 +178,10 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         // canonical property bindings after the final actual index await as well.
         foreach (AuthorSearchIndexedArticle article in current.Articles.Values)
         {
+            if (permissionFence is not null && !permissionFence.Allows(article))
+            {
+                continue;
+            }
             foreach (AuthorSearchTokenizedDocument document in article.Documents)
             {
                 cancellationToken.ThrowIfCancellationRequested();
