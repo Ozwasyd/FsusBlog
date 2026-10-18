@@ -1,0 +1,67 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "formatter": {
+        "identity": "dotnet-format-whitespace+csharp-using-normalizer",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "tools/test/run-with-dotnet-release-build-lock.sh dotnet format whitespace tests/migration/FsusBlog.Migration.Tests.csproj --no-restore --include tests/migration/CurrentSchemaBootstrapCompilerTests.cs tests/migration/CurrentSchemaPortableBootstrapCompilerTests.cs tests/migration/PgArticlePreservationOperationTests.cs tests/migration/PgCurrentSchemaBootstrapOperationTests.cs tests/migration/PgCurrentSchemaEffectObserverTests.cs tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs tests/migration/PgLegacyNonArticlePreparationTests.cs tests/migration/PgLegacyNonArticleRecoveryTests.cs tests/migration/SqliteCurrentSchemaOwnedTargetObserverTests.cs -v minimal && node tools/dotnet/check-csharp-style.mjs --root . --mode full --fix --file tests/migration/CurrentSchemaBootstrapCompilerTests.cs --file tests/migration/CurrentSchemaPortableBootstrapCompilerTests.cs --file tests/migration/PgArticlePreservationOperationTests.cs --file tests/migration/PgCurrentSchemaBootstrapOperationTests.cs --file tests/migration/PgCurrentSchemaEffectObserverTests.cs --file tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs --file tests/migration/PgLegacyNonArticlePreparationTests.cs --file tests/migration/PgLegacyNonArticleRecoveryTests.cs --file tests/migration/SqliteCurrentSchemaOwnedTargetObserverTests.cs"
+    },
+    "revision": "e23e0fcf87ea69f71c04ca1b5baa87b00f9f3ca0",
+    "paths": [
+        "tests/migration/CurrentSchemaBootstrapCompilerTests.cs",
+        "tests/migration/CurrentSchemaPortableBootstrapCompilerTests.cs",
+        "tests/migration/PgArticlePreservationOperationTests.cs",
+        "tests/migration/PgCurrentSchemaBootstrapOperationTests.cs",
+        "tests/migration/PgCurrentSchemaEffectObserverTests.cs",
+        "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs",
+        "tests/migration/PgLegacyNonArticlePreparationTests.cs",
+        "tests/migration/PgLegacyNonArticleRecoveryTests.cs",
+        "tests/migration/SqliteCurrentSchemaOwnedTargetObserverTests.cs"
+    ],
+    "firstPassTreeSha256": "17f1e4e91088b5161708e9c5de22009e2d7fd296ed44cdc20e8d3a7226e0478f",
+    "secondPassTreeSha256": "17f1e4e91088b5161708e9c5de22009e2d7fd296ed44cdc20e8d3a7226e0478f",
+    "idempotent": true,
+    "provenance": {
+        "scope": "Two complete original-tool pipeline runs; standalone SDK formatting is not claimed to preserve the registered Recovery import grouping. No config overrides or source suppressions.",
+        "sdk": "10.0.401",
+        "nativeNormalizer": {
+            "path": "tools/dotnet/check-csharp-style.mjs",
+            "gitBlob": "7a716357c0734cc4be39439348f23379c52554e5",
+            "sha256": "754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+            "nodeVersion": "v24.16.0",
+            "operation": "--mode full --fix; explicit nine paths; only using directives normalization is written by this original checker"
+        },
+        "formatParent": "395b38240d1d179dd2586abf9e49c8bac97572c3",
+        "sourceRefactor": "SQLite using reorder was committed before this token-preserving formatting commit.",
+        "pass1": {
+            "exitCode": 0,
+            "nativeFindingCount": 0,
+            "sha256ByPath": {
+                "tests/migration/CurrentSchemaBootstrapCompilerTests.cs": "0c00aa7f7ea8d8cfce6e4b7b5e4677297e79554ac0ebf87cc12fab6cdfd5dcd0",
+                "tests/migration/CurrentSchemaPortableBootstrapCompilerTests.cs": "9a077aaa3c94f55101eb78a802deb4cdf5f0772ed1334edd459fb53305458894",
+                "tests/migration/PgArticlePreservationOperationTests.cs": "57c5453781c3204f5013c08e36b1057fce315e12f40b677848fcde55c72003e6",
+                "tests/migration/PgCurrentSchemaBootstrapOperationTests.cs": "6bae896de8c56b297ff311b164b00c286352120cad8751d63b0b1eb826829b0e",
+                "tests/migration/PgCurrentSchemaEffectObserverTests.cs": "b476243ff82736dadfe03635e3157af3d871174f1a27e181e084a75f487150bc",
+                "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs": "ea99d57b67a2a03b967de82c146e92ed7459fcca443376c1fb070e3c92608577",
+                "tests/migration/PgLegacyNonArticlePreparationTests.cs": "388fccd9a2f6b1e7606f211d8970c2debc4ca8ae30ad49dc803811104b1cf50d",
+                "tests/migration/PgLegacyNonArticleRecoveryTests.cs": "61ac54a1a75fdacd913e1a1c8a0fa606518e508d51c69ad1872ea55c371c6c6c",
+                "tests/migration/SqliteCurrentSchemaOwnedTargetObserverTests.cs": "6f5d994d1b0bf7df2a45210535683235f569bf06ac73763aa4a0fc02aaefc01c"
+            }
+        },
+        "pass2": {
+            "exitCode": 0,
+            "nativeFindingCount": 0,
+            "sha256ByPath": {
+                "tests/migration/CurrentSchemaBootstrapCompilerTests.cs": "0c00aa7f7ea8d8cfce6e4b7b5e4677297e79554ac0ebf87cc12fab6cdfd5dcd0",
+                "tests/migration/CurrentSchemaPortableBootstrapCompilerTests.cs": "9a077aaa3c94f55101eb78a802deb4cdf5f0772ed1334edd459fb53305458894",
+                "tests/migration/PgArticlePreservationOperationTests.cs": "57c5453781c3204f5013c08e36b1057fce315e12f40b677848fcde55c72003e6",
+                "tests/migration/PgCurrentSchemaBootstrapOperationTests.cs": "6bae896de8c56b297ff311b164b00c286352120cad8751d63b0b1eb826829b0e",
+                "tests/migration/PgCurrentSchemaEffectObserverTests.cs": "b476243ff82736dadfe03635e3157af3d871174f1a27e181e084a75f487150bc",
+                "tests/migration/PgCurrentSchemaOwnedTargetObserverTests.cs": "ea99d57b67a2a03b967de82c146e92ed7459fcca443376c1fb070e3c92608577",
+                "tests/migration/PgLegacyNonArticlePreparationTests.cs": "388fccd9a2f6b1e7606f211d8970c2debc4ca8ae30ad49dc803811104b1cf50d",
+                "tests/migration/PgLegacyNonArticleRecoveryTests.cs": "61ac54a1a75fdacd913e1a1c8a0fa606518e508d51c69ad1872ea55c371c6c6c",
+                "tests/migration/SqliteCurrentSchemaOwnedTargetObserverTests.cs": "6f5d994d1b0bf7df2a45210535683235f569bf06ac73763aa4a0fc02aaefc01c"
+            }
+        },
+        "treeAlgorithm": "SHA256 of lexicographically sorted repository-relative path, NUL, file bytes, NUL, repeated over the complete nine-path roster. No location or whitespace normalization."
+    }
+}
