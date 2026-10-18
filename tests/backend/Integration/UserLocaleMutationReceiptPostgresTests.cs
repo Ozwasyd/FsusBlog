@@ -19,6 +19,193 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class UserLocaleMutationReceiptPostgresTests(PostgresSchemaMigrationFixture fixture)
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SuccessfulCasInsideReleasedSavepoint_RecordsActualOriginalTransaction(bool previouslyExisted)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        if (previouslyExisted)
+        {
+            _ = await UpdateAsync(db, 1, 0, "auto", null);
+        }
+        await BeginAsync(db);
+        var transaction = db.Ado.Transaction;
+        var capture = await UserLocaleMutationReceiptPersistence.CaptureBeforeAsync(db, 1);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT locale_write");
+        int affected = await CasAsync(db, 1, previouslyExisted ? 1 : 0, "fixed", "ja-JP");
+        Assert.Equal(1, affected);
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT locale_write");
+        Assert.Equal(1, await db.Ado.GetIntAsync(
+            "SELECT count(*) FROM user_locale_preference WHERE account_id = 1 AND xmin <> pg_current_xact_id()::xid"));
+        UserLocaleMutationReceipt receipt = Assert.IsType<UserLocaleMutationReceipt>(
+            await UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, affected));
+        Assert.Equal(capture.Before, receipt.Before);
+        Assert.Equal(new UserLocalePreferenceReceiptState("fixed", "ja-JP", previouslyExisted ? 2 : 1, Epoch()), receipt.After);
+        Assert.Same(transaction, db.Ado.Transaction);
+        Assert.Equal(previouslyExisted ? 1 : 0, await CountAsync(observer));
+        db.Ado.CommitTran();
+        Assert.Equal(previouslyExisted ? 2 : 1, await CountAsync(observer));
+        Assert.Equal(1, await observer.Ado.GetIntAsync("""
+            SELECT count(*) FROM user_locale_mutation_receipt
+            WHERE receipt_id = @Id AND after_state->>'Mode' = 'fixed'
+                AND after_state->>'FixedLocale' = 'ja-JP'
+                AND (after_state->>'Revision')::bigint = @Revision;
+            """, new SugarParameter("@Id", receipt.ReceiptId),
+            new SugarParameter("@Revision", previouslyExisted ? 2 : 1)));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReleasedSavepointCompensation_PersistsActualRestorationOrDeletion(bool previouslyExisted)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        if (previouslyExisted)
+        {
+            _ = await UpdateAsync(db, 1, 0, "auto", null);
+        }
+        UserLocaleMutationReceipt original = await UpdateAsync(db, 1, previouslyExisted ? 1 : 0, "fixed", "en-US");
+        await BeginAsync(db);
+        var capture = await UserLocaleMutationReceiptPersistence.CaptureBeforeAsync(db, 1, original.ReceiptId);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT locale_restore");
+        int affected = await RestoreAsync(db, original);
+        Assert.Equal(1, affected);
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT locale_restore");
+        UserLocaleMutationReceipt receipt = Assert.IsType<UserLocaleMutationReceipt>(
+            await UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, affected));
+        Assert.Equal(original.After, receipt.Before);
+        Assert.Equal(original.Before, receipt.After);
+        Assert.Equal(original.ReceiptId, receipt.CompensatesReceiptId);
+        db.Ado.CommitTran();
+        Assert.Equal(previouslyExisted ? 3 : 2, await CountAsync(db));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SavepointRollback_RemovesActualWriteAndReceipt_ThenRetryInSameTransactionSucceeds(bool previouslyExisted)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        if (previouslyExisted)
+        {
+            _ = await UpdateAsync(db, 1, 0, "auto", null);
+        }
+        await BeginAsync(db);
+        var capture = await UserLocaleMutationReceiptPersistence.CaptureBeforeAsync(db, 1);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT locale_retry");
+        int affected = await CasAsync(db, 1, previouslyExisted ? 1 : 0, "fixed", "en-US");
+        Assert.Equal(1, affected);
+        Assert.NotNull(await UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, affected));
+        await db.Ado.ExecuteCommandAsync("ROLLBACK TO SAVEPOINT locale_retry");
+        Assert.Equal(previouslyExisted ? 1 : 0, await CountAsync(db));
+        Assert.Null(await UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, 0));
+        Assert.Null(await UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, 1));
+        affected = await CasAsync(db, 1, previouslyExisted ? 1 : 0, "fixed", "ja-JP");
+        Assert.Equal(1, affected);
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT locale_retry");
+        UserLocaleMutationReceipt retry = Assert.IsType<UserLocaleMutationReceipt>(
+            await UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, affected));
+        Assert.Equal("ja-JP", retry.After!.FixedLocale);
+        db.Ado.CommitTran();
+        Assert.Equal(previouslyExisted ? 2 : 1, await CountAsync(db));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NestedSavepointRelease_RemainsAtomicWithOriginalOwnerRollback(bool releaseOuter)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await BeginAsync(db);
+        var capture = await UserLocaleMutationReceiptPersistence.CaptureBeforeAsync(db, 1);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT locale_outer");
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT locale_inner");
+        Assert.Equal(1, await CasAsync(db, 1, 0, "fixed", "en-US"));
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT locale_inner");
+        if (releaseOuter)
+        {
+            await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT locale_outer");
+        }
+        Assert.NotNull(await UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, 1));
+        Assert.Equal(0, await CountAsync(observer));
+        if (!releaseOuter)
+        {
+            await db.Ado.ExecuteCommandAsync("ROLLBACK TO SAVEPOINT locale_outer");
+            Assert.Equal(0, await CountAsync(db));
+            Assert.Equal(0, await db.Queryable<UserLocalePreference>().CountAsync());
+            await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT locale_outer");
+        }
+        db.Ado.RollbackTran();
+        Assert.Equal(0, await CountAsync(observer));
+        Assert.Equal(0, await observer.Queryable<UserLocalePreference>().CountAsync());
+        _ = await UpdateAsync(db, 1, 0, "fixed", "ja-JP");
+        Assert.Equal(1, await CountAsync(observer));
+    }
+
+    [Fact]
+    public async Task ReleasedChildWrite_RemainsOwnedAfterSubtransactionCacheOverflow()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        await BeginAsync(db);
+        var capture = await UserLocaleMutationReceiptPersistence.CaptureBeforeAsync(db, 1);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT locale_first_child");
+        Assert.Equal(1, await CasAsync(db, 1, 0, "fixed", "en-US"));
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT locale_first_child");
+        for (int child = 0; child < 80; child++)
+        {
+            await db.Ado.ExecuteCommandAsync("SAVEPOINT unrelated_child");
+            Assert.Equal(1, await db.Ado.ExecuteCommandAsync("UPDATE sys_user SET status = status WHERE id = 2"));
+            await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT unrelated_child");
+        }
+        Assert.NotNull(await UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, 1));
+        db.Ado.CommitTran();
+        Assert.Equal(1, await CountAsync(db));
+    }
+
+    [Fact]
+    public async Task ForeignReleasedSavepointWrite_IsInvisibleUntilCommit_ThenStillRejected()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        using SqlSugarClient foreign = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await BeginAsync(db);
+        var capture = await UserLocaleMutationReceiptPersistence.CaptureBeforeAsync(db, 1);
+        foreign.Ado.BeginTran();
+        await foreign.Ado.ExecuteCommandAsync("SAVEPOINT foreign_child");
+        Assert.Equal(1, await CasAsync(foreign, 1, 0, "fixed", "en-US"));
+        await foreign.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT foreign_child");
+        Assert.Equal(0, await db.Queryable<UserLocalePreference>().CountAsync());
+        // An active foreign child has in-progress status but is not MVCC-visible here.
+        Assert.Null(await UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, 1));
+        foreign.Ado.CommitTran();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, 1));
+        db.Ado.RollbackTran();
+        Assert.Equal(0, await CountAsync(observer));
+        Assert.Equal(1, await observer.Queryable<UserLocalePreference>().CountAsync());
+    }
+
+    [Fact]
+    public async Task CommittedOriginalTransactionCapture_CannotClaimItsOldWriteInANewTransaction()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        await BeginAsync(db);
+        var capture = await UserLocaleMutationReceiptPersistence.CaptureBeforeAsync(db, 1);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT locale_old");
+        Assert.Equal(1, await CasAsync(db, 1, 0, "fixed", "en-US"));
+        await db.Ado.ExecuteCommandAsync("RELEASE SAVEPOINT locale_old");
+        db.Ado.CommitTran();
+        await BeginAsync(db);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, 1));
+        db.Ado.RollbackTran();
+        Assert.Equal(0, await CountAsync(db));
+        Assert.Equal(1, await db.Queryable<UserLocalePreference>().CountAsync());
+    }
+
     [Fact]
     public async Task SuccessfulCas_RecordsActualStatesAndSameTransactionVisibility_WithoutAllocatingGeneration()
     {
