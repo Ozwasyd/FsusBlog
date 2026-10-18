@@ -76,6 +76,14 @@ for (const profile of ['expected-peak', 'burst'])
             child.once('error', reject);
             child.once('exit', (code) => resolve(code));
         });
+        if (exit !== 0 && fs.existsSync(output))
+        {
+            const failed = JSON.parse(fs.readFileSync(output, 'utf8'));
+            context.diagnostic(JSON.stringify({ profile, exit, failureReasons: failed.runtime.failureReasons,
+                window: { ...failed.runtime.window, workers: undefined },
+                deadlineDifferenceMs: failed.runtime.window.deadline - failed.runtime.window.measurementStart,
+                requestedDurationMs: policy.declared.durationMs }));
+        }
         assert.equal(exit, 0, stderr);
         const summary = JSON.parse(fs.readFileSync(output, 'utf8'));
         const metrics = verifyLoadProfileMeasurement(summary, { routeIds: routes, paths, requireBoundIdentity: false });
@@ -121,6 +129,19 @@ for (const profile of ['expected-peak', 'burst'])
             (s) =>
             {
                 s.metrics.errorRate = 1;
+            },
+            (s) =>
+            {
+                s.resourceSamples[0].observedMonotonicMs = s.runtime.window.measurementStart + 1;
+            },
+            (s) =>
+            {
+                s.resourceSamples.at(-1).observedMonotonicMs = s.runtime.window.finishedMonotonicMs - 1;
+            },
+            (s) =>
+            {
+                s.resourceSamples[1].observedMonotonicMs =
+                    (s.resourceSamples[0].observedMonotonicMs + s.runtime.window.measurementStart) / 2;
             }
         ])
         {
@@ -132,6 +153,19 @@ for (const profile of ['expected-peak', 'burst'])
         context.diagnostic(JSON.stringify({ profile, workerCount: summary.runtime.window.workerCount,
             peakInFlight: summary.runtime.window.peakInFlight, observedActiveWindowMs: summary.runtime.window.observedActiveWindowMs,
             totalElapsedMs: summary.runtime.window.totalElapsedMs, sampleCount: summary.sampleCount, samplesDigest: summary.samplesDigest,
-            resourceSampleCount: summary.resourceSamples.length, qualificationEligible: summary.qualificationEligible }));
+            resourceSampleCount: summary.resourceSamples.length, qualificationEligible: summary.qualificationEligible,
+            rps: summary.metrics.rps, window: { ...summary.runtime.window, workers: undefined },
+            resourceSamples: summary.resourceSamples, resourceObservability: summary.resourceObservability }));
+        const shifted = structuredClone(summary);
+        for (const reading of shifted.resourceSamples)
+        {
+            reading.observedMonotonicMs += 1000000;
+        }
+        shifted.contentDigest = digestValue(shifted);
+        context.diagnostic(JSON.stringify({ profile, mutation: 'resource-curve-shifted-outside-window',
+            window: summary.runtime.window, firstResourceMs: summary.resourceSamples[0].observedMonotonicMs,
+            shiftedFirstResourceMs: shifted.resourceSamples[0].observedMonotonicMs }));
+        assert.throws(() => verifyLoadProfileMeasurement(shifted, { routeIds: routes, paths,
+            requireBoundIdentity: false }), /resource sample curve/u);
     });
 }

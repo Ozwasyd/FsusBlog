@@ -45,11 +45,11 @@ export function createLoadExecutionPlan({ concurrency, rounds, durationMs }, rou
  */
 export async function runLoadWindow({
     plan, pathForRoute, request, verifyIdentity,
-    signal = null, maxRequests = plan.maximumDispatchedRequests
+    signal = null, maxRequests = plan.maximumDispatchedRequests, startSampling = () => null
 })
 {
     if (JSON.stringify(plan) !== JSON.stringify(createLoadExecutionPlan(plan, plan.routes))
-        || typeof verifyIdentity !== 'function' || !Number.isSafeInteger(maxRequests)
+        || typeof verifyIdentity !== 'function' || typeof startSampling !== 'function' || !Number.isSafeInteger(maxRequests)
         || maxRequests < 1 || maxRequests > plan.maximumDispatchedRequests)
     {
         throw new Error('load execution plan or generator budget is invalid');
@@ -83,9 +83,24 @@ export async function runLoadWindow({
     let dispatchClosed = null;
     let identityBefore = null;
     let identityAfter = null;
+    let sampler = null;
+    let finishedMonotonicMs = null;
+    let resourceSamplingStartedMonotonicMs = null;
+    let resourceSamplingFinishedMonotonicMs = null;
+    let identityVerificationStartedMonotonicMs = null;
+    let identityVerificationFinishedMonotonicMs = null;
     function closeDispatch()
     {
         dispatchClosed ??= performance.now();
+    }
+    function finishMeasurement()
+    {
+        if (finishedMonotonicMs === null)
+        {
+            finishedMonotonicMs = performance.now();
+            sampler?.stop();
+            resourceSamplingFinishedMonotonicMs = performance.now();
+        }
     }
     const tasks = workers.map(async (worker) =>
     {
@@ -176,13 +191,24 @@ export async function runLoadWindow({
         {
             throw new Error('load-cancelled-before-measurement');
         }
+        resourceSamplingStartedMonotonicMs = performance.now();
+        sampler = startSampling();
         measurementStart = performance.now();
         deadline = measurementStart + plan.durationMs;
         armDeadline();
         release();
         await Promise.all(tasks);
         closeDispatch();
-        identityAfter = await verifyIdentity();
+        finishMeasurement();
+        identityVerificationStartedMonotonicMs = performance.now();
+        try
+        {
+            identityAfter = await verifyIdentity();
+        }
+        finally
+        {
+            identityVerificationFinishedMonotonicMs = performance.now();
+        }
         if (JSON.stringify(identityBefore) !== JSON.stringify(identityAfter))
         {
             failures.push('load-runtime-identity-changed');
@@ -198,10 +224,10 @@ export async function runLoadWindow({
     {
         release();
         await Promise.all(tasks);
+        finishMeasurement();
         clearTimeout(deadlineTimer);
         signal?.removeEventListener('abort', abort);
     }
-    const finishedMonotonicMs = performance.now();
     let calculated = null;
     try
     {
@@ -214,6 +240,8 @@ export async function runLoadWindow({
     }
     const window = {
         measurementStart, deadline, dispatchClosed, finishedMonotonicMs,
+        resourceSamplingStartedMonotonicMs, resourceSamplingFinishedMonotonicMs,
+        identityVerificationStartedMonotonicMs, identityVerificationFinishedMonotonicMs,
         observedActiveWindowMs: measurementStart === null ? 0 : dispatchClosed - measurementStart,
         totalElapsedMs: measurementStart === null ? 0 : finishedMonotonicMs - measurementStart,
         drainMs: finishedMonotonicMs - dispatchClosed,
@@ -250,12 +278,17 @@ export function loadWindowFailures({ plan, window, dispatches, samples, expected
     };
     fail(JSON.stringify(plan) === JSON.stringify(createLoadExecutionPlan(plan, plan.routes)), 'load-plan-digest-mismatch');
     fail(Number.isFinite(window.measurementStart) && Number.isFinite(window.deadline)
-        && window.deadline - window.measurementStart >= plan.durationMs
-        && window.observedActiveWindowMs >= plan.durationMs
+        && window.deadline === window.measurementStart + plan.durationMs
+        && window.dispatchClosed >= window.deadline
         && window.observedActiveWindowMs === window.dispatchClosed - window.measurementStart
         && window.totalElapsedMs === window.finishedMonotonicMs - window.measurementStart
         && window.drainMs === window.finishedMonotonicMs - window.dispatchClosed
         && window.finishedMonotonicMs >= window.dispatchClosed, 'load-window-duration-not-reached');
+    fail(Number.isFinite(window.identityVerificationStartedMonotonicMs)
+        && Number.isFinite(window.identityVerificationFinishedMonotonicMs)
+        && window.identityVerificationStartedMonotonicMs >= window.finishedMonotonicMs
+        && window.identityVerificationFinishedMonotonicMs >= window.identityVerificationStartedMonotonicMs,
+    'load-post-window-identity-phase-invalid');
     fail(window.workerCount === plan.concurrency && window.workers.length === plan.concurrency
         && new Set(window.workers.map((w) => w.workerId)).size === plan.concurrency
         && window.workers.every((w, index) => w.workerId === `worker-${index}`
