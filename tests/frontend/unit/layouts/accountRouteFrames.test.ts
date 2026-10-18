@@ -22,7 +22,7 @@ const router = createRouter({
 
 async function loadRouteComponent(component: RouteComponent): Promise<unknown> {
   if (typeof component !== 'function') return component
-  const loaded = await component()
+  const loaded: unknown = await Reflect.apply(component, undefined, [])
   return typeof loaded === 'object' && loaded !== null && 'default' in loaded
     ? loaded.default
     : loaded
