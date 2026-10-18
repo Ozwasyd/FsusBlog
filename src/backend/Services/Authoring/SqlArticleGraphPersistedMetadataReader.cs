@@ -2,11 +2,12 @@ using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 
-using Npgsql;
-using SqlSugar;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Shared.Contracts.ArticleEmbeds;
+
+using Npgsql;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Services.Authoring;
 
@@ -33,12 +34,15 @@ internal sealed record ArticleGraphPersistedMetadataFact(
     int? PublicationRevisionNo,
     int CategoryId,
     IReadOnlyList<int> TagIds,
-    ArticleRelationRevisionCoordinate Source);
+    ArticleRelationRevisionCoordinate Source,
+    string Title,
+    ArticleStatus Status);
 
 internal sealed record ArticleGraphPersistedMetadataResult(
     IReadOnlyList<ArticleGraphPersistedMetadataFact> Facts,
     int ReadOperations,
-    int RemainingMilliseconds);
+    int RemainingMilliseconds,
+    AuthorArticlePinPermissionSnapshot Permission);
 
 /// <summary>
 /// Reads authorized persisted numeric memberships and exact source coordinates on the injected
@@ -53,9 +57,10 @@ internal sealed record ArticleGraphPersistedMetadataResult(
 /// The permission supplier links request and prior ADO cancellation and awaits reader completion.
 /// The allocation limits fact acceptance and requests cancellation; mandatory command/reader
 /// completion is awaited before relinquishing the borrowed client, even after that deadline.
-/// Cleanup is not promised to finish within the allocation. Production admission remains
-/// unavailable until supplier cancellation, completion and caller-connection custody are checked
-/// together with the original Graph orchestration. WaitAsync abandonment cannot establish that contract.
+/// Cleanup is not promised to finish within the allocation. Only the concrete, same-client
+/// permission supplier can bind native allocated reads. A closed/auto-closing session or another
+/// supplier remains unavailable. This does not grant full Graph privacy or host admission;
+/// the original Graph orchestration stays fail closed. No pending work is abandoned.
 /// </remarks>
 public sealed class SqlArticleGraphPersistedMetadataReader
 {
@@ -68,6 +73,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
     private readonly int _maximumCandidates;
     private readonly Func<SqlArticleGraphPersistedMetadataReader>? _newRead;
     private readonly bool _boundedPermissionReadsAvailable = true;
+    private readonly GraphNativePermissionRead? _nativeRead;
 
     /// <summary>Uses the existing permission and canonical coordinate authorities without writing or registering them.</summary>
     public SqlArticleGraphPersistedMetadataReader(ISqlSugarClient db,
@@ -75,18 +81,21 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         IAuthorArticlePinPermissionProjectionProvider permissions)
         : this(permissions, null!, null!, null!)
     {
-        _boundedPermissionReadsAvailable = false;
+        _boundedPermissionReadsAvailable = permissions is SqlAuthorArticlePinPermissionAuthority native && native.IsBoundTo(db);
         _newRead = () =>
         {
-            var session = new CallerSession(db);
+            var binding = new GraphNativePermissionRead(db, (SqlAuthorArticlePinPermissionAuthority)permissions);
+            var session = new CallerSession(db, binding);
             return new(permissions, session.ProbeAsync, session.ReadRowsAsync, async (rows, token) =>
             {
                 var pairs = Array.AsReadOnly(rows.Select(static row =>
                     (ArticleId: row.ArticleId, RevisionId: row.SelectedRevisionId)).ToArray());
+                binding.Validate(token);
                 IReadOnlyList<ArticleRelationRevisionCoordinate> saved = await coordinates.ReadRevisionsAsync(
                     db, pairs, token).ConfigureAwait(false);
-                return Copy(saved, rows.Length);
-            });
+                binding.Validate(token);
+                return Copy(saved, rows.Length, token);
+            }, nativeRead: binding);
         };
     }
 
@@ -95,14 +104,19 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         Func<CancellationToken, Task<SessionStamp>> probe,
         Func<int[], ArticleGraphMetadataSelection, CancellationToken, Task<Row[]>> readRows,
         Func<Row[], CancellationToken, Task<ArticleRelationRevisionCoordinate[]>> readCoordinates,
-        int maximumCandidates = MaxCandidates)
+        int maximumCandidates = MaxCandidates,
+        GraphNativePermissionRead? nativeRead = null)
     {
         _permissions = permissions;
         _probe = probe;
         _readRows = readRows;
         _readCoordinates = readCoordinates;
         _maximumCandidates = maximumCandidates;
+        _nativeRead = nativeRead;
     }
+
+    internal SqlArticleGraphPersistedMetadataReader BeginRead()
+        => _boundedPermissionReadsAvailable && _newRead is not null ? _newRead() : this;
 
     internal async Task<ArticleGraphPersistedMetadataResult?> ReadAsync(
         ArticleGraphPersistedMetadataRequest request, CancellationToken cancellationToken = default)
@@ -120,7 +134,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         {
             AuthorArticlePinContract.ValidateOwner(request.Owner);
             AuthorArticlePinContract.ValidateRequestId(request.RequestId);
-            ArticleRelationArticleCoordinate[] candidates = Copy(request.Candidates, _maximumCandidates);
+            ArticleRelationArticleCoordinate[] candidates = Copy(request.Candidates, _maximumCandidates, cancellationToken);
             Require(Enum.IsDefined(request.Selection)
                 && request.RemainingReadOperations is >= 1 and <= 4096
                 && request.RemainingMilliseconds is >= 1 and <= 250
@@ -132,7 +146,9 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             var budget = new ReadBudget(request.RemainingReadOperations, request.RemainingMilliseconds);
             // Reserve the complete two-pass allocation before touching the server or permission source.
             budget.RequireCapacity(26);
-            using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            using IDisposable? custody = _nativeRead?.Enter(cancellationToken);
+            using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, _nativeRead?.PriorCancellation ?? default);
             deadline.CancelAfter(budget.RemainingTime());
             CancellationToken token = deadline.Token;
             SessionStamp initial = await ProbeAsync(budget, null, token).ConfigureAwait(false);
@@ -153,12 +169,12 @@ public sealed class SqlArticleGraphPersistedMetadataReader
                 if (authorized.Length != 0)
                 {
                     budget.Take();
-                    rows = Copy(await _readRows(authorized, request.Selection, token).ConfigureAwait(false), authorized.Length);
+                    rows = Copy(await _readRows(authorized, request.Selection, token).ConfigureAwait(false), authorized.Length, token);
                     Array.Sort(rows, static (first, second) => first.ArticleId.CompareTo(second.ArticleId));
                     ValidateRows(rows, authorized, request.Selection);
                     previous = await ProbeAsync(budget, previous, token).ConfigureAwait(false);
                     budget.Take();
-                    sources = Copy(await _readCoordinates(rows, token).ConfigureAwait(false), rows.Length);
+                    sources = Copy(await _readCoordinates(rows, token).ConfigureAwait(false), rows.Length, token);
                     Array.Sort(sources, static (first, second) => first.ArticleId.CompareTo(second.ArticleId));
                     ValidateSources(rows, sources, candidates);
                     previous = await ProbeAsync(budget, previous, token).ConfigureAwait(false);
@@ -179,15 +195,16 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             var facts = Array.AsReadOnly(firstRows!.Select((row, index) => new ArticleGraphPersistedMetadataFact(
                 row.ArticleId, row.CurrentRevisionId, row.CurrentPublicationId,
                 row.PublicationNo, row.PublicationRevisionId, row.PublicationRevisionNo, row.SelectedCategoryId,
-                Array.AsReadOnly(ParseTags(row.SelectedTags)), firstSources![index])).ToArray());
+                Array.AsReadOnly(ParseTags(row.SelectedTags)), firstSources![index], row.Title, row.Status)).ToArray());
             token.ThrowIfCancellationRequested();
             int remainingMilliseconds = (int)budget.RemainingTime().TotalMilliseconds;
             Require(remainingMilliseconds > 0);
-            return new(facts, budget.Operations, remainingMilliseconds);
+            return new(facts, budget.Operations, remainingMilliseconds, permission);
         }
         catch (Exception)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            _nativeRead?.PriorCancellation.ThrowIfCancellationRequested();
             return null;
         }
     }
@@ -214,11 +231,24 @@ public sealed class SqlArticleGraphPersistedMetadataReader
     {
         // The original permission adapter reads at most session/principal plus article state.
         // Reserve both SQL operations, including the empty-context call's conservative allowance.
-        budget.Take(2);
-        AuthorArticlePinPermissionSnapshot value = await _permissions.ResolveAsync(
-            new(request.Owner, request.RequestId, Array.AsReadOnly(ids.ToArray())), token).ConfigureAwait(false);
-        value = value with { Decisions = Array.AsReadOnly(Copy(value.Decisions, ids.Length)
-            .OrderBy(static decision => decision.ArticleId).ToArray()) };
+        var permissionRequest = new AuthorArticlePinPermissionBatchRequest(
+            request.Owner, request.RequestId, Array.AsReadOnly(ids.ToArray()));
+        AuthorArticlePinPermissionSnapshot value;
+        if (_nativeRead is null)
+        {
+            budget.Take(2);
+            value = await _permissions.ResolveAsync(permissionRequest, token).ConfigureAwait(false);
+        }
+        else
+        {
+            value = await _nativeRead.ResolveAsync(permissionRequest, () => budget.Take(), token).ConfigureAwait(false);
+        }
+        token.ThrowIfCancellationRequested();
+        value = value with
+        {
+            Decisions = Array.AsReadOnly(Copy(value.Decisions, ids.Length, token)
+            .OrderBy(static decision => decision.ArticleId).ToArray())
+        };
         Require(value.Status == AuthorArticlePinPermissionSnapshotStatus.Current && value.Owner == request.Owner
             && AuthorArticlePinProjectionContract.IsRequiredRevisionReference(value.PermissionRevision)
             && AuthorArticlePinProjectionContract.IsRequiredRevisionReference(value.SiteRevision)
@@ -244,7 +274,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         Require(rows.Select(static row => row.ArticleId).SequenceEqual(ids));
         foreach (Row row in rows)
         {
-            Require(!row.IsDeleted && Enum.IsDefined(row.Status) && row.Status != ArticleStatus.Deleted
+            Require(row.Title is { Length: <= 256 } && !row.IsDeleted && Enum.IsDefined(row.Status) && row.Status != ArticleStatus.Deleted
                 && row.CurrentRevisionId > 0 && row.CurrentRevisionNo > 0
                 && row.SelectedRevisionId > 0 && row.SelectedRevisionNo > 0 && row.SelectedCategoryId > 0
                 && (row.CurrentPublicationId is null
@@ -302,16 +332,30 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         return tags;
     }
 
-    private static T[] Copy<T>(IReadOnlyList<T> values, int maximum)
+    private static T[] Copy<T>(IReadOnlyList<T> values, int maximum, CancellationToken token = default)
     {
+        token.ThrowIfCancellationRequested();
         int count = values.Count;
+        token.ThrowIfCancellationRequested();
         Require(count >= 0 && count <= maximum);
         var copy = new T[count];
         for (int index = 0; index < count; index++)
         {
             copy[index] = values[index];
+            token.ThrowIfCancellationRequested();
         }
-        Require(values.Count == count);
+        int capturedCount = values.Count;
+        token.ThrowIfCancellationRequested();
+        Require(capturedCount == count);
+        for (int index = 0; index < count; index++)
+        {
+            T value = values[index];
+            token.ThrowIfCancellationRequested();
+            Require(EqualityComparer<T>.Default.Equals(copy[index], value));
+        }
+        int verifiedCount = values.Count;
+        token.ThrowIfCancellationRequested();
+        Require(verifiedCount == count);
         return copy;
     }
 
@@ -327,7 +371,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         long CurrentRevisionId, int CurrentRevisionNo, long? CurrentPublicationId, int? PublicationNo,
         long? PublicationRevisionId, int? PublicationRevisionNo, int? PublicationRecordRevisionNo,
         long SelectedRevisionId, int SelectedRevisionNo,
-        int SelectedCategoryId, string SelectedTags);
+        int SelectedCategoryId, string SelectedTags, string Title);
 
     internal sealed record SessionStamp(int BackendId, string TransactionId, IsolationLevel Isolation,
         bool CallerTransaction, bool HasAmbientTransaction);
@@ -335,7 +379,10 @@ public sealed class SqlArticleGraphPersistedMetadataReader
     private sealed class ReadBudget(int maximumOperations, int milliseconds)
     {
         private readonly long _started = Stopwatch.GetTimestamp();
-        internal int Operations { get; private set; }
+        internal int Operations
+        {
+            get; private set;
+        }
         internal TimeSpan RemainingTime()
         {
             TimeSpan remaining = TimeSpan.FromMilliseconds(milliseconds) - Stopwatch.GetElapsedTime(_started);
@@ -354,14 +401,14 @@ public sealed class SqlArticleGraphPersistedMetadataReader
         }
     }
 
-    private sealed class CallerSession(ISqlSugarClient db)
+    private sealed class CallerSession(ISqlSugarClient db, GraphNativePermissionRead binding)
     {
         private NpgsqlConnection? _connection;
         private NpgsqlTransaction? _transaction;
 
         private NpgsqlCommand Command(string sql, CancellationToken token)
         {
-            token.ThrowIfCancellationRequested();
+            binding.Validate(token);
             Require(System.Transactions.Transaction.Current is null
                 && db.CurrentConnectionConfig.DbType == SqlSugar.DbType.PostgreSQL
                 && db.Ado.Connection is NpgsqlConnection
@@ -376,7 +423,10 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             Require(ReferenceEquals(connection, _connection) && ReferenceEquals(transaction, _transaction)
                 && (transaction is null || (transaction.IsolationLevel == IsolationLevel.ReadCommitted
                     && ReferenceEquals(transaction.Connection, connection))));
-            return new(sql, connection, transaction) { CommandTimeout = 1 };
+            return new(sql, connection, transaction)
+            {
+                CommandTimeout = 1
+            };
         }
 
         internal async Task<SessionStamp> ProbeAsync(CancellationToken token)
@@ -415,7 +465,8 @@ public sealed class SqlArticleGraphPersistedMetadataReader
                        a.current_publication_id, publication.publication_no,
                        publication_revision.id, publication_revision.revision_no, publication.revision_no,
                        {{revision}}.id, {{revision}}.revision_no,
-                       {{category}}, {{tags}}
+                       {{category}}, {{tags}},
+                       CASE WHEN octet_length(a.title) <= 1024 AND char_length(a.title) <= 256 THEN a.title ELSE NULL END
                 FROM article a
                 LEFT JOIN article_revision current_revision ON current_revision.id = a.current_revision_id AND current_revision.article_id = a.id
                 LEFT JOIN article_publication publication ON publication.id = a.current_publication_id AND publication.article_id = a.id
@@ -431,7 +482,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
             {
                 Require(rows.Count < ids.Length);
                 Require(!reader.IsDBNull(3) && !reader.IsDBNull(4) && !reader.IsDBNull(10)
-                    && !reader.IsDBNull(11) && !reader.IsDBNull(12));
+                    && !reader.IsDBNull(11) && !reader.IsDBNull(12) && !reader.IsDBNull(14));
                 Require(!reader.IsDBNull(13) || selection == ArticleGraphMetadataSelection.Current);
                 rows.Add(new(reader.GetInt32(0), (ArticleStatus)reader.GetInt32(1), reader.GetBoolean(2),
                     reader.GetInt64(3), reader.GetInt32(4), reader.IsDBNull(5) ? null : reader.GetInt64(5),
@@ -439,7 +490,7 @@ public sealed class SqlArticleGraphPersistedMetadataReader
                     reader.IsDBNull(7) ? null : reader.GetInt64(7),
                     reader.IsDBNull(8) ? null : reader.GetInt32(8),
                     reader.IsDBNull(9) ? null : reader.GetInt32(9), reader.GetInt64(10), reader.GetInt32(11),
-                    reader.GetInt32(12), reader.IsDBNull(13) ? string.Empty : reader.GetString(13)));
+                    reader.GetInt32(12), reader.IsDBNull(13) ? string.Empty : reader.GetString(13), reader.GetString(14)));
             }
             return rows.ToArray();
         }
