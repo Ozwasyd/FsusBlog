@@ -1657,3 +1657,91 @@ test.describe('article editor production outline content styles', () => {
     })
   }
 })
+
+test.describe('article editor production command bar narrow zoom', () => {
+  for (const theme of ['light', 'dark'] as const) {
+    for (const width of [320, 375]) {
+      test(`${width}px ${theme} preserves command targets and keyboard order at every scale`, async ({ page }: { page: Page }, testInfo: TestInfo) => {
+        const errors: string[] = []
+        page.on('pageerror', (error: Error) => errors.push(error.message))
+        await page.setViewportSize({ width, height: 812 })
+        await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+        for (const surface of ['outline', 'command'] as const) {
+          for (const scale of contract.zoom) {
+            await openFixture(page, 'short', theme, surface, 'success', undefined, 'ready', 10, 'a')
+            await page.evaluate((value: number) => { document.documentElement.style.zoom = String(value) }, scale)
+            const bar = page.locator('.article-write-command-bar')
+            const verifyCommands = async (critical: boolean): Promise<void> => {
+              await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth
+                && document.body.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+              const names = critical ? ['返回', '保存冲突需处理', '保存草稿', '更新文章'] : ['返回', '保存草稿', '更新文章']
+              const buttons = bar.getByRole('button')
+              await expect(buttons).toHaveCount(names.length)
+              for (let index = 0; index < names.length; index += 1) {
+                const button = buttons.nth(index)
+                await expect(button).toHaveAccessibleName(names[index]!)
+                await expect(button).toBeVisible()
+                const box = await button.boundingBox()
+                if (!box) throw new Error('command_target_geometry_missing')
+                expect(box.width / scale).toBeGreaterThanOrEqual(40)
+                expect(box.height / scale).toBeGreaterThanOrEqual(44)
+                expect(box.x).toBeGreaterThanOrEqual(0)
+                expect(box.x + box.width).toBeLessThanOrEqual(width)
+                if (index === 0) await button.focus()
+                else await page.keyboard.press('Tab')
+                await expect(button).toBeFocused()
+                expect(await button.evaluate((element: Element) => {
+                  const box = element.getBoundingClientRect()
+                  return element.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2))
+                })).toBe(true)
+              }
+              const boxes = await buttons.evaluateAll((elements: Element[]) => elements.map((element) => {
+                const box = element.getBoundingClientRect()
+                return { left: box.left, right: box.right, top: box.top, bottom: box.bottom }
+              }))
+              for (let index = 0; index < boxes.length; index += 1) {
+                for (const other of boxes.slice(index + 1)) {
+                  const box = boxes[index]!
+                  expect(box.right <= other.left || other.right <= box.left || box.bottom <= other.top || other.bottom <= box.top).toBe(true)
+                }
+              }
+            }
+            await verifyCommands(false)
+            if (surface === 'outline') {
+              const launcher = page.getByRole('button', { name: '打开文章大纲', exact: true })
+              await launcher.click()
+              const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+              await expect(dialog).toBeVisible()
+              const panel = page.locator('[data-article-outline-panel="true"]')
+              for (const part of [panel, panel.locator('header'), panel.getByRole('button', { name: '关闭文章大纲', exact: true })]) {
+                await expect.poll(() => part.evaluate((element: Element) => {
+                  const box = element.getBoundingClientRect()
+                  return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0
+                    && box.right <= innerWidth && box.bottom <= innerHeight
+                })).toBe(true)
+              }
+              for (const key of ['Tab', 'Shift+Tab']) {
+                for (let index = 0; index < 4; index += 1) {
+                  await page.keyboard.press(key)
+                  expect(await dialog.evaluate((element: Element) => element.contains(document.activeElement))).toBe(true)
+                }
+              }
+              await page.keyboard.press('Escape')
+              await expect(dialog).toBeHidden()
+              await expect(launcher).toBeFocused()
+              await verifyCommands(false)
+            }
+            if (surface === 'command') {
+              await page.evaluate(() => {
+                (window as Window & { __articleEditorFixtureSetState?: (state: 'failed') => void }).__articleEditorFixtureSetState?.('failed')
+              })
+              await verifyCommands(true)
+            }
+            await page.screenshot({ path: testInfo.outputPath(`command-${surface}-${width}-${theme}-scale-${scale}.png`), fullPage: true })
+          }
+        }
+        expect(errors).toEqual([])
+      })
+    }
+  }
+})

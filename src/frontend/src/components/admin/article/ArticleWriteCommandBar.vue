@@ -128,6 +128,7 @@ const openCriticalInspector = (event: MouseEvent): void =>
 
 .article-write-command-bar__heading
  {
+    flex-wrap: wrap;
     gap: var(--fsus-space-3);
 }
 
@@ -230,7 +231,11 @@ const openCriticalInspector = (event: MouseEvent): void =>
  {
         box-sizing: border-box;
         width: 100%;
-        padding-right: calc(var(--fsus-control-height-spacious) + var(--fsus-space-3));
+    }
+
+    .article-write-command-bar__back
+ {
+        margin-inline-start: calc(var(--fsus-control-height-spacious) + var(--fsus-space-3));
     }
 }
 
@@ -259,6 +264,7 @@ const openCriticalInspector = (event: MouseEvent): void =>
         box-sizing: border-box;
         position: static;
         width: 100%;
+        flex-wrap: wrap;
         min-height: var(--fsus-control-height-spacious);
         justify-content: flex-end;
         gap: var(--fsus-space-2);
@@ -287,6 +293,7 @@ const openCriticalInspector = (event: MouseEvent): void =>
  {
         min-width: 0;
         min-height: 2.75rem;
+        margin-inline: 0;
         padding-inline: var(--fsus-space-4);
     }
 }
@@ -295,7 +302,7 @@ const openCriticalInspector = (event: MouseEvent): void =>
  {
     .article-write-command-bar__actions
  {
-        padding-inline: var(--fsus-space-3);
+        padding-inline: 0;
     }
 
     .article-write-command-bar__save-status
@@ -305,7 +312,11 @@ const openCriticalInspector = (event: MouseEvent): void =>
 
     .article-write-command-bar__critical-status
  {
-        max-width: 8.5rem;
+        height: auto;
+        max-width: 100%;
+        flex-basis: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 }
 </style>
