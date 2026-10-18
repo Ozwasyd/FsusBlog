@@ -279,6 +279,40 @@ describe('useImageUploadRuntime', () => {
 })
 
 describe('ImageUploadOptionsPanel upload controls', () => {
+  it.each([
+    { index: 0, key: 'quality', value: 75 },
+    { index: 1, key: 'scaleRatio', value: 0.5 },
+    { index: 2, key: 'maxEdge', value: 1024 }
+  ] as const)('preserves scalar $key updates and rejects array payloads', async ({ index, key, value }) => {
+    const wrapper = mount(ImageUploadOptionsPanel, {
+      props: { options },
+      global: {
+        stubs: {
+          ElButton: true,
+          ElFormItem: { template: '<label><slot /></label>' },
+          ElSelect: true,
+          ElOption: true,
+          ElSlider: true,
+          ElSwitch: true
+        }
+      }
+    })
+    const sliders = wrapper.findAllComponents({ name: 'ElSlider' })
+    expect(sliders).toHaveLength(3)
+    const slider = sliders[index]
+    slider.vm.$emit('update:modelValue', [])
+    slider.vm.$emit('update:modelValue', [value])
+    slider.vm.$emit('update:modelValue', [value, value + 1])
+    await flushPromises()
+    expect(wrapper.emitted('update:options')).toBeUndefined()
+
+    slider.vm.$emit('update:modelValue', value)
+    await flushPromises()
+    expect(wrapper.emitted('update:options')).toEqual([[{ [key]: value }]])
+    expect(options[key]).toBe({ quality: 82, scaleRatio: 1, maxEdge: 1920 }[key])
+    wrapper.unmount()
+  })
+
   it('shows resume and abandon only for the corresponding runtime state and wires both actions', async () => {
     const resume = vi.fn()
     const abandon = vi.fn()
