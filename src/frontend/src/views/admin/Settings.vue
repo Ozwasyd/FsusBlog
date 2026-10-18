@@ -852,6 +852,8 @@ import { confirmWarning, toast } from '@/fsusui/feedback';
 import { Delete, Plus, Warning } from '@/fsusui/icons';
 import { cspStyleDirective } from '@/services/cspStyleRuntime';
 
+defineOptions({ name: 'AdminSettings' });
+
 const vCspStyle = cspStyleDirective;
 
 const {
@@ -1076,7 +1078,7 @@ const confirmPageRefresh = async (): Promise<void> =>
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
+@import "@/assets/main.css" reference;
 
 .section-title
  {
