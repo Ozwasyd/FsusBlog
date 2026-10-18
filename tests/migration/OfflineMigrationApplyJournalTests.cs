@@ -14,8 +14,8 @@ namespace FsusBlog.Migration.Tests;
 
 public sealed class OfflineMigrationApplyJournalTests
 {
-    private static readonly string IdentityDigest = new('a', 64);
-    private static readonly DateTimeOffset RecordedAt = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
+    private static readonly string s_identityDigest = new('a', 64);
+    private static readonly DateTimeOffset s_recordedAt = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public void First_entry_is_the_original_successfully_accepted_attempt_start_across_forks_and_resume()
@@ -24,7 +24,10 @@ public sealed class OfflineMigrationApplyJournalTests
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
         Assert.Null(verifier.First);
         OfflineMigrationApplyJournalEntry rejected = Seal(Control(plan, verifier,
-            OfflineMigrationApplyJournalState.AttemptStarted) with { Attempt = 2 });
+            OfflineMigrationApplyJournalState.AttemptStarted) with
+        {
+            Attempt = 2
+        });
         Assert.Throws<InvalidOperationException>(() => verifier.Accept(rejected));
         Assert.Null(verifier.First);
         Assert.Null(verifier.Last);
@@ -37,10 +40,13 @@ public sealed class OfflineMigrationApplyJournalTests
         Accept(fork, Control(plan, fork, OfflineMigrationApplyJournalState.RecoveryRequired,
             failure: "offline_apply_prior_attempt_interrupted"));
         Accept(fork, Control(plan, fork, OfflineMigrationApplyJournalState.AttemptStarted, attempt: 2)
-            with { RecordedAt = RecordedAt.AddMinutes(1) });
+            with
+        {
+            RecordedAt = s_recordedAt.AddMinutes(1)
+        });
         Assert.Same(first, fork.First);
-        Assert.Equal(RecordedAt, fork.First!.RecordedAt);
-        Assert.Equal(RecordedAt.AddMinutes(1), fork.Last!.RecordedAt);
+        Assert.Equal(s_recordedAt, fork.First!.RecordedAt);
+        Assert.Equal(s_recordedAt.AddMinutes(1), fork.Last!.RecordedAt);
         Assert.Same(first, verifier.First);
         Assert.Same(first, verifier.Last);
     }
@@ -108,7 +114,10 @@ public sealed class OfflineMigrationApplyJournalTests
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
         Assert.Throws<InvalidOperationException>(() => Accept(verifier,
-            Unit(plan, verifier, complete: true) with { State = OfflineMigrationApplyJournalState.StepVerified }));
+            Unit(plan, verifier, complete: true) with
+            {
+                State = OfflineMigrationApplyJournalState.StepVerified
+            }));
         Assert.Throws<InvalidOperationException>(() => Accept(verifier,
             Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted)));
         Assert.Empty(verifier.StepProofs);
@@ -121,8 +130,14 @@ public sealed class OfflineMigrationApplyJournalTests
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
         OfflineMigrationApplyJournalEntry unit = Unit(plan, verifier, complete: true);
-        OfflineMigrationPredicateObservation failed = unit.After! with { ActualFacts = [new("rows", "999")] };
-        failed = failed with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(failed) };
+        OfflineMigrationPredicateObservation failed = unit.After! with
+        {
+            ActualFacts = [new("rows", "999")]
+        };
+        failed = failed with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(failed)
+        };
         Assert.Throws<InvalidOperationException>(() => Accept(verifier, unit with { After = failed }));
         Assert.Null(verifier.PendingUnit);
     }
@@ -159,8 +174,14 @@ public sealed class OfflineMigrationApplyJournalTests
             failure: "offline_apply_prior_attempt_interrupted"));
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted, attempt: 2));
         Assert.Equal("key-1", verifier.PendingUnit!.WatermarkAfter);
-        Accept(verifier, Unit(plan, verifier, complete: true, rows: 2, watermark: "key-2") with { Attempt = 2 });
-        Accept(verifier, Proof(verifier) with { Attempt = 2 });
+        Accept(verifier, Unit(plan, verifier, complete: true, rows: 2, watermark: "key-2") with
+        {
+            Attempt = 2
+        });
+        Accept(verifier, Proof(verifier) with
+        {
+            Attempt = 2
+        });
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted, attempt: 2));
         Assert.True(verifier.Completed);
     }
@@ -168,8 +189,14 @@ public sealed class OfflineMigrationApplyJournalTests
     [Fact]
     public void Empty_plan_is_never_a_successful_apply_plan()
     {
-        OfflineMigrationPlan plan = Plan() with { OrderedSteps = [] };
-        plan = plan with { ContentDigest = OfflineMigrationPlanCodec.ComputeContentDigest(plan) };
+        OfflineMigrationPlan plan = Plan() with
+        {
+            OrderedSteps = []
+        };
+        plan = plan with
+        {
+            ContentDigest = OfflineMigrationPlanCodec.ComputeContentDigest(plan)
+        };
         Assert.Throws<InvalidOperationException>(() => Verifier(plan));
     }
 
@@ -182,7 +209,10 @@ public sealed class OfflineMigrationApplyJournalTests
         Assert.NotEqual(plan.ContentDigest, actualBytesSha);
         Assert.Equal(actualBytesSha, Artifact(plan).Sha256);
         Assert.Throws<InvalidOperationException>(() => new OfflineMigrationApplyJournalVerifier(
-            plan, Artifact(plan) with { Sha256 = plan.ContentDigest }, "invocation"));
+            plan, Artifact(plan) with
+            {
+                Sha256 = plan.ContentDigest
+            }, "invocation"));
         Assert.Null(Verifier(plan).Last);
     }
 
@@ -194,7 +224,10 @@ public sealed class OfflineMigrationApplyJournalTests
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
         Assert.Throws<InvalidOperationException>(() => Accept(verifier, Unit(plan, verifier, complete: false)));
         Assert.Throws<InvalidOperationException>(() => Accept(verifier,
-            Unit(plan, verifier, complete: true) with { State = OfflineMigrationApplyJournalState.BatchCommitted }));
+            Unit(plan, verifier, complete: true) with
+            {
+                State = OfflineMigrationApplyJournalState.BatchCommitted
+            }));
         Assert.Null(verifier.PendingUnit);
     }
 
@@ -209,9 +242,19 @@ public sealed class OfflineMigrationApplyJournalTests
         Accept(verifier, Unit(plan, verifier, complete: true));
         OfflineMigrationApplyJournalEntry proof = Proof(verifier);
         OfflineMigrationPredicateObservation before = changed == "unrelated-predicate"
-            ? proof.Before! with { PredicateReference = "unrelated-owner-predicate" }
-            : proof.Before! with { ExpectedFacts = [new("rows", "999")], ActualFacts = [new("rows", "999")] };
-        before = before with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(before) };
+            ? proof.Before! with
+            {
+                PredicateReference = "unrelated-owner-predicate"
+            }
+            : proof.Before! with
+            {
+                ExpectedFacts = [new("rows", "999")],
+                ActualFacts = [new("rows", "999")]
+            };
+        before = before with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(before)
+        };
         Assert.True(before.ExpectedFacts.SequenceEqual(before.ActualFacts));
         Assert.Throws<InvalidOperationException>(() => Accept(verifier, proof with { Before = before }));
         Assert.Empty(verifier.StepProofs);
@@ -230,7 +273,11 @@ public sealed class OfflineMigrationApplyJournalTests
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.RecoveryRequired,
             failure: "offline_apply_prior_attempt_interrupted"));
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted, attempt: 2));
-        Accept(verifier, Proof(verifier) with { Attempt = 2, Before = target });
+        Accept(verifier, Proof(verifier) with
+        {
+            Attempt = 2,
+            Before = target
+        });
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted, attempt: 2));
         Assert.True(verifier.Completed);
         Assert.Single(verifier.StepProofs);
@@ -325,7 +372,10 @@ public sealed class OfflineMigrationApplyJournalTests
                 Assert.Equal(IsolationLevel.RepeatableRead, call.Arg<DbTransaction>().IsolationLevel);
                 entered.TrySetResult();
                 await release.Task;
-                if (first == "main-cancel") { call.Arg<CancellationToken>().ThrowIfCancellationRequested(); }
+                if (first == "main-cancel")
+                {
+                    call.Arg<CancellationToken>().ThrowIfCancellationRequested();
+                }
                 throw new InvalidOperationException("fixture_private_operation_fault");
             });
         Task<OfflineMigrationApplyResult> pending = OfflineMigrationExecutor.ApplyAsync(
@@ -337,7 +387,10 @@ public sealed class OfflineMigrationApplyJournalTests
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.False(pending.IsCompleted);
             Assert.Equal(0, connection.WriteAttempts);
-            if (first == "main-cancel") { cancellation.Cancel(); }
+            if (first == "main-cancel")
+            {
+                cancellation.Cancel();
+            }
             release.TrySetResult();
             OfflineMigrationApplyResult result = await pending;
             Assert.Equal(OfflineMigrationApplyStatus.RecoveryRequired, result.Status);
@@ -444,7 +497,10 @@ public sealed class OfflineMigrationApplyJournalTests
         var admission = Substitute.For<IOfflineMigrationPlanAdmission>();
         var registry = Substitute.For<IOfflineMigrationApplyOperationRegistry>();
         OfflineMigrationApplyResult result = await OfflineMigrationExecutor.ApplyAsync(
-            new VerifiedOfflineMigrationPlan(plan), Artifact(plan) with { Sha256 = new('b', 64) },
+            new VerifiedOfflineMigrationPlan(plan), Artifact(plan) with
+            {
+                Sha256 = new('b', 64)
+            },
             new("invocation", 1, true, CleanupBudget: TimeSpan.FromSeconds(1)), connection, admission, registry, CancellationToken.None);
         Assert.Equal(OfflineMigrationApplyStatus.Failed, result.Status);
         Assert.Contains("offline_apply_plan_binding_invalid", result.Codes);
@@ -595,7 +651,10 @@ public sealed class OfflineMigrationApplyJournalTests
         OfflineMigrationApplyJournalEntry entry = MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished);
         OfflineMigrationMediaJournalEvidence evidence = entry.Media!;
         ArticleMediaBinding binding = evidence.Binding;
-        evidence = changed == "invocation" ? evidence with { InvocationId = "other-opaque-invocation" } : evidence with
+        evidence = changed == "invocation" ? evidence with
+        {
+            InvocationId = "other-opaque-invocation"
+        } : evidence with
         {
             Binding = changed switch
             {
@@ -628,12 +687,21 @@ public sealed class OfflineMigrationApplyJournalTests
             failure: "offline_apply_prior_attempt_interrupted"));
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted, attempt: 2));
         Assert.Same(prepared, verifier.PendingMedia);
-        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished) with { Attempt = 2 });
-        Accept(verifier, MediaUnit(plan, verifier) with { Attempt = 2 });
-        Accept(verifier, Proof(verifier) with { Attempt = 2 });
+        Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished) with
+        {
+            Attempt = 2
+        });
+        Accept(verifier, MediaUnit(plan, verifier) with
+        {
+            Attempt = 2
+        });
+        Accept(verifier, Proof(verifier) with
+        {
+            Attempt = 2
+        });
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted, attempt: 2));
         Assert.True(verifier.Completed);
-        Assert.Equal(RecordedAt, verifier.First!.RecordedAt);
+        Assert.Equal(s_recordedAt, verifier.First!.RecordedAt);
         Assert.Equal(prepared.Media.Binding, verifier.StepProofs[0].Media!.Binding);
     }
 
@@ -645,11 +713,30 @@ public sealed class OfflineMigrationApplyJournalTests
         OfflineMigrationApplyJournalEntry control = Seal(Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
         byte[] originalShape = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new
         {
-            control.Format, control.Plan, control.PlanContentDigest, control.Database, control.InvocationId,
-            control.Sequence, control.Attempt, control.StepId, control.OperationReference, control.Mode, control.State,
-            control.IdempotencyKey, control.WatermarkBefore, control.WatermarkAfter, control.HighWatermark,
-            control.RowsProcessed, control.ExpectedRows, control.UnitComplete, control.Before, control.After,
-            control.PreviousDigest, control.ContentDigest, control.FailureCode, control.RecordedAt
+            control.Format,
+            control.Plan,
+            control.PlanContentDigest,
+            control.Database,
+            control.InvocationId,
+            control.Sequence,
+            control.Attempt,
+            control.StepId,
+            control.OperationReference,
+            control.Mode,
+            control.State,
+            control.IdempotencyKey,
+            control.WatermarkBefore,
+            control.WatermarkAfter,
+            control.HighWatermark,
+            control.RowsProcessed,
+            control.ExpectedRows,
+            control.UnitComplete,
+            control.Before,
+            control.After,
+            control.PreviousDigest,
+            control.ContentDigest,
+            control.FailureCode,
+            control.RecordedAt
         });
         Assert.Equal(originalShape, System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(control));
         verifier.Accept(control);
@@ -761,7 +848,10 @@ public sealed class OfflineMigrationApplyJournalTests
         OfflineMigrationApplyJournalEntry unit = MediaUnit(plan, verifier);
         Assert.Throws<InvalidOperationException>(() => Accept(verifier, unit with
         {
-            Media = unit.Media! with { GenerationIdentity = "other-generation" }
+            Media = unit.Media! with
+            {
+                GenerationIdentity = "other-generation"
+            }
         }));
         Assert.Null(verifier.PendingUnit);
     }
@@ -777,9 +867,19 @@ public sealed class OfflineMigrationApplyJournalTests
         Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared));
         OfflineMigrationApplyJournalEntry published = MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPublished);
         OfflineMigrationPredicateObservation before = changed == "unrelated-reference"
-            ? published.Before! with { PredicateReference = "unrelated-owner" }
-            : published.Before! with { ExpectedFacts = [new("rows", "999")], ActualFacts = [new("rows", "999")] };
-        before = before with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(before) };
+            ? published.Before! with
+            {
+                PredicateReference = "unrelated-owner"
+            }
+            : published.Before! with
+            {
+                ExpectedFacts = [new("rows", "999")],
+                ActualFacts = [new("rows", "999")]
+            };
+        before = before with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(before)
+        };
         Assert.Throws<InvalidOperationException>(() => Accept(verifier, published with { Before = before }));
         Assert.Equal(OfflineMigrationApplyJournalState.MediaPrepared, verifier.PendingMedia!.State);
     }
@@ -813,11 +913,29 @@ public sealed class OfflineMigrationApplyJournalTests
         ImmutableArray<OfflineMigrationFact> facts = Enumerable.Range(0, 96)
             .Select(index => new OfflineMigrationFact($"fact-{index:D3}", new string('漢', 1024))).ToImmutableArray();
         OfflineMigrationApplyJournalEntry entry = Unit(plan, Verifier(plan), complete: true);
-        OfflineMigrationPredicateObservation before = entry.Before! with { ExpectedFacts = facts, ActualFacts = facts };
-        OfflineMigrationPredicateObservation after = entry.After! with { ExpectedFacts = facts, ActualFacts = facts };
-        before = before with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(before) };
-        after = after with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(after) };
-        entry = Seal(entry with { Before = before, After = after });
+        OfflineMigrationPredicateObservation before = entry.Before! with
+        {
+            ExpectedFacts = facts,
+            ActualFacts = facts
+        };
+        OfflineMigrationPredicateObservation after = entry.After! with
+        {
+            ExpectedFacts = facts,
+            ActualFacts = facts
+        };
+        before = before with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(before)
+        };
+        after = after with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(after)
+        };
+        entry = Seal(entry with
+        {
+            Before = before,
+            After = after
+        });
         // UnsafeRelaxedJsonEscaping is not the producer contract: the actual default
         // JSON encoder escapes these characters, so assert only the original byte cap.
         Assert.True(System.Text.Encoding.UTF8.GetByteCount(System.Text.Json.JsonSerializer.Serialize(entry)) > 1_048_576);
@@ -852,8 +970,10 @@ public sealed class OfflineMigrationApplyJournalTests
                 : new InvalidOperationException("fixture_acquisition_result_private_detail");
         commands.Acquire.ExecuteScalarAsync(Arg.Any<CancellationToken>()).Returns(_ =>
         {
-            if (mainCancelled) cancellation.Cancel();
-            if (knownAcquired) return Task.FromResult<object?>(true);
+            if (mainCancelled)
+                cancellation.Cancel();
+            if (knownAcquired)
+                return Task.FromResult<object?>(true);
             return Task.FromException<object?>(first);
         });
         commands.Acquire.DisposeAsync().Returns(ValueTask.FromException(knownAcquired
@@ -864,10 +984,14 @@ public sealed class OfflineMigrationApplyJournalTests
             CancellationToken cleanupToken = call.Arg<CancellationToken>();
             Assert.NotEqual(cancellation.Token, cleanupToken);
             Assert.True(cleanupToken.CanBeCanceled);
-            if (cleanup == "failed") throw new InvalidOperationException("fixture_unlock_private_detail");
+            if (cleanup == "failed")
+                throw new InvalidOperationException("fixture_unlock_private_detail");
             if (cleanup == "exhausted")
             {
-                try { await Task.Delay(Timeout.Infinite, cleanupToken); }
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, cleanupToken);
+                }
                 finally { cleanupAwaitEnded = true; }
             }
             return (object?)(cleanup != "refused");
@@ -881,8 +1005,10 @@ public sealed class OfflineMigrationApplyJournalTests
         Assert.Equal(OfflineMigrationApplyStatus.RecoveryRequired, result.Status);
         Assert.Equal(mainCancelled ? "offline_apply_cancelled" : "offline_apply_rejected", result.Codes[0]);
         Assert.Contains("offline_apply_journal_command_disposal_failed", result.Codes);
-        if (cleanup == "refused") Assert.Contains("offline_apply_unlock_not_observed", result.Codes);
-        if (!knownAcquired || cleanup is "failed" or "exhausted") Assert.Contains("offline_apply_session_cleanup_required", result.Codes);
+        if (cleanup == "refused")
+            Assert.Contains("offline_apply_unlock_not_observed", result.Codes);
+        if (!knownAcquired || cleanup is "failed" or "exhausted")
+            Assert.Contains("offline_apply_session_cleanup_required", result.Codes);
         if (cleanup == "exhausted")
         {
             Assert.True(cleanupAwaitEnded);
@@ -1054,7 +1180,8 @@ public sealed class OfflineMigrationApplyJournalTests
         }
         finally
         {
-            if (session.CleanupRequired) await session.ReleaseAsync(token.Token);
+            if (session.CleanupRequired)
+                await session.ReleaseAsync(token.Token);
         }
     }
 
@@ -1108,7 +1235,11 @@ public sealed class OfflineMigrationApplyJournalTests
             }
             await using (DbTransaction transaction = await session.BeginAsync(token.Token))
             {
-                OfflineMigrationApplyJournalEntry sibling = Seal(first with { Sequence = 2, RecordedAt = RecordedAt.AddSeconds(1) });
+                OfflineMigrationApplyJournalEntry sibling = Seal(first with
+                {
+                    Sequence = 2,
+                    RecordedAt = s_recordedAt.AddSeconds(1)
+                });
                 SqliteException failure = await Assert.ThrowsAsync<SqliteException>(() => OfflineMigrationStateStore.AppendApplyJournalAsync(
                     fixture.Connection, transaction, sibling, token.Token));
                 Assert.Equal(19, failure.SqliteErrorCode);
@@ -1152,13 +1283,21 @@ public sealed class OfflineMigrationApplyJournalTests
     private sealed class NativeSqliteFixture : IDisposable
     {
         private readonly string _directory = Directory.CreateTempSubdirectory("fsusblog-apply-journal-").FullName;
-        internal string ConnectionString { get; }
-        internal SqliteConnection Connection { get; }
+        internal string ConnectionString
+        {
+            get;
+        }
+        internal SqliteConnection Connection
+        {
+            get;
+        }
         internal NativeSqliteFixture()
         {
             ConnectionString = new SqliteConnectionStringBuilder
             {
-                DataSource = Path.Combine(_directory, "owned.db"), Pooling = false, DefaultTimeout = 1
+                DataSource = Path.Combine(_directory, "owned.db"),
+                Pooling = false,
+                DefaultTimeout = 1
             }.ToString();
             Connection = new SqliteConnection(ConnectionString);
             Connection.Open();
@@ -1194,9 +1333,15 @@ public sealed class OfflineMigrationApplyJournalTests
         return Control(plan, verifier, state) with
         {
             Format = OfflineMigrationApplyJournalVerifier.MediaFormat,
-            StepId = step.StepId, OperationReference = operation.OperationReference, Mode = operation.Mode,
-            IdempotencyKey = step.IdempotencyDefinition, Before = Observation(plan, step.SourcePrecondition),
-            Media = state == OfflineMigrationApplyJournalState.MediaPublished ? media with { GenerationIdentity = "verified-generation" } : media
+            StepId = step.StepId,
+            OperationReference = operation.OperationReference,
+            Mode = operation.Mode,
+            IdempotencyKey = step.IdempotencyDefinition,
+            Before = Observation(plan, step.SourcePrecondition),
+            Media = state == OfflineMigrationApplyJournalState.MediaPublished ? media with
+            {
+                GenerationIdentity = "verified-generation"
+            } : media
         };
     }
 
@@ -1232,30 +1377,36 @@ public sealed class OfflineMigrationApplyJournalTests
         CurrentSchemaProviderKind provider = CurrentSchemaProviderKind.PostgreSql, bool destructive = false)
     {
         var database = new CurrentSchemaDatabaseIdentity(provider, "instance", "database");
-        var source = new OfflineMigrationSourceObservation(database, "extractor", "v1", [], [], [], IdentityDigest);
-        var artifact = new CurrentSchemaArtifactReference("fixture-backup", IdentityDigest);
+        var source = new OfflineMigrationSourceObservation(database, "extractor", "v1", [], [], [], s_identityDigest);
+        var artifact = new CurrentSchemaArtifactReference("fixture-backup", s_identityDigest);
         var backup = new OfflineMigrationBackupObservation(artifact, artifact, artifact, "fixture-owner", "v1",
-            RecordedAt, RecordedAt, "fixture-snapshot", IdentityDigest, IdentityDigest,
-            source, source with { Database = database with { DatabaseId = "restored" } },
+            s_recordedAt, s_recordedAt, "fixture-snapshot", s_identityDigest, s_identityDigest,
+            source, source with
+            {
+                Database = database with
+                {
+                    DatabaseId = "restored"
+                }
+            },
             new[] { "aotCache", "configRedacted", "dataProtectionKeyRing", "database", "searchIndex", "uploads" }
-                .Select(name => new OfflineMigrationFact(name, IdentityDigest)).ToImmutableArray());
+                .Select(name => new OfflineMigrationFact(name, s_identityDigest)).ToImmutableArray());
         var step = new OfflineMigrationStep("owned-step", "owned-source", "owned-target", [], "owned-idempotency", destructive,
             new("v1", mode == OfflineMigrationExecutionMode.Transaction ? 0 : 1, "owned-watermark", "owned-replay"),
             Enum.GetValues<CurrentSchemaProviderKind>().Select(provider => new OfflineMigrationProviderOperation(
-                provider, "fixture-operation", IdentityDigest, IdentityDigest, mode)).ToImmutableArray());
+                provider, "fixture-operation", s_identityDigest, s_identityDigest, mode)).ToImmutableArray());
         var registry = new OfflineMigrationSourceRegistry("v1",
             [new("fixture-profile", "v1", "fixture-owner", [nameof(Complete_transaction_chain_requires_committed_unit_then_verified_step)],
                 step.StepId, Enum.GetValues<CurrentSchemaProviderKind>().Select(value => new OfflineMigrationSourceShape(
                     value, source.ExtractorId, source.ExtractorVersion, [], [], [])).ToImmutableArray())]);
         var dag = new OfflineMigrationDag("fixture-dag", "v1", [step]);
-        var target = new CurrentSchemaTargetIdentity("v1", "v1", "v1", IdentityDigest, IdentityDigest);
-        var tool = new CurrentSchemaVerifierIdentity(new('a', 40), IdentityDigest, IdentityDigest, IdentityDigest);
+        var target = new CurrentSchemaTargetIdentity("v1", "v1", "v1", s_identityDigest, s_identityDigest);
+        var tool = new CurrentSchemaVerifierIdentity(new('a', 40), s_identityDigest, s_identityDigest, s_identityDigest);
         OfflineMigrationPlan plan = OfflineMigrationPlanBuilder.Create(source, backup, target, tool, registry, dag,
-            RecordedAt, TimeSpan.FromHours(1));
+            s_recordedAt, TimeSpan.FromHours(1));
         // The normal pure builder/verifier validates this synthetic fixture's closure.
         // None of these fixture observations are a real backup, DB proof, or operation grant.
         return OfflineMigrationPlanVerifier.Verify(plan, source, backup, target, tool, registry, dag,
-            RecordedAt, TimeSpan.FromHours(1)).Plan;
+            s_recordedAt, TimeSpan.FromHours(1)).Plan;
     }
 
     private static CurrentSchemaArtifactReference Artifact(OfflineMigrationPlan plan)
@@ -1264,7 +1415,10 @@ public sealed class OfflineMigrationApplyJournalTests
     private static OfflineMigrationApplyCheckpoint Checkpoint(OfflineMigrationApplyJournalVerifier verifier)
         => new(OfflineMigrationApplyJournalVerifier.Reference(verifier.Last!), "invocation", verifier.Last!.Sequence);
     private static OfflineMigrationApplyJournalEntry Seal(OfflineMigrationApplyJournalEntry entry)
-        => entry with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry) };
+        => entry with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry)
+        };
     private static void Accept(OfflineMigrationApplyJournalVerifier verifier, OfflineMigrationApplyJournalEntry entry)
         => verifier.Accept(Seal(entry));
     private static OfflineMigrationApplyJournalEntry Control(OfflineMigrationPlan plan, OfflineMigrationApplyJournalVerifier verifier,
@@ -1272,13 +1426,16 @@ public sealed class OfflineMigrationApplyJournalTests
         => new(OfflineMigrationApplyJournalVerifier.Format, Artifact(plan), plan.ContentDigest, plan.Source.Database, "invocation",
             (verifier.Last?.Sequence ?? 0) + 1, attempt, null, null, null, state, null, null, null, null,
             0, 0, false, null, null, verifier.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest,
-            string.Empty, failure, RecordedAt);
+            string.Empty, failure, s_recordedAt);
     private static OfflineMigrationPredicateObservation Observation(OfflineMigrationPlan plan, string predicate)
     {
         OfflineMigrationProviderOperation operation = plan.OrderedSteps[0].Operations[0];
         var observation = new OfflineMigrationPredicateObservation(predicate, operation.OperationReference,
             operation.OperationSourceDigest, operation.SemanticDigest, [new("rows", "2")], [new("rows", "2")], string.Empty);
-        return observation with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation) };
+        return observation with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation)
+        };
     }
 
     private static OfflineMigrationApplyJournalEntry Unit(OfflineMigrationPlan plan, OfflineMigrationApplyJournalVerifier verifier,
@@ -1289,9 +1446,15 @@ public sealed class OfflineMigrationApplyJournalTests
         return Control(plan, verifier, operation.Mode == OfflineMigrationExecutionMode.Transaction
             ? OfflineMigrationApplyJournalState.TransactionCommitted : OfflineMigrationApplyJournalState.BatchCommitted) with
         {
-            StepId = step.StepId, OperationReference = operation.OperationReference, Mode = operation.Mode,
-            IdempotencyKey = step.IdempotencyDefinition, RowsProcessed = rows, ExpectedRows = 2, UnitComplete = complete,
-            WatermarkBefore = verifier.PendingUnit?.WatermarkAfter, WatermarkAfter = watermark,
+            StepId = step.StepId,
+            OperationReference = operation.OperationReference,
+            Mode = operation.Mode,
+            IdempotencyKey = step.IdempotencyDefinition,
+            RowsProcessed = rows,
+            ExpectedRows = 2,
+            UnitComplete = complete,
+            WatermarkBefore = verifier.PendingUnit?.WatermarkAfter,
+            WatermarkAfter = watermark,
             HighWatermark = operation.Mode == OfflineMigrationExecutionMode.CheckpointedBatch ? "key-2" : null,
             Before = Observation(plan, verifier.PendingUnit is null ? step.SourcePrecondition : step.ResumePolicy.ReplayPostcondition),
             After = Observation(plan, complete ? step.TargetPostcondition : step.ResumePolicy.ReplayPostcondition)
@@ -1301,8 +1464,10 @@ public sealed class OfflineMigrationApplyJournalTests
     private static OfflineMigrationApplyJournalEntry Proof(OfflineMigrationApplyJournalVerifier verifier)
         => verifier.PendingUnit! with
         {
-            Sequence = verifier.Last!.Sequence + 1, State = OfflineMigrationApplyJournalState.StepVerified,
-            PreviousDigest = verifier.Last.ContentDigest, ContentDigest = string.Empty
+            Sequence = verifier.Last!.Sequence + 1,
+            State = OfflineMigrationApplyJournalState.StepVerified,
+            PreviousDigest = verifier.Last.ContentDigest,
+            ContentDigest = string.Empty
         };
 
     // A lock-only native command stub establishes the production executor's pre-write
@@ -1312,11 +1477,26 @@ public sealed class OfflineMigrationApplyJournalTests
         bool awaitUnlockCancellation = false, bool failTransactionDisposal = false) : DbConnection
     {
         internal List<string> Commands { get; } = [];
-        internal int TransactionAttempts { get; private set; }
-        internal int TransactionDisposals { get; set; }
-        internal int WriteAttempts { get; set; }
-        internal int CloseAttempts { get; private set; }
-        internal bool UnlockAwaitEnded { get; set; }
+        internal int TransactionAttempts
+        {
+            get; private set;
+        }
+        internal int TransactionDisposals
+        {
+            get; set;
+        }
+        internal int WriteAttempts
+        {
+            get; set;
+        }
+        internal int CloseAttempts
+        {
+            get; private set;
+        }
+        internal bool UnlockAwaitEnded
+        {
+            get; set;
+        }
         internal bool FailUnlock => failUnlock;
         internal bool AwaitUnlockCancellation => awaitUnlockCancellation;
         internal bool FailTransactionDisposal => failTransactionDisposal;
@@ -1327,8 +1507,13 @@ public sealed class OfflineMigrationApplyJournalTests
         public override string ServerVersion => "fixture";
         public override ConnectionState State => ConnectionState.Open;
         public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
-        public override void Close() { CloseAttempts++; }
-        public override void Open() { }
+        public override void Close()
+        {
+            CloseAttempts++;
+        }
+        public override void Open()
+        {
+        }
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
         {
             TransactionAttempts++;
@@ -1346,15 +1531,34 @@ public sealed class OfflineMigrationApplyJournalTests
         private readonly ParameterList _parameters = new();
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string CommandText { get; set; } = string.Empty;
-        public override int CommandTimeout { get; set; }
-        public override CommandType CommandType { get; set; }
-        public override bool DesignTimeVisible { get; set; }
-        public override UpdateRowSource UpdatedRowSource { get; set; }
+        public override int CommandTimeout
+        {
+            get; set;
+        }
+        public override CommandType CommandType
+        {
+            get; set;
+        }
+        public override bool DesignTimeVisible
+        {
+            get; set;
+        }
+        public override UpdateRowSource UpdatedRowSource
+        {
+            get; set;
+        }
         protected override DbConnection? DbConnection { get; set; } = owner;
-        protected override DbTransaction? DbTransaction { get; set; }
+        protected override DbTransaction? DbTransaction
+        {
+            get; set;
+        }
         protected override DbParameterCollection DbParameterCollection => _parameters;
-        public override void Cancel() { }
-        public override void Prepare() { }
+        public override void Cancel()
+        {
+        }
+        public override void Prepare()
+        {
+        }
         public override int ExecuteNonQuery()
         {
             owner.WriteAttempts++;
@@ -1410,7 +1614,9 @@ public sealed class OfflineMigrationApplyJournalTests
         public override IsolationLevel IsolationLevel => isolationLevel;
         protected override DbConnection DbConnection => owner;
         public override void Commit() => throw new NotSupportedException("fixture_commit_forbidden");
-        public override void Rollback() { }
+        public override void Rollback()
+        {
+        }
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -1448,8 +1654,18 @@ public sealed class OfflineMigrationApplyJournalTests
         internal List<DbParameter> Values { get; } = [];
         public override int Count => Values.Count;
         public override object SyncRoot => this;
-        public override int Add(object value) { Values.Add((DbParameter)value); return Values.Count - 1; }
-        public override void AddRange(Array values) { foreach (object value in values) { Add(value); } }
+        public override int Add(object value)
+        {
+            Values.Add((DbParameter)value);
+            return Values.Count - 1;
+        }
+        public override void AddRange(Array values)
+        {
+            foreach (object value in values)
+            {
+                Add(value);
+            }
+        }
         public override void Clear() => Values.Clear();
         public override bool Contains(object value) => Values.Contains((DbParameter)value);
         public override bool Contains(string value) => IndexOf(value) >= 0;
@@ -1467,7 +1683,14 @@ public sealed class OfflineMigrationApplyJournalTests
         protected override void SetParameter(string parameterName, DbParameter value)
         {
             int index = IndexOf(parameterName);
-            if (index < 0) { Values.Add(value); } else { Values[index] = value; }
+            if (index < 0)
+            {
+                Values.Add(value);
+            }
+            else
+            {
+                Values[index] = value;
+            }
         }
     }
 }
