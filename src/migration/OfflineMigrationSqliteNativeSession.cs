@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 
 using Microsoft.Data.Sqlite;
+
 using SqlSugar;
 
 namespace FsusBlog.Migration;

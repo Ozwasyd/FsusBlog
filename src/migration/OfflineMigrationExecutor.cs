@@ -184,12 +184,15 @@ internal static class OfflineMigrationExecutor
                         admissionWritesStarted = true;
                         await OfflineMigrationStateStore.EnsureApplyJournalAsync(connection, admissionTransaction,
                             cancellationToken).ConfigureAwait(false);
-                        if (progress.Last is { State: OfflineMigrationApplyJournalState.AttemptStarted
+                        if (progress.Last is
+                            {
+                                State: OfflineMigrationApplyJournalState.AttemptStarted
                             or OfflineMigrationApplyJournalState.TransactionCommitted
                             or OfflineMigrationApplyJournalState.BatchCommitted
                             or OfflineMigrationApplyJournalState.StepVerified
                             or OfflineMigrationApplyJournalState.MediaPrepared
-                            or OfflineMigrationApplyJournalState.MediaPublished } interrupted)
+                            or OfflineMigrationApplyJournalState.MediaPublished
+                            } interrupted)
                         {
                             await AppendAsync(staged, admissionTransaction, Control(staged,
                                 OfflineMigrationApplyJournalState.RecoveryRequired, interrupted.Attempt,
@@ -292,7 +295,10 @@ internal static class OfflineMigrationExecutor
                                 step.IdempotencyDefinition, unit.WatermarkBefore, unit.WatermarkAfter, unit.HighWatermark,
                                 unit.RowsProcessed, unit.ExpectedRows, unit.Complete, before, after,
                                 staged.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest,
-                                string.Empty, null, DateTimeOffset.UtcNow) { Media = mediaEvidence };
+                                string.Empty, null, DateTimeOffset.UtcNow)
+                            {
+                                Media = mediaEvidence
+                            };
                             await AppendAsync(staged, transaction, committed, cancellationToken).ConfigureAwait(false);
                             if (unit.Complete)
                             {
@@ -317,7 +323,10 @@ internal static class OfflineMigrationExecutor
                         RememberFirstFailure(originalFailure);
                         if (!commitUnknown)
                         {
-                            try { await transaction.RollbackAsync(CleanupToken()).ConfigureAwait(false); }
+                            try
+                            {
+                                await transaction.RollbackAsync(CleanupToken()).ConfigureAwait(false);
+                            }
                             catch
                             {
                                 commitUnknown = true;
@@ -474,7 +483,10 @@ internal static class OfflineMigrationExecutor
                 RememberFirstFailure(originalFailure);
                 if (!commitUnknown)
                 {
-                    try { await preparation.RollbackAsync(CleanupToken()).ConfigureAwait(false); }
+                    try
+                    {
+                        await preparation.RollbackAsync(CleanupToken()).ConfigureAwait(false);
+                    }
                     catch
                     {
                         commitUnknown = true;
@@ -504,7 +516,10 @@ internal static class OfflineMigrationExecutor
         static async Task AppendAsync(OfflineMigrationApplyJournalVerifier staged, DbTransaction transaction,
             OfflineMigrationApplyJournalEntry entry, CancellationToken token)
         {
-            entry = entry with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry) };
+            entry = entry with
+            {
+                ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry)
+            };
             staged.Accept(entry);
             await OfflineMigrationStateStore.AppendApplyJournalAsync(transaction.Connection!, transaction, entry, token).ConfigureAwait(false);
         }

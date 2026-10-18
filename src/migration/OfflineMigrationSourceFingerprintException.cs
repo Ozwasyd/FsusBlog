@@ -61,13 +61,22 @@ public sealed class OfflineMigrationSourceFingerprintException : InvalidOperatio
     }
 
     /// <summary>Only source_fingerprint_unknown or source_fingerprint_ambiguous.</summary>
-    public string Code { get; }
+    public string Code
+    {
+        get;
+    }
 
     /// <summary>Immutable exact differences against every registered candidate.</summary>
-    public ImmutableArray<OfflineMigrationFingerprintDifference> Differences { get; }
+    public ImmutableArray<OfflineMigrationFingerprintDifference> Differences
+    {
+        get;
+    }
 
     /// <summary>Every matching baseline ID, hashed and sorted; ambiguity is never selection.</summary>
-    public ImmutableArray<string> AmbiguousBaselineIdSha256s { get; }
+    public ImmutableArray<string> AmbiguousBaselineIdSha256s
+    {
+        get;
+    }
 
     internal static OfflineMigrationSourceFingerprintException Unknown(
         IEnumerable<(string BaselineId, OfflineMigrationSourceShape Expected)> expected,

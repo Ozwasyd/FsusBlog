@@ -388,7 +388,10 @@ public sealed record RequiredQueueHealthSnapshot(
 
     /// <summary>Gets original queue-owner diagnostics, sampled independently of the qualification receipt.</summary>
     /// <value>Only available owners appear; their cumulative counters must not be summed across participant lanes.</value>
-    public IReadOnlyDictionary<string, RequiredQueueOwnerDiagnosticSnapshot> OwnerDiagnostics { get; init; }
+    public IReadOnlyDictionary<string, RequiredQueueOwnerDiagnosticSnapshot> OwnerDiagnostics
+    {
+        get; init;
+    }
         = new Dictionary<string, RequiredQueueOwnerDiagnosticSnapshot>(StringComparer.Ordinal);
 }
 
@@ -434,7 +437,10 @@ public sealed record RequiredQueueHealthEntry(
     string? LastFailureReason)
 {
     /// <summary>Gets the aggregate participant postcondition, distinct from an owner delivery disposition.</summary>
-    public string? CommitPostcondition { get; init; }
+    public string? CommitPostcondition
+    {
+        get; init;
+    }
 }
 
 public static class ProductionLivenessProbe
@@ -888,7 +894,10 @@ public sealed class ProductionReadinessProbe(
     }
 
     internal static AuditLogRuntimeSnapshot? ProjectAuditLogDiagnostics(AuditLogRuntimeSnapshot? snapshot)
-        => snapshot is null ? null : snapshot with { LastItemReference = null };
+        => snapshot is null ? null : snapshot with
+        {
+            LastItemReference = null
+        };
 
     private static string? ControlledQueueDisposition(string? disposition)
         => disposition switch

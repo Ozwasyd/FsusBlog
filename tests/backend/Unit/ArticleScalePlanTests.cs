@@ -480,7 +480,10 @@ public sealed class ArticleScalePlanTests
 
         ArticleScalePlan tampered = ReplaceAllocation(plan, published with
         {
-            Contract = published.Contract with { IsDeleted = true }
+            Contract = published.Contract with
+            {
+                IsDeleted = true
+            }
         });
 
         ArticleScalePlanValidationResult validation = Validate(tampered);

@@ -23,7 +23,11 @@ if (CurrentSchemaOwnedTargetExportCommand.IsRequested(args))
     }
     catch (OperationCanceledException)
     {
-        Console.WriteLine(JsonSerializer.Serialize(new { status = "cancelled", code = "current_schema_export_cancelled" }));
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            status = "cancelled",
+            code = "current_schema_export_cancelled"
+        }));
         Environment.ExitCode = 130;
     }
     catch (Exception exception)

@@ -25,7 +25,10 @@ internal sealed record OfflineMigrationPlanCommandOptions(
     int TimeoutSeconds)
 {
     // Invocation-only Host state; never serialized into a plan or supplied by CLI JSON.
-    internal OfflineMigrationOperationDeadline? OperationDeadline { get; init; }
+    internal OfflineMigrationOperationDeadline? OperationDeadline
+    {
+        get; init;
+    }
 }
 
 internal sealed record OfflineMigrationSourceCommandOptions(

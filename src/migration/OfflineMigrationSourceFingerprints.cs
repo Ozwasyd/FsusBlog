@@ -20,7 +20,10 @@ internal static class OfflineMigrationSourceFingerprints
 
     // These are historical input fields, not a copy or projection of current entities.
     // Provenance: legacy-20260517-minimal.sql and BuildLegacy20260517ProfileCompatibilityMigration.
-    internal static ImmutableArray<LegacyTable> LegacyTables { get; } =
+    internal static ImmutableArray<LegacyTable> LegacyTables
+    {
+        get;
+    } =
     [
         Table("article", "id", "id:int:!:identity", "title:varchar(200):!", "content:text:?",
             "summary:varchar(500):?", "categoryid:int:!", "views:int:!", "createtime:timestamp:!", "isdeleted:bool:!:false"),
@@ -155,7 +158,11 @@ internal static class OfflineMigrationSourceFingerprints
         }
         var observed = new OfflineMigrationSourceShape(provider, ExtractorId, ExtractorVersion, actual, [], []);
         throw OfflineMigrationSourceFingerprintException.Unknown(new[] { false, true }.Select(legacy =>
-            (legacy ? LegacyId : EmptyId, Shape(provider, legacy) with { History = [], BusinessShape = [] })), observed);
+            (legacy ? LegacyId : EmptyId, Shape(provider, legacy) with
+            {
+                History = [],
+                BusinessShape = []
+            })), observed);
     }
 
     internal static string SqliteTableSql(LegacyTable table)
@@ -191,7 +198,9 @@ internal static class OfflineMigrationSourceFingerprints
             },
             CurrentSchemaProviderKind.MySql => type switch
             {
-                "bool" => "tinyint(1)", "timestamp" => "datetime", _ => type
+                "bool" => "tinyint(1)",
+                "timestamp" => "datetime",
+                _ => type
             },
             CurrentSchemaProviderKind.Sqlite => type is "int" or "bigint" or "bool" ? "INTEGER" : "TEXT",
             _ => throw new InvalidOperationException("offline_source_provider_unknown")

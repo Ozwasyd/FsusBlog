@@ -118,7 +118,10 @@ internal static class SqliteCurrentSchemaCatalogObserver
                 {
                     throw Failure("sqlite_current_catalog_index_incomplete");
                 }
-                indexes.Add(index with { Columns = indexColumns });
+                indexes.Add(index with
+                {
+                    Columns = indexColumns
+                });
             }
             foreignKeys.AddRange(await RowsAsync(connection, transaction,
                 $"SELECT id, seq, {Text("[table]")}, {Text("[from]")}, {Text("[to]")}, {Text("on_update")}, {Text("on_delete")}, {Text("match")} FROM pragma_foreign_key_list($name, 'main') ORDER BY id, seq",

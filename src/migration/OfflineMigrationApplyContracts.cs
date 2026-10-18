@@ -111,7 +111,10 @@ public sealed record OfflineMigrationApplyJournalEntry(
     // Null is omitted so every original non-media v1 payload and digest remains unchanged.
     [JsonInclude]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    internal OfflineMigrationMediaJournalEvidence? Media { get; init; }
+    internal OfflineMigrationMediaJournalEvidence? Media
+    {
+        get; init;
+    }
 }
 
 internal sealed record OfflineMigrationMediaJournalEvidence(

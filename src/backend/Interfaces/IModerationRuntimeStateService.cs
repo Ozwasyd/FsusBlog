@@ -50,9 +50,18 @@ public abstract class ModerationRuntimeFixtureLease
     {
     }
 
-    public abstract string Region { get; }
-    public abstract ModerationRuntimeSnapshot Prior { get; }
-    public abstract ModerationRuntimeSnapshot Applied { get; }
+    public abstract string Region
+    {
+        get;
+    }
+    public abstract ModerationRuntimeSnapshot Prior
+    {
+        get;
+    }
+    public abstract ModerationRuntimeSnapshot Applied
+    {
+        get;
+    }
 
     /// <summary>
     /// Returns the actual restored prior snapshot. An idempotent release still

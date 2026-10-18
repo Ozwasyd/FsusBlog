@@ -140,7 +140,10 @@ internal static class ArticlePreservationSourceReader
         foreach ((int articleId, ImmutableArray<int>.Builder ids) in articleTags)
         {
             int index = articleIndex[articleId];
-            articles[index] = articles[index] with { TagIds = ids.ToImmutable() };
+            articles[index] = articles[index] with
+            {
+                TagIds = ids.ToImmutable()
+            };
         }
         string? configuredSiteAuthor = null;
         await using (DbCommand command = Command(connection, transaction, readBudget,
@@ -254,28 +257,33 @@ internal static class ArticlePreservationSourceReader
         private long _bytes;
         internal void Article()
         {
-            if (++_articles > limits.MaximumArticles) throw new InvalidOperationException("article_preservation_source_article_budget");
+            if (++_articles > limits.MaximumArticles)
+                throw new InvalidOperationException("article_preservation_source_article_budget");
         }
         internal void Taxonomy()
         {
-            if (++_taxonomy > limits.MaximumTaxonomyRows) throw new InvalidOperationException("article_preservation_source_taxonomy_budget");
+            if (++_taxonomy > limits.MaximumTaxonomyRows)
+                throw new InvalidOperationException("article_preservation_source_taxonomy_budget");
         }
         internal void Relation() => Charge(8);
         private void Charge(long bytes)
         {
             _bytes = checked(_bytes + bytes);
-            if (_bytes > limits.MaximumMetadataBytes) throw new InvalidOperationException("article_preservation_source_byte_budget");
+            if (_bytes > limits.MaximumMetadataBytes)
+                throw new InvalidOperationException("article_preservation_source_byte_budget");
         }
         internal async Task<string?> TextAsync(DbDataReader reader, int ordinal, CancellationToken cancellationToken)
         {
-            if (await reader.IsDBNullAsync(ordinal, cancellationToken).ConfigureAwait(false)) return null;
+            if (await reader.IsDBNullAsync(ordinal, cancellationToken).ConfigureAwait(false))
+                return null;
             using TextReader text = reader.GetTextReader(ordinal);
             var result = new StringBuilder();
             char[] buffer = new char[4096];
             while (true)
             {
                 int read = await text.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
-                if (read == 0) break;
+                if (read == 0)
+                    break;
                 if ((long)result.Length + read > limits.MaximumMetadataBytes - _bytes)
                     throw new InvalidOperationException("article_preservation_source_byte_budget");
                 result.Append(buffer, 0, read);

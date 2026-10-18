@@ -59,7 +59,8 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
         }
         ThrowObservedFailure(primary);
         cancellationToken.ThrowIfCancellationRequested();
-        if (receipt is null) throw new InvalidOperationException("current_verify_native_receipt_missing");
+        if (receipt is null)
+            throw new InvalidOperationException("current_verify_native_receipt_missing");
         byte[] bytes = CurrentSchemaReceiptCodec.Serialize(receipt);
         string sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
         return new(new($"current-schema/v1/{sha256}", sha256), receipt, bytes);
@@ -75,7 +76,8 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
             string category = primary is OperationCanceledException ? "cancelled" : "failed";
             throw new InvalidOperationException("current_verify_transaction_cleanup_unverified_primary_" + category);
         }
-        if (primary is not null) ExceptionDispatchInfo.Capture(primary).Throw();
+        if (primary is not null)
+            ExceptionDispatchInfo.Capture(primary).Throw();
     }
 }
 

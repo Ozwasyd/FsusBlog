@@ -39,11 +39,18 @@ internal static class ArticlePreservationProjection
             Reject("source_origin");
         ArticlePreservationSemanticReceipt.RequireArtifact(source.Artifact, source.Bytes, data);
         ArticlePreservationSemanticReceipt.RequireArtifact(current.Artifact, current.Bytes,
-            new { current.Categories, current.Tags, current.Articles, current.DefaultPolicy });
+            new
+            {
+                current.Categories,
+                current.Tags,
+                current.Articles,
+                current.DefaultPolicy
+            });
         if (current.DefaultPolicy is not null)
             ArticlePreservationPolicyExporter.RequireDefaultPolicy(source, current.DefaultPolicy);
         long metadataBytes = checked((long)source.Bytes.Length + current.Bytes.Length);
-        if (metadataBytes > limits.MaximumMetadataBytes) Reject("metadata_budget");
+        if (metadataBytes > limits.MaximumMetadataBytes)
+            Reject("metadata_budget");
 
         ImmutableArray<ArticlePreservationTaxonomyMap> categories = MapTaxonomy(data.Categories, current.Categories);
         ImmutableArray<ArticlePreservationTaxonomyMap> tags = MapTaxonomy(data.Tags, current.Tags);
@@ -133,7 +140,10 @@ internal static class ArticlePreservationProjection
             // Freeze mutable collection interfaces before hashing or handing data to a writer.
             target = target with
             {
-                Article = article with { TagIds = targetTags.ToImmutableArray() },
+                Article = article with
+                {
+                    TagIds = targetTags.ToImmutableArray()
+                },
                 Responsibility = target.Responsibility with
                 {
                     Authors = target.Responsibility.Authors.ToImmutableArray(),
@@ -143,9 +153,20 @@ internal static class ArticlePreservationProjection
             ArticleRightsCanonicalBinding canonical = ArticleRightsCanonicalBinding.Build(target.Article, target.Rights);
             string markdownDigest = ArticlePreservationSemanticReceipt.HashMarkdown(row.Markdown);
             string responsibilityDigest = ArticlePreservationSemanticReceipt.Digest(
-                "article-preservation-responsibility-v1", new { target.Responsibility, target.ConfiguredSiteAuthor });
+                "article-preservation-responsibility-v1", new
+                {
+                    target.Responsibility,
+                    target.ConfiguredSiteAuthor
+                });
             string semanticDigest = ArticlePreservationSemanticReceipt.Digest(
-                "article-preservation-article-v1", new { Source = row, Current = target, canonical, markdownDigest, responsibilityDigest });
+                "article-preservation-article-v1", new
+                {
+                    Source = row,
+                    Current = target,
+                    canonical,
+                    markdownDigest,
+                    responsibilityDigest
+                });
             articles.Add(new(row, target, package.Artifact, canonical, markdownDigest, responsibilityDigest, semanticDigest,
                 ArticleRevisionContentAddress.Compute(row.Markdown)));
             ArticleMediaPreservation.AppendSourceDocument(documents, new(row.Id, null, row.Markdown, data.DocumentBase));
@@ -157,7 +178,10 @@ internal static class ArticlePreservationProjection
             Reject("media_source_binding");
         var plan = new ArticlePreservationWritePlan(source.Artifact, data.FullSourceContentDigest,
             current.Artifact, categories, tags, articles.ToImmutable(), media, string.Empty);
-        return plan with { ContentDigest = ArticlePreservationSemanticReceipt.ComputePlanDigest(plan) };
+        return plan with
+        {
+            ContentDigest = ArticlePreservationSemanticReceipt.ComputePlanDigest(plan)
+        };
     }
 
     private static ImmutableArray<ArticlePreservationTaxonomyMap> MapTaxonomy(
@@ -170,15 +194,18 @@ internal static class ArticlePreservationProjection
         var targetNames = new HashSet<string>(StringComparer.Ordinal);
         var mapsBySourceId = new Dictionary<int, ArticlePreservationTaxonomyMap>(maps.Length);
         foreach (ArticlePreservationTaxonomyMap map in maps)
-            if (map is null || !mapsBySourceId.TryAdd(map.SourceId, map)) Reject("taxonomy_explicit_mapping");
+            if (map is null || !mapsBySourceId.TryAdd(map.SourceId, map))
+                Reject("taxonomy_explicit_mapping");
         var result = ImmutableArray.CreateBuilder<ArticlePreservationTaxonomyMap>(source.Length);
         foreach (LegacyArticlePreservationTaxonomy row in source.OrderBy(static row => row.Id))
         {
-            if (row is null || row.Id <= 0 || row.Name is null || !sourceIds.Add(row.Id)) Reject("taxonomy_source_identity");
+            if (row is null || row.Id <= 0 || row.Name is null || !sourceIds.Add(row.Id))
+                Reject("taxonomy_source_identity");
             if (!mapsBySourceId.TryGetValue(row.Id, out ArticlePreservationTaxonomyMap? map)
                 || map.SourceName != row.Name || map.TargetId <= 0
                 || string.IsNullOrWhiteSpace(map.TargetName) || !targetIds.Add(map.TargetId)
-                || !targetNames.Add(map.TargetName)) Reject("taxonomy_explicit_mapping");
+                || !targetNames.Add(map.TargetName))
+                Reject("taxonomy_explicit_mapping");
             result.Add(map);
         }
         return result.ToImmutable();

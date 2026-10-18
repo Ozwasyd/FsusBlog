@@ -34,7 +34,10 @@ internal sealed class OfflineMigrationArticlePreservationRoute :
         Dag = dag;
     }
 
-    internal OfflineMigrationDag Dag { get; }
+    internal OfflineMigrationDag Dag
+    {
+        get;
+    }
     internal PgArticlePreservationOperation ArticleOperation => _article;
 
     // The concrete single-transaction legacy node obtains identities from actual
@@ -72,7 +75,10 @@ internal sealed class OfflineMigrationArticlePreservationRoute :
             throw new InvalidOperationException("article_preservation_route_actual_provider_owners_missing");
         ImmutableArray<OfflineMigrationProviderOperation> identities = actualOwners.Select(owner => owner.Identity)
             .OrderBy(identity => identity.Provider).ToImmutableArray();
-        var step = compiledPgStep with { Operations = identities };
+        var step = compiledPgStep with
+        {
+            Operations = identities
+        };
         var dag = new OfflineMigrationDag("article-preservation-whole-legacy-transaction", "1", [step]);
         // Before creating a registry, the sole original validator proves all three
         // actual providers, common semantics, exact entry and transactional shape.

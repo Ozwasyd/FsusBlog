@@ -39,7 +39,10 @@ public sealed class VerifiedOfflineMigrationPlan
     }
 
     /// <summary>The immutable, canonically sealed payload checked by the plan verifier.</summary>
-    public OfflineMigrationPlan Plan { get; }
+    public OfflineMigrationPlan Plan
+    {
+        get;
+    }
 }
 
 internal sealed class OfflineMigrationSourceRegistry
@@ -89,10 +92,17 @@ internal sealed class OfflineMigrationSourceRegistry
                 BusinessShape = OfflineMigrationPlanValidation.NormalizeFacts(shape.BusinessShape)
             }).ToImmutableArray()
         }).ToImmutableArray();
-        Digest = OfflineMigrationPlanValidation.Digest(new { Version = version, Entries = _entries });
+        Digest = OfflineMigrationPlanValidation.Digest(new
+        {
+            Version = version,
+            Entries = _entries
+        });
     }
 
-    internal string Digest { get; }
+    internal string Digest
+    {
+        get;
+    }
 
     internal OfflineMigrationFingerprintDefinition Match(OfflineMigrationSourceObservation observation)
     {
@@ -148,12 +158,18 @@ internal static class OfflineMigrationPlanBuilder
             target,
             dag.Id,
             dag.Version,
-            OfflineMigrationPlanValidation.Digest(dag with { Steps = ordered }),
+            OfflineMigrationPlanValidation.Digest(dag with
+            {
+                Steps = ordered
+            }),
             ordered,
             OfflineMigrationPlanValidation.Normalize(backup),
             tool,
             string.Empty);
-        return payload with { ContentDigest = OfflineMigrationPlanValidation.ComputeContentDigest(payload) };
+        return payload with
+        {
+            ContentDigest = OfflineMigrationPlanValidation.ComputeContentDigest(payload)
+        };
     }
 }
 
@@ -232,7 +248,10 @@ internal static class OfflineMigrationPlanVerifier
 
         if (plan.SourceFingerprintId != fingerprint.Id || plan.SourceFingerprintVersion != fingerprint.Version
             || plan.SourceRegistryDigest != registry.Digest || plan.DagId != dag.Id || plan.DagVersion != dag.Version
-            || plan.DagDigest != OfflineMigrationPlanValidation.Digest(dag with { Steps = expectedSteps })
+            || plan.DagDigest != OfflineMigrationPlanValidation.Digest(dag with
+            {
+                Steps = expectedSteps
+            })
             || !OfflineMigrationPlanValidation.Equal(plan.OrderedSteps, expectedSteps))
         {
             throw new InvalidOperationException("offline_plan_authority_or_steps_changed");
