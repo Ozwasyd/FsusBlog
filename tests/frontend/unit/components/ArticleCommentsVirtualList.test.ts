@@ -70,7 +70,7 @@ describe('ArticleCommentsVirtualList recursive comment tree', () => {
     publicWrapper.unmount()
 
     const anonymous = makeNode('1', 0, [], {
-      author: { mode: 'anonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null }
+      author: { mode: 'zk_anonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null }
     })
     const anonymousWrapper = mountList(anonymous, false)
     expect(anonymousWrapper.get('.fsus-comment-tree-node__author').classes()).toContain('is-anonymous')
@@ -81,7 +81,7 @@ describe('ArticleCommentsVirtualList recursive comment tree', () => {
 
   it('keeps recursive groups, reply identity, permalink, and delete semantics accessible', () => {
     const child = makeNode('2', 1, [], {
-      author: { mode: 'anonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null },
+      author: { mode: 'zk_anonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null },
       replyToAuthor: { mode: 'public', displayName: 'Demo Reader', displayLanguage: 'en', badge: null, scopeLabel: null }
     })
     const wrapper = mountList(makeNode('1', 0, [child]), true, new Set(), true)

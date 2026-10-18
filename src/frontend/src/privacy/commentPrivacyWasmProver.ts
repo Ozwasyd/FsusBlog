@@ -591,13 +591,6 @@ function writeUInt16(chunks: Uint8Array[], value: number): void
     chunks.push(bytes);
 }
 
-function writeInt64(chunks: Uint8Array[], value: number): void
-{
-    const bytes = new Uint8Array(8);
-    new DataView(bytes.buffer).setBigInt64(0, BigInt(Math.trunc(value)), true);
-    chunks.push(bytes);
-}
-
 function concatChunks(chunks: Uint8Array[]): Uint8Array
 {
     const output = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0));

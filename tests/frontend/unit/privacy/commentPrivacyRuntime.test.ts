@@ -18,6 +18,8 @@ describe('CommentPrivacyRuntime', () => {
             scope,
             credentialEpoch: 20260618,
             ticket: new Uint8Array(proofBytes),
+            rateClass: 'common',
+            requiresModeration: false,
             expiresAtUnixMs: Date.now() + 1_000
           }
         })
@@ -61,6 +63,8 @@ describe('CommentPrivacyRuntime', () => {
           scope,
           credentialEpoch: 20260618,
             ticket: new Uint8Array(proofBytes),
+          rateClass: 'common',
+          requiresModeration: false,
           expiresAtUnixMs: now + 30_000
         }
       })
@@ -99,7 +103,7 @@ describe('CommentPrivacyRuntime', () => {
     expect(states).toContain('ready')
 
     const ticket = runtime.consumePreparedTicket('comment:v1:article:42:top')
-    expect(ticket?.credentialEpoch).toBe(20260618)
+    expect(ticket).toHaveProperty('credentialEpoch', 20260618)
     expect([...(ticket?.ticket ?? [])]).toEqual([9, 8, 7])
     expect(runtime.consumePreparedTicket('comment:v1:article:42:top')).toBeNull()
 
@@ -227,11 +231,11 @@ describe('CommentPrivacyRuntime', () => {
   })
 
   it('aborts in-flight preparation on rotation so stale work cannot refill the runtime', async () => {
-    let releaseCredential: (() => void) | null = null
+    const credentialGate: { release: (() => void) | null } = { release: null }
     const adapter = createAdapter({
       credential: async ({ signal }) => {
         await new Promise<void>(resolve => {
-          releaseCredential = resolve
+          credentialGate.release = resolve
         })
         return {
           ok: true,
@@ -250,9 +254,9 @@ describe('CommentPrivacyRuntime', () => {
     const runtime = createCommentPrivacyRuntime({ adapter, workerClient: worker })
     const preparing = runtime.prepareAnonymousTicket('comment:v1:article:42:top')
 
-    await vi.waitFor(() => expect(releaseCredential).not.toBeNull())
+    await vi.waitFor(() => expect(credentialGate.release).not.toBeNull())
     await runtime.purge('issuer-key-rotation')
-    releaseCredential?.()
+    credentialGate.release?.()
 
     await expect(preparing).resolves.toBe(false)
     expect(adapter.issueAnonymousTicket).not.toHaveBeenCalled()
@@ -263,6 +267,9 @@ describe('CommentPrivacyRuntime', () => {
 function createWorker(): CommentPrivacyWorkerClient {
   return {
     prewarm: vi.fn().mockResolvedValue(undefined),
+    buildRevocationWitness: vi.fn<CommentPrivacyWorkerClient['buildRevocationWitness']>(async () => {
+      throw new Error('unexpected revocation witness request in runtime proof test')
+    }),
     prepareProof: vi.fn().mockImplementation(async () => ({
       proofBytes: new Uint8Array([9, 8, 7]),
       publicInputs: new Uint8Array([6, 5, 4]),
@@ -278,7 +285,7 @@ function createAdapter(overrides: {
   ticket?: CommentPrivacyAdapter['issueAnonymousTicket']
 } = {}): CommentPrivacyAdapter {
   return {
-    ensureCredentialPrepared: vi.fn(overrides.credential ?? (async () => ({
+    ensureCredentialPrepared: vi.fn<CommentPrivacyAdapter['ensureCredentialPrepared']>(overrides.credential ?? (async () => ({
       ok: true,
       credential: {
         credentialSecret: new Uint8Array([11, 12, 13]),
@@ -293,12 +300,14 @@ function createAdapter(overrides: {
       ok: true,
       metadata: createMetadata(scope)
     }))),
-    issueAnonymousTicket: vi.fn(overrides.ticket ?? (async ({ scope, proofBytes }) => ({
+    issueAnonymousTicket: vi.fn<CommentPrivacyAdapter['issueAnonymousTicket']>(overrides.ticket ?? (async ({ scope, proofBytes }) => ({
       ok: true,
       ticket: {
         scope,
         credentialEpoch: 20260618,
         ticket: new Uint8Array(proofBytes),
+        rateClass: 'common',
+        requiresModeration: false,
         expiresAtUnixMs: Date.now() + 30_000
       }
     }))),

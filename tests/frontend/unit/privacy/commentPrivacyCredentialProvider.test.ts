@@ -106,7 +106,7 @@ describe('RFC 9474 blind anonymous credential suite', () => {
     expect(await crypto.subtle.verify(
       { name: 'RSA-PSS', saltLength: 48 },
       cryptoKey.publicKey,
-      credential!.issuerSignature,
+      new Uint8Array(credential!.issuerSignature),
       readPreparedMessage(request!.credentialOpening))).toBe(true)
   }, 30_000)
 
@@ -324,10 +324,10 @@ function blindSign(blindedMessage: Uint8Array): Uint8Array {
   return i2osp(modPow(os2ip(blindedMessage), privateExponent, modulus), MODULUS_BYTES)
 }
 
-function readPreparedMessage(opening: Uint8Array): Uint8Array {
+function readPreparedMessage(opening: Uint8Array): Uint8Array<ArrayBuffer> {
   const magicLength = new TextEncoder().encode('FSUS-RFC9474-OPENING-V1').byteLength
   const length = (opening[magicLength] << 8) | opening[magicLength + 1]
-  return opening.slice(magicLength + 2, magicLength + 2 + length)
+  return new Uint8Array(opening.subarray(magicLength + 2, magicLength + 2 + length))
 }
 
 function contains(haystack: Uint8Array, needle: Uint8Array): boolean {
