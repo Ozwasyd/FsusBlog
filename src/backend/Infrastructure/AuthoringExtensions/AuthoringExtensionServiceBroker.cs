@@ -164,6 +164,7 @@ public sealed class AuthoringServiceGrantValidator(
         string runtimeIdentity,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!IsOpaqueGrantId(grant.GrantId) ||
             !string.Equals(grant.RuntimeIdentity, runtimeIdentity, StringComparison.Ordinal) ||
             !IsClosedValue(grant.Host, 253) ||
@@ -179,7 +180,9 @@ public sealed class AuthoringServiceGrantValidator(
         }
 
         ImmutableArray<IPAddress> first = SortAddresses(await addressResolver.ResolveAsync(grant.Host, cancellationToken));
+        ValidateResolutionLifetime(grant.ExpiresAt, cancellationToken);
         ImmutableArray<IPAddress> second = SortAddresses(await addressResolver.ResolveAsync(grant.Host, cancellationToken));
+        ValidateResolutionLifetime(grant.ExpiresAt, cancellationToken);
         if (first.IsDefaultOrEmpty || !first.SequenceEqual(second) || first.Any(IsForbiddenAddress))
         {
             throw new AuthoringExtensionContractException("Network destination is private, metadata, loopback, or changed during validation.");
@@ -199,6 +202,7 @@ public sealed class AuthoringServiceGrantValidator(
         string runtimeIdentity,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (!IsOpaqueGrantId(grant.GrantId) ||
             !string.Equals(grant.RuntimeIdentity, runtimeIdentity, StringComparison.Ordinal) ||
             !Path.IsPathFullyQualified(grant.CanonicalRoot) ||
@@ -220,6 +224,7 @@ public sealed class AuthoringServiceGrantValidator(
             grant.CanonicalRoot,
             grant.RelativePath,
             cancellationToken);
+        ValidateResolutionLifetime(grant.ExpiresAt, cancellationToken);
         string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(grant.CanonicalRoot));
         string path = Path.GetFullPath(canonicalPath);
         if (hasReparseBoundary ||
@@ -229,6 +234,16 @@ public sealed class AuthoringServiceGrantValidator(
         }
 
         return path;
+    }
+
+    // Resolution must not extend the original grant's lifetime, even if a resolver ignores cancellation.
+    private void ValidateResolutionLifetime(DateTimeOffset expiresAt, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (expiresAt <= timeProvider.GetUtcNow())
+        {
+            throw new AuthoringExtensionContractException("Service grant expired during resolution.");
+        }
     }
 
     private static bool IsOpaqueGrantId(string? value) =>

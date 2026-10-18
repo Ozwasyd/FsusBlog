@@ -301,9 +301,15 @@ public sealed class AuthoringServiceGrantResolutionExpiryTests
     private sealed class ControlledAddressResolver(ResolutionGate gate, int suspendedCall, bool rebind = false)
         : IAuthoringNetworkAddressResolver
     {
-        public int Calls { get; private set; }
+        public int Calls
+        {
+            get; private set;
+        }
 
-        public CancellationToken LastCancellationToken { get; private set; }
+        public CancellationToken LastCancellationToken
+        {
+            get; private set;
+        }
 
         public async ValueTask<ImmutableArray<IPAddress>> ResolveAsync(string host, CancellationToken cancellationToken)
         {
@@ -322,9 +328,15 @@ public sealed class AuthoringServiceGrantResolutionExpiryTests
     private sealed class ControlledPathVerifier(ResolutionGate gate, bool hasReparseBoundary = false, bool escapesRoot = false)
         : IAuthoringFilePathVerifier
     {
-        public int Calls { get; private set; }
+        public int Calls
+        {
+            get; private set;
+        }
 
-        public CancellationToken LastCancellationToken { get; private set; }
+        public CancellationToken LastCancellationToken
+        {
+            get; private set;
+        }
 
         public async ValueTask<(string CanonicalPath, bool HasReparseBoundary)> ResolveAsync(
             string canonicalRoot,
