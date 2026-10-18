@@ -1,3 +1,13 @@
+/**
+ * @typedef {{ producerId: string; canonicalTestId: string; streamId: string; }} RandomConsumerIdentity
+ * @typedef {RandomConsumerIdentity & { kind: 'property' | 'model' | 'fuzz' | 'fixture'; entrypoint: string; runner: string; runnerConfig: string; version: string; budget: { iterations: number; transitions: number; shrinks: number; }; receiptOwner: string; evidenceClass: 'correctness'; qualificationEligible: true; usesRandomness: true; randomStreams: string[]; }} RandomConsumer
+ * @typedef {{ schema: string; consumers: RandomConsumer[]; nonRandomDeclarations: { producerId: string; canonicalTestId: string; entrypoint: string; randomStreams: string[]; }[]; nonSemanticEntropy: unknown[]; }} RandomStreamInventory
+ * @typedef {Readonly<{ version: string; producerId: string; streamId: string; consumerTestId: string; seed: string; rootSeedDigest: string; derivedSeed: string; streamDigest: string; }>} RandomConsumerStream
+ * @typedef {{ canonicalTestId: string; streamId: string; derivedSeed: string; runId: string; attemptId: string; replayPlanDigest: string; caseIdentities: string[]; transitionIdentities: string[]; outcome: 'passed'; }} RandomExecutionObservation
+ * @typedef {{ consumer: RandomConsumer; stream: RandomConsumerStream; runId: string; attemptId: string; planDigest: string; }} RandomExecutionContext
+ * @typedef {{ schema: string; producerId: string; canonicalTestId: string; kind: RandomConsumer['kind']; streamId: string; version: string; rootSeedDigest: string; derivedSeed: string; streamDigest: string; evidenceClass: 'correctness' | 'diagnostic'; qualificationEligible: boolean; budget: RandomConsumer['budget']; executedIterations: number; caseIdentities: string[]; transitionIdentities: string[]; shrinkSequenceIdentity: string | null; minimalSample: { digest: string; ref?: string; } | null; artifact: { digest: string; generationCount: number; ref?: string; } | null; outcome: 'passed' | 'failed'; firstFailure: { attempt: number; } | null; contentDigest: string; }} RandomStreamReceipt
+ */
+
 import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -47,6 +57,10 @@ function consumerKey(consumer)
     return `${consumer.producerId}\u0000${consumer.canonicalTestId}\u0000${consumer.streamId}`;
 }
 
+/**
+ * @param {string} [file]
+ * @returns {RandomStreamInventory}
+ */
 export function loadRandomStreamInventory(file = defaultInventoryFile)
 {
     const document = JSON.parse(readFileSync(file, 'utf8'));
@@ -54,6 +68,10 @@ export function loadRandomStreamInventory(file = defaultInventoryFile)
     return document;
 }
 
+/**
+ * @param {unknown} document
+ * @returns {RandomStreamInventory}
+ */
 export function validateRandomStreamInventory(document)
 {
     exactKeys(document, new Set(['schema', 'consumers', 'nonRandomDeclarations', 'nonSemanticEntropy']), 'random stream inventory');
@@ -117,6 +135,11 @@ export function validateRandomStreamInventory(document)
     return document;
 }
 
+/**
+ * @param {RandomStreamInventory} inventory
+ * @param {RandomConsumerIdentity} identity
+ * @returns {RandomConsumer}
+ */
 export function resolveRandomConsumer(inventory, { producerId, canonicalTestId, streamId })
 {
     validateRandomStreamInventory(inventory);
@@ -127,6 +150,10 @@ export function resolveRandomConsumer(inventory, { producerId, canonicalTestId, 
     return matches[0];
 }
 
+/**
+ * @param {{ rootSeed: string; consumer: RandomConsumer; }} options
+ * @returns {RandomConsumerStream}
+ */
 export function deriveRandomConsumerStream({ rootSeed, consumer })
 {
     validateRandomStreamInventory({
@@ -149,6 +176,10 @@ export function deriveRandomConsumerStream({ rootSeed, consumer })
     });
 }
 
+/**
+ * @param {string} seed
+ * @returns {() => number}
+ */
 export function createDeterministicRandom(seed)
 {
     nonEmpty(seed, 'derived seed');
@@ -162,12 +193,20 @@ export function createDeterministicRandom(seed)
     };
 }
 
+/**
+ * @param {{ derivedSeed: string; caseIndex: number; value: unknown; }} options
+ * @returns {string}
+ */
 export function deterministicCaseIdentity({ derivedSeed, caseIndex, value })
 {
     assert(Number.isInteger(caseIndex) && caseIndex >= 0, 'caseIndex must be a non-negative integer');
     return canonicalDigest({ derivedSeed, caseIndex, value });
 }
 
+/**
+ * @param {readonly unknown[]} items
+ * @returns {string}
+ */
 export function deterministicSequenceIdentity(items)
 {
     assert(Array.isArray(items), 'sequence identity input must be an array');
@@ -176,6 +215,10 @@ export function deterministicSequenceIdentity(items)
 
 // The child calls record only after the corresponding oracle has succeeded.
 // A failed/incomplete child never publishes a completed execution document.
+/**
+ * @param {{ canonicalTestId: string; streamId: string; environment?: Record<string, string | undefined>; }} options
+ * @returns {{ record(value: unknown): void; complete(): void; } | null}
+ */
 export function createRandomExecutionRecorder({ canonicalTestId, streamId, environment = process.env })
 {
     if (!environment.FSUSBLOG_RANDOM_EXECUTION_DIR)
@@ -208,6 +251,11 @@ export function createRandomExecutionRecorder({ canonicalTestId, streamId, envir
     };
 }
 
+/**
+ * @param {unknown} document
+ * @param {RandomExecutionContext} context
+ * @returns {RandomExecutionObservation}
+ */
 export function validateRandomExecutionObservation(document, { consumer, stream, runId, attemptId, planDigest })
 {
     const fields = ['canonicalTestId', 'streamId', 'derivedSeed', 'runId', 'attemptId',
@@ -234,6 +282,10 @@ export function validateRandomExecutionObservation(document, { consumer, stream,
     return document;
 }
 
+/**
+ * @param {RandomExecutionContext & { binding: { streamId: string; ref: string; digest: string; }; directory: string; }} options
+ * @returns {RandomExecutionObservation}
+ */
 export function readRandomExecutionObservation({ binding, directory, consumer, stream, runId, attemptId, planDigest })
 {
     const expected = path.resolve(root, directory, `${consumer.streamId}.json`);
@@ -249,6 +301,10 @@ export function readRandomExecutionObservation({ binding, directory, consumer, s
         { consumer, stream, runId, attemptId, planDigest });
 }
 
+/**
+ * @param {{ consumer: RandomConsumer; stream: RandomConsumerStream; evidenceClass?: RandomStreamReceipt['evidenceClass']; qualificationEligible?: boolean; caseIdentities: string[]; transitionIdentities?: string[]; executedIterations: number; shrinkSequenceIdentity?: RandomStreamReceipt['shrinkSequenceIdentity']; minimalSample?: RandomStreamReceipt['minimalSample']; artifact?: RandomStreamReceipt['artifact']; outcome?: RandomStreamReceipt['outcome']; firstFailure?: RandomStreamReceipt['firstFailure']; }} options
+ * @returns {RandomStreamReceipt}
+ */
 export function createRandomStreamReceipt({
     consumer,
     stream,
@@ -292,6 +348,11 @@ export function createRandomStreamReceipt({
     return receipt;
 }
 
+/**
+ * @param {unknown} receipt
+ * @param {{ consumer: RandomConsumer; stream: RandomConsumerStream; }} context
+ * @returns {RandomStreamReceipt}
+ */
 export function validateRandomStreamReceipt(receipt, { consumer, stream })
 {
     exactKeys(receipt, new Set([
@@ -349,6 +410,9 @@ export function validateRandomStreamReceipt(receipt, { consumer, stream })
     return receipt;
 }
 
+/**
+ * @returns {{ rootSeed: string; rootSeedDigest: string; evidenceClass: 'diagnostic'; qualificationEligible: false; }}
+ */
 export function generateDiagnosticRootSeed()
 {
     let emitted = null;
@@ -369,6 +433,10 @@ export function generateDiagnosticRootSeed()
     };
 }
 
+/**
+ * @param {{ consumer: RandomConsumer; stream: RandomConsumerStream; payload: unknown; generationCount?: number; }} options
+ * @returns {{ bytes: Buffer<ArrayBuffer>; digest: string; generationCount: number; }}
+ */
 export function deterministicFixtureArtifact({ consumer, stream, payload, generationCount = 1 })
 {
     assert(consumer.kind === 'fixture', 'fixture artifact requires a fixture consumer');

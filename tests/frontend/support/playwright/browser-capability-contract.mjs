@@ -1,3 +1,12 @@
+/**
+ * @typedef {'chromium' | 'firefox' | 'webkit'} BrowserEngine
+ * @typedef {'serviceWorker' | 'passkey' | 'conditionalMediation'} BrowserCapability
+ * @typedef {'required' | 'optional-with-fallback' | 'intentionally-disabled'} CapabilityClassification
+ * @typedef {Readonly<{ classification: CapabilityClassification; supportedBehavior: readonly string[]; fallbackBehavior: readonly string[]; }>} CapabilityDeclaration
+ * @typedef {Readonly<Record<BrowserEngine, Readonly<Record<BrowserCapability, CapabilityDeclaration>>>>} BrowserCapabilityContract
+ * @typedef {{ probe: boolean; supportedBehavior?: Readonly<Record<string, boolean>>; fallbackBehavior?: Readonly<Record<string, boolean>>; absentCapabilityFixture?: Readonly<Record<string, boolean>>; }} BrowserCapabilityEvidence
+ */
+
 const ENGINES = Object.freeze(['chromium', 'firefox', 'webkit']);
 const CAPABILITIES = Object.freeze([
     'serviceWorker',
@@ -10,6 +19,7 @@ const CLASSIFICATIONS = new Set([
     'intentionally-disabled'
 ]);
 
+/** @type {BrowserCapabilityContract} */
 export const browserCapabilityContract = Object.freeze({
     chromium: Object.freeze({
         serviceWorker: declaration('required', [
@@ -75,6 +85,10 @@ export const browserCapabilityContract = Object.freeze({
     })
 });
 
+/**
+ * @param {BrowserCapabilityContract} [contract]
+ * @returns {BrowserCapabilityContract}
+ */
 export function validateBrowserCapabilityContract(
     contract = browserCapabilityContract
 )
@@ -147,6 +161,12 @@ export function validateBrowserCapabilityContract(
     return contract;
 }
 
+/**
+ * @param {BrowserEngine} browserName
+ * @param {BrowserCapability} capability
+ * @param {BrowserCapabilityContract} [contract]
+ * @returns {CapabilityDeclaration}
+ */
 export function resolveBrowserCapabilityDeclaration(
     browserName,
     capability,
@@ -164,6 +184,10 @@ export function resolveBrowserCapabilityDeclaration(
     return declaration;
 }
 
+/**
+ * @param {{ browserName: BrowserEngine; capability: BrowserCapability; evidence: BrowserCapabilityEvidence; contract?: BrowserCapabilityContract; }} options
+ * @returns {void}
+ */
 export function assertBrowserCapabilityBehavior({
     browserName,
     capability,

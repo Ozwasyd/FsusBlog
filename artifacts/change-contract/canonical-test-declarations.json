@@ -1,0 +1,196 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "command": "node tools/frontend/generate-canonical-test-declarations.mjs --write",
+    "compilerVersion": "6.0.3",
+    "sources": [
+        "tools/frontend/generate-canonical-test-declarations.mjs",
+        "tests/frontend/checks/static/check-canonical-viewport-safe-area.mjs",
+        "tests/frontend/checks/static/check-document-viewport-source.mjs",
+        "tests/frontend/support/aeds-envelope.mjs",
+        "tests/frontend/support/playwright/browser-capability-contract.mjs",
+        "tests/frontend/support/playwright/readiness.mjs",
+        "tests/frontend/support/playwright/screenshotPathTemplate.mjs",
+        "tests/frontend/support/playwright/uxViewportPlan.mjs",
+        "tests/frontend/support/public-fixtures.mjs",
+        "tests/frontend/support/publicBootstrapCausalEvidence.mjs",
+        "tests/frontend/support/runtime-browser-timeout.mjs",
+        "tests/frontend/support/system-chromium.mjs",
+        "tools/docs/public-preview-quality.mjs",
+        "tools/docs/public-preview-registry.mjs",
+        "tools/test-fixtures/receipt/canonical.mjs",
+        "tools/test/playwright-browser-identity.mjs",
+        "tools/test/random-streams.mjs"
+    ],
+    "sourceProvenance": [
+        {
+            "path": "tools/frontend/generate-canonical-test-declarations.mjs",
+            "sha256": "e9fa0d4d68518884daa3379a482c35a689d46f70e9a46e833203c4dc5f68f1df"
+        },
+        {
+            "path": "tests/frontend/checks/static/check-canonical-viewport-safe-area.mjs",
+            "sha256": "1bee76f268d7fc2b384c3efdcfa47af9f551d1cd3029192c13be1a3a689c2e77"
+        },
+        {
+            "path": "tests/frontend/checks/static/check-document-viewport-source.mjs",
+            "sha256": "4085be595802e31c03fac2ed31f6549be02759cdeb9b157b51f68343d01ad82d"
+        },
+        {
+            "path": "tests/frontend/support/aeds-envelope.mjs",
+            "sha256": "dc0f31f7cc186a4737eb71888c4d3f91892a2207dfa69f72e8086f5e8a5f42c8"
+        },
+        {
+            "path": "tests/frontend/support/playwright/browser-capability-contract.mjs",
+            "sha256": "433e52a8108172fd4f035cdcb79689c76af5f549096a479544e539336872c9a7"
+        },
+        {
+            "path": "tests/frontend/support/playwright/readiness.mjs",
+            "sha256": "f98713775c332eb3753d2ad7c507c8ac914b168595876ffbe1a0a258e9c69391"
+        },
+        {
+            "path": "tests/frontend/support/playwright/screenshotPathTemplate.mjs",
+            "sha256": "867c77d663d6fa9463e526fc8155ad65cc4feff4536a5f198dfc4031d4855a19"
+        },
+        {
+            "path": "tests/frontend/support/playwright/uxViewportPlan.mjs",
+            "sha256": "fd25ebc2ec7cbd7ea224773604e2dbd769a6c4118521d10eb2039a33255481bc"
+        },
+        {
+            "path": "tests/frontend/support/public-fixtures.mjs",
+            "sha256": "d2f5dee1f8935fa45090837c6b13bc04a901fe77d7b431b9881cfb2edb2b02dd"
+        },
+        {
+            "path": "tests/frontend/support/publicBootstrapCausalEvidence.mjs",
+            "sha256": "507d1f5c07e5617bacd06082b4acb7512d2afc0fe149deb9b8823981a39b6506"
+        },
+        {
+            "path": "tests/frontend/support/runtime-browser-timeout.mjs",
+            "sha256": "c271d18bb85deb620de067b97637be626e1d58eb4ec72f5d39ef27fbf6e1c348"
+        },
+        {
+            "path": "tests/frontend/support/system-chromium.mjs",
+            "sha256": "9beb4b1b8edcdb07d1bb8164242ad0a21de53e4973ee937c8d9c75b4a17e62a2"
+        },
+        {
+            "path": "tools/docs/public-preview-quality.mjs",
+            "sha256": "85b5daa52db7cb0a8d99079a6a354224445c14f14da622a7ab9e3e22ae7f9951"
+        },
+        {
+            "path": "tools/docs/public-preview-registry.mjs",
+            "sha256": "907e6fa91f09db4fbe7ebd9484b7e5c1e595986d2af7e354c6d77981a436e314"
+        },
+        {
+            "path": "tools/test-fixtures/receipt/canonical.mjs",
+            "sha256": "d3d245e7df249e197750d69c415a562fb0c08afb0ec2912febbea2b872c79f55"
+        },
+        {
+            "path": "tools/test/playwright-browser-identity.mjs",
+            "sha256": "7f906314225b50dc448a4f6901e1a690b6bf44512f6aa5fd96313da908796abe"
+        },
+        {
+            "path": "tools/test/random-streams.mjs",
+            "sha256": "84045eab288390e31d21e5b118304b500f652d25085dc1bed62724337d46c55e"
+        },
+        {
+            "path": "src/frontend/package-lock.json",
+            "sha256": "ddb81f9d626a63eb7ac75367dd2e654cf7eb5dec50de937782dd7f9f233a55c0"
+        },
+        {
+            "path": "src/frontend/scripts/fsusui-root.mjs",
+            "sha256": "9169b76b4837da4668174c96b22e393ec491f3d8fffdd4abaa1f1b55a069f304"
+        },
+        {
+            "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+            "sha256": "eda5fe8246d843954d5314762b22385f4238d2cf9828bcd273e6db01a578fb07"
+        },
+        {
+            "path": "src/frontend/tsconfig.playwright.json",
+            "sha256": "62ee834bc44c80532981b94cd7ea05f5211a9d8d12a54760eb805f2d68b727f9"
+        },
+        {
+            "path": "tests/frontend/support/playwright/acceptance-shared.ts",
+            "sha256": "3bc88bba67bcdccf55f2a8260470f6b85739366d74fcd04d8af3328fe3acdfdd"
+        },
+        {
+            "path": "tools/docs/public-preview-quality-contract.mjs",
+            "sha256": "1fdf54b4fd95cf79e8ca9912c9a01fecd5ecbca585eee79cbf4b82bf0f4c2ad2"
+        },
+        {
+            "path": "tools/docs/public-preview-quality-dom.mjs",
+            "sha256": "4927ace4beb9a46093a5d1761d3635f815a4b5b1c32979bd2de17271882f9b10"
+        },
+        {
+            "path": "tools/docs/public-preview-quality-runtime.mjs",
+            "sha256": "13d546423046b409c6184dc9531e30d29b3da86cd36c5d728b5d6cbeb9743724"
+        },
+        {
+            "path": "tools/release/public-preview-quality-receipt-contract.mjs",
+            "sha256": "a9426e397c6b69f4f178cf500f47383612386df935c7b229e8bba246be6f4ac0"
+        }
+    ],
+    "outputs": [
+        {
+            "path": "tests/frontend/checks/static/check-canonical-viewport-safe-area.d.mts",
+            "sha256": "ab6e587e135278e6c17a30f0107d25f3906100c3ee59de37fd52d96a2ee00da4"
+        },
+        {
+            "path": "tests/frontend/checks/static/check-document-viewport-source.d.mts",
+            "sha256": "38d6addf45b58701dd11a7e4a3b19b505da1225deea16027801312e1b665bdc5"
+        },
+        {
+            "path": "tests/frontend/support/aeds-envelope.d.mts",
+            "sha256": "557227b14d0643b82900e5c536a733157021913bb206aadd5b842ab119710557"
+        },
+        {
+            "path": "tests/frontend/support/playwright/browser-capability-contract.d.mts",
+            "sha256": "fa9292c5a4738c1f770609901710c425194b0aff2ff2c8570d8d660717524bc5"
+        },
+        {
+            "path": "tests/frontend/support/playwright/readiness.d.mts",
+            "sha256": "49cc96b8e59b444271e1151be9b1e019eea299b2e2173d61318398ea86a09246"
+        },
+        {
+            "path": "tests/frontend/support/playwright/screenshotPathTemplate.d.mts",
+            "sha256": "bb92dec23008c5d5b82fa52dfc6dbf1ce3277249deee2a65e9231feb13d9d42f"
+        },
+        {
+            "path": "tests/frontend/support/playwright/uxViewportPlan.d.mts",
+            "sha256": "7b3bd47177615e340030f69417fc8cbc83f8819a4fb2a90ac0acbc0356b8e38f"
+        },
+        {
+            "path": "tests/frontend/support/public-fixtures.d.mts",
+            "sha256": "04d604f087e22de8bcd4d64daa86e3b4f087a1341b5a80322c4bdd2d5151cb2f"
+        },
+        {
+            "path": "tests/frontend/support/publicBootstrapCausalEvidence.d.mts",
+            "sha256": "a79c2989377bfd4360dfd03ffcd93062262381e747c81fbba6fb7f8e2b80dec1"
+        },
+        {
+            "path": "tests/frontend/support/runtime-browser-timeout.d.mts",
+            "sha256": "0eeb8119f44cc3d0d8a26e60cb53d3f10d6a73ce32116de52493df18791985d0"
+        },
+        {
+            "path": "tests/frontend/support/system-chromium.d.mts",
+            "sha256": "1cb5d81957a3bbff02ab397dd2ee4f2c70bb1791626841c719d84de26e6d1454"
+        },
+        {
+            "path": "tools/docs/public-preview-quality.d.mts",
+            "sha256": "2e7a1f75cba45e21a57fac97409fd947bd1a8a3e068e3c557dde2d5e4492ec62"
+        },
+        {
+            "path": "tools/docs/public-preview-registry.d.mts",
+            "sha256": "df9b1c3f87eb2aa35a15c76d90e0940b0df426b0832a7dd8a3a17cf2a2640ef8"
+        },
+        {
+            "path": "tools/test-fixtures/receipt/canonical.d.mts",
+            "sha256": "e8729615315b9d164e87c9bfeecb4e10de3c9e0ad0efca480c55800837f80066"
+        },
+        {
+            "path": "tools/test/playwright-browser-identity.d.mts",
+            "sha256": "89a68669e9be5137edfb2bc40bdebb7e9ba1d0f276f6733cfb75368448b3720e"
+        },
+        {
+            "path": "tools/test/random-streams.d.mts",
+            "sha256": "63b42c97d69b9e8d24224f7875a86a87b294e8e220020f50a4aa115bd20fbb2a"
+        }
+    ]
+}
