@@ -1,0 +1,10 @@
+f4836b86c3132a1b1f41518ff753d80cdc35bd15
+60d9fd46d03b4eb1cf1898bb6255731e07deb3cd
+b9c076e4b763130075218ff9d50f9a6c36784f59
+10.0.401
+v24.19.0
+Linux 6.18.44 x86_64 GNU/Linux
+ls: cannot access '/dev/dri': No such file or directory
+ls: cannot access '/dev/nvidia0': No such file or directory
+ls: cannot access '/dev/kfd': No such file or directory
+	libamdhip64.so.5 (libc6,x86-64) => /lib/x86_64-linux-gnu/libamdhip64.so.5

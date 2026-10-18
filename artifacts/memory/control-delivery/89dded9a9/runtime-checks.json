@@ -1,0 +1,21 @@
+{
+  "candidate": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+  "sourceAfter": "89dded9a9a128ad95e4e687b8ad36e382541b479",
+  "runId": "mem-89dded9a9-20261008-real-cgroup-counters",
+  "startedAt": "2026-10-08T14:51:12.504455+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~LinuxCgroupCounterParserTests|FullyQualifiedName~LinuxCgroupContextReaderTests|FullyQualifiedName~LinuxCgroupDirectoryReaderTests|FullyQualifiedName~LinuxCgroupScopeResolverTests|FullyQualifiedName~LinuxProcMemoryPressureTests|FullyQualifiedName~PortableMemoryPressureTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests",
+    "--logger",
+    "trx;LogFileName=memory-89dded9a9.trx",
+    "--results-directory",
+    ".tmp/memory-integration/89dded9a9/test-results"
+  ],
+  "exitCode": 0,
+  "artifact": ".tmp/memory-integration/89dded9a9/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/89dded9a9/data"
+}
