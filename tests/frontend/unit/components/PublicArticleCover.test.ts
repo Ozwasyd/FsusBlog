@@ -180,7 +180,7 @@ describe('public article cover', () => {
     await wrapper.setProps({ detailView: detailView(undefined) })
     await nextTick()
     expect(wrapper.find('[data-content-cover]').exists()).toBe(false)
-    expect(wrapper.get('[data-test="article-header"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="article-header"]').exists()).toBe(true)
     wrapper.unmount()
   })
 })

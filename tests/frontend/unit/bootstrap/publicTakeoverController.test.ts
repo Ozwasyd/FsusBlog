@@ -7,7 +7,7 @@ const createPublicTakeoverSnapshot = vi.fn(() => ({
   remove: vi.fn()
 }))
 const beginRouteReadiness = vi.fn()
-const waitForRouteContentReady = vi.fn(async () => 'ready' as const)
+const waitForRouteContentReady = vi.fn<typeof import('@/bootstrap/routeReadiness').waitForRouteContentReady>(async () => 'ready')
 
 vi.mock('@/bootstrap/publicTakeoverSnapshot', () => ({ createPublicTakeoverSnapshot }))
 vi.mock('@/bootstrap/routeReadiness', () => ({
