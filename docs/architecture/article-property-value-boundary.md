@@ -70,3 +70,10 @@ identity, command kind and revision transitions to the submitted command. A read
 snapshot is never accepted as a mutation receipt. These client checks supplement
 the original server's authenticated persistence and do not authenticate arbitrary
 receipt bytes independently of that server.
+
+Mutation clients capture their command through the original generated encode/decode
+pair before asynchronous transport. This holds the exact canonical GUID identities,
+owner/site and CAS coordinates actually sent, independently of caller mutation or
+valid GUID letter casing. Receipts bind to that held command. Each of the six
+mutation calls uses its actual generated operation descriptor with an explicit
+HTTP method and PoW requirement, observable by the unchanged original parity checker.

@@ -1,0 +1,99 @@
+{
+    "schema": "fsusblog.property-receipt-pow-p2-followup.v1",
+    "status": "targeted-regressions-fixed-with-original-global-baseline-failures-retained",
+    "frozenSource": "97d31197119918f4d7e5bafbd69000d3f59fff05",
+    "review": "https://github.com/Ozwasyd/FsusBlog/pull/4593#pullrequestreview-5561702781",
+    "red": {
+        "validGuidCasingFailures": 2,
+        "powFrozenFailures": 7,
+        "powExact4266Failures": 5
+    },
+    "green": {
+        "frontend": 73,
+        "backend": 475,
+        "expandedOriginalEndpointSecurityOwners": 63,
+        "wireNativeProtocol": 64,
+        "originalCheckerTests": 102,
+        "originalPowCheckerCounterexamples": 7
+    },
+    "pow": {
+        "originalCheckerUnchanged": true,
+        "remainingFailures": 5,
+        "remainingFailuresExactlyMatch4266": true,
+        "newPropertyFailures": 0
+    },
+    "unchanged": [
+        "Backend authorities and permission mapping",
+        "Shared contracts and all generated protocol/codec outputs",
+        "Original PoW checker/refusal rules",
+        "Frozen #4593 and preserved historical work"
+    ],
+    "otherBaseline": {
+        "typecheckErrors": 255,
+        "newTypecheckErrors": 0,
+        "census": "Original previously reproduced failure retained; not classified as a P2 regression"
+    },
+    "environmentSetup": "Installed original locked javascript-format-parser without lifecycle scripts; earlier setup/overlapping interrupted checker attempts are discarded, unique locked run is the qualification evidence.",
+    "rawEvidence": "local only; fixture/authentication/SQL traces are not published",
+    "rawDirectory": "/workspace/shared/property-p2-evidence",
+    "rawLogs": [
+        {
+            "path": "/workspace/shared/property-p2-evidence/guid-red.log",
+            "sha256": "8a62a0b6d6e72e07d7d0bb714bedacd7b1ce16fc05bb9fc5361fb5ee60177469"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/pow-red.log",
+            "sha256": "8387ca80d4e3db6dd3410be03b2860a1dd596943b25e59ccd5a9c3ee96a26ca9"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/pow-input4266.log",
+            "sha256": "3312387ad88df6f32feb698847388dad1141b67980e95bad37678c4b022280c1"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/pow-after.log",
+            "sha256": "01cc9144d118c37e6b0940e05621122b8313b09cb4a2204a83ea952ee37cad8c"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/pow-controls.log",
+            "sha256": "ba958195fa1f0655859eae886e409cff088f1f1937bc6f9811a9b28e3b755a76"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/frontend-green.log",
+            "sha256": "7f9806d33f9e03c56fe00c3bc4016192278bfd0d584c944f7029944866daae16"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/backend-tests.log",
+            "sha256": "c93f6bd85bc08609523193eba7346212f1a52234783c7097dbc05701bf13eac8"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/safety-tests.log",
+            "sha256": "7b2a07ec1fc7ef349fe3707c4559d344e94b7d9ea4055f68331b53af114a4812"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/wire-tests.log",
+            "sha256": "5411ad80206c15133b28ccc1667bc8402ff3586aacdecae25ca1f7dbc87f74d6"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/checker-locked.log",
+            "sha256": "679bc83095b5331ac301e880f6489daf3ced3e323b3a6a4a108b24b7d873b253"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/style.log",
+            "sha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/typecheck.log",
+            "sha256": "29240c0dc673037f2294dbbc94d5b3cb7b9557c12ffd2757483594992755051d"
+        },
+        {
+            "path": "/workspace/shared/property-p2-evidence/parser-install.log",
+            "sha256": "24b1c182ff3c37ab3a92d1e68c8cc141892a2c97f121f1970581577075b4f4d6"
+        }
+    ],
+    "notQualified": [
+        "Full test matrix / remote checks",
+        "Production cookie/session startup",
+        "Historical successor checkpoint / Approval issuer authorization",
+        "Plugin execution or migration"
+    ]
+}
