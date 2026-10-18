@@ -240,11 +240,12 @@ function isSequence(value: unknown): value is number
     return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
-function isBoundedDenseArray(value: unknown, capacity: number): boolean
+function isBoundedDenseArray(value: unknown, capacity: number): value is unknown[]
 {
-    return Array.isArray(value) && value.length <= capacity
+    return Array.isArray(value) && Object.getPrototypeOf(value) === Array.prototype && value.length <= capacity
         && Reflect.ownKeys(value).length === value.length + 1
-        && Array.from({ length: value.length }, (_, index) => Object.hasOwn(value, index)).every(Boolean);
+        && Array.from({ length: value.length }, (_, index) =>
+            Object.hasOwn(Object.getOwnPropertyDescriptor(value, index) ?? {}, 'value')).every(Boolean);
 }
 
 function isNullableRef(value: unknown): boolean
@@ -288,7 +289,7 @@ function isAnchor(value: unknown): value is AuthoringNavigationAnchor
         || /[\s/\\?#<>]/u.test(value.nodeId)
         || !exactKeys(value.range, ['start', 'end']) || !isSequence(value.range.start)
         || !isSequence(value.range.end) || value.range.end < value.range.start
-        || !['before', 'after'].includes(String(value.affinity)) || !isDigest(value.anchorContextDigest))
+        || typeof value.affinity !== 'string' || !['before', 'after'].includes(value.affinity) || !isDigest(value.anchorContextDigest))
     {
         return false;
     }
@@ -353,12 +354,17 @@ export function calculateAuthoringNavigationDigest(value: unknown): string
         }
         if (Array.isArray(item))
         {
-            if (Reflect.ownKeys(item).length !== item.length + 1
-                || !Array.from({ length: item.length }, (_, index) => Object.hasOwn(item, index)).every(Boolean))
+            if (!isBoundedDenseArray(item, item.length))
             {
                 throw new Error('authoring-navigation-sparse-or-extended-array');
             }
-            return `[${item.map(canonical).join(',')}]`;
+            // Validate every slot before reading data; never dispatch through caller array methods.
+            const values: string[] = [];
+            for (let index = 0; index < item.length; index += 1)
+            {
+                values.push(canonical(Object.getOwnPropertyDescriptor(item, index)?.value));
+            }
+            return `[${values.join(',')}]`;
         }
         if (item !== null && typeof item === 'object' && Object.getPrototypeOf(item) === Object.prototype)
         {
@@ -404,10 +410,14 @@ function isCommand(value: unknown): value is AuthoringNavigationCommand
     {
         return false;
     }
-    const record = value as Record<string, unknown>;
-    const keys = Object.hasOwn(commandKeys, String(record.kind))
-        ? commandKeys[record.kind as AuthoringNavigationCommand['kind']] : null;
-    if (!keys || !exactKeys(value, [...commonCommandKeys, ...keys])
+    const kind = Object.getOwnPropertyDescriptor(value, 'kind');
+    if (!kind || !Object.hasOwn(kind, 'value') || typeof kind.value !== 'string'
+        || !Object.hasOwn(commandKeys, kind.value))
+    {
+        return false;
+    }
+    const keys = commandKeys[kind.value as AuthoringNavigationCommand['kind']];
+    if (!exactKeys(value, [...commonCommandKeys, ...keys])
         || value.schema !== authoringNavigationCommandSchema || !isScope(value.scope)
         || !isRef(value.commandId) || !isRef(value.idempotencyKey)
         || !isSequence(value.commandSequence) || value.commandSequence === 0 || !isSequence(value.expectedRevision))
@@ -421,7 +431,8 @@ function isCommand(value: unknown): value is AuthoringNavigationCommand
         case 'back':
         case 'forward':
         case 'replace-invalid': return isRef(value.entryId) && isDigest(value.expectedEntryDigest) && isValidity(value.validity);
-        case 'settle-navigation': return isRef(value.intentRef) && ['completed', 'cancelled', 'failed'].includes(String(value.outcome));
+        case 'settle-navigation': return isRef(value.intentRef) && typeof value.outcome === 'string'
+            && ['completed', 'cancelled', 'failed'].includes(value.outcome);
         case 'clear-current-session': return true;
         default: return false;
     }
@@ -437,10 +448,10 @@ export function verifyAuthoringNavigationHistoryState(value: unknown): value is 
             || !isSequence(value.revision) || !isSequence(value.lastCommandSequence)
             || value.lastCommandSequence < value.revision
             || !isSequence(value.lastUserSequence) || !isSequence(value.lastUserInitiatedAt)
-            || !Array.isArray(value.entries) || value.entries.length > value.capacity
+            || !isBoundedDenseArray(value.entries, value.capacity)
             || !Number.isSafeInteger(value.cursor) || Number(value.cursor) < -1 || Number(value.cursor) >= value.entries.length
             || (value.entries.length === 0) !== (value.cursor === -1)
-            || !Array.isArray(value.processed)
+            || !isBoundedDenseArray(value.processed, authoringNavigationPolicy.commandWindow)
             || value.processed.length !== Math.min(value.revision, authoringNavigationPolicy.commandWindow)
             || value.revision === 0 && (value.lastCommandSequence !== 0 || value.lastUserSequence !== 0
                 || value.lastUserInitiatedAt !== 0 || value.entries.length !== 0))
