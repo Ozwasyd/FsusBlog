@@ -286,6 +286,7 @@ export async function readAedsResponse(response)
 
 /**
  * @param {AedsFrameInput} buffer
+ * @returns {{ frameType: number; payload: Uint8Array; }}
  */
 export function decodeAedsFrame(buffer)
 {

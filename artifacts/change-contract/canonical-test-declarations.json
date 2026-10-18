@@ -24,7 +24,7 @@
     "sourceProvenance": [
         {
             "path": "tools/frontend/generate-canonical-test-declarations.mjs",
-            "sha256": "87e73a0508912f44ef2dc5292a34c053030dc1c808f690f0b213e2dc617bbfdd"
+            "sha256": "e9fa0d4d68518884daa3379a482c35a689d46f70e9a46e833203c4dc5f68f1df"
         },
         {
             "path": "tests/frontend/checks/static/check-canonical-viewport-safe-area.mjs",
@@ -36,7 +36,7 @@
         },
         {
             "path": "tests/frontend/support/aeds-envelope.mjs",
-            "sha256": "b9362bba60e7f1eb390bc058b2500dda4fa20ce62c8b6f9de5b8feec5a4a8f90"
+            "sha256": "dc0f31f7cc186a4737eb71888c4d3f91892a2207dfa69f72e8086f5e8a5f42c8"
         },
         {
             "path": "tests/frontend/support/playwright/browser-capability-contract.mjs",
@@ -115,6 +115,10 @@
             "sha256": "1fdf54b4fd95cf79e8ca9912c9a01fecd5ecbca585eee79cbf4b82bf0f4c2ad2"
         },
         {
+            "path": "tools/docs/public-preview-quality-dom.mjs",
+            "sha256": "4927ace4beb9a46093a5d1761d3635f815a4b5b1c32979bd2de17271882f9b10"
+        },
+        {
             "path": "tools/docs/public-preview-quality-runtime.mjs",
             "sha256": "13d546423046b409c6184dc9531e30d29b3da86cd36c5d728b5d6cbeb9743724"
         },
@@ -134,7 +138,7 @@
         },
         {
             "path": "tests/frontend/support/aeds-envelope.d.mts",
-            "sha256": "1c366b4f7a0aa7cc1c04dfd9399e1c2b6421f5e1f2cb7b99fbe812bfc8dfe454"
+            "sha256": "557227b14d0643b82900e5c536a733157021913bb206aadd5b842ab119710557"
         },
         {
             "path": "tests/frontend/support/playwright/browser-capability-contract.d.mts",

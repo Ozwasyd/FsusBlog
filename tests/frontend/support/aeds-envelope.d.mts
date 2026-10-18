@@ -341,14 +341,15 @@ export function readAedsResponse(response: {
     traceId: string;
 } | {
     frameType: number;
-    payload: Uint8Array<ArrayBuffer>;
+    payload: Uint8Array<ArrayBufferLike>;
 } | null>;
 /**
  * @param {AedsFrameInput} buffer
+ * @returns {{ frameType: number; payload: Uint8Array; }}
  */
 export function decodeAedsFrame(buffer: AedsFrameInput): {
     frameType: number;
-    payload: Uint8Array<ArrayBuffer>;
+    payload: Uint8Array;
 };
 /**
  * @param {AedsFrameInput} buffer
@@ -917,7 +918,7 @@ export function decodeKnownFrame(buffer: AedsFrameInput): {
     traceId: string;
 } | {
     frameType: number;
-    payload: Uint8Array<ArrayBuffer>;
+    payload: Uint8Array<ArrayBufferLike>;
 } | null;
 /**
  * @param {Uint8Array} bytes

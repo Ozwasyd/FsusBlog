@@ -40,6 +40,7 @@ const readOnlyInputs = [
     'src/frontend/tsconfig.playwright.json',
     'tests/frontend/support/playwright/acceptance-shared.ts',
     'tools/docs/public-preview-quality-contract.mjs',
+    'tools/docs/public-preview-quality-dom.mjs',
     'tools/docs/public-preview-quality-runtime.mjs',
     'tools/release/public-preview-quality-receipt-contract.mjs'
 ];
