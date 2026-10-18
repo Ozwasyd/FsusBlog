@@ -3,7 +3,8 @@ import {
     type PerceptionV2WorkerRequest
 } from './perception-v2.renderer';
 
-const ctx = self as DedicatedWorkerGlobalScope;
+// Dedicated workers share MessagePort's message and transferable APIs.
+const ctx = self as Pick<MessagePort, 'onmessage' | 'postMessage'>;
 
 ctx.onmessage = async (event: MessageEvent<PerceptionV2WorkerRequest>) =>
 {

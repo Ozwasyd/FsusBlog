@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { assert, describe, expect, it } from 'vitest'
 import {
   handlePerceptionV2WorkerRequest,
   renderPerceptionRecipeV2,
   type PerceptionV2RenderEnvironment,
+  type PerceptionV2WorkerRequest,
+  type PerceptionV2WorkerResponse,
   type RenderRecipeV2
 } from '@/workers/security/perception-v2.renderer'
 import { createPerceptionV2WorkerClient } from '@/services/securityPerceptionV2Client'
@@ -45,7 +47,7 @@ const completeRecipe: RenderRecipeV2 = {
 
 describe('PerceptionV2 worker renderer core', () => {
   it('uses OffscreenCanvas transfer output when the worker runtime supports it', async () => {
-    const bitmap = { close: () => undefined } as ImageBitmap
+    const bitmap: ImageBitmap = { width: 64, height: 40, close: () => undefined }
     const result = await renderPerceptionRecipeV2(completeRecipe, {
       createOffscreenCanvas: () => createFakeCanvas(bitmap)
     })
@@ -64,6 +66,7 @@ describe('PerceptionV2 worker renderer core', () => {
 
     expect(result.renderer).toBe('canvas-fallback')
     expect(result.payload.kind).toBe('rgba-raster')
+    assert(result.payload.kind === 'rgba-raster')
     expect(result.payload.width).toBe(64)
     expect(result.payload.height).toBe(40)
     expect(result.payload.pixels).toBeInstanceOf(Uint8ClampedArray)
@@ -84,6 +87,7 @@ describe('PerceptionV2 worker renderer core', () => {
       })
 
       expect(result.payload.kind).toBe('rgba-raster')
+      assert(result.payload.kind === 'rgba-raster')
       expect(checksum(result.payload.pixels)).toBeGreaterThan(0)
     }
   })
@@ -102,6 +106,8 @@ describe('PerceptionV2 worker renderer core', () => {
 
     expect(full.payload.kind).toBe('rgba-raster')
     expect(withoutVisualFields.payload.kind).toBe('rgba-raster')
+    assert(full.payload.kind === 'rgba-raster')
+    assert(withoutVisualFields.payload.kind === 'rgba-raster')
     expect(checksum(full.payload.pixels)).not.toBe(checksum(withoutVisualFields.payload.pixels))
   })
 
@@ -263,22 +269,25 @@ function checksum(bytes: Uint8ClampedArray): number {
   return result
 }
 
-type FakeWorkerResponse = Parameters<NonNullable<Worker['onmessage']>>[0]['data']
-
-class FakePerceptionWorker {
+class FakePerceptionWorker extends EventTarget implements Worker {
   onmessage: Worker['onmessage'] = null
   onerror: Worker['onerror'] = null
   onmessageerror: Worker['onmessageerror'] = null
   posted: unknown[] = []
   terminated = false
 
-  constructor(private readonly responder: (message: Record<string, unknown>) => FakeWorkerResponse | undefined) {}
+  private readonly responder: (message: PerceptionV2WorkerRequest) => PerceptionV2WorkerResponse | undefined
 
-  postMessage(message: unknown): void {
+  constructor(responder: (message: PerceptionV2WorkerRequest) => PerceptionV2WorkerResponse | undefined) {
+    super()
+    this.responder = responder
+  }
+
+  postMessage(message: PerceptionV2WorkerRequest): void {
     this.posted.push(message)
-    const response = this.responder(message as Record<string, unknown>)
+    const response = this.responder(message)
     if (response) {
-      this.onmessage?.({ data: response } as MessageEvent)
+      this.onmessage?.(new MessageEvent('message', { data: response }))
     }
   }
 
@@ -287,6 +296,6 @@ class FakePerceptionWorker {
   }
 
   asWorker(): Worker {
-    return this as unknown as Worker
+    return this
   }
 }
