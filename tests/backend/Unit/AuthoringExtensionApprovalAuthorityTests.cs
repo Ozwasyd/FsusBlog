@@ -1,9 +1,9 @@
 using System.Reflection;
 
+using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
-
-using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -48,4 +48,24 @@ public sealed class AuthoringExtensionApprovalAuthorityTests
         var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => authority.ReadAsync(new string('a', 64)).AsTask());
         Assert.Equal("approval_authenticated_admin_required", error.Message);
     }
+
+    [Fact]
+    public async Task LegacyScopeAdapter_CannotBeUsedAsOrderedApprovalAuthority()
+    {
+        IAuthoringExtensionApprovalScopeAuthority legacy = new LegacyOnlyScopeAuthority();
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => legacy.AcquireWithStateCustodyAsync(
+            new DefaultHttpContext(), AuthoringApprovalOperation.Migration, null!, null, null!, default).AsTask());
+        Assert.Equal("approval_ordered_scope_authority_unavailable", error.Message);
+    }
+
+    private sealed class LegacyOnlyScopeAuthority : IAuthoringExtensionApprovalScopeAuthority
+    {
+        public ValueTask<IAuthoringExtensionApprovalScope> AcquireAsync(HttpContext context,
+            AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destinationScope,
+            CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("The standalone adapter must never be used for ordered approval.");
+        }
+    }
+
 }

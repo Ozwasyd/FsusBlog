@@ -623,6 +623,18 @@ transaction and cannot settle Completed. Principal DELETE/cascading document FKs
 provenance revocation, original state writers and receipt appends remain required
 cross-owner race controls; fixture ACL controls alone do not qualify provenance.
 
+Positive approval uses AcquireWithStateCustodyAsync with the exact original
+IAuthoringExtensionStateObservation. The provider validates AcquiredScopeIds and
+verifies state through that held owner connection. It must not execute a state-table
+SELECT on its separate provenance connection: a queued TRUNCATE can otherwise wait
+for observation's AccessShare while that new SELECT waits behind TRUNCATE. Missing
+ordered acquisition refuses approval_ordered_scope_authority_unavailable, without
+falling back to the standalone scope adapter. The genuine scope producer dependency
+must implement this ordered port before its approval path qualifies. The canonical
+execution-result scope exposes its original StateCustody; Complete checks the same
+observation's actual phase, snapshots/measurement and exact scope IDs before terminal
+CAS. No result-source implementation or native publication authority is supplied here.
+
 The leaf schema supplies only DDL; runtime methods do not create tables, alter
 existing state/receipt schemas, or register production migrations/DI. Lifecycle,
 preflight, canonical scope/state/native custody, HTTP/AEDS/UI and same-operation
