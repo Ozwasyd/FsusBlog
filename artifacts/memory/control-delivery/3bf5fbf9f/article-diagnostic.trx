@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="20a72f72-dfdc-478b-a3f8-702d5ba0b0b7" name="@5f086e157d19 2026-10-08 13:24:36" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T13:24:36.5190986+00:00" queuing="2026-10-08T13:24:36.5190986+00:00" start="2026-10-08T13:24:34.1306461+00:00" finish="2026-10-08T13:24:36.5241638+00:00" />
+  <TestSettings name="default" id="d1956280-9dad-4708-b803-cfda5c11b04e">
+    <Deployment runDeploymentRoot="_5f086e157d19_2026-10-08_13_24_36" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="e903693d-b175-47ae-9b66-a50e33bdc73f" testId="ea2e8d10-2be0-40a9-7ad8-1b0917ab553d" testName="FsusBlog.Server.Tests.Unit.ArticleEndpointServiceTests.GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame" computerName="5f086e157d19" duration="00:00:00.1612556" startTime="2026-10-08T13:24:36.2821273+00:00" endTime="2026-10-08T13:24:36.4295982+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e903693d-b175-47ae-9b66-a50e33bdc73f">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.True() Failure
+Expected: True
+Actual:   False</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.ArticleEndpointServiceTests.GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame() in /workspace/.tmp-mem-3444-compliant/tests/backend/Unit/ArticleEndpointServiceTests.cs:line 382
+--- End of stack trace from previous location ---</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.ArticleEndpointServiceTests.GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="ea2e8d10-2be0-40a9-7ad8-1b0917ab553d">
+      <Execution id="e903693d-b175-47ae-9b66-a50e33bdc73f" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.ArticleEndpointServiceTests" name="GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="ea2e8d10-2be0-40a9-7ad8-1b0917ab553d" executionId="e903693d-b175-47ae-9b66-a50e33bdc73f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="1" executed="1" passed="0" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.31]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:01.72]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:01.76]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:01.96]       Assert.True() Failure
+[xUnit.net 00:00:01.96]       Expected: True
+[xUnit.net 00:00:01.96]       Actual:   False
+[xUnit.net 00:00:01.96]       Stack Trace:
+[xUnit.net 00:00:01.96]         /workspace/.tmp-mem-3444-compliant/tests/backend/Unit/ArticleEndpointServiceTests.cs(382,0): at FsusBlog.Server.Tests.Unit.ArticleEndpointServiceTests.GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame()
+[xUnit.net 00:00:01.96]         --- End of stack trace from previous location ---
+[xUnit.net 00:00:01.97]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="5f086e157d19" outcome="Error" timestamp="2026-10-08T13:24:36.4327954+00:00">
+        <Text>[xUnit.net 00:00:01.96]     FsusBlog.Server.Tests.Unit.ArticleEndpointServiceTests.GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>

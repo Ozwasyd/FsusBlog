@@ -1,0 +1,14 @@
+Test run for /workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.96]     FsusBlog.Server.Tests.Unit.ArticleEndpointServiceTests.GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame [FAIL]
+  Failed FsusBlog.Server.Tests.Unit.ArticleEndpointServiceTests.GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame [161 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at FsusBlog.Server.Tests.Unit.ArticleEndpointServiceTests.GetHotArticlesAsync_GenerationDriftDuringPublication_NeverPublishesOldFrame() in /workspace/.tmp-mem-3444-compliant/tests/backend/Unit/ArticleEndpointServiceTests.cs:line 382
+--- End of stack trace from previous location ---
+Results File: /workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/3bf5fbf9f/article-diagnostic/article-diagnostic.trx
+
+Failed!  - Failed:     1, Passed:     0, Skipped:     0, Total:     1, Duration: 161 ms - FsusBlog.Server.Tests.dll (net10.0)

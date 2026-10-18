@@ -1,0 +1,20 @@
+✔ independent discovery accounts for every required pattern and keeps generated/vendor in the denominator (1165.071846ms)
+✔ nonmatching source mutation, addition, deletion and staged changes invalidate inventory (1347.991317ms)
+✔ relabeling a stale receipt with a replacement SHA cannot conceal changed source (414.468438ms)
+✔ missing, extra, duplicate and altered site evidence is refused (1989.89984ms)
+✔ missing eligibility owner and all migration permissions fail closed (109.150275ms)
+✔ duplicate/replaced authority, wrong Auto semantics and hidden enable flags are rejected (40.794816ms)
+✔ unresolved coverage and toolchain identity cannot be fabricated into acceptance (1564.241689ms)
+✔ symlink source and offline dependency identity changes invalidate candidate (87.879947ms)
+✔ candidate cannot bind evidence to a different producer implementation (326.082043ms)
+✔ explicit families reject missing, extra and multiply owned source paths without claiming semantic closure (1054.192618ms)
+✔ installed SDK syntax observer distinguishes creation, reference, literal and trivia without promoting ownership (1681.675691ms)
+﹣ owning compiler references distinguish unresolved calls and text without qualifying lifetime (0.098297ms) # SKIP
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 9863.962517

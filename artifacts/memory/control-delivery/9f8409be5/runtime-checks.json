@@ -1,0 +1,21 @@
+{
+  "candidate": "9f8409be5efadf76241fd10f8344d1e59de64f0a",
+  "sourceAfter": "9f8409be5efadf76241fd10f8344d1e59de64f0a",
+  "runId": "mem-9f8409be5-20261008-real-context-capture",
+  "startedAt": "2026-10-08T14:29:34.884632+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~LinuxCgroupContextReaderTests|FullyQualifiedName~LinuxCgroupDirectoryReaderTests|FullyQualifiedName~LinuxCgroupScopeResolverTests|FullyQualifiedName~LinuxProcMemoryPressureTests|FullyQualifiedName~PortableMemoryPressureTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests",
+    "--logger",
+    "trx;LogFileName=memory-9f8409be5.trx",
+    "--results-directory",
+    ".tmp/memory-integration/9f8409be5/test-results"
+  ],
+  "exitCode": 0,
+  "artifact": ".tmp/memory-integration/9f8409be5/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/9f8409be5/data"
+}

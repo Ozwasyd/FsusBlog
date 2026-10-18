@@ -1,0 +1,103 @@
+## Linked Issue
+
+Refs #3453
+
+Related segment-lifecycle work: https://github.com/Ozwasyd/FsusBlog/issues/3455
+Common-contract dependency: https://github.com/Ozwasyd/FsusBlog/pull/3845
+
+## Scope Summary
+
+Implement disk admission and an owned-root boundary, plus reconstructible immutable segments. Disk, persistent inodes, host scratch/index and operation slots use the existing MemoryReservationCoordinator; recovery registers already-existing ownership through its exact descriptor/revision API with new index admission; staging/compaction and old-reader storage remain charged until legal deletion. Linux operations use anchored no-follow handles and actual device identity. Unknown quota/backing reject independent escape use; unknown inode availability rejects persistent growth, while admitted reads spend host/IO resources and no new inodes. A versioned bounded multirecord format verifies lengths, representation identity, completion and SHA-256 before publication/reuse; content-owner denial overrides spill availability. Recovery and cleanup have finite rosters; compaction retains old leases. Contended work is rejected before an unbounded monitor wait or any resource admission; explicit owner denial remains visible. Startup growth first requires a completed admitted owner inventory; unsupported/untracked/changed files block growth. Descriptor-bound block/inode observations and required owner-frozen physical upper bounds retain source/destination charges through inode-checked deletion. PublicAOT publication authority is untouched. Public Task Drained completes only after Disable and actual whole-operation, transient-resource, reader lease and segment charge release. Missing/replaced identities keep pending; temporary release failure faults completion and preserves uncertain cleanup. Caller-owned root shutdown is excluded and must be composed by the existing owner.
+
+Base: b9c076e4b763130075218ff9d50f9a6c36784f59. Latest fetched master: dbb373071db1ad21aaa665f4a1512bfb43f59950, with no disk/test overlap. Exact source head: fa255376f7b25721b12860279bf444899852373a. Exact common API: 4b1971ca3d5b6d6a645d2ce98c09407136c3e4df, consuming only eight compatible shared files including Inodes, the real FrozenDiskPhysicalAllocationPolicy and the descriptor/revision adoption API. Shared tracked files remain untouched. This branch depends on original-owner integration; no broad WIP merge or full-gate admission is implied.
+
+## Change Classification
+
+- [x] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [ ] Generated output
+- [x] Public contract change
+- [x] External naming exception
+- Contract impact: compatible
+
+## Tests Run
+
+- [x] Other: git diff base..source-head --check; PASS.
+- [x] Other: node tools/governance/check-change-contract.mjs --range base..source-head; PASS.
+- [x] Other: node tools/run-test-matrix.mjs validate; historical FAIL on prior candidate and clean original master with identical parser/closure drift. Raw results preserved; not rerun or claimed as current admission on the latest fetched master.
+- [x] Other: configured SDK + node tools/dotnet/check-csharp-style.mjs --mode changed --base base; PASS15 files,zero violations.
+- [ ] Full owning-project backend tests: NOT RUN on this newer source. Historical local NU1004 preserved; parent-reported common4b1971ca 416tests pass0skip is separate candidate evidence. Historical d5 source-gate failure is not inherited as current admission.
+- [x] Ordinary isolated source tests: existing four test-source files + actual disk modules + exact common checkpoint; cached locked subset restore and existing xUnit runner; Historical exact89fe PASS106,failed0,skipped0; current exact drain source affected lifecycle PASS17,failed0,skipped0 (7 new,10 strengthened). Full113 is NOT RUN. This is not the original owning-project context or qualification. Recipe and raw TRX attached.
+
+Recovery retains max index2560 before untrusted parsing; the original8500 host fixture limit is unchanged and now admits1 recovered owner. Descriptor/name/revision checks include post-approval callbacks; missing names cannot fabricate physical release. New publications also use existing CommitPhysical with initialized-file-length/frozen-capacity descriptors. Current drain results/source hashes are in artifacts/memory/disk-delivery/DRAIN_REPORT.json; the exact89fe106 results are preserved in artifacts/memory/disk-delivery/ADOPTION_REPORT.json; prior44/69/71/91-test evidence remains preserved. Every AC remains NotVerified. Exclusive-creation wrapper failures retain ownership; reentrant CopyTo disposal retains the active operation through its final hold, including unexpected caller exceptions. No complete owning-project/native qualification or physical-memory bound is claimed. No missing dependencies were fetched. No Docker tests were run.
+
+## UI Evidence
+
+No observable UI changes.
+
+## Coding Convention
+
+- [x] C# mother-style mapping checked
+- [x] Formatter/linter run
+- [x] No tool default overrides repository style
+- [x] Mechanical formatting separated from logic
+- [x] .git-blame-ignore-revs updated when applicable
+- Formatter identity: repository C# checker + configured SDK dotnet format
+- Formatter version: SDK10.0.401; source style pass
+- Formatter command: node tools/dotnet/check-csharp-style.mjs --mode changed --base b9c076e4b763130075218ff9d50f9a6c36784f59
+- Formatter idempotence evidence: none
+- Blame-ignore revision: none
+
+## External Naming Exception
+
+- Exceptions manifest: artifacts/change-contract/mem-disk-external-naming.json
+
+## Documentation / Intent
+
+- [x] Public API docs updated
+- [x] Ownership/security/performance intent updated
+- [x] Historical handoff archived or source-of-truth updated
+- [x] TODO/FIXME references valid issues
+
+## Compatibility And Risk
+
+- [x] Cross-language coding conventions reviewed
+- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
+- [x] External wire / ABI / database / third-party names preserved or explicitly adapted
+- [x] Public API impact reviewed
+- [x] AEDS frame / binary contract impact reviewed
+- [x] Database migration impact reviewed
+- [x] Security, auth, moderation, PoW, or privacy impact reviewed
+- [x] Docs updated or a reason is recorded below
+- [x] Known limitations updated if applicable
+
+## Performance Claim
+
+- Claim level: none
+- Evidence path: none
+- Non-goals: physical managed-memory measurements, qualification or throughput/latency claims
+
+## Release Note
+
+- Audience: internal
+- Category: Internal/Tooling
+- Summary: implement owned disk admission and segment lifecycle
+
+## Generated Output
+
+- Generator source: none
+- Generated outputs: none
+- Digest/evidence: none
+- Automation identity: none
+
+## Rollout / Rollback
+
+- Rollout: no production activation. Integrate exact common source and registered domains, canonical storage-root selection, content owner authorization and release/runtime qualification through the original owners.
+- Rollback: Disable rejects new operations; existing leased reads and admitted transient operations drain; Drained is the owned terminal signal and does not close the caller-owned root. Retire/delete only owner-proven lease-free files. A failed delete retains its charge and bounded cleanup entry. Unknown versions remain isolated. Never bulk-read disk contents back to host memory.
+- Deferred work: exact caller-owned root shutdown composition in MemoryCapabilityOwner.FromDisk; Auto/default-root integration, governed qualification probes, quota-native evidence, crash subprocess boundaries, measured host bounds, independently qualified platform/mapping paths and complete DAG acceptance.
+- Known limitations: temporary Dispose failure branch lacks a public ordinary injection path and was not runtime-exercised; Linux x64 source compiled/tested in isolated cases; complete backend qualification and arm64 remain NotVerified; unresolved filesystem layering fails closed. No mmap path. IDiskPhysicalAllocationPolicy reserves/retains the full frozen physical upper bound; omitted policy uses the real Frozen(null) and rejects before file creation. No logical-byte fallback remains. Actual statx block/inode inventory is implemented and blocks untracked startup growth; a qualified policy, root/unattributed filesystem metadata baseline and shared-namespace coordination still require the existing owner before Auto qualification. Persistent inodes use the canonical Inodes unit and separate application/shared capacity domains. I/O slots remain independent; original owner registers the actual domains/caps. Supported existing files above reduced caps now use the exact common four-argument adoption API with registered persistent domains; they retain bytes/inodes/descriptor, remain readable, and new growth refuses. Unregistered domains preserve files and deny reuse. Missing names retain their charge until an actual proven unlink. Configured SDK/cached subset works; historical local NU1004 is preserved; sole owner reports b4 canonical locked restore succeeds, and its result is not borrowed for this newer source. CI is disabled. GitHub secondary content creation limits hold external PR/comment creation; this local body is a preserved draft, not a created PR.
+
+## Notes For Reviewers
+
+This is source preservation, not issue closure or merge authorization. Shared contracts/coordinator/pressure/lifetime and broad inventories/history/matrix registries are untouched. Repo-wide docs/config/lifecycle updates belong to the original integration owner; inline ownership/security documentation and this task-local evidence record the module boundaries without a second registry. No wire, AEDS, database, public authority, UI, generated producer, mechanical migration or performance claim applies. Configured formatter invocation passes the selected source; historical89fe isolated tests pass106 cases and current owned drain17 affected cases pass, while the original full project and held independent QA remain unqualified. No blame-ignore entry is applicable. Independent review and exact-candidate runtime checks remain required.

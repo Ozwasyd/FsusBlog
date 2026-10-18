@@ -1,0 +1,41 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/memory-allocation-boundaries.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/governance/code-intent-registry.json"
+            ],
+            "reason": "Preserve existing serialized authority and package-lock field names while declaring the exact changed registered JSON paths for this candidate."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/repository-layout.md"
+            ],
+            "reason": "Preserve existing documented caller-visible spelling; the architecture update introduces no CSS contract and follows the original path-based gate."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+                "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+                "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+                "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs",
+                "tools/governance/memory-allocation-inventory.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment spelling; backend internal symbols retain repository naming and this declaration follows the original path-based gate."
+        }
+    ]
+}
