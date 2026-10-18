@@ -174,6 +174,52 @@ public interface IAuthoringLifecycleReceiptStore
     ValueTask AppendAsync(AuthoringLifecycleReceipt receipt, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Original host admission, not a wire approval issuer. Acquisition must authenticate the
+/// actual user decision and current actor against the exact arguments and serialize competing
+/// lifecycle commands until disposal. No production producer is supplied by this contract.
+/// </summary>
+public interface IAuthoringFencedLifecyclePreflight : IAuthoringLifecyclePreflight, IAuthoringLifecyclePermissionPreflight
+{
+    ValueTask<IAuthoringFencedLifecycleAdmissionScope> AcquireMigrationAsync(
+        VerifiedAuthoringPackage oldPackage,
+        VerifiedAuthoringPackage newPackage,
+        ImmutableArray<AuthoringExecutionTarget> targets,
+        AuthoringFencedStateMigration plan,
+        AuthoringLifecycleReceipt previous,
+        CancellationToken cancellationToken);
+
+    ValueTask<IAuthoringFencedLifecycleAdmissionScope> AcquireDeletionAsync(
+        VerifiedAuthoringPackage package,
+        AuthoringFencedStateDeletion approval,
+        AuthoringLifecycleReceipt previous,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// A host-owned, non-thread-affine lifetime. Current actor/decision/package/runtime facts
+/// must be revalidated by the original owners; an ID or boolean supplied by a caller is not
+/// this scope. Dispose only releases exclusion and must not throw. Missing owners refuse.
+/// </summary>
+public interface IAuthoringFencedLifecycleAdmissionScope : IDisposable
+{
+    ValueTask VerifyCurrentAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Host startup consumes the exact applied, still-fenced snapshot. This port has no default
+/// adapter: the legacy resource authority cannot silently discard state or select latest.
+/// </summary>
+public interface IAuthoringFencedLifecycleResourceAuthority : IAuthoringLifecycleResourceAuthority
+{
+    ValueTask ActivateAtomicallyAsync(
+        VerifiedAuthoringPackage package,
+        ImmutableArray<AuthoringExecutionTarget> targets,
+        AuthoringStateSnapshot snapshot,
+        long generation,
+        CancellationToken cancellationToken);
+}
+
 public sealed class AuthoringExtensionLifecycleCoordinator(
     IAuthoringLifecycleResourceAuthority resources,
     IAuthoringLifecyclePreflight preflight,
@@ -289,6 +335,10 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         AuthoringStateMigrationPlan plan,
         CancellationToken cancellationToken = default)
     {
+        if (stateStore is IAuthoringFencedExtensionStateStore)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_requires_typed_migration");
+        }
         ValidateMigration(oldPackage, newPackage, plan);
         ValidateTargets(newPackage, newTargets);
         AuthoringLifecycleReceipt? previous = await receiptStore.GetLatestAsync(oldPackage.Contract.Manifest.Id, cancellationToken);
@@ -423,6 +473,262 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         }
     }
 
+    /// <summary>
+    /// Wires the existing fenced state/receipt owners under an explicit original host admission.
+    /// No default approval, startup adapter, runtime restoration or cross-store transaction exists.
+    /// A durable Running receipt precedes completion; uncertainty retains recovery authority.
+    /// </summary>
+    public async ValueTask<AuthoringLifecycleReceipt> UpdateAsync(
+        VerifiedAuthoringPackage oldPackage,
+        VerifiedAuthoringPackage newPackage,
+        ImmutableArray<AuthoringExecutionTarget> newTargets,
+        AuthoringFencedStateMigration plan,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (stateStore is not IAuthoringFencedExtensionStateStore fenced ||
+            preflight is not IAuthoringFencedLifecyclePreflight admission ||
+            resources is not IAuthoringFencedLifecycleResourceAuthority startup)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_host_authority_unavailable");
+        }
+        plan = AuthoringExtensionStateContract.FreezePlan(oldPackage, newPackage, plan);
+        ValidateTargets(newPackage, newTargets);
+        ImmutableArray<AuthoringExecutionTarget> targets = [.. newTargets];
+        AuthoringLifecycleReceipt previous = RequireFencedReceipt(oldPackage,
+            await receiptStore.GetLatestAsync(oldPackage.Contract.Manifest.Id, cancellationToken));
+        if (!IsTransitionAllowed(previous.State, AuthoringLifecycleState.Updating))
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_recovery_required");
+        }
+        using IAuthoringFencedLifecycleAdmissionScope scope = await admission.AcquireMigrationAsync(
+            oldPackage, newPackage, targets, plan, previous, cancellationToken)
+            ?? throw new AuthoringExtensionContractException("fenced_lifecycle_admission_missing");
+        await scope.VerifyCurrentAsync(cancellationToken);
+        await RequireCurrentReceiptAsync(previous, cancellationToken);
+
+        AuthoringLifecycleReceipt cursor = previous;
+        AuthoringLifecycleReceipt? pending = null;
+        AuthoringLifecycleReceipt? runningAttempt = null;
+        bool backupAttempted = false;
+        bool activationAttempted = false;
+        bool runningAccepted = false;
+        long startupGeneration = 0;
+        try
+        {
+            await RecordNextAsync(oldPackage, AuthoringLifecycleState.Updating);
+            AuthoringLifecycleResourceReport remaining = await resources.RevokeAllAsync(
+                oldPackage.Contract.Manifest.Id, previous.Generation, cancellationToken);
+            if (!remaining.IsEmpty)
+            {
+                throw new AuthoringExtensionContractException("fenced_lifecycle_old_resources_unsettled");
+            }
+            await grants.RevokeExtensionAsync(oldPackage.Contract.Manifest.Id, cancellationToken);
+            await scope.VerifyCurrentAsync(cancellationToken);
+            backupAttempted = true;
+            await fenced.BackupAsync(oldPackage, newPackage, plan, cancellationToken);
+            if (plan.From.SchemaVersion != plan.To.SchemaVersion)
+            {
+                await RecordNextAsync(newPackage, AuthoringLifecycleState.MigrationRequired);
+            }
+            await RecordNextAsync(newPackage, AuthoringLifecycleState.Migrating);
+            await scope.VerifyCurrentAsync(cancellationToken);
+            AuthoringStateSnapshot applied = await fenced.ApplyAsync(oldPackage, newPackage, plan, cancellationToken);
+            AuthoringStateSnapshot snapshot = AuthoringExtensionStateContract.DecodeSnapshot(
+                AuthoringExtensionStateContract.Encode(applied));
+            if (snapshot.Scope != plan.To || snapshot.PackageIdentity != newPackage.PackageIdentity ||
+                snapshot.Revision != checked(plan.ExpectedToRevision + 2))
+            {
+                throw new AuthoringExtensionContractException("fenced_lifecycle_applied_snapshot_mismatch");
+            }
+            await scope.VerifyCurrentAsync(cancellationToken);
+            if (!await admission.HasRequiredPermissionsAsync(newPackage, targets, cancellationToken) ||
+                !await admission.VerifyAsync(newPackage, targets, cancellationToken))
+            {
+                throw new AuthoringExtensionContractException("fenced_lifecycle_startup_preflight_rejected");
+            }
+            await RecordNextAsync(newPackage, AuthoringLifecycleState.Starting);
+            startupGeneration = checked(cursor.Generation + 1);
+            activationAttempted = true;
+            await startup.ActivateAtomicallyAsync(newPackage, targets, snapshot, startupGeneration, cancellationToken);
+            await scope.VerifyCurrentAsync(cancellationToken);
+            runningAttempt = CreateReceipt(newPackage, cursor, AuthoringLifecycleState.Running, null);
+            pending = runningAttempt;
+            cursor = await RecordAsync(runningAttempt, cancellationToken);
+            runningAccepted = true;
+            await RequireCurrentReceiptAsync(cursor, cancellationToken);
+            await scope.VerifyCurrentAsync(cancellationToken);
+            await fenced.CompleteAsync(oldPackage, newPackage, plan, cancellationToken);
+            return cursor;
+        }
+        catch (Exception failure)
+        {
+            bool headKnown = false;
+            try
+            {
+                AuthoringLifecycleReceipt? latest = await receiptStore.GetLatestAsync(
+                    oldPackage.Contract.Manifest.Id, CancellationToken.None);
+                if (latest is not null && (latest == pending || latest == cursor))
+                {
+                    cursor = latest;
+                    headKnown = true;
+                    runningAccepted |= latest == runningAttempt;
+                }
+            }
+            catch
+            {
+                NoteFencedCleanup(failure, "AuthoringFencedReceiptObservationFailed");
+            }
+            if (!headKnown)
+            {
+                NoteFencedCleanup(failure, "AuthoringFencedReceiptHeadUnconfirmed");
+            }
+            bool settled = true;
+            try
+            {
+                AuthoringLifecycleResourceReport remaining = await resources.RevokeAllAsync(
+                    oldPackage.Contract.Manifest.Id,
+                    activationAttempted ? startupGeneration : previous.Generation,
+                    CancellationToken.None);
+                settled = remaining.IsEmpty;
+                if (!settled)
+                {
+                    NoteFencedCleanup(failure, "AuthoringFencedResourcesUnsettled");
+                }
+            }
+            catch
+            {
+                settled = false;
+                NoteFencedCleanup(failure, "AuthoringFencedResourceCleanupFailed");
+            }
+            try
+            {
+                await grants.RevokeExtensionAsync(oldPackage.Contract.Manifest.Id, CancellationToken.None);
+            }
+            catch
+            {
+                settled = false;
+                NoteFencedCleanup(failure, "AuthoringFencedGrantCleanupFailed");
+            }
+            // A persisted/uncertain Running append cannot authorize rolling state back underneath it.
+            // Failed containment or an unobserved head retains the fence for explicit recovery.
+            if (backupAttempted && !runningAccepted && headKnown && settled)
+            {
+                try
+                {
+                    await fenced.RollbackAsync(oldPackage, newPackage, plan, CancellationToken.None);
+                }
+                catch
+                {
+                    NoteFencedCleanup(failure, "AuthoringFencedRollbackFailed");
+                }
+            }
+            if (headKnown)
+            {
+                try
+                {
+                    await RecordAsync(runningAccepted ? newPackage : oldPackage, cursor,
+                        runningAccepted || !backupAttempted ? AuthoringLifecycleState.Failed : AuthoringLifecycleState.RollbackRequired,
+                        "fenced-lifecycle-recovery-required", CancellationToken.None);
+                }
+                catch
+                {
+                    NoteFencedCleanup(failure, "AuthoringFencedFailureReceiptRejected");
+                }
+            }
+            throw;
+        }
+
+        async ValueTask RecordNextAsync(VerifiedAuthoringPackage package, AuthoringLifecycleState state)
+        {
+            pending = CreateReceipt(package, cursor, state, null);
+            cursor = await RecordAsync(pending, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Deletes only the exact current-plus-backup measurement accepted by the original host
+    /// approval owner. ApprovalReceiptId is data, never sufficient approval on its own.
+    /// </summary>
+    public async ValueTask DeleteOwnedDataAsync(
+        VerifiedAuthoringPackage package,
+        AuthoringFencedStateDeletion approval,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (stateStore is not IAuthoringFencedExtensionStateStore fenced ||
+            preflight is not IAuthoringFencedLifecyclePreflight admission)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_host_authority_unavailable");
+        }
+        ArgumentNullException.ThrowIfNull(approval);
+        ArgumentNullException.ThrowIfNull(approval.Expected);
+        AuthoringExtensionStateContract.ValidateOwner(package, approval.Expected.Scope);
+        if (!AuthoringExtensionStateContract.IsField(approval.ApprovalReceiptId, 256) ||
+            approval.Expected.Revision < 0 || approval.Expected.Records < 0 || approval.Expected.Bytes < 0 ||
+            !AuthoringExtensionStateContract.IsDigest(approval.Expected.ContentSha256))
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_deletion_invalid");
+        }
+        AuthoringLifecycleReceipt previous = RequireFencedReceipt(package,
+            await receiptStore.GetLatestAsync(package.Contract.Manifest.Id, cancellationToken));
+        if (previous.State != AuthoringLifecycleState.RetainedData)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_retained_data_required");
+        }
+        using IAuthoringFencedLifecycleAdmissionScope scope = await admission.AcquireDeletionAsync(
+            package, approval, previous, cancellationToken)
+            ?? throw new AuthoringExtensionContractException("fenced_lifecycle_admission_missing");
+        await scope.VerifyCurrentAsync(cancellationToken);
+        await RequireCurrentReceiptAsync(previous, cancellationToken);
+        AuthoringStateMeasurement current = await fenced.MeasureAsync(package, approval.Expected.Scope, cancellationToken);
+        if (current != approval.Expected)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_deletion_measurement_changed");
+        }
+        await scope.VerifyCurrentAsync(cancellationToken);
+        await fenced.DeleteAsync(package, approval, cancellationToken);
+        await RecordAsync(package, previous, AuthoringLifecycleState.Removed, null, cancellationToken);
+    }
+
+    private static AuthoringLifecycleReceipt RequireFencedReceipt(
+        VerifiedAuthoringPackage package, AuthoringLifecycleReceipt? receipt)
+    {
+        if (receipt is null || receipt.ExtensionId != package.Contract.Manifest.Id ||
+            receipt.Version != package.Contract.Manifest.Version ||
+            receipt.PackageSha256 != package.Contract.Manifest.PackageSha256 ||
+            receipt.ScopeDigest != package.PackageIdentity ||
+            receipt.StateSchemaVersion != package.Contract.Manifest.StateSchemaVersion ||
+            receipt.DataSchemaVersion != package.Contract.Manifest.DataSchemaVersion ||
+            receipt.SchemaVersion != 1 || receipt.Sequence < 1 || receipt.Generation != receipt.Sequence ||
+            receipt.ReceiptSha256 != ComputeReceiptSha256(receipt))
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_receipt_identity_mismatch");
+        }
+        return receipt;
+    }
+
+    private async ValueTask RequireCurrentReceiptAsync(AuthoringLifecycleReceipt expected, CancellationToken cancellationToken)
+    {
+        if (await receiptStore.GetLatestAsync(expected.ExtensionId, cancellationToken) != expected)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_receipt_head_changed");
+        }
+    }
+
+    private static void NoteFencedCleanup(Exception failure, string code)
+    {
+        try
+        {
+            // Only fixed diagnostic identifiers are retained, never state or provider exception payloads.
+            failure.Data[code] = true;
+        }
+        catch
+        {
+            // Cleanup diagnostics cannot replace the original operation failure.
+        }
+    }
+
     public async ValueTask<AuthoringLifecycleReceipt> UninstallAsync(
         VerifiedAuthoringPackage package,
         AuthoringStateScope ownedState,
@@ -465,6 +771,10 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         AuthoringDeleteDataApproval approval,
         CancellationToken cancellationToken = default)
     {
+        if (stateStore is IAuthoringFencedExtensionStateStore)
+        {
+            throw new AuthoringExtensionContractException("fenced_lifecycle_requires_typed_deletion");
+        }
         ValidateOwnedScope(package, approval.Scope);
         AuthoringLifecycleReceipt? receipt = await receiptStore.GetLatestAsync(package.Contract.Manifest.Id, cancellationToken);
         if (receipt?.State != AuthoringLifecycleState.RetainedData ||
@@ -530,6 +840,11 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         long generation,
         CancellationToken cancellationToken = default)
     {
+        if (stateStore is IAuthoringFencedExtensionStateStore)
+        {
+            // A receipt alone cannot prove fenced settlement or current runtime/approval facts.
+            throw new AuthoringExtensionContractException("fenced_lifecycle_result_authority_unavailable");
+        }
         AuthoringLifecycleReceipt? receipt = await receiptStore.GetLatestAsync(extensionId, cancellationToken);
         return receipt?.State == AuthoringLifecycleState.Running && receipt.Generation == generation;
     }
@@ -610,12 +925,26 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         value?.Length == 64 && value.All(static character =>
             character is >= '0' and <= '9' or >= 'a' and <= 'f');
 
-    private async ValueTask<AuthoringLifecycleReceipt> RecordAsync(
+    private ValueTask<AuthoringLifecycleReceipt> RecordAsync(
         VerifiedAuthoringPackage package,
         AuthoringLifecycleReceipt? previous,
         AuthoringLifecycleState state,
         string? failureCode,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        RecordAsync(CreateReceipt(package, previous, state, failureCode), cancellationToken);
+
+    private async ValueTask<AuthoringLifecycleReceipt> RecordAsync(
+        AuthoringLifecycleReceipt receipt, CancellationToken cancellationToken)
+    {
+        await receiptStore.AppendAsync(receipt, cancellationToken);
+        return receipt;
+    }
+
+    private static AuthoringLifecycleReceipt CreateReceipt(
+        VerifiedAuthoringPackage package,
+        AuthoringLifecycleReceipt? previous,
+        AuthoringLifecycleState state,
+        string? failureCode)
     {
         AuthoringLifecycleState previousState = previous?.State ?? AuthoringLifecycleState.Installed;
         ValidateTransition(previousState, state);
@@ -641,7 +970,6 @@ public sealed class AuthoringExtensionLifecycleCoordinator(
         {
             ReceiptSha256 = ComputeReceiptSha256(receipt)
         };
-        await receiptStore.AppendAsync(receipt, cancellationToken);
         return receipt;
     }
 
