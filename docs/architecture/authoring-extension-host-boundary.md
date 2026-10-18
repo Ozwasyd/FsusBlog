@@ -767,27 +767,47 @@ actual owner lease and staged registrations within its own current generation.
 from the original Linux runtime options; missing providers and unsupported host
 platforms remain closed. Migration/deletion approval is not generic enable
 consent, and the current claim does not bind runtime grant purpose/publication.
-Launch capability admission and the common Starting/publication ports remain
-unavailable, so `VerifyAsync` cannot yet admit a production activation.
+Launch capability admission, qualified approval and actual snapshot acceptance
+remain unavailable, so `VerifyAsync` cannot yet admit a production activation.
 
 `AuthoringExtensionHostResourceAuthority` owns original command and filter registry
 instances and performs signed-metadata preparation under the package lifetime.
-It does not sequentially activate two registries and call rollback atomicity.
-Activation throws until both registries expose staging plus a shared generation
-publication gate joined to the original coordinator's Running receipt. Revoke
-settles the reachable registry/grant owners, then throws because original RPC,
-job and surface remaining-resource ports are absent. Removed counts are never
-reported as remaining counts, and unknown resources are never reported as zero.
+Each prepared generation uses private original registries. The original Resources
+owner activates those private registries before tracking real native owners; this
+hidden preparation is not public atomic activation. A single host publication
+gate validates combined registry collisions and rechecks the candidate before
+publishing the generation. Public production routing and observation are not
+installed by this composition. Revoke settles the reachable registry/grant owners,
+then refuses a complete report when original RPC, job or surface remaining-resource
+ports are unknown. Removed counts are never reported as remaining counts.
 
-`AuthoringExtensionProductionComposition` creates the original coordinator and
-Resources without installing a production route. Its optional worker/service
-observations use the original incarnation issuer's owner-bound lease and retained
-descriptor. These observations are not pre-enable requirements or a Track/receipt
-join. Resources at the integrated producer still exposes no current Track read
-port. Module/service readiness also does not attest the applied state snapshot.
-Until the original coordinator, state/runtime and registry owners supply those
-ports, this composition is WIP and cannot activate an extension. Consumers must
-not copy a prototype lifecycle interface into a parallel contract.
+`AuthoringExtensionProductionComposition` implements the original
+`IAuthoringFencedLifecycleResourceAuthorityV1` and returns the original
+`IAuthoringPreparedLifecycleGenerationV1`; it does not copy the lifecycle contracts.
+`PrepareAsync` freezes the actual fenced `ApplyAsync` return, validates its exact
+scope, package, revision, bounded bytes and canonical digest, and joins it to the
+original current Starting receipt and proposed next Running generation. It never
+performs an ordinary state read through the migration fence. Known unsafe approval
+input is refused before native effects. Behind that explicit qualification guard,
+the preparation code retains failed-start custody before the first native await,
+launches only original providers, observes their exact owner-bound physical leases
+and descriptors, and calls the original Resources.Track at the supplied generation.
+No static identity, caller-ready flag or arbitrary generation supplies custody.
+
+Prepared verification checks current native owners, service health, authenticated
+claim, package trust and the exact durable Starting or Running receipt. Publication
+repeats verification under the common registry gate. However, original native
+readiness does not attest the applied state snapshot, and original document Execute
+requests require document epoch/revision facts absent from the state snapshot.
+The consumer therefore explicitly refuses verification/publication with
+`production_runtime_snapshot_acceptance_unavailable`; it does not invent document
+facts, accept an echo as proof or overload a schema digest with snapshot content.
+Abort first hides the staged generation, then uses original Resources/native and
+grant owners to settle known custody. Failed or unobservable startup remains
+retained and fails closed. Published global resources cannot be reported empty
+without their original remaining-resource authorities. This remains WIP with no
+production DI or HTTP activation route. The original coordinator's fenced legacy
+entry points remain refused; this consumer does not enable their positive path.
 
 ## Resource budgets, crash isolation, and telemetry
 
