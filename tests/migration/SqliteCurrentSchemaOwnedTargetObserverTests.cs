@@ -1,10 +1,11 @@
 using System.Data;
 using System.Data.Common;
 
-using Microsoft.Data.Sqlite;
-using Xunit;
-
 using FsusBlog.Contracts.Migration;
+
+using Microsoft.Data.Sqlite;
+
+using Xunit;
 
 namespace FsusBlog.Migration.Tests;
 
