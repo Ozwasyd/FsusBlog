@@ -144,26 +144,29 @@ public sealed partial class PostgresAuthoringExtensionStateStore
         var held = new StateObservationScope(owned, read, ids, cancellationToken);
         try
         {
-            await owned.Ado.BeginTranAsync(IsolationLevel.ReadCommitted).ConfigureAwait(false);
-            held.BindConnection();
-            owned.Ado.CancellationToken = cancellationToken;
-            _ = await owned.Ado.GetScalarAsync("SELECT set_config('statement_timeout', '30000', true);").ConfigureAwait(false);
-            foreach (string id in ids)
+            await held.AcquireAsync(async () =>
             {
-                _ = await owned.Ado.GetScalarAsync("SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 2143));",
-                    new SugarParameter("@Identity", $"authoring-extension-state:{id}")).ConfigureAwait(false);
-            }
-            AuthoringStateObservation actual;
-            try
-            {
-                actual = await read(new(owned), cancellationToken).ConfigureAwait(false);
-            }
-            catch (AuthoringExtensionContractException) when (expected is not null)
-            {
-                throw new AuthoringExtensionContractException("state_observation_drift_requires_recovery");
-            }
-            Require(expected is null || Digest(actual) == Digest(expected), "state_observation_drift_requires_recovery");
-            held.Capture(actual);
+                await owned.Ado.BeginTranAsync(IsolationLevel.ReadCommitted).ConfigureAwait(false);
+                held.BindConnection();
+                owned.Ado.CancellationToken = cancellationToken;
+                _ = await owned.Ado.GetScalarAsync("SELECT set_config('statement_timeout', '30000', true);").ConfigureAwait(false);
+                foreach (string id in ids)
+                {
+                    _ = await owned.Ado.GetScalarAsync("SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 2143));",
+                        new SugarParameter("@Identity", $"authoring-extension-state:{id}")).ConfigureAwait(false);
+                }
+                AuthoringStateObservation actual;
+                try
+                {
+                    actual = await read(new(owned), cancellationToken).ConfigureAwait(false);
+                }
+                catch (AuthoringExtensionContractException) when (expected is not null)
+                {
+                    throw new AuthoringExtensionContractException("state_observation_drift_requires_recovery");
+                }
+                Require(expected is null || Digest(actual) == Digest(expected), "state_observation_drift_requires_recovery");
+                held.Capture(actual);
+            }).ConfigureAwait(false);
             await held.VerifyCurrentAsync(cancellationToken).ConfigureAwait(false);
             return held;
         }
@@ -181,35 +184,89 @@ public sealed partial class PostgresAuthoringExtensionStateStore
         CancellationToken lifetime) : IAuthoringExtensionStateObservation
     {
         private readonly SemaphoreSlim _gate = new(1, 1);
+        private readonly object _stateSync = new();
+        private IDbConnection? _connection;
+        private bool _invalidated;
         private CancellationTokenRegistration _registration;
         private AuthoringStateObservation? _state;
         private bool _disposed;
         private string? _digest;
 
-        public AuthoringStateObservation State => _state ?? throw new InvalidOperationException("state_observation_not_acquired");
+        public AuthoringStateObservation State
+        {
+            get
+            {
+                lock (_stateSync)
+                {
+                    RequireLive();
+                    return _state ?? throw new InvalidOperationException("state_observation_not_acquired");
+                }
+            }
+        }
         public ImmutableArray<string> AcquiredScopeIds => ids;
 
         internal void BindConnection()
         {
-            // Closing this unpooled owned connection releases custody even while idle or blocked.
-            _registration = lifetime.Register(static state => ((IDbConnection)state!).Close(), owned.Ado.Connection);
+            IDbConnection connection = owned.Ado.Connection;
+            _connection = connection;
+            // Invalidate access before closing, including while verification owns the async gate.
+            _registration = lifetime.Register(() =>
+            {
+                Invalidate();
+                // Active SQL observes its cancellation token and releases through its owner.
+                // Only an idle connection may close directly from this callback.
+                if (_gate.Wait(0))
+                {
+                    try
+                    {
+                        connection.Close();
+                    }
+                    finally
+                    {
+                        _gate.Release();
+                    }
+                }
+            });
         }
 
-        internal void Capture(AuthoringStateObservation state)
-        {
-            _state = state;
-            _digest = Digest(state);
-        }
-
-        public async ValueTask VerifyCurrentAsync(CancellationToken cancellationToken)
+        internal async Task AcquireAsync(Func<Task> acquire)
         {
             await _gate.WaitAsync().ConfigureAwait(false);
             try
             {
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(lifetime, cancellationToken);
+                await acquire().ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        internal void Capture(AuthoringStateObservation state)
+        {
+            string digest = Digest(state);
+            lock (_stateSync)
+            {
+                RequireLive();
+                _state = state;
+                _digest = digest;
+            }
+        }
+
+        public async ValueTask VerifyCurrentAsync(CancellationToken cancellationToken)
+        {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(lifetime, cancellationToken);
+            using CancellationTokenRegistration cancellation = linked.Token.Register(Invalidate);
+            await _gate.WaitAsync().ConfigureAwait(false);
+            try
+            {
                 try
                 {
                     linked.Token.ThrowIfCancellationRequested();
+                    lock (_stateSync)
+                    {
+                        RequireLive();
+                    }
                     Require(!_disposed && owned.Ado.Transaction?.Connection?.State == ConnectionState.Open,
                         "state_observation_custody_lost");
                     owned.Ado.CancellationToken = linked.Token;
@@ -223,7 +280,13 @@ public sealed partial class PostgresAuthoringExtensionStateStore
                         throw new AuthoringExtensionContractException("state_observation_drift_requires_recovery");
                     }
                     linked.Token.ThrowIfCancellationRequested();
-                    Require(owned.Ado.Transaction?.Connection?.State == ConnectionState.Open && _digest == Digest(current),
+                    string currentDigest = Digest(current);
+                    lock (_stateSync)
+                    {
+                        RequireLive();
+                        Require(_digest == currentDigest, "state_observation_drift_requires_recovery");
+                    }
+                    Require(owned.Ado.Transaction?.Connection?.State == ConnectionState.Open,
                         "state_observation_drift_requires_recovery");
                 }
                 catch
@@ -244,6 +307,7 @@ public sealed partial class PostgresAuthoringExtensionStateStore
 
         public async ValueTask DisposeAsync()
         {
+            Invalidate();
             await _gate.WaitAsync().ConfigureAwait(false);
             try
             {
@@ -255,8 +319,29 @@ public sealed partial class PostgresAuthoringExtensionStateStore
             }
         }
 
+        // Called only under the short state latch; it never waits for SQL or the async gate.
+        private void RequireLive()
+        {
+            if (_invalidated || lifetime.IsCancellationRequested || _connection?.State != ConnectionState.Open)
+            {
+                _invalidated = true;
+                _state = null;
+                throw new AuthoringExtensionContractException("state_observation_custody_lost");
+            }
+        }
+
+        private void Invalidate()
+        {
+            lock (_stateSync)
+            {
+                _invalidated = true;
+                _state = null;
+            }
+        }
+
         private async ValueTask ReleaseAsync()
         {
+            Invalidate();
             if (_disposed)
             {
                 return;

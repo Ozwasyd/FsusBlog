@@ -426,6 +426,206 @@ public sealed class AuthoringExtensionStateCustodyPostgresTests(PostgresSchemaMi
         Assert.Equal(new byte[] { 3, 4 }, Assert.Single((await store.ReadAsync(s_old, s_from, default)).Entries).Value.ToArray());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task StateAccessAfterReleaseRefusesBeforeAndAfterIndependentWriter(bool cancelLifetime)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var store = new PostgresAuthoringExtensionStateStore(db);
+        AuthoringFencedStateMigration plan = await SeedAsync(store);
+        using var lifetime = new CancellationTokenSource();
+        await using IAuthoringExtensionStateObservation held = await store.ObserveInitialAsync(s_old, s_new, plan, lifetime.Token);
+        AuthoringStateObservation copied = held.State;
+        Assert.Equal(1, copied.From.Snapshot.Revision);
+        using SqlSugarClient writerDb = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Task writer = new PostgresAuthoringExtensionStateStore(writerDb).WriteAsync(s_old, s_from, 1, new("old", [8, 9]), default).AsTask();
+        try
+        {
+            await WaitForBlockedAsync(db);
+            if (cancelLifetime)
+            {
+                lifetime.Cancel();
+            }
+            else
+            {
+                await held.DisposeAsync();
+            }
+            // No failed verification or second disposal is needed to invalidate the getter.
+            AssertStateUnavailable(held);
+            await writer.WaitAsync(TimeSpan.FromSeconds(5));
+            AssertStateUnavailable(held);
+            AuthoringStateSnapshot current = await store.ReadAsync(s_old, s_from, default);
+            Assert.Equal(2, current.Revision);
+            Assert.Equal(new byte[] { 8, 9 }, Assert.Single(current.Entries).Value.ToArray());
+            // An earlier immutable copy survives as data, not proof of current custody.
+            Assert.Equal(1, copied.From.Snapshot.Revision);
+            Assert.NotEqual(copied.From.Snapshot.ContentSha256, current.ContentSha256);
+            Assert.NotNull(await Record.ExceptionAsync(() => held.VerifyCurrentAsync(default).AsTask()));
+            AssertStateUnavailable(held);
+        }
+        finally
+        {
+            await held.DisposeAsync();
+            await writer.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [Theory]
+    [InlineData("dispose")]
+    [InlineData("cancel-lifetime")]
+    [InlineData("cancel-running-verify")]
+    [InlineData("statement-failure")]
+    [InlineData("connection-loss")]
+    [InlineData("byte-drift")]
+    public async Task RacingStateReadsFailClosedWhenRunningVerificationIsInvalidated(string failure)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        var store = new PostgresAuthoringExtensionStateStore(db);
+        AuthoringFencedStateMigration plan = await SeedAsync(store);
+        await db.Ado.ExecuteCommandAsync("""
+            CREATE TABLE observation_read_guard(enabled boolean NOT NULL, fail boolean NOT NULL);
+            INSERT INTO observation_read_guard VALUES (false, false);
+            CREATE FUNCTION guard_observation_read() RETURNS boolean LANGUAGE plpgsql VOLATILE AS $$
+            BEGIN
+                IF (SELECT enabled FROM observation_read_guard) THEN
+                    PERFORM pg_advisory_xact_lock(2143, 4639);
+                END IF;
+                IF (SELECT fail FROM observation_read_guard) THEN
+                    RAISE EXCEPTION 'synthetic observation SELECT failure';
+                END IF;
+                RETURN true;
+            END; $$;
+            ALTER TABLE authoring_extension_state_scope RENAME TO original_state_scope;
+            CREATE VIEW authoring_extension_state_scope AS SELECT * FROM original_state_scope WHERE guard_observation_read();
+            """);
+        using var lifetime = new CancellationTokenSource();
+        using var verification = new CancellationTokenSource();
+        await using IAuthoringExtensionStateObservation held = await store.ObserveInitialAsync(s_old, s_new, plan, lifetime.Token);
+        string digest = held.State.From.Snapshot.ContentSha256;
+        await using var blocker = new NpgsqlConnection(db.CurrentConnectionConfig.ConnectionString);
+        await blocker.OpenAsync();
+        await using NpgsqlTransaction blockedRead = await blocker.BeginTransactionAsync();
+        await using (var command = new NpgsqlCommand("SELECT pg_advisory_xact_lock(2143, 4639);", blocker, blockedRead))
+        {
+            await command.ExecuteScalarAsync();
+        }
+        if (failure == "byte-drift")
+        {
+            byte[] payload = (byte[])await db.Ado.GetScalarAsync("SELECT payload FROM original_state_scope WHERE scope_id = @id;", new SugarParameter("@id", ScopeId(s_from)));
+            AuthoringStateSnapshot before = DecodeSnapshot(payload);
+            AuthoringStateSnapshot changed = Snapshot(s_from, s_old.PackageIdentity, before.Revision, [new("old", [9, 8])]);
+            await db.Ado.ExecuteCommandAsync("UPDATE original_state_scope SET payload = @payload WHERE scope_id = @id;",
+                new SugarParameter("@payload", Encode(changed)), new SugarParameter("@id", ScopeId(s_from)));
+        }
+        await db.Ado.ExecuteCommandAsync("UPDATE observation_read_guard SET enabled = true;");
+        Task verifying = held.VerifyCurrentAsync(verification.Token).AsTask();
+        Task? disposing = null;
+        Task? cancelling = null;
+        Task[] readers = [];
+        var invalidationComplete = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var readersStarted = new CountdownEvent(4);
+        try
+        {
+            await WaitForBlockedAsync(db);
+            // The synchronous getter must not wait on the async verification gate or SQL.
+            AuthoringStateObservation duringRead = await Task.Run(() => held.State).WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.Equal(digest, duringRead.From.Snapshot.ContentSha256);
+            readers = Enumerable.Range(0, 4).Select(_ => Task.Run(async () =>
+            {
+                readersStarted.Signal();
+                while (!invalidationComplete.Task.IsCompleted)
+                {
+                    try
+                    {
+                        Assert.Equal(digest, held.State.From.Snapshot.ContentSha256);
+                    }
+                    catch (AuthoringExtensionContractException error)
+                    {
+                        Assert.Equal("state_observation_custody_lost", error.Message);
+                    }
+                    await Task.Yield();
+                }
+                // These accesses start after invalidation has completed, not just concurrently.
+                for (int attempt = 0; attempt < 100; attempt++)
+                {
+                    AssertStateUnavailable(held);
+                }
+            })).ToArray();
+            Assert.True(readersStarted.Wait(TimeSpan.FromSeconds(5)));
+            if (failure == "dispose")
+            {
+                disposing = held.DisposeAsync().AsTask();
+                Assert.False(disposing.IsCompleted);
+                AssertStateUnavailable(held);
+            }
+            else if (failure == "cancel-lifetime")
+            {
+                cancelling = Task.Run(lifetime.Cancel);
+                var timer = Stopwatch.StartNew();
+                while (!lifetime.IsCancellationRequested)
+                {
+                    Assert.True(timer.Elapsed < TimeSpan.FromSeconds(5));
+                    await Task.Yield();
+                }
+                AssertStateUnavailable(held);
+            }
+            else if (failure == "cancel-running-verify")
+            {
+                verification.Cancel();
+                AssertStateUnavailable(held);
+            }
+            else if (failure == "connection-loss")
+            {
+                Assert.True(Convert.ToBoolean(await db.Ado.GetScalarAsync("""
+                    SELECT pg_terminate_backend(pid) FROM pg_locks
+                    WHERE locktype = 'advisory' AND classid = 2143 AND objid = 4639 AND NOT granted
+                        AND database = (SELECT oid FROM pg_database WHERE datname = current_database());
+                    """)));
+            }
+            else if (failure == "statement-failure")
+            {
+                await db.Ado.ExecuteCommandAsync("UPDATE observation_read_guard SET fail = true;");
+            }
+            await blockedRead.RollbackAsync();
+            Exception? error = await Record.ExceptionAsync(() => verifying.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.NotNull(error);
+            Assert.IsNotType<TimeoutException>(error);
+            if (disposing is not null)
+            {
+                await disposing.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            if (cancelling is not null)
+            {
+                await cancelling.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            AssertStateUnavailable(held);
+            invalidationComplete.SetResult();
+            await Task.WhenAll(readers).WaitAsync(TimeSpan.FromSeconds(5));
+            await db.Ado.ExecuteCommandAsync("UPDATE observation_read_guard SET enabled = false, fail = false;");
+            using SqlSugarClient writerDb = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await new PostgresAuthoringExtensionStateStore(writerDb).WriteAsync(s_old, s_from, 1, new("after-release", [7]), deadline.Token);
+            AssertStateUnavailable(held);
+            Assert.NotNull(await Record.ExceptionAsync(() => held.VerifyCurrentAsync(default).AsTask()));
+        }
+        finally
+        {
+            verification.Cancel();
+            await blocker.CloseAsync();
+            await held.DisposeAsync();
+            invalidationComplete.TrySetResult();
+            await Task.WhenAll(readers).WaitAsync(TimeSpan.FromSeconds(5));
+            await Record.ExceptionAsync(() => verifying.WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+    }
+
+    private static void AssertStateUnavailable(IAuthoringExtensionStateObservation held)
+    {
+        AuthoringExtensionContractException error = Assert.Throws<AuthoringExtensionContractException>(() => held.State);
+        Assert.Equal("state_observation_custody_lost", error.Message);
+    }
+
     private async Task<SqlSugarClient> DatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
