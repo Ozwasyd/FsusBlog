@@ -137,6 +137,15 @@ public interface IAuthoringExtensionStateObservationStore
     ValueTask<IAuthoringExtensionStateObservation> ObserveInitialAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, CancellationToken cancellationToken);
     ValueTask<IAuthoringExtensionStateObservation> ObserveFencedAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, AuthoringStateMigrationPhase phase, CancellationToken cancellationToken);
     /// <summary>
+    /// Read-only recovery custody for exactly Completed or RolledBack. Validates the
+    /// original plan/journal identity and actual From/To against the hash recorded by
+    /// the original settlement transaction, including revisions, fences and retained
+    /// backups. Never applies, completes, rolls back, predicts revisions or backfills
+    /// historical output. Missing recorded custody or later drift refuses recovery;
+    /// actual Apply/native result custody remains with its original resource owner.
+    /// </summary>
+    ValueTask<IAuthoringExtensionStateObservation> ObserveSettledMigrationAsync(VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan, AuthoringStateMigrationPhase expectedTerminalPhase, CancellationToken cancellationToken);
+    /// <summary>
     /// Commits completion before acquiring observation. A gap winner causes
     /// state_observation_drift_requires_recovery; do not repeat destructive effects.
     /// A settled retry refuses rather than inventing historical output.
