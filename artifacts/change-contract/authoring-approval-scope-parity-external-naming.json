@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-approval-transport-boundary.md"
+            ],
+            "reason": "Preserve original external wire/source identifiers while aligning only generated Approval ScopeView text semantics to the unchanged frozen issuer predicate through the original producer."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+                "tools/contracts/generate-article-property-value-read-golden.mjs",
+                "tools/contracts/generate-article-property-value-read-wire.mjs"
+            ],
+            "reason": "Preserve original external wire/source identifiers while aligning only generated Approval ScopeView text semantics to the unchanged frozen issuer predicate through the original producer."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/protocol/authoring-extension-approval-scope-text-golden.json"
+            ],
+            "reason": "Preserve original external wire/source identifiers while aligning only generated Approval ScopeView text semantics to the unchanged frozen issuer predicate through the original producer."
+        }
+    ]
+}

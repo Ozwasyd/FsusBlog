@@ -458,3 +458,112 @@ else
 {
     writeFileSync(approvalPath, approvalOutput);
 }
+
+// Independent text witnesses are checked against the unchanged original ValidateScope in C#.
+// Supplementary scalars contain UTF-16 surrogates even when their UTF-8 is well formed.
+const scopeTextFields = JSON.parse(readFileSync(path.join(root,
+    'src/shared/Contracts/Validation/article-property-value-read-wire.json'), 'utf8'))
+    .records.AuthoringApprovalScopeView.fields.filter(field => field.type === 'string');
+const scopeTextBase = Buffer.from(approvalCases[0].payloadHex, 'hex');
+let scopeTextOffset = decisionOffset + 2;
+const scopeTextWindows = scopeTextFields.map(field =>
+{
+    const nullableOffset = field.nullable ? scopeTextOffset++ : null;
+    const byteLength = scopeTextBase.readInt32LE(scopeTextOffset);
+    const window = { name: field.name, property: field.name[0].toLowerCase() + field.name.slice(1),
+        maxChars: field.maxChars, nullable: !!field.nullable, nullableOffset,
+        offset: scopeTextOffset, encodedLength: byteLength + 4 };
+    scopeTextOffset += byteLength + 4;
+    return window;
+});
+const scopeWhitespace = new Set([9, 10, 11, 12, 13, 32, 133, 160, 5760,
+    ...Array.from({ length: 11 }, (_, index) => 8192 + index), 8232, 8233, 8239, 8287, 12288]);
+const scopeTextVectors = [];
+function malformedSurrogateUtf8(value)
+{
+    const parts = [];
+    for (let index = 0; index < value.length; index++)
+    {
+        const unit = value.charCodeAt(index);
+        const next = value.charCodeAt(index + 1);
+        if (unit >= 0xd800 && unit <= 0xdbff && next >= 0xdc00 && next <= 0xdfff)
+        {
+            parts.push(Buffer.from(value.slice(index, index + 2), 'utf8'));
+            index++;
+        }
+        else if (unit >= 0xd800 && unit <= 0xdfff)
+        {
+            // Deliberately malformed WTF-8 is a negative witness, never a runtime encoder.
+            parts.push(Buffer.from([0xe0 | unit >> 12, 0x80 | (unit >> 6 & 63), 0x80 | (unit & 63)]));
+        }
+        else parts.push(Buffer.from(value[index], 'utf8'));
+    }
+    return Buffer.concat(parts).toString('hex');
+}
+function scopeTextVector(name, value, policyValid)
+{
+    scopeTextVectors.push({ name, hasHostValue: true,
+        utf16Hex: value === null ? null : Buffer.from(value, 'utf16le').toString('hex'),
+        utf8Hex: value === null ? null : malformedSurrogateUtf8(value),
+        expectedByField: scopeTextFields.map(field => value === null ? !!field.nullable : policyValid && value.length <= field.maxChars) });
+}
+scopeTextVector('null', null, false);
+scopeTextVector('empty', '', false);
+scopeTextVector('nfc-e-acute', '\u00e9', true);
+scopeTextVector('nfd-e-acute', 'e\u0301', true);
+const scopeScalars = [...new Set([
+    ...Array.from({ length: 33 }, (_, index) => index), 33, 126,
+    ...Array.from({ length: 34 }, (_, index) => 127 + index), 161,
+    0x00ad, 0x061c, 0x167f, 0x1680, 0x1681, 0x180e, 0x180f, 0x200c, 0x200d, 0x2066, 0x2067, 0x2068, 0x2069,
+    ...Array.from({ length: 13 }, (_, index) => 0x1fff + index),
+    0x2027, 0x2028, 0x2029, 0x202a, 0x202e, 0x202f, 0x2030,
+    0x205e, 0x205f, 0x2060, 0x2fff, 0x3000, 0x3001,
+    0xd7ff, 0xd800, 0xdbff, 0xdc00, 0xdfff, 0xe000,
+    0xfdd0, 0xfdef, 0xfefe, 0xfeff, 0xfffd, 0xfffe, 0xffff,
+    0x10000, 0x10001, 0x1f600, 0x1f9d0, 0x10ffff
+])];
+for (const scalar of scopeScalars)
+{
+    const character = String.fromCodePoint(scalar);
+    const prohibited = scalar <= 31 || scalar >= 127 && scalar <= 159
+        || scalar >= 0xd800 && scalar <= 0xdfff || scalar > 0xffff;
+    for (const [position, value] of [['standalone', character], ['leading', character + 'a'],
+        ['trailing', 'a' + character], ['embedded', 'a' + character + 'b']])
+    {
+        scopeTextVector('u' + scalar.toString(16).padStart(4, '0') + '-' + position, value,
+            !prohibited && (position === 'embedded' || !scopeWhitespace.has(scalar)));
+    }
+}
+for (const length of [63, 64, 65, 127, 128, 129, 255, 256, 257])
+{
+    scopeTextVector('ascii-units-' + length, 'x'.repeat(length), true);
+    scopeTextVector('bmp-units-' + length, '文'.repeat(length), true);
+}
+for (const count of [64, 65, 128, 129])
+{
+    scopeTextVector('combining-pairs-' + count, 'e\u0301'.repeat(count), true);
+    scopeTextVector('supplementary-pairs-' + count, '😀'.repeat(count), false);
+}
+for (const [name, hex] of [['overlong-nul', 'c080'], ['surrogate-high', 'eda080'],
+    ['surrogate-low', 'edbfbf'], ['out-of-unicode-range', 'f4908080'], ['truncated-four-byte', 'f09f98'],
+    ['isolated-continuation', '80'], ['truncated-three-byte', 'e280']])
+{
+    scopeTextVectors.push({ name: 'malformed-utf8-' + name, hasHostValue: false,
+        utf16Hex: null, utf8Hex: hex, expectedByField: scopeTextFields.map(() => false) });
+}
+const retainedPropertyPreview = response(0);
+retainedPropertyPreview.scope.siteScope = '站😀';
+const scopeTextOutput = JSON.stringify({ schema: 'fsusblog.authoring-approval-scope-text-golden.v1',
+    qualification: 'text/format parity against original ValidateScope only; no runtime scope authorization',
+    owner: 'src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs',
+    record: approvalRecord, frameType: approvalCases[0].frameType, basePayloadHex: scopeTextBase.toString('hex'),
+    fields: scopeTextWindows, vectors: scopeTextVectors,
+    retainedProperty: { record: 'ArticlePropertyValueReadResponse', frameType: 269,
+        payloadHex: Buffer.from(wire.encodeArticlePropertyValueReadResponse(retainedPropertyPreview)).toString('hex') }
+}, null, 2) + '\n';
+const scopeTextPath = path.join(root, 'tests/fixtures/protocol/authoring-extension-approval-scope-text-golden.json');
+if (process.argv.includes('--check'))
+{
+    if (readFileSync(scopeTextPath, 'utf8') !== scopeTextOutput) throw new Error('approval_scope_text_golden_drift');
+}
+else writeFileSync(scopeTextPath, scopeTextOutput);

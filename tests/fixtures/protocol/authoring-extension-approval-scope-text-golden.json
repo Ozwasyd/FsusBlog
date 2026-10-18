@@ -1,0 +1,7147 @@
+{
+  "schema": "fsusblog.authoring-approval-scope-text-golden.v1",
+  "qualification": "text/format parity against original ValidateScope only; no runtime scope authorization",
+  "owner": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs",
+  "record": "AuthoringExtensionApprovalPreviewResponse",
+  "frameType": 293,
+  "basePayloadHex": "02020000000200000040000000616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161612b00000063616e6f6e6963616c2d73746174652d73636f70652d617574686f726974792d72657175697265642d76310c000000666978747572652d736974650b0000006f70617175652d75736572010f0000006f70617175652d646f63756d656e7440000000616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161610140000000666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666660100000000002000400000006565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656540000000616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161614000000061616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161010011000000666978747572652e657874656e73696f6e05000000312e302e300c000000666978747572652d736974650b0000006f70617175652d75736572010f0000006f70617175652d646f63756d656e74010000000111000000666978747572652e657874656e73696f6e05000000322e302e300c000000666978747572652d736974650b0000006f70617175652d75736572010f0000006f70617175652d646f63756d656e74020000000100000000002000ffffffffffffff7f2b00000072657461696e2d65786163742d736f757263652d616e642d64657374696e6174696f6e2d6261636b757073400000006161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616101010000000c000000666978747572652d706c616effffffffffffff7f0100000000002000400000006161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616100100000000000000000000100000000005ed0b200000000e80300000e000000666978747572652d6261636b757010000000666978747572652d726f6c6c6261636b40000000616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161610001000000010000000000200011000000666978747572652e657874656e73696f6e400000006262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626205000000312e302e300100000001000000000101000000000020004000000064646464646464646464646464646464646464646464646464646464646464646464646464646464646464646464646464646464646464646464646464646464004000000030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030400000006565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656565656501c094837705de0801000000000111000000666978747572652e657874656e73696f6e05000000312e302e3040000000626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262620f000000666978747572652e636f6d6d616e64000c000000666978747572652e7761736d004000000063636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363000001000000000111000000666978747572652e657874656e73696f6e05000000322e302e3040000000626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262626262620f000000666978747572652e636f6d6d616e64000c000000666978747572652e7761736d0040000000636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363636363630000",
+  "fields": [
+    {
+      "name": "ExtensionId",
+      "property": "extensionId",
+      "maxChars": 128,
+      "nullable": false,
+      "nullableOffset": null,
+      "offset": 526,
+      "encodedLength": 21
+    },
+    {
+      "name": "ExtensionVersion",
+      "property": "extensionVersion",
+      "maxChars": 64,
+      "nullable": false,
+      "nullableOffset": null,
+      "offset": 547,
+      "encodedLength": 9
+    },
+    {
+      "name": "SiteId",
+      "property": "siteId",
+      "maxChars": 256,
+      "nullable": false,
+      "nullableOffset": null,
+      "offset": 556,
+      "encodedLength": 16
+    },
+    {
+      "name": "UserId",
+      "property": "userId",
+      "maxChars": 256,
+      "nullable": false,
+      "nullableOffset": null,
+      "offset": 572,
+      "encodedLength": 15
+    },
+    {
+      "name": "DocumentId",
+      "property": "documentId",
+      "maxChars": 256,
+      "nullable": true,
+      "nullableOffset": 587,
+      "offset": 588,
+      "encodedLength": 19
+    }
+  ],
+  "vectors": [
+    {
+      "name": "null",
+      "hasHostValue": true,
+      "utf16Hex": null,
+      "utf8Hex": null,
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        true
+      ]
+    },
+    {
+      "name": "empty",
+      "hasHostValue": true,
+      "utf16Hex": "",
+      "utf8Hex": "",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "nfc-e-acute",
+      "hasHostValue": true,
+      "utf16Hex": "e900",
+      "utf8Hex": "c3a9",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "nfd-e-acute",
+      "hasHostValue": true,
+      "utf16Hex": "65000103",
+      "utf8Hex": "65cc81",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u0000-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0000",
+      "utf8Hex": "00",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0000-leading",
+      "hasHostValue": true,
+      "utf16Hex": "00006100",
+      "utf8Hex": "0061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0000-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000000",
+      "utf8Hex": "6100",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0000-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610000006200",
+      "utf8Hex": "610062",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0001-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0100",
+      "utf8Hex": "01",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0001-leading",
+      "hasHostValue": true,
+      "utf16Hex": "01006100",
+      "utf8Hex": "0161",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0001-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000100",
+      "utf8Hex": "6101",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0001-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610001006200",
+      "utf8Hex": "610162",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0002-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0200",
+      "utf8Hex": "02",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0002-leading",
+      "hasHostValue": true,
+      "utf16Hex": "02006100",
+      "utf8Hex": "0261",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0002-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000200",
+      "utf8Hex": "6102",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0002-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610002006200",
+      "utf8Hex": "610262",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0003-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0300",
+      "utf8Hex": "03",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0003-leading",
+      "hasHostValue": true,
+      "utf16Hex": "03006100",
+      "utf8Hex": "0361",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0003-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000300",
+      "utf8Hex": "6103",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0003-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610003006200",
+      "utf8Hex": "610362",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0004-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0400",
+      "utf8Hex": "04",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0004-leading",
+      "hasHostValue": true,
+      "utf16Hex": "04006100",
+      "utf8Hex": "0461",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0004-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000400",
+      "utf8Hex": "6104",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0004-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610004006200",
+      "utf8Hex": "610462",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0005-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0500",
+      "utf8Hex": "05",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0005-leading",
+      "hasHostValue": true,
+      "utf16Hex": "05006100",
+      "utf8Hex": "0561",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0005-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000500",
+      "utf8Hex": "6105",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0005-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610005006200",
+      "utf8Hex": "610562",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0006-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0600",
+      "utf8Hex": "06",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0006-leading",
+      "hasHostValue": true,
+      "utf16Hex": "06006100",
+      "utf8Hex": "0661",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0006-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000600",
+      "utf8Hex": "6106",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0006-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610006006200",
+      "utf8Hex": "610662",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0007-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0700",
+      "utf8Hex": "07",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0007-leading",
+      "hasHostValue": true,
+      "utf16Hex": "07006100",
+      "utf8Hex": "0761",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0007-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000700",
+      "utf8Hex": "6107",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0007-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610007006200",
+      "utf8Hex": "610762",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0008-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0800",
+      "utf8Hex": "08",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0008-leading",
+      "hasHostValue": true,
+      "utf16Hex": "08006100",
+      "utf8Hex": "0861",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0008-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000800",
+      "utf8Hex": "6108",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0008-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610008006200",
+      "utf8Hex": "610862",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0009-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0900",
+      "utf8Hex": "09",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0009-leading",
+      "hasHostValue": true,
+      "utf16Hex": "09006100",
+      "utf8Hex": "0961",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0009-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000900",
+      "utf8Hex": "6109",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0009-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610009006200",
+      "utf8Hex": "610962",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000a-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0a00",
+      "utf8Hex": "0a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000a-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0a006100",
+      "utf8Hex": "0a61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000a-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000a00",
+      "utf8Hex": "610a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000a-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000a006200",
+      "utf8Hex": "610a62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000b-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0b00",
+      "utf8Hex": "0b",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000b-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0b006100",
+      "utf8Hex": "0b61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000b-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000b00",
+      "utf8Hex": "610b",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000b-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000b006200",
+      "utf8Hex": "610b62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000c-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0c00",
+      "utf8Hex": "0c",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000c-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0c006100",
+      "utf8Hex": "0c61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000c-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000c00",
+      "utf8Hex": "610c",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000c-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000c006200",
+      "utf8Hex": "610c62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000d-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0d00",
+      "utf8Hex": "0d",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000d-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0d006100",
+      "utf8Hex": "0d61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000d-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000d00",
+      "utf8Hex": "610d",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000d-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000d006200",
+      "utf8Hex": "610d62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000e-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0e00",
+      "utf8Hex": "0e",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000e-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0e006100",
+      "utf8Hex": "0e61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000e-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000e00",
+      "utf8Hex": "610e",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000e-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000e006200",
+      "utf8Hex": "610e62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000f-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0f00",
+      "utf8Hex": "0f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000f-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0f006100",
+      "utf8Hex": "0f61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000f-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000f00",
+      "utf8Hex": "610f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u000f-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000f006200",
+      "utf8Hex": "610f62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0010-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1000",
+      "utf8Hex": "10",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0010-leading",
+      "hasHostValue": true,
+      "utf16Hex": "10006100",
+      "utf8Hex": "1061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0010-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001000",
+      "utf8Hex": "6110",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0010-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610010006200",
+      "utf8Hex": "611062",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0011-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1100",
+      "utf8Hex": "11",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0011-leading",
+      "hasHostValue": true,
+      "utf16Hex": "11006100",
+      "utf8Hex": "1161",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0011-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001100",
+      "utf8Hex": "6111",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0011-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610011006200",
+      "utf8Hex": "611162",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0012-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1200",
+      "utf8Hex": "12",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0012-leading",
+      "hasHostValue": true,
+      "utf16Hex": "12006100",
+      "utf8Hex": "1261",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0012-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001200",
+      "utf8Hex": "6112",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0012-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610012006200",
+      "utf8Hex": "611262",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0013-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1300",
+      "utf8Hex": "13",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0013-leading",
+      "hasHostValue": true,
+      "utf16Hex": "13006100",
+      "utf8Hex": "1361",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0013-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001300",
+      "utf8Hex": "6113",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0013-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610013006200",
+      "utf8Hex": "611362",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0014-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1400",
+      "utf8Hex": "14",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0014-leading",
+      "hasHostValue": true,
+      "utf16Hex": "14006100",
+      "utf8Hex": "1461",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0014-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001400",
+      "utf8Hex": "6114",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0014-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610014006200",
+      "utf8Hex": "611462",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0015-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1500",
+      "utf8Hex": "15",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0015-leading",
+      "hasHostValue": true,
+      "utf16Hex": "15006100",
+      "utf8Hex": "1561",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0015-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001500",
+      "utf8Hex": "6115",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0015-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610015006200",
+      "utf8Hex": "611562",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0016-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1600",
+      "utf8Hex": "16",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0016-leading",
+      "hasHostValue": true,
+      "utf16Hex": "16006100",
+      "utf8Hex": "1661",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0016-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001600",
+      "utf8Hex": "6116",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0016-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610016006200",
+      "utf8Hex": "611662",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0017-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1700",
+      "utf8Hex": "17",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0017-leading",
+      "hasHostValue": true,
+      "utf16Hex": "17006100",
+      "utf8Hex": "1761",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0017-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001700",
+      "utf8Hex": "6117",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0017-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610017006200",
+      "utf8Hex": "611762",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0018-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1800",
+      "utf8Hex": "18",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0018-leading",
+      "hasHostValue": true,
+      "utf16Hex": "18006100",
+      "utf8Hex": "1861",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0018-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001800",
+      "utf8Hex": "6118",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0018-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610018006200",
+      "utf8Hex": "611862",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0019-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1900",
+      "utf8Hex": "19",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0019-leading",
+      "hasHostValue": true,
+      "utf16Hex": "19006100",
+      "utf8Hex": "1961",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0019-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001900",
+      "utf8Hex": "6119",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0019-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610019006200",
+      "utf8Hex": "611962",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001a-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1a00",
+      "utf8Hex": "1a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001a-leading",
+      "hasHostValue": true,
+      "utf16Hex": "1a006100",
+      "utf8Hex": "1a61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001a-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001a00",
+      "utf8Hex": "611a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001a-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61001a006200",
+      "utf8Hex": "611a62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001b-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1b00",
+      "utf8Hex": "1b",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001b-leading",
+      "hasHostValue": true,
+      "utf16Hex": "1b006100",
+      "utf8Hex": "1b61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001b-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001b00",
+      "utf8Hex": "611b",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001b-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61001b006200",
+      "utf8Hex": "611b62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001c-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1c00",
+      "utf8Hex": "1c",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001c-leading",
+      "hasHostValue": true,
+      "utf16Hex": "1c006100",
+      "utf8Hex": "1c61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001c-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001c00",
+      "utf8Hex": "611c",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001c-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61001c006200",
+      "utf8Hex": "611c62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001d-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1d00",
+      "utf8Hex": "1d",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001d-leading",
+      "hasHostValue": true,
+      "utf16Hex": "1d006100",
+      "utf8Hex": "1d61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001d-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001d00",
+      "utf8Hex": "611d",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001d-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61001d006200",
+      "utf8Hex": "611d62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001e-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1e00",
+      "utf8Hex": "1e",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001e-leading",
+      "hasHostValue": true,
+      "utf16Hex": "1e006100",
+      "utf8Hex": "1e61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001e-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001e00",
+      "utf8Hex": "611e",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001e-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61001e006200",
+      "utf8Hex": "611e62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001f-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1f00",
+      "utf8Hex": "1f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001f-leading",
+      "hasHostValue": true,
+      "utf16Hex": "1f006100",
+      "utf8Hex": "1f61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001f-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001f00",
+      "utf8Hex": "611f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u001f-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61001f006200",
+      "utf8Hex": "611f62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0020-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "2000",
+      "utf8Hex": "20",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0020-leading",
+      "hasHostValue": true,
+      "utf16Hex": "20006100",
+      "utf8Hex": "2061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0020-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61002000",
+      "utf8Hex": "6120",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0020-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610020006200",
+      "utf8Hex": "612062",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u0021-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "2100",
+      "utf8Hex": "21",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u0021-leading",
+      "hasHostValue": true,
+      "utf16Hex": "21006100",
+      "utf8Hex": "2161",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u0021-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61002100",
+      "utf8Hex": "6121",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u0021-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610021006200",
+      "utf8Hex": "612162",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u007e-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "7e00",
+      "utf8Hex": "7e",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u007e-leading",
+      "hasHostValue": true,
+      "utf16Hex": "7e006100",
+      "utf8Hex": "7e61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u007e-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61007e00",
+      "utf8Hex": "617e",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u007e-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61007e006200",
+      "utf8Hex": "617e62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u007f-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "7f00",
+      "utf8Hex": "7f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u007f-leading",
+      "hasHostValue": true,
+      "utf16Hex": "7f006100",
+      "utf8Hex": "7f61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u007f-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61007f00",
+      "utf8Hex": "617f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u007f-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61007f006200",
+      "utf8Hex": "617f62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0080-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8000",
+      "utf8Hex": "c280",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0080-leading",
+      "hasHostValue": true,
+      "utf16Hex": "80006100",
+      "utf8Hex": "c28061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0080-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008000",
+      "utf8Hex": "61c280",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0080-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610080006200",
+      "utf8Hex": "61c28062",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0081-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8100",
+      "utf8Hex": "c281",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0081-leading",
+      "hasHostValue": true,
+      "utf16Hex": "81006100",
+      "utf8Hex": "c28161",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0081-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008100",
+      "utf8Hex": "61c281",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0081-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610081006200",
+      "utf8Hex": "61c28162",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0082-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8200",
+      "utf8Hex": "c282",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0082-leading",
+      "hasHostValue": true,
+      "utf16Hex": "82006100",
+      "utf8Hex": "c28261",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0082-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008200",
+      "utf8Hex": "61c282",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0082-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610082006200",
+      "utf8Hex": "61c28262",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0083-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8300",
+      "utf8Hex": "c283",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0083-leading",
+      "hasHostValue": true,
+      "utf16Hex": "83006100",
+      "utf8Hex": "c28361",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0083-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008300",
+      "utf8Hex": "61c283",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0083-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610083006200",
+      "utf8Hex": "61c28362",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0084-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8400",
+      "utf8Hex": "c284",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0084-leading",
+      "hasHostValue": true,
+      "utf16Hex": "84006100",
+      "utf8Hex": "c28461",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0084-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008400",
+      "utf8Hex": "61c284",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0084-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610084006200",
+      "utf8Hex": "61c28462",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0085-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8500",
+      "utf8Hex": "c285",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0085-leading",
+      "hasHostValue": true,
+      "utf16Hex": "85006100",
+      "utf8Hex": "c28561",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0085-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008500",
+      "utf8Hex": "61c285",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0085-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610085006200",
+      "utf8Hex": "61c28562",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0086-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8600",
+      "utf8Hex": "c286",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0086-leading",
+      "hasHostValue": true,
+      "utf16Hex": "86006100",
+      "utf8Hex": "c28661",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0086-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008600",
+      "utf8Hex": "61c286",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0086-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610086006200",
+      "utf8Hex": "61c28662",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0087-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8700",
+      "utf8Hex": "c287",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0087-leading",
+      "hasHostValue": true,
+      "utf16Hex": "87006100",
+      "utf8Hex": "c28761",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0087-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008700",
+      "utf8Hex": "61c287",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0087-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610087006200",
+      "utf8Hex": "61c28762",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0088-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8800",
+      "utf8Hex": "c288",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0088-leading",
+      "hasHostValue": true,
+      "utf16Hex": "88006100",
+      "utf8Hex": "c28861",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0088-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008800",
+      "utf8Hex": "61c288",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0088-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610088006200",
+      "utf8Hex": "61c28862",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0089-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8900",
+      "utf8Hex": "c289",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0089-leading",
+      "hasHostValue": true,
+      "utf16Hex": "89006100",
+      "utf8Hex": "c28961",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0089-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008900",
+      "utf8Hex": "61c289",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0089-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610089006200",
+      "utf8Hex": "61c28962",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008a-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8a00",
+      "utf8Hex": "c28a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008a-leading",
+      "hasHostValue": true,
+      "utf16Hex": "8a006100",
+      "utf8Hex": "c28a61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008a-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008a00",
+      "utf8Hex": "61c28a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008a-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61008a006200",
+      "utf8Hex": "61c28a62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008b-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8b00",
+      "utf8Hex": "c28b",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008b-leading",
+      "hasHostValue": true,
+      "utf16Hex": "8b006100",
+      "utf8Hex": "c28b61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008b-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008b00",
+      "utf8Hex": "61c28b",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008b-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61008b006200",
+      "utf8Hex": "61c28b62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008c-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8c00",
+      "utf8Hex": "c28c",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008c-leading",
+      "hasHostValue": true,
+      "utf16Hex": "8c006100",
+      "utf8Hex": "c28c61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008c-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008c00",
+      "utf8Hex": "61c28c",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008c-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61008c006200",
+      "utf8Hex": "61c28c62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008d-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8d00",
+      "utf8Hex": "c28d",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008d-leading",
+      "hasHostValue": true,
+      "utf16Hex": "8d006100",
+      "utf8Hex": "c28d61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008d-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008d00",
+      "utf8Hex": "61c28d",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008d-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61008d006200",
+      "utf8Hex": "61c28d62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008e-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8e00",
+      "utf8Hex": "c28e",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008e-leading",
+      "hasHostValue": true,
+      "utf16Hex": "8e006100",
+      "utf8Hex": "c28e61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008e-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008e00",
+      "utf8Hex": "61c28e",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008e-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61008e006200",
+      "utf8Hex": "61c28e62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008f-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8f00",
+      "utf8Hex": "c28f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008f-leading",
+      "hasHostValue": true,
+      "utf16Hex": "8f006100",
+      "utf8Hex": "c28f61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008f-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008f00",
+      "utf8Hex": "61c28f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u008f-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61008f006200",
+      "utf8Hex": "61c28f62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0090-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9000",
+      "utf8Hex": "c290",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0090-leading",
+      "hasHostValue": true,
+      "utf16Hex": "90006100",
+      "utf8Hex": "c29061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0090-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009000",
+      "utf8Hex": "61c290",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0090-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610090006200",
+      "utf8Hex": "61c29062",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0091-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9100",
+      "utf8Hex": "c291",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0091-leading",
+      "hasHostValue": true,
+      "utf16Hex": "91006100",
+      "utf8Hex": "c29161",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0091-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009100",
+      "utf8Hex": "61c291",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0091-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610091006200",
+      "utf8Hex": "61c29162",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0092-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9200",
+      "utf8Hex": "c292",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0092-leading",
+      "hasHostValue": true,
+      "utf16Hex": "92006100",
+      "utf8Hex": "c29261",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0092-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009200",
+      "utf8Hex": "61c292",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0092-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610092006200",
+      "utf8Hex": "61c29262",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0093-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9300",
+      "utf8Hex": "c293",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0093-leading",
+      "hasHostValue": true,
+      "utf16Hex": "93006100",
+      "utf8Hex": "c29361",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0093-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009300",
+      "utf8Hex": "61c293",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0093-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610093006200",
+      "utf8Hex": "61c29362",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0094-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9400",
+      "utf8Hex": "c294",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0094-leading",
+      "hasHostValue": true,
+      "utf16Hex": "94006100",
+      "utf8Hex": "c29461",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0094-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009400",
+      "utf8Hex": "61c294",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0094-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610094006200",
+      "utf8Hex": "61c29462",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0095-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9500",
+      "utf8Hex": "c295",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0095-leading",
+      "hasHostValue": true,
+      "utf16Hex": "95006100",
+      "utf8Hex": "c29561",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0095-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009500",
+      "utf8Hex": "61c295",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0095-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610095006200",
+      "utf8Hex": "61c29562",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0096-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9600",
+      "utf8Hex": "c296",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0096-leading",
+      "hasHostValue": true,
+      "utf16Hex": "96006100",
+      "utf8Hex": "c29661",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0096-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009600",
+      "utf8Hex": "61c296",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0096-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610096006200",
+      "utf8Hex": "61c29662",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0097-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9700",
+      "utf8Hex": "c297",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0097-leading",
+      "hasHostValue": true,
+      "utf16Hex": "97006100",
+      "utf8Hex": "c29761",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0097-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009700",
+      "utf8Hex": "61c297",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0097-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610097006200",
+      "utf8Hex": "61c29762",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0098-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9800",
+      "utf8Hex": "c298",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0098-leading",
+      "hasHostValue": true,
+      "utf16Hex": "98006100",
+      "utf8Hex": "c29861",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0098-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009800",
+      "utf8Hex": "61c298",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0098-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610098006200",
+      "utf8Hex": "61c29862",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0099-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9900",
+      "utf8Hex": "c299",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0099-leading",
+      "hasHostValue": true,
+      "utf16Hex": "99006100",
+      "utf8Hex": "c29961",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0099-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009900",
+      "utf8Hex": "61c299",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u0099-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610099006200",
+      "utf8Hex": "61c29962",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009a-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9a00",
+      "utf8Hex": "c29a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009a-leading",
+      "hasHostValue": true,
+      "utf16Hex": "9a006100",
+      "utf8Hex": "c29a61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009a-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009a00",
+      "utf8Hex": "61c29a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009a-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61009a006200",
+      "utf8Hex": "61c29a62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009b-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9b00",
+      "utf8Hex": "c29b",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009b-leading",
+      "hasHostValue": true,
+      "utf16Hex": "9b006100",
+      "utf8Hex": "c29b61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009b-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009b00",
+      "utf8Hex": "61c29b",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009b-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61009b006200",
+      "utf8Hex": "61c29b62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009c-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9c00",
+      "utf8Hex": "c29c",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009c-leading",
+      "hasHostValue": true,
+      "utf16Hex": "9c006100",
+      "utf8Hex": "c29c61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009c-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009c00",
+      "utf8Hex": "61c29c",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009c-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61009c006200",
+      "utf8Hex": "61c29c62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009d-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9d00",
+      "utf8Hex": "c29d",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009d-leading",
+      "hasHostValue": true,
+      "utf16Hex": "9d006100",
+      "utf8Hex": "c29d61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009d-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009d00",
+      "utf8Hex": "61c29d",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009d-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61009d006200",
+      "utf8Hex": "61c29d62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009e-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9e00",
+      "utf8Hex": "c29e",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009e-leading",
+      "hasHostValue": true,
+      "utf16Hex": "9e006100",
+      "utf8Hex": "c29e61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009e-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009e00",
+      "utf8Hex": "61c29e",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009e-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61009e006200",
+      "utf8Hex": "61c29e62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009f-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "9f00",
+      "utf8Hex": "c29f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009f-leading",
+      "hasHostValue": true,
+      "utf16Hex": "9f006100",
+      "utf8Hex": "c29f61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009f-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61009f00",
+      "utf8Hex": "61c29f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u009f-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61009f006200",
+      "utf8Hex": "61c29f62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u00a0-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "a000",
+      "utf8Hex": "c2a0",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u00a0-leading",
+      "hasHostValue": true,
+      "utf16Hex": "a0006100",
+      "utf8Hex": "c2a061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u00a0-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100a000",
+      "utf8Hex": "61c2a0",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u00a0-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100a0006200",
+      "utf8Hex": "61c2a062",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u00a1-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "a100",
+      "utf8Hex": "c2a1",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u00a1-leading",
+      "hasHostValue": true,
+      "utf16Hex": "a1006100",
+      "utf8Hex": "c2a161",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u00a1-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100a100",
+      "utf8Hex": "61c2a1",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u00a1-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100a1006200",
+      "utf8Hex": "61c2a162",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u00ad-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "ad00",
+      "utf8Hex": "c2ad",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u00ad-leading",
+      "hasHostValue": true,
+      "utf16Hex": "ad006100",
+      "utf8Hex": "c2ad61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u00ad-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100ad00",
+      "utf8Hex": "61c2ad",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u00ad-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100ad006200",
+      "utf8Hex": "61c2ad62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u061c-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "1c06",
+      "utf8Hex": "d89c",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u061c-leading",
+      "hasHostValue": true,
+      "utf16Hex": "1c066100",
+      "utf8Hex": "d89c61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u061c-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61001c06",
+      "utf8Hex": "61d89c",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u061c-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61001c066200",
+      "utf8Hex": "61d89c62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u167f-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "7f16",
+      "utf8Hex": "e199bf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u167f-leading",
+      "hasHostValue": true,
+      "utf16Hex": "7f166100",
+      "utf8Hex": "e199bf61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u167f-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61007f16",
+      "utf8Hex": "61e199bf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u167f-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61007f166200",
+      "utf8Hex": "61e199bf62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u1680-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8016",
+      "utf8Hex": "e19a80",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1680-leading",
+      "hasHostValue": true,
+      "utf16Hex": "80166100",
+      "utf8Hex": "e19a8061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1680-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008016",
+      "utf8Hex": "61e19a80",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1680-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610080166200",
+      "utf8Hex": "61e19a8062",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u1681-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "8116",
+      "utf8Hex": "e19a81",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u1681-leading",
+      "hasHostValue": true,
+      "utf16Hex": "81166100",
+      "utf8Hex": "e19a8161",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u1681-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61008116",
+      "utf8Hex": "61e19a81",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u1681-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610081166200",
+      "utf8Hex": "61e19a8162",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u180e-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0e18",
+      "utf8Hex": "e1a08e",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u180e-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0e186100",
+      "utf8Hex": "e1a08e61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u180e-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000e18",
+      "utf8Hex": "61e1a08e",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u180e-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000e186200",
+      "utf8Hex": "61e1a08e62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u180f-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0f18",
+      "utf8Hex": "e1a08f",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u180f-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0f186100",
+      "utf8Hex": "e1a08f61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u180f-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000f18",
+      "utf8Hex": "61e1a08f",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u180f-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000f186200",
+      "utf8Hex": "61e1a08f62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200c-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0c20",
+      "utf8Hex": "e2808c",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200c-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0c206100",
+      "utf8Hex": "e2808c61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200c-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000c20",
+      "utf8Hex": "61e2808c",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200c-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000c206200",
+      "utf8Hex": "61e2808c62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200d-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0d20",
+      "utf8Hex": "e2808d",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200d-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0d206100",
+      "utf8Hex": "e2808d61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200d-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000d20",
+      "utf8Hex": "61e2808d",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200d-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000d206200",
+      "utf8Hex": "61e2808d62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2066-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "6620",
+      "utf8Hex": "e281a6",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2066-leading",
+      "hasHostValue": true,
+      "utf16Hex": "66206100",
+      "utf8Hex": "e281a661",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2066-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61006620",
+      "utf8Hex": "61e281a6",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2066-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610066206200",
+      "utf8Hex": "61e281a662",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2067-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "6720",
+      "utf8Hex": "e281a7",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2067-leading",
+      "hasHostValue": true,
+      "utf16Hex": "67206100",
+      "utf8Hex": "e281a761",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2067-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61006720",
+      "utf8Hex": "61e281a7",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2067-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610067206200",
+      "utf8Hex": "61e281a762",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2068-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "6820",
+      "utf8Hex": "e281a8",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2068-leading",
+      "hasHostValue": true,
+      "utf16Hex": "68206100",
+      "utf8Hex": "e281a861",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2068-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61006820",
+      "utf8Hex": "61e281a8",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2068-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610068206200",
+      "utf8Hex": "61e281a862",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2069-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "6920",
+      "utf8Hex": "e281a9",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2069-leading",
+      "hasHostValue": true,
+      "utf16Hex": "69206100",
+      "utf8Hex": "e281a961",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2069-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61006920",
+      "utf8Hex": "61e281a9",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2069-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610069206200",
+      "utf8Hex": "61e281a962",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u1fff-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "ff1f",
+      "utf8Hex": "e1bfbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u1fff-leading",
+      "hasHostValue": true,
+      "utf16Hex": "ff1f6100",
+      "utf8Hex": "e1bfbf61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u1fff-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100ff1f",
+      "utf8Hex": "61e1bfbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u1fff-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100ff1f6200",
+      "utf8Hex": "61e1bfbf62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2000-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0020",
+      "utf8Hex": "e28080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2000-leading",
+      "hasHostValue": true,
+      "utf16Hex": "00206100",
+      "utf8Hex": "e2808061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2000-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000020",
+      "utf8Hex": "61e28080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2000-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610000206200",
+      "utf8Hex": "61e2808062",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2001-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0120",
+      "utf8Hex": "e28081",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2001-leading",
+      "hasHostValue": true,
+      "utf16Hex": "01206100",
+      "utf8Hex": "e2808161",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2001-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000120",
+      "utf8Hex": "61e28081",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2001-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610001206200",
+      "utf8Hex": "61e2808162",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2002-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0220",
+      "utf8Hex": "e28082",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2002-leading",
+      "hasHostValue": true,
+      "utf16Hex": "02206100",
+      "utf8Hex": "e2808261",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2002-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000220",
+      "utf8Hex": "61e28082",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2002-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610002206200",
+      "utf8Hex": "61e2808262",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2003-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0320",
+      "utf8Hex": "e28083",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2003-leading",
+      "hasHostValue": true,
+      "utf16Hex": "03206100",
+      "utf8Hex": "e2808361",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2003-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000320",
+      "utf8Hex": "61e28083",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2003-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610003206200",
+      "utf8Hex": "61e2808362",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2004-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0420",
+      "utf8Hex": "e28084",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2004-leading",
+      "hasHostValue": true,
+      "utf16Hex": "04206100",
+      "utf8Hex": "e2808461",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2004-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000420",
+      "utf8Hex": "61e28084",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2004-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610004206200",
+      "utf8Hex": "61e2808462",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2005-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0520",
+      "utf8Hex": "e28085",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2005-leading",
+      "hasHostValue": true,
+      "utf16Hex": "05206100",
+      "utf8Hex": "e2808561",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2005-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000520",
+      "utf8Hex": "61e28085",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2005-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610005206200",
+      "utf8Hex": "61e2808562",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2006-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0620",
+      "utf8Hex": "e28086",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2006-leading",
+      "hasHostValue": true,
+      "utf16Hex": "06206100",
+      "utf8Hex": "e2808661",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2006-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000620",
+      "utf8Hex": "61e28086",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2006-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610006206200",
+      "utf8Hex": "61e2808662",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2007-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0720",
+      "utf8Hex": "e28087",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2007-leading",
+      "hasHostValue": true,
+      "utf16Hex": "07206100",
+      "utf8Hex": "e2808761",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2007-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000720",
+      "utf8Hex": "61e28087",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2007-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610007206200",
+      "utf8Hex": "61e2808762",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2008-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0820",
+      "utf8Hex": "e28088",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2008-leading",
+      "hasHostValue": true,
+      "utf16Hex": "08206100",
+      "utf8Hex": "e2808861",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2008-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000820",
+      "utf8Hex": "61e28088",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2008-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610008206200",
+      "utf8Hex": "61e2808862",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2009-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0920",
+      "utf8Hex": "e28089",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2009-leading",
+      "hasHostValue": true,
+      "utf16Hex": "09206100",
+      "utf8Hex": "e2808961",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2009-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000920",
+      "utf8Hex": "61e28089",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2009-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610009206200",
+      "utf8Hex": "61e2808962",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200a-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0a20",
+      "utf8Hex": "e2808a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u200a-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0a206100",
+      "utf8Hex": "e2808a61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u200a-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000a20",
+      "utf8Hex": "61e2808a",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u200a-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000a206200",
+      "utf8Hex": "61e2808a62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200b-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0b20",
+      "utf8Hex": "e2808b",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200b-leading",
+      "hasHostValue": true,
+      "utf16Hex": "0b206100",
+      "utf8Hex": "e2808b61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200b-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000b20",
+      "utf8Hex": "61e2808b",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u200b-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61000b206200",
+      "utf8Hex": "61e2808b62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2027-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "2720",
+      "utf8Hex": "e280a7",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2027-leading",
+      "hasHostValue": true,
+      "utf16Hex": "27206100",
+      "utf8Hex": "e280a761",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2027-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61002720",
+      "utf8Hex": "61e280a7",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2027-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610027206200",
+      "utf8Hex": "61e280a762",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2028-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "2820",
+      "utf8Hex": "e280a8",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2028-leading",
+      "hasHostValue": true,
+      "utf16Hex": "28206100",
+      "utf8Hex": "e280a861",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2028-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61002820",
+      "utf8Hex": "61e280a8",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2028-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610028206200",
+      "utf8Hex": "61e280a862",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2029-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "2920",
+      "utf8Hex": "e280a9",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2029-leading",
+      "hasHostValue": true,
+      "utf16Hex": "29206100",
+      "utf8Hex": "e280a961",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2029-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61002920",
+      "utf8Hex": "61e280a9",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u2029-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610029206200",
+      "utf8Hex": "61e280a962",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u202a-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "2a20",
+      "utf8Hex": "e280aa",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u202a-leading",
+      "hasHostValue": true,
+      "utf16Hex": "2a206100",
+      "utf8Hex": "e280aa61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u202a-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61002a20",
+      "utf8Hex": "61e280aa",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u202a-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61002a206200",
+      "utf8Hex": "61e280aa62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u202e-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "2e20",
+      "utf8Hex": "e280ae",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u202e-leading",
+      "hasHostValue": true,
+      "utf16Hex": "2e206100",
+      "utf8Hex": "e280ae61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u202e-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61002e20",
+      "utf8Hex": "61e280ae",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u202e-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61002e206200",
+      "utf8Hex": "61e280ae62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u202f-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "2f20",
+      "utf8Hex": "e280af",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u202f-leading",
+      "hasHostValue": true,
+      "utf16Hex": "2f206100",
+      "utf8Hex": "e280af61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u202f-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61002f20",
+      "utf8Hex": "61e280af",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u202f-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61002f206200",
+      "utf8Hex": "61e280af62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2030-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "3020",
+      "utf8Hex": "e280b0",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2030-leading",
+      "hasHostValue": true,
+      "utf16Hex": "30206100",
+      "utf8Hex": "e280b061",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2030-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61003020",
+      "utf8Hex": "61e280b0",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2030-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610030206200",
+      "utf8Hex": "61e280b062",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u205e-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "5e20",
+      "utf8Hex": "e2819e",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u205e-leading",
+      "hasHostValue": true,
+      "utf16Hex": "5e206100",
+      "utf8Hex": "e2819e61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u205e-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61005e20",
+      "utf8Hex": "61e2819e",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u205e-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61005e206200",
+      "utf8Hex": "61e2819e62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u205f-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "5f20",
+      "utf8Hex": "e2819f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u205f-leading",
+      "hasHostValue": true,
+      "utf16Hex": "5f206100",
+      "utf8Hex": "e2819f61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u205f-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61005f20",
+      "utf8Hex": "61e2819f",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u205f-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61005f206200",
+      "utf8Hex": "61e2819f62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2060-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "6020",
+      "utf8Hex": "e281a0",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2060-leading",
+      "hasHostValue": true,
+      "utf16Hex": "60206100",
+      "utf8Hex": "e281a061",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2060-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61006020",
+      "utf8Hex": "61e281a0",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2060-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610060206200",
+      "utf8Hex": "61e281a062",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2fff-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "ff2f",
+      "utf8Hex": "e2bfbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2fff-leading",
+      "hasHostValue": true,
+      "utf16Hex": "ff2f6100",
+      "utf8Hex": "e2bfbf61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2fff-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100ff2f",
+      "utf8Hex": "61e2bfbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u2fff-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100ff2f6200",
+      "utf8Hex": "61e2bfbf62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u3000-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0030",
+      "utf8Hex": "e38080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u3000-leading",
+      "hasHostValue": true,
+      "utf16Hex": "00306100",
+      "utf8Hex": "e3808061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u3000-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000030",
+      "utf8Hex": "61e38080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u3000-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610000306200",
+      "utf8Hex": "61e3808062",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u3001-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "0130",
+      "utf8Hex": "e38081",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u3001-leading",
+      "hasHostValue": true,
+      "utf16Hex": "01306100",
+      "utf8Hex": "e3808161",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u3001-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61000130",
+      "utf8Hex": "61e38081",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u3001-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610001306200",
+      "utf8Hex": "61e3808162",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ud7ff-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "ffd7",
+      "utf8Hex": "ed9fbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ud7ff-leading",
+      "hasHostValue": true,
+      "utf16Hex": "ffd76100",
+      "utf8Hex": "ed9fbf61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ud7ff-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffd7",
+      "utf8Hex": "61ed9fbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ud7ff-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffd76200",
+      "utf8Hex": "61ed9fbf62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ud800-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "00d8",
+      "utf8Hex": "eda080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "ud800-leading",
+      "hasHostValue": true,
+      "utf16Hex": "00d86100",
+      "utf8Hex": "eda08061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "ud800-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "610000d8",
+      "utf8Hex": "61eda080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "ud800-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610000d86200",
+      "utf8Hex": "61eda08062",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udbff-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "ffdb",
+      "utf8Hex": "edafbf",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udbff-leading",
+      "hasHostValue": true,
+      "utf16Hex": "ffdb6100",
+      "utf8Hex": "edafbf61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udbff-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffdb",
+      "utf8Hex": "61edafbf",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udbff-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffdb6200",
+      "utf8Hex": "61edafbf62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udc00-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "00dc",
+      "utf8Hex": "edb080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udc00-leading",
+      "hasHostValue": true,
+      "utf16Hex": "00dc6100",
+      "utf8Hex": "edb08061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udc00-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "610000dc",
+      "utf8Hex": "61edb080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udc00-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610000dc6200",
+      "utf8Hex": "61edb08062",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udfff-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "ffdf",
+      "utf8Hex": "edbfbf",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udfff-leading",
+      "hasHostValue": true,
+      "utf16Hex": "ffdf6100",
+      "utf8Hex": "edbfbf61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udfff-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffdf",
+      "utf8Hex": "61edbfbf",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "udfff-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffdf6200",
+      "utf8Hex": "61edbfbf62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "ue000-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "00e0",
+      "utf8Hex": "ee8080",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ue000-leading",
+      "hasHostValue": true,
+      "utf16Hex": "00e06100",
+      "utf8Hex": "ee808061",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ue000-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "610000e0",
+      "utf8Hex": "61ee8080",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ue000-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610000e06200",
+      "utf8Hex": "61ee808062",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufdd0-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "d0fd",
+      "utf8Hex": "efb790",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufdd0-leading",
+      "hasHostValue": true,
+      "utf16Hex": "d0fd6100",
+      "utf8Hex": "efb79061",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufdd0-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100d0fd",
+      "utf8Hex": "61efb790",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufdd0-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100d0fd6200",
+      "utf8Hex": "61efb79062",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufdef-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "effd",
+      "utf8Hex": "efb7af",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufdef-leading",
+      "hasHostValue": true,
+      "utf16Hex": "effd6100",
+      "utf8Hex": "efb7af61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufdef-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100effd",
+      "utf8Hex": "61efb7af",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufdef-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100effd6200",
+      "utf8Hex": "61efb7af62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufefe-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "fefe",
+      "utf8Hex": "efbbbe",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufefe-leading",
+      "hasHostValue": true,
+      "utf16Hex": "fefe6100",
+      "utf8Hex": "efbbbe61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufefe-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100fefe",
+      "utf8Hex": "61efbbbe",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufefe-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100fefe6200",
+      "utf8Hex": "61efbbbe62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufeff-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "fffe",
+      "utf8Hex": "efbbbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufeff-leading",
+      "hasHostValue": true,
+      "utf16Hex": "fffe6100",
+      "utf8Hex": "efbbbf61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufeff-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100fffe",
+      "utf8Hex": "61efbbbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufeff-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100fffe6200",
+      "utf8Hex": "61efbbbf62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufffd-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "fdff",
+      "utf8Hex": "efbfbd",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufffd-leading",
+      "hasHostValue": true,
+      "utf16Hex": "fdff6100",
+      "utf8Hex": "efbfbd61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufffd-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100fdff",
+      "utf8Hex": "61efbfbd",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufffd-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100fdff6200",
+      "utf8Hex": "61efbfbd62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufffe-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "feff",
+      "utf8Hex": "efbfbe",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufffe-leading",
+      "hasHostValue": true,
+      "utf16Hex": "feff6100",
+      "utf8Hex": "efbfbe61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufffe-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100feff",
+      "utf8Hex": "61efbfbe",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ufffe-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100feff6200",
+      "utf8Hex": "61efbfbe62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "uffff-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "ffff",
+      "utf8Hex": "efbfbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "uffff-leading",
+      "hasHostValue": true,
+      "utf16Hex": "ffff6100",
+      "utf8Hex": "efbfbf61",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "uffff-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffff",
+      "utf8Hex": "61efbfbf",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "uffff-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffff6200",
+      "utf8Hex": "61efbfbf62",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "u10000-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "00d800dc",
+      "utf8Hex": "f0908080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10000-leading",
+      "hasHostValue": true,
+      "utf16Hex": "00d800dc6100",
+      "utf8Hex": "f090808061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10000-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "610000d800dc",
+      "utf8Hex": "61f0908080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10000-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610000d800dc6200",
+      "utf8Hex": "61f090808062",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10001-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "00d801dc",
+      "utf8Hex": "f0908081",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10001-leading",
+      "hasHostValue": true,
+      "utf16Hex": "00d801dc6100",
+      "utf8Hex": "f090808161",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10001-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "610000d801dc",
+      "utf8Hex": "61f0908081",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10001-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "610000d801dc6200",
+      "utf8Hex": "61f090808162",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1f600-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "3dd800de",
+      "utf8Hex": "f09f9880",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1f600-leading",
+      "hasHostValue": true,
+      "utf16Hex": "3dd800de6100",
+      "utf8Hex": "f09f988061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1f600-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61003dd800de",
+      "utf8Hex": "61f09f9880",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1f600-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61003dd800de6200",
+      "utf8Hex": "61f09f988062",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1f9d0-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "3ed8d0dd",
+      "utf8Hex": "f09fa790",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1f9d0-leading",
+      "hasHostValue": true,
+      "utf16Hex": "3ed8d0dd6100",
+      "utf8Hex": "f09fa79061",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1f9d0-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "61003ed8d0dd",
+      "utf8Hex": "61f09fa790",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u1f9d0-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "61003ed8d0dd6200",
+      "utf8Hex": "61f09fa79062",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10ffff-standalone",
+      "hasHostValue": true,
+      "utf16Hex": "ffdbffdf",
+      "utf8Hex": "f48fbfbf",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10ffff-leading",
+      "hasHostValue": true,
+      "utf16Hex": "ffdbffdf6100",
+      "utf8Hex": "f48fbfbf61",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10ffff-trailing",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffdbffdf",
+      "utf8Hex": "61f48fbfbf",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "u10ffff-embedded",
+      "hasHostValue": true,
+      "utf16Hex": "6100ffdbffdf6200",
+      "utf8Hex": "61f48fbfbf62",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "ascii-units-63",
+      "hasHostValue": true,
+      "utf16Hex": "780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800",
+      "utf8Hex": "787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "bmp-units-63",
+      "hasHostValue": true,
+      "utf16Hex": "876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765",
+      "utf8Hex": "e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ascii-units-64",
+      "hasHostValue": true,
+      "utf16Hex": "7800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800",
+      "utf8Hex": "78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "bmp-units-64",
+      "hasHostValue": true,
+      "utf16Hex": "8765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765",
+      "utf8Hex": "e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687",
+      "expectedByField": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ascii-units-65",
+      "hasHostValue": true,
+      "utf16Hex": "78007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800",
+      "utf8Hex": "7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "expectedByField": [
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "bmp-units-65",
+      "hasHostValue": true,
+      "utf16Hex": "87658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765",
+      "utf8Hex": "e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687",
+      "expectedByField": [
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ascii-units-127",
+      "hasHostValue": true,
+      "utf16Hex": "7800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800",
+      "utf8Hex": "78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "expectedByField": [
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "bmp-units-127",
+      "hasHostValue": true,
+      "utf16Hex": "8765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765",
+      "utf8Hex": "e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687",
+      "expectedByField": [
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ascii-units-128",
+      "hasHostValue": true,
+      "utf16Hex": "78007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800",
+      "utf8Hex": "7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "expectedByField": [
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "bmp-units-128",
+      "hasHostValue": true,
+      "utf16Hex": "87658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765",
+      "utf8Hex": "e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687",
+      "expectedByField": [
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ascii-units-129",
+      "hasHostValue": true,
+      "utf16Hex": "780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800",
+      "utf8Hex": "787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "expectedByField": [
+        false,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "bmp-units-129",
+      "hasHostValue": true,
+      "utf16Hex": "876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765",
+      "utf8Hex": "e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687",
+      "expectedByField": [
+        false,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ascii-units-255",
+      "hasHostValue": true,
+      "utf16Hex": "780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800",
+      "utf8Hex": "787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "expectedByField": [
+        false,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "bmp-units-255",
+      "hasHostValue": true,
+      "utf16Hex": "876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765",
+      "utf8Hex": "e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687",
+      "expectedByField": [
+        false,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ascii-units-256",
+      "hasHostValue": true,
+      "utf16Hex": "7800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800",
+      "utf8Hex": "78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "expectedByField": [
+        false,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "bmp-units-256",
+      "hasHostValue": true,
+      "utf16Hex": "8765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765",
+      "utf8Hex": "e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687",
+      "expectedByField": [
+        false,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "ascii-units-257",
+      "hasHostValue": true,
+      "utf16Hex": "78007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800780078007800",
+      "utf8Hex": "7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "bmp-units-257",
+      "hasHostValue": true,
+      "utf16Hex": "87658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765876587658765",
+      "utf8Hex": "e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687e69687",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "combining-pairs-64",
+      "hasHostValue": true,
+      "utf16Hex": "65000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103",
+      "utf8Hex": "65cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc81",
+      "expectedByField": [
+        true,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "supplementary-pairs-64",
+      "hasHostValue": true,
+      "utf16Hex": "3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de",
+      "utf8Hex": "f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "combining-pairs-65",
+      "hasHostValue": true,
+      "utf16Hex": "6500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103",
+      "utf8Hex": "65cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc81",
+      "expectedByField": [
+        false,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "supplementary-pairs-65",
+      "hasHostValue": true,
+      "utf16Hex": "3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de",
+      "utf8Hex": "f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "combining-pairs-128",
+      "hasHostValue": true,
+      "utf16Hex": "6500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103",
+      "utf8Hex": "65cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc81",
+      "expectedByField": [
+        false,
+        false,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "name": "supplementary-pairs-128",
+      "hasHostValue": true,
+      "utf16Hex": "3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de",
+      "utf8Hex": "f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "combining-pairs-129",
+      "hasHostValue": true,
+      "utf16Hex": "650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103650001036500010365000103",
+      "utf8Hex": "65cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc8165cc81",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "supplementary-pairs-129",
+      "hasHostValue": true,
+      "utf16Hex": "3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de3dd800de",
+      "utf8Hex": "f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "malformed-utf8-overlong-nul",
+      "hasHostValue": false,
+      "utf16Hex": null,
+      "utf8Hex": "c080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "malformed-utf8-surrogate-high",
+      "hasHostValue": false,
+      "utf16Hex": null,
+      "utf8Hex": "eda080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "malformed-utf8-surrogate-low",
+      "hasHostValue": false,
+      "utf16Hex": null,
+      "utf8Hex": "edbfbf",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "malformed-utf8-out-of-unicode-range",
+      "hasHostValue": false,
+      "utf16Hex": null,
+      "utf8Hex": "f4908080",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "malformed-utf8-truncated-four-byte",
+      "hasHostValue": false,
+      "utf16Hex": null,
+      "utf8Hex": "f09f98",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "malformed-utf8-isolated-continuation",
+      "hasHostValue": false,
+      "utf16Hex": null,
+      "utf8Hex": "80",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "name": "malformed-utf8-truncated-three-byte",
+      "hasHostValue": false,
+      "utf16Hex": null,
+      "utf8Hex": "e280",
+      "expectedByField": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    }
+  ],
+  "retainedProperty": {
+    "record": "ArticlePropertyValueReadResponse",
+    "frameType": 269,
+    "payloadHex": "020700000001000000000020000000000000000000000000000000000000012a0000000000000007000000e7ab99f09f988001000000"
+  }
+}

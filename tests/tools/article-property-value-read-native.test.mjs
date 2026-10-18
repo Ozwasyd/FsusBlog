@@ -6,6 +6,8 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { approvalScopeCorpus, scopeNativeWitnesses } from './support/approval-scope-witnesses.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 test('actual native generated read parser agrees with complete shared positive and negative witnesses', () =>
 {
@@ -28,6 +30,7 @@ test('actual native generated read parser agrees with complete shared positive a
         assert.match(run.stdout, new RegExp(`cases=${golden.cases.length} all matched`));
         assert.match(run.stdout, /production dispatcher\/error13 matched/);
         const mutations = { cases: ['article-property-mutation-wire-golden.json', 'article-property-historical-read-wire-golden.json', 'authoring-extension-approval-wire-golden.json'].flatMap(file => JSON.parse(readFileSync(path.join(root, 'tests/fixtures/protocol', file), 'utf8')).cases) };
+        mutations.cases.push(...scopeNativeWitnesses(), { ...approvalScopeCorpus.retainedProperty, name: 'retained-property-supplementary-scope', valid: true });
         const mutationInput = path.join(directory, 'mutations.txt');
         writeFileSync(mutationInput, mutations.cases.map(item => `${item.valid ? 1 : 0} ${item.frameType}:${item.name} ${item.payloadHex}`).join('\n') + '\n');
         const mutationRun = spawnSync(executable, [mutationInput, String(mutations.cases.length), 'mutation'], { encoding: 'utf8' });
