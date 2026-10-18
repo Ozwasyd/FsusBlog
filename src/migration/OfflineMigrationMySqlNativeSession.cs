@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 
 using MySqlConnector;
+
 using SqlSugar;
 
 namespace FsusBlog.Migration;

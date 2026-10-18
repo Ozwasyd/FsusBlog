@@ -1,6 +1,7 @@
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 
 using FsusBlog.Contracts.Schema;
+
 using Xunit;
 
 namespace FsusBlog.Server.Tests.Unit;

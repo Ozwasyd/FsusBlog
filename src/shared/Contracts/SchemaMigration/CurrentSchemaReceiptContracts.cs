@@ -119,7 +119,10 @@ public static class CurrentSchemaReceiptCodec
     /// <summary>Hashes the canonical payload with its own digest field empty; this is not an artifact hash.</summary>
     public static string ComputeContentDigest(CurrentSchemaReceipt receipt)
         => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(
-            receipt with { ContentDigest = string.Empty }, s_json))).ToLowerInvariant();
+            receipt with
+            {
+                ContentDigest = string.Empty
+            }, s_json))).ToLowerInvariant();
 
     /// <summary>Checks closed shape and payload integrity without asserting database truth or provenance.</summary>
     public static void ValidateIntegrity(CurrentSchemaReceipt receipt)

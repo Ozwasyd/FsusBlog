@@ -61,7 +61,8 @@ internal static class OfflineMigrationApplyJournalDialect
         object? actual = await UseCommandAsync(connection, transaction, sql,
             provider == CurrentSchemaProviderKind.PostgreSql ? null : "@table", CurrentSchemaControlShape.ApplyJournalTableName,
             command => command.ExecuteScalarAsync(token)).ConfigureAwait(false);
-        if (actual is null or DBNull) throw ShapeChanged();
+        if (actual is null or DBNull)
+            throw ShapeChanged();
         return Convert.ToBoolean(actual);
     }
 
@@ -89,7 +90,8 @@ internal static class OfflineMigrationApplyJournalDialect
             return;
         }
 
-        if (provider != CurrentSchemaProviderKind.MySql) throw ShapeChanged();
+        if (provider != CurrentSchemaProviderKind.MySql)
+            throw ShapeChanged();
         SchemaTableModel shape = CurrentSchemaControlShape.DescribeApplyJournal();
         await ReadAsync(connection, transaction,
             "SELECT TABLE_TYPE, ENGINE, TABLE_COLLATION, CREATE_OPTIONS, TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@table", "@table", shape.Name, token, async reader =>
@@ -97,7 +99,8 @@ internal static class OfflineMigrationApplyJournalDialect
             if (!await reader.ReadAsync(token).ConfigureAwait(false) || reader.GetString(0) != "BASE TABLE"
                 || reader.GetString(1) != "InnoDB" || reader.GetString(2) != "utf8mb4_0900_bin"
                 || reader.GetString(3).Length != 0 || reader.GetString(4) != shape.Name
-                || await reader.ReadAsync(token).ConfigureAwait(false)) throw ShapeChanged();
+                || await reader.ReadAsync(token).ConfigureAwait(false))
+                throw ShapeChanged();
         }).ConfigureAwait(false);
         await ReadAsync(connection, transaction, """
             SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA, COLLATION_NAME, GENERATION_EXPRESSION
@@ -110,9 +113,11 @@ internal static class OfflineMigrationApplyJournalDialect
                     || reader.GetString(1) != SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.MySql, expected.DataType, expected.MaxLength)
                     || reader.GetString(2) != "NO" || !reader.IsDBNull(3) || reader.GetString(4).Length != 0
                     || (expected.DataType == "string" ? reader.GetString(5) != "utf8mb4_0900_bin" : !reader.IsDBNull(5))
-                    || reader.GetString(6).Length != 0) throw ShapeChanged();
+                    || reader.GetString(6).Length != 0)
+                    throw ShapeChanged();
             }
-            if (await reader.ReadAsync(token).ConfigureAwait(false)) throw ShapeChanged();
+            if (await reader.ReadAsync(token).ConfigureAwait(false))
+                throw ShapeChanged();
         }).ConfigureAwait(false);
         await ReadAsync(connection, transaction, """
             SELECT tc.CONSTRAINT_NAME, tc.CONSTRAINT_TYPE, tc.ENFORCED,
@@ -129,23 +134,33 @@ internal static class OfflineMigrationApplyJournalDialect
             foreach (SchemaConstraintModel expected in shape.Constraints.Values.OrderBy(value => value.Kind == "primary-key" ? "PRIMARY" : value.Name, StringComparer.Ordinal))
             {
                 string name = expected.Kind == "primary-key" ? "PRIMARY" : expected.Name;
-                string kind = expected.Kind switch { "primary-key" => "PRIMARY KEY", "unique" => "UNIQUE", "check" => "CHECK", _ => throw ShapeChanged() };
+                string kind = expected.Kind switch
+                {
+                    "primary-key" => "PRIMARY KEY",
+                    "unique" => "UNIQUE",
+                    "check" => "CHECK",
+                    _ => throw ShapeChanged()
+                };
                 int rows = expected.Kind == "check" ? 1 : expected.Columns.Count;
                 for (int index = 0; index < rows; index++)
                 {
                     if (!await reader.ReadAsync(token).ConfigureAwait(false) || reader.GetString(0) != name
-                        || reader.GetString(1) != kind || reader.GetString(2) != "YES" || !reader.IsDBNull(5)) throw ShapeChanged();
+                        || reader.GetString(1) != kind || reader.GetString(2) != "YES" || !reader.IsDBNull(5))
+                        throw ShapeChanged();
                     if (expected.Kind == "check")
                     {
                         // MySQL's exact native spelling of the one sole neutral check.
                         if (!reader.IsDBNull(3) || !reader.IsDBNull(4)
                             || expected.Columns.Count != 1 || expected.Expression is null
-                            || reader.GetString(6) != "(" + expected.Expression.Replace(expected.Columns[0], "`" + expected.Columns[0] + "`", StringComparison.Ordinal) + ")") throw ShapeChanged();
+                            || reader.GetString(6) != "(" + expected.Expression.Replace(expected.Columns[0], "`" + expected.Columns[0] + "`", StringComparison.Ordinal) + ")")
+                            throw ShapeChanged();
                     }
-                    else if (reader.GetString(3) != expected.Columns[index] || reader.GetInt64(4) != index + 1 || !reader.IsDBNull(6)) throw ShapeChanged();
+                    else if (reader.GetString(3) != expected.Columns[index] || reader.GetInt64(4) != index + 1 || !reader.IsDBNull(6))
+                        throw ShapeChanged();
                 }
             }
-            if (await reader.ReadAsync(token).ConfigureAwait(false)) throw ShapeChanged();
+            if (await reader.ReadAsync(token).ConfigureAwait(false))
+                throw ShapeChanged();
         }).ConfigureAwait(false);
         await ReadAsync(connection, transaction, """
             SELECT INDEX_NAME, NON_UNIQUE, SEQ_IN_INDEX, COLUMN_NAME, COLLATION, SUB_PART, INDEX_TYPE, IS_VISIBLE, EXPRESSION
@@ -159,8 +174,10 @@ internal static class OfflineMigrationApplyJournalDialect
                         || reader.GetString(0) != (expected.Kind == "primary-key" ? "PRIMARY" : expected.Name)
                         || reader.GetInt64(1) != 0 || reader.GetInt64(2) != index + 1 || reader.GetString(3) != expected.Columns[index]
                         || reader.GetString(4) != "A" || !reader.IsDBNull(5) || reader.GetString(6) != "BTREE"
-                        || reader.GetString(7) != "YES" || !reader.IsDBNull(8)) throw ShapeChanged();
-            if (await reader.ReadAsync(token).ConfigureAwait(false)) throw ShapeChanged();
+                        || reader.GetString(7) != "YES" || !reader.IsDBNull(8))
+                        throw ShapeChanged();
+            if (await reader.ReadAsync(token).ConfigureAwait(false))
+                throw ShapeChanged();
         }).ConfigureAwait(false);
         await RequireNoAttachedEffectsAsync(provider, connection, transaction, token).ConfigureAwait(false);
     }
@@ -173,7 +190,8 @@ internal static class OfflineMigrationApplyJournalDialect
             : "SELECT count(*) FROM main.sqlite_schema WHERE tbl_name=@table AND (type='trigger' OR (type='index' AND sql IS NOT NULL))";
         object? actual = await UseCommandAsync(connection, transaction, sql, "@table", CurrentSchemaControlShape.ApplyJournalTableName,
             command => command.ExecuteScalarAsync(token)).ConfigureAwait(false);
-        if (actual is null or DBNull || Convert.ToInt64(actual) != 0) throw ShapeChanged();
+        if (actual is null or DBNull || Convert.ToInt64(actual) != 0)
+            throw ShapeChanged();
     }
 
     private static async Task ValidateSqliteIndexesAsync(DbConnection connection, DbTransaction transaction, CancellationToken token)
@@ -187,8 +205,10 @@ internal static class OfflineMigrationApplyJournalDialect
                 if (!await reader.ReadAsync(token).ConfigureAwait(false)
                     || reader.GetString(0) != $"sqlite_autoindex_{shape.Name}_{index + 1}"
                     || reader.GetInt64(1) != 1 || reader.GetString(2) != (constraints[index].Kind == "primary-key" ? "pk" : "u")
-                    || reader.GetInt64(3) != 0) throw ShapeChanged();
-            if (await reader.ReadAsync(token).ConfigureAwait(false)) throw ShapeChanged();
+                    || reader.GetInt64(3) != 0)
+                    throw ShapeChanged();
+            if (await reader.ReadAsync(token).ConfigureAwait(false))
+                throw ShapeChanged();
         }).ConfigureAwait(false);
         for (int index = 0; index < constraints.Length; index++)
         {
@@ -198,8 +218,10 @@ internal static class OfflineMigrationApplyJournalDialect
             {
                 foreach (string column in constraints[index].Columns)
                     if (!await reader.ReadAsync(token).ConfigureAwait(false) || reader.IsDBNull(0)
-                        || reader.GetString(0) != column || reader.GetInt64(1) != 0 || reader.GetString(2) != "BINARY") throw ShapeChanged();
-                if (await reader.ReadAsync(token).ConfigureAwait(false)) throw ShapeChanged();
+                        || reader.GetString(0) != column || reader.GetInt64(1) != 0 || reader.GetString(2) != "BINARY")
+                        throw ShapeChanged();
+                if (await reader.ReadAsync(token).ConfigureAwait(false))
+                    throw ShapeChanged();
             }).ConfigureAwait(false);
         }
     }
@@ -218,9 +240,11 @@ internal static class OfflineMigrationApplyJournalDialect
                 if (!await reader.ReadAsync(token).ConfigureAwait(false) || reader.GetString(0) != column.Name
                     || reader.GetString(1) != SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.Sqlite, column.DataType, column.MaxLength)
                     || reader.GetInt64(2) != 1 || !reader.IsDBNull(3) || reader.GetInt64(4) != primaryOrdinal
-                    || reader.GetInt64(5) != 0) throw ShapeChanged();
+                    || reader.GetInt64(5) != 0)
+                    throw ShapeChanged();
             }
-            if (await reader.ReadAsync(token).ConfigureAwait(false)) throw ShapeChanged();
+            if (await reader.ReadAsync(token).ConfigureAwait(false))
+                throw ShapeChanged();
         }).ConfigureAwait(false);
     }
 
@@ -233,15 +257,22 @@ internal static class OfflineMigrationApplyJournalDialect
         {
             DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false);
             Exception? first = null;
-            try { await read(reader).ConfigureAwait(false); }
+            try
+            {
+                await read(reader).ConfigureAwait(false);
+            }
             catch (Exception failure) { first = failure; }
-            try { await reader.DisposeAsync().ConfigureAwait(false); }
+            try
+            {
+                await reader.DisposeAsync().ConfigureAwait(false);
+            }
             catch (Exception cleanup)
             {
                 first ??= cleanup;
                 first.Data[OfflineMigrationStateStore.JournalCleanupFailuresKey] = "offline_apply_journal_command_disposal_failed";
             }
-            if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+            if (first is not null)
+                ExceptionDispatchInfo.Capture(first).Throw();
             return true;
         }).ConfigureAwait(false);
     }
@@ -254,17 +285,22 @@ internal static class OfflineMigrationApplyJournalDialect
         T result = default!;
         try
         {
-            if (parameterName is not null) OfflineMigrationStateStore.Parameter(command, parameterName, parameterValue);
+            if (parameterName is not null)
+                OfflineMigrationStateStore.Parameter(command, parameterName, parameterValue);
             result = await execute(command).ConfigureAwait(false);
         }
         catch (Exception failure) { first = failure; }
-        try { await command.DisposeAsync().ConfigureAwait(false); }
+        try
+        {
+            await command.DisposeAsync().ConfigureAwait(false);
+        }
         catch (Exception cleanup)
         {
             first ??= cleanup;
             first.Data[OfflineMigrationStateStore.JournalCleanupFailuresKey] = "offline_apply_journal_command_disposal_failed";
         }
-        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+        if (first is not null)
+            ExceptionDispatchInfo.Capture(first).Throw();
         return result;
     }
 

@@ -73,7 +73,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
 
     internal async Task RevalidateAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        if (_removed) throw new InvalidOperationException("legacy_nonarticle_domain_already_removed");
+        if (_removed)
+            throw new InvalidOperationException("legacy_nonarticle_domain_already_removed");
         _ = Stage.RequireOriginalSession(connection, transaction);
         await _owned.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
         await Stage.RevalidateSourceAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
@@ -119,10 +120,12 @@ internal sealed partial class PgLegacyNonArticlePreparation
     // publication alone never creates a durable recovery grant.
     internal async Task RevalidateCurrentAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        if (!_removed) throw new InvalidOperationException("legacy_current_cleanup_not_completed");
+        if (!_removed)
+            throw new InvalidOperationException("legacy_current_cleanup_not_completed");
         OfflineMigrationSourceObserver.RequirePostgreSqlStageSession(connection, transaction);
         var database = await OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(connection, transaction, cancellationToken).ConfigureAwait(false);
-        if (database != _source.Database) throw new InvalidOperationException("legacy_current_database_changed");
+        if (database != _source.Database)
+            throw new InvalidOperationException("legacy_current_database_changed");
         await _owned.RevalidateRetainedArtifactAsync(cancellationToken).ConfigureAwait(false);
         await RevalidateRecoveryPublicationAsync(cancellationToken).ConfigureAwait(false);
         await new PgCurrentSchemaOwnedTargetObserver(_owned).ObserveAsync(connection, transaction, database, cancellationToken).ConfigureAwait(false);
@@ -164,17 +167,21 @@ internal sealed partial class PgLegacyNonArticlePreparation
         {
             return await WithResourceAsync(await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false), async reader =>
             {
-                if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) throw new InvalidOperationException("legacy_account_sequence_missing");
+                if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    throw new InvalidOperationException("legacy_account_sequence_missing");
                 long next = checked(reader.GetInt64(0) + (reader.GetBoolean(1) ? 1 : 0));
-                if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) throw new InvalidOperationException("legacy_account_sequence_ambiguous");
+                if (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    throw new InvalidOperationException("legacy_account_sequence_ambiguous");
                 return next;
             }).ConfigureAwait(false);
         }).ConfigureAwait(false);
         object? maximumValue = await ScalarAsync(connection, transaction,
             "SELECT MAX(" + Quote(id.Name) + ") FROM public." + Quote(physical.Name), cancellationToken).ConfigureAwait(false);
         long next = Math.Max(sequence.StartValue, legacyNext);
-        if (maximumValue is not null and not DBNull) next = Math.Max(next, checked(Convert.ToInt64(maximumValue, CultureInfo.InvariantCulture) + 1));
-        if (next < sequence.MinValue || next > sequence.MaxValue) throw new InvalidOperationException("legacy_account_sequence_next_value_unavailable");
+        if (maximumValue is not null and not DBNull)
+            next = Math.Max(next, checked(Convert.ToInt64(maximumValue, CultureInfo.InvariantCulture) + 1));
+        if (next < sequence.MinValue || next > sequence.MaxValue)
+            throw new InvalidOperationException("legacy_account_sequence_next_value_unavailable");
         await ExecuteAsync(connection, transaction, "ALTER SEQUENCE public." + Quote(sequence.Name)
             + " RESTART WITH " + next.ToString(CultureInfo.InvariantCulture), cancellationToken).ConfigureAwait(false);
         _userMinimumNext = next;
@@ -182,7 +189,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
 
     private async Task VerifyUserSequenceAsync(DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        if (_userMinimumNext is null) throw new InvalidOperationException("legacy_account_sequence_capture_missing");
+        if (_userMinimumNext is null)
+            throw new InvalidOperationException("legacy_account_sequence_capture_missing");
         SchemaOwnedSequenceModel sequence = _owned.ProjectExpectedPhysicalTarget(SchemaProviderKind.PostgreSql)
             .Tables.Tables[_users.Table.Name].Columns[_users.Properties["Id"].Name].OwnedSequence
             ?? throw new InvalidOperationException("legacy_current_account_sequence_unowned");
@@ -190,7 +198,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
         {
             return await WithResourceAsync(await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false), async reader =>
             {
-                if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) throw new InvalidOperationException("legacy_current_account_sequence_missing");
+                if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    throw new InvalidOperationException("legacy_current_account_sequence_missing");
                 long next = checked(reader.GetInt64(0) + (reader.GetBoolean(1) ? 1 : 0));
                 if (next < _userMinimumNext.Value || await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     throw new InvalidOperationException("legacy_current_account_sequence_rewound");
@@ -208,7 +217,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
             ? "pg_catalog.date_send(" + Quote(column.Name) + ")" : Quote(column.Name)));
         string order = string.Join(',', columns.Where(static column => column.IsPrimaryKey).Select(static column => Quote(column.Name)
             + (column.DataType == "string" ? " COLLATE \"C\"" : "")));
-        if (order.Length == 0) throw new InvalidOperationException("legacy_current_data_key_missing");
+        if (order.Length == 0)
+            throw new InvalidOperationException("legacy_current_data_key_missing");
         using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(Encoding.ASCII.GetBytes("fsusblog.legacy-current-data.v1\0"));
         foreach (SchemaColumnModel column in columns)
@@ -219,57 +229,60 @@ internal sealed partial class PgLegacyNonArticlePreparation
         return await WithResourceAsync(Command(connection, transaction, "SELECT " + projection + " FROM public."
             + Quote(program.Table.Name) + " ORDER BY " + order), async command =>
         {
-        return await WithResourceAsync(await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false), async reader =>
-        {
-        long rows = 0;
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            hash.AppendData([1]);
-            for (int index = 0; index < columns.Length; index++)
+            return await WithResourceAsync(await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false), async reader =>
             {
-                if (await reader.IsDBNullAsync(index, cancellationToken).ConfigureAwait(false))
+                long rows = 0;
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    hash.AppendData([0]);
-                    continue;
-                }
-                hash.AppendData([1]);
-                string type = columns[index].DataType;
-                if (type == "string")
-                {
-                    await WithTextReaderAsync(await ((NpgsqlDataReader)reader).GetTextReaderAsync(index, cancellationToken).ConfigureAwait(false), async text =>
+                    hash.AppendData([1]);
+                    for (int index = 0; index < columns.Length; index++)
                     {
-                        await OfflineMigrationSourceObserver.AppendTextAsync(hash, text, cancellationToken).ConfigureAwait(false);
-                        return true;
-                    }).ConfigureAwait(false);
+                        if (await reader.IsDBNullAsync(index, cancellationToken).ConfigureAwait(false))
+                        {
+                            hash.AppendData([0]);
+                            continue;
+                        }
+                        hash.AppendData([1]);
+                        string type = columns[index].DataType;
+                        if (type == "string")
+                        {
+                            await WithTextReaderAsync(await ((NpgsqlDataReader)reader).GetTextReaderAsync(index, cancellationToken).ConfigureAwait(false), async text =>
+                        {
+                            await OfflineMigrationSourceObserver.AppendTextAsync(hash, text, cancellationToken).ConfigureAwait(false);
+                            return true;
+                        }).ConfigureAwait(false);
+                        }
+                        else if (type is "datetime" or "timestamp" or "date")
+                        {
+                            byte[] bytes = reader.GetFieldValue<byte[]>(index);
+                            if (bytes.Length != (type == "date" ? 4 : 8))
+                                throw new InvalidOperationException("legacy_current_calendar_storage_invalid");
+                            hash.AppendData(bytes);
+                        }
+                        else
+                        {
+                            long scalar = type switch
+                            {
+                                "int16" => reader.GetInt16(index),
+                                "int32" => reader.GetInt32(index),
+                                "int64" => reader.GetInt64(index),
+                                "boolean" => reader.GetBoolean(index) ? 1 : 0,
+                                _ => throw new InvalidOperationException("legacy_current_data_type_unavailable")
+                            };
+                            byte[] bytes = new byte[8];
+                            System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(bytes, scalar);
+                            hash.AppendData(bytes);
+                        }
+                    }
+                    rows = checked(rows + 1);
                 }
-                else if (type is "datetime" or "timestamp" or "date")
-                {
-                    byte[] bytes = reader.GetFieldValue<byte[]>(index);
-                    if (bytes.Length != (type == "date" ? 4 : 8)) throw new InvalidOperationException("legacy_current_calendar_storage_invalid");
-                    hash.AppendData(bytes);
-                }
-                else
-                {
-                    long scalar = type switch
-                    {
-                        "int16" => reader.GetInt16(index), "int32" => reader.GetInt32(index), "int64" => reader.GetInt64(index),
-                        "boolean" => reader.GetBoolean(index) ? 1 : 0,
-                        _ => throw new InvalidOperationException("legacy_current_data_type_unavailable")
-                    };
-                    byte[] bytes = new byte[8];
-                    System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(bytes, scalar);
-                    hash.AppendData(bytes);
-                }
-            }
-            rows = checked(rows + 1);
-        }
-        byte[] count = new byte[8];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(count, rows);
-        hash.AppendData([255]);
-        hash.AppendData(count);
-        captureRows?.Invoke(rows);
-        return Convert.ToHexStringLower(hash.GetHashAndReset());
-        }).ConfigureAwait(false);
+                byte[] count = new byte[8];
+                System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(count, rows);
+                hash.AppendData([255]);
+                hash.AppendData(count);
+                captureRows?.Invoke(rows);
+                return Convert.ToHexStringLower(hash.GetHashAndReset());
+            }).ConfigureAwait(false);
         }).ConfigureAwait(false);
     }
 
@@ -278,7 +291,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
         string schema = Stage.RequireOriginalSession(connection, transaction);
         LegacyTableProgram conversation = _programs.Single(static item => item.Owner == EntityOwner("MessageConversation"));
         SchemaColumnModel subject = conversation.Properties["Subject"];
-        if (subject.MaxLength is null) throw new InvalidOperationException("legacy_message_subject_bound_missing");
+        if (subject.MaxLength is null)
+            throw new InvalidOperationException("legacy_message_subject_bound_missing");
         await RequireNoRowsAsync(connection, transaction,
             "SELECT COUNT(*) FROM " + schema + ".sys_message WHERE char_length(title)>" + subject.MaxLength.Value.ToString(CultureInfo.InvariantCulture),
             "legacy_message_title_cannot_be_preserved", cancellationToken).ConfigureAwait(false);
@@ -314,11 +328,13 @@ internal sealed partial class PgLegacyNonArticlePreparation
                 read.Parameters.Add(parameter);
                 return await WithResourceAsync(await read.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false), async reader =>
                 {
-                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false)) ids.Add(reader.GetInt32(0));
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                        ids.Add(reader.GetInt32(0));
                     return true;
                 }).ConfigureAwait(false);
             }).ConfigureAwait(false);
-            if (ids.Count == 0) break;
+            if (ids.Count == 0)
+                break;
             string[] subjects = ids.Select(AccountSubjectHashOnlineBackfillHandler.ComputeLegacyAnonymousAccountSubject).ToArray();
             int changed = await WithResourceAsync(Command(connection, transaction, "UPDATE public." + Quote(_users.Table.Name)
                 + " target SET " + Quote(_users.Properties["AccountSubjectHash"].Name) + "=batch.subject"
@@ -428,7 +444,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
     {
         string owner = EntityOwner(entity);
         SchemaTableModel[] tables = input.EntityProjection.Schema.Tables.Values.Where(table => table.Owner?.Owner == owner).ToArray();
-        if (tables.Length != 1) throw new InvalidOperationException("legacy_current_owner_table_missing_or_duplicate:" + owner);
+        if (tables.Length != 1)
+            throw new InvalidOperationException("legacy_current_owner_table_missing_or_duplicate:" + owner);
         return BindTable(tables[0], owner, sourceSql, expressions, generatedIdentity, verifyExcluded ?? [], replaceSeedValues, input);
     }
 
@@ -462,7 +479,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
         {
             if (property == generatedIdentity)
             {
-                if (!column.IsIdentity || !column.IsPrimaryKey) throw new InvalidOperationException("legacy_current_generated_identity_changed");
+                if (!column.IsIdentity || !column.IsPrimaryKey)
+                    throw new InvalidOperationException("legacy_current_generated_identity_changed");
                 continue;
             }
             string expression = expressions.TryGetValue(property, out string? assigned) ? assigned
@@ -471,7 +489,8 @@ internal sealed partial class PgLegacyNonArticlePreparation
             values.Add(column.Name, expression);
         }
         string[] keys = values.Keys.Where(name => table.Columns[name].IsPrimaryKey).ToArray();
-        if (keys.Length == 0 && generatedIdentity is null) throw new InvalidOperationException("legacy_current_key_missing");
+        if (keys.Length == 0 && generatedIdentity is null)
+            throw new InvalidOperationException("legacy_current_key_missing");
         string[] compared = values.Keys.Where(name => !verifyExcluded.Any(property => properties[property].Name == name)).ToArray();
         string SelectedValue(string name, string expression)
             => "CAST((" + expression + ") AS " + SchemaPhysicalTypeProjection.ToPhysical(
@@ -489,9 +508,11 @@ internal sealed partial class PgLegacyNonArticlePreparation
                      .Where(operation => operation.Kind == CurrentSchemaRecipeOperationKind.InsertIfAbsent && operation.Table == table.Name))
         {
             if (seed.Columns is null || seed.Values is null || seed.Columns.Count != seed.Values.Count || seed.ConflictColumn is null
-                || seed.Columns.Any(name => !values.ContainsKey(name))) throw new InvalidOperationException("legacy_current_seed_binding_changed");
+                || seed.Columns.Any(name => !values.ContainsKey(name)))
+                throw new InvalidOperationException("legacy_current_seed_binding_changed");
             var seedValues = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach ((string name, string value) in seed.Columns.Zip(seed.Values)) seedValues.Add(name, value);
+            foreach ((string name, string value) in seed.Columns.Zip(seed.Values))
+                seedValues.Add(name, value);
             string seedSelect = string.Join(',', values.Keys.Select(name => SelectedValue(name, seedValues.TryGetValue(name, out string? value) ? value
                 : table.Columns[name].DefaultValue is not null ? CurrentSchemaBootstrapCompiler.EntityDefaultValue(table.Columns[name])
                 : table.Columns[name].IsNullable ? "NULL" : throw new InvalidOperationException("legacy_current_seed_required_value_missing"))));
@@ -553,16 +574,23 @@ internal sealed partial class PgLegacyNonArticlePreparation
         where TResource : IAsyncDisposable
     {
         Exception? primary = null;
-        try { return await operation(resource).ConfigureAwait(false); }
+        try
+        {
+            return await operation(resource).ConfigureAwait(false);
+        }
         catch (Exception error) { primary = error; throw; }
         finally
         {
-            try { await resource.DisposeAsync().ConfigureAwait(false); }
+            try
+            {
+                await resource.DisposeAsync().ConfigureAwait(false);
+            }
             catch (Exception cleanup) when (primary is not null)
             {
-                const string key = "legacy_nonarticle_cleanup_types";
-                string prior = primary.Data[key] as string ?? "";
-                if (prior.Length < 256) primary.Data[key] = (prior + (prior.Length == 0 ? "" : ",") + cleanup.GetType().Name)[..Math.Min(256,
+                const string Key = "legacy_nonarticle_cleanup_types";
+                string prior = primary.Data[Key] as string ?? "";
+                if (prior.Length < 256)
+                    primary.Data[Key] = (prior + (prior.Length == 0 ? "" : ",") + cleanup.GetType().Name)[..Math.Min(256,
                     prior.Length + (prior.Length == 0 ? 0 : 1) + cleanup.GetType().Name.Length)];
             }
         }

@@ -117,7 +117,8 @@ internal static class SqliteArticlePreservationSourceReader
             primary ??= cleanup;
             primary.Data["article_preservation_sqlite_cleanup"] = "source_command_disposal_failed";
         }
-        if (primary is not null) ExceptionDispatchInfo.Capture(primary).Throw();
+        if (primary is not null)
+            ExceptionDispatchInfo.Capture(primary).Throw();
     }
 
     // Production passes SQLite's real aggregate storage value, never a parsed

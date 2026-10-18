@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using AngleSharp.Html.Parser;
+
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
@@ -78,7 +79,8 @@ internal static class ArticleMediaPreservation
             if (article.ArticleId <= 0 || !articleIds.Add(article.ArticleId) || articleIds.Count > limits.Articles)
                 throw new ArticleMediaException("article_identity_or_budget");
             ValidateOrigin(article.DocumentBase);
-            if (!SameOrigin(article.DocumentBase, trustedOrigin)) throw new ArticleMediaException("untrusted_document_base");
+            if (!SameOrigin(article.DocumentBase, trustedOrigin))
+                throw new ArticleMediaException("untrusted_document_base");
             if (s_strictUtf8.GetByteCount(article.Markdown) > limits.MarkdownBytes)
                 throw new ArticleMediaException("markdown_budget");
             AppendSourceDocument(documents, article);
@@ -88,12 +90,15 @@ internal static class ArticleMediaPreservation
                 if (++references > limits.References || reference.Url.Length > limits.UrlCharacters)
                     throw new ArticleMediaException("reference_budget");
                 var path = ResolveLocal(reference.Url, article.DocumentBase, trustedOrigin, publicPathPrefix, reference.Kind);
-                if (path is null) continue;
+                if (path is null)
+                    continue;
                 metadataBytes = checked(metadataBytes + s_strictUtf8.GetByteCount(path) + s_strictUtf8.GetByteCount(reference.Url) + 64);
-                if (metadataBytes > limits.MetadataBytes) throw new ArticleMediaException("metadata_budget");
+                if (metadataBytes > limits.MetadataBytes)
+                    throw new ArticleMediaException("metadata_budget");
                 if (!paths.TryGetValue(path, out var aliases))
                 {
-                    if (paths.Count >= limits.Files) throw new ArticleMediaException("file_count_budget");
+                    if (paths.Count >= limits.Files)
+                        throw new ArticleMediaException("file_count_budget");
                     aliases = [];
                     paths.Add(path, aliases);
                 }
@@ -106,11 +111,15 @@ internal static class ArticleMediaPreservation
         {
             var evidence = await root.HashFileAsync(pair.Key, limits.FileBytes, token);
             total = checked(total + evidence.Bytes);
-            if (total > limits.TotalBytes) throw new ArticleMediaException("total_byte_budget");
+            if (total > limits.TotalBytes)
+                throw new ArticleMediaException("total_byte_budget");
             files.Add(new(pair.Key, evidence.Bytes, evidence.Sha256, pair.Value.ToImmutableArray()));
         }
         var inventory = new ArticleMediaInventory(root.Identity, Hex(documents.GetHashAndReset()), files.ToImmutable(), total, "");
-        inventory = inventory with { ManifestDigest = ComputeManifestDigest(inventory) };
+        inventory = inventory with
+        {
+            ManifestDigest = ComputeManifestDigest(inventory)
+        };
         ValidateInventory(inventory, limits);
         return inventory;
     }
@@ -129,9 +138,11 @@ internal static class ArticleMediaPreservation
         using var source = ArticleMediaDirectory.Open(sourceRoot, writable: false);
         using var parent = ArticleMediaDirectory.Open(targetParent, writable: true);
         if (source.Identity != inventory.SourceRootIdentity || parent.Identity != binding.TargetRootIdentity
-            || source.Overlaps(parent)) throw new ArticleMediaException("physical_root_binding");
+            || source.Overlaps(parent))
+            throw new ArticleMediaException("physical_root_binding");
         var state = await journal.RequirePreparedAsync(binding, token);
-        if (!Enum.IsDefined(state)) throw new ArticleMediaException("invalid_journal_state");
+        if (!Enum.IsDefined(state))
+            throw new ArticleMediaException("invalid_journal_state");
         // Read the existing published generation first: recovery must not create a second generation.
         using var published = parent.TryOpenDirectory(targetDirectoryName);
         if (published is not null)
@@ -143,7 +154,8 @@ internal static class ArticleMediaPreservation
                 await journal.RecordPublishedAsync(existing, state, token);
             return existing;
         }
-        if (state != ArticleMediaJournalState.Prepared) throw new ArticleMediaException("published_generation_missing");
+        if (state != ArticleMediaJournalState.Prepared)
+            throw new ArticleMediaException("published_generation_missing");
         var stageName = ".media-" + binding.RunId.ToString("N") + ".tmp";
         using (var stage = parent.OpenOrCreateDirectory(stageName))
         {
@@ -165,15 +177,18 @@ internal static class ArticleMediaPreservation
 
     internal static IEnumerable<ArticleMediaAlias> ParseReferences(ArticleMediaSource source)
     {
-        if (!string.IsNullOrEmpty(source.CoverUrl)) yield return new(source.ArticleId, source.CoverUrl, ArticleMediaReferenceKind.Cover, -1);
+        if (!string.IsNullOrEmpty(source.CoverUrl))
+            yield return new(source.ArticleId, source.CoverUrl, ArticleMediaReferenceKind.Cover, -1);
         var ast = Markdown.Parse(source.Markdown, s_pipeline);
         foreach (var link in ast.Descendants<LinkInline>())
             if (!string.IsNullOrEmpty(link.Url))
                 yield return new(source.ArticleId, link.Url, link.IsImage ? ArticleMediaReferenceKind.Image : ArticleMediaReferenceKind.Attachment, link.Span.Start);
         foreach (var html in ast.Descendants<HtmlBlock>())
-            foreach (var reference in ParseHtml(source.ArticleId, html.Lines.ToString(), html.Span.Start)) yield return reference;
+            foreach (var reference in ParseHtml(source.ArticleId, html.Lines.ToString(), html.Span.Start))
+                yield return reference;
         foreach (var html in ast.Descendants<HtmlInline>())
-            foreach (var reference in ParseHtml(source.ArticleId, html.Tag, html.Span.Start)) yield return reference;
+            foreach (var reference in ParseHtml(source.ArticleId, html.Tag, html.Span.Start))
+                yield return reference;
     }
 
     internal static void AppendSourceDocument(IncrementalHash hash, ArticleMediaSource source)
@@ -216,15 +231,19 @@ internal static class ArticleMediaPreservation
         var position = 0;
         while (position < input.Length)
         {
-            while (position < input.Length && (AsciiSpace(input[position]) || input[position] == ',')) position++;
+            while (position < input.Length && (AsciiSpace(input[position]) || input[position] == ','))
+                position++;
             var start = position;
-            while (position < input.Length && !AsciiSpace(input[position])) position++;
-            if (start == position) yield break;
+            while (position < input.Length && !AsciiSpace(input[position]))
+                position++;
+            if (start == position)
+                yield break;
             var url = input[start..position];
             if (url.EndsWith(','))
             {
                 url = url.TrimEnd(',');
-                if (url.Length != 0) yield return url;
+                if (url.Length != 0)
+                    yield return url;
                 continue;
             }
             yield return url;
@@ -232,9 +251,12 @@ internal static class ArticleMediaPreservation
             while (position < input.Length)
             {
                 var current = input[position++];
-                if (current == '(') inParentheses = true;
-                else if (current == ')') inParentheses = false;
-                else if (current == ',' && !inParentheses) break;
+                if (current == '(')
+                    inParentheses = true;
+                else if (current == ')')
+                    inParentheses = false;
+                else if (current == ',' && !inParentheses)
+                    break;
             }
         }
     }
@@ -245,7 +267,8 @@ internal static class ArticleMediaPreservation
         foreach (var file in inventory.Files)
         {
             var actual = await source.HashFileAsync(file.RelativePath, limits.FileBytes, token);
-            if (actual.Bytes != file.Bytes || actual.Sha256 != file.Sha256) throw new ArticleMediaException("source_file_changed");
+            if (actual.Bytes != file.Bytes || actual.Sha256 != file.Sha256)
+                throw new ArticleMediaException("source_file_changed");
         }
     }
 
@@ -261,8 +284,10 @@ internal static class ArticleMediaPreservation
         var firstSlash = raw.IndexOf('/');
         if (colon >= 0 && (firstSlash < 0 || colon < firstSlash))
         {
-            if (!Uri.TryCreate(raw, UriKind.Absolute, out absolute)) throw new ArticleMediaException("invalid_media_url");
-            if (absolute.Scheme is not ("http" or "https")) return null;
+            if (!Uri.TryCreate(raw, UriKind.Absolute, out absolute))
+                throw new ArticleMediaException("invalid_media_url");
+            if (absolute.Scheme is not ("http" or "https"))
+                return null;
             if (absolute.UserInfo.Length != 0)
             {
                 throw new ArticleMediaException("unsafe_media_url_userinfo");
@@ -271,20 +296,24 @@ internal static class ArticleMediaPreservation
         var pathText = beforeQuery;
         if (absolute is not null && (absolute.Scheme is "http" or "https"))
         {
-            if (!SameOrigin(absolute, origin)) return null;
+            if (!SameOrigin(absolute, origin))
+                return null;
             var authorityEnd = beforeQuery.IndexOf('/', beforeQuery.IndexOf("://", StringComparison.Ordinal) + 3);
             pathText = authorityEnd < 0 ? "/" : beforeQuery[authorityEnd..];
         }
         var decoded = DecodePath(pathText);
         if (decoded.Split('/').Any(segment => segment == ".."))
             throw new ArticleMediaException("media_path_traversal");
-        if (!Uri.TryCreate(documentBase, raw, out var resolved)) throw new ArticleMediaException("invalid_media_url");
-        if (!SameOrigin(resolved, origin)) return null;
+        if (!Uri.TryCreate(documentBase, raw, out var resolved))
+            throw new ArticleMediaException("invalid_media_url");
+        if (!SameOrigin(resolved, origin))
+            return null;
         var path = DecodePath(resolved.GetComponents(UriComponents.Path, UriFormat.UriEscaped));
         path = "/" + path.TrimStart('/');
         if (!path.StartsWith(prefix, StringComparison.Ordinal))
         {
-            if (kind == ArticleMediaReferenceKind.Attachment) return null; // Ordinary article/navigation links are not media.
+            if (kind == ArticleMediaReferenceKind.Attachment)
+                return null; // Ordinary article/navigation links are not media.
             throw new ArticleMediaException("local_media_root_unmapped");
         }
         var relative = path[prefix.Length..];
@@ -306,8 +335,10 @@ internal static class ArticleMediaPreservation
             while (i < path.Length && path[i] == '%')
             {
                 if (i + 2 >= path.Length || !byte.TryParse(path.AsSpan(i + 1, 2), System.Globalization.NumberStyles.HexNumber,
-                    System.Globalization.CultureInfo.InvariantCulture, out var value)) throw new ArticleMediaException("invalid_url_encoding");
-                if (value is 0 or 47 or 92 or 37) throw new ArticleMediaException("ambiguous_url_encoding");
+                    System.Globalization.CultureInfo.InvariantCulture, out var value))
+                    throw new ArticleMediaException("invalid_url_encoding");
+                if (value is 0 or 47 or 92 or 37)
+                    throw new ArticleMediaException("ambiguous_url_encoding");
                 bytes.Add(value);
                 i += 3;
             }
@@ -332,7 +363,8 @@ internal static class ArticleMediaPreservation
         && string.Equals(left.IdnHost, right.IdnHost, StringComparison.OrdinalIgnoreCase) && left.Port == right.Port && left.UserInfo.Length == 0;
     private static void ValidatePrefix(string prefix)
     {
-        if (!prefix.StartsWith('/') || !prefix.EndsWith('/') || prefix.Length < 3) throw new ArticleMediaException("invalid_media_prefix");
+        if (!prefix.StartsWith('/') || !prefix.EndsWith('/') || prefix.Length < 3)
+            throw new ArticleMediaException("invalid_media_prefix");
         ArticleMediaDirectory.ValidateRelativePath(prefix[1..^1]);
     }
     internal static string ComputeManifestDigest(ArticleMediaInventory inventory)
@@ -372,12 +404,14 @@ internal static class ArticleMediaPreservation
         {
             ArticleMediaDirectory.ValidateRelativePath(file.RelativePath);
             if (file.Bytes < 0 || file.Bytes > limits.FileBytes || !IsDigest(file.Sha256) || file.Aliases.IsDefaultOrEmpty
-                || previous is not null && StringComparer.Ordinal.Compare(previous, file.RelativePath) >= 0) throw new ArticleMediaException("inventory_shape");
+                || previous is not null && StringComparer.Ordinal.Compare(previous, file.RelativePath) >= 0)
+                throw new ArticleMediaException("inventory_shape");
             previous = file.RelativePath;
             bytes = checked(bytes + file.Bytes);
             foreach (var alias in file.Aliases)
             {
-                if (alias.ArticleId <= 0 || !Enum.IsDefined(alias.Kind) || alias.Url.Length > limits.UrlCharacters) throw new ArticleMediaException("inventory_alias");
+                if (alias.ArticleId <= 0 || !Enum.IsDefined(alias.Kind) || alias.Url.Length > limits.UrlCharacters)
+                    throw new ArticleMediaException("inventory_alias");
                 articles.Add(alias.ArticleId);
                 references++;
                 metadata = checked(metadata + s_strictUtf8.GetByteCount(file.RelativePath) + s_strictUtf8.GetByteCount(alias.Url) + 64);
@@ -386,7 +420,8 @@ internal static class ArticleMediaPreservation
         metadata = checked(metadata + ArticleMediaDirectory.CountDirectoryMetadataBytes(inventory.Files, limits.MetadataBytes));
         if (bytes != inventory.TotalBytes || bytes > limits.TotalBytes || metadata > limits.MetadataBytes || references > limits.References || articles.Count > limits.Articles)
             throw new ArticleMediaException("inventory_budget");
-        if (ComputeManifestDigest(inventory) != inventory.ManifestDigest) throw new ArticleMediaException("inventory_binding");
+        if (ComputeManifestDigest(inventory) != inventory.ManifestDigest)
+            throw new ArticleMediaException("inventory_binding");
     }
     private static void ValidateBinding(ArticleMediaBinding binding, ArticleMediaInventory inventory)
     {
@@ -404,6 +439,7 @@ internal static class ArticleMediaPreservation
         Span<byte> prefix = stackalloc byte[4];
         System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(prefix, value is null ? -1 : s_strictUtf8.GetByteCount(value));
         hash.AppendData(prefix);
-        if (value is not null) hash.AppendData(s_strictUtf8.GetBytes(value));
+        if (value is not null)
+            hash.AppendData(s_strictUtf8.GetBytes(value));
     }
 }

@@ -203,7 +203,10 @@ internal static class OfflineMigrationCurrentSchemaIssuer
                 current.ActualSchemaDigest, postconditions.MoveToImmutable(), authority.AuthenticatedBackup.Package,
                 authority.AuthenticatedBackup.Manifest, authority.AuthenticatedBackup.RestoreDrill,
                 authority.RecoveryReferences, authority.CurrentVerifier, [], string.Empty);
-            receipt = receipt with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt) };
+            receipt = receipt with
+            {
+                ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt)
+            };
             _ = CurrentSchemaReceiptCodec.Serialize(receipt);
             cancellationToken.ThrowIfCancellationRequested();
             // No commit or migration write: closing this read-only snapshot precedes

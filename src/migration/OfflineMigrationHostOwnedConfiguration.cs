@@ -241,7 +241,10 @@ internal sealed class OfflineMigrationHostOwnedConfiguration
         }
     }
 
-    internal TimeProvider Clock { get; }
+    internal TimeProvider Clock
+    {
+        get;
+    }
     internal OfflineMigrationShellBackupDrillConfiguration ShellBackupConfiguration => _backup;
     internal IOfflineMigrationPlanningEvidence CreatePlanningEvidence()
         => _retainedBackupAdmission is null

@@ -413,7 +413,9 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
         IReadOnlyList<Type> entityTypes = inspector.GetManagedEntityTypes();
         using (var original = new SqlSugarClient(new ConnectionConfig
         {
-            ConnectionString = originalConnection, DbType = SqlSugar.DbType.PostgreSQL, IsAutoCloseConnection = true
+            ConnectionString = originalConnection,
+            DbType = SqlSugar.DbType.PostgreSQL,
+            IsAutoCloseConnection = true
         }))
         {
             original.CodeFirst.InitTables(entityTypes.ToArray());
@@ -513,7 +515,10 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             await connection.OpenAsync();
             await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync();
             await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchemaBootstrapCompiler.ExecuteAsync(
-                compiled with { CommandDigest = new string('d', 64) }, connection, transaction, CancellationToken.None));
+                compiled with
+                {
+                    CommandDigest = new string('d', 64)
+                }, connection, transaction, CancellationToken.None));
             await transaction.RollbackAsync();
         }
         Assert.Equal(before, await fixture.CaptureSchemaSnapshotAsync(connectionString));
@@ -547,13 +552,22 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
     private sealed class CompiledBootstrapProbe
     {
         [SugarColumn(ColumnName = "id", IsPrimaryKey = true, IsIdentity = true)]
-        public long Id { get; set; }
+        public long Id
+        {
+            get; set;
+        }
 
         [SugarColumn(ColumnName = "name", Length = 64, IsNullable = true)]
-        public string? Name { get; set; }
+        public string? Name
+        {
+            get; set;
+        }
 
         [SugarColumn(ColumnName = "counter", DefaultValue = "0")]
-        public int Counter { get; set; }
+        public int Counter
+        {
+            get; set;
+        }
     }
 
     [Fact]

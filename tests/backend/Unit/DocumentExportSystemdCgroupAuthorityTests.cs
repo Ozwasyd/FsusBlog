@@ -310,9 +310,9 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
     {
         MethodInfo open = RequireDeclaredMethod(typeof(ShellAssignmentFixture), "Open");
         IReadOnlyList<Instruction> openInstructions = ReadInstructions(open);
-        int openSetter = Assert.Single(Enumerable.Range(0, openInstructions.Count)
-            .Where(index => openInstructions[index].Member?.DeclaringType == typeof(ProcessStartInfo)
-                && openInstructions[index].Member?.Name == "set_UseShellExecute"));
+        int openSetter = Assert.Single(Enumerable.Range(0, openInstructions.Count),
+            index => openInstructions[index].Member?.DeclaringType == typeof(ProcessStartInfo)
+                && openInstructions[index].Member?.Name == "set_UseShellExecute");
         Assert.True(openSetter > 0);
         Assert.Equal(OpCodes.Ldc_I4_1, openInstructions[openSetter - 1].OpCode);
         Assert.Single(RuntimeMetadataInspection.FindMethodsCallingMember(
@@ -418,8 +418,8 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
         MethodInfo setter = Assert.IsAssignableFrom<MethodInfo>(
             typeof(ProcessStartInfo).GetProperty(nameof(ProcessStartInfo.UseShellExecute))?.SetMethod);
         IReadOnlyList<Instruction> instructions = ReadInstructions(method);
-        int index = Assert.Single(Enumerable.Range(0, instructions.Count)
-            .Where(index => IsCallTo(instructions[index], setter)));
+        int index = Assert.Single(Enumerable.Range(0, instructions.Count),
+            index => IsCallTo(instructions[index], setter));
         Assert.True(index > 0);
         // This binds the fixed literal at this callsite, not control-flow or general dataflow.
         Assert.Equal(OpCodes.Ldc_I4_0, instructions[index - 1].OpCode);

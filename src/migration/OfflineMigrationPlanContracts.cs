@@ -146,5 +146,8 @@ public static class OfflineMigrationPlanCodec
 
     /// <summary>Recompute the payload identity with its self-referential digest field empty.</summary>
     public static string ComputeContentDigest(OfflineMigrationPlan plan)
-        => Convert.ToHexStringLower(SHA256.HashData(Serialize(plan with { ContentDigest = string.Empty })));
+        => Convert.ToHexStringLower(SHA256.HashData(Serialize(plan with
+        {
+            ContentDigest = string.Empty
+        })));
 }

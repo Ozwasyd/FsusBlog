@@ -11,6 +11,7 @@
     <PackageReference Include="AngleSharp" />
     <PackageReference Include="Markdig" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
     <PackageReference Include="MySqlConnector" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="SqlSugarCoreNoDrive" />

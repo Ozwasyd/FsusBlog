@@ -575,7 +575,10 @@ public sealed class LifecycleHostedBootstrapServiceTests
 
     private sealed class BusinessHostProbe : IHostedService
     {
-        public int Starts { get; private set; }
+        public int Starts
+        {
+            get; private set;
+        }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {

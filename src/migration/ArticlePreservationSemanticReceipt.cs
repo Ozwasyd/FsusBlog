@@ -18,7 +18,11 @@ internal static class ArticlePreservationSemanticReceipt
         => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
     internal static string HashMarkdown(string value) => HashBytes(s_strictUtf8.GetBytes(value));
     internal static string Digest<T>(string domain, T value)
-        => HashBytes(Serialize(new { Domain = domain, Value = value }));
+        => HashBytes(Serialize(new
+        {
+            Domain = domain,
+            Value = value
+        }));
 
     internal static void RequireArtifact<T>(CurrentSchemaArtifactReference reference, ImmutableArray<byte> bytes, T data)
     {
@@ -33,5 +37,8 @@ internal static class ArticlePreservationSemanticReceipt
         => value is { Length: 64 } && value.All(static character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
 
     internal static string ComputePlanDigest(ArticlePreservationWritePlan plan)
-        => Digest("article-preservation-write-plan-v1", plan with { ContentDigest = string.Empty });
+        => Digest("article-preservation-write-plan-v1", plan with
+        {
+            ContentDigest = string.Empty
+        });
 }

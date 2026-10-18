@@ -1,0 +1,490 @@
+{
+    "schema": "fsusblog.csharp-whitespace-baseline.v1",
+    "sourceCommit": "066ae14a5fa5a65dfc0258795a58fd74da60f99a",
+    "sourceDiagnosticLogSha256": "60308461d5c4a3165afdbeb04dd81bf38e2abcf83a45390e4fb56b4e28f333d8",
+    "scope": "Explicit unoccupied subset of the original IDE0055 source roster; observations do not grant a debt allowance or waive any gate.",
+    "files": [
+        {
+            "path": "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+            "blob": "9f708dcc83014fabe0b570b3c62d2088dfd251c1",
+            "sha256": "9d58e59e9fe5d5b0469b87aa8d37351f9176cf0ae4b220e0c861b54c7a6423f8",
+            "observedIde0055": 9
+        },
+        {
+            "path": "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
+            "blob": "1bf18e4c5b71cc688d89c36d463b15459f4c5e3c",
+            "sha256": "199a9b78dfb4b4ec2527adeb686099dcd3262155b653d4b302ebcde2eef02150",
+            "observedIde0055": 31
+        },
+        {
+            "path": "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+            "blob": "603c8c8b8e0d25d8c8c26436e246cc87c8b99bd7",
+            "sha256": "053bbd272f8e3a11f59d517c5ecbc6c76a576cb8fcb604f15825df9f81df38a6",
+            "observedIde0055": 9
+        },
+        {
+            "path": "src/backend/Program.cs",
+            "blob": "50734b1e3226d880728905d59fba94c7f7d28908",
+            "sha256": "18dec9e224ddc8393c1cfa12961b766329278d3a95d0e69448798293b167ba6f",
+            "observedIde0055": 4
+        },
+        {
+            "path": "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+            "blob": "191502296a57e93f58975a00b71d40cc846798bb",
+            "sha256": "3999173bf92d0c5a7bc909f45de98ba171bc24dbe73f245f795e567a5ef00c85",
+            "observedIde0055": 3
+        },
+        {
+            "path": "src/backend/Services/SystemService.cs",
+            "blob": "842f13491890fcd203b2b8abf223b619577e6c2b",
+            "sha256": "b918f3ce2f511d19c762fe4f81f1f7223406c59276f94f6fd68b505bfda0803e",
+            "observedIde0055": 1
+        },
+        {
+            "path": "src/migration/ArticleMediaPreservation.cs",
+            "blob": "b1c0c7798008fba2a5d52c8ec89755a4f4693482",
+            "sha256": "d9d7445109169a11ab701ed0d51167df7acc42045779093a96cfc46d2e47630b",
+            "observedIde0055": 36
+        },
+        {
+            "path": "src/migration/ArticleMediaPreservationFileSystem.cs",
+            "blob": "b7f12b6d8fa3d9cb4472b5f2ad03b3c3955f2b60",
+            "sha256": "d6bb8a768bc82d54f6097ec28fc72ac91c56a807f6f48f4f1b8322de7bf88221",
+            "observedIde0055": 31
+        },
+        {
+            "path": "src/migration/ArticlePreservationPolicyExporter.cs",
+            "blob": "880ea23d8352e0469b640eb026e4702fa1785ea9",
+            "sha256": "b7178945867045bfb3277661a0e894d67abd741e7b8353bd83e835593eb07b25",
+            "observedIde0055": 14
+        },
+        {
+            "path": "src/migration/ArticlePreservationProducer.cs",
+            "blob": "554c1064527bc0d54b6c6fb6fc103bcbbfc98c83",
+            "sha256": "a0761bce1c551c238580e8e64b7930965a5db5c946d022b7c21cf4b50d35c1b1",
+            "observedIde0055": 9
+        },
+        {
+            "path": "src/migration/ArticlePreservationProjection.cs",
+            "blob": "ea26c63fb81277f45a4cdbb00d0956d0b9104603",
+            "sha256": "2f0480a2650f7056c205fba619a6ac7698802049999adea0df6c8ba9ed3c2980",
+            "observedIde0055": 27
+        },
+        {
+            "path": "src/migration/ArticlePreservationSemanticReceipt.cs",
+            "blob": "90960b56ae6ec052d07479ce34e90de1a0bcbdb2",
+            "sha256": "1612d861e61300efa77c6e5eef786ba620239bbdb103bab065dee0bd596ca818",
+            "observedIde0055": 7
+        },
+        {
+            "path": "src/migration/ArticlePreservationSourceReader.cs",
+            "blob": "8a149e1156831a2af04a12bcb43d0cfbf7fbd80b",
+            "sha256": "ed0917e4079b4565aa724ec72885038e54924f4a990f198487ee0d93a825b3be",
+            "observedIde0055": 8
+        },
+        {
+            "path": "src/migration/ArticlePreservationStorageProgram.cs",
+            "blob": "033baa0f76bcabb809720354ef1154c65820d0ad",
+            "sha256": "207be92d90ac9442dac3c7e760ebddcc621c5f907189c8dcab1efa830defca6d",
+            "observedIde0055": 14
+        },
+        {
+            "path": "src/migration/ArticlePreservationStorageWriter.cs",
+            "blob": "6550749a3b9593d2a9136f5ed590ccf22c4b1100",
+            "sha256": "908cfcd41e77215b90d46d6fd57cbf442afad88a6ca7948d39648b7b2416cef2",
+            "observedIde0055": 55
+        },
+        {
+            "path": "src/migration/CurrentSchemaBootstrapCompiler.cs",
+            "blob": "3f6cb1f037e66d33fff6f7ba73eec9bc396c9aa5",
+            "sha256": "4718e3824611a431aaeb8e9d9fb5754e39ff44c2baf4654fcfc63ab2304a042c",
+            "observedIde0055": 1
+        },
+        {
+            "path": "src/migration/CurrentSchemaBootstrapRecipeCompiler.cs",
+            "blob": "c4f0bf3045e6f762647035393c9750554dadc105",
+            "sha256": "b98603e38384fec18dfb1456e47a2a95122f55626d881e2500bdf4d0780c8d72",
+            "observedIde0055": 14
+        },
+        {
+            "path": "src/migration/CurrentSchemaPortableBootstrapCompiler.cs",
+            "blob": "13a9f7812e006684331e6e8260bee37f0604280a",
+            "sha256": "08fb18e933049776dc236f90f33abf76b4a2249910bb38e6eecbdbca93271a8f",
+            "observedIde0055": 2
+        },
+        {
+            "path": "src/migration/MySqlCurrentSchemaPhysicalObserver.cs",
+            "blob": "9f3127a86915f2e892188e044f0c8540bf014c6e",
+            "sha256": "73f20c9d4b4d200e28fcdacabe4e0327e3ce8ea03b0403b876344ed4a4058a59",
+            "observedIde0055": 11
+        },
+        {
+            "path": "src/migration/OfflineMigrationApplyContracts.cs",
+            "blob": "9e31db56a913890ef319233224ad8d6287b42147",
+            "sha256": "141a13fcdf1923d1642133bd56609425b71fc4500312b76996de01c9dc6c4376",
+            "observedIde0055": 3
+        },
+        {
+            "path": "src/migration/OfflineMigrationApplyJournalDialect.cs",
+            "blob": "51dfba55b65e5a2e4927d6e62f9d385166a7850c",
+            "sha256": "d21fcdb7db1f0b75ee6e4343486118dc167f9462c925b2761e0de3c82b866b53",
+            "observedIde0055": 36
+        },
+        {
+            "path": "src/migration/OfflineMigrationApplyJournalVerifier.cs",
+            "blob": "64d20e8655bc7bd332cfd99a56cc35fc55df097c",
+            "sha256": "cbc8ceb4748b4c754afb0903367038ef334bcc633e663038f22ed0a94a3f79ee",
+            "observedIde0055": 11
+        },
+        {
+            "path": "src/migration/OfflineMigrationApplyNativeSession.cs",
+            "blob": "89a22b674acc6804aa5786f6a292ad794ef7015c",
+            "sha256": "0c0a4ba0d8cfcb57d8ae790b753b2d6da42cb553036dd9e52d35d30b043f2025",
+            "observedIde0055": 73
+        },
+        {
+            "path": "src/migration/OfflineMigrationApplyProtocol.cs",
+            "blob": "995193d03391786aa76f3797bade380b9cc5f4ca",
+            "sha256": "8e6762ba39f93cd89c988668d922920dd0e3959fd2c4d3ab54f63c56c2a35325",
+            "observedIde0055": 3
+        },
+        {
+            "path": "src/migration/OfflineMigrationArticleMediaJournal.cs",
+            "blob": "9584b79ffe2070bfb01381e880be93c66549fb04",
+            "sha256": "55f891c1e0a18c5184dab8af7de5ed094b50c3316ef497227bdb64f9a451f3ac",
+            "observedIde0055": 6
+        },
+        {
+            "path": "src/migration/OfflineMigrationArticlePreservationRoute.cs",
+            "blob": "9ce472e1de3cd76e3d256c938009de3f2461a9c9",
+            "sha256": "8838e3bcb9d4b6aa6f7edda070c8f87a02f1886e363e8642c1a5c800552b95e1",
+            "observedIde0055": 6
+        },
+        {
+            "path": "src/migration/OfflineMigrationCommandLine.cs",
+            "blob": "792cdca65951c5f5562c329bb7e00401ef190b33",
+            "sha256": "c71c7904a3c482bf1114d7f93102b188b1b49df64761e1826ce28a01c3291882",
+            "observedIde0055": 3
+        },
+        {
+            "path": "src/migration/OfflineMigrationCurrentSchemaIssuer.cs",
+            "blob": "2fcf60ea2e2be5504eb201acf052d86cd8a588e2",
+            "sha256": "423356a5a11288590334ba1b12d4dd86d125926c9ff82a2fb103c6c4439ab593",
+            "observedIde0055": 3
+        },
+        {
+            "path": "src/migration/OfflineMigrationExecutor.cs",
+            "blob": "0e1dff9022579fd0da2cd49f626dc846a7f58846",
+            "sha256": "0b46eed2e646dd8c020514f88369ab654501a215b509ee07102ebe9faa7669e9",
+            "observedIde0055": 15
+        },
+        {
+            "path": "src/migration/OfflineMigrationHost.cs",
+            "blob": "71f848353b138a07f79a51260b9c7877ba1012d1",
+            "sha256": "71b6c30bb8719eb6e1b8b137614ae321037ff1583326a6a250cfce3448a2b61a",
+            "observedIde0055": 44
+        },
+        {
+            "path": "src/migration/OfflineMigrationHostOwnedConfiguration.cs",
+            "blob": "f5f70f38e144ab174763506cf038b844b31286ae",
+            "sha256": "25e53954ba0008de9c5d2a5d9390334710e58dc13ac70f6b52fb4769d04db089",
+            "observedIde0055": 3
+        },
+        {
+            "path": "src/migration/OfflineMigrationMySqlNativeSession.cs",
+            "blob": "6c257a7143cf59647808ebee283e11efc9c4e236",
+            "sha256": "1bddb84398aa15f9a4397585d1137edf49837e2a90e5a2772994bf195864d88f",
+            "observedIde0055": 1
+        },
+        {
+            "path": "src/migration/OfflineMigrationPlan.cs",
+            "blob": "2fa7f3c1a00c6ba1948b1eac6b494995b1d8ae2d",
+            "sha256": "6e40d2ba35f7684793530ca3e4e46e376a03c15e30fd9e12c6115ad325b6cfc0",
+            "observedIde0055": 19
+        },
+        {
+            "path": "src/migration/OfflineMigrationPlanContracts.cs",
+            "blob": "f6f88a2843864b81f1c4dc09c0422d488c61baec",
+            "sha256": "48fab3441272a0ee6fd13a272201be339c58a2ae1087c3c067ba41c9d3c0fc4f",
+            "observedIde0055": 3
+        },
+        {
+            "path": "src/migration/OfflineMigrationPostgreSqlNativeSession.cs",
+            "blob": "d2546e98db1af5f197ed92be60346b9c8f69f308",
+            "sha256": "3a9edf882d9f444b87a19492440992054e247a7c3a231e296321874516326d57",
+            "observedIde0055": 1
+        },
+        {
+            "path": "src/migration/OfflineMigrationSourceFingerprintException.cs",
+            "blob": "227b51638ca50ac53f370a8a6fc903574c668c46",
+            "sha256": "1e58a4fbec6edd34c5ce6e4427fb785388333d7cb730c26afa5198aa0cfb971d",
+            "observedIde0055": 9
+        },
+        {
+            "path": "src/migration/OfflineMigrationSourceFingerprints.cs",
+            "blob": "01708f54d4395347ea03f0a7c9a5736005a838b6",
+            "sha256": "0f8f1a4701ba684ab04390a495e0b9ff64d6780e60f3db64f875acb9565b87e4",
+            "observedIde0055": 9
+        },
+        {
+            "path": "src/migration/OfflineMigrationSqliteDatabaseIdentity.cs",
+            "blob": "25bdfdd9c775203860bbcb968ef5391470de938e",
+            "sha256": "36c13aa57324e3186d9a880c887b9d872a1a1c30c79bd1cf9e46cac5aff270dc",
+            "observedIde0055": 3
+        },
+        {
+            "path": "src/migration/OfflineMigrationSqliteNativeSession.cs",
+            "blob": "ae76a4fab9b0079739917f78325b63b7fb351ee7",
+            "sha256": "4ac6052de546953407476763c588314be80ac127fb325d907402dd6da69b05f4",
+            "observedIde0055": 1
+        },
+        {
+            "path": "src/migration/OfflineMigrationStateStore.cs",
+            "blob": "fbc572009ccb0285dbd4d5d77625d51c5580bbed",
+            "sha256": "de2a65db3185e478225728dd2f3c4efb77ea59de1ec7eb5f4193b3816f168595",
+            "observedIde0055": 5
+        },
+        {
+            "path": "src/migration/OfflineMigrationVerifyEvidence.cs",
+            "blob": "571d0c6b6d0e5ddf8fc1dada7144a50488f01b24",
+            "sha256": "e6bdbf69210ce1a992c6f3b25bf650711d372060aaf62e1b59694eca2d524d6e",
+            "observedIde0055": 2
+        },
+        {
+            "path": "src/migration/PgArticlePreservationOperation.cs",
+            "blob": "cb54ce897ac6ec6454bdf25c2b6658e596a4b27e",
+            "sha256": "d55e23e41bd20589d6499ea381359bf2dbb0ae8891ca904f356a50b000acb409",
+            "observedIde0055": 34
+        },
+        {
+            "path": "src/migration/PgCurrentSchemaBootstrapOperation.cs",
+            "blob": "4e6bb5fe0caf3899383539c016c80aa6b72b3cc2",
+            "sha256": "8b40a5b519822691152a0ec45f4521fd3b28fb9d89e5c75237a349d1c26c3b37",
+            "observedIde0055": 27
+        },
+        {
+            "path": "src/migration/PgCurrentSchemaOwnedTargetObserver.cs",
+            "blob": "452e48c757c2afde0a3ea84398b57621e80f2b7f",
+            "sha256": "ca0f62ce517ad6157e2aaa92c552333864f273a8b298d3da6813713c81b2d4c4",
+            "observedIde0055": 1
+        },
+        {
+            "path": "src/migration/PgLegacyCurrentSchemaPreparation.cs",
+            "blob": "1294c51488f02a8438e77ad22a17617ce8a4b94b",
+            "sha256": "f2d88067b3f4c79feaf0dd8ebea038a06b2151ee055b48b1994f10aa087436d2",
+            "observedIde0055": 4
+        },
+        {
+            "path": "src/migration/PgLegacyNonArticleRecovery.cs",
+            "blob": "989fab6fe7e11912bb600ac2f61bcdd65bab4941",
+            "sha256": "d6bb84477d7293c58036bbed98a5a7d6e1bcffb4c5f44c8ab4c37ec636d8a6c4",
+            "observedIde0055": 11
+        },
+        {
+            "path": "src/migration/SqliteArticlePreservationSourceReader.cs",
+            "blob": "a5ee0a03848bb4a41c45f400c0000bb1c797aec7",
+            "sha256": "bcedc6432661a5906ebd26bd90c81bb954dc7ed79f2d68cd53d6398b4b341d1e",
+            "observedIde0055": 1
+        },
+        {
+            "path": "src/migration/SqliteCurrentSchemaCatalogObserver.cs",
+            "blob": "1c7cfa568f4e4abd3a9d3cf89862fca61d3da946",
+            "sha256": "b2e9080790664f4cd02be31fb71dddd18dc8bb0e6dc2c7851b34346a8b3efc88",
+            "observedIde0055": 3
+        },
+        {
+            "path": "src/shared/Algorithms/ExactDecimalLiteral.cs",
+            "blob": "a7832e425e91f33568294fa58357fef78b9f5296",
+            "sha256": "631efd48b6318027832a898957d61d9ca990a50f7427630b3c3a98d9cdb92aae",
+            "observedIde0055": 6
+        },
+        {
+            "path": "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+            "blob": "6478ddb3477e86681642d650e742d84cde4906e6",
+            "sha256": "d3051b08a2d4c3a2346c0e9dd9b1a0cd339df268b062789a44cec869099ca9a4",
+            "observedIde0055": 4
+        },
+        {
+            "path": "src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs",
+            "blob": "0a9b483cd3de86c983c58c8bfd2090ee28a0bb59",
+            "sha256": "1060d87abd4e815b061537aab73bcb5fde7be601072347adc775f89fadb1d5fe",
+            "observedIde0055": 9
+        },
+        {
+            "path": "src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs",
+            "blob": "62ccd18d69964f0ab306f8b5c4937f924088df03",
+            "sha256": "4a84fc865f8a1207e170cba11daf8f017a27b895a052b55935ca7f06c5d6ba0f",
+            "observedIde0055": 79
+        },
+        {
+            "path": "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
+            "blob": "e4cdc0fdd2a728bf527599fbe52483dbb34b2052",
+            "sha256": "0b256d77513ba4d991b26a76ff4cfdbc6a81083b1e4bf68ac959949840f7b1bc",
+            "observedIde0055": 15
+        },
+        {
+            "path": "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+            "blob": "ae15ed5ef6ac934d55dfa3248212fe8e8b42f24b",
+            "sha256": "828e27681c0131580e2bd88c60c7d7e89400043d0401228022204ecd07b6bf19",
+            "observedIde0055": 20
+        },
+        {
+            "path": "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
+            "blob": "5cb947728edbc87ce797477e7bdd76c27aa349e8",
+            "sha256": "e9b9751a4d589bba3c3dd38af8175429f52f37f6396112483246b99e527a9c4f",
+            "observedIde0055": 12
+        },
+        {
+            "path": "src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs",
+            "blob": "1f3dd9379b8c2b814c4bc30d0e285b8485ecb64d",
+            "sha256": "d828ce5a09461b651db5c0c08f87cd5aacc21e8b57f59bd4b951e1d855671cde",
+            "observedIde0055": 4
+        },
+        {
+            "path": "src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs",
+            "blob": "1aa84ed3c1175c218f8599197cbe06d3bcbb1b99",
+            "sha256": "9fa45609a490a88ee59f70f34b0532ad785f3870157c527cdaa37c9334da24de",
+            "observedIde0055": 3
+        },
+        {
+            "path": "tests/backend/Integration/OfflineMigrationOwnedWriterReadScopeIntegrationTests.cs",
+            "blob": "e2383c1200bd9bc35d613fabb03c087b63056795",
+            "sha256": "eeae275ca3b96ff17a74ded9f88392e193a7b8d6b6f874d4082a13024bd93549",
+            "observedIde0055": 7
+        },
+        {
+            "path": "tests/backend/Unit/ArticleScalePlanTests.cs",
+            "blob": "0a6508ba668a67727c1014db58348311e41d4bed",
+            "sha256": "557c1a6a473cc1bd4002aea6c933174decc42fba92c89487c58835ffec51c5c1",
+            "observedIde0055": 3
+        },
+        {
+            "path": "tests/backend/Unit/AuthorArticlePinProjectionTests.cs",
+            "blob": "c6701522bbeb850951db9ab5d665ecbb96a8443b",
+            "sha256": "030c38c1b0cc958b7b1f9065e2c8d5897245cfde488f26ff1cde7b6828a25ed1",
+            "observedIde0055": 3
+        },
+        {
+            "path": "tests/backend/Unit/AuthoringExtensionPackageTests.cs",
+            "blob": "78c4f929c13b92ddf964a6ce32bd39edd36893f9",
+            "sha256": "87577bbf7a2b03a045a8daa9af25ad300d98990c1fc46786c96a6fb84c33ea0e",
+            "observedIde0055": 6
+        },
+        {
+            "path": "tests/backend/Unit/CommentModerationFixturePortContractTests.cs",
+            "blob": "857a81a70f532062e2d57ac4c4b6bb55e94c4a2e",
+            "sha256": "18247dd0c14d127f90d5f9cd98e36fd522a4b9e605aaa44f1911d2de5cf95b3f",
+            "observedIde0055": 4
+        },
+        {
+            "path": "tests/backend/Unit/CurrentSchemaReceiptTests.cs",
+            "blob": "701fdf72df50721aa3955e466dc0d6deb45dba4e",
+            "sha256": "36da61c4f686eb3a7be95b1f42a9f5281dc50d8bdfb0050a2b41d5640532e812",
+            "observedIde0055": 99
+        },
+        {
+            "path": "tests/backend/Unit/CurrentSchemaRuntimeRollupTablesTests.cs",
+            "blob": "eb58ed803e97e586f8e320bf190b463acbeaeabe",
+            "sha256": "608b1e36da44917c6a446efddd9f9e5791938dd64f061ed839eef4e367f82c8c",
+            "observedIde0055": 14
+        },
+        {
+            "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+            "blob": "658d0fe76ba668127527fe2a3a678c1e44484942",
+            "sha256": "e749fe6a4141b71824fc127f01e8f0f35768f8789d97bf4fa81b894a4b073a46",
+            "observedIde0055": 3
+        },
+        {
+            "path": "tests/backend/Unit/SchemaMigrationCatalogTests.cs",
+            "blob": "ee5ff36c57223515fdaf2c04782d8438e589c220",
+            "sha256": "2508e9a821e57318d3205a8d685ce72566ac84b4ef61ed9e833ff7575ad51f49",
+            "observedIde0055": 4
+        },
+        {
+            "path": "tests/backend/Unit/SchemaModelComparerExtraLinksTests.cs",
+            "blob": "654569a955fe645c1effed1d41f595c2b36ec7f2",
+            "sha256": "952094730562f41a92c5f75cd72b269c6e32da961f00359162d34b57f2a99df3",
+            "observedIde0055": 1
+        },
+        {
+            "path": "tests/backend/Unit/SchemaModelComparerRequiredExtraTablesTests.cs",
+            "blob": "bb32fcfc7687c7edcb657416dea4a89066dfffa7",
+            "sha256": "0bc6f05116d7c57eac0525836350d6b1b4a11118360644fc69e9d5b7066b6ef9",
+            "observedIde0055": 1
+        },
+        {
+            "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+            "blob": "c8208fbb2587a25eb5c4146f1467eae47aa95262",
+            "sha256": "54332aae5236031e6803d7229e885079e236740a41ec2ff1cd498ca394898f61",
+            "observedIde0055": 9
+        }
+    ],
+    "excludedOriginalRosterPaths": [
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs",
+        "src/migration/CurrentSchemaOwnedTargetProducer.cs",
+        "src/migration/OfflineMigrationArtifactPublisher.cs",
+        "src/migration/OfflineMigrationBackupAdmission.cs",
+        "src/migration/OfflineMigrationClassificationFacts.cs",
+        "src/migration/OfflineMigrationShellBackupDrillOwnedInputs.cs",
+        "src/migration/OfflineMigrationShellBackupDrillProducer.cs",
+        "src/migration/OfflineMigrationSourceObserver.Providers.cs",
+        "src/migration/OfflineMigrationSourceObserver.cs",
+        "src/migration/PgLegacyNonArticlePreparation.cs",
+        "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs",
+        "tests/backend/Unit/AuthorRecentArticleHistoryProjectionTests.cs",
+        "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+        "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+        "tests/backend/Unit/AuthoringExtensionServiceBrokerTests.cs",
+        "tests/backend/Unit/CurrentSchemaOwnedProjectionExporterTests.cs",
+        "tests/backend/Unit/ProductionQueueDiagnosticProjectionTests.cs"
+    ],
+    "requestedExcludedOwnerStems": [
+        "ArticlePropertyDefinitionAuthorityTests",
+        "ArticleRelationContractValidator",
+        "AuthorRecentArticleHistoryProjectionTests",
+        "AuthorSavedViewContractTests",
+        "AuthoringCanvasCoordinateAuthorityTests",
+        "AuthoringExtensionExecutionResolver",
+        "AuthoringExtensionRpc",
+        "AuthoringExtensionRpcBrokerTests",
+        "AuthoringExtensionRpcIoBrokerHandler",
+        "AuthoringExtensionRpcTests",
+        "AuthoringExtensionServiceBrokerTests",
+        "CurrentSchemaOwnedProjectionExporterTests",
+        "CurrentSchemaOwnedTargetProducer",
+        "CurrentSchemaRecipeFacts",
+        "DocumentExportHtmlProviderTests",
+        "DocumentExportSystemdCgroupAuthorityTests",
+        "NativeRegularFileGuard",
+        "OfflineMigrationArtifactPublisher",
+        "OfflineMigrationBackupAdmission",
+        "OfflineMigrationClassificationFacts",
+        "OfflineMigrationShellBackupDrillOwnedInputs",
+        "OfflineMigrationShellBackupDrillProducer",
+        "OfflineMigrationSourceObserver",
+        "OfflineMigrationSourceObserver.Providers",
+        "PgLegacyNonArticlePreparation",
+        "ProductionQueueDiagnosticProjectionTests",
+        "PublicHotReadDbAdmissionTests",
+        "SchemaMigrationManifest",
+        "UserSessionLoginConcurrencyTests"
+    ],
+    "excludedPathSegments": [
+        "Catalogs",
+        "Definitions",
+        "generated",
+        "Generated",
+        "SourceGeneration"
+    ],
+    "policyBindings": {
+        ".editorconfig": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26",
+        "Directory.Build.props": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+        "config/development/csharp-style-policy.json": "b341da309ee50cdc61626212053b8a5b2548309294051bf59e9e6927b4baf292",
+        "tools/dotnet/check-csharp-style.mjs": "754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
+    },
+    "dotnetSdk": "10.0.401",
+    "formatterVersion": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab"
+}

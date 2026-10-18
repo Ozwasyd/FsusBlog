@@ -6,6 +6,7 @@ using FsusBlog.Migration;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Npgsql;
+
 using Xunit;
 
 namespace FsusBlog.Server.Tests;
@@ -101,7 +102,10 @@ public sealed class OfflineMigrationOwnedWriterReadScopeIntegrationTests(Postgre
             {
                 callbackReached = true;
                 using CancellationTokenSource fresh = context.CreateReadScope(default);
-                if (cancelCreator) creator.Cancel(); else borrower.Cancel();
+                if (cancelCreator)
+                    creator.Cancel();
+                else
+                    borrower.Cancel();
                 Assert.True(fresh.IsCancellationRequested);
                 return Task.CompletedTask;
             }, borrower.Token));
@@ -213,7 +217,10 @@ public sealed class OfflineMigrationOwnedWriterReadScopeIntegrationTests(Postgre
             // callback IO is declared owned or drained by the production port.
             Task actualBoundary = Assert.IsAssignableFrom<Task>(enteredBoundary);
             Assert.True(actualBoundary.IsCompleted);
-            try { await actualBoundary; }
+            try
+            {
+                await actualBoundary;
+            }
             catch (OperationCanceledException) { }
             catch (InvalidOperationException failure) when (failure.Message == "offline_apply_owned_read_scope_expired") { }
             var closed = Assert.IsType<OfflineMigrationApplyNativeSession.OwnedReadContext>(retained);
