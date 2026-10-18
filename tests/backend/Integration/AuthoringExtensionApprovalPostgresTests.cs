@@ -1,19 +1,7 @@
+using System.Collections.Immutable;
 using System.Security.Claims;
 
 using Fido2NetLib;
-
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using NSubstitute;
-
-using Npgsql;
-
-using SqlSugar;
-
-using StackExchange.Redis;
 
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
@@ -25,6 +13,19 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using Npgsql;
+
+using NSubstitute;
+
+using SqlSugar;
+
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Integration;
 
@@ -47,13 +48,13 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.ClaimMigrationAsync(pending).AsTask());
         string proof = await host.ProofAsync();
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.ConfirmMigrationAsync(
-            pending.DecisionId, host.OldPackage, host.NewPackage, host.Plan, host.Receipt, new string('0', 64), proof).AsTask());
+            pending.DecisionId, host.OldPackage, host.NewPackage, host.Plan, host.OldTargets, host.NewTargets, host.Receipt, new string('0', 64), proof).AsTask());
         await host.ConfirmMigrationAsync(pending, proof);
         // An independently constructed issuer uses independent SQL connections and the same real key ring.
         AuthoringExtensionApprovalAuthority second = host.NewAuthority();
         Task<AuthoringExtensionApprovalAuthority.ApprovedClaim>[] attempts =
         [host.ClaimMigrationAsync(pending).AsTask(), second.ClaimMigrationAsync(
-            pending.DecisionId, host.OldPackage, host.NewPackage, host.Plan, host.Receipt).AsTask()];
+            pending.DecisionId, host.OldPackage, host.NewPackage, host.Plan, host.OldTargets, host.NewTargets, host.Receipt).AsTask()];
         foreach (Task attempt in attempts)
         {
             _ = await Record.ExceptionAsync(async () => await attempt);
@@ -62,9 +63,9 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         AuthoringExtensionApprovalAuthority.ApprovedClaim claim = attempts.Single(attempt => attempt.IsCompletedSuccessfully).Result;
         Assert.Equal(pending.Digest, claim.Digest);
         Assert.Equal(pending.OperationContext, claim.OperationContext);
-        Assert.Equal(1, claim.OperationContext.ContractVersion);
+        Assert.Equal(2, claim.OperationContext.ContractVersion);
         Assert.Equal(host.From.UserId, claim.OperationContext.StateUserId);
-        Assert.Equal("system-config-site-state-admin-v1", claim.OperationContext.AuthorizationPolicy);
+        Assert.Equal("canonical-state-scope-authority-required-v1", claim.OperationContext.AuthorizationPolicy);
         Assert.Equal(host.Plan.ContentSha256, claim.FrozenPlan!.ContentSha256);
         Assert.Null(claim.FencedDeletion);
         Assert.Equal(3, await host.ScalarAsync("SELECT count(*) FROM authoring_extension_approval_event;"));
@@ -254,14 +255,16 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         {
             UserId = "another-state-user"
         };
+        await host.GrantFixtureScopeAsync(AuthoringApprovalOperation.Migration, secondFrom);
+        await host.GrantFixtureScopeAsync(AuthoringApprovalOperation.Migration, secondTo);
         await host.State.InitializeAsync(host.OldPackage, secondFrom, default);
         await host.State.InitializeAsync(host.NewPackage, secondTo, default);
         AuthoringFencedStateMigration secondPlan = AuthoringStateProcessWorker.Plan(await host.State.ReadAsync(host.OldPackage, secondFrom, default), secondTo, []);
-        AuthoringExtensionApprovalPreview second = await host.Authority.PrepareMigrationAsync(host.OldPackage, host.NewPackage, secondPlan, host.Receipt);
+        AuthoringExtensionApprovalPreview second = await host.Authority.PrepareMigrationAsync(host.OldPackage, host.NewPackage, secondPlan, host.OldTargets, host.NewTargets, host.Receipt);
         string proof = await host.ProofAsync();
         await host.ConfirmMigrationAsync(first, proof);
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.ConfirmMigrationAsync(second.DecisionId,
-            host.OldPackage, host.NewPackage, secondPlan, host.Receipt, second.Digest, proof).AsTask());
+            host.OldPackage, host.NewPackage, secondPlan, host.OldTargets, host.NewTargets, host.Receipt, second.Digest, proof).AsTask());
         Assert.Equal(AuthoringApprovalStatus.Pending, (await host.Authority.ReadAsync(second.DecisionId)).Status);
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.ClaimMigrationAsync(second).AsTask());
     }
@@ -324,39 +327,18 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
     }
 
     [Fact]
-    public async Task CompletedClaim_RequiresDurableExactOperationReceiptAndSettlesIdempotently()
+    public async Task CompletedClaim_RequiresCanonicalExecutionOwnerAndCannotUseReceiptOnlyBinding()
     {
         await using Harness host = await CreateAsync();
-        AuthoringExtensionApprovalPreview pending = await host.PrepareMigrationAsync();
+        var pending = await host.PrepareMigrationAsync();
         await host.ConfirmMigrationAsync(pending);
-        AuthoringExtensionApprovalAuthority.ApprovedClaim claim = await host.ClaimMigrationAsync(pending);
-        AuthoringLifecycleReceipt unrelated = NextReceipt(host.Receipt, AuthoringLifecycleState.Disabled);
-        await host.Receipts.AppendAsync(unrelated, default);
-        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.CompleteAsync(claim, unrelated).AsTask());
-        AuthoringLifecycleReceipt updating = NextReceipt(unrelated, AuthoringLifecycleState.Updating);
-        await host.Receipts.AppendAsync(updating, default);
-        AuthoringLifecycleReceipt migrating = NextReceipt(updating, AuthoringLifecycleState.Migrating) with
-        {
-            PackageSha256 = host.NewPackage.PackageIdentity,
-            Version = host.NewPackage.Contract.Manifest.Version,
-            StateSchemaVersion = host.NewPackage.Contract.Manifest.StateSchemaVersion,
-            ScopeDigest = claim.Digest
-        };
-        migrating = migrating with
-        {
-            ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(migrating)
-        };
-        await host.State.BackupAsync(host.OldPackage, host.NewPackage, host.Plan, default);
-        await host.State.ApplyAsync(host.OldPackage, host.NewPackage, host.Plan, default);
-        await host.State.CompleteAsync(host.OldPackage, host.NewPackage, host.Plan, default);
-        await host.Receipts.AppendAsync(migrating, default);
-        AuthoringLifecycleReceipt starting = NextReceipt(migrating, AuthoringLifecycleState.Starting);
-        await host.Receipts.AppendAsync(starting, default);
-        AuthoringLifecycleReceipt result = NextReceipt(starting, AuthoringLifecycleState.Running);
+        var claim = await host.ClaimMigrationAsync(pending);
+        (AuthoringExtensionApprovalExecutionResult execution, AuthoringLifecycleReceipt result) = await host.RunningResultAsync(claim);
         await host.Receipts.AppendAsync(result, default);
-        await host.NewAuthority().CompleteAsync(claim, result);
-        await host.NewAuthority().CompleteAsync(claim, result);
-        Assert.Equal(AuthoringApprovalStatus.Completed, (await host.Authority.ReadAsync(pending.DecisionId)).Status);
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.CompleteAsync(claim, execution, result).AsTask());
+        Assert.Equal("approval_execution_result_authority_unavailable", error.Message);
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(pending.DecisionId)).Status);
+        Assert.NotEqual(claim.Digest, result.ScopeDigest);
     }
 
     [Fact]
@@ -408,6 +390,323 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         await host.ExecuteAsync("DROP TABLE authoring_extension_approval_event; DROP TABLE authoring_extension_approval_decision;");
         await Assert.ThrowsAsync<PostgresException>(() => host.PrepareMigrationAsync().AsTask());
         Assert.Equal(0, await host.ScalarAsync("SELECT count(*) FROM information_schema.tables WHERE table_name LIKE 'authoring_extension_approval%';"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReviewScope_OtherUserDocumentMustNotBeAuthorized(bool deletion)
+    {
+        await using Harness host = await CreateAsync();
+        AuthoringStateScope foreignFrom = host.From with
+        {
+            UserId = "foreign-user",
+            DocumentId = "foreign-document"
+        };
+        AuthoringStateScope foreignTo = host.To with
+        {
+            UserId = "foreign-user",
+            DocumentId = "foreign-document"
+        };
+        await host.State.InitializeAsync(host.OldPackage, foreignFrom, default);
+        await host.State.InitializeAsync(host.NewPackage, foreignTo, default);
+        await host.State.WriteAsync(host.OldPackage, foreignFrom, 0, new("old", [5, 6]), default);
+        if (deletion)
+        {
+            await host.RetainAsync();
+        }
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+        {
+            if (deletion)
+            {
+                var pending = await host.Authority.PrepareDeletionAsync(host.OldPackage, foreignFrom, host.Receipt);
+                await host.ConfirmDeletionAsync(pending);
+                var claim = await host.ClaimDeletionAsync(pending);
+                await host.State.DeleteAsync(host.OldPackage, claim.FencedDeletion!, default);
+            }
+            else
+            {
+                host.Plan = AuthoringStateProcessWorker.Plan(await host.State.ReadAsync(host.OldPackage, foreignFrom, default), foreignTo);
+                var pending = await host.PrepareMigrationAsync();
+                await host.ConfirmMigrationAsync(pending);
+                _ = await host.ClaimMigrationAsync(pending);
+            }
+        });
+        Assert.Equal("fixture_exact_scope_denied", error.Message);
+        Assert.Single((await host.State.ReadAsync(host.OldPackage, foreignFrom, default)).Entries);
+        Assert.Equal(0, await host.ScalarAsync("SELECT count(*) FROM authoring_extension_approval_decision;"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReviewComplete_WrongVersionAndSchemasMustRefuse(bool deletion)
+    {
+        await using Harness host = await CreateAsync();
+        AuthoringExtensionApprovalAuthority.ApprovedClaim claim;
+        AuthoringExtensionApprovalExecutionResult execution;
+        AuthoringLifecycleReceipt result;
+        if (deletion)
+        {
+            (claim, execution, result) = await host.DeletedResultAsync();
+        }
+        else
+        {
+            var pending = await host.PrepareMigrationAsync();
+            await host.ConfirmMigrationAsync(pending);
+            claim = await host.ClaimMigrationAsync(pending);
+            (execution, result) = await host.RunningResultAsync(claim);
+        }
+        result = result with
+        {
+            Version = "99.0.0",
+            StateSchemaVersion = 99,
+            DataSchemaVersion = 98
+        };
+        result = result with
+        {
+            ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(result)
+        };
+        await host.Receipts.AppendAsync(result, default);
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.CompleteAsync(claim, execution, result).AsTask());
+        Assert.Equal("approval_result_package_metadata_mismatch", error.Message);
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(claim.DecisionId)).Status);
+    }
+
+    [Fact]
+    public async Task ReviewComplete_ConcurrentNewHeadMustRefuseFinalCAS()
+    {
+        await using Harness host = await CreateAsync();
+        var pending = await host.PrepareMigrationAsync();
+        await host.ConfirmMigrationAsync(pending);
+        var claim = await host.ClaimMigrationAsync(pending);
+        var (execution, result) = await host.RunningResultAsync(claim);
+        await host.Receipts.AppendAsync(result, default);
+        await using var access = await host.ScopeAuthority.AcquireAsync(host.Context.HttpContext!, claim.Operation, claim.Scope, claim.FrozenPlan!.To, default);
+        await using var blocker = await host.OpenConnectionAsync();
+        await using var transaction = await blocker.BeginTransactionAsync();
+        await using (var command = new NpgsqlCommand("SELECT decision_id FROM authoring_extension_approval_decision WHERE decision_id=$1 FOR UPDATE;", blocker))
+        {
+            command.Parameters.AddWithValue(claim.DecisionId);
+            await command.ExecuteScalarAsync();
+        }
+        // Exercise the exact SQL terminal-CAS component without pretending that this fixture
+        // supplies a native result owner. Public migration Complete already refuses that absence.
+        Task complete = host.ApprovalStore.SettleAsync(claim, AuthoringApprovalStatus.Completed, result,
+            execution.ContentSha256, access.VerifyCurrentAsync, default).AsTask();
+        await host.WaitForDatabaseLockAsync("query LIKE '%authoring_extension_approval_decision%FOR UPDATE%' AND wait_event_type='Lock'");
+        await host.Receipts.AppendAsync(NextReceipt(result, AuthoringLifecycleState.Disabled), default);
+        await transaction.CommitAsync();
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () => await complete);
+        Assert.Equal("approval_lifecycle_drift", error.Message);
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(claim.DecisionId)).Status);
+    }
+
+    [Fact]
+    public async Task MissingCanonicalScopeOwner_RejectsEvenSystemConfigAdminBeforeCreatingDecision()
+    {
+        await using Harness host = await CreateAsync();
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.WithoutScopeAuthority().PrepareMigrationAsync(
+            host.OldPackage, host.NewPackage, host.Plan, host.OldTargets, host.NewTargets, host.Receipt).AsTask());
+        Assert.Equal("approval_exact_scope_authority_unavailable", error.Message);
+        Assert.Equal(0, await host.ScalarAsync("SELECT count(*) FROM authoring_extension_approval_decision;"));
+    }
+
+    [Theory]
+    [InlineData("revoked")]
+    [InlineData("version")]
+    public async Task ExactScopeGrantDrift_RefusesAnOtherwiseCurrentApprovedDecision(string drift)
+    {
+        await using Harness host = await CreateAsync();
+        var pending = await host.PrepareMigrationAsync();
+        await host.ConfirmMigrationAsync(pending);
+        await host.ExecuteAsync(drift == "revoked" ? "UPDATE approval_fixture_scope_acl SET status='revoked';" :
+            "UPDATE approval_fixture_scope_acl SET status=status;");
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.ClaimMigrationAsync(pending).AsTask());
+        Assert.Equal((long)AuthoringApprovalStatus.Approved, await host.ScalarAsync("SELECT status FROM authoring_extension_approval_decision;"));
+    }
+
+    [Fact]
+    public async Task OrderedTargets_AreFrozenBeforeApprovalAndCannotBeReorderedAtClaim()
+    {
+        await using Harness host = await CreateAsync();
+        var pending = await host.PrepareMigrationAsync();
+        await host.ConfirmMigrationAsync(pending);
+        var changed = host.NewTargets.Reverse().ToImmutableArray();
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.ClaimMigrationAsync(pending.DecisionId,
+            host.OldPackage, host.NewPackage, host.Plan, host.OldTargets, changed, host.Receipt).AsTask());
+        _ = await host.ClaimMigrationAsync(pending);
+    }
+
+    [Theory]
+    [InlineData("snapshot")]
+    [InlineData("roster")]
+    [InlineData("runtime")]
+    [InlineData("package-field")]
+    [InlineData("receipt-only")]
+    public async Task ActualAppliedResult_RejectsTamperEvenWhenCallerRehashes(string field)
+    {
+        await using Harness host = await CreateAsync();
+        var pending = await host.PrepareMigrationAsync();
+        await host.ConfirmMigrationAsync(pending);
+        var claim = await host.ClaimMigrationAsync(pending);
+        var (execution, result) = await host.RunningResultAsync(claim);
+        if (field == "snapshot")
+        {
+            // Canonical hash protects bytes; state-owner completion is a separate actual observation.
+            execution = execution with
+            {
+                AppliedSnapshot = execution.AppliedSnapshot! with
+                {
+                    ContentSha256 = new string('f', 64)
+                }
+            };
+        }
+        else if (field == "roster")
+        {
+            execution = execution with
+            {
+                OrderedNewTargets = execution.OrderedNewTargets.Reverse().ToImmutableArray()
+            };
+        }
+        else if (field == "runtime")
+        {
+            execution = execution with
+            {
+                OrderedNewTargets = execution.OrderedNewTargets.SetItem(0, execution.OrderedNewTargets[0] with
+                {
+                    RuntimeIdentity = new string('f', 64)
+                })
+            };
+        }
+        else if (field == "package-field")
+        {
+            execution = execution with
+            {
+                PackageSha256 = host.NewPackage.PackageIdentity
+            };
+        }
+        else
+        {
+            result = result with
+            {
+                ScopeDigest = claim.Digest
+            };
+        }
+        if (field != "receipt-only")
+        {
+            execution = execution with
+            {
+                ContentSha256 = AuthoringExtensionApprovalContract.ComputeContentSha256(execution)
+            };
+            result = result with
+            {
+                ScopeDigest = execution.ContentSha256
+            };
+        }
+        result = result with
+        {
+            ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(result)
+        };
+        await host.Receipts.AppendAsync(result, default);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.CompleteAsync(claim, execution, result).AsTask());
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(claim.DecisionId)).Status);
+    }
+
+    [Fact]
+    public async Task RealApplySnapshot_RequiresExactSettledStateAndNeverPredictsFutureSnapshot()
+    {
+        await using Harness host = await CreateAsync();
+        var pending = await host.PrepareMigrationAsync();
+        await host.ConfirmMigrationAsync(pending);
+        var claim = await host.ClaimMigrationAsync(pending);
+        await host.State.BackupAsync(host.OldPackage, host.NewPackage, host.Plan, default);
+        AuthoringStateSnapshot actual = await host.State.ApplyAsync(host.OldPackage, host.NewPackage, host.Plan, default);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.State.ReadAsync(host.NewPackage, host.To, default).AsTask());
+        var data = AuthoringExtensionApprovalContract.MigrationResult(claim, actual, host.OldTargets, host.NewTargets, 6);
+        Assert.Equal(actual.ContentSha256, data.AppliedSnapshot!.ContentSha256);
+        await host.State.CompleteAsync(host.OldPackage, host.NewPackage, host.Plan, default);
+        var source = await host.State.ReadAsync(host.OldPackage, host.From, default);
+        var settled = await host.State.ReadAsync(host.NewPackage, host.To, default);
+        AuthoringExtensionApprovalContract.ValidateSettledMigration(claim, actual, source, settled, default);
+        await host.State.WriteAsync(host.NewPackage, host.To, settled.Revision, new("new", [9, 9]), default);
+        var changed = await host.State.ReadAsync(host.NewPackage, host.To, default);
+        Assert.Throws<AuthoringExtensionContractException>(() => AuthoringExtensionApprovalContract.ValidateSettledMigration(claim, actual, source, changed, default));
+        // The successful metadata validation above is not native or cross-store admission.
+    }
+
+    [Fact]
+    public async Task ActualDeletionResult_RequiresCanonicalStateCustodyThroughFinalCAS()
+    {
+        await using Harness host = await CreateAsync();
+        var (claim, execution, result) = await host.DeletedResultAsync();
+        await host.Receipts.AppendAsync(result, default);
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.Authority.CompleteAsync(claim, execution, result).AsTask());
+        Assert.Equal("approval_execution_result_authority_unavailable", error.Message);
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(claim.DecisionId)).Status);
+        Assert.Equal(3, await host.ScalarAsync("SELECT count(*) FROM authoring_extension_approval_event;"));
+    }
+
+    [Fact]
+    public async Task ActualVerifierAndCoordinatorBuilders_PreservePayloadVersusCompositePackageIdentity()
+    {
+        await using Harness host = await CreateAsync();
+        VerifiedAuthoringPackage oldPackage = await VerifyOriginalFixtureAsync("1.0.0", 1);
+        VerifiedAuthoringPackage newPackage = await VerifyOriginalFixtureAsync("2.0.0", 2);
+        Assert.NotEqual(oldPackage.PackageIdentity, oldPackage.Contract.Manifest.PackageSha256);
+        Assert.NotEqual(newPackage.PackageIdentity, newPackage.Contract.Manifest.PackageSha256);
+        AuthoringStateScope from = AuthoringStateProcessWorker.Scope(oldPackage) with
+        {
+            UserId = "verifier-user",
+            DocumentId = "verifier-document"
+        };
+        AuthoringStateScope to = AuthoringStateProcessWorker.Scope(newPackage) with
+        {
+            UserId = "verifier-user",
+            DocumentId = "verifier-document"
+        };
+        await host.State.InitializeAsync(oldPackage, from, default);
+        await host.State.InitializeAsync(newPackage, to, default);
+        await host.State.WriteAsync(oldPackage, from, 0, new("old", [1, 2]), default);
+        await host.GrantFixtureScopeAsync(AuthoringApprovalOperation.Migration, from);
+        await host.GrantFixtureScopeAsync(AuthoringApprovalOperation.Migration, to);
+        await host.GrantFixtureScopeAsync(AuthoringApprovalOperation.Deletion, from);
+        // Original verifier + builder field interop only. These diagnostic revocation ports
+        // do not qualify native startup/cleanup or a real user confirmation.
+        var resources = Substitute.For<IAuthoringLifecycleResourceAuthority>();
+        resources.RevokeAllAsync(Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>())
+            .Returns(ValueTask.FromResult(new AuthoringLifecycleResourceReport(0, 0, 0, 0, 0, 0, 0)));
+        var coordinator = new AuthoringExtensionLifecycleCoordinator(resources, Substitute.For<IAuthoringLifecyclePreflight>(),
+            host.State, host.Receipts, Substitute.For<IAuthoringCapabilityGrantCatalog>());
+        var disabled = await coordinator.DisableAsync(oldPackage);
+        Assert.Equal(oldPackage.Contract.Manifest.PackageSha256, disabled.PackageSha256);
+        Assert.Equal(oldPackage.PackageIdentity, disabled.ScopeDigest);
+        var plan = AuthoringStateProcessWorker.Plan(await host.State.ReadAsync(oldPackage, from, default), to);
+        var migration = await host.Authority.PrepareMigrationAsync(oldPackage, newPackage, plan,
+            Harness.Targets(oldPackage), Harness.Targets(newPackage), disabled);
+        Assert.Equal(AuthoringApprovalStatus.Pending, migration.Status);
+        var retained = await coordinator.UninstallAsync(oldPackage, from);
+        Assert.Equal(oldPackage.Contract.Manifest.PackageSha256, retained.PackageSha256);
+        Assert.Equal(oldPackage.PackageIdentity, retained.ScopeDigest);
+        var deletion = await host.Authority.PrepareDeletionAsync(oldPackage, from, retained);
+        Assert.Equal(AuthoringApprovalStatus.Pending, deletion.Status);
+    }
+
+    private static async Task<VerifiedAuthoringPackage> VerifyOriginalFixtureAsync(string version, int schema)
+    {
+        // Reuse the original PackageTests synthetic trust/archive fixture unchanged. The actual
+        // verifier computes its canonical composite identity; this is not signature admission.
+        var factory = typeof(AuthoringExtensionPackageTests).GetMethod("CreatePackage",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        object?[] args = factory.GetParameters().Select(parameter => parameter.DefaultValue).ToArray();
+        args[0] = version;
+        args[1] = "approval-owner-interop-" + version;
+        int schemaIndex = Array.FindIndex(factory.GetParameters(), parameter => parameter.Name == "stateSchemaVersion");
+        args[schemaIndex] = schema;
+        object fixture = factory.Invoke(null, args)!;
+        var verifier = (AuthoringPackageVerifier)fixture.GetType().GetProperty("Verifier")!.GetValue(fixture)!;
+        var artifact = (AuthoringPackageArtifact)fixture.GetType().GetProperty("Artifact")!.GetValue(fixture)!;
+        return await verifier.VerifyAsync(artifact, AuthoringHostPlatform.ServerLinux);
     }
 
     private async Task<Harness> CreateAsync()
@@ -497,11 +796,109 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         public string PrefixKey(string key) => ScopeToken + key;
     }
 
+    // This is an explicitly configured fixture owner over synthetic SQL ACL rows, not a
+    // production authorization adapter and not an adminId -> opaque user mapping.
+    private sealed class FixtureScopeAuthority(NpgsqlDataSource source) : IAuthoringExtensionApprovalScopeAuthority
+    {
+        public async ValueTask<IAuthoringExtensionApprovalScope> AcquireAsync(HttpContext context,
+            AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destination, CancellationToken token)
+        {
+            if (!context.User.TryGetAdminPrincipalId(out long principalId) || context.User.GetAdminSessionId() is not { } sessionId)
+            {
+                throw new AuthoringExtensionContractException("fixture_scope_actor_missing");
+            }
+            NpgsqlConnection connection = await source.OpenConnectionAsync(token);
+            NpgsqlTransaction transaction = await connection.BeginTransactionAsync(token);
+            try
+            {
+                string[] scopes = destination is null ? [AuthoringExtensionStateContract.ScopeId(scope)] :
+                    [AuthoringExtensionStateContract.ScopeId(scope), AuthoringExtensionStateContract.ScopeId(destination)];
+                var versions = new List<string>();
+                foreach (string id in scopes)
+                {
+                    await using var command = new NpgsqlCommand("""
+                        SELECT xmin::text FROM approval_fixture_scope_acl
+                        WHERE principal_id=$1 AND session_id=$2 AND operation=$3 AND scope_id=$4 AND status='active' FOR SHARE;
+                        """, connection);
+                    command.Parameters.AddWithValue(principalId);
+                    command.Parameters.AddWithValue(sessionId);
+                    command.Parameters.AddWithValue((int)operation);
+                    command.Parameters.AddWithValue(id);
+                    string? version = (string?)await command.ExecuteScalarAsync(token);
+                    if (version is null)
+                    {
+                        throw new AuthoringExtensionContractException("fixture_exact_scope_denied");
+                    }
+                    versions.Add(version);
+                }
+                return new FixtureScopeLease(connection, transaction, AuthoringExtensionStateContract.Digest(new
+                {
+                    principalId,
+                    sessionId,
+                    operation,
+                    Scopes = scopes,
+                    Versions = versions
+                }));
+            }
+            catch
+            {
+                await transaction.DisposeAsync();
+                await connection.DisposeAsync();
+                throw;
+            }
+        }
+    }
+
+    private sealed class FixtureScopeLease(NpgsqlConnection connection, NpgsqlTransaction transaction, string binding) : IAuthoringExtensionApprovalScope
+    {
+        public string AuthorizationSha256 => binding;
+        public async ValueTask VerifyCurrentAsync(CancellationToken token)
+        {
+            await using var command = new NpgsqlCommand("SELECT 1;", connection);
+            if (Convert.ToInt32(await command.ExecuteScalarAsync(token)) != 1)
+            {
+                throw new AuthoringExtensionContractException("fixture_scope_connection_lost");
+            }
+            // Exact ACL rows stay locked FOR SHARE by this transaction until disposal.
+        }
+        public async ValueTask DisposeAsync()
+        {
+            await transaction.DisposeAsync();
+            await connection.DisposeAsync();
+        }
+    }
+
     private sealed class Harness(SqlSugarClient db, NpgsqlDataSource source, ConnectionMultiplexer redisConnection,
         UnifiedCache cache, IConfigurationRoot configuration, AdminPrincipalService admins, IDataProtectionProvider protection) : IAsyncDisposable
     {
-        public VerifiedAuthoringPackage OldPackage { get; } = AuthoringStateProcessWorker.Package("1.0.0", 1);
-        public VerifiedAuthoringPackage NewPackage { get; } = AuthoringStateProcessWorker.Package("2.0.0", 2);
+        public VerifiedAuthoringPackage OldPackage { get; } = Package("1.0.0", 1);
+        public VerifiedAuthoringPackage NewPackage { get; } = Package("2.0.0", 2);
+        // Deliberately distinguish all three original package identity fields. Synthetic static
+        // targets describe approved data only; they do not attest actual native readiness.
+        private static VerifiedAuthoringPackage Package(string version, int schema)
+        {
+            VerifiedAuthoringPackage basis = AuthoringStateProcessWorker.Package(version, schema);
+            AuthoringContributionDeclaration first = basis.Contract.Manifest.Contributions[0];
+            AuthoringExtensionManifest manifest = basis.Contract.Manifest with
+            {
+                Contributions = [first, first with { Id = "acme.command.secondary" }]
+            };
+            return basis with
+            {
+                Contract = AuthoringExtensionContractValidator.Verify(manifest),
+                PackageIdentity = new string(schema == 1 ? '1' : '2', 64)
+            };
+        }
+
+        public static ImmutableArray<AuthoringExecutionTarget> Targets(VerifiedAuthoringPackage package) =>
+            [.. package.Contract.Manifest.Contributions.Select(item => new AuthoringExecutionTarget(
+                AuthoringExecutionResolutionStatus.Ready,item.ExecutionClass,package.Contract.Manifest.Id,
+                package.Contract.Manifest.Version,package.Contract.Manifest.PackageSha256,item.Id,item.Kind,
+                item.Entrypoint.PathOrAdapterId,null,
+                AuthoringExtensionStateContract.Digest(new { package.PackageIdentity,item.Id }),null))];
+
+        public ImmutableArray<AuthoringExecutionTarget> OldTargets => Targets(OldPackage);
+        public ImmutableArray<AuthoringExecutionTarget> NewTargets => Targets(NewPackage);
         public AuthoringStateScope From => AuthoringStateProcessWorker.Scope(OldPackage);
         public AuthoringStateScope To => AuthoringStateProcessWorker.Scope(NewPackage);
         public AuthoringFencedStateMigration Plan { get; set; } = null!;
@@ -513,7 +910,7 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         public AuthoringExtensionApprovalAuthority Authority { get; private set; } = null!;
 
         public AuthoringExtensionApprovalAuthority NewAuthority() => new(Context, configuration,
-            new PostgresAuthoringExtensionApprovalStore(source, protection), State, Receipts, admins);
+            new PostgresAuthoringExtensionApprovalStore(source, protection), State, Receipts, admins, new FixtureScopeAuthority(source));
 
         public async Task InitializeAsync()
         {
@@ -521,16 +918,99 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
             await State.InitializeAsync(NewPackage, To, default);
             await State.WriteAsync(OldPackage, From, 0, new("old", [1, 2]), default);
             Plan = AuthoringStateProcessWorker.Plan(await State.ReadAsync(OldPackage, From, default), To);
-            Receipt = new(1, 1, OldPackage.Contract.Manifest.Id, OldPackage.PackageIdentity, "1.0.0", 1,
+            Receipt = new(1, 1, OldPackage.Contract.Manifest.Id, OldPackage.Contract.Manifest.PackageSha256, "1.0.0", 1,
                 OldPackage.Contract.Manifest.DataSchemaVersion, AuthoringLifecycleState.Installed, AuthoringLifecycleState.Enabled,
-                1, new string('c', 64), null, new string('0', 64), string.Empty);
+                1, OldPackage.PackageIdentity, null, new string('0', 64), string.Empty);
             Receipt = Receipt with
             {
                 ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(Receipt)
             };
             await Receipts.AppendAsync(Receipt, default);
+            await ExecuteAsync("""
+                CREATE TABLE approval_fixture_scope_acl (
+                    principal_id bigint NOT NULL, session_id text NOT NULL, operation integer NOT NULL,
+                    scope_id text COLLATE "C" NOT NULL, status text NOT NULL DEFAULT 'active',
+                    PRIMARY KEY(principal_id,session_id,operation,scope_id));
+                """);
+            foreach ((AuthoringApprovalOperation operation, AuthoringStateScope scope) in new[]
+            {
+                (AuthoringApprovalOperation.Migration, From), (AuthoringApprovalOperation.Migration, To),
+                (AuthoringApprovalOperation.Deletion, From)
+            })
+            {
+                await db.Ado.ExecuteCommandAsync("INSERT INTO approval_fixture_scope_acl(principal_id,session_id,operation,scope_id) VALUES(1,'first-session',@Operation,@Scope);",
+                    new SugarParameter("@Operation", (int)operation), new SugarParameter("@Scope", AuthoringExtensionStateContract.ScopeId(scope)));
+            }
             Authority = NewAuthority();
         }
+
+        public async Task<(AuthoringExtensionApprovalExecutionResult Execution, AuthoringLifecycleReceipt Receipt)> RunningResultAsync(
+            AuthoringExtensionApprovalAuthority.ApprovedClaim claim)
+        {
+            var disabled = NextReceipt(Receipt, AuthoringLifecycleState.Disabled);
+            await Receipts.AppendAsync(disabled, default);
+            var updating = NextReceipt(disabled, AuthoringLifecycleState.Updating);
+            await Receipts.AppendAsync(updating, default);
+            var migrating = NextReceipt(updating, AuthoringLifecycleState.Migrating) with
+            {
+                PackageSha256 = NewPackage.Contract.Manifest.PackageSha256,
+                Version = NewPackage.Contract.Manifest.Version,
+                StateSchemaVersion = NewPackage.Contract.Manifest.StateSchemaVersion,
+                ScopeDigest = NewPackage.PackageIdentity
+            };
+            migrating = migrating with
+            {
+                ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(migrating)
+            };
+            await State.BackupAsync(OldPackage, NewPackage, Plan, default);
+            AuthoringStateSnapshot actual = await State.ApplyAsync(OldPackage, NewPackage, Plan, default);
+            await Receipts.AppendAsync(migrating, default);
+            var starting = NextReceipt(migrating, AuthoringLifecycleState.Starting);
+            await Receipts.AppendAsync(starting, default);
+            var running = NextReceipt(starting, AuthoringLifecycleState.Running);
+            var execution = AuthoringExtensionApprovalContract.MigrationResult(claim, actual, OldTargets, NewTargets, running.Generation);
+            running = running with
+            {
+                ScopeDigest = execution.ContentSha256
+            };
+            running = running with
+            {
+                ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(running)
+            };
+            await State.CompleteAsync(OldPackage, NewPackage, Plan, default);
+            return (execution, running);
+        }
+
+        public async Task<(AuthoringExtensionApprovalAuthority.ApprovedClaim Claim, AuthoringExtensionApprovalExecutionResult Execution, AuthoringLifecycleReceipt Receipt)> DeletedResultAsync()
+        {
+            await RetainAsync();
+            var pending = await Authority.PrepareDeletionAsync(OldPackage, From, Receipt);
+            await ConfirmDeletionAsync(pending);
+            var claim = await ClaimDeletionAsync(pending);
+            await State.DeleteAsync(OldPackage, claim.FencedDeletion!, default);
+            var actual = await State.MeasureAsync(OldPackage, From, default);
+            var removed = NextReceipt(Receipt, AuthoringLifecycleState.Removed);
+            var execution = AuthoringExtensionApprovalContract.DeletionResult(claim, actual, removed.Generation);
+            removed = removed with
+            {
+                ScopeDigest = execution.ContentSha256
+            };
+            removed = removed with
+            {
+                ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(removed)
+            };
+            return (claim, execution, removed);
+        }
+
+        public async Task GrantFixtureScopeAsync(AuthoringApprovalOperation operation, AuthoringStateScope scope) =>
+            _ = await db.Ado.ExecuteCommandAsync("INSERT INTO approval_fixture_scope_acl(principal_id,session_id,operation,scope_id) VALUES(1,'first-session',@Operation,@Scope);",
+                new SugarParameter("@Operation", (int)operation), new SugarParameter("@Scope", AuthoringExtensionStateContract.ScopeId(scope)));
+
+        public AuthoringExtensionApprovalAuthority WithoutScopeAuthority() => new(Context, configuration,
+            new PostgresAuthoringExtensionApprovalStore(source, protection), State, Receipts, admins);
+
+        public PostgresAuthoringExtensionApprovalStore ApprovalStore => new(source, protection);
+        public IAuthoringExtensionApprovalScopeAuthority ScopeAuthority => new FixtureScopeAuthority(source);
 
         public async Task RetainAsync()
         {
@@ -546,14 +1026,14 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
             await Receipts.AppendAsync(Receipt, default);
         }
 
-        public ValueTask<AuthoringExtensionApprovalPreview> PrepareMigrationAsync() => Authority.PrepareMigrationAsync(OldPackage, NewPackage, Plan, Receipt);
+        public ValueTask<AuthoringExtensionApprovalPreview> PrepareMigrationAsync() => Authority.PrepareMigrationAsync(OldPackage, NewPackage, Plan, OldTargets, NewTargets, Receipt);
         public Task<string> ProofAsync() => admins.CreateAdminStepUpProofTokenAsync(1, "first-session", "admin-sensitive", TimeSpan.FromMinutes(5));
         public async ValueTask<AuthoringExtensionApprovalPreview> ConfirmMigrationAsync(AuthoringExtensionApprovalPreview preview, string? proof = null) =>
-            await Authority.ConfirmMigrationAsync(preview.DecisionId, OldPackage, NewPackage, Plan, Receipt, preview.Digest, proof ?? await ProofAsync());
+            await Authority.ConfirmMigrationAsync(preview.DecisionId, OldPackage, NewPackage, Plan, OldTargets, NewTargets, Receipt, preview.Digest, proof ?? await ProofAsync());
         public async ValueTask ConfirmDeletionAsync(AuthoringExtensionApprovalPreview preview) =>
             _ = await Authority.ConfirmDeletionAsync(preview.DecisionId, OldPackage, preview.Measurement!, Receipt, preview.Digest, await ProofAsync());
         public ValueTask<AuthoringExtensionApprovalAuthority.ApprovedClaim> ClaimMigrationAsync(AuthoringExtensionApprovalPreview preview) =>
-            Authority.ClaimMigrationAsync(preview.DecisionId, OldPackage, NewPackage, Plan, Receipt);
+            Authority.ClaimMigrationAsync(preview.DecisionId, OldPackage, NewPackage, Plan, OldTargets, NewTargets, Receipt);
         public ValueTask<AuthoringExtensionApprovalAuthority.ApprovedClaim> ClaimDeletionAsync(AuthoringExtensionApprovalPreview preview) =>
             Authority.ClaimDeletionAsync(preview.DecisionId, OldPackage, preview.Measurement!, Receipt);
         public ValueTask<NpgsqlConnection> OpenConnectionAsync() => source.OpenConnectionAsync();
@@ -583,7 +1063,7 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         public async Task ExpirePendingAsync(string decisionId)
         {
             // Test-only shortening of a genuine pending decision; never fabricates approval.
-            IDataProtector protector = protection.CreateProtector("FsusBlog.AuthoringExtensionApproval.v1");
+            IDataProtector protector = protection.CreateProtector("FsusBlog.AuthoringExtensionApproval.v2");
             byte[] payload = (byte[])(await db.Ado.GetScalarAsync(
                 "SELECT protected_payload FROM authoring_extension_approval_decision WHERE decision_id=@Id;",
                 new SugarParameter("@Id", decisionId)))!;
