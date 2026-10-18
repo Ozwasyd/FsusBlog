@@ -25,14 +25,14 @@ public sealed class ArticlePackageFrozenExportIndependentReviewTests
 
     private static Case Setup()
     {
-        const string site = "https://review.example.test";
-        const string md = "# independent e\u0301 😀\r\nexact  \t\r\n";
-        byte[] raw = [0xef, 0xbb, 0xbf, .. Encoding.UTF8.GetBytes(md)];
-        var article = new ArticleCanonicalInput(91, 1091, 3, "review", "Synthetic", null, null, 1, [], 0, null, null, md);
+        const string SiteScope = "https://review.example.test";
+        const string Markdown = "# independent e\u0301 😀\r\nexact  \t\r\n";
+        byte[] raw = [0xef, 0xbb, 0xbf, .. Encoding.UTF8.GetBytes(Markdown)];
+        var article = new ArticleCanonicalInput(91, 1091, 3, "review", "Synthetic", null, null, 1, [], 0, null, null, Markdown);
         Assert.True(ArticlePackageIdentity.TryCreate(ArticlePackageIdentityKind.Article,
             "article:00000091-0000-4000-8000-000000000001", out var id).IsValid);
         var title = new ArticlePackageTitleSummaryBinding(91, 1091, 3, ArticleCanonicalHashV1.ComputeHashHex(article), id);
-        var coords = new ArticlePropertySnapshotCoordinates(7, site, 91, 1, 1091);
+        var coords = new ArticlePropertySnapshotCoordinates(7, SiteScope, 91, 1, 1091);
         var snapshot = new ArticlePropertyValueSnapshot(1, coords, [], ArticlePropertyValueDigest.ComputeSnapshot(coords, []));
         var input = new ArticlePackageManifestCandidateInput(article, title, snapshot,
             new(coords, snapshot.ContentDigest, [], [], []), raw);
@@ -52,7 +52,7 @@ public sealed class ArticlePackageFrozenExportIndependentReviewTests
         DocumentExportAsset[] assets = [.. fonts, new(source.Record.Id.ToString(), "image/png",
             DocumentExportDigest.ComputeBytes(png), png.ToImmutableArray(), "synthetic", "image", "", 0, "normal")];
         string digest = DocumentExportDigest.ComputeBytes("synthetic"u8);
-        var frozen = new DocumentExportFrozenInput(DocumentExportContractCatalog.InputSchema, "independent-91", 7, site,
+        var frozen = new DocumentExportFrozenInput(DocumentExportContractCatalog.InputSchema, "independent-91", 7, SiteScope,
             new(DocumentExportCoordinateKind.Revision, 91, null, 1091, null, 3), raw.ToImmutableArray(),
             DocumentExportDigest.ComputeBytes(raw), digest, digest,
             DocumentExportContractValidator.ComputeAssetManifestDigest(assets),
@@ -151,7 +151,10 @@ public sealed class ArticlePackageFrozenExportIndependentReviewTests
             Assert.Equal(c.Frozen.Input.MarkdownUtf8.ToArray(), output.Candidate.CopyFileBytes("articles/" + c.Frozen.PortableArticle.FileNameToken + ".md"));
             Assert.Equal(c.Source.SourceBytes.ToArray(), output.Candidate.CopyFileBytes("assets/" + c.Source.PortableAsset.FileNameToken + ".png"));
         }
-        finally { CultureInfo.CurrentCulture = before; }
+        finally
+        {
+            CultureInfo.CurrentCulture = before;
+        }
     }
 
     [Theory]

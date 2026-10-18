@@ -909,8 +909,12 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
     }
 
     private static T Construct<T>(params object[] arguments)
-        => (T)Activator.CreateInstance(typeof(T), System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+    {
+        object instance = Activator.CreateInstance(typeof(T),
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
             null, arguments, null)!;
+        return (T)instance;
+    }
 
     private static ArticlePackageAssetCollectionSource AssetSource(int id)
     {
