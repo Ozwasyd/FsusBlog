@@ -207,6 +207,45 @@ public sealed class UserLocaleMutationReceiptPostgresTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    public async Task RolledBackChildCapture_CannotClaimRestoredOldCommittedVersion()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        _ = await UpdateAsync(db, 1, 0, "auto", null);
+        await BeginAsync(db);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT locale_capture");
+        Assert.Equal(1, await CasAsync(db, 1, 1, "fixed", "en-US"));
+        var capture = await UserLocaleMutationReceiptPersistence.CaptureBeforeAsync(db, 1);
+        Assert.Equal(2, capture.Before!.Revision);
+        await db.Ado.ExecuteCommandAsync("ROLLBACK TO SAVEPOINT locale_capture");
+        // The same client/transaction now sees an older committed version, not its aborted child.
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, 1));
+        Assert.Equal("locale_receipt_original_write_required", error.Message);
+        db.Ado.RollbackTran();
+        Assert.Equal(1, await CountAsync(db));
+        Assert.Equal(1, (await db.Queryable<UserLocalePreference>().SingleAsync()).Revision);
+    }
+
+    [Fact]
+    public async Task RolledBackCaptureLock_CannotClaimForeignCommittedUpdateWithMatchingRevision()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        using SqlSugarClient foreign = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        _ = await UpdateAsync(db, 1, 0, "auto", null);
+        await BeginAsync(db);
+        await db.Ado.ExecuteCommandAsync("SAVEPOINT locale_capture");
+        var capture = await UserLocaleMutationReceiptPersistence.CaptureBeforeAsync(db, 1);
+        await db.Ado.ExecuteCommandAsync("ROLLBACK TO SAVEPOINT locale_capture");
+        Assert.Equal(1, await CasAsync(foreign, 1, 1, "fixed", "ja-JP"));
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            UserLocaleMutationReceiptPersistence.PersistActualAfterAsync(db, capture, 1));
+        Assert.Equal("locale_receipt_original_write_required", error.Message);
+        db.Ado.RollbackTran();
+        Assert.Equal(1, await CountAsync(db));
+        Assert.Equal(2, (await db.Queryable<UserLocalePreference>().SingleAsync()).Revision);
+    }
+
+    [Fact]
     public async Task SuccessfulCas_RecordsActualStatesAndSameTransactionVisibility_WithoutAllocatingGeneration()
     {
         using SqlSugarClient db = await DatabaseAsync();
