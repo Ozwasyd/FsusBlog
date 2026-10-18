@@ -98,6 +98,114 @@ public sealed class CommentFixtureMutationRoutingTests
     }
 
     [Theory]
+    [InlineData(CommentModerationEventTypes.Hide, false)]
+    [InlineData(CommentModerationEventTypes.Hide, true)]
+    [InlineData(CommentModerationEventTypes.Reject, false)]
+    [InlineData(CommentModerationEventTypes.Reject, true)]
+    public async Task AppealTarget_UsesExactDecisionWithLaterNonDecisionAllowed(string eventType, bool laterNonDecision)
+    {
+        var model = new Model("appeal");
+        CommentModerationStatus status = eventType == CommentModerationEventTypes.Hide
+            ? CommentModerationStatus.Hidden : CommentModerationStatus.Rejected;
+        List<CommentModerationEvent> events =
+        [
+            new() { Id = 30, CommentId = 41, NextStatus = CommentModerationStatus.Approved,
+                EventType = CommentModerationEventTypes.Create },
+            new() { Id = 31, CommentId = 41, PreviousStatus = CommentModerationStatus.Approved,
+                NextStatus = status, EventType = eventType }
+        ];
+        if (laterNonDecision)
+            events.Add(new CommentModerationEvent { Id = 32, CommentId = 41, PreviousStatus = status,
+                NextStatus = status, EventType = "report" });
+        CommentFixtureMutationPlan plan = model.SetAppealHistory(events, 31);
+
+        CommentFixtureMutationResult result = await model.Port.ExecuteMutationAsync(plan);
+
+        Assert.Equal(61, result.AppealId);
+        Assert.Equal(events.Select(item => item.Id), result.Before.ModerationEvents.Select(item => item.Id));
+        await model.Author.Received(1).IssueAccountChallengeAsync(41, 11, CommentManagementPurposes.Appeal,
+            CancellationToken.None);
+        await model.Governance.Received(1).AppealAsAccountAsync(41, 11,
+            new CommentAppealRequest("Please review this decision", "challenge-secret"), CancellationToken.None);
+        Assert.Equal(2, model.Governance.ReceivedCalls().Count(call => call.GetMethodInfo().Name == "ReadTimelineAsync"));
+        Assert.Empty(model.InitialComments.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("wrong-type")]
+    [InlineData("duplicate")]
+    [InlineData("stale-hide")]
+    [InlineData("stale-reject")]
+    [InlineData("foreign")]
+    [InlineData("wrong-owner")]
+    [InlineData("wrong-status")]
+    [InlineData("stale-last-event")]
+    public async Task AppealTarget_RefusesInvalidDecisionBeforeChallengeOrCommand(string kind)
+    {
+        var model = new Model("appeal");
+        List<CommentModerationEvent> events =
+        [
+            new() { Id = 30, CommentId = 41, NextStatus = CommentModerationStatus.Approved,
+                EventType = CommentModerationEventTypes.Create },
+            new() { Id = 31, CommentId = 41, PreviousStatus = CommentModerationStatus.Approved,
+                NextStatus = CommentModerationStatus.Hidden, EventType = CommentModerationEventTypes.Hide }
+        ];
+        switch (kind)
+        {
+            case "wrong-type":
+                events[1].EventType = CommentModerationEventTypes.Create;
+                break;
+            case "duplicate":
+                events.Add(new CommentModerationEvent { Id = 31, CommentId = 41,
+                    PreviousStatus = CommentModerationStatus.Hidden, NextStatus = CommentModerationStatus.Hidden,
+                    EventType = CommentModerationEventTypes.Hide });
+                break;
+            case "stale-hide":
+            case "stale-reject":
+                events.Add(new CommentModerationEvent { Id = 32, CommentId = 41,
+                    PreviousStatus = CommentModerationStatus.Hidden,
+                    NextStatus = kind == "stale-hide" ? CommentModerationStatus.Hidden : CommentModerationStatus.Rejected,
+                    EventType = kind == "stale-hide" ? CommentModerationEventTypes.Hide : CommentModerationEventTypes.Reject });
+                break;
+            case "foreign":
+                events[1].CommentId = 42;
+                break;
+            case "wrong-owner":
+                model.Before.UserId = 12;
+                break;
+            case "wrong-status":
+                events[1].NextStatus = CommentModerationStatus.Approved;
+                break;
+        }
+        CommentFixtureMutationPlan plan = model.SetAppealHistory(events, kind == "missing" ? 99 : 31);
+        if (kind == "stale-last-event")
+            plan = plan with { ExpectedLastModerationEventId = 30 };
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            model.Port.ExecuteMutationAsync(plan));
+
+        string expectedError = kind switch
+        {
+            "duplicate" or "foreign" => "timeline is inconsistent",
+            "wrong-owner" => "not owned",
+            "stale-last-event" => "moderation event is stale",
+            _ => "appeal decision is missing or stale"
+        };
+        Assert.Contains(expectedError, error.Message, StringComparison.Ordinal);
+        await model.Author.DidNotReceive().IssueAccountChallengeAsync(Arg.Any<long>(), Arg.Any<int>(),
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await model.Governance.DidNotReceive().AppealAsAccountAsync(Arg.Any<long>(), Arg.Any<int>(),
+            Arg.Any<CommentAppealRequest>(), Arg.Any<CancellationToken>());
+        await model.Governance.DidNotReceive().AppealAsAnonymousAsync(Arg.Any<long>(), Arg.Any<string>(),
+            Arg.Any<CommentAppealRequest>(), Arg.Any<CancellationToken>());
+        Assert.Empty(model.Moderation.ReceivedCalls());
+        Assert.Empty(model.InitialComments.ReceivedCalls());
+        Assert.Empty(model.Queue.ReceivedCalls());
+        Assert.Empty(model.Messages.ReceivedCalls());
+    }
+
+    [Theory]
     [InlineData(CommentMutationEventTypes.Created)]
     [InlineData(CommentMutationEventTypes.Edited)]
     [InlineData(CommentMutationEventTypes.ReplyNotificationRequested)]
@@ -442,6 +550,23 @@ public sealed class CommentFixtureMutationRoutingTests
             Author.ClearReceivedCalls();
             Governance.ClearReceivedCalls();
             Moderation.ClearReceivedCalls();
+        }
+
+        public CommentFixtureMutationPlan SetAppealHistory(List<CommentModerationEvent> events, long targetId)
+        {
+            Before.ModerationStatus = events[^1].NextStatus;
+            After.ModerationStatus = Before.ModerationStatus;
+            Governance.ReadTimelineAsync(41, Arg.Any<CancellationToken>()).Returns(
+                new CommentModerationTimelineResult(41, Before.ModerationStatus, Before.ModerationStatus, true, events),
+                new CommentModerationTimelineResult(41, After.ModerationStatus, After.ModerationStatus, true,
+                    [.. events, Event(events.Max(item => item.Id) + 1, Before.ModerationStatus,
+                        After.ModerationStatus, "appeal")]));
+            return Plan with
+            {
+                ExpectedStatus = Before.ModerationStatus,
+                ExpectedLastModerationEventId = events[^1].Id,
+                ExpectedAppealTargetEventId = targetId
+            };
         }
 
         public void PrepareDelivery(string eventType)

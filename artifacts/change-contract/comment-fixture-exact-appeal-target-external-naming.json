@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs"
+            ],
+            "reason": "Preserve the existing caller-visible fixture command, moderation-event and serialized mutation-plan identifiers in this registered C# surface while resolving the exact appeal target. No external environment or configuration spelling is introduced or renamed."
+        }
+    ]
+}
