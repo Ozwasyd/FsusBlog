@@ -6,10 +6,10 @@ using System.Text;
 
 using MySqlConnector;
 
+using Xunit;
+
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.Schema;
-
-using Xunit;
 
 namespace FsusBlog.Migration.Tests;
 
