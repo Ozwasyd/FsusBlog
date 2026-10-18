@@ -53,20 +53,54 @@ internal sealed record CanonicalArticleRelationParserNode(
 
 internal sealed record CanonicalArticleRelationParserDiagnostic(string Code, CanonicalArticleRelationParserRange RawRange);
 
+// Search accepts an exact persisted-current package observed by the source owner.
+// It requires no relation portable coordinates, mounted UI identity or target registry.
+internal sealed record CanonicalArticleSearchParseRequest(
+    RevisionCompareReadContext Reader, int ArticleId, long RevisionId,
+    string SourceDigest, string PackageDigest);
+
+// Lossless transport of original public runtime structures, not a new AST authority.
+internal sealed record CanonicalArticleSearchTableRow(
+    CanonicalArticleRelationParserRange RawRange, CanonicalArticleRelationParserRange NormalizedRange,
+    ImmutableArray<CanonicalArticleRelationParserRange> RawCellRanges,
+    ImmutableArray<CanonicalArticleRelationParserRange> NormalizedCellRanges);
+internal sealed record CanonicalArticleSearchTable(
+    ImmutableArray<CanonicalArticleSearchTableRow> Rows, int SeparatorRow, ImmutableArray<string> Alignments);
+internal sealed record CanonicalArticleSearchSyntaxNode(
+    string Id, string BlockIdentity, string Kind, string Status, string? DiagnosticCode, string Presentation,
+    CanonicalArticleRelationParserRange RawRange, CanonicalArticleRelationParserRange NormalizedRange,
+    ImmutableArray<CanonicalArticleRelationParserRange> RawContentRanges,
+    ImmutableArray<CanonicalArticleRelationParserRange> NormalizedContentRanges,
+    ImmutableArray<CanonicalArticleRelationParserRange> RawMarkerRanges,
+    ImmutableArray<CanonicalArticleRelationParserRange> NormalizedMarkerRanges,
+    CanonicalArticleRelationParserRange? ParentRawRange, CanonicalArticleRelationParserRange? ParentNormalizedRange,
+    ImmutableArray<CanonicalArticleRelationParserRange> ChildRawRanges,
+    ImmutableArray<CanonicalArticleRelationParserRange> ChildNormalizedRanges,
+    CanonicalArticleSearchTable? Table);
+internal sealed record CanonicalArticleSearchDiagnostic(
+    string Code, string Message, string BlockIdentity,
+    CanonicalArticleRelationParserRange RawRange, CanonicalArticleRelationParserRange NormalizedRange);
+internal sealed record CanonicalArticleSearchOutlineEntry(
+    string Id, string Kind, CanonicalArticleRelationParserRange Range, string Title, int Level);
+
 // One explicit registry decision per canonical link, including non-block links (Target=null).
 // TargetUrl is merely the original candidate; Target must come from the original registry.
 internal sealed record CanonicalArticleRelationTargetBinding(string NodeIdentity, string? TargetUrl, ArticleBlockTarget? Target);
 
 /// <summary>
-/// Relation-owner bridge over the public FsusUI WASM runtime and the original authorized
-/// package reader. No registration is provided: corpus generation, portable mappings and
-/// fresh permission/target admission still have to close at IArticleBlockRelationParsedSource.
+/// Canonical relation/Search-purpose bridge over the public FsusUI WASM runtime and
+/// original authorized package reader. Relation admission still requires portable,
+/// mounted and target facts. Search supplies held persisted-current parse facts;
+/// corpus, policy, taxonomy and typed generation remain with its source owner.
+/// No runtime registration is provided.
 /// </summary>
 internal sealed class CanonicalArticleRelationParserBridge(
     AuthoringRevisionComparePackageReader reader,
     CanonicalArticleRelationParserRuntime runtime)
 {
     internal const string Schema = "fsusblog.canonical-article-relation-parse.v1";
+    internal const string SearchSchema = "fsusblog.canonical-article-search-parse.v1";
+    private const string SearchIdentityClosureSchema = "fsusblog.canonical-article-search-identity-closure.v1";
     private const string IdentityClosureSchema = "fsusblog.canonical-article-relation-identity-closure.v1";
     internal const int MaxSourceUtf16Length = 200_000;
     internal const int MaxNodes = 4096;
@@ -82,6 +116,7 @@ internal sealed class CanonicalArticleRelationParserBridge(
 
     // Content-free lifecycle observation also lets cancellation controls assert actual exit.
     internal event Action<int>? ProcessStarted;
+    private SearchParseLifetime? _searchLifetime;
 
     internal async Task<ParsedSource> ReadAsync(
         CanonicalArticleRelationParseRequest request,
@@ -98,6 +133,219 @@ internal sealed class CanonicalArticleRelationParserBridge(
             s_processGate.Release();
         }
     }
+
+    // A server lifecycle is explicit and disposable. Rebuild/restart creates a new
+    // random identity, never an alias for a revision/hash/xmin/corpus generation.
+    internal SearchParseLifetime BeginSearchLifetime()
+    {
+        var lifetime = new SearchParseLifetime(s_parseAdmission, this);
+        Interlocked.Exchange(ref _searchLifetime, lifetime)?.Dispose();
+        return lifetime;
+    }
+
+    internal async Task<HeldSearchSource> HoldSearchSourceAsync(
+        SearchParseLifetime lifetime, CanonicalArticleSearchParseRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Require(await s_processGate.WaitAsync(0, cancellationToken).ConfigureAwait(false), "canonical_article_relation_busy");
+        bool claimed = false;
+        try
+        {
+            ValidateRuntime();
+            lifetime.RequireOwner(this);
+            claimed = lifetime.TryClaimSource();
+            Require(claimed, "canonical_article_search_source_already_held");
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, lifetime.Cancellation);
+            RevisionComparePackage package = await ReadSearchPackageAsync(request, linked.Token).ConfigureAwait(false);
+            DecodeSearchSource(package);
+            linked.Token.ThrowIfCancellationRequested();
+            return new HeldSearchSource(s_parseAdmission, lifetime, request, package, lifetime.NextHeldSourceSequence());
+        }
+        catch
+        {
+            if (claimed)
+                lifetime.ReleaseSource();
+            throw;
+        }
+        finally
+        {
+            s_processGate.Release();
+        }
+    }
+
+    internal async Task<SearchParsedSource> ReadSearchAsync(
+        HeldSearchSource heldSource, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        heldSource.RequireOwner(this);
+        Require(await s_processGate.WaitAsync(0, cancellationToken).ConfigureAwait(false), "canonical_article_relation_busy");
+        try
+        {
+            ValidateRuntime();
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
+                heldSource.Cancellation, heldSource.Lifetime.Cancellation);
+            CancellationToken token = linked.Token;
+            RevisionComparePackage package = await ReadSearchPackageAsync(heldSource.Request, token).ConfigureAwait(false);
+            Require(package.PackageDigest == heldSource.Package.PackageDigest, "canonical_article_search_source_stale");
+            string rawSource = DecodeSearchSource(heldSource.Package);
+            byte[] CreateInput(string operation) => JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                Schema = SearchSchema,
+                Operation = operation,
+                SourceBase64 = Convert.ToBase64String(heldSource.Package.RawMarkdown.AsSpan()),
+                package.SourceDigest,
+                ParseLifetimeId = heldSource.Lifetime.Id,
+                heldSource.HeldSourceSequence,
+                runtime.LocalUiRoot,
+                runtime.PublicEntryDigest,
+                runtime.WasmModuleDigest,
+                RuntimeVersion = runtime.Version
+            }, s_json);
+            byte[] input = CreateInput("search-parse");
+            Require(input.Length <= runtime.MaxInputBytes, "canonical_article_relation_input_budget_exceeded");
+            long started = Stopwatch.GetTimestamp();
+            SearchParserOutput output = DeserializeSearch<SearchParserOutput>(await RunAsync(input, token).ConfigureAwait(false));
+            ValidateSearchOutput(output, heldSource, rawSource.Length);
+            byte[] authorityInput = CreateInput("search-identity-closure");
+            Require(authorityInput.Length <= runtime.MaxInputBytes, "canonical_article_relation_input_budget_exceeded");
+            TimeSpan remaining = TimeSpan.FromMilliseconds(runtime.TimeoutMilliseconds) - Stopwatch.GetElapsedTime(started);
+            Require(remaining > TimeSpan.Zero, "canonical_article_relation_process_timeout");
+            SearchIdentityClosureOutput closure = DeserializeSearch<SearchIdentityClosureOutput>(
+                await RunAsync(authorityInput, token, remaining).ConfigureAwait(false));
+            Require(closure.Schema == SearchIdentityClosureSchema && closure.Canonical is not null,
+                "canonical_article_search_identity_closure_invalid");
+            ValidateSearchOutput(closure.Canonical!, heldSource, rawSource.Length);
+            Require(JsonSerializer.SerializeToUtf8Bytes(output, s_json).AsSpan()
+                .SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(closure.Canonical, s_json)),
+                "canonical_article_search_identity_closure_invalid");
+            Require(Stopwatch.GetElapsedTime(started) <= TimeSpan.FromMilliseconds(runtime.TimeoutMilliseconds),
+                "canonical_article_relation_process_timeout");
+            RevisionComparePackage current = await ReadSearchPackageAsync(heldSource.Request, token).ConfigureAwait(false);
+            Require(current.PackageDigest == package.PackageDigest, "canonical_article_search_source_stale");
+            token.ThrowIfCancellationRequested();
+            heldSource.RequireOwner(this);
+            return new SearchParsedSource(s_parseAdmission, heldSource, output);
+        }
+        catch (ArticleRelationIndexException error) when (error.Message == "canonical_article_search_source_stale")
+        {
+            // A previously stale hold cannot resurrect after a rollback to the old revision.
+            heldSource.Dispose();
+            throw;
+        }
+        finally
+        {
+            s_processGate.Release();
+        }
+    }
+
+    private async Task<RevisionComparePackage> ReadSearchPackageAsync(
+        CanonicalArticleSearchParseRequest request, CancellationToken cancellationToken)
+    {
+        Require(request.ArticleId > 0 && request.RevisionId > 0 && request.Reader.AdminPrincipalId > 0
+            && request.Reader.RequestId != Guid.Empty && !string.IsNullOrWhiteSpace(request.Reader.SiteScope)
+            && ArticleRelationDigest.IsSha256(request.SourceDigest) && ArticleRelationDigest.IsSha256(request.PackageDigest),
+            "canonical_article_search_exact_current_source_required");
+        // CurrentRevision independently checks the persisted pointer twice inside the
+        // original authorized reader. Never resolve latest/path or silently switch revisions.
+        RevisionComparePackageReadResult result = await reader.ReadAuthorizedAsync(request.Reader, request.ArticleId,
+            new(RevisionCompareSourceKind.CurrentRevision, RevisionId: request.RevisionId, ExpectedSourceDigest: request.SourceDigest),
+            cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        RevisionComparePackage? package = result.Package;
+        Require(result.Status == RevisionComparePackageReadStatus.Available && package is not null
+            && RevisionComparePackageSeal.Verify(package) && package.ArticleId == request.ArticleId
+            && package.SourceKind == RevisionCompareSourceKind.CurrentRevision && package.RevisionId == request.RevisionId
+            && package.SourceDigest == request.SourceDigest && package.PackageDigest == request.PackageDigest
+            && package.RawMarkdown.Length <= MaxSourceUtf16Length * 3, "canonical_article_search_source_stale");
+        return package!;
+    }
+
+    private static string DecodeSearchSource(RevisionComparePackage package)
+    {
+        string rawSource;
+        try
+        {
+            rawSource = s_utf8.GetString(package.RawMarkdown.AsSpan());
+        }
+        catch (DecoderFallbackException)
+        {
+            throw new ArticleRelationIndexException("canonical_article_relation_utf8_invalid");
+        }
+        Require(rawSource.Length <= MaxSourceUtf16Length, "canonical_article_relation_source_budget_exceeded");
+        return rawSource;
+    }
+
+    private static T DeserializeSearch<T>(byte[] bytes) where T : class
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<T>(bytes, s_json) ?? throw new JsonException();
+        }
+        catch (JsonException)
+        {
+            throw new ArticleRelationIndexException("canonical_article_search_output_invalid");
+        }
+    }
+
+    private void ValidateSearchOutput(SearchParserOutput output, HeldSearchSource heldSource, int length)
+    {
+        Require(output.Schema == SearchSchema && output.PublicModule == "@ozwasyd/element-plus/markdown-runtime"
+            && output.PublicEntryDigest == runtime.PublicEntryDigest && output.WasmModuleDigest == runtime.WasmModuleDigest
+            && output.Parser == "fsus-markdown-runtime" && output.Version == runtime.Version
+            && !string.IsNullOrWhiteSpace(output.SourceIdentity) && output.SourceIdentity.Length <= 256
+            && output.SourceDigest == heldSource.Package.SourceDigest && output.SourceUtf16Length == length
+            && output.NormalizedUtf16Length >= 0 && output.NormalizedUtf16Length <= length
+            && output.ParseLifetimeId == heldSource.Lifetime.Id && output.HeldSourceSequence == heldSource.HeldSourceSequence
+            && output.ProjectionNodeCount is >= 0 and <= MaxNodes
+            && !output.Nodes.IsDefault && output.Nodes.Length == output.ProjectionNodeCount
+            && !output.Diagnostics.IsDefault && output.Diagnostics.Length <= MaxNodes
+            && !output.Outline.IsDefault && output.Outline.Length <= MaxNodes, "canonical_article_search_output_invalid");
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (CanonicalArticleSearchSyntaxNode node in output.Nodes)
+        {
+            Require(node is not null && !string.IsNullOrWhiteSpace(node.Id) && node.Id.Length <= 256 && ids.Add(node.Id)
+                && !string.IsNullOrWhiteSpace(node.BlockIdentity) && node.BlockIdentity.Length <= 256
+                && !string.IsNullOrWhiteSpace(node.Kind) && node.Kind.Length <= 128
+                && !string.IsNullOrWhiteSpace(node.Status) && node.Status.Length <= 128
+                && !string.IsNullOrWhiteSpace(node.Presentation) && node.Presentation.Length <= 128
+                && (node.DiagnosticCode is null || node.DiagnosticCode.Length <= 128)
+                && RangeValid(node.RawRange, length) && RangeValid(node.NormalizedRange, output.NormalizedUtf16Length)
+                && SearchRangesValid(node.RawContentRanges, node.NormalizedContentRanges, length, output.NormalizedUtf16Length)
+                && SearchRangesValid(node.RawMarkerRanges, node.NormalizedMarkerRanges, length, output.NormalizedUtf16Length)
+                && SearchRangesValid(node.ChildRawRanges, node.ChildNormalizedRanges, length, output.NormalizedUtf16Length)
+                && (node.ParentRawRange is null && node.ParentNormalizedRange is null
+                    || RangeValid(node.ParentRawRange, length) && RangeValid(node.ParentNormalizedRange, output.NormalizedUtf16Length)),
+                "canonical_article_search_node_invalid");
+            if (node!.Table is not null)
+            {
+                Require(!node.Table.Rows.IsDefault && node.Table.Rows.Length <= MaxNodes
+                    && !node.Table.Alignments.IsDefault && node.Table.Alignments.Length <= MaxNodes
+                    && node.Table.SeparatorRow >= 0 && node.Table.SeparatorRow < node.Table.Rows.Length
+                    && node.Table.Alignments.All(static alignment => alignment is "none" or "left" or "center" or "right")
+                    && node.Table.Rows.All(row => row is not null && RangeValid(row.RawRange, length)
+                        && RangeValid(row.NormalizedRange, output.NormalizedUtf16Length)
+                        && SearchRangesValid(row.RawCellRanges, row.NormalizedCellRanges, length, output.NormalizedUtf16Length)),
+                    "canonical_article_search_node_invalid");
+            }
+        }
+        Require(output.Diagnostics.All(diagnostic => diagnostic is not null
+            && !string.IsNullOrWhiteSpace(diagnostic.Code) && diagnostic.Code.Length <= 128
+            && diagnostic.Message is not null && diagnostic.Message.Length <= MaxSourceUtf16Length
+            && !string.IsNullOrWhiteSpace(diagnostic.BlockIdentity) && diagnostic.BlockIdentity.Length <= 256
+            && RangeValid(diagnostic.RawRange, length) && RangeValid(diagnostic.NormalizedRange, output.NormalizedUtf16Length)),
+            "canonical_article_search_output_invalid");
+        Require(output.Outline.All(heading => heading is not null && heading.Kind == "heading" && heading.Level is >= 1 and <= 6
+                && heading.Title is not null && heading.Title.Length <= MaxSourceUtf16Length && RangeValid(heading.Range, length)
+                && output.Nodes.Any(node => node.Id == heading.Id && node.Kind == "heading" && node.RawRange == heading.Range))
+            && output.Outline.Select(static heading => heading.Id).Distinct(StringComparer.Ordinal).Count() == output.Outline.Length
+            && output.Outline.Length == output.Nodes.Count(static node => node.Kind == "heading"), "canonical_article_search_outline_invalid");
+    }
+
+    private static bool SearchRangesValid(ImmutableArray<CanonicalArticleRelationParserRange> raw,
+        ImmutableArray<CanonicalArticleRelationParserRange> normalized, int rawLength, int normalizedLength)
+        => !raw.IsDefault && !normalized.IsDefault && raw.Length <= MaxNodes && raw.Length == normalized.Length
+            && raw.All(range => RangeValid(range, rawLength)) && normalized.All(range => RangeValid(range, normalizedLength));
 
     private async Task<ParsedSource> ReadCoreAsync(
         CanonicalArticleRelationParseRequest request,
@@ -429,6 +677,141 @@ internal sealed class CanonicalArticleRelationParserBridge(
         ImmutableArray<CanonicalArticleRelationParserDiagnostic> Diagnostics);
 
     private sealed record IdentityClosureOutput(string Schema, ParserOutput? Canonical);
+
+    internal sealed record SearchParserOutput(
+        string Schema, string PublicModule, string PublicEntryDigest, string WasmModuleDigest,
+        string Parser, string Version, string SourceIdentity, string SourceDigest,
+        int SourceUtf16Length, int NormalizedUtf16Length, string ParseLifetimeId, long HeldSourceSequence,
+        int ProjectionNodeCount, ImmutableArray<CanonicalArticleSearchSyntaxNode> Nodes,
+        ImmutableArray<CanonicalArticleSearchDiagnostic> Diagnostics, ImmutableArray<CanonicalArticleSearchOutlineEntry> Outline);
+    private sealed record SearchIdentityClosureOutput(string Schema, SearchParserOutput? Canonical);
+
+    // One immutable source per lifetime at a time; no retained corpus or identity cache.
+    internal sealed class SearchParseLifetime : IDisposable
+    {
+        private readonly CanonicalArticleRelationParserBridge _owner;
+        private readonly CancellationTokenSource _cancellation = new();
+        private int _disposed;
+        private int _sourceHeld;
+        private long _heldSourceSequence;
+        internal string Id { get; } = "server-search:" + Guid.NewGuid().ToString("N");
+        internal CancellationToken Cancellation
+        {
+            get;
+        }
+        internal bool IsActive => Volatile.Read(ref _disposed) == 0;
+
+        internal SearchParseLifetime(object admission, CanonicalArticleRelationParserBridge owner)
+        {
+            Require(ReferenceEquals(admission, s_parseAdmission), "canonical_article_search_lifetime_required");
+            _owner = owner;
+            Cancellation = _cancellation.Token;
+        }
+
+        internal void RequireOwner(CanonicalArticleRelationParserBridge owner)
+            => Require(IsActive && ReferenceEquals(owner, _owner), "canonical_article_search_lifetime_invalid");
+        internal bool TryClaimSource() => Interlocked.CompareExchange(ref _sourceHeld, 1, 0) == 0;
+        internal void ReleaseSource() => Interlocked.Exchange(ref _sourceHeld, 0);
+        internal long NextHeldSourceSequence()
+        {
+            long sequence = Interlocked.Increment(ref _heldSourceSequence);
+            Require(sequence is > 0 and <= 9_007_199_254_740_991, "canonical_article_search_lifetime_invalid");
+            return sequence;
+        }
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                _cancellation.Cancel();
+                _cancellation.Dispose();
+            }
+        }
+        public override string ToString() => SearchSchema;
+    }
+
+    internal sealed class HeldSearchSource : IDisposable
+    {
+        private readonly CancellationTokenSource _cancellation = new();
+        private int _disposed;
+        internal SearchParseLifetime Lifetime
+        {
+            get;
+        }
+        internal CanonicalArticleSearchParseRequest Request
+        {
+            get;
+        }
+        internal RevisionComparePackage Package
+        {
+            get;
+        }
+        internal long HeldSourceSequence
+        {
+            get;
+        }
+        internal CancellationToken Cancellation
+        {
+            get;
+        }
+        internal bool IsActive => Volatile.Read(ref _disposed) == 0 && Lifetime.IsActive;
+
+        internal HeldSearchSource(object admission, SearchParseLifetime lifetime,
+            CanonicalArticleSearchParseRequest request, RevisionComparePackage package, long sequence)
+        {
+            Require(ReferenceEquals(admission, s_parseAdmission), "canonical_article_search_lifetime_required");
+            Lifetime = lifetime;
+            Request = request;
+            Package = package;
+            HeldSourceSequence = sequence;
+            Cancellation = _cancellation.Token;
+        }
+        internal void RequireOwner(CanonicalArticleRelationParserBridge owner)
+        {
+            Lifetime.RequireOwner(owner);
+            Require(IsActive, "canonical_article_search_lifetime_invalid");
+        }
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                _cancellation.Cancel();
+                _cancellation.Dispose();
+                Lifetime.ReleaseSource();
+            }
+        }
+        public override string ToString() => SearchSchema;
+    }
+
+    // Parse facts only. No Search schema/corpus/policy/taxonomy/property receipt is minted.
+    internal sealed class SearchParsedSource
+    {
+        private readonly HeldSearchSource _held;
+        private readonly SearchParserOutput _projection;
+        internal bool IsHeld => _held.IsActive;
+        internal RevisionComparePackage SourcePackage
+        {
+            get
+            {
+                Require(IsHeld, "canonical_article_search_lifetime_invalid");
+                return _held.Package;
+            }
+        }
+        internal SearchParserOutput Projection
+        {
+            get
+            {
+                Require(IsHeld, "canonical_article_search_lifetime_invalid");
+                return _projection;
+            }
+        }
+        internal SearchParsedSource(object admission, HeldSearchSource held, SearchParserOutput projection)
+        {
+            Require(ReferenceEquals(admission, s_parseAdmission), "canonical_article_search_lifetime_required");
+            _held = held;
+            _projection = projection;
+        }
+        public override string ToString() => SearchSchema;
+    }
 
     // Closed owner envelope: only ReadAsync constructs it after real process + original reread.
     // It carries no source-generation, rights, target-identity or mounted-epoch receipt.

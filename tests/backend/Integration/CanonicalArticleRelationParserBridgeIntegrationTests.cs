@@ -29,6 +29,465 @@ public sealed class CanonicalArticleRelationParserBridgeIntegrationTests
     private static readonly string s_permission = new('a', 64);
     private static readonly ArticleRelationActorContext s_actor = new("actor:bridge-test", "site:primary", s_permission);
 
+    [Fact]
+    public async Task SearchPurpose_RealWasmReturnsOriginalStructuresOutlineAndStableHeldReplay()
+    {
+        string source = "\uFEFF# 标题 😀 ^head-a\r\n\r\nمرحبا [go](/posts/a)\r\n\r\n"
+            + "Setext\r\n------\r\n\r\n| A | B |\r\n|---|---|\r\n| 一 | 二 |\r\n\r\n"
+            + "```md\r\n::embed[target=\"literal\" mode=\"article\"]\r\n```\r\n";
+        var fixture = await SearchFixtureAsync(source);
+        using var lifetime = fixture.Bridge.BeginSearchLifetime();
+        using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+        var processes = new List<int>();
+        fixture.Bridge.ProcessStarted += processes.Add;
+        var parsed = await fixture.Bridge.ReadSearchAsync(held);
+        var replay = await fixture.Bridge.ReadSearchAsync(held);
+        var output = parsed.Projection;
+        Assert.Equal(CanonicalArticleRelationParserBridge.SearchSchema, output.Schema);
+        Assert.Equal("fsus-markdown-runtime", output.Parser);
+        Assert.Equal("markdown-wasm-contract@2026-07-29", output.Version);
+        Assert.Equal(PublicEntryDigest, output.PublicEntryDigest);
+        Assert.Equal(WasmModuleDigest, output.WasmModuleDigest);
+        Assert.Equal(Digest(source), output.SourceDigest);
+        Assert.Equal(source.Length, output.SourceUtf16Length);
+        Assert.True(output.NormalizedUtf16Length < source.Length);
+        Assert.Equal(source, Encoding.UTF8.GetString(parsed.SourcePackage.RawMarkdown.AsSpan()));
+        Assert.Equal(fixture.Request.PackageDigest, parsed.SourcePackage.PackageDigest);
+        Assert.Equal(RevisionCompareSourceKind.CurrentRevision, parsed.SourcePackage.SourceKind);
+        Assert.Equal(output.Nodes.Length, output.ProjectionNodeCount);
+        Assert.Equal(2, output.Outline.Length);
+        Assert.Equal(new[] { 1, 2 }, output.Outline.Select(static heading => heading.Level));
+        Assert.Contains(output.Outline, static heading => heading.Title == "Setext");
+        Assert.All(output.Outline, heading => Assert.Contains(output.Nodes,
+            node => node.Id == heading.Id && node.Kind == "heading" && node.RawRange == heading.Range));
+        Assert.Contains(output.Nodes, static node => node.Kind == "link" && !node.RawContentRanges.IsEmpty);
+        Assert.Contains(output.Nodes, static node => node.Kind == "code");
+        Assert.Contains(output.Nodes, static node => node.Kind == "embed");
+        var table = Assert.Single(output.Nodes.Where(static node => node.Kind == "table"));
+        Assert.NotNull(table.Table);
+        Assert.NotEmpty(table.Table.Rows);
+        Assert.All(table.Table.Rows, static row => Assert.Equal(row.RawCellRanges.Length, row.NormalizedCellRanges.Length));
+        Assert.Equal(JsonSerializer.Serialize(output), JsonSerializer.Serialize(replay.Projection));
+        Assert.Equal(4, processes.Count);
+        Assert.All(processes, AssertExited);
+        Assert.Equal(1, output.HeldSourceSequence);
+        Assert.DoesNotContain("mounted", output.ParseLifetimeId);
+    }
+
+    [Fact]
+    public async Task SearchPurpose_DisposeRebuildAndDifferentBridgeInvalidateOwnershipWithoutRevisionEpochAliases()
+    {
+        var fixture = await SearchFixtureAsync("# Heading\n");
+        using var lifetime = fixture.Bridge.BeginSearchLifetime();
+        var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+        var first = await fixture.Bridge.ReadSearchAsync(held);
+        string firstId = first.Projection.Outline[0].Id;
+        var busy = await Assert.ThrowsAsync<ArticleRelationIndexException>(() =>
+            fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request));
+        Assert.Equal("canonical_article_search_source_already_held", busy.Message);
+        var other = await SearchFixtureAsync("# Heading\n");
+        await Assert.ThrowsAsync<ArticleRelationIndexException>(() => other.Bridge.ReadSearchAsync(held));
+        held.Dispose();
+        Assert.False(first.IsHeld);
+        Assert.Throws<ArticleRelationIndexException>(() => first.Projection);
+        await Assert.ThrowsAsync<ArticleRelationIndexException>(() => fixture.Bridge.ReadSearchAsync(held));
+        using var second = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+        var next = await fixture.Bridge.ReadSearchAsync(second);
+        Assert.Equal(2, next.Projection.HeldSourceSequence);
+        Assert.NotEqual(firstId, next.Projection.Outline[0].Id);
+        using var rebuiltLifetime = fixture.Bridge.BeginSearchLifetime();
+        Assert.False(next.IsHeld);
+        await Assert.ThrowsAsync<ArticleRelationIndexException>(() => fixture.Bridge.ReadSearchAsync(second));
+        using var rebuilt = await fixture.Bridge.HoldSearchSourceAsync(rebuiltLifetime, fixture.Request);
+        var rebuild = await fixture.Bridge.ReadSearchAsync(rebuilt);
+        Assert.NotEqual(lifetime.Id, rebuild.Projection.ParseLifetimeId);
+        Assert.Equal(1, rebuild.Projection.HeldSourceSequence);
+        Assert.NotEqual(firstId, rebuild.Projection.Outline[0].Id);
+        Assert.Equal(11, rebuild.SourcePackage.RevisionId);
+    }
+
+    [Theory]
+    [InlineData("current-pointer")]
+    [InlineData("package")]
+    [InlineData("source")]
+    [InlineData("authorization")]
+    public async Task SearchPurpose_IndependentPersistedCurrentObservationRefusesBeforeAnotherChild(string drift)
+    {
+        const string source = "# Heading\n";
+        var fixture = await SearchFixtureAsync(source);
+        using var lifetime = fixture.Bridge.BeginSearchLifetime();
+        using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+        if (drift == "current-pointer")
+            fixture.Authority.GetCurrentRevisionIdAsync(7, Arg.Any<CancellationToken>()).Returns(12L);
+        if (drift == "package")
+            fixture.Authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>()).Returns(Revision(source) with
+            {
+                Title = "Changed"
+            });
+        if (drift == "source")
+            fixture.Authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>()).Returns(Revision("changed"));
+        if (drift == "authorization")
+            fixture.Authority.GetAuthorizedArticleAsync(fixture.Request.Reader, 7,
+            Arg.Any<CancellationToken>()).Returns((AuthoringRevisionCompareArticle?)null);
+        int starts = 0;
+        fixture.Bridge.ProcessStarted += _ => starts++;
+        var error = await Assert.ThrowsAsync<ArticleRelationIndexException>(() => fixture.Bridge.ReadSearchAsync(held));
+        Assert.Equal("canonical_article_search_source_stale", error.Message);
+        Assert.Equal(0, starts);
+        Assert.False(held.IsActive);
+        // Stale holds never become current again merely because the old pointer returns.
+        fixture.Authority.GetCurrentRevisionIdAsync(7, Arg.Any<CancellationToken>()).Returns(11L);
+        await Assert.ThrowsAsync<ArticleRelationIndexException>(() => fixture.Bridge.ReadSearchAsync(held));
+    }
+
+    [Theory]
+    [InlineData("current-pointer")]
+    [InlineData("package")]
+    public async Task SearchPurpose_CompletionRereadRefusesDriftAfterActualAuthorityExit(string drift)
+    {
+        const string source = "# Heading\n";
+        var fixture = await SearchFixtureAsync(source);
+        using var lifetime = fixture.Bridge.BeginSearchLifetime();
+        using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+        var processes = new List<int>();
+        fixture.Bridge.ProcessStarted += pid =>
+        {
+            processes.Add(pid);
+            if (processes.Count != 2)
+                return;
+            if (drift == "current-pointer")
+                fixture.Authority.GetCurrentRevisionIdAsync(7, Arg.Any<CancellationToken>()).Returns(12L);
+            else
+                fixture.Authority.GetRevisionAsync(7, 11, Arg.Any<CancellationToken>()).Returns(Revision(source) with
+                {
+                    Title = "Changed"
+                });
+        };
+        var error = await Assert.ThrowsAsync<ArticleRelationIndexException>(() => fixture.Bridge.ReadSearchAsync(held));
+        Assert.Equal("canonical_article_search_source_stale", error.Message);
+        Assert.Equal(2, processes.Count);
+        Assert.All(processes, AssertExited);
+        Assert.False(held.IsActive);
+    }
+
+    [Theory]
+    [InlineData("sourceIdentity")]
+    [InlineData("nodeIdentity")]
+    [InlineData("blockIdentity")]
+    [InlineData("headingTitle")]
+    [InlineData("headingIdentity")]
+    [InlineData("range")]
+    [InlineData("relationReplay")]
+    [InlineData("closureReplay")]
+    public async Task SearchPurpose_RealProcessOutputDriftAndCrossPurposeReplayRefuse(string fault)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "canonical-search-control-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string executable = await CreateSearchControlExecutableAsync(directory, fault);
+            var fixture = await SearchFixtureAsync("# Heading\n\n[go](/posts/a)\n", Runtime() with
+            {
+                NodeExecutable = executable
+            });
+            using var lifetime = fixture.Bridge.BeginSearchLifetime();
+            using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+            var error = await Assert.ThrowsAsync<ArticleRelationIndexException>(() => fixture.Bridge.ReadSearchAsync(held));
+            Assert.StartsWith("canonical_article_search_", error.Message);
+            if (fault is "sourceIdentity" or "nodeIdentity" or "blockIdentity" or "headingTitle" or "headingIdentity" or "range")
+                Assert.Equal("canonical_article_search_identity_closure_invalid", error.Message);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(1, 0)]
+    [InlineData(1, 10)]
+    [InlineData(1, 30)]
+    [InlineData(1, 75)]
+    [InlineData(2, 0)]
+    [InlineData(2, 10)]
+    [InlineData(2, 30)]
+    [InlineData(2, 75)]
+    public async Task SearchPurpose_CancellationInEachPhaseAwaitsActualProcessExit(int phase, int delay)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "canonical-search-cancel-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string executable = await CreateSearchControlExecutableAsync(directory, "delay" + phase);
+            var fixture = await SearchFixtureAsync("# Heading\n", Runtime() with
+            {
+                NodeExecutable = executable
+            });
+            using var lifetime = fixture.Bridge.BeginSearchLifetime();
+            using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+            using var cancellation = new CancellationTokenSource();
+            var processes = new List<int>();
+            fixture.Bridge.ProcessStarted += pid =>
+            {
+                processes.Add(pid);
+                if (processes.Count == phase)
+                    cancellation.CancelAfter(delay);
+            };
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Bridge.ReadSearchAsync(held, cancellation.Token));
+            Assert.Equal(phase, processes.Count);
+            Assert.All(processes, AssertExited);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SearchPurpose_ReleasingHeldSourceOrLifetimeCancelsAuthorityAndInvalidatesResult(bool releaseLifetime)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "canonical-search-release-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string executable = await CreateSearchControlExecutableAsync(directory, "delay2");
+            var fixture = await SearchFixtureAsync("# Heading\n", Runtime() with
+            {
+                NodeExecutable = executable
+            });
+            using var lifetime = fixture.Bridge.BeginSearchLifetime();
+            using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+            var processes = new List<int>();
+            fixture.Bridge.ProcessStarted += pid =>
+            {
+                processes.Add(pid);
+                if (processes.Count == 2)
+                {
+                    if (releaseLifetime)
+                        lifetime.Dispose();
+                    else
+                        held.Dispose();
+                }
+            };
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Bridge.ReadSearchAsync(held));
+            Assert.Equal(2, processes.Count);
+            Assert.All(processes, AssertExited);
+            Assert.False(held.IsActive);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("stdout", "canonical_article_relation_output_budget_exceeded")]
+    [InlineData("stderr", "canonical_article_relation_output_budget_exceeded")]
+    [InlineData("exit", "canonical_article_relation_process_refused")]
+    [InlineData("sharedDeadline", "canonical_article_relation_process_timeout")]
+    [InlineData("memory", "canonical_article_relation_memory_budget_exceeded")]
+    public async Task SearchPurpose_RealProcessRetainsOriginalResourceRefusals(string fault, string reason)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "canonical-search-budget-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string executable = await CreateSearchControlExecutableAsync(directory, fault);
+            var fixture = await SearchFixtureAsync("# Heading\n", Runtime() with
+            {
+                NodeExecutable = executable
+            });
+            using var lifetime = fixture.Bridge.BeginSearchLifetime();
+            using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+            var processes = new List<int>();
+            fixture.Bridge.ProcessStarted += processes.Add;
+            var error = await Assert.ThrowsAsync<ArticleRelationIndexException>(() => fixture.Bridge.ReadSearchAsync(held));
+            Assert.Equal(reason, error.Message);
+            Assert.All(processes, AssertExited);
+            if (fault == "sharedDeadline")
+                Assert.Equal(2, processes.Count);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("input")]
+    [InlineData("source")]
+    [InlineData("count")]
+    [InlineData("packageDigest")]
+    [InlineData("revision")]
+    [InlineData("module")]
+    [InlineData("version")]
+    public async Task SearchPurpose_SourceRequestCountInputAndRuntimePinsStayBounded(string fault)
+    {
+        string source = fault == "source" ? new string('a', CanonicalArticleRelationParserBridge.MaxSourceUtf16Length + 1)
+            : fault == "count" ? string.Concat(Enumerable.Repeat("# H\n\n", 4200)) : "# H\n";
+        var runtime = Runtime();
+        if (fault == "input")
+            runtime = runtime with
+            {
+                MaxInputBytes = 1
+            };
+        if (fault == "module")
+            runtime = runtime with
+            {
+                WasmModuleDigest = new string('b', 64)
+            };
+        if (fault == "version")
+            runtime = runtime with
+            {
+                Version = "drift"
+            };
+        var fixture = await SearchFixtureAsync(source, runtime);
+        var request = fixture.Request;
+        if (fault == "packageDigest")
+            request = request with
+            {
+                PackageDigest = new string('b', 64)
+            };
+        if (fault == "revision")
+            request = request with
+            {
+                RevisionId = 12
+            };
+        using var lifetime = fixture.Bridge.BeginSearchLifetime();
+        await Assert.ThrowsAsync<ArticleRelationIndexException>(async () =>
+        {
+            using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, request);
+            await fixture.Bridge.ReadSearchAsync(held);
+        });
+    }
+
+    [Fact]
+    public async Task SearchPurpose_SharesOriginalOneProcessAdmissionWithRelationWithoutAnotherBodyRead()
+    {
+        var fixture = await SearchFixtureAsync("# Heading\n");
+        using var lifetime = fixture.Bridge.BeginSearchLifetime();
+        using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+        var relation = Fixture("[go](/posts/post-a#anchor-a)\n");
+        int starts = 0;
+        fixture.Bridge.ProcessStarted += _ =>
+        {
+            starts++;
+            var searchError = Assert.ThrowsAsync<ArticleRelationIndexException>(() => fixture.Bridge.ReadSearchAsync(held)).GetAwaiter().GetResult();
+            var relationError = Assert.ThrowsAsync<ArticleRelationIndexException>(() => relation.Bridge.ReadAsync(relation.Request)).GetAwaiter().GetResult();
+            var holdError = Assert.ThrowsAsync<ArticleRelationIndexException>(() =>
+                fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request)).GetAwaiter().GetResult();
+            Assert.Equal("canonical_article_relation_busy", searchError.Message);
+            Assert.Equal("canonical_article_relation_busy", relationError.Message);
+            Assert.Equal("canonical_article_relation_busy", holdError.Message);
+        };
+        await fixture.Bridge.ReadSearchAsync(held);
+        Assert.Equal(2, starts);
+        await relation.Authority.DidNotReceive().GetRevisionAsync(Arg.Any<int>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("مرحبا 😀 plain body\r\n")]
+    public async Task SearchPurpose_EmptyAndNonHeadingSourcesDoNotManufactureOutline(string source)
+    {
+        var fixture = await SearchFixtureAsync(source);
+        using var lifetime = fixture.Bridge.BeginSearchLifetime();
+        using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+        var parsed = await fixture.Bridge.ReadSearchAsync(held);
+        Assert.Empty(parsed.Projection.Outline);
+        Assert.Equal(source.Length, parsed.Projection.SourceUtf16Length);
+    }
+
+    [Theory]
+    [InlineData("# A ^same\n\n# B ^same\n", "anchor-duplicate")]
+    [InlineData("^orphan\n", "anchor-orphan")]
+    public async Task SearchPurpose_OriginalDiagnosticsRemainParseFactsWithoutRelationAdmission(string source, string code)
+    {
+        var fixture = await SearchFixtureAsync(source);
+        using var lifetime = fixture.Bridge.BeginSearchLifetime();
+        using var held = await fixture.Bridge.HoldSearchSourceAsync(lifetime, fixture.Request);
+        var parsed = await fixture.Bridge.ReadSearchAsync(held);
+        Assert.Contains(parsed.Projection.Diagnostics, diagnostic => diagnostic.Code == code);
+    }
+
+    private static async Task<(CanonicalArticleRelationParserBridge Bridge, CanonicalArticleSearchParseRequest Request,
+        IAuthoringRevisionCompareAuthority Authority)> SearchFixtureAsync(string source, CanonicalArticleRelationParserRuntime? configuration = null)
+    {
+        // Synthetic package/authorization fixtures only, never Search corpus/policy/typed authority.
+        var fixture = Fixture(source, configuration);
+        fixture.Authority.GetCurrentRevisionIdAsync(7, Arg.Any<CancellationToken>()).Returns(11L);
+        var reader = new AuthoringRevisionComparePackageReader(fixture.Authority, new AuthoringRevisionCompareDraftContextAuthority([]));
+        var observed = await reader.ReadAuthorizedAsync(fixture.Request.Reader, 7,
+            new(RevisionCompareSourceKind.CurrentRevision, RevisionId: 11, ExpectedSourceDigest: Digest(source)));
+        Assert.Equal(RevisionComparePackageReadStatus.Available, observed.Status);
+        return (fixture.Bridge, new(fixture.Request.Reader, 7, 11, observed.Package!.SourceDigest, observed.Package.PackageDigest), fixture.Authority);
+    }
+
+    private static async Task<string> CreateSearchControlExecutableAsync(string directory, string fault)
+    {
+        if (!OperatingSystem.IsLinux())
+            throw new PlatformNotSupportedException("Executable process controls require Linux.");
+        var runtime = Runtime();
+        string executable = Path.Combine(directory, "search-output-control.mjs");
+        await File.WriteAllTextAsync(executable, $$"""
+            #!{{runtime.NodeExecutable}}
+            import { spawnSync } from 'node:child_process';
+            const fault = {{JsonSerializer.Serialize(fault)}};
+            const chunks = [];
+            for await (const chunk of process.stdin) chunks.push(chunk);
+            const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            const authority = input.operation === 'search-identity-closure';
+            if (fault === 'delay1' && !authority || fault === 'delay2' && authority)
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            // Each phase fits the original 10s budget separately; together they exceed it.
+            if (fault === 'sharedDeadline') await new Promise(resolve => setTimeout(resolve, 6000));
+            if (!authority && fault === 'stdout') {
+                await new Promise(resolve => process.stdout.write(Buffer.alloc(3 * 1024 * 1024), resolve)); process.exit(0);
+            }
+            if (!authority && fault === 'stderr') {
+                await new Promise(resolve => process.stderr.write(Buffer.alloc(8192), resolve)); process.exit(1);
+            }
+            if (!authority && fault === 'exit') process.exit(1);
+            if (!authority && fault === 'memory') {
+                const bytes = Buffer.alloc(300 * 1024 * 1024, 7);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                process.stdout.write(String(bytes.length)); process.exit(1);
+            }
+            if (!authority && fault === 'relationReplay') {
+                input.schema = {{JsonSerializer.Serialize(CanonicalArticleRelationParserBridge.Schema)}};
+                input.operation = 'parse'; input.documentId = input.parseLifetimeId; input.documentEpoch = input.heldSourceSequence;
+            }
+            if (authority && fault === 'closureReplay') input.operation = 'search-parse';
+            const result = spawnSync({{JsonSerializer.Serialize(runtime.NodeExecutable)}}, process.argv.slice(2), {
+                input: JSON.stringify(input), maxBuffer: 2 * 1024 * 1024, timeout: 10000, env: {},
+            });
+            if (result.status !== 0) {
+                process.stderr.write(result.stderr ?? Buffer.alloc(0)); process.exit(result.status ?? 1);
+            }
+            const output = JSON.parse(result.stdout.toString('utf8'));
+            if (!authority) {
+                if (fault === 'sourceIdentity') output.sourceIdentity = 'synthetic-drift';
+                if (fault === 'nodeIdentity') {
+                    const node = output.nodes.find(node => node.kind === 'link'); node.id = 'synthetic-drift';
+                }
+                if (fault === 'blockIdentity') output.nodes[0].blockIdentity = 'synthetic-drift';
+                if (fault === 'headingTitle') output.outline[0].title = 'synthetic-drift';
+                if (fault === 'headingIdentity') {
+                    output.nodes.find(node => node.id === output.outline[0].id).id = 'synthetic-drift';
+                    output.outline[0].id = 'synthetic-drift';
+                }
+                if (fault === 'range') {
+                    output.nodes[0].rawRange.end--; output.outline[0].range.end--;
+                }
+            }
+            process.stdout.write(JSON.stringify(output));
+            """ + "\n");
+        File.SetUnixFileMode(executable, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        return executable;
+    }
+
     [Theory]
     [InlineData("sourceIdentity")]
     [InlineData("nodeIdentity")]
