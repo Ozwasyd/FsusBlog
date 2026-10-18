@@ -195,3 +195,150 @@ describe('actual retained workspace host hookup with navigation refused', () =>
         expect(loan!.signal.aborted).toBe(false);
     });
 });
+
+function deferredRefresh()
+{
+    let resume: (() => void) | undefined;
+    const ready = new Promise<void>(resolve => { resume = resolve; });
+    return { ready, resume: () => resume!() };
+}
+
+describe('pending canonical preparation review5562314613 controls', () =>
+{
+    it.each(['same-entry', 'foreign-entry', 'already-canceled'])('preserves the first genuine loan for %s repeat', async kind =>
+    {
+        const f = await fixture(true);
+        const gate = deferredRefresh();
+        f.setRefresh(async () =>
+        {
+            await gate.ready;
+            f.identity.value = f.primary.adapter.documentIdentity;
+            await nextTick();
+        });
+        const first = f.host.prepare(f.entry, request());
+        const issued = f.admission.mock.results[0]!.value;
+        expect(issued.isCurrent()).toBe(true);
+        expect(f.editor.getSession(f.entry.editorSessionRef).inspectDocumentState().documentIdentity.id).not.toBe(f.target.documentId);
+        const second = new AbortController();
+        if (kind === 'already-canceled') second.abort();
+        const entry = kind === 'foreign-entry' ? { ...f.entry, editorSessionRef: 'session:unrelated' } : f.entry;
+        const repeated = f.host.prepare(entry, second.signal);
+        if (kind === 'already-canceled') await expect(repeated).rejects.toThrow();
+        else expect(await repeated).toBeNull();
+        // Always finish the original refresh so RED also records its actual result.
+        gate.resume();
+        const loan = await first;
+        expect(loan).toBe(issued);
+        expect(issued.signal.aborted).toBe(false);
+        expect(issued.isCurrent()).toBe(true);
+        expect(f.admission).toHaveBeenCalledTimes(1);
+        expect(await f.host.prepare(f.entry, request())).toBe(issued);
+    });
+
+    it('retains real pending work on normal release', async () =>
+    {
+        const f = await fixture();
+        const loan = await f.host.prepare(f.entry, request());
+        expect(loan).not.toBeNull();
+        const work = f.primary.adapter.beginTask('attachment', 'original:review-pending');
+        f.host.dispose();
+        expect(loan!.signal.aborted).toBe(true);
+        expect(work.signal.aborted).toBe(false);
+        expect(loan!.binding.inspect().pendingTaskRefs).toContain(work.taskRef);
+        work.cancel('original-review-work-stopped'); work.settle();
+    });
+
+    it('keeps repeated fresh original mounts and their associations isolated', async () =>
+    {
+        const first = await fixture();
+        const original = await first.host.prepare(first.entry, request());
+        expect(original).not.toBeNull();
+        first.host.dispose();
+        const next = await fixture(true);
+        const current = await next.host.prepare(next.entry, request());
+        expect(current).not.toBeNull();
+        expect(current!.association).not.toBe(original!.association);
+        expect(current!.binding.adapter).not.toBe(original!.binding.adapter);
+        expect(current!.isCurrent()).toBe(true);
+    });
+});
+
+describe('bounded overlapping preparation lifecycle', () =>
+{
+    it.each(['success', 'failure', 'caller-cancel', 'release', 'unmount', 'scope', 'registry', 'generation'])(
+        'isolates repeated borrowers across original refresh %s', async outcome =>
+        {
+            const f = await fixture(true);
+            const gate = deferredRefresh();
+            f.setRefresh(async () =>
+            {
+                await gate.ready;
+                if (outcome === 'failure') throw new Error('original native refresh failed');
+                f.identity.value = f.primary.adapter.documentIdentity;
+                await nextTick();
+            });
+            const caller = new AbortController();
+            const first = f.host.prepare(f.entry, caller.signal);
+            const issued = f.admission.mock.results[0]!.value;
+            const work = f.primary.adapter.beginTask('attachment', 'original:overlap-work');
+            const mountedReads = vi.spyOn(f.mountedSource, 'readDocumentBinding');
+            mountedReads.mockClear();
+            const other = new AbortController();
+            expect(await f.host.prepare(f.entry, other.signal)).toBeNull();
+            expect(await f.host.prepare({ ...f.entry, editorSessionRef: 'session:unrelated' }, request())).toBeNull();
+            expect(await f.host.prepare(f.entry, request())).toBeNull();
+            expect(mountedReads).not.toHaveBeenCalled();
+            other.abort();
+            expect(issued.signal.aborted).toBe(false);
+            expect(f.admission).toHaveBeenCalledTimes(1);
+            if (outcome === 'caller-cancel') caller.abort();
+            if (outcome === 'release') f.host.dispose();
+            if (outcome === 'unmount') f.wrapper.unmount();
+            if (outcome === 'scope') principal = '42';
+            if (outcome === 'generation') f.retire();
+            if (outcome === 'registry') f.registry.execute({ schema: openArticleDocumentCommandSchema, kind: 'activate',
+                commandId: 'activate:overlap', idempotencyKey: 'activate:overlap', expectedRevision: f.registry.getRevision(),
+                tabId: f.entry.tabId, lastActiveAnchorRef: null });
+            gate.resume();
+            const result = await first;
+            expect(issued.binding.inspect().pendingTaskRefs).toContain(work.taskRef);
+            if (outcome === 'success')
+            {
+                expect(result).toBe(issued);
+                expect(issued.signal.aborted).toBe(false);
+                expect(await f.host.prepare(f.entry, request())).toBe(issued);
+                expect(f.admission).toHaveBeenCalledTimes(1);
+            }
+            else
+            {
+                expect(result).toBeNull();
+                expect(issued.signal.aborted).toBe(true);
+                expect(issued.isCurrent()).toBe(false);
+                expect(await f.host.prepare(f.registry.getEntry(f.entry.tabId)!, request())).toBeNull();
+            }
+            work.cancel('original-overlap-work-stopped'); work.settle();
+            if (outcome !== 'success')
+            {
+                // Retirement is terminal for the old issuer. Recovery borrows a
+                // fresh genuine original mount, never the retired same-ID loan.
+                principal = '41';
+                const fresh = await fixture(true);
+                const recovered = await fresh.host.prepare(fresh.entry, request());
+                expect(recovered).not.toBeNull();
+                expect(recovered!.isCurrent()).toBe(true);
+                expect(recovered!.association).not.toBe(issued.association);
+            }
+        }
+    );
+
+    it('recovers from an unavailable entry before original admission', async () =>
+    {
+        const f = await fixture(true);
+        expect(await f.host.prepare({ ...f.entry, editorSessionRef: 'session:unknown' }, request())).toBeNull();
+        expect(f.admission).not.toHaveBeenCalled();
+        const loan = await f.host.prepare(f.entry, request());
+        expect(loan).not.toBeNull();
+        expect(loan!.isCurrent()).toBe(true);
+        expect(f.admission).toHaveBeenCalledTimes(1);
+    });
+});
