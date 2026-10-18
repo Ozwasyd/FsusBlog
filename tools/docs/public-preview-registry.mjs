@@ -18,7 +18,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { projectPublicPreviewQualityRegistry } from '../release/public-preview-quality-receipt-contract.mjs';
+const { projectPublicPreviewQualityRegistry } = await import(
+    new URL('../release/public-preview-quality-receipt-contract.mjs', import.meta.url)
+);
 
 function readJson(file)
 {
