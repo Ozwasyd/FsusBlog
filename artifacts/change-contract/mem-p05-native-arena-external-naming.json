@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaPolicy.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs"
+            ],
+            "reason": "Preserve existing process-environment spelling under the original path-based backend source admission; this native module adds no environment switch and all internal identifiers follow repository naming."
+        }
+    ]
+}

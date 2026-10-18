@@ -1,0 +1,21 @@
+{
+  "candidate": "3a0af76e0d281e5446e4e0c95b720eee2d8c0697",
+  "sourceAfter": "3a0af76e0d281e5446e4e0c95b720eee2d8c0697",
+  "runId": "mem-3a0af76e0-20261008-gpu-frozen-physical-inputs",
+  "startedAt": "2026-10-08T13:16:03.428185+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~MemoryCapabilityControllerTests|FullyQualifiedName~MemoryCapabilityOwnerIntegrationTests|FullyQualifiedName~MemoryCapabilityGpuAllocationPolicyTests|FullyQualifiedName~Gpu|FullyQualifiedName~DiskSegmentStoreTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests|FullyQualifiedName~MemoryReservationCoordinatorTests|FullyQualifiedName~MemoryExistingAllocationTests",
+    "--logger",
+    "trx;LogFileName=memory-3a0af76e0.trx",
+    "--results-directory",
+    ".tmp/memory-integration/3a0af76e0/test-results"
+  ],
+  "exitCode": 1,
+  "artifact": ".tmp/memory-integration/3a0af76e0/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/3a0af76e0/data"
+}

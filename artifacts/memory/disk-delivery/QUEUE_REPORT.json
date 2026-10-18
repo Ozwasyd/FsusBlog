@@ -1,0 +1,688 @@
+{
+    "kind": "task-local-source-queue-continuation",
+    "qualification": false,
+    "sourceCommit": "da24da9a0357370fc72cea90bee493aec9b6e535",
+    "sourceTree": "90f0f037e524f7f28396309368208b305cf02c2e",
+    "baseCommit": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+    "previousSource": "b4394b882c2a768c216e794e80d19a8f328719f0",
+    "branch": "codex/mem-3453-3455-disk-delivery",
+    "sourceFiles": [
+        {
+            "path": "artifacts/change-contract/mem-disk-external-naming.json",
+            "gitBlob": "c0065868eac7d0ee9a486d1aa52f97248faf37e1",
+            "sha256": "d105d5438e70617fda0102319d98e90032f0d98c9f40a651008ccc66e5db7058"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskBudgetAdmission.cs",
+            "gitBlob": "deaa5da57d8e7551419bf5c33fa907de0d9e2330",
+            "sha256": "288b34aa38f0c91d48bda865210b92c23acab9f1d5e604d24e27c1c5ec754575"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskFileFootprint.cs",
+            "gitBlob": "4a108d7f55e095946b3986c869ad47c5c7580b4f",
+            "sha256": "e9822d5cefcea4cde509df681b62dffd7c187ccbca152fd6e747888f305500c5"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskFileSystemException.cs",
+            "gitBlob": "531a8df42289a5973d505737175ee90d78b6082c",
+            "sha256": "90af4157e45f21feb3c5d8676e5358ce89d1395820a0177b6cb8378229d3648b"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskPhysicalAllocationPolicy.cs",
+            "gitBlob": "aa8718d447428da4b23b5d87cccd521b5a593cb9",
+            "sha256": "02875704de70f1c5a31bf464208869b30ddd43844c0eead95bd4b39d1d4a3ff2"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentFormat.cs",
+            "gitBlob": "524b423bc0daa28a32586a0bf61cef798eded83b",
+            "sha256": "249168e42b6bf63726b73809bda8d111dbd3d4fe93198505ee769ddcb6d581e5"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
+            "gitBlob": "47c057363732dd197e3b9b3c25579b6d15b2957a",
+            "sha256": "9e97acee66637cf906145f354ece0160c863545b29d4e01758fa384e400d06f6"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs",
+            "gitBlob": "3d63dddcf1fce60e31deb5559e4d590808c06369",
+            "sha256": "95c051307a0ef1a71abb1d08f66c6c4cb66bd6861f1b9342485a150516e1e112"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSpillEligibility.cs",
+            "gitBlob": "b9d36e45c10d155a87e65d32597477d9dbb73ffd",
+            "sha256": "426f9617c32a7ada1275e09968dd0691f0413432a929ade3b49deafc0c4e10b3"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/DiskSpillInventoryObservation.cs",
+            "gitBlob": "b03c9ceb5c2c04571d31bd0c714f02b66aff115b",
+            "sha256": "db21c50be824253b15578139432128feaa339b67943a1478517b1aa485f9116c"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Disk/OwnedSpillRoot.cs",
+            "gitBlob": "c23a58f4401b1bc43a5b8ca41e741c35f15abdbc",
+            "sha256": "6976ef16b2a29ed4e2ba4feb4b075f201867eaf905169bb87d1e87bb47f74e9f"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs",
+            "gitBlob": "861b9bcd1ea372f121a4d082d54d177eef9b40d1",
+            "sha256": "b73cfdb07d29ece55d6ea5295d4165d75f409a4d0751327084fdf0ed463ebc9c"
+        },
+        {
+            "path": "tests/backend/Unit/DiskBudgetAdmissionTests.cs",
+            "gitBlob": "ffc919e8a10c72df804786e7afa6c9bf16c4ed36",
+            "sha256": "8c377fd2e34d4c3e4c604012b28b4161c583d7b457de7251b64186a11343c43b"
+        },
+        {
+            "path": "tests/backend/Unit/DiskSegmentStoreTests.cs",
+            "gitBlob": "394b29336778c2da8b1b63a2ab1cf1ec2acd9afb",
+            "sha256": "c08653a91e6cdac8282843192e3e8ea73190e2ef9de43ffa05a67b6b13d278e0"
+        },
+        {
+            "path": "tests/backend/Unit/DiskSpillEligibilityTests.cs",
+            "gitBlob": "3e6f0af862d5c7de905a9bd010e3cf59b0379ea8",
+            "sha256": "8a37b83ab2d6f626993f5a111db7d6b348f7535db96a9a5033b433be1ed21556"
+        },
+        {
+            "path": "tests/backend/Unit/OwnedSpillRootTests.cs",
+            "gitBlob": "dd8650601fcbf08dc641ab74e308d514284ef8e7",
+            "sha256": "54c98b2ea0b52516fcbb40eccc79f995c436b5e306d3349d2c7afe27893c8d13"
+        }
+    ],
+    "commonCheckpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+    "commonSource": [
+        {
+            "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+            "checkpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+            "sha256": "1fae0075d1420aefcf38a963d4e4b38c0f612916b5bae6e6698439778914d331"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+            "checkpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+            "sha256": "589d105d884d5aac11f06d846254ceb4170579bae8d782b05d0aede523088368"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+            "checkpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+            "sha256": "d8d47143c58250148320fef1323a4834c397a749698187b33cbb74261817a15c"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+            "checkpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+            "sha256": "a3fa7fce58ce87e67a92035c1a88b49f1e16d3f1729da59ec84a483c420b669d"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+            "checkpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+            "sha256": "906eb4f8e7a6bf4a335ff381917282e846c1cc88e1a4f1c7e28cffba12bc747b"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+            "checkpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+            "sha256": "738c50a12419495f231fd38b7055a5aaac0203379d0b3227c240913d7c14d7d4"
+        },
+        {
+            "path": "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+            "checkpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
+            "sha256": "ce7a955cb7a81d99f6282b3951540a9fe1422caf69f161b2d56478d1431422bf"
+        }
+    ],
+    "commonOwnerIntegrationCandidate": "b4b775d8ae2990ff95b9135ec45ed67f2e1e9a51",
+    "commonCompatibility": "Fetched exact ownerSHA; all seven common files match consumed checkpoint, and its Linux adapter matches6d097e035 correction byte-for-byte. Historical fourCS0170 are eliminated.",
+    "reportedOwnerIntegrationEvidence": "Parent reported actual b4 locked restore/original327-focused tests/benchmark passed; these cover its imported d127 delivery. They are not borrowed as evidence for this newer disk source or native qualification.",
+    "environment": {
+        "os": "Linux",
+        "kernel": "6.18.44",
+        "architecture": "x86_64",
+        "node": "v24.19.0",
+        "targetFramework": "net10.0",
+        "dotnet": "Existing /workspace/.setup/dotnet/dotnet SDK10.0.401, runtime10.0.12; previously missed hidden setup location.",
+        "restore": "Temporary source context restored in locked mode using existing /workspace/.setup/nuget, remote feeds cleared; original owning-project lock remains untouched.",
+        "backend": "71 ordinary isolated source tests passed; canonical combined candidate acceptance remains sole common owner responsibility.",
+        "gpu": "not used",
+        "configuration": "explicit finite isolated fixture values; release/runtime qualification and measured baselines absent"
+    },
+    "configHashes": {
+        "Directory.Build.props": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+        "Directory.Packages.props": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+        ".editorconfig": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+    },
+    "toolchain": {
+        "sdkHostSha256": "01d89e0a0191052bfea616cd4ce624c8faf13b05bbddf7f64499c23e2a9d9269",
+        "compilerSha256": "28a84f96c8d4c768fd3b620b3e312c281316d3392390b609b03dd9356ae098df",
+        "assemblySha256": "af8e073ea5ed4d1e2ac6b21106192cb3ebf82d7dc5cb0240e16e2a902a7ed14d",
+        "pdbSha256": "095bb15f72a3f9662a04f26d9abbbe443ea1eeb124778a1a6a75a918f3c3fff9",
+        "sdk": "10.0.401",
+        "runtime": "10.0.12"
+    },
+    "context": "OBSERVATION_CONTEXT.txt reconstructs the same unchanged cached subset context; only current source/test files changed. Locked cached restore succeeded without original project/lock/version modifications.",
+    "rawResults": [
+        {
+            "path": "artifacts/memory/disk-delivery/queue-initial-targeted.log",
+            "sha256": "f3b7406d30f0c929b363533f865dddbcaa6c5c7adba5f9a9570cc8a146c061dc"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/queue-locked-restore.log",
+            "sha256": "73daac029a6f78b6f30c7d6c759dadb4969a8320ca35cc4e07ca2ffdcffbb351"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/queue-tests.log",
+            "sha256": "d5f8604fb052c2e4af194a7bde2e79b164d92f559373c5763302e186022336fb"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/queue-style.log",
+            "sha256": "92186a8d44307083e40af05d3c42ad78896c504d1eacc2fadf67934d56fbe6c8"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/queue-change-range.log",
+            "sha256": "629777a497c8cc705a98e357f01958bbfe851e3ee8ebdc0816c452e2b14afef5"
+        },
+        {
+            "path": "artifacts/memory/disk-delivery/queue-source-tests.trx",
+            "sha256": "d804cf4d15ddb9699015cf55f7202ee36031540c17cbedbbc1d1e38d491f6f85"
+        }
+    ],
+    "tests": {
+        "result": "Pass",
+        "counters": {
+            "total": "71",
+            "executed": "71",
+            "passed": "71",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+        },
+        "previousCases": 69,
+        "newCases": 2,
+        "compilerWarnings": 0,
+        "cases": [
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.PhysicalAllocationPolicyRejectsWrongScopeStaleRevisionAndInvalidBounds(change: \"logical\", failure: BoundsViolation)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSpillEligibilityTests.ExcludedClassesCannotBecomeEligibleThroughAvailability(classification: UnpublishedDraft)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryIndependentlyRejectsCorruptLengthsOffsetsIntegrityAndCompletion(offset: 120)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryRequiresContentOwnerApprovalForEveryVerifiedIdentity",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSpillEligibilityTests.ExcludedClassesCannotBecomeEligibleThroughAvailability(classification: Authoritative)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CompactionReclaimsUnretainedRecordsWithoutBreakingAnOldReader",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ALeasedReadRevalidatesHeaderAndPayloadBeforeTouchingItsStagingTarget(offset: 160)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.PhysicalPolicyFailureIsPreservedWithoutCreatingAFile",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryRejectsIncompleteStagingAndUnindexedTailAndPreservesUnsupportedVersion",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.UnexpectedIoFailureAfterInitialWritePreservesUnrelatedFilesAndCleansOwnedCandidate",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CompactionRetainsOldFileAndDiskChargeUntilFinalReaderEnds",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryIndependentlyRejectsCorruptLengthsOffsetsIntegrityAndCompletion(offset: 152)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.PhysicalAllocationPolicyRejectsWrongScopeStaleRevisionAndInvalidBounds(change: \"capacity\", failure: TierUnavailable)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ReplacedStagingInodeIsNeitherPublishedNorDeletedAndOriginalChargeSurvivesUntilRestoredCleanup",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.RootReplacementIsRejectedBeforeNewReadOrWrite",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskBudgetAdmissionTests.LostSpaceOrChangedRevisionRequiresCommonOwnerRecapping",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.ActualDeviceAliasesShareCapacityAndQuotaUnknownSurvives",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.DescriptorFootprintMatchesIndependentStatLogicalBytesAllocatedBlocksAndInode",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.InventoryReportsActualRootAndOwnedFilesWithoutAdoptingUntrackedPayloads",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.PhysicalAllocationPolicyRejectsWrongScopeStaleRevisionAndInvalidBounds(change: \"expired\", failure: TierUnavailable)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.EnumerationCountsForeignFilesAndDirectoriesBeforeOwnerFiltering",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskBudgetAdmissionTests.AliasesAndConcurrentStagingSpendOneSharedVolume",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryIndependentlyRejectsCorruptLengthsOffsetsIntegrityAndCompletion(offset: 28)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableBlocksNewOperationsAndDrainsExistingReaderBeforeDeletion",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryIndependentlyRejectsCorruptLengthsOffsetsIntegrityAndCompletion(offset: 112)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskBudgetAdmissionTests.ApplicationCapAndSafetyReserveAreIndependent",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CallerCannotExpandCandidateIndexAfterResourceAdmission",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ReentrantUntrackedFileCreationDuringPhysicalPolicyResolutionBlocksGrowth",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSpillEligibilityTests.DataOwnerDenialOverridesPublicReconstructibleClassification",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.DisabledDoesNotCreateOrProbeAMissingRoot",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.EligibilityAndDataOwnerDenialOverrideCallerClassification",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.PhysicalAllocationPolicyRejectsWrongScopeStaleRevisionAndInvalidBounds(change: \"charge\", failure: BoundsViolation)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CompactionMustAdmitSourceAndDestinationPhysicalBoundsTogether",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.StartupSegmentBlocksGrowthUntilVerifiedOwnerApprovedRecoveryAdoptsIt",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSpillEligibilityTests.ExcludedClassesCannotBecomeEligibleThroughAvailability(classification: 999)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CallerExceptionStillReleasesAReentrantlyDisposedFinalOperationHold",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.MeasuredAllocatedFileBytesAboveAdmittedPhysicalBoundRejectAndCleanCandidate",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.ExclusiveCreationRecordsOwnershipBeforeManagedWrappingCanFail",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ChangedTrackedInodeBlocksGrowthAndRetirementNeverDeletesItsReplacement",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.IncompleteStartupStageBlocksGrowthUntilRecoveryDiscardsOnlyThatOwnedCandidate",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringPayloadReadRetainsWriterReservationUntilOperationExitThenDrains",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSpillEligibilityTests.ExcludedClassesCannotBecomeEligibleThroughAvailability(classification: Unclassified)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskBudgetAdmissionTests.MemoryBackedOrStaleOrUnknownObservationsFailClosed",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryApprovalDefersCandidateDeletionUntilOperationExit",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.NamesAreOwnerScopedAndPublishDoesNotOverwrite",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.AdmittedPhysicalBoundRemainsChargedAcrossCompactionAndOldReaderDrain",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryIndependentlyRejectsCorruptLengthsOffsetsIntegrityAndCompletion(offset: 24)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskBudgetAdmissionTests.InsufficientHostCapacityRejectsTheCompleteVector",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSpillEligibilityTests.ExcludedClassesCannotBecomeEligibleThroughAvailability(classification: PrivateResponse)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskBudgetAdmissionTests.PolicyReductionRetainsLiveStorageAndStopsGrowth",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.UnsupportedVersionRemainsUntrackedAndBlocksGrowthAfterRecovery",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.FootprintsKeepObjectIdentityAcrossRenameAndReportSubsequentChange",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.EofCancellationAndDuplicateIdentityPublishNoPartialSegmentOrLeakedReservation",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ContendedStoreOperationsRejectWithoutWaitingOrConsumingResources",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ALeasedReadRevalidatesHeaderAndPayloadBeforeTouchingItsStagingTarget(offset: 28)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ContendedLeaseCopyRejectsWithoutTouchingTargetAndFirstCopyKeepsRetiredSegmentAlive",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.PhysicalPolicyIoFailureReturnsControlledFailureWithoutCreatingAFile",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.TraversalForeignOwnerAndSymlinkRootAreRejected",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.UntrustedWritableRootAndLeafLinksAreRejected",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.PhysicalAllocationPolicyRejectsWrongScopeStaleRevisionAndInvalidBounds(change: \"revision\", failure: TierUnavailable)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ReentrantDisposeKeepsCopyOperationAliveUntilItsFinalHoldEnds",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSpillEligibilityTests.ExcludedClassesCannotBecomeEligibleThroughAvailability(classification: Credentials)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.OwnedSpillRootTests.FootprintObservationRejectsForeignNamesLinksAndReplacedRoot",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryIndependentlyRejectsCorruptLengthsOffsetsIntegrityAndCompletion(offset: 104)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.PhysicalAllocationPolicyRejectsWrongScopeStaleRevisionAndInvalidBounds(change: \"root\", failure: TierUnavailable)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryIndependentlyRejectsCorruptLengthsOffsetsIntegrityAndCompletion(offset: 160)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryStopsAtHostBudgetWithoutMaterializingAllPayloads",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CompactionRequiresSimultaneousDestinationAdmissionAndPreservesSourceOnRejection",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryIndependentlyRejectsCorruptLengthsOffsetsIntegrityAndCompletion(offset: 16)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ScanOverflowIncludesForeignObjectsAndRejectsInventoryRecoveryAndGrowth",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.MultiRecordPublicationUsesExactInitializedLengthsAndIndependentRepresentations",
+                "outcome": "Passed"
+            }
+        ]
+    },
+    "checks": [
+        {
+            "name": "cached locked restore",
+            "result": "Pass"
+        },
+        {
+            "name": "ordinary isolated source compile/test",
+            "result": "Pass",
+            "passed": 71,
+            "failed": 0,
+            "skipped": 0,
+            "compilerWarnings": 0
+        },
+        {
+            "name": "C# source style",
+            "result": "Pass",
+            "files": 15,
+            "violations": 0
+        },
+        {
+            "name": "change-contract base..source",
+            "result": "Pass"
+        },
+        {
+            "name": "diff --check",
+            "result": "Pass"
+        },
+        {
+            "name": "initial2-case targeted run",
+            "result": "PassWithWarnings",
+            "warning": "xUnit1031 blocking-task warnings preserved; tests were converted to bounded async waits without suppression before final clean71-case build."
+        },
+        {
+            "name": "canonical project tests on newer source",
+            "result": "NotRun",
+            "reason": "Sole common integration owner runs canonical combined candidate. Historical local NU1004 raw failure is preserved; the owner b4 canonical locked restore succeeds, so the historical failure is not asserted as its current blocker."
+        },
+        {
+            "name": "matrix gate",
+            "result": "PriorFail",
+            "reason": "Existing exact-master/current prior-source parser identity/closure raw failures preserved. Gate/config unchanged; no full unchanged suite rerun for status."
+        },
+        {
+            "name": "native/Auto/quota/crash/mapping/physical baseline/Docker",
+            "result": "NotRun",
+            "reason": "Qualification remains NotVerified; Docker prohibited."
+        }
+    ],
+    "implemented": "Eligible competing store publication/recovery/acquire/inventory/compaction and competing lease copies return BudgetRejected immediately instead of waiting in a monitor work queue. No additional resource vectors, source reads, root files, target bytes or callbacks occur for rejected work. Explicit eligibility/owner denial remains OwnershipViolation under contention. Reentrant-copy rejection and active writer/reader cleanup ownership remain intact. Retire/Disable/final release keep required ownership-drain synchronization.",
+    "bounds": "One admitted synchronous store operation at a time; contending work has no internal wait/retry queue. Caller scheduler/retries remain original-owner responsibilities. New concurrency facts use task-owned dedicated workers and bounded5s harness barriers/async joins, always release/join in finally; no latency or performance qualification claim.",
+    "acceptance": [
+        {
+            "id": "MEM-P10-AC01",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "Actual descriptor device identity and common topology alias admission; concurrent alias fixture supplied. File-byte vector tests do not certify the filesystem physical-allocation conversion; that bound and namespace inventory remain owner contract prerequisites.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P10-AC02",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "tmpfs/ramfs/hugetlbfs detection; unknown layered filesystems cannot certify independent capacity; no memory-backed spill activation.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P10-AC03",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "Common ledger caps bound to fresh volume/quota sample; independent application and safety constraints; policy reduction/compaction fixtures supplied. File-byte vector tests do not certify the filesystem physical-allocation conversion; that bound and namespace inventory remain owner contract prerequisites.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P10-AC04",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "Controlled native errno mapping, unpublished candidate cleanup and retained deletion charges; after-progress injected payload I/O fixture is not actual ENOSPC.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P10-AC05",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "No-follow component/leaf traversal, owner UID/mode/link/device/inode checks, anchored operations and root replacement fixtures.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P10-AC06",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "Omitted mode uses existing Auto enum; Disabled does not open/create/probe. Canonical default root/settings/Required lifecycle remain owner integration.",
+            "runtime": "Mandatory full integration/qualification assertion not executed; ordinary isolated source run does not replace it."
+        },
+        {
+            "id": "MEM-P10-AC07",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "Root primitives bounded and segment probes reservation-backed. Full bounded native qualification write-probe lifecycle remains owner integration.",
+            "runtime": "Mandatory full integration/qualification assertion not executed; ordinary isolated source run does not replace it."
+        },
+        {
+            "id": "MEM-P10-AC08",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "Scoped/timed quota/byte/inode observations, Unknown backing/quota/inodes reject; sampled free space is not an exclusive grant. Persistent inode occupancy accounting remains an explicit common-owner contract gap; current sample/slot constraint is not claimed as an independent inode ledger.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P10-AC09",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "Finite scratch/slot admission and segment/cleanup/scan rosters; no background scheduler introduced. Critical-pressure host-drop selection remains governor owner.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P10-AC10",
+            "issue": 3453,
+            "result": "NotVerified",
+            "sourceContribution": "Class eligibility and explicit owner denial before write/reuse; excluded-class fixtures supplied. Actual content-owner adapter remains integration.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P11-AC01",
+            "issue": 3455,
+            "result": "NotVerified",
+            "sourceContribution": "Complete record/header markers, verified atomic rename and recovery rejection. Crash-subprocess fixture/protocol not implemented or executed.",
+            "runtime": "Mandatory full integration/qualification assertion not executed; ordinary isolated source run does not replace it."
+        },
+        {
+            "id": "MEM-P11-AC02",
+            "issue": 3455,
+            "result": "NotVerified",
+            "sourceContribution": "Bounds/offset/header/digest/identity/completion validation before reuse; independent corruption fixtures supplied.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P11-AC03",
+            "issue": 3455,
+            "result": "NotVerified",
+            "sourceContribution": "Bounded stream short-read/exact-write/EOF/cancellation and failed candidate cleanup source; ordinary fixtures supplied.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P11-AC04",
+            "issue": 3455,
+            "result": "NotVerified",
+            "sourceContribution": "Finite count/scan and logical metadata admission, streaming payload verification. Physical index/scratch bounds are not measured.",
+            "runtime": "Mandatory full integration/qualification assertion not executed; ordinary isolated source run does not replace it."
+        },
+        {
+            "id": "MEM-P11-AC05",
+            "issue": 3455,
+            "result": "NotVerified",
+            "sourceContribution": "Old source charges/leases persist through destination publication; final hold triggers physical delete then charge release; compaction fixtures supplied. File-byte vector tests do not certify the filesystem physical-allocation conversion; that bound and namespace inventory remain owner contract prerequisites.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P11-AC06",
+            "issue": 3455,
+            "result": "NotVerified",
+            "sourceContribution": "Qualified BCL path source only; no mapping path or qualification/automatic path-selection receipt.",
+            "runtime": "Mandatory full integration/qualification assertion not executed; ordinary isolated source run does not replace it."
+        },
+        {
+            "id": "MEM-P11-AC07",
+            "issue": 3455,
+            "result": "NotVerified",
+            "sourceContribution": "Private v1 header/version validation; unsupported versions remain untouched; fixture supplied.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P11-AC08",
+            "issue": 3455,
+            "result": "NotVerified",
+            "sourceContribution": "No PublicAOT/public pointer/authoritative journal calls. Private reconstructible replica publication only.",
+            "runtime": "Related existing test-source cases compiled and executed in the 44-case isolated source run; full AC/DAG qualification remains NotVerified. No owning-project, native quota/full-disk/crash, Auto or physical-memory promise is certified."
+        },
+        {
+            "id": "MEM-P11-AC09",
+            "issue": 3455,
+            "result": "NotVerified",
+            "sourceContribution": "Common host/disk/slot admission throughout recovery/probe/compaction/cleanup source. Actual durability/native/crash checks remain unverified. File-byte vector tests do not certify the filesystem physical-allocation conversion; that bound and namespace inventory remain owner contract prerequisites.",
+            "runtime": "Mandatory full integration/qualification assertion not executed; ordinary isolated source run does not replace it."
+        }
+    ],
+    "remainingDependencies": "Original Inodes/domain/frozenphysicalpolicy/Auto/root integration requests unchanged; original common owner owns them. Mapping backend remains missing pending actual qualified immutable backing hold and distinct virtual/host domain bounds; exact missing interface request in OWNER_REQUESTS.txt. Current file holds prevent deletion only; mapping is not activated or falsely represented as an IMemoryHostReadLease.",
+    "historicalEvidence": "REPORT.json preserves44 cases; OBSERVATION_REPORT.json preserves69 cases and its then-pending integration diagnostics. This continuation supersedes only those pending diagnostic/blocker status claims, not their immutable source/test identities.",
+    "publication": {
+        "sourcePush": "da24da9a035 successfully pushed",
+        "PR": "not created; central content queue required",
+        "issueClosure": "none",
+        "productionActivation": "none"
+    },
+    "cleanup": "All task-owned concurrency workers unblocked/joined and filesystem fixtures disposed. Captured raw TRX/logs/common/source/config/compiler/assembly hashes, then removed only task-owned temporary source context, CLI home, results and named queue scratch logs. Installed SDK/cache, original locks and unrelated resources preserved."
+}
