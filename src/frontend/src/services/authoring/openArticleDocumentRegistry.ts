@@ -57,6 +57,332 @@ export interface OpenArticleDocumentEntry {
     contentDigest: string;
 }
 
+declare const retainedDocumentHandleBrand: unique symbol;
+
+/** A selector or a copied entry cannot construct this original Registry capability. */
+export interface RetainedArticleDocumentHandle {
+    readonly [retainedDocumentHandleBrand]: true;
+}
+
+declare const membershipSealBrand: unique symbol;
+
+export interface RetainedArticleDocumentMembershipSeal {
+    readonly [membershipSealBrand]: true;
+}
+
+interface RetainedMembershipPublication {
+    readonly entries: Map<string, OpenArticleDocumentEntry>;
+    readonly revision: number;
+}
+
+export type RetainedArticleDocumentRevocation = 'final-close' | 'identity-replaced' | 'scope-revoked';
+
+export interface RetainedArticleDocumentInspection {
+    readonly state: 'live' | 'blocked' | 'revoked';
+    readonly reason: RetainedArticleDocumentRevocation | null;
+    readonly registryRevision: number;
+    readonly entry: OpenArticleDocumentEntry | null;
+    readonly notificationFailed: boolean;
+}
+
+export interface RetainedNotificationSubscription {
+    (): void;
+    retry(): void;
+    inspect(): { failed: boolean; pendingUnsubscribe: boolean; running: boolean; firstFailure: unknown; };
+}
+
+interface NotificationSubscriptionRecord {
+    readonly listener: () => void;
+    running: boolean;
+    failed: boolean;
+    hasFirstFailure: boolean;
+    firstFailure: unknown;
+    pendingUnsubscribe: boolean;
+    failureVersion: number;
+    lastFailure: unknown;
+}
+
+function registerNotificationSubscription(records: Set<NotificationSubscriptionRecord>, listener: () => void,
+    retry: () => void, retryBusy: () => boolean): RetainedNotificationSubscription
+{
+    const record: NotificationSubscriptionRecord = { listener, running: false, failed: false,
+        hasFirstFailure: false, firstFailure: undefined, pendingUnsubscribe: false, failureVersion: 0, lastFailure: undefined };
+    records.add(record);
+    const stop = () =>
+    {
+        record.pendingUnsubscribe = true;
+        if (!record.running && !record.failed)
+        {
+            records.delete(record);
+        }
+    };
+    Object.defineProperties(stop, {
+        retry: { value: () =>
+        {
+            if (retryBusy() || [...records].some(current => current.running))
+            {
+                const error = new Error('retained-notification-retry-in-progress');
+                record.failed = true;
+                record.failureVersion += 1;
+                record.lastFailure = error;
+                if (!record.hasFirstFailure)
+                {
+                    record.hasFirstFailure = true;
+                    record.firstFailure = error;
+                }
+                throw error;
+            }
+            retry();
+        } },
+        inspect: { value: () => ({ failed: record.failed, pendingUnsubscribe: record.pendingUnsubscribe,
+            running: record.running, firstFailure: record.firstFailure }) }
+    });
+    return stop as RetainedNotificationSubscription;
+}
+
+function invokeNotificationSubscription(records: Set<NotificationSubscriptionRecord>, record: NotificationSubscriptionRecord): void
+{
+    if (!records.has(record))
+    {
+        return;
+    }
+    if (record.running)
+    {
+        throw new Error('retained-notification-retry-in-progress');
+    }
+    record.running = true;
+    const failureVersion = record.failureVersion;
+    try
+    {
+        record.listener();
+        if (record.failureVersion !== failureVersion)
+        {
+            throw record.lastFailure;
+        }
+        record.failed = false;
+    }
+    catch (error)
+    {
+        record.failed = true;
+        record.failureVersion += 1;
+        record.lastFailure = error;
+        if (!record.hasFirstFailure)
+        {
+            record.hasFirstFailure = true;
+            record.firstFailure = error;
+        }
+        throw error;
+    }
+    finally
+    {
+        record.running = false;
+        if (record.pendingUnsubscribe && !record.failed)
+        {
+            records.delete(record);
+        }
+    }
+}
+
+interface RetainedArticleDocumentCell {
+    readonly registry: OpenArticleDocumentRegistry;
+    readonly handle: RetainedArticleDocumentHandle;
+    readonly tabId: string;
+    readonly initial: OpenArticleDocumentEntry;
+    readonly read: () => RetainedArticleDocumentInspection;
+    readonly notify: () => void;
+    readonly publication: () => RetainedMembershipPublication | null;
+    readonly retire: () => void;
+    readonly retirementPending: () => boolean;
+    readonly notificationActive: () => boolean;
+    readonly retirementListeners: Set<NotificationSubscriptionRecord>;
+    readonly retirementFailures: unknown[];
+    readonly listeners: Set<NotificationSubscriptionRecord>;
+    reason: RetainedArticleDocumentRevocation | null;
+    membershipClosed: boolean;
+    notificationFailed: boolean;
+    notifiedRevision: number;
+    notifiedReason: RetainedArticleDocumentRevocation | null;
+    notifiedState: RetainedArticleDocumentInspection['state'];
+    notifiedFailure: boolean;
+}
+
+// Provenance is keyed by the opaque object, never article identity or a public ref.
+const retainedArticleDocumentCells = new WeakMap<RetainedArticleDocumentHandle, RetainedArticleDocumentCell>();
+const retainedMembershipSeals = new WeakMap<RetainedArticleDocumentMembershipSeal, {
+    readonly cell: RetainedArticleDocumentCell;
+    readonly publication: RetainedMembershipPublication;
+    readonly entry: OpenArticleDocumentEntry;
+}>();
+
+/** Fresh original membership inspection precedes issuing a private publication token. */
+export function sealRetainedArticleDocumentMembership(handle: RetainedArticleDocumentHandle): RetainedArticleDocumentMembershipSeal | null
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    const publication = cell?.publication();
+    if (!cell || !publication)
+    {
+        return null;
+    }
+    const observation = cell.read();
+    const entry = publication.entries.get(cell.tabId);
+    if (observation.state !== 'live' || cell.publication() !== publication || !entry
+        || observation.registryRevision !== publication.revision || observation.entry?.contentDigest !== entry.contentDigest)
+    {
+        return null;
+    }
+    const seal = Object.freeze({}) as RetainedArticleDocumentMembershipSeal;
+    retainedMembershipSeals.set(seal, { cell, publication, entry });
+    if (!hasSealedRetainedArticleDocumentMembershipCustody(seal))
+    {
+        retainedMembershipSeals.delete(seal);
+        return null;
+    }
+    return seal;
+}
+
+/** Private pointer joins only: no cell.read(), snapshot, clone, callback or allocation. */
+export function hasSealedRetainedArticleDocumentMembershipCustody(seal: RetainedArticleDocumentMembershipSeal): boolean
+{
+    const custody = retainedMembershipSeals.get(seal);
+    return !!custody && custody.cell.publication() === custody.publication
+        && custody.publication.entries.get(custody.cell.tabId) === custody.entry
+        && custody.cell.reason === null && !custody.cell.membershipClosed && !custody.cell.notificationFailed
+        && custody.entry.status.permission === 'allowed' && custody.entry.status.lifecycle === 'current';
+}
+
+export function cancelRetainedArticleDocumentMembershipSeal(seal: RetainedArticleDocumentMembershipSeal): boolean
+{
+    return retainedMembershipSeals.delete(seal);
+}
+
+export function retainedArticleDocumentHandleBelongsTo(handle: RetainedArticleDocumentHandle, registry: OpenArticleDocumentRegistry): boolean
+{
+    return retainedArticleDocumentCells.get(handle)?.registry === registry;
+}
+
+export function inspectRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle): RetainedArticleDocumentInspection
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    if (!cell)
+    {
+        throw new Error('retained-article-document-handle-invalid');
+    }
+    return cell.read();
+}
+
+export function subscribeRetainedArticleDocumentHandle(handle: RetainedArticleDocumentHandle, listener: () => void): RetainedNotificationSubscription
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    if (!cell || typeof listener !== 'function')
+    {
+        throw new Error('retained-article-document-handle-invalid');
+    }
+    return registerNotificationSubscription(cell.listeners, listener, () => cell.notify(), cell.notificationActive);
+}
+
+/** Synchronous pre-change signal from this same original cell/Registry realm. */
+export function subscribeRetainedArticleDocumentRetirement(handle: RetainedArticleDocumentHandle, listener: () => void): RetainedNotificationSubscription
+{
+    const cell = retainedArticleDocumentCells.get(handle);
+    if (!cell || typeof listener !== 'function' || cell.retirementPending() || cell.publication() === null)
+    {
+        throw new Error('retained-article-document-retirement-subscription-unavailable');
+    }
+    return registerNotificationSubscription(cell.retirementListeners, listener, () => cell.retire(), cell.notificationActive);
+}
+
+/** Only scope retirement is an explicit revocation; close follows canonical removal. */
+export function revokeRetainedArticleDocumentScope(handle: RetainedArticleDocumentHandle): void
+{
+    revokeRetainedArticleDocumentScopeSet([handle]);
+}
+
+/** Mark all original scoped custody before notifying any possibly reentrant consumer. */
+export function revokeRetainedArticleDocumentScopeSet(handles: readonly RetainedArticleDocumentHandle[]): void
+{
+    const cells = handles.map(handle =>
+    {
+        const cell = retainedArticleDocumentCells.get(handle);
+        if (!cell)
+        {
+            throw new Error('retained-article-document-handle-invalid');
+        }
+        return cell;
+    });
+    if (cells.some(cell => cell.retirementPending()))
+    {
+        throw new Error('retained-article-document-retirement-in-progress');
+    }
+    const retiredRegistries = new Set<OpenArticleDocumentRegistry>();
+    const failures: unknown[] = [];
+    for (const cell of cells)
+    {
+        if (!retiredRegistries.has(cell.registry))
+        {
+            retiredRegistries.add(cell.registry);
+            try
+            {
+                cell.retire();
+            }
+            catch (error)
+            {
+                failures.push(error);
+            }
+        }
+    }
+    for (const cell of cells)
+    {
+        cell.reason ??= 'scope-revoked';
+    }
+    for (const cell of cells)
+    {
+        try
+        {
+            cell.notify();
+        }
+        catch (error)
+        {
+            failures.push(error);
+        }
+    }
+    if (failures.length > 0)
+    {
+        throw new AggregateError(failures, 'retained-article-document-scope-retirement-failed', { cause: failures[0] });
+    }
+}
+
+function notifyRetainedArticleDocumentCell(cell: RetainedArticleDocumentCell): void
+{
+    const observation = cell.read();
+    if (cell.notifiedRevision === observation.registryRevision && cell.notifiedReason === observation.reason
+        && cell.notifiedState === observation.state && cell.notifiedFailure === observation.notificationFailed
+        && ![...cell.listeners].some(record => record.failed))
+    {
+        return;
+    }
+    cell.notifiedRevision = observation.registryRevision;
+    cell.notifiedReason = observation.reason;
+    cell.notifiedState = observation.state;
+    cell.notifiedFailure = observation.notificationFailed;
+    for (const listener of [...cell.listeners])
+    {
+        try
+        {
+            invokeNotificationSubscription(cell.listeners, listener);
+        }
+        catch
+        {
+            // The original command already committed. Keep custody and report failed
+            // notification rather than return a rejection for a successful command.
+            if (!cell.notificationFailed)
+            {
+                cell.notificationFailed = true;
+                cell.notify();
+            }
+        }
+    }
+}
+
 interface RegistryCommandBase {
     schema: typeof openArticleDocumentCommandSchema;
     commandId: string;
@@ -642,8 +968,248 @@ export class OpenArticleDocumentRegistry
     private revision = 0;
     #ownershipTransactionPending = false;
     #groupOwnershipCell: ArticleGroupOwnershipCell | null = null;
+    #retainedDocumentCells = new Set<RetainedArticleDocumentCell>();
+    #retainedNotificationPending = false;
+    #retainedNotificationRequested = false;
+    #membershipMutationDepth = 0;
+    #membershipRetirementPending = false;
+    #membershipPublication: RetainedMembershipPublication | null = { entries: this.entriesByTabId, revision: this.revision };
+
+    #runMembershipMutation<T>(operation: () => T): T
+    {
+        // Retire before command getters, hashing, clones or any publisher callback.
+        this.#membershipPublication = null;
+        this.#membershipMutationDepth += 1;
+        let outcome: { succeeded: true; value: T; } | { succeeded: false; error: unknown; };
+        try
+        {
+            this.#retireMembershipAuthority();
+            outcome = { succeeded: true, value: operation() };
+        }
+        catch (error)
+        {
+            outcome = { succeeded: false, error };
+        }
+        finally
+        {
+            this.#membershipMutationDepth -= 1;
+        }
+        let cleanupFailed = false;
+        let cleanupError: unknown;
+        if (this.#membershipMutationDepth === 0)
+        {
+            try
+            {
+                // Drain on both success and failure. A throwing getter can
+                // already have retired real membership while depth deferred it.
+                this.#notifyRetainedDocuments();
+            }
+            catch (error)
+            {
+                this.#membershipPublication = null;
+                cleanupFailed = true;
+                cleanupError = error;
+            }
+        }
+        if (!outcome.succeeded)
+        {
+            if (cleanupFailed)
+            {
+                throw new AggregateError([outcome.error, cleanupError], 'retained-article-document-mutation-and-notification-failed',
+                    { cause: outcome.error });
+            }
+            throw outcome.error;
+        }
+        if (cleanupFailed)
+        {
+            throw cleanupError;
+        }
+        return outcome.value;
+    }
+
+    #retireMembershipAuthority(): void
+    {
+        if (this.#membershipRetirementPending)
+        {
+            throw new Error('retained-article-document-retirement-in-progress');
+        }
+        this.#membershipPublication = null;
+        this.#membershipRetirementPending = true;
+        const failures: { cell: RetainedArticleDocumentCell; error: unknown; }[] = [];
+        try
+        {
+            for (const cell of this.#retainedDocumentCells)
+            {
+                for (const listener of [...cell.retirementListeners])
+                {
+                    try
+                    {
+                        invokeNotificationSubscription(cell.retirementListeners, listener);
+                    }
+                    catch (error)
+                    {
+                        failures.push({ cell, error });
+                    }
+                }
+            }
+        }
+        finally
+        {
+            this.#membershipRetirementPending = false;
+        }
+        for (const failure of failures)
+        {
+            failure.cell.notificationFailed = true;
+            failure.cell.retirementFailures.push(failure.error);
+        }
+        if (failures.length > 0)
+        {
+            throw new AggregateError(failures.map(failure => failure.error), 'retained-article-document-pre-retirement-failed',
+                { cause: failures[0].error });
+        }
+    }
+
+    #publishMembershipAuthority(): void
+    {
+        if (this.#membershipMutationDepth !== 0 || this.#membershipRetirementPending || this.#ownershipTransactionPending || this.#retainedNotificationPending)
+        {
+            return;
+        }
+        // Preserve the original data-property publication guards. This root points
+        // to that actual canonical Map; it is neither a copy nor a second index.
+        const entries = Object.getOwnPropertyDescriptor(this, 'entriesByTabId');
+        const revision = Object.getOwnPropertyDescriptor(this, 'revision');
+        if (entries?.value instanceof Map && !entries.get && !entries.set
+            && typeof revision?.value === 'number' && !revision.get && !revision.set)
+        {
+            this.#membershipPublication = { entries: entries.value as Map<string, OpenArticleDocumentEntry>, revision: revision.value };
+        }
+    }
+
+    public issueRetainedDocumentHandle(tabId: string): RetainedArticleDocumentHandle
+    {
+        const entry = this.entriesByTabId.get(tabId);
+        if (!entry || this.#membershipRetirementPending || this.#ownershipTransactionPending || this.#retainedNotificationPending)
+        {
+            throw new Error('retained-article-document-member-unavailable');
+        }
+        const existing = [...this.#retainedDocumentCells].find(cell => cell.tabId === tabId && cell.reason === null && !cell.membershipClosed);
+        if (existing)
+        {
+            const observation = existing.read();
+            if (observation.state !== 'revoked')
+            {
+                return existing.handle;
+            }
+        }
+        // A scope-retired member cannot mint a replacement handle before final close.
+        if ([...this.#retainedDocumentCells].some(cell => cell.tabId === tabId
+            && !cell.membershipClosed && cell.reason === 'scope-revoked' && cell.initial.editorSessionRef === entry.editorSessionRef
+            && cell.initial.identity.documentId === entry.identity.documentId))
+        {
+            throw new Error('retained-article-document-scope-revoked');
+        }
+        const handle = Object.freeze({}) as RetainedArticleDocumentHandle;
+        const cell: RetainedArticleDocumentCell = {
+            registry: this,
+            handle,
+            tabId,
+            initial: cloneValue(entry),
+            reason: null,
+            membershipClosed: false,
+            notificationFailed: false,
+            notifiedRevision: this.revision,
+            notifiedReason: null,
+            notifiedState: entry.status.permission === 'allowed' && entry.status.lifecycle === 'current' ? 'live' : 'blocked',
+            notifiedFailure: false,
+            listeners: new Set(),
+            notify: () => this.#notifyRetainedDocuments(),
+            publication: () => this.#membershipPublication,
+            retire: () => this.#retireMembershipAuthority(),
+            retirementPending: () => this.#membershipRetirementPending,
+            notificationActive: () => this.#membershipRetirementPending || this.#retainedNotificationPending
+                || this.#membershipMutationDepth !== 0 || this.#ownershipTransactionPending,
+            retirementListeners: new Set(),
+            retirementFailures: [],
+            read: () =>
+            {
+                const current = this.entriesByTabId.get(tabId);
+                if (!current)
+                {
+                    cell.membershipClosed = true;
+                }
+                if (!cell.reason)
+                {
+                    if (cell.membershipClosed || !current)
+                    {
+                        cell.reason = 'final-close';
+                    }
+                    else if (current.editorSessionRef !== cell.initial.editorSessionRef
+                        || current.identity.articleId !== cell.initial.identity.articleId
+                        || current.identity.draftId !== cell.initial.identity.draftId
+                        || current.identity.documentId !== cell.initial.identity.documentId
+                        || current.documentContext.documentEpoch !== cell.initial.documentContext.documentEpoch)
+                    {
+                        cell.reason = 'identity-replaced';
+                    }
+                }
+                return Object.freeze({
+                    state: cell.reason ? 'revoked' : current?.status.permission === 'allowed'
+                        && current.status.lifecycle === 'current' && !cell.notificationFailed ? 'live' : 'blocked',
+                    reason: cell.reason,
+                    registryRevision: this.revision,
+                    entry: cell.membershipClosed || !current || cell.reason === 'final-close' || cell.reason === 'identity-replaced' ? null : cloneValue(current),
+                    notificationFailed: cell.notificationFailed
+                });
+            }
+        };
+        this.#retainedDocumentCells.add(cell);
+        retainedArticleDocumentCells.set(handle, cell);
+        return handle;
+    }
+
+    #notifyRetainedDocuments(): void
+    {
+        this.#membershipPublication = null;
+        this.#retainedNotificationRequested = true;
+        if (this.#retainedNotificationPending || this.#ownershipTransactionPending || this.#membershipMutationDepth !== 0)
+        {
+            return;
+        }
+        this.#retainedNotificationPending = true;
+        try
+        {
+            do
+            {
+                this.#retainedNotificationRequested = false;
+                for (const cell of this.#retainedDocumentCells)
+                {
+                    try
+                    {
+                        notifyRetainedArticleDocumentCell(cell);
+                    }
+                    catch
+                    {
+                        // Inspection/clone failure remains post-publication failure.
+                        cell.notificationFailed = true;
+                    }
+                }
+            }
+            while (this.#retainedNotificationRequested);
+        }
+        finally
+        {
+            this.#retainedNotificationPending = false;
+            this.#publishMembershipAuthority();
+        }
+    }
 
     public createGroupOwnershipCell(initial: ArticleGroupOwnershipPublication): ArticleGroupOwnershipCell
+    {
+        return this.#runMembershipMutation(() => this.#createGroupOwnershipCell(initial));
+    }
+
+    #createGroupOwnershipCell(initial: ArticleGroupOwnershipPublication): ArticleGroupOwnershipCell
     {
         if (this.#groupOwnershipCell)
         {
@@ -677,7 +1243,8 @@ export class OpenArticleDocumentRegistry
         expected: ArticleGroupOwnershipPublication, next: ArticleGroupOwnershipPublication,
         ratioChange?: AuthoringWorkspaceRatioChange): OpenArticleDocumentCommandResult
     {
-        return this.executeCore(command, { expected, next, ratioChange });
+        const result = this.#runMembershipMutation(() => this.executeCore(command, { expected, next, ratioChange }));
+        return result;
     }
 
     private cloneGroupPublication(publication: ArticleGroupOwnershipPublication): ArticleGroupOwnershipPublication
@@ -717,13 +1284,14 @@ export class OpenArticleDocumentRegistry
 
     public execute(command: unknown): OpenArticleDocumentCommandResult
     {
-        return this.executeCore(command);
+        const result = this.#runMembershipMutation(() => this.executeCore(command));
+        return result;
     }
 
     private executeCore(command: unknown, groupPublication?: { expected: ArticleGroupOwnershipPublication;
         next: ArticleGroupOwnershipPublication; ratioChange?: AuthoringWorkspaceRatioChange; }): OpenArticleDocumentCommandResult
     {
-        if (this.#ownershipTransactionPending)
+        if (this.#ownershipTransactionPending || this.#retainedNotificationPending || this.#membershipRetirementPending)
         {
             return makeRejectedResult(command, 'rejected-state', this.revision, 'ownership-transaction-pending');
         }
@@ -1409,6 +1977,14 @@ export class OpenArticleDocumentRegistry
 
     private removeEntry(entry: OpenArticleDocumentEntry): void
     {
+        for (const cell of this.#retainedDocumentCells)
+        {
+            if (cell.tabId === entry.tabId)
+            {
+                cell.membershipClosed = true;
+                cell.reason ??= 'final-close';
+            }
+        }
         this.entriesByTabId.delete(entry.tabId);
         this.tabIdByIdentity.delete(identityKey(entry.identity));
         this.tabIdBySessionRef.delete(entry.editorSessionRef);

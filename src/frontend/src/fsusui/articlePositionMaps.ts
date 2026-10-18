@@ -1,5 +1,6 @@
 export type {
     MarkdownEditorDispatchResult,
+    MarkdownEditorTransactionEvent,
     MarkdownEditorPositionMap,
     MarkdownEditorResolvedSelection,
     MarkdownEditorSessionExpose
