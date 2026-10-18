@@ -2,6 +2,7 @@ using System.Collections;
 using System.Data;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -760,10 +761,398 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         // Reference requests have no SessionId; in-flight session-to-request cancellation remains a caller-owned gap.
     }
 
+    [Theory]
+    [InlineData("CanvasId")]
+    [InlineData("CanvasRevision")]
+    [InlineData("CanvasContentDigest")]
+    [InlineData("AdminPrincipalId")]
+    [InlineData("SiteScope")]
+    [InlineData("Permission")]
+    [InlineData("PermissionFingerprint")]
+    [InlineData("AuthorityGeneration")]
+    [InlineData("AuthorityContentDigest")]
+    [InlineData("NodeId")]
+    [InlineData("TargetDigest")]
+    public async Task ProductionCache_NativeBaselineSeparatesEachKeyFieldAndProjectsItsOriginalInput(string field)
+    {
+        using SqlSugarClient db = await CreateResolverDatabaseAsync();
+        AuthoringCanvasReferenceResolutionRequest request = await CreateRequestAsync(db, s_owner, [ReferenceNode()]);
+        var cache = new AuthoringCanvasReferenceProjectionCache();
+        AuthoringCanvasReferenceResolver resolver = Resolver(db, cache);
+        AuthoringCanvasReferenceResolutionBatch native = await resolver.ResolveAsync(request);
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate = native.AuthorityCoordinate;
+        AuthoringCanvasNode node = Assert.Single(request.Nodes);
+        var target = new AuthoringCanvasReferenceTarget(node.Id, node.Type, node.TargetArticleId!.Value,
+            node.TargetHeadingIdentity, node.TargetBlockIdentity, node.PinnedTargetRevision, node.DisplayProjectionReference);
+        AuthoringCanvasReferenceCacheKey original = OriginalCacheKey(request, coordinate, target);
+        Assert.Equal(11, typeof(AuthoringCanvasReferenceCacheKey).GetProperties().Length);
+        Assert.True(cache.TryGet(original, out AuthoringCanvasReferenceFact? nativeFact));
+        Assert.NotNull(nativeFact);
+        Assert.Equal("Current block", nativeFact.ContextSnippet);
+        Assert.Equal(9002, nativeFact.ResolvedRevision);
+
+        // Native authority values are never replaced in a resolver call. These counterfactual inputs isolate
+        // the original pure key boundary, including fields which cannot vary alone in an authorized request.
+        AuthoringCanvasReferenceResolutionRequest keyRequest = request;
+        AuthoringCanvasReferenceAuthorityCoordinate keyCoordinate = coordinate;
+        AuthoringCanvasReferenceTarget keyTarget = target;
+        AuthoringCanvasReferenceCacheKey isolated = field switch
+        {
+            "CanvasId" => original with { CanvasId = Guid.CreateVersion7() },
+            "CanvasRevision" => original with { CanvasRevision = original.CanvasRevision + 1 },
+            "CanvasContentDigest" => original with { CanvasContentDigest = new string('f', 64) },
+            "AdminPrincipalId" => original with { AdminPrincipalId = 74 },
+            "SiteScope" => original with { SiteScope = "other-site" },
+            "Permission" => original with { Permission = original.Permission + 1 },
+            "PermissionFingerprint" => original with { PermissionFingerprint = "counterfactual-permission" },
+            "AuthorityGeneration" => original with { AuthorityGeneration = original.AuthorityGeneration + 1 },
+            "AuthorityContentDigest" => original with { AuthorityContentDigest = new string('e', 64) },
+            "NodeId" => original with { NodeId = Guid.CreateVersion7() },
+            "TargetDigest" => original with
+            {
+                TargetDigest = AuthoringCanvasReferenceContract.ComputeTargetDigest(
+                    target with
+                    {
+                        DisplayProjectionReference = new string('d', 64)
+                    })
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+        switch (field)
+        {
+            case "CanvasId":
+                keyRequest = request with
+                {
+                    CanvasId = isolated.CanvasId
+                };
+                break;
+            case "CanvasRevision":
+                keyRequest = request with
+                {
+                    CanvasRevision = isolated.CanvasRevision
+                };
+                break;
+            case "CanvasContentDigest":
+                keyRequest = request with
+                {
+                    CanvasContentDigest = isolated.CanvasContentDigest
+                };
+                break;
+            case "AdminPrincipalId":
+                keyRequest = request with
+                {
+                    Owner = request.Owner with
+                    {
+                        AdminPrincipalId = isolated.AdminPrincipalId
+                    }
+                };
+                break;
+            case "SiteScope":
+                keyRequest = request with
+                {
+                    Owner = request.Owner with
+                    {
+                        SiteScope = isolated.SiteScope
+                    }
+                };
+                break;
+            case "Permission":
+                keyRequest = request with
+                {
+                    Permission = (AuthoringCanvasReferencePermission)isolated.Permission
+                };
+                break;
+            case "PermissionFingerprint":
+                keyCoordinate = coordinate with
+                {
+                    PermissionFingerprint = isolated.PermissionFingerprint
+                };
+                break;
+            case "AuthorityGeneration":
+                keyCoordinate = coordinate with
+                {
+                    Generation = isolated.AuthorityGeneration
+                };
+                break;
+            case "AuthorityContentDigest":
+                keyCoordinate = coordinate with
+                {
+                    ContentDigest = isolated.AuthorityContentDigest
+                };
+                break;
+            case "NodeId":
+                keyTarget = target with
+                {
+                    NodeId = isolated.NodeId
+                };
+                break;
+            case "TargetDigest":
+                keyTarget = target with
+                {
+                    DisplayProjectionReference = new string('d', 64)
+                };
+                break;
+        }
+        AuthoringCanvasReferenceCacheKey projected = OriginalCacheKey(keyRequest, keyCoordinate, keyTarget);
+        if (field == "NodeId")
+        {
+            Assert.Equal(isolated.NodeId, projected.NodeId);
+            Assert.NotEqual(original.TargetDigest, projected.TargetDigest);
+            // NodeId also contributes to TargetDigest. Hold that coupled field fixed for the equality probe only.
+            projected = projected with
+            {
+                TargetDigest = original.TargetDigest
+            };
+        }
+        if (field == "Permission")
+        {
+            Assert.Throws<AuthoringCanvasValidationException>(() => AuthoringCanvasReferenceContract.ValidateRequest(keyRequest));
+        }
+        Assert.Equal(isolated, projected);
+        string[] changedFields = typeof(AuthoringCanvasReferenceCacheKey).GetProperties()
+            .Where(property => !Equals(property.GetValue(original), property.GetValue(isolated)))
+            .Select(static property => property.Name).ToArray();
+        Assert.Equal([field], changedFields);
+        Assert.False(cache.TryGet(isolated, out AuthoringCanvasReferenceFact? crossed));
+        Assert.Null(crossed);
+        Assert.True(cache.TryGet(original, out AuthoringCanvasReferenceFact? unchanged));
+        Assert.Equal(nativeFact, unchanged);
+        Assert.Equal(1, cache.EntryCount);
+        AuthoringCanvasReferenceResolutionBatch positive = await resolver.ResolveAsync(request);
+        Assert.Equal(1, positive.Receipt.CacheHitCount);
+        Assert.Equal(native.ContentDigest, positive.ContentDigest);
+        Assert.True((await resolver.VerifyAsync(request, positive)).Valid);
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public async Task ProductionResolver_BothCompletionAndRetargetDirectionsPreserveTheNewRequest(
+        bool warmCache, bool reverseTargets, bool newerCompletesFirst)
+    {
+        using SqlSugarClient olderDb = await CreateResolverDatabaseAsync();
+        using SqlSugarClient newerDb = PostgresSqlSugarTestClient.Create(olderDb.CurrentConnectionConfig.ConnectionString);
+        using SqlSugarClient writer = PostgresSqlSugarTestClient.Create(olderDb.CurrentConnectionConfig.ConnectionString);
+        int oldTarget = reverseTargets ? 206 : 204;
+        int newTarget = reverseTargets ? 204 : 206;
+        AuthoringCanvasNode node = ReferenceNode() with
+        {
+            TargetArticleId = oldTarget
+        };
+        AuthoringCanvasReferenceResolutionRequest oldRequest = await CreateRequestAsync(olderDb, s_owner, [node]);
+        var cache = new AuthoringCanvasReferenceProjectionCache();
+        AuthoringCanvasReferenceResolver olderResolver = Resolver(olderDb, cache);
+        AuthoringCanvasReferenceResolver newerResolver = Resolver(newerDb, cache);
+        if (warmCache)
+        {
+            Assert.Equal(oldTarget, Assert.Single((await olderResolver.ResolveAsync(oldRequest)).Projections).TargetArticleId);
+        }
+        using var olderPause = new NativeSqlReadPause(olderDb, IsAuthorityRead, warmCache ? 2 : 4);
+        using var newerPause = new NativeSqlReadPause(newerDb, IsArticleMetadataRead, 1);
+        Task<AuthoringCanvasReferenceResolutionBatch> older = Task.Run(() => olderResolver.ResolveAsync(oldRequest));
+        Task<AuthoringCanvasReferenceResolutionBatch>? newer = null;
+        try
+        {
+            await olderPause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            var store = new AuthoringCanvasDocumentStore(writer, TimeProvider.System);
+            await store.PutNodeAsync(new PutAuthoringCanvasNodeCommand(oldRequest.CanvasId, s_owner,
+                oldRequest.CanvasRevision, Guid.CreateVersion7(), node with
+                {
+                    TargetArticleId = newTarget
+                }));
+            AuthoringCanvasReferenceResolutionRequest newRequest = await ReadRequestAsync(store, s_owner, oldRequest.CanvasId);
+            newer = Task.Run(() => newerResolver.ResolveAsync(newRequest));
+            await newerPause.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.False(older.IsCompleted);
+            Assert.False(newer.IsCompleted);
+            AuthoringCanvasReferenceResolutionBatch accepted;
+            if (newerCompletesFirst)
+            {
+                newerPause.Release();
+                accepted = await newer.WaitAsync(TimeSpan.FromSeconds(30));
+                Assert.False(older.IsCompleted);
+                Assert.Equal(warmCache ? 2 : 1, cache.EntryCount);
+                olderPause.Release();
+                await Assert.ThrowsAsync<AuthoringCanvasRevisionConflictException>(() => older.WaitAsync(TimeSpan.FromSeconds(30)));
+            }
+            else
+            {
+                olderPause.Release();
+                await Assert.ThrowsAsync<AuthoringCanvasRevisionConflictException>(() => older.WaitAsync(TimeSpan.FromSeconds(30)));
+                Assert.False(newer.IsCompleted);
+                Assert.Equal(warmCache ? 1 : 0, cache.EntryCount);
+                newerPause.Release();
+                accepted = await newer.WaitAsync(TimeSpan.FromSeconds(30));
+            }
+            AuthoringCanvasReferenceProjection projection = Assert.Single(accepted.Projections);
+            Assert.Equal(newTarget, projection.TargetArticleId);
+            Assert.Equal(reverseTargets ? "Current block" : "Replacement block", projection.ContextSnippet);
+            Assert.Equal(warmCache ? 2 : 1, cache.EntryCount);
+            AuthoringCanvasReferenceResolutionBatch cached = await newerResolver.ResolveAsync(newRequest);
+            Assert.Equal(1, cached.Receipt.CacheHitCount);
+            Assert.Equal(accepted.ContentDigest, cached.ContentDigest);
+            Assert.True((await newerResolver.VerifyAsync(newRequest, cached)).Valid);
+            Assert.True((await store.VerifyAsync(s_owner, oldRequest.CanvasId)).Valid);
+        }
+        finally
+        {
+            olderPause.Release();
+            newerPause.Release();
+            await DrainNativeRequestAsync(older);
+            if (newer is not null)
+            {
+                await DrainNativeRequestAsync(newer);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task ProductionCoordinateAuthority_AwaitsIndependentlyDelayedNativeCommandDisposal(int cancellationBoundary)
+    {
+        using SqlSugarClient db = await CreateResolverDatabaseAsync();
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await db.Ado.ExecuteCommandAsync("CREATE TABLE canvas_reference_io_probe(id integer PRIMARY KEY);");
+        db.CurrentConnectionConfig.IsAutoCloseConnection = false;
+        await db.Ado.BeginTranAsync();
+        await db.Ado.ExecuteCommandAsync("INSERT INTO canvas_reference_io_probe VALUES (1);");
+        var nativeConnection = Assert.IsType<NpgsqlConnection>(db.Ado.Connection);
+        var nativeTransaction = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
+        using var cancellation = new CancellationTokenSource();
+        var io = new NativeIoObservation(cancellation, cancellationBoundary == 2 ? 3 : 0) { DelayCommandCleanup = true };
+        var observedConnection = new ObservedConnection(nativeConnection, io);
+        db.Aop.OnLogExecuted = (sql, _) =>
+        {
+            if (sql.Contains("SELECT article.id, article.current_revision_id", StringComparison.Ordinal))
+            {
+                db.Ado.Connection = observedConnection;
+            }
+        };
+        Task<IReadOnlyDictionary<Guid, AuthoringCanvasCoordinateFact>> reading = Task.Run(() =>
+            new PostgresAuthoringCanvasCoordinateAuthority(db).ReadBatchAsync(
+                new AuthoringCanvasCoordinateFactQuery(Guid.CreateVersion7(), 1, new string('c', 64),
+                    s_owner, [BlockTarget(Guid.CreateVersion7(), "intro-block")]), cancellation.Token));
+        try
+        {
+            await io.CleanupEntered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.False(reading.IsCompleted);
+            io.CleanupReleased.TrySetResult();
+            await io.CommandCleanupEntered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.True(io.ReaderDisposed);
+            Assert.False(io.CommandDisposed);
+            Assert.False(reading.IsCompleted);
+            Assert.Equal(1, io.ExecuteCount);
+            Assert.Equal(1, io.EofCount);
+            Assert.True(io.CharactersRead > 0);
+            Assert.Same(nativeTransaction, io.Transaction);
+            Assert.Equal(CommandBehavior.SequentialAccess, io.Behavior);
+            Assert.Equal(cancellation.Token, io.Token);
+            if (cancellationBoundary == 1)
+            {
+                cancellation.Cancel();
+                Assert.False(reading.IsCompleted);
+            }
+            io.CommandCleanupReleased.TrySetResult();
+            if (cancellationBoundary == 0)
+            {
+                AuthoringCanvasCoordinateFact fact = Assert.Single((await reading.WaitAsync(TimeSpan.FromSeconds(30))).Values);
+                Assert.Equal("Current block", fact.ContextSnippet);
+                Assert.Equal(AuthoringCanvasReferenceCoordinateState.Current, fact.State);
+            }
+            else
+            {
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => reading.WaitAsync(TimeSpan.FromSeconds(30)));
+            }
+            Assert.True(io.CommandDisposed);
+            Assert.True(io.ReaderDisposed);
+            Assert.Equal(1, io.TextDisposed);
+            Assert.Equal(0, io.ConnectionCloseCount);
+            Assert.Equal(0, io.ConnectionDisposeCount);
+            Assert.Same(nativeConnection, nativeTransaction.Connection);
+            db.Ado.Connection = nativeConnection;
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM canvas_reference_io_probe;"));
+            Assert.Equal(0, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM canvas_reference_io_probe;"));
+        }
+        finally
+        {
+            io.CleanupReleased.TrySetResult();
+            io.CommandCleanupReleased.TrySetResult();
+            await DrainNativeRequestAsync(reading);
+            db.Aop.OnLogExecuted = null;
+            db.Ado.Connection = nativeConnection;
+            await db.Ado.RollbackTranAsync();
+        }
+        Assert.Equal(0, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM canvas_reference_io_probe;"));
+    }
+
+    private static AuthoringCanvasReferenceCacheKey OriginalCacheKey(AuthoringCanvasReferenceResolutionRequest request,
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate, AuthoringCanvasReferenceTarget target)
+    {
+        MethodInfo method = typeof(AuthoringCanvasReferenceResolver).GetMethod("CacheKey", BindingFlags.NonPublic | BindingFlags.Static)
+            ?? throw new InvalidOperationException("original resolver cache key boundary missing");
+        return Assert.IsType<AuthoringCanvasReferenceCacheKey>(method.Invoke(null, [request, coordinate, target]));
+    }
+
+    private static async Task DrainNativeRequestAsync(Task request)
+    {
+        try
+        {
+            await request.WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        catch (Exception) when (request.IsCompleted)
+        {
+            // The test's owning assertion consumes the outcome; teardown must drain both real requests.
+        }
+    }
+
+    private sealed class NativeSqlReadPause : IDisposable
+    {
+        private readonly SqlSugarClient _db;
+        private readonly TaskCompletionSource _released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public NativeSqlReadPause(SqlSugarClient db, Predicate<string> match, int occurrence)
+        {
+            _db = db;
+            int observed = 0;
+            db.Aop.OnLogExecuted = (sql, _) =>
+            {
+                if (match(sql) && Interlocked.Increment(ref observed) == occurrence)
+                {
+                    Entered.TrySetResult();
+                    _released.Task.WaitAsync(TimeSpan.FromSeconds(30)).GetAwaiter().GetResult();
+                }
+            };
+        }
+
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public void Release() => _released.TrySetResult();
+
+        public void Dispose()
+        {
+            Release();
+            _db.Aop.OnLogExecuted = null;
+        }
+    }
+
     private sealed class NativeIoObservation(CancellationTokenSource cancellation, int cancelAt)
     {
         public TaskCompletionSource CleanupEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource CleanupReleased { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource CommandCleanupEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource CommandCleanupReleased { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool DelayCommandCleanup
+        {
+            get; init;
+        }
         public int ExecuteCount
         {
             get; set;
@@ -910,6 +1299,11 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         }
         public override async ValueTask DisposeAsync()
         {
+            if (io.DelayCommandCleanup)
+            {
+                io.CommandCleanupEntered.TrySetResult();
+                await io.CommandCleanupReleased.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            }
             await inner.DisposeAsync();
             io.CommandDisposed = true;
             io.ObserveCancellation(3);
