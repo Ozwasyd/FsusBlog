@@ -235,6 +235,17 @@ public sealed class AuthoringPrepublishDiagnosticCombinerTests
     }
 
     [Theory]
+    [InlineData("acme.author-tools")]
+    [InlineData("acme.check.item0")]
+    public void IdentityNegativeControls_CoreCannotAliasPluginExtensionOrContributionBeforeCombination(string coreCheckId)
+    {
+        AuthoringExtensionContractException refusal = Assert.Throws<AuthoringExtensionContractException>(() =>
+            Combine(Registry(coreCheckId: coreCheckId), []));
+
+        Assert.Equal("Manifest extension or contribution identity conflicts with a core check.", refusal.Message);
+    }
+
+    [Theory]
     [InlineData("article")]
     [InlineData("document")]
     [InlineData("epoch")]
@@ -360,7 +371,11 @@ public sealed class AuthoringPrepublishDiagnosticCombinerTests
         return registry.ValidateResult(input, new(1, id, input.InputSha256, AuthoringDiagnosticCompletion.NoFindings, []), s_now);
     }
 
-    private static AuthoringPrepublishDiagnosticRegistry Registry(int count = 2, bool optionalOnly = false, bool nested = false)
+    private static AuthoringPrepublishDiagnosticRegistry Registry(
+        int count = 2,
+        bool optionalOnly = false,
+        bool nested = false,
+        string coreCheckId = "security.authoring")
     {
         AuthoringExtensionManifest original = AuthoringExtensionContractsTests.CreateManifest();
         var budget = new AuthoringDiagnosticBudget(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5),
@@ -402,7 +417,7 @@ public sealed class AuthoringPrepublishDiagnosticCombinerTests
         AuthoringExtensionRegistrySnapshot extensions = AuthoringExtensionContractValidator.CreateRegistry(manifests.ToImmutable(),
             new([], [], [], [], ["security.authoring", "rights.authoring", "publication.authoring"]));
         return new(extensions, contributions.ToImmutable(), policies.ToImmutable(),
-            [new("security.authoring", true, AuthoringDiagnosticSeverity.Blocking, Digest('a')),
+            [new(coreCheckId, true, AuthoringDiagnosticSeverity.Blocking, Digest('a')),
                 new("rights.authoring", false, AuthoringDiagnosticSeverity.Warning, Digest('b')),
                 new("publication.authoring", true, AuthoringDiagnosticSeverity.Info, Digest('c'))]);
     }
