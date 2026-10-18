@@ -630,7 +630,10 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
 
         public int ProcessId => sandboxProcessId;
 
-        public bool StateSnapshotSupported { private get; init; }
+        public bool StateSnapshotSupported
+        {
+            private get; init;
+        }
         private readonly Lock _snapshotGate = new();
         private bool _snapshotTransportHeld;
         private bool _snapshotIoActive;
@@ -817,10 +820,18 @@ public sealed class LinuxBubblewrapAuthoringWorkerRuntime : IAuthoringWorkerSand
             string frame = load
                 ? JsonSerializer.Serialize(new
                 {
-                    kind = "state-load", schemaVersion = 1, nonce,
-                    binding = binding.TransportBinding, payload = Convert.ToBase64String(binding.Bytes)
+                    kind = "state-load",
+                    schemaVersion = 1,
+                    nonce,
+                    binding = binding.TransportBinding,
+                    payload = Convert.ToBase64String(binding.Bytes)
                 }, json)
-                : JsonSerializer.Serialize(new { kind = "state-verify", schemaVersion = 1, nonce }, json);
+                : JsonSerializer.Serialize(new
+                {
+                    kind = "state-verify",
+                    schemaVersion = 1,
+                    nonce
+                }, json);
             if (Encoding.UTF8.GetByteCount(frame) > descriptor.MaximumRequestBytes * 2 + 4096)
             {
                 throw new AuthoringExtensionContractException("Native snapshot request exceeds the original transport budget.");

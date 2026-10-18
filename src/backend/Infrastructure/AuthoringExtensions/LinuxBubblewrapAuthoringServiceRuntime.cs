@@ -524,7 +524,10 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
                 })
                 : ValueTask.FromResult(health);
 
-        public bool StateSnapshotSupported { private get; init; }
+        public bool StateSnapshotSupported
+        {
+            private get; init;
+        }
         private readonly Lock _snapshotGate = new();
         private bool _snapshotTransportHeld;
         private bool _snapshotIoActive;

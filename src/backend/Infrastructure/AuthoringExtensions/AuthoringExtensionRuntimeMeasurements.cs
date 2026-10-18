@@ -7,9 +7,15 @@ namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
 public interface IAuthoringMeasuredRuntimeInstance
 {
-    string RuntimeIdentity { get; }
+    string RuntimeIdentity
+    {
+        get;
+    }
 
-    int ProcessId { get; }
+    int ProcessId
+    {
+        get;
+    }
 }
 
 /// <summary>
@@ -53,11 +59,20 @@ public sealed class AuthoringRuntimeIncarnationLease
         ProcessId = sandbox.Id;
     }
 
-    public string RuntimeIdentity { get; }
+    public string RuntimeIdentity
+    {
+        get;
+    }
 
-    public string RuntimeProfileSha256 { get; }
+    public string RuntimeProfileSha256
+    {
+        get;
+    }
 
-    public int ProcessId { get; }
+    public int ProcessId
+    {
+        get;
+    }
 
     /// <summary>Remains true after revocation until termination, transport settlement and disposal succeed.</summary>
     public bool CustodyRetained
@@ -436,10 +451,22 @@ internal sealed class AuthoringNativeStateSnapshotBinding
         MaximumWallClock = wallClock;
     }
 
-    internal object Descriptor { get; }
-    internal byte[] Bytes { get; }
-    internal string TransportBinding { get; }
-    internal TimeSpan MaximumWallClock { get; }
+    internal object Descriptor
+    {
+        get;
+    }
+    internal byte[] Bytes
+    {
+        get;
+    }
+    internal string TransportBinding
+    {
+        get;
+    }
+    internal TimeSpan MaximumWallClock
+    {
+        get;
+    }
 
     internal static AuthoringNativeStateSnapshotBinding Create(
         VerifiedAuthoringPackage package,
