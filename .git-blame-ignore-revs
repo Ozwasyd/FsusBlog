@@ -30,3 +30,6 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 
 # Original ESLint layout pass for local operational preservation controls.
 9fe86c28d3b2cfd4008b0575111ddcfcf94f598f
+
+# Isolated original strict-build naming-owner whitespace pass (#3663).
+a5f53a1aaae8d410216ec1d5f25d526b9fd43a9d
