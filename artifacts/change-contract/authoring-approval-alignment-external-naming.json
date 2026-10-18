@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalContract.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalAuthority.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionApprovalStore.cs"
+            ],
+            "reason": "Preserve original payload/composite package identities, SQL column names and authenticated admin claim names in the unique approval owner sources. This successor adds exact-scope/canonical-result refusal dependencies and changes no trusted policy or environment setting."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Document the exact server approval producer and remaining HTTP/AEDS/UI and migration owner boundaries in the current architecture document, preserving its existing externally addressable fragments."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve the original collection schema and every existing member while registering the actual 46 cases in the owned approval PostgreSQL class; pre-existing global collection drift remains visible."
+        }
+    ]
+}
