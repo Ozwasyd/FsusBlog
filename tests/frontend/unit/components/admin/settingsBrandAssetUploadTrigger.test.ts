@@ -93,8 +93,8 @@ function surfaceOf(wrapper: VueWrapper, name: string): Element {
   return node
 }
 
-function mountFsusUi(component: unknown, options: Record<string, unknown> = {}) {
-  return mount(component as never, {
+function mountFsusUi<T>(component: T, options: Parameters<typeof mount<T>>[1] = {}) {
+  return mount<T>(component, {
     attachTo: document.body,
     global: {
       components: { ElUpload },
@@ -128,7 +128,7 @@ function mountFsusUi(component: unknown, options: Record<string, unknown> = {}) 
         SettingsPageEditor: passthroughStub('div'),
         ImageUploadOptionsPanel: passthroughStub('div')
       },
-      ...(options.global as object ?? {})
+      ...(options.global ?? {})
     },
     ...options
   })

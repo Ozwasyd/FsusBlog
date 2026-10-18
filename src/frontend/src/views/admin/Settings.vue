@@ -599,11 +599,12 @@
                                         </ElFormItem>
                                         <ElFormItem label="版权起始年份">
                                             <ElInputNumber
-                                                v-model="complianceForm.copyrightStartYear"
+                                                :model-value="complianceForm.copyrightStartYear ?? undefined"
                                                 :min="1990"
                                                 :max="new Date().getFullYear()"
                                                 :disabled="complianceFormDisabled"
                                                 controls-position="right"
+                                                @update:model-value="complianceForm.copyrightStartYear = $event ?? null"
                                             />
                                         </ElFormItem>
                                     </div>
@@ -851,6 +852,8 @@ import { confirmWarning, toast } from '@/fsusui/feedback';
 import { Delete, Plus, Warning } from '@/fsusui/icons';
 import { cspStyleDirective } from '@/services/cspStyleRuntime';
 
+defineOptions({ name: 'AdminSettings' });
+
 const vCspStyle = cspStyleDirective;
 
 const {
@@ -1075,7 +1078,7 @@ const confirmPageRefresh = async (): Promise<void> =>
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
+@import "@/assets/main.css" reference;
 
 .section-title
  {

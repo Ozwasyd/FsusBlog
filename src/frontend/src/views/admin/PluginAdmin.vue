@@ -239,29 +239,29 @@
                                         <small>{{ field.description }}</small>
                                         <ElSwitch
                                             v-if="field.type === 'boolean'"
-                                            v-model="configDraft[field.name]"
+                                            v-model="configDraft[field.name] as PluginSwitchValue"
                                         />
                                         <ElSelect
                                             v-else-if="field.enumValues.length"
-                                            v-model="configDraft[field.name]"
+                                            v-model="configDraft[field.name] as PluginSelectValue"
                                             :placeholder="field.title"
                                         >
                                             <ElOption
                                                 v-for="option in field.enumValues"
                                                 :key="String(option)"
                                                 :label="String(option)"
-                                                :value="option"
+                                                :value="option as PluginOptionValue"
                                             />
                                         </ElSelect>
                                         <ElInputNumber
                                             v-else-if="field.type === 'integer' || field.type === 'number'"
-                                            v-model="configDraft[field.name]"
+                                            v-model="configDraft[field.name] as PluginNumberValue"
                                             :min="field.minimum"
                                             :max="field.maximum"
                                         />
                                         <ElInput
                                             v-else
-                                            v-model="configDraft[field.name]"
+                                            v-model="configDraft[field.name] as PluginInputValue"
                                             :placeholder="field.title"
                                         />
                                     </label>
@@ -504,6 +504,23 @@ import {
 import { confirmDanger, confirmWarning, toast } from '@/fsusui/feedback';
 import { showErrorToast } from '@/utils/errorPresentation';
 
+import type { ElInput, ElInputNumber, ElOption, ElSelect, ElSwitch } from '@ozwasyd/element-plus';
+
+type PluginInputValue = InstanceType<typeof ElInput>['$props']['modelValue'];
+type PluginNumberValue = InstanceType<typeof ElInputNumber>['$props']['modelValue'];
+type PluginOptionValue = InstanceType<typeof ElOption>['$props']['value'];
+type PluginSelectValue = InstanceType<typeof ElSelect>['$props']['modelValue'];
+type PluginSwitchValue = InstanceType<typeof ElSwitch>['$props']['modelValue'];
+
+interface ConfigFieldSchema {
+    title?: string | null;
+    description?: string | null;
+    type?: string | readonly string[] | null;
+    enum?: unknown;
+    minimum?: unknown;
+    maximum?: unknown;
+}
+
 interface ConfigField {
     name: string;
     title: string;
@@ -523,7 +540,7 @@ const selectedId = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
 const overview = shallowRef<PluginAdminOverview | null>(null);
 const detail = shallowRef<PluginAdminDetail | null>(null);
-const configDraft = ref<Record<string, any>>({});
+const configDraft = ref<PluginAdminDetail['config']['value']>({});
 
 const configFields = computed<ConfigField[]>(() =>
 {
@@ -532,7 +549,7 @@ const configFields = computed<ConfigField[]>(() =>
     {
         return [];
     }
-    return Object.entries(properties as Record<string, Record<string, unknown>>).map(([name, schema]) => ({
+    return Object.entries(properties as Record<string, ConfigFieldSchema>).map(([name, schema]) => ({
         name,
         title: String(schema.title ?? name),
         description: String(schema.description ?? ''),

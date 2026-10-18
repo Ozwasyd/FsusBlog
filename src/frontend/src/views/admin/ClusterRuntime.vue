@@ -377,13 +377,17 @@ const modeLabel = (mode: string): string => ({
     adaptive: '自适应'
 })[mode] ?? mode;
 
-const nodeStatusLabel = (status: ClusterNodeResponse['status']): string => ({
-    alive: '在线',
-    suspect: '可疑',
-    dead: '失联',
-    draining: '排空中',
-    maintenance: '维护中'
-})[status];
+const nodeStatusLabel = (status: ClusterTaskResponse['status']): string | undefined =>
+{
+    const labels: Partial<Record<string, string>> = {
+        alive: '在线',
+        suspect: '可疑',
+        dead: '失联',
+        draining: '排空中',
+        maintenance: '维护中'
+    };
+    return labels[status];
+};
 
 const nodeTagType = (status: ClusterNodeResponse['status']): 'success' | 'warning' | 'danger' | 'info' =>
     status === 'alive' ? 'success' : status === 'dead' ? 'danger' : status === 'maintenance' ? 'info' : 'warning';

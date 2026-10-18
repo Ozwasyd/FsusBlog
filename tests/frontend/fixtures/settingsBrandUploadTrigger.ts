@@ -41,10 +41,10 @@ document.head.append(fixtureStyle)
 const selections = reactive<Record<string, string[]>>({})
 const failedPreviewUrl = ref('/__missing-brand-preview__.png')
 
-const recordUpload = (surface: string) => (options: UploadRequestOptions) => {
+const recordUpload = (surface: string) => async (options: UploadRequestOptions) => {
   selections[surface] ??= []
   selections[surface].push(options.file.name)
-  options.onSuccess?.({})
+  return {}
 }
 
 const ProbeUpload = defineComponent({
