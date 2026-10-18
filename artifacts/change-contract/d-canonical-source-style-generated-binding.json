@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/frontend/support/public-fixtures.mjs",
+        "tools/docs/public-preview-registry.mjs",
+        "tools/test-fixtures/receipt/canonical.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "artifacts/change-contract/canonical-test-declarations.json",
+            "sha256": "25b466c54f2359f9bab0851dd354eef349604b7ec9c0e3578f1a5b322a826c6c"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "8d7c4a2dbf94aa609bad8e72ff22c7dfb0133930635d99f2f51c27be0c91e698"
+        }
+    ]
+}

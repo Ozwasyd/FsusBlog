@@ -71,7 +71,8 @@ export function digestReceiptBody(document, digestField = 'receiptDigest')
     {
         throw new Error('receipt body must be a plain object');
     }
-    const { [digestField]: _ignored, ...body } = document;
+    const { [digestField]: excludedDigest, ...body } = document;
+    void excludedDigest;
     return digestCanonical(body);
 }
 

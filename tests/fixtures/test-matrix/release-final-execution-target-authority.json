@@ -1865,8 +1865,8 @@
         },
         {
             "path": "tests/frontend/support/public-fixtures.mjs",
-            "contentDigest": "sha256:d2f5dee1f8935fa45090837c6b13bc04a901fe77d7b431b9881cfb2edb2b02dd",
-            "indexDigest": "sha256:d2f5dee1f8935fa45090837c6b13bc04a901fe77d7b431b9881cfb2edb2b02dd"
+            "contentDigest": "sha256:6b7edd4cb42fd6360ea5d5f0544c90e6cb41d99a1a0fc76a401c29d986987d30",
+            "indexDigest": "sha256:6b7edd4cb42fd6360ea5d5f0544c90e6cb41d99a1a0fc76a401c29d986987d30"
         },
         {
             "path": "tests/frontend/support/runtime-browser-timeout.mjs",
@@ -3055,8 +3055,8 @@
         },
         {
             "path": "tools/docs/public-preview-registry.mjs",
-            "contentDigest": "sha256:907e6fa91f09db4fbe7ebd9484b7e5c1e595986d2af7e354c6d77981a436e314",
-            "indexDigest": "sha256:907e6fa91f09db4fbe7ebd9484b7e5c1e595986d2af7e354c6d77981a436e314"
+            "contentDigest": "sha256:ef4b35ae452e16a6a72076b006fa12d33a5b504172d570b2a51c079edd5c5f20",
+            "indexDigest": "sha256:ef4b35ae452e16a6a72076b006fa12d33a5b504172d570b2a51c079edd5c5f20"
         },
         {
             "path": "tools/docs/public-preview-runtime-identity.mjs",
@@ -4150,8 +4150,8 @@
         },
         {
             "path": "tools/test-fixtures/receipt/canonical.mjs",
-            "contentDigest": "sha256:d3d245e7df249e197750d69c415a562fb0c08afb0ec2912febbea2b872c79f55",
-            "indexDigest": "sha256:d3d245e7df249e197750d69c415a562fb0c08afb0ec2912febbea2b872c79f55"
+            "contentDigest": "sha256:81c0dffdda8f8752264a74dd4c408c13053e62fc10ede51e1a3f9771b8ed3bdb",
+            "indexDigest": "sha256:81c0dffdda8f8752264a74dd4c408c13053e62fc10ede51e1a3f9771b8ed3bdb"
         },
         {
             "path": "tools/test-fixtures/receipt/comment-cleanup-contract.mjs",

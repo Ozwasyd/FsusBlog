@@ -14,9 +14,11 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
-import { digestCanonical } from '../../../tools/test-fixtures/receipt/canonical.mjs';
-
 import { resolvePublicFixtureFile } from './fixture-paths.mjs';
+
+const { digestCanonical } = await import(
+    new URL('../../../tools/test-fixtures/receipt/canonical.mjs', import.meta.url)
+);
 
 const verifiedProjectionSchema = 'fsusblog.fixture-id-projection.v1';
 const preparedProjectionSchema = 'fsusblog.prepared-public-id-projection.v1';

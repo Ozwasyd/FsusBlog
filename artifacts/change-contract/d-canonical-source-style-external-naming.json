@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/public-preview-registry.mjs",
+                "tools/test-fixtures/receipt/canonical.mjs"
+            ],
+            "reason": "Preserve the existing external process environment names and public tooling entrypoints while correcting the two owned source modules under the unchanged registry. No external variable is renamed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "The original complete producer refreshes actual source content and index digests while preserving every existing external JSON key, target identity, source index and closure roster."
+        }
+    ]
+}
