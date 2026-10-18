@@ -13,7 +13,7 @@ interface BrowserSchedulerCapability {
     yield: () => Promise<void>;
 }
 
-type BrowserTaskTimer = ReturnType<typeof globalThis.setTimeout> | number;
+type BrowserTaskTimer<HostTimer = ReturnType<typeof globalThis.setTimeout>> = HostTimer | number;
 
 interface BrowserTaskSchedulerEnvironment {
     scheduler: BrowserSchedulerCapability | null;
