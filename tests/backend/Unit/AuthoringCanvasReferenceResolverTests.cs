@@ -1,14 +1,21 @@
 using System.Text.Json;
 
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Tests.TestInfrastructure;
 
 using NSubstitute;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Unit")]
-public sealed class AuthoringCanvasReferenceResolverTests
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class AuthoringCanvasReferenceResolverTests(PostgresSchemaMigrationFixture fixture) : IDisposable
 {
+    private readonly AuthoringCanvasAuthenticatedTestScope _authenticatedRequest =
+        AuthoringCanvasAuthenticatedTestScope.Standalone(fixture, 41);
+
+    public void Dispose() => _authenticatedRequest.Dispose();
+
     private const string CanvasDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string AuthorityDigest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private static readonly AuthoringCanvasOwner s_owner = new(41, "primary-site");

@@ -12,8 +12,11 @@ namespace FsusBlog.Server.Services.Authoring;
 public sealed class PostgresAuthoringCanvasOperationTransaction(
     ISqlSugarClient db,
     IAuthoringCanvasDocumentStore documentStore,
-    TimeProvider timeProvider) : IAuthoringCanvasOperationTransaction
+    TimeProvider timeProvider,
+    AuthoringCanvasRequestLifetime? requestLifetime = null) : IAuthoringCanvasOperationTransaction
 {
+    private readonly AuthoringCanvasRequestLifetime _requestLifetime = requestLifetime ?? new(db);
+
     internal const string TryAcquireLockSql =
         "SELECT pg_try_advisory_xact_lock(hashtextextended(@Identity, 0));";
     private static string NoReferenceValidationDigest
@@ -27,6 +30,9 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         CancellationToken cancellationToken = default)
     {
         ValidatePlan(plan);
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(plan.Owner, cancellationToken);
+        using IDisposable databaseCancellation = _requestLifetime.BindDatabaseCancellation(authorityScope);
+        cancellationToken = authorityScope.Token;
         cancellationToken.ThrowIfCancellationRequested();
         AuthoringCanvasOperationReceipt? result = null;
         bool preparedForCommit = false;
@@ -48,6 +54,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                     {
                         throw new AuthoringCanvasIdempotencyConflictException();
                     }
+                    await _requestLifetime.FenceTransactionAsync(authorityScope).ConfigureAwait(false);
                     result = AsReplay(replay);
                     return;
                 }
@@ -192,6 +199,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                 await InsertReceiptAsync(receipt, plan.Owner, plan.ReferenceValidationDigest, now)
                     .ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
+                await _requestLifetime.FenceTransactionAsync(authorityScope).ConfigureAwait(false);
                 result = receipt;
                 preparedForCommit = true;
             }).ConfigureAwait(false);
@@ -215,12 +223,38 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             }
             throw new InvalidOperationException("authoring_canvas_operation_transaction_failed");
         }
-        return result!;
+        return await _requestLifetime.PublishAsync(authorityScope, _ => Task.FromResult(result!)).ConfigureAwait(false);
     }
 
     public async Task<AuthoringCanvasOperationReceipt?> RecoverAsync(
         AuthoringCanvasOperationRecoveryQuery query,
         CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(query.Owner, cancellationToken);
+        return await _requestLifetime.PublishAsync(authorityScope,
+            token => RecoverOutcomeAsync(query, token)).ConfigureAwait(false);
+    }
+
+    internal async Task<AuthoringCanvasOperationReceipt?> RecoverOutcomeAsync(
+        AuthoringCanvasOperationRecoveryQuery query,
+        CancellationToken cancellationToken)
+    {
+        CancellationToken? previous = db.Ado.CancellationToken;
+        db.Ado.CancellationToken = cancellationToken;
+        try
+        {
+            return await RecoverOutcomeCoreAsync(query, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            db.Ado.CancellationToken = previous;
+        }
+    }
+
+    private async Task<AuthoringCanvasOperationReceipt?> RecoverOutcomeCoreAsync(
+        AuthoringCanvasOperationRecoveryQuery query,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(query);
         AuthoringCanvasContract.ValidateOwner(query.Owner);
@@ -241,6 +275,18 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
     }
 
     public async Task<IReadOnlyList<AuthoringCanvasOperationJournalEntry>> ReadJournalAsync(
+        AuthoringCanvasOwner owner,
+        Guid canvasId,
+        long afterRevision,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(owner, cancellationToken);
+        return await _requestLifetime.PublishAsync(authorityScope,
+            token => ReadJournalCoreAsync(owner, canvasId, afterRevision, limit, token)).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<AuthoringCanvasOperationJournalEntry>> ReadJournalCoreAsync(
         AuthoringCanvasOwner owner,
         Guid canvasId,
         long afterRevision,
@@ -284,6 +330,18 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         int limit,
         CancellationToken cancellationToken = default)
     {
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(owner, cancellationToken);
+        return await _requestLifetime.PublishAsync(authorityScope,
+            token => ReadReceiptsCoreAsync(owner, canvasId, afterRevision, limit, token)).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<AuthoringCanvasOperationReceipt>> ReadReceiptsCoreAsync(
+        AuthoringCanvasOwner owner,
+        Guid canvasId,
+        long afterRevision,
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
         AuthoringCanvasContract.ValidateOwner(owner);
         if (canvasId == Guid.Empty || afterRevision < 0 || limit is < 1 or > 10_000)
         {
@@ -291,7 +349,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         }
 
         var receipts = new List<AuthoringCanvasOperationReceipt>();
-        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT receipt_id, request_id, canvas_id, revision, mode, journal_id,
                    target_journal_id, command_count, command_kinds, affected_node_ids,
@@ -318,6 +376,16 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
     }
 
     public async Task<AuthoringCanvasHistoryWindow> ReadHistoryAsync(
+        AuthoringCanvasOwner owner,
+        Guid canvasId,
+        CancellationToken cancellationToken = default)
+    {
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(owner, cancellationToken);
+        return await _requestLifetime.PublishAsync(authorityScope,
+            token => ReadHistoryCoreAsync(owner, canvasId, token)).ConfigureAwait(false);
+    }
+
+    private async Task<AuthoringCanvasHistoryWindow> ReadHistoryCoreAsync(
         AuthoringCanvasOwner owner,
         Guid canvasId,
         CancellationToken cancellationToken = default)
@@ -927,7 +995,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         Guid requestId,
         CancellationToken cancellationToken)
     {
-        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT receipt_id, request_id, canvas_id, revision, mode, journal_id,
                    target_journal_id, command_count, command_kinds, affected_node_ids,
@@ -953,7 +1021,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         Guid canvasId,
         CancellationToken cancellationToken)
     {
-        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT id, owner_admin_principal_id, site_scope, schema_version, revision, title,
                    viewport_x, viewport_y, viewport_zoom, node_count, edge_count,
@@ -997,7 +1065,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         CancellationToken cancellationToken)
     {
         string lockClause = forUpdate ? " FOR UPDATE" : string.Empty;
-        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             $"""
             SELECT revision, canvas_content_digest, history_digest,
                    undo_journal_ids, redo_journal_ids, last_journal_id
@@ -1045,7 +1113,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
             return new Dictionary<Guid, AuthoringCanvasOperationJournalEntry>();
         }
         var rows = new Dictionary<Guid, JournalRow>();
-        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT journal_id, canvas_id, revision, mode, request_id, actor_user_id,
                    parent_journal_id, target_journal_id, previous_content_digest, content_digest,
@@ -1073,7 +1141,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
         var commands = rows.Keys.ToDictionary(
             static id => id,
             static _ => new SortedDictionary<int, StoredCommand>());
-        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT journal_id, command_ordinal, command_id, command_kind, command_digest
             FROM authoring_canvas_operation_command
@@ -1094,7 +1162,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                         reader.GetString(reader.GetOrdinal("command_digest"))));
             }
         }
-        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT journal_id, command_ordinal, direction, fact_payload::text AS fact_payload,
                    fact_digest
@@ -1124,7 +1192,7 @@ public sealed class PostgresAuthoringCanvasOperationTransaction(
                     : commands[journalId][ordinal].After).Add(fact);
             }
         }
-        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             """
             SELECT journal_id, direction, fact_kind, fact_id, exists,
                    node_type, node_order, position_x, position_y, width, height,

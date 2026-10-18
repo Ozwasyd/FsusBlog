@@ -195,7 +195,7 @@ public readonly record struct AdminSessionProjectionSnapshot(
 /// Active sessions are never evicted to admit another update: a budget breach makes
 /// the projection not-ready so subsequent validation remains fail-closed.
 /// </summary>
-public sealed class AdminSessionProjection
+public sealed partial class AdminSessionProjection
 {
     private const int SessionFixedBytes = 224;
     private const int PrincipalFixedBytes = 80;
@@ -245,7 +245,7 @@ public sealed class AdminSessionProjection
             throw new ArgumentOutOfRangeException(nameof(authorityGeneration));
         }
 
-        lock (_gate)
+        using (EnterGate())
         {
             if (_lastProcessedGeneration < authorityGeneration)
             {
@@ -271,7 +271,7 @@ public sealed class AdminSessionProjection
             throw new ArgumentException("A not-ready reason is required.", nameof(reason));
         }
 
-        lock (_gate)
+        using (EnterGate())
         {
             _ready = false;
             _notReadyReason = reason.Trim();
@@ -286,14 +286,14 @@ public sealed class AdminSessionProjection
     {
         if (!TryCreatePrincipalEntry(update, out PrincipalEntry? candidate, out string? error))
         {
-            lock (_gate)
+            using (EnterGate())
             {
                 _invalidUpdateCount++;
                 return Result(AdminSessionProjectionApplyStatus.Invalid, error);
             }
         }
 
-        lock (_gate)
+        using (EnterGate())
         {
             PrincipalEntry principalCandidate = candidate!;
             PruneTerminalSessionsLocked(_timeProvider.GetUtcNow(), preserveSessionId: null);
@@ -334,14 +334,14 @@ public sealed class AdminSessionProjection
     {
         if (!TryCreateSessionEntry(update, out SessionEntry? session, out PrincipalEntry? principal, out string? error))
         {
-            lock (_gate)
+            using (EnterGate())
             {
                 _invalidUpdateCount++;
                 return Result(AdminSessionProjectionApplyStatus.Invalid, error);
             }
         }
 
-        lock (_gate)
+        using (EnterGate())
         {
             SessionEntry sessionCandidate = session!;
             PrincipalEntry principalCandidate = principal!;
@@ -411,7 +411,7 @@ public sealed class AdminSessionProjection
         long principalId,
         ReadOnlySpan<byte> accessTokenHash)
     {
-        lock (_gate)
+        using (EnterGate())
         {
             _validationCount++;
             if (!_ready)
@@ -493,7 +493,7 @@ public sealed class AdminSessionProjection
     /// </summary>
     public int PruneExpiredAndRevoked()
     {
-        lock (_gate)
+        using (EnterGate())
         {
             return PruneTerminalSessionsLocked(_timeProvider.GetUtcNow(), preserveSessionId: null);
         }
@@ -505,7 +505,7 @@ public sealed class AdminSessionProjection
     /// </summary>
     public AdminSessionProjectionSnapshot Snapshot()
     {
-        lock (_gate)
+        using (EnterGate())
         {
             return new AdminSessionProjectionSnapshot(
                 _ready,

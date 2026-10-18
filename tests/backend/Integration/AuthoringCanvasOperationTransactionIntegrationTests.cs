@@ -14,8 +14,12 @@ namespace FsusBlog.Server.Tests.Integration;
 [Trait("Category", "Integration")]
 [Trait("Dependency", "Docker")]
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
-public sealed class AuthoringCanvasOperationTransactionIntegrationTests(PostgresSchemaMigrationFixture fixture)
+public sealed class AuthoringCanvasOperationTransactionIntegrationTests(PostgresSchemaMigrationFixture fixture) : IDisposable
 {
+    private readonly AuthoringCanvasAuthenticatedTestScope _authenticatedRequest = new();
+
+    public void Dispose() => _authenticatedRequest.Dispose();
+
     private const string NoteCanary = "PRIVATE-CANVAS-OPERATION-CANARY";
     private static readonly AuthoringCanvasOwner s_owner = new(1, "primary-site");
     private static readonly AuthoringCanvasGeometry s_geometry = new(10, 20, 240, 120);
@@ -354,7 +358,7 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         await db.Ado.ExecuteCommandAsync(
             """
-            CREATE TABLE admin_principal(id bigint PRIMARY KEY);
+            CREATE TABLE admin_principal(id bigint PRIMARY KEY, status text NOT NULL DEFAULT 'active', validationversion bigint NOT NULL DEFAULT 1);
             INSERT INTO admin_principal(id) VALUES (1);
             CREATE TABLE article(id integer PRIMARY KEY, marker text NOT NULL);
             CREATE TABLE article_revision(id bigint PRIMARY KEY, article_id integer NOT NULL);
@@ -369,6 +373,7 @@ public sealed class AuthoringCanvasOperationTransactionIntegrationTests(Postgres
             """);
         await ApplyMigrationAsync(db, AuthoringCanvasDocumentMigrationDefinitions.BuildMigration());
         await ApplyMigrationAsync(db, AuthoringCanvasOperationJournalMigrationDefinitions.BuildMigration());
+        await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
         return db;
     }
 

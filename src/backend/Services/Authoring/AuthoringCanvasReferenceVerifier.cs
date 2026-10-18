@@ -6,13 +6,20 @@ namespace FsusBlog.Server.Services.Authoring;
 /// </summary>
 public sealed class AuthoringCanvasReferenceVerifier(
     IAuthoringCanvasDocumentStore canvasStore,
-    IAuthoringCanvasReferenceFactSource factSource)
+    IAuthoringCanvasReferenceFactSource factSource,
+    AuthoringCanvasRequestLifetime? requestLifetime = null)
 {
+    private readonly AuthoringCanvasRequestLifetime _requestLifetime = requestLifetime ?? new();
+
     public async Task<AuthoringCanvasReferenceVerificationResult> VerifyAsync(
         AuthoringCanvasReferenceResolutionRequest request,
         AuthoringCanvasReferenceResolutionBatch candidate,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+        using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(request.Owner, cancellationToken);
+        using IDisposable databaseCancellation = _requestLifetime.BindDatabaseCancellation(authorityScope);
+        cancellationToken = authorityScope.Token;
         AuthoringCanvasReferenceContract.ValidateRequest(request);
         ArgumentNullException.ThrowIfNull(candidate);
         cancellationToken.ThrowIfCancellationRequested();
@@ -68,13 +75,16 @@ public sealed class AuthoringCanvasReferenceVerifier(
         }
         ValidateReceipt(request, coordinate, candidate, expected, reasons);
 
-        return new AuthoringCanvasReferenceVerificationResult(
+        return await _requestLifetime.PublishAsync(authorityScope, _ =>
+        {
+            return Task.FromResult(new AuthoringCanvasReferenceVerificationResult(
             request.CanvasId,
             request.CanvasRevision,
             expected.Length,
             expectedBatchDigest,
             reasons.Count == 0,
-            reasons);
+            reasons));
+        }).ConfigureAwait(false);
     }
 
     private static Dictionary<Guid, AuthoringCanvasReferenceFact> ExactFacts(
