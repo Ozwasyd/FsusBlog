@@ -60,3 +60,23 @@ continues to return NotFound for approval paths, including claim and completion.
 Full authorization acceptance still requires the canonical scope owner and original
 state/native/snapshot owners to implement and independently verify their custody
 contracts. Such work must precede production composition or positive runtime use.
+
+
+## Original scope text parity
+
+Approval ScopeView fields use the frozen state owner's `ValidateScope` and
+`IsField` semantics: nonempty text, original UTF-16 code-unit length limits
+(128 for extension ID, 64 for extension version, 256 for site/user/document),
+.NET trim boundaries, no control characters and no UTF-16 surrogate code units.
+Consequently even well-formed supplementary Unicode, including emoji, is refused
+in these fields. Optional document null remains valid. BMP format/noncharacter
+scalars and combining forms retain exactly the original owner's behavior; transport
+does not impose normalization or a new opaque-user policy.
+
+The existing schema identifies the frozen predicate owner. The original producer
+checks that predicate and limits before generation, emits the same C# predicate,
+and aligns TypeScript/native validation with it. Shared witnesses compare actual
+C# `ValidateScope` with generated encoders/decoders, frontend registry and production
+native dispatch for Unicode classes, malformed UTF-8 and length boundaries.
+The generic property scope codec retains its supplementary-Unicode behavior.
+These are text/format checks and provide no runtime authorization or owner custody.

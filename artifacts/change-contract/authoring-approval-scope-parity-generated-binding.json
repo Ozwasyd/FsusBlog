@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/contracts/generate-article-property-value-read-wire.mjs",
+        "tools/contracts/generate-article-property-value-read-golden.mjs",
+        "src/shared/Contracts/Validation/article-property-value-read-wire.json"
+    ],
+    "outputs": [
+        {
+            "path": "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+            "sha256": "c8fdabadc0a725e6e3a95530cb79fe864035a2fdd4a367a4a2edd57d3737d017"
+        },
+        {
+            "path": "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+            "sha256": "cfe5c0f0e00bbfe5ce2bc5715eb668a82c3e9e1000ba88bcbc39b326605bcf5e"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/property_value_read.generated.hpp",
+            "sha256": "93180f162df29882d0f3093f77054c31f122cfb0311b4358bbed1610cb57e174"
+        },
+        {
+            "path": "tests/fixtures/protocol/authoring-extension-approval-scope-text-golden.json",
+            "sha256": "cecaf3411a2d0283a0cdd77e60bd224b76ca907daf22096e25ed83ea4b9b2184"
+        }
+    ]
+}

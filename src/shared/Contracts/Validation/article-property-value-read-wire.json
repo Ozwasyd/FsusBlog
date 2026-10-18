@@ -1776,5 +1776,6 @@
   "contractNamespaces": [
     "FsusBlog.Shared.Contracts.ArticleProperties",
     "FsusBlog.Shared.Contracts.AuthoringExtensions"
-  ]
+  ],
+  "approvalScopeFieldOwner": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs"
 }

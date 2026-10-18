@@ -1,0 +1,109 @@
+{
+    "schema": "fsusblog.authoring-approval-scope-wire-parity.v1",
+    "status": "original-text-predicate-aligned; no-runtime-authority-qualified",
+    "frozenPredecessor": "da714e557248db711872b1d441d23274d98fa7ef",
+    "originalIssuerHead": "1647fc9535664ada98b7eccdffe09db240d91acd",
+    "review": "https://github.com/Ozwasyd/FsusBlog/pull/4624#pullrequestreview-5561975940",
+    "owner": {
+        "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs",
+        "method": "AuthoringExtensionStateContract.ValidateScope/IsField",
+        "sha256": "74fa534ad58aacec6468bcf48b96a21327ae2c7f55957ac837ee9568fbe4e1b5",
+        "sourceUnchanged": true
+    },
+    "delta": "Approval ScopeView only: retain original UTF-16 lengths/trim/control checks and also reject surrogate code units, including valid supplementary Unicode pairs; nullable document and generic property scope behavior remain unchanged.",
+    "red": {
+        "csharpVectors": 545,
+        "csharpMismatches": 23,
+        "nodeNativeCases": 547,
+        "nodeNativeFailures": 24,
+        "firstNativeMismatch": "ExtensionId-u10000-standalone"
+    },
+    "passed": {
+        "backend": 1194,
+        "frontend": 651,
+        "nodeWireNativeProtocol": 641,
+        "unicodeVectors": 545,
+        "scopeFieldWitnesses": 2725,
+        "originalOwnerComparisons": 2690,
+        "unrepresentableUtf8Refusals": 35,
+        "ownerDriftCounterexamples": 7,
+        "nativeFrames": 285,
+        "openApiOperations": 298,
+        "csharpStyleFiles": 1,
+        "frontendStyleEligibleFiles": 0
+    },
+    "unchanged": [
+        "Original issuer and state/scope owner source blobs",
+        "Host adapter, Shared records and record layouts",
+        "Protocol frame IDs and catalog, OpenAPI and HTTP operations",
+        "All four existing shared wire corpora",
+        "Production DI/HTTP and missing scope/state/native/snapshot custody refusal"
+    ],
+    "baseline": {
+        "typecheckDiagnostics": 255,
+        "newTypecheckDiagnostics": 0,
+        "powFailures": 5,
+        "newPowFailures": 0,
+        "postgresCollectionRegistry": "Exactly frozen predecessor baseline failures retained",
+        "legacyCensus": "Inherited baseline retained; no checker changes"
+    },
+    "notQualified": [
+        "Runtime scope authorization or provenance",
+        "State/native generation or snapshot acceptance custody",
+        "Production DI/HTTP, plugin execution or migration",
+        "Full matrix and remote checks"
+    ],
+    "rawEvidence": "local only; initial fixture-setup attempts are excluded; no raw fixture/authentication/SQL traces published",
+    "rawDirectory": "/workspace/shared/approval-scope-parity-evidence",
+    "rawLogs": [
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/qualified-red.log",
+            "sha256": "22fc51d1f090e9265b0fda8ce2f334616db3e10a288c06d385229afe49903089"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/csharp-qualified-red.log",
+            "sha256": "385c48d633a4bc31450e81fb7c563e99576c5cbc315b2e5da0c2ab07e24e20f2"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/backend-green.log",
+            "sha256": "409cac7327f4e0c6f0a7b19c3d7ab22e7d073c9436b692c6a6a3209fd07c3ab3"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/frontend-green.log",
+            "sha256": "6ae466315fe65bb786a418a888ce7c1dd53c1f8215ac1e24599022b5ce141eaa"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/wire-final.log",
+            "sha256": "fcce9262a5727a01de951e07f9f9d118722aa546801084fd4b93b793f18688ee"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/products.log",
+            "sha256": "d452e383d051f8dfb2670a09213892ac1dd6e934289decac10e078f6746ad0b0"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/final-generation-check.log",
+            "sha256": "3be45d3fa0fc99507046a9881c1b55df477e2ba03cc485d627b42846b9a8c3b5"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/typecheck.log",
+            "sha256": "29240c0dc673037f2294dbbc94d5b3cb7b9557c12ffd2757483594992755051d"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/pow.log",
+            "sha256": "4053a5019c96a52171a7fd03dd3597ed7822bdbc86031f5f479ce585c2bdcb54"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/pg-collections.log",
+            "sha256": "5ba5ebee790dc59cbca8822e16641cb726c7fe1e7033fcdde96d6c675bcdc01d"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/csharp-style.log",
+            "sha256": "a861ee37b4c732ab49c052d9fe23f7d6813163372d4651fa87fc9dcedaf48580"
+        },
+        {
+            "path": "/workspace/shared/approval-scope-parity-evidence/frontend-style.log",
+            "sha256": "e821ccb5b6ffe24e8dbb65a14f9381f9507805e4c41ca38c4ec99a3b0ae2df39"
+        }
+    ],
+    "generatedBinding": "artifacts/change-contract/authoring-approval-scope-parity-generated-binding.json"
+}

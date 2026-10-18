@@ -6,6 +6,8 @@ import { decodeApprovalPreview, encodeApprovalConfirmationFrame, encodeApprovalD
 
 import { AEDS_HEADER_LENGTH, FrameType } from '@wasm/protocol/frame';
 
+import { approvalScopeCorpus, scopePayloadWitness } from '../../../tools/support/approval-scope-witnesses.mjs';
+
 const corpus = JSON.parse(readFileSync(new URL('../../../fixtures/protocol/authoring-extension-approval-wire-golden.json', import.meta.url), 'utf8')) as {
     cases: Array<{ record: string; name: string; payloadHex: string; valid: boolean }>;
 };
@@ -61,5 +63,25 @@ describe('bounded approval wire through original registry without a production H
             expect(new Uint8Array(buffer).subarray(AEDS_HEADER_LENGTH)).toEqual(expected);
         }
         expect(() => encodeApprovalDecisionFrame({ ...decision, contractVersion: 1 })).toThrow();
+    });
+});
+
+
+describe('original issuer scope text through the registered frontend decoder', () =>
+{
+    it.each(approvalScopeCorpus.vectors)('$name', vector =>
+    {
+        for (const [index, field] of approvalScopeCorpus.fields.entries())
+        {
+            const operation = (): unknown => decodeApprovalPreview(scopePayloadWitness(field, vector), 'a'.repeat(64));
+            if (vector.expectedByField[index])
+            {
+                expect(operation).not.toThrow();
+            }
+            else
+            {
+                expect(operation).toThrow();
+            }
+        }
     });
 });
