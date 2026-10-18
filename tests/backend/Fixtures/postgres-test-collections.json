@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 436,
+      "estimatedFacts": 438,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
