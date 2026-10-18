@@ -31,6 +31,8 @@ internal sealed record ArticleGraphCurrentArticleAdmission(
 /// The original connection and transaction references must survive every read; auto-open/close is permitted.
 /// Provider decisions are captured by fixed index only after the exact zero/one count is checked;
 /// count/entry rereads and the original digest must agree with the owned immutable copy.
+/// Caller cancellation is observed after collection getters and before refusal; later getters
+/// are not evaluated after the first refusal, and unrelated dependency cancellation remains unavailable.
 /// </summary>
 public sealed class SqlArticleGraphAdmissionReader(
     ISqlSugarClient db,
@@ -55,69 +57,87 @@ public sealed class SqlArticleGraphAdmissionReader(
                 || !IsRevisionIdentity(request.RevisionIdentity)
                 || Transaction.Current is not null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
             var context = new CurrentReadContext(db.Ado.Connection, db.Ado.Transaction);
+            cancellationToken.ThrowIfCancellationRequested();
 
             // Authenticate live context before even resolving the portable identity.
             AuthorArticlePinPermissionSnapshot? preflight = await ReadPermissionAsync(request, [], context, cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (preflight is null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
             ArticleRelationArticleCoordinate? binding = await coordinates.FindArticleAsync(
                 db, request.ArticleIdentity, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (binding is null || binding.ArticleId <= 0 || binding.ArticleIdentity != request.ArticleIdentity
                 || !await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
             IReadOnlyList<int> articleIds = Array.AsReadOnly(new[] { binding.ArticleId });
             AuthorArticlePinPermissionSnapshot? permission = await ReadPermissionAsync(request, articleIds, context, cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (permission is null || !SameContext(preflight, permission))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
 
             // Metadata is read only after BOTH projection and opening authority succeed.
             AuthorArticlePinArticleFact? article = await ReadArticleAsync(binding.ArticleId, articleIds, context, cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (article is null)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
             ArticleRelationRevisionCoordinate? source = await coordinates.ReadRevisionAsync(
                 db, article.ArticleId, article.CurrentRevisionId, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (source is null || source.ArticleId != article.ArticleId
                 || source.RevisionId != article.CurrentRevisionId || source.RevisionNo != article.RevisionNo
                 || source.ArticleIdentity != request.ArticleIdentity || source.RevisionIdentity != request.RevisionIdentity
                 || source.SourceEpoch == Guid.Empty
                 || !await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
 
             // Fresh source reads detect drift; the old permission snapshot is never a validation provider.
             ArticleRelationRevisionCoordinate? currentSource = await coordinates.ReadRevisionAsync(
                 db, article.ArticleId, article.CurrentRevisionId, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (currentSource != source
                 || !await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
             AuthorArticlePinArticleFact? currentArticle = await ReadArticleAsync(binding.ArticleId, articleIds, context, cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (currentArticle != article)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
             AuthorArticlePinPermissionSnapshot? currentPermission = await ReadPermissionAsync(request, articleIds, context, cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (currentPermission is null || !SamePermission(permission, currentPermission)
                 || !HasFreshTransactionContext(context))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
             cancellationToken.ThrowIfCancellationRequested();
@@ -142,11 +162,11 @@ public sealed class SqlArticleGraphAdmissionReader(
         try
         {
             // Input digests/seals alone grant no authority; compare against actual fresh reads.
-            return current is not null && admission.ReadId != Guid.Empty
+            bool matches = current is not null && admission.ReadId != Guid.Empty
                 && current.Source == admission.Source && current.Article == admission.Article
-                && SamePermission(current.Permission, admission.Permission)
-                ? current
-                : null;
+                && SamePermission(current.Permission, admission.Permission);
+            cancellationToken.ThrowIfCancellationRequested();
+            return matches ? current : null;
         }
         catch (Exception)
         {
@@ -161,8 +181,11 @@ public sealed class SqlArticleGraphAdmissionReader(
         CurrentReadContext context,
         CancellationToken cancellationToken)
     {
-        if (!IsSameReadContext(context))
+        bool sameReadContext = IsSameReadContext(context);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!sameReadContext)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return null;
         }
         AuthorArticlePinPermissionSnapshot snapshot = await permissions.ResolveAsync(
@@ -171,22 +194,35 @@ public sealed class SqlArticleGraphAdmissionReader(
         // Never enumerate a provider-owned collection, including in the digest authority.
         // This reader requests only an empty preflight or one root decision.
         int count = articleIds.Count;
+        cancellationToken.ThrowIfCancellationRequested();
         IReadOnlyList<AuthorArticlePinPermissionDecision> supplied = snapshot.Decisions;
-        if (count is < 0 or > 1 || supplied is null || supplied.Count != count)
+        if (count is < 0 or > 1 || supplied is null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+        int suppliedCount = supplied.Count;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (suppliedCount != count)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             return null;
         }
         AuthorArticlePinPermissionDecision[] decisions = count == 0 ? [] : [supplied[0]];
+        cancellationToken.ThrowIfCancellationRequested();
         snapshot = snapshot with
         {
             Decisions = Array.AsReadOnly(decisions)
         };
-        if (supplied.Count != count
+        int capturedCount = supplied.Count;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (capturedCount != count
             || snapshot.Status != AuthorArticlePinPermissionSnapshotStatus.Current || snapshot.Owner != request.Owner
             || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.PermissionRevision)
             || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.SiteRevision)
             || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.SessionRevision))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return null;
         }
         if (count == 1)
@@ -195,14 +231,32 @@ public sealed class SqlArticleGraphAdmissionReader(
             if (decision is null || decision.ArticleId != articleIds[0] || !decision.CanProject || !decision.CanOpen
                 || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(decision.PermissionReference))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return null;
             }
         }
         // Verify the ORIGINAL digest, then reject observed same-count entry replacement.
         // Finite rereads are not an atomic provider revision or host usage fence.
-        if (snapshot.ContentDigest != AuthorArticlePinProjectionContract.ComputePermissionDigest(snapshot)
-            || count == 1 && supplied[0] != decisions[0] || supplied.Count != count)
+        if (snapshot.ContentDigest != AuthorArticlePinProjectionContract.ComputePermissionDigest(snapshot))
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            return null;
+        }
+        if (count == 1)
+        {
+            AuthorArticlePinPermissionDecision currentDecision = supplied[0];
+            cancellationToken.ThrowIfCancellationRequested();
+            if (currentDecision != decisions[0])
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return null;
+            }
+        }
+        int verifiedCount = supplied.Count;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (verifiedCount != count)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             return null;
         }
         return await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false) ? snapshot : null;
@@ -216,17 +270,22 @@ public sealed class SqlArticleGraphAdmissionReader(
     {
         if (!await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return null;
         }
         IReadOnlyList<AuthorArticlePinArticleFact> facts = await articles.ReadCurrentBatchAsync(articleIds, cancellationToken)
             .ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        if (facts.Count != 1
+        int count = facts.Count;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (count != 1
             || !await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return null;
         }
         AuthorArticlePinArticleFact fact = facts[0];
+        cancellationToken.ThrowIfCancellationRequested();
         return fact.ArticleId == articleId && fact.Exists && !fact.IsDeleted
             && Enum.IsDefined(fact.Status) && fact.Status != ArticleStatus.Deleted
             && fact.Title is not null && fact.CurrentRevisionId > 0 && fact.RevisionNo > 0
@@ -240,7 +299,9 @@ public sealed class SqlArticleGraphAdmissionReader(
     private async Task<bool> HasFreshStatementSnapshotsAsync(CurrentReadContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!HasFreshTransactionContext(context))
+        bool freshContext = HasFreshTransactionContext(context);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!freshContext)
         {
             return false;
         }
@@ -252,14 +313,18 @@ public sealed class SqlArticleGraphAdmissionReader(
         using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
             "SELECT current_setting('transaction_isolation');").ConfigureAwait(false))
         {
-            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            bool hasRow = await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!hasRow)
             {
                 return false;
             }
             isolation = reader.GetString(0);
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return isolation == "read committed" && HasFreshTransactionContext(context);
+        bool fresh = isolation == "read committed" && HasFreshTransactionContext(context);
+        cancellationToken.ThrowIfCancellationRequested();
+        return fresh;
     }
 
     private bool HasFreshTransactionContext(CurrentReadContext context)

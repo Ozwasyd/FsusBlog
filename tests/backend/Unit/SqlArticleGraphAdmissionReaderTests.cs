@@ -155,10 +155,98 @@ public sealed class SqlArticleGraphAdmissionReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task CallerCancellationDuringNormallyReturningProviderCountPropagates()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var decisions = new DecisionList(_ =>
+        {
+            cancellation.Cancel();
+            return 1;
+        });
+        var permission = new PermissionSource(request => Snapshot(request) with { Decisions = decisions });
+
+        OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            CreateReader(permission).ReadCurrentAsync(s_request, cancellation.Token));
+
+        Assert.Equal(cancellation.Token, error.CancellationToken);
+        Assert.Equal(1, decisions.CountReads);
+        Assert.Equal(0, decisions.IndexReads);
+        Assert.Equal(0, decisions.Enumerations);
+    }
+
+    [Fact]
+    public async Task CallerCancellationDuringEveryReturningPreflightCountStopsAtThatGetter()
+    {
+        foreach (int phase in new[] { 1, 2, 3 })
+        {
+            foreach (int returnedCount in new[] { -1, 0, 1, int.MaxValue })
+            {
+                using var cancellation = new CancellationTokenSource();
+                var decisions = new DecisionList(read =>
+                {
+                    if (read == phase)
+                    {
+                        cancellation.Cancel();
+                        return returnedCount;
+                    }
+                    return 0;
+                });
+                var permission = new PermissionSource(request => Snapshot(request) with { Decisions = decisions });
+
+                OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                    CreateReader(permission).ReadCurrentAsync(s_request, cancellation.Token));
+
+                Assert.Equal(cancellation.Token, error.CancellationToken);
+                Assert.Equal(phase, decisions.CountReads);
+                Assert.Equal(0, decisions.IndexReads);
+                Assert.Equal(0, decisions.Enumerations);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task FirstPreflightRefusalDoesNotReachLaterCancellingGetter()
+    {
+        foreach (string refusal in new[] { "count", "status", "digest" })
+        {
+            using var cancellation = new CancellationTokenSource();
+            int allowedReads = refusal == "count" ? 1 : 2;
+            var decisions = new DecisionList(read =>
+            {
+                if (read > allowedReads)
+                {
+                    cancellation.Cancel();
+                    throw new InvalidOperationException("Getter after first refusal must not run.");
+                }
+                return refusal == "count" ? 1 : 0;
+            });
+            var permission = new PermissionSource(request => Snapshot(request) with
+            {
+                Decisions = decisions,
+                Status = refusal == "status" ? AuthorArticlePinPermissionSnapshotStatus.Unavailable
+                    : AuthorArticlePinPermissionSnapshotStatus.Current,
+                ContentDigest = refusal == "digest" ? "forged" : Snapshot(request).ContentDigest
+            });
+
+            Assert.Null(await CreateReader(permission).ReadCurrentAsync(s_request, cancellation.Token));
+
+            Assert.False(cancellation.IsCancellationRequested);
+            Assert.Equal(allowedReads, decisions.CountReads);
+            Assert.Equal(0, decisions.IndexReads);
+            Assert.Equal(0, decisions.Enumerations);
+        }
+    }
+
+    [Fact]
     public async Task UnrelatedDependencyCancellationIsAnUnavailableSource()
     {
         var permission = new PermissionSource(_ => throw new OperationCanceledException());
         Assert.Null(await CreateReader(permission).ReadCurrentAsync(s_request));
+        var decisions = new DecisionList(_ => throw new OperationCanceledException());
+        permission = new PermissionSource(request => Snapshot(request) with { Decisions = decisions });
+        Assert.Null(await CreateReader(permission).ReadCurrentAsync(s_request));
+        Assert.Equal(1, decisions.CountReads);
+        Assert.Equal(0, decisions.Enumerations);
     }
 
     [Fact]

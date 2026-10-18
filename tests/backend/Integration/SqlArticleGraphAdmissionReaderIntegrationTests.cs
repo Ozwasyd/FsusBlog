@@ -687,6 +687,200 @@ public sealed class SqlArticleGraphAdmissionReaderIntegrationTests(PostgresSchem
             }
             await VerifyConcurrentPermissionReplacementAsync(db, request, stage);
         }
+        await VerifyPermissionGetterCancellationAsync(db, request);
+        await VerifyPermissionFirstRefusalAsync(db, request);
+        await VerifyArticleGetterCancellationAsync(db, request);
+    }
+
+    private static async Task VerifyPermissionGetterCancellationAsync(SqlSugarClient db, ArticleGraphCurrentArticleReadRequest request)
+    {
+        var connection = db.Ado.Connection;
+        var transaction = db.Ado.Transaction;
+        foreach (int stage in new[] { 1, 2, 3 })
+        {
+            foreach ((bool index, int phase) in new[] { (false, 1), (false, 2), (false, 3), (true, 1), (true, 2) })
+            {
+                if (stage == 1 && index)
+                {
+                    continue;
+                }
+                foreach (string outcome in new[] { "current", "refused", "failure" })
+                {
+                    using var cancellation = new CancellationTokenSource();
+                    DecisionList? supplied = null;
+                    var permission = new PermissionProbe(CreatePermission(db))
+                    {
+                        Transform = (call, snapshot) =>
+                        {
+                            if (call != stage)
+                            {
+                                return snapshot;
+                            }
+                            int expected = snapshot.Decisions.Count;
+                            supplied = new(snapshot.Decisions)
+                            {
+                                ReadCount = read =>
+                                {
+                                    if (index || read != phase)
+                                    {
+                                        return expected;
+                                    }
+                                    cancellation.Cancel();
+                                    return outcome == "failure" ? throw new InvalidOperationException("count failed after cancellation")
+                                        : outcome == "refused" ? expected + 1 : expected;
+                                },
+                                ReadIndex = (read, decision) =>
+                                {
+                                    if (!index || read != phase)
+                                    {
+                                        return decision;
+                                    }
+                                    cancellation.Cancel();
+                                    return outcome == "failure" ? throw new InvalidOperationException("index failed after cancellation")
+                                        : outcome == "refused" ? decision with
+                                        {
+                                            CanOpen = false
+                                        } : decision;
+                                }
+                            };
+                            return snapshot with
+                            {
+                                Decisions = supplied
+                            };
+                        }
+                    };
+                    var article = new ArticleProbe(new SqlAuthorArticlePinArticleProjectionSource(db));
+
+                    OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                        Reader(db, permission, article).ReadCurrentAsync(request, cancellation.Token));
+
+                    Assert.Equal(cancellation.Token, error.CancellationToken);
+                    Assert.Equal(stage, permission.Requests.Count);
+                    Assert.Equal(stage == 3 ? 2 : 0, article.Reads);
+                    Assert.NotNull(supplied);
+                    Assert.Equal(phase, supplied.CountReads);
+                    Assert.Equal(stage == 1 ? 0 : index ? phase : phase - 1, supplied.IndexReads);
+                    Assert.Equal(0, supplied.Enumerations);
+                    Assert.Same(connection, db.Ado.Connection);
+                    Assert.Same(transaction, db.Ado.Transaction);
+                    Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+                }
+            }
+        }
+    }
+
+    private static async Task VerifyPermissionFirstRefusalAsync(SqlSugarClient db, ArticleGraphCurrentArticleReadRequest request)
+    {
+        foreach (int stage in new[] { 2, 3 })
+        {
+            foreach (string refusal in new[] { "count", "captured-count", "can-open", "digest", "entry-change" })
+            {
+                using var cancellation = new CancellationTokenSource();
+                int allowedCounts = refusal == "count" ? 1 : 2;
+                int allowedIndices = refusal == "count" ? 0 : refusal == "entry-change" ? 2 : 1;
+                DecisionList? supplied = null;
+                var permission = new PermissionProbe(CreatePermission(db))
+                {
+                    Transform = (call, snapshot) =>
+                    {
+                        if (call != stage)
+                        {
+                            return snapshot;
+                        }
+                        supplied = new(snapshot.Decisions)
+                        {
+                            ReadCount = read =>
+                            {
+                                if (read > allowedCounts)
+                                {
+                                    cancellation.Cancel();
+                                    throw new InvalidOperationException("Count after first refusal must not run.");
+                                }
+                                return refusal == "count" || refusal == "captured-count" && read == 2 ? 2 : 1;
+                            },
+                            ReadIndex = (read, decision) =>
+                            {
+                                if (read > allowedIndices)
+                                {
+                                    cancellation.Cancel();
+                                    throw new InvalidOperationException("Index after first refusal must not run.");
+                                }
+                                return refusal == "can-open" || refusal == "entry-change" && read == 2
+                                    ? decision with
+                                    {
+                                        CanOpen = false
+                                    } : decision;
+                            }
+                        };
+                        return snapshot with
+                        {
+                            Decisions = supplied,
+                            ContentDigest = refusal == "digest" ? "forged" : snapshot.ContentDigest
+                        };
+                    }
+                };
+                var article = new ArticleProbe(new SqlAuthorArticlePinArticleProjectionSource(db));
+
+                Assert.Null(await Reader(db, permission, article).ReadCurrentAsync(request, cancellation.Token));
+
+                Assert.False(cancellation.IsCancellationRequested);
+                Assert.Equal(stage, permission.Requests.Count);
+                Assert.Equal(stage == 3 ? 2 : 0, article.Reads);
+                Assert.NotNull(supplied);
+                Assert.Equal(allowedCounts, supplied.CountReads);
+                Assert.Equal(allowedIndices, supplied.IndexReads);
+                Assert.Equal(0, supplied.Enumerations);
+            }
+        }
+    }
+
+    private static async Task VerifyArticleGetterCancellationAsync(SqlSugarClient db, ArticleGraphCurrentArticleReadRequest request)
+    {
+        foreach (int stage in new[] { 1, 2 })
+        {
+            foreach (bool index in new[] { false, true })
+            {
+                foreach (bool refused in new[] { false, true })
+                {
+                    using var cancellation = new CancellationTokenSource();
+                    int reads = 0;
+                    ArticleFactList? supplied = null;
+                    var permission = new PermissionProbe(CreatePermission(db));
+                    var article = new ArticleProbe(new SqlAuthorArticlePinArticleProjectionSource(db))
+                    {
+                        Transform = facts => ++reads != stage ? facts : supplied = new(facts,
+                            () =>
+                            {
+                                if (!index)
+                                {
+                                    cancellation.Cancel();
+                                }
+                                return !index && refused ? 0 : 1;
+                            },
+                            fact =>
+                            {
+                                cancellation.Cancel();
+                                return refused ? fact with
+                                {
+                                    IsDeleted = true
+                                } : fact;
+                            })
+                    };
+
+                    OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                        Reader(db, permission, article).ReadCurrentAsync(request, cancellation.Token));
+
+                    Assert.Equal(cancellation.Token, error.CancellationToken);
+                    Assert.Equal(2, permission.Requests.Count);
+                    Assert.Equal(stage, article.Reads);
+                    Assert.NotNull(supplied);
+                    Assert.Equal(1, supplied.CountReads);
+                    Assert.Equal(index ? 1 : 0, supplied.IndexReads);
+                    Assert.Equal(0, supplied.Enumerations);
+                    Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+                }
+            }
+        }
     }
 
     private static async Task VerifyConcurrentPermissionReplacementAsync(
@@ -943,6 +1137,48 @@ public sealed class SqlArticleGraphAdmissionReaderIntegrationTests(PostgresSchem
             throw new InvalidOperationException("Provider enumeration must not be entered.");
         }
 
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    private sealed class ArticleFactList(
+        IReadOnlyList<AuthorArticlePinArticleFact> values,
+        Func<int> count,
+        Func<AuthorArticlePinArticleFact, AuthorArticlePinArticleFact> item) : IReadOnlyList<AuthorArticlePinArticleFact>
+    {
+        public int CountReads
+        {
+            get; private set;
+        }
+        public int IndexReads
+        {
+            get; private set;
+        }
+        public int Enumerations
+        {
+            get; private set;
+        }
+        public int Count
+        {
+            get
+            {
+                CountReads++;
+                return count();
+            }
+        }
+        public AuthorArticlePinArticleFact this[int index]
+        {
+            get
+            {
+                IndexReads++;
+                Assert.Equal(0, index);
+                return item(values[index]);
+            }
+        }
+        public IEnumerator<AuthorArticlePinArticleFact> GetEnumerator()
+        {
+            Enumerations++;
+            throw new InvalidOperationException("Provider facts must not be enumerated.");
+        }
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
