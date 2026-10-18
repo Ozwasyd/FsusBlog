@@ -1,13 +1,13 @@
 using System.Data;
 using System.Data.Common;
 
+using FsusBlog.Contracts.Migration;
+
 using Microsoft.Data.Sqlite;
 using MySqlConnector;
 using Npgsql;
 using NSubstitute;
 using Xunit;
-
-using FsusBlog.Contracts.Migration;
 
 namespace FsusBlog.Migration.Tests;
 
