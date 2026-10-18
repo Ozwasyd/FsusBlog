@@ -3,6 +3,8 @@ namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 /// <summary>
 /// Leaf schema proposal for the parent migration owner. The store never executes DDL.
 /// Registration, current-schema inventory and production activation are separate work.
+/// The hash-only settlement companion is required before activating the updated owner;
+/// existing settled operations without recorded observations cannot be backfilled by retry.
 /// </summary>
 public static class AuthoringExtensionStateStorageSchema
 {
@@ -29,5 +31,9 @@ public static class AuthoringExtensionStateStorageSchema
         );
         CREATE INDEX ix_authoring_extension_state_backup_scope
             ON authoring_extension_state_backup(scope_id, plan_id);
+        CREATE TABLE authoring_extension_state_settlement (
+            plan_id varchar(64) COLLATE "C" PRIMARY KEY REFERENCES authoring_extension_state_migration(plan_id),
+            observation_sha256 varchar(64) COLLATE "C" NOT NULL CHECK (observation_sha256 ~ '^[0-9a-f]{64}$')
+        );
         """;
 }
