@@ -65,6 +65,15 @@ public sealed class AuthoringExtensionLifecycleResources(
         long generation,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_lock)
+        {
+            if (_active.TryGetValue(package.Contract.Manifest.Id, out ActiveResources? current) &&
+                (generation <= current.Generation || !CanReplaceGeneration(current)))
+            {
+                throw new AuthoringExtensionContractException("Lifecycle activation would overlap existing runtime authority.");
+            }
+        }
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
@@ -96,8 +105,7 @@ public sealed class AuthoringExtensionLifecycleResources(
 
                 _active.TryGetValue(package.Contract.Manifest.Id, out previous);
                 if (previous is not null &&
-                    (generation <= previous.Generation ||
-                        (!previous.Retired && previous.Settlement?.CleanupReport?.IsEmpty != true)))
+                    (generation <= previous.Generation || !CanReplaceGeneration(previous)))
                 {
                     throw new AuthoringExtensionContractException("Lifecycle activation would overlap existing runtime authority.");
                 }
@@ -117,15 +125,27 @@ public sealed class AuthoringExtensionLifecycleResources(
             {
                 await hostResources.ActivateAtomicallyAsync(package, targets, cancellationToken);
             }
-            cancellationToken.ThrowIfCancellationRequested();
-            filterRegistry?.ActivateAtomically(package, targets);
+            bool cancelled = cancellationToken.IsCancellationRequested;
+            if (!cancelled)
+            {
+                filterRegistry?.ActivateAtomically(package, targets);
+            }
+            bool blocked;
             lock (_lock)
             {
                 _targetHistory[historyKey] = [.. targets];
+                blocked = cancelled || (previous is not null && !CanReplaceGeneration(previous));
                 _active[package.Contract.Manifest.Id] = new ActiveResources(package, targets, generation)
                 {
-                    Previous = previous
+                    Previous = previous,
+                    Revoking = blocked,
+                    SettlementRequired = blocked
                 };
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (blocked)
+            {
+                throw new AuthoringExtensionContractException("Prior lifecycle custody changed during activation; new host custody is retained for cleanup.");
             }
         }
         finally
@@ -134,43 +154,21 @@ public sealed class AuthoringExtensionLifecycleResources(
         }
     }
 
-    public async ValueTask TrackWorkerAsync(
+    public ValueTask TrackWorkerAsync(
         string extensionId,
         long generation,
         IAuthoringWorkerSandboxInstance worker,
-        CancellationToken cancellationToken = default)
-    {
-        if (cancellationToken.IsCancellationRequested)
-        {
-            await TerminateAndDisposeWorkerAsync(new(worker), "lifecycle-track-cancelled");
-            cancellationToken.ThrowIfCancellationRequested();
-        }
+        CancellationToken cancellationToken = default) =>
+        TrackAsync(extensionId, generation, worker, static resources => resources.Workers,
+            TerminateAndDisposeWorkerAsync, "Worker", cancellationToken);
 
-        if (!TryTrack(extensionId, generation, worker, static resources => resources.Workers))
-        {
-            await TerminateAndDisposeWorkerAsync(new(worker), "lifecycle-not-active");
-            throw new AuthoringExtensionContractException("Worker started outside an active lifecycle generation.");
-        }
-    }
-
-    public async ValueTask TrackServiceAsync(
+    public ValueTask TrackServiceAsync(
         string extensionId,
         long generation,
         IAuthoringServiceProcess service,
-        CancellationToken cancellationToken = default)
-    {
-        if (cancellationToken.IsCancellationRequested)
-        {
-            await TerminateAndDisposeServiceAsync(new(service), "lifecycle-track-cancelled");
-            cancellationToken.ThrowIfCancellationRequested();
-        }
-
-        if (!TryTrack(extensionId, generation, service, static resources => resources.Services))
-        {
-            await TerminateAndDisposeServiceAsync(new(service), "lifecycle-not-active");
-            throw new AuthoringExtensionContractException("Service started outside an active lifecycle generation.");
-        }
-    }
+        CancellationToken cancellationToken = default) =>
+        TrackAsync(extensionId, generation, service, static resources => resources.Services,
+            TerminateAndDisposeServiceAsync, "Service", cancellationToken);
 
     public ValueTask ReleaseWorkerAsync(
         string extensionId,
@@ -213,6 +211,7 @@ public sealed class AuthoringExtensionLifecycleResources(
                 resources.Settlement = scope;
                 resources.SettlementRequired = true;
                 resources.Revoking = true;
+                resources.Retired = false;
             }
 
             if (!scope.HasHostScope && hostResources is IAuthoringLifecycleHostSettlementAuthority authority)
@@ -265,11 +264,15 @@ public sealed class AuthoringExtensionLifecycleResources(
         {
             TrackedResource<IAuthoringWorkerSandboxInstance>[] workers;
             TrackedResource<IAuthoringServiceProcess>[] services;
+            ActiveResources? roster;
+            long rosterVersion;
             lock (_lock)
             {
                 ActiveResources? resources = settlement is null
                     ? _active.GetValueOrDefault(extensionId)
                     : FindGeneration(extensionId, generation);
+                roster = resources;
+                rosterVersion = resources?.RosterVersion ?? 0;
                 if (resources is null)
                 {
                     if (settlement is not null)
@@ -379,10 +382,21 @@ public sealed class AuthoringExtensionLifecycleResources(
                 host.Grants,
                 host.ScheduledJobs,
                 host.HostSurfaces);
+            lock (_lock)
+            {
+                if (roster is not null && roster.RosterVersion != rosterVersion)
+                {
+                    throw new AuthoringExtensionContractException("Lifecycle cleanup roster changed during settlement.");
+                }
+            }
             if (settlement is not null)
             {
                 lock (_lock)
                 {
+                    if (roster!.RosterVersion != rosterVersion || !settlement.NativeCustodySettled)
+                    {
+                        throw new AuthoringExtensionContractException("Lifecycle cleanup custody changed before reporting.");
+                    }
                     settlement.RecordCleanupReport(_settlementKey, report);
                 }
             }
@@ -390,6 +404,10 @@ public sealed class AuthoringExtensionLifecycleResources(
             {
                 lock (_lock)
                 {
+                    if (roster is not null && roster.RosterVersion != rosterVersion)
+                    {
+                        throw new AuthoringExtensionContractException("Lifecycle cleanup custody changed before retirement.");
+                    }
                     if (!_active.TryGetValue(extensionId, out ActiveResources? current))
                     {
                         return report;
@@ -439,7 +457,7 @@ public sealed class AuthoringExtensionLifecycleResources(
                     return false;
                 }
 
-                if (resources.Generation != expectedGeneration || resources.Revoking)
+                if (resources.Generation != expectedGeneration || !CanAdmitWork(resources))
                 {
                     throw new AuthoringExtensionContractException(
                         "Lifecycle generation rebind is stale or already revoking.");
@@ -507,38 +525,128 @@ public sealed class AuthoringExtensionLifecycleResources(
         return ValueTask.CompletedTask;
     }
 
-    private bool TryTrack<T>(
+    private async ValueTask TrackAsync<T>(
         string extensionId,
         long generation,
         T resource,
-        Func<ActiveResources, List<TrackedResource<T>>> select)
+        Func<ActiveResources, List<TrackedResource<T>>> select,
+        Func<TrackedResource<T>, string, ValueTask> cleanup,
+        string kind,
+        CancellationToken cancellationToken)
         where T : class, IAsyncDisposable
     {
-        if (string.IsNullOrWhiteSpace(extensionId) || generation < 1 || resource is null)
-        {
-            return false;
-        }
-
-        TrackedResource<T> entry = CaptureTrackedResource(resource);
+        bool cancelled = cancellationToken.IsCancellationRequested;
+        bool accepted = false;
+        bool alreadyOwned = false;
+        TaskCompletionSource? initialized = null;
+        TrackedResource<T>? entry = null;
         lock (_lock)
         {
-            if (!_active.TryGetValue(extensionId, out ActiveResources? resources) ||
-                resources.Generation != generation || resources.Revoking)
+            _active.TryGetValue(extensionId ?? string.Empty, out ActiveResources? current);
+            foreach (ActiveResources head in _active.Values)
+            {
+                for (ActiveResources? owned = head; owned is not null; owned = owned.Previous)
+                {
+                    TrackedResource<T>? existing = select(owned).Find(candidate => ReferenceEquals(candidate.Instance, resource));
+                    if (existing is not null ||
+                        owned.Workers.Any(candidate => ReferenceEquals(candidate.Instance, resource)) ||
+                        owned.Services.Any(candidate => ReferenceEquals(candidate.Instance, resource)))
+                    {
+                        alreadyOwned = true;
+                        accepted = !cancelled && existing is not null && ReferenceEquals(current, owned) &&
+                            owned.Generation == generation && CanAdmitWork(owned);
+                        break;
+                    }
+                }
+                if (alreadyOwned)
+                {
+                    break;
+                }
+            }
+
+            if (!alreadyOwned)
+            {
+                entry = new(resource);
+                initialized = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                entry.Initialization = initialized.Task;
+                accepted = !cancelled && resource is not null && generation > 0 && current is not null &&
+                    current.Generation == generation && CanAdmitWork(current);
+                entry.Rejected = !accepted;
+                ActiveResources? custody = FindGeneration(extensionId, generation) ?? current;
+                if (custody is not null && resource is not null)
+                {
+                    select(custody).Add(entry);
+                    custody.RosterVersion++;
+                    if (!accepted)
+                    {
+                        custody.Retired = false;
+                        custody.Settlement?.InvalidateReports(_settlementKey);
+                    }
+                }
+            }
+        }
+
+        if (alreadyOwned)
+        {
+            if (cancelled)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            if (!accepted)
+            {
+                throw new AuthoringExtensionContractException($"{kind} is already owned by another lifecycle state.");
+            }
+            return;
+        }
+
+        try
+        {
+            CaptureNativeDetails(entry!);
+        }
+        finally
+        {
+            initialized!.SetResult();
+        }
+        if (accepted)
+        {
+            return;
+        }
+
+        await cleanup(entry!, cancelled ? "lifecycle-track-cancelled" : "lifecycle-not-active");
+        if (cancelled)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        throw new AuthoringExtensionContractException($"{kind} started outside an active lifecycle generation.");
+    }
+
+    private static bool HasRejectedCustody(ActiveResources resources) =>
+        resources.Workers.Any(static entry => entry.Rejected && (entry.TerminationFailed || !NativeCustodyIsSettled(entry))) ||
+        resources.Services.Any(static entry => entry.Rejected && (entry.TerminationFailed || !NativeCustodyIsSettled(entry)));
+
+    private static bool CanReplaceGeneration(ActiveResources resources)
+    {
+        for (ActiveResources? generation = resources; generation is not null; generation = generation.Previous)
+        {
+            if (HasRejectedCustody(generation) ||
+                (!generation.Retired && generation.Settlement?.CleanupReport?.IsEmpty != true))
             {
                 return false;
             }
-
-            List<TrackedResource<T>> tracked = select(resources);
-            if (!tracked.Any(candidate => ReferenceEquals(candidate.Instance, resource)))
-            {
-                tracked.Add(entry);
-            }
-            return true;
         }
+        return true;
     }
+
+    private static bool CanAdmitWork(ActiveResources resources) =>
+        !resources.Revoking && !resources.Retired && !HasRejectedCustody(resources) &&
+        (resources.Previous is null || CanReplaceGeneration(resources.Previous));
 
     private ActiveResources? FindGeneration(string extensionId, long generation)
     {
+        if (string.IsNullOrWhiteSpace(extensionId))
+        {
+            return null;
+        }
         _active.TryGetValue(extensionId, out ActiveResources? resources);
         while (resources is not null && resources.Generation != generation)
         {
@@ -547,23 +655,22 @@ public sealed class AuthoringExtensionLifecycleResources(
         return resources;
     }
 
-    private static TrackedResource<T> CaptureTrackedResource<T>(T instance)
+    private static void CaptureNativeDetails<T>(TrackedResource<T> entry)
         where T : class, IAsyncDisposable
     {
-        var entry = new TrackedResource<T>(instance);
         if (!OperatingSystem.IsLinux())
         {
-            return entry;
+            return;
         }
         try
         {
-            if (instance is IAuthoringWorkerSandboxInstance worker &&
+            if (entry.Instance is IAuthoringWorkerSandboxInstance worker &&
                 AuthoringRuntimeIncarnationLease.TryObserveWorker(worker, out AuthoringRuntimeIncarnationLease? workerLease))
             {
                 entry.Incarnation = workerLease;
                 entry.WorkerDescriptor = workerLease.GetWorkerDescriptor(worker);
             }
-            else if (instance is IAuthoringServiceProcess service &&
+            else if (entry.Instance is IAuthoringServiceProcess service &&
                 AuthoringRuntimeIncarnationLease.TryObserveService(service, out AuthoringRuntimeIncarnationLease? serviceLease))
             {
                 entry.Incarnation = serviceLease;
@@ -574,12 +681,13 @@ public sealed class AuthoringExtensionLifecycleResources(
         {
             // A concurrently ended owner cannot supply a new live descriptor. Keep that history unknown.
         }
-        return entry;
+        return;
     }
 
     private static bool NativeCustodyIsSettled<T>(TrackedResource<T> resource)
         where T : class, IAsyncDisposable =>
-        OperatingSystem.IsLinux() && resource.Disposed &&
+        OperatingSystem.IsLinux() && resource.Initialization.IsCompleted &&
+        (resource.CleanupTask is null || resource.CleanupTask.IsCompleted) && resource.Disposed &&
         (resource.WorkerDescriptor is not null || resource.ServiceDescriptor is not null) &&
         resource.Incarnation is not null && !resource.Incarnation.CustodyRetained;
 
@@ -608,18 +716,30 @@ public sealed class AuthoringExtensionLifecycleResources(
                 return;
             }
 
-            if (tracked.ReleaseTask is null)
+            if (tracked.CleanupTask is not null)
             {
-                completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                tracked.ReleaseTask = completion.Task;
+                release = tracked.CleanupTask;
             }
-            release = tracked.ReleaseTask;
+            else if (tracked.Rejected)
+            {
+                return;
+            }
+            else
+            {
+                if (tracked.ReleaseTask is null)
+                {
+                    completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                    tracked.ReleaseTask = completion.Task;
+                }
+                release = tracked.ReleaseTask;
+            }
         }
 
         if (completion is not null)
         {
             try
             {
+                await tracked.Initialization;
                 await resource.DisposeAsync();
                 lock (_lock)
                 {
@@ -665,6 +785,39 @@ public sealed class AuthoringExtensionLifecycleResources(
         string terminationFailure)
         where T : class, IAsyncDisposable
     {
+        TaskCompletionSource? completion = null;
+        Task pending;
+        lock (_lock)
+        {
+            if (resource.CleanupTask is null || resource.CleanupTask.IsFaulted || resource.CleanupTask.IsCanceled)
+            {
+                completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                resource.CleanupTask = completion.Task;
+            }
+            pending = resource.CleanupTask;
+        }
+        if (completion is not null)
+        {
+            try
+            {
+                await TerminateAndDisposeCoreAsync(resource, terminate, terminationFailure);
+                completion.SetResult();
+            }
+            catch (Exception exception)
+            {
+                completion.SetException(exception);
+            }
+        }
+        await pending;
+    }
+
+    private async ValueTask TerminateAndDisposeCoreAsync<T>(
+        TrackedResource<T> resource,
+        Func<T, ValueTask> terminate,
+        string terminationFailure)
+        where T : class, IAsyncDisposable
+    {
+        await resource.Initialization;
         if (resource.ReleaseTask is not null)
         {
             try
@@ -775,6 +928,8 @@ public sealed class AuthoringExtensionLifecycleResources(
 
         public bool Retired;
 
+        public long RosterVersion;
+
         public ActiveResources? Previous;
     }
 
@@ -801,6 +956,12 @@ public sealed class AuthoringExtensionLifecycleResources(
         public bool? TerminationSucceeded;
 
         public Exception? Failure;
+
+        public Task Initialization = Task.CompletedTask;
+
+        public Task? CleanupTask;
+
+        public bool Rejected;
 
         public AuthoringRuntimeIncarnationLease? Incarnation;
 
@@ -836,6 +997,7 @@ public sealed class AuthoringExtensionLifecycleResources(
         private Exception? _releaseFailure;
         private bool _released;
         private bool _disposing;
+        private long _reportVersion;
 
         internal SettlementScope(AuthoringExtensionLifecycleResources owner, string extensionId, long generation, object key)
         {
@@ -892,6 +1054,14 @@ public sealed class AuthoringExtensionLifecycleResources(
         {
             RequireOwner(key);
             _report = report;
+            _reportVersion = _resources.RosterVersion;
+        }
+
+        internal void InvalidateReports(object key)
+        {
+            RequireOwner(key);
+            _hostReport = null;
+            _report = null;
         }
 
         public VerifiedAuthoringPackage Package => _resources.Package;
@@ -915,21 +1085,72 @@ public sealed class AuthoringExtensionLifecycleResources(
             get;
         }
 
-        public bool NativeCustodySettled =>
-            OperatingSystem.IsLinux() &&
-            _workers.All(NativeCustodyIsSettled) && _services.All(NativeCustodyIsSettled);
+        public bool NativeCustodySettled
+        {
+            get
+            {
+                lock (_owner._lock)
+                {
+                    return OperatingSystem.IsLinux() &&
+                        _workers.Concat(_resources.Workers).All(NativeCustodyIsSettled) &&
+                        _services.Concat(_resources.Services).All(NativeCustodyIsSettled);
+                }
+            }
+        }
 
-        public AuthoringRuntimeIncarnationLease? GetWorkerIncarnation(IAuthoringWorkerSandboxInstance worker) =>
-            _workers.Single(entry => ReferenceEquals(entry.Instance, worker)).Incarnation;
+        public ImmutableArray<IAuthoringWorkerSandboxInstance> RejectedWorkers
+        {
+            get
+            {
+                lock (_owner._lock)
+                {
+                    return [.. _resources.Workers.Where(static entry => entry.Rejected).Select(static entry => entry.Instance)];
+                }
+            }
+        }
 
-        public AuthoringRuntimeIncarnationLease? GetServiceIncarnation(IAuthoringServiceProcess service) =>
-            _services.Single(entry => ReferenceEquals(entry.Instance, service)).Incarnation;
+        public ImmutableArray<IAuthoringServiceProcess> RejectedServices
+        {
+            get
+            {
+                lock (_owner._lock)
+                {
+                    return [.. _resources.Services.Where(static entry => entry.Rejected).Select(static entry => entry.Instance)];
+                }
+            }
+        }
 
-        public AuthoringWorkerLaunchDescriptor? GetWorkerDescriptor(IAuthoringWorkerSandboxInstance worker) =>
-            _workers.Single(entry => ReferenceEquals(entry.Instance, worker)).WorkerDescriptor;
+        public AuthoringRuntimeIncarnationLease? GetWorkerIncarnation(IAuthoringWorkerSandboxInstance worker)
+        {
+            lock (_owner._lock)
+            {
+                return _workers.Concat(_resources.Workers).First(entry => ReferenceEquals(entry.Instance, worker)).Incarnation;
+            }
+        }
 
-        public AuthoringServiceLaunchDescriptor? GetServiceDescriptor(IAuthoringServiceProcess service) =>
-            _services.Single(entry => ReferenceEquals(entry.Instance, service)).ServiceDescriptor;
+        public AuthoringRuntimeIncarnationLease? GetServiceIncarnation(IAuthoringServiceProcess service)
+        {
+            lock (_owner._lock)
+            {
+                return _services.Concat(_resources.Services).First(entry => ReferenceEquals(entry.Instance, service)).Incarnation;
+            }
+        }
+
+        public AuthoringWorkerLaunchDescriptor? GetWorkerDescriptor(IAuthoringWorkerSandboxInstance worker)
+        {
+            lock (_owner._lock)
+            {
+                return _workers.Concat(_resources.Workers).First(entry => ReferenceEquals(entry.Instance, worker)).WorkerDescriptor;
+            }
+        }
+
+        public AuthoringServiceLaunchDescriptor? GetServiceDescriptor(IAuthoringServiceProcess service)
+        {
+            lock (_owner._lock)
+            {
+                return _services.Concat(_resources.Services).First(entry => ReferenceEquals(entry.Instance, service)).ServiceDescriptor;
+            }
+        }
 
         public AuthoringLifecycleHostResourceReport? HostCleanupReport
         {
@@ -937,7 +1158,7 @@ public sealed class AuthoringExtensionLifecycleResources(
             {
                 lock (_owner._lock)
                 {
-                    return _hostReport;
+                    return _disposing ? null : _hostReport;
                 }
             }
         }
@@ -948,7 +1169,7 @@ public sealed class AuthoringExtensionLifecycleResources(
             {
                 lock (_owner._lock)
                 {
-                    return _report;
+                    return _disposing || _reportVersion != _resources.RosterVersion ? null : _report;
                 }
             }
         }
@@ -990,7 +1211,7 @@ public sealed class AuthoringExtensionLifecycleResources(
         {
             lock (_owner._lock)
             {
-                TrackedResource<IAuthoringWorkerSandboxInstance> entry = _workers.Single(
+                TrackedResource<IAuthoringWorkerSandboxInstance> entry = _workers.Concat(_resources.Workers).First(
                     entry => ReferenceEquals(entry.Instance, worker));
                 return new(entry.Disposed, entry.TerminationSucceeded, entry.Failure,
                     OperatingSystem.IsLinux() ? entry.Incarnation?.CustodyRetained : null);
@@ -1001,7 +1222,7 @@ public sealed class AuthoringExtensionLifecycleResources(
         {
             lock (_owner._lock)
             {
-                TrackedResource<IAuthoringServiceProcess> entry = _services.Single(
+                TrackedResource<IAuthoringServiceProcess> entry = _services.Concat(_resources.Services).First(
                     entry => ReferenceEquals(entry.Instance, service));
                 return new(entry.Disposed, entry.TerminationSucceeded, entry.Failure,
                     OperatingSystem.IsLinux() ? entry.Incarnation?.CustodyRetained : null);
