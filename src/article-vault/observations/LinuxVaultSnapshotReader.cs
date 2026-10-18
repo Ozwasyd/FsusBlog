@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text;
 using System.Text.Json.Serialization;
 
 using FsusBlog.ArticleVault.Linux;
@@ -63,6 +64,71 @@ public sealed class LinuxVaultSnapshotReadResult
 }
 
 /// <summary>
+/// Immutable bytes captured from one inode under an actual kernel read lease. Construction is
+/// native-owner-only. This says nothing about editor intent, a later namespace binding, expected
+/// inode replacement, synchronization, base commits or the watcher's clean watermark.
+/// </summary>
+public sealed class LinuxVaultStableByteReadResult
+{
+    internal LinuxVaultStableByteReadResult(VaultPathStructuralScope scope, string relativePath,
+        string reasonCode, byte[]? bytes = null, VaultSourceByteIdentity? byteIdentity = null,
+        VaultFileMetadataObservation? metadata = null)
+    {
+        Scope = scope;
+        RelativePath = relativePath;
+        ReasonCode = reasonCode;
+        Bytes = bytes?.ToImmutableArray() ?? [];
+        ByteIdentity = byteIdentity;
+        Metadata = metadata;
+    }
+
+    public VaultPathStructuralScope Scope
+    {
+        get;
+    }
+
+    public string RelativePath
+    {
+        get;
+    }
+
+    public string ReasonCode
+    {
+        get;
+    }
+
+    [JsonIgnore]
+    public ImmutableArray<byte> Bytes
+    {
+        get;
+    }
+
+    public VaultSourceByteIdentity? ByteIdentity
+    {
+        get;
+    }
+
+    public VaultFileMetadataObservation? Metadata
+    {
+        get;
+    }
+
+    public bool HasStableInodeBytes => ByteIdentity is not null;
+
+    public bool RequiresRetry => !HasStableInodeBytes;
+
+    public bool RequiresNativeCompletionVerification => true;
+
+    public bool CanAdmitSynchronization => false;
+
+    public bool CanCommitBase => false;
+
+    public bool CanExecuteConditionalReplacement => false;
+
+    public bool CanClearWatermark => false;
+}
+
+/// <summary>
 /// Reads bounded original bytes only through the existing #2109 root-bound descriptor API. The
 /// caller owns the root scope; each read owns and closes its issued source handles. No watcher,
 /// arbitrary absolute-path API, mutation, base commit or native completion receipt is introduced.
@@ -95,6 +161,92 @@ public sealed class LinuxVaultSnapshotReader
     public LinuxVaultSnapshotReadResult Read(string relativePath, IReadOnlyList<string> observedPaths,
         LinuxVaultRawFact? completionFact = null, CancellationToken cancellationToken = default)
         => ReadBounded(relativePath, observedPaths, completionFact, ArticleVaultSnapshotAssessor.MaxSourceBytes, cancellationToken);
+
+    /// <summary>
+    /// Acquires F_SETLEASE(F_RDLCK) on a same-UID, root-issued regular-file descriptor and keeps
+    /// it across both bounded samples, statx comparisons and path revalidation. A pre-existing
+    /// writer, pending/forced break, unsupported lease, cancellation or drift yields no bytes.
+    /// A read lease does not prove editor completion: an editor can close a partial save and
+    /// resume later. No completionFact, namespace CAS, rescan or synchronization grant is accepted.
+    /// </summary>
+    public LinuxVaultStableByteReadResult ReadKernelGuarded(string relativePath,
+        IReadOnlyList<string> observedPaths, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            string[] paths = observedPaths.ToArray();
+            VaultPathStructuralAnalysis path = _scope.AnalyzeProjection(relativePath, paths);
+            if (path.Classification != VaultPathStructuralClass.ManifestSourceProjection)
+            {
+                return new(_scope.Scope, relativePath, path.ReasonCode ?? "vault_snapshot_source_projection_required");
+            }
+
+            LinuxVaultStableByteReadResult? candidate = null;
+            LinuxVaultSnapshotNative.WithReadLease(() => _scope.OpenSourceFile(relativePath), (descriptor, check) =>
+            {
+                Sample first = ReadSample(descriptor, ArticleVaultSnapshotAssessor.MaxSourceBytes, cancellationToken, check);
+                Sample second = ReadSample(descriptor, ArticleVaultSnapshotAssessor.MaxSourceBytes, cancellationToken, check);
+                if (first.Before != first.After || first.After != second.Before || second.Before != second.After
+                    || !first.Bytes.AsSpan().SequenceEqual(second.Bytes))
+                {
+                    throw new LinuxVaultWatcherException("vault_snapshot_native_metadata_or_bytes_changed");
+                }
+
+                if (!second.After.Metadata.IsReadable)
+                {
+                    throw new LinuxVaultWatcherException("vault_snapshot_permission_blocked");
+                }
+
+                if (second.Bytes.Length == 0)
+                {
+                    throw new LinuxVaultWatcherException("vault_snapshot_empty_save_unproven");
+                }
+
+                VaultSourceByteIdentity identity = ArticleVaultManifestCodec.CaptureSourceBytes(second.Bytes);
+                _scope.RevalidateForUse(descriptor);
+                VaultPathStructuralAnalysis after = _scope.AnalyzeProjection(relativePath, paths);
+                if (after.ContentSha256 != path.ContentSha256)
+                {
+                    throw new LinuxVaultWatcherException("vault_snapshot_native_path_changed");
+                }
+
+                if (LinuxVaultSnapshotNative.Observe(descriptor) != second.After)
+                {
+                    throw new LinuxVaultWatcherException("vault_snapshot_native_metadata_changed");
+                }
+
+                check();
+                candidate = new(_scope.Scope, relativePath,
+                    "vault_snapshot_inode_bytes_stable_completion_unproven", second.Bytes, identity, second.After.Metadata);
+            }, cancellationToken);
+            return candidate!;
+        }
+        catch (LinuxVaultWatcherException exception)
+        {
+            return new(_scope.Scope, relativePath, exception.ReasonCode);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new(_scope.Scope, relativePath, "vault_snapshot_permission_blocked");
+        }
+        catch (IOException)
+        {
+            return new(_scope.Scope, relativePath, "vault_snapshot_read_incomplete_or_blocked");
+        }
+        catch (ObjectDisposedException)
+        {
+            return new(_scope.Scope, relativePath, "vault_snapshot_scope_or_descriptor_closed");
+        }
+        catch (DecoderFallbackException)
+        {
+            return new(_scope.Scope, relativePath, "vault_snapshot_utf8_incomplete");
+        }
+        catch (Exception exception) when (exception is PlatformNotSupportedException or EntryPointNotFoundException or DllNotFoundException)
+        {
+            return new(_scope.Scope, relativePath, "vault_snapshot_native_platform_unsupported");
+        }
+    }
 
     // A rescan charges both samples against a finite inventory byte budget before allocation.
     internal LinuxVaultSnapshotReadResult ReadBounded(string relativePath, IReadOnlyList<string> observedPaths,
@@ -155,6 +307,13 @@ public sealed class LinuxVaultSnapshotReader
     {
         cancellationToken.ThrowIfCancellationRequested();
         using SafeFileHandle descriptor = _scope.OpenSourceFile(relativePath);
+        return ReadSample(descriptor, maximumSourceBytes, cancellationToken);
+    }
+
+    private Sample ReadSample(SafeFileHandle descriptor, int maximumSourceBytes,
+        CancellationToken cancellationToken, Action? check = null)
+    {
+        check?.Invoke();
         _scope.RevalidateForUse(descriptor);
         LinuxVaultSnapshotNative.Observation before = LinuxVaultSnapshotNative.Observe(descriptor);
         if (before.Metadata.ByteLength > maximumSourceBytes)
@@ -168,6 +327,7 @@ public sealed class LinuxVaultSnapshotReader
         {
             cancellationToken.ThrowIfCancellationRequested();
             _scope.RevalidateForUse(descriptor);
+            check?.Invoke();
             int count = RandomAccess.Read(descriptor, bytes.AsSpan(offset, Math.Min(ReadChunkBytes, bytes.Length - offset)), offset);
             if (count == 0)
             {
@@ -175,8 +335,10 @@ public sealed class LinuxVaultSnapshotReader
             }
 
             offset += count;
+            check?.Invoke();
         }
 
+        check?.Invoke();
         byte[] probe = new byte[1];
         if (RandomAccess.Read(descriptor, probe, bytes.Length) != 0)
         {
@@ -186,6 +348,7 @@ public sealed class LinuxVaultSnapshotReader
         cancellationToken.ThrowIfCancellationRequested();
         LinuxVaultSnapshotNative.Observation after = LinuxVaultSnapshotNative.Observe(descriptor);
         _scope.RevalidateForUse(descriptor);
+        check?.Invoke();
         return new(before, after, bytes);
     }
 
