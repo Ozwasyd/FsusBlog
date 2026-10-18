@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycleResources.cs"
+            ],
+            "reason": "Declare this lifecycle resource path under the existing src/**/*.cs environment-variable registration. Cleanup custody changes add, rename, read or write no environment variables; existing external environment spelling is preserved and internal identifiers follow repository C# naming."
+        }
+    ]
+}
