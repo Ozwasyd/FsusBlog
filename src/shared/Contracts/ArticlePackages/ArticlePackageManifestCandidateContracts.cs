@@ -33,6 +33,14 @@ public sealed record ArticlePackageManifestArticle(
     ArticlePackageByteMetadata SourceBytes,
     ArticlePackageManifestLifecycle Lifecycle);
 
+/// <summary>
+/// Explicit article-to-property component binding. Supplied snapshots and definition-owner coordinates
+/// remain assertions; this association supplies no persisted definition or reference permission authority.
+/// </summary>
+public sealed record ArticlePackageManifestArticleProperty(
+    ArticlePackageIdentity PortableArticle,
+    ArticlePackageManifestPropertyCandidate Property);
+
 /// <summary>Fixed, content-free candidate-codec result; success is not full package admission.</summary>
 public readonly record struct ArticlePackageManifestCandidateResult(bool IsValid, string? ReasonCode);
 
@@ -57,13 +65,32 @@ public sealed class ArticlePackageManifestCandidate
             Assets = assets
         };
 
+    internal static ArticlePackageManifestCandidate WithProperties(
+        ArticlePackageManifestArticle[] articles,
+        string semanticDigest,
+        ArticlePackageManifestAssetCollectionCandidate assets,
+        ArticlePackageManifestArticleProperty[] properties)
+        => new(articles, semanticDigest)
+        {
+            Assets = assets,
+            Properties = Array.AsReadOnly((ArticlePackageManifestArticleProperty[])properties.Clone())
+        };
+
+    /// <summary>Null means v1/v2; v3 requires an explicit component for every root article, including empty snapshots.</summary>
+    public IReadOnlyList<ArticlePackageManifestArticleProperty>? Properties
+    {
+        get; private init;
+    }
+
     /// <summary>Null means the legacy article-only format, never an implicitly empty collection.</summary>
     public ArticlePackageManifestAssetCollectionCandidate? Assets
     {
         get; private init;
     }
 
-    public int SchemaVersion => Assets is null
+    public int SchemaVersion => Properties is not null
+        ? ArticlePackageManifestVersionRegistry.PropertyPayload.Versions.SchemaVersion
+        : Assets is null
         ? ArticlePackageManifestVersionRegistry.Current.Versions.SchemaVersion
         : ArticlePackageManifestVersionRegistry.AssetCollection.Versions.SchemaVersion;
     public int CanonicalHashVersion => ArticlePackageManifestVersionRegistry.Current.Versions.CanonicalHashVersion;

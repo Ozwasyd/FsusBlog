@@ -9,6 +9,8 @@ using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Contracts.Assets;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticlePackages;
+using FsusBlog.Shared.Contracts.ArticleProperties;
+using FsusBlog.Shared.Contracts.ArticleRelations;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -238,6 +240,34 @@ public sealed class ArticlePackageManifestCandidateCodecTests
         json = Document();
         ObjectAt(json, "article")["title"] = "tampered";
         AssertInvalidParse(json, "article_package_manifest_semantic_digest_mismatch");
+    }
+
+    [Fact]
+    public void PropertyRoot_PreservesExplicitNullOwnerAndRejectsMissingOwnerOrComponent()
+    {
+        var fixture = PropertyRootFixture(owner: null);
+        var root = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+        byte[] bytes = ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties);
+        Assert.True(ArticlePackageManifestCandidateCodec.TryParseCandidate(bytes, fixture.Assets, fixture.Inventory, fixture.Properties, out var parsed).IsValid);
+        Assert.All(parsed!.Properties!, row => Assert.Null(row.Property.Mapping.SourceCoordinates.DefinitionOwnerUserId));
+        foreach (string field in new[] { "owner", "missingComponent", "nullComponent" })
+        {
+            var json = JsonNode.Parse(bytes)!.AsObject();
+            var binding = json["properties"]![0]!.AsObject();
+            if (field == "owner")
+            {
+                binding["property"]!["sourceCoordinates"]!.AsObject().Remove("definitionOwnerUserId");
+            }
+            else if (field == "missingComponent")
+            {
+                binding.Remove("property");
+            }
+            else
+            {
+                binding["property"] = null;
+            }
+            AssertPropertyRootParseInvalid(JsonSerializer.SerializeToUtf8Bytes(json), fixture.Assets, fixture.Inventory, fixture.Properties);
+        }
     }
 
     [Theory]
@@ -844,6 +874,40 @@ public sealed class ArticlePackageManifestCandidateCodecTests
     }
 
     [Fact]
+    public void PropertyRoot_DoesNotOpenImportBytesOrZipAssetAuthority()
+    {
+        var fixture = PropertyRootFixture();
+        var root = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+        byte[] manifest = ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties);
+        byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZgAAAABJRU5ErkJggg==");
+        var content = new[] { new ArticlePackageFileBytes("manifest.json", manifest) }
+            .Concat(fixture.Articles.Select(article => new ArticlePackageFileBytes("articles/" + article.PortableArticle.FileNameToken + ".md", "line\r\n"u8.ToArray())))
+            .Append(new ArticlePackageFileBytes(fixture.Assets.Assets[0].Metadata.PackagePath, png)).ToArray();
+        var package = ArticlePackageImportCandidateByteTests.BuildPackage(content);
+        Assert.True(ArticlePackageChecksums.Verify(package.Inventory, package.Files).IsValid);
+        var result = ArticlePackageImportCandidateBytes.Validate(package.Inventory, package.Files, out var candidate);
+        Assert.False(result.IsValid);
+        Assert.Null(candidate);
+        Assert.Equal("article_package_manifest_assets_authority_unavailable", result.ReasonCode);
+        using var stream = new MemoryStream();
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, true))
+        {
+            foreach (var file in package.Files)
+            {
+                var entry = archive.CreateEntry(file.Path, CompressionLevel.NoCompression);
+                entry.ExternalAttributes = 0;
+                entry.LastWriteTime = new DateTimeOffset(2026, 10, 8, 1, 2, 4, TimeSpan.Zero);
+                using var output = entry.Open();
+                output.Write(file.Bytes.Span);
+            }
+        }
+        result = ArticlePackageImportZipCandidateReader.TryReadCandidate(stream.ToArray(), out var zip);
+        Assert.False(result.IsValid);
+        Assert.Null(zip);
+        Assert.Equal("article_package_manifest_assets_authority_unavailable", result.ReasonCode);
+    }
+
+    [Fact]
     public void AssetRoot_EnforcesCombinedSixteenMiBAtExactEncodedBoundary()
     {
         var fixture = AssetRootFixture();
@@ -894,6 +958,460 @@ public sealed class ArticlePackageManifestCandidateCodecTests
         Assert.Equal("article_package_manifest_document_budget_exceeded", result.ReasonCode);
     }
 
+    [Fact]
+    public void PropertyRoot_RoundTripsActualEightTypeMapperPayloadsAndIndependentSeal()
+    {
+        var fixture = PropertyRootFixture();
+        var root = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+        Assert.Equal(3, root.SchemaVersion);
+        Assert.Equal(IndependentAssetRootDigest(root, withProperties: true), root.SemanticDigest);
+        byte[] bytes = ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties);
+        using JsonDocument document = JsonDocument.Parse(bytes);
+        Assert.Equal(new[] { "schemaVersion", "canonicalHashVersion", "propertySchemaVersion", "articles", "assets", "properties", "semanticDigest" },
+            document.RootElement.EnumerateObject().Select(property => property.Name));
+        foreach (var row in document.RootElement.GetProperty("properties").EnumerateArray())
+        {
+            var property = row.GetProperty("property");
+            Assert.Equal(11, property.GetProperty("properties").GetArrayLength());
+            JsonObject payload = JsonNode.Parse(property.GetRawText())!.AsObject();
+            string digest = payload["componentDigest"]!.GetValue<string>();
+            payload.Remove("componentDigest");
+            byte[] preimage = Encoding.UTF8.GetBytes("fsusblog.article-package.manifest-property-candidate.v1\0" + payload.ToJsonString(new JsonSerializerOptions { WriteIndented = false }));
+            Assert.Equal(digest, Convert.ToHexStringLower(SHA256.HashData(preimage)));
+        }
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            var result = ArticlePackageManifestCandidateCodec.TryParseCandidate(bytes, fixture.Assets, fixture.Inventory, fixture.Properties, out var parsed);
+            Assert.True(result.IsValid, result.ReasonCode);
+            Assert.Equal(root.SemanticDigest, parsed!.SemanticDigest);
+            Assert.Equal(bytes, ArticlePackageManifestCandidateCodec.WriteCandidate(parsed, fixture.Assets, fixture.Inventory, fixture.Properties));
+            foreach (var row in parsed.Properties!)
+            {
+                var actual = fixture.Properties.Single(value => value.PortableArticle == row.PortableArticle);
+                Assert.Equal(ArticlePackageManifestCandidateCodec.WritePropertyCandidate(actual.Property), ArticlePackageManifestCandidateCodec.WritePropertyCandidate(row.Property));
+                var values = row.Property.Mapping.Properties;
+                Assert.False(Assert.IsType<ArticlePropertyBooleanValue>(Assert.IsType<ArticlePackagePrimitivePropertyProjection>(values[2].Projection).Value).Boolean);
+                Assert.Equal(0, Assert.IsType<ArticlePropertyNumberValue>(Assert.IsType<ArticlePackagePrimitivePropertyProjection>(values[1].Projection).Value).Number);
+                Assert.Equal(ArticlePropertyValuePresence.Missing, values[8].Presence);
+                Assert.Equal(ArticlePropertyValuePresence.Null, values[9].Presence);
+                Assert.True(values[10].DefaultApplied);
+                Assert.Null(values[8].Projection);
+                Assert.Null(values[9].Projection);
+                Assert.Equal("", Assert.IsType<ArticlePropertyTextValue>(Assert.IsType<ArticlePackagePrimitivePropertyProjection>(values[0].Projection).Value).Text);
+                Assert.Equal("article_package_manifest_property_persisted_definition_authority_unavailable", row.Property.RequirePropertyAuthority().ReasonCode);
+            }
+            Assert.Equal("article_package_manifest_asset_rights_retention_authority_unavailable", parsed.Assets!.RequireAssetAuthority().ReasonCode);
+        }
+        Assert.False(ArticlePackageManifestCandidateCodec.TryParseCandidate(bytes, fixture.Assets, fixture.Inventory, out _).IsValid);
+        Assert.False(ArticlePackageManifestCandidateCodec.TryParseCandidate(bytes, out _).IsValid);
+        Assert.Throws<ArgumentException>(() => ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory));
+        Assert.Throws<ArgumentException>(() => ArticlePackageManifestCandidateCodec.WriteCandidate(root));
+    }
+
+    [Fact]
+    public void PropertyRoot_MissingNullAndEmptyComponentsNeverBecomeEmptySnapshots()
+    {
+        var fixture = PropertyRootFixture();
+        var root = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+        byte[] bytes = ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties);
+        foreach (var properties in new IReadOnlyList<ArticlePackageManifestArticleProperty>?[] { null, [], [null!] })
+        {
+            Assert.False(ArticlePackageManifestCandidateCodec.TryCreateCandidate(fixture.Articles, fixture.Assets, fixture.Inventory, properties, out var missing).IsValid);
+            Assert.Null(missing);
+            AssertPropertyRootParseInvalid(bytes, fixture.Assets, fixture.Inventory, properties);
+            Assert.Throws<ArgumentException>(() => ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, properties));
+        }
+        foreach (string field in new[] { "missing", "null", "empty" })
+        {
+            var json = JsonNode.Parse(bytes)!.AsObject();
+            if (field == "missing")
+            {
+                json.Remove("properties");
+            }
+            else
+            {
+                json["properties"] = field == "null" ? null : new JsonArray();
+            }
+            AssertPropertyRootParseInvalid(JsonSerializer.SerializeToUtf8Bytes(json), fixture.Assets, fixture.Inventory, fixture.Properties);
+        }
+        var empty = PropertyRootFixture(empty: true);
+        var emptyRoot = CreatePropertyRoot(empty.Articles, empty.Assets, empty.Inventory, empty.Properties);
+        byte[] encoded = ArticlePackageManifestCandidateCodec.WriteCandidate(emptyRoot, empty.Assets, empty.Inventory, empty.Properties);
+        Assert.True(ArticlePackageManifestCandidateCodec.TryParseCandidate(encoded, empty.Assets, empty.Inventory, empty.Properties, out var parsed).IsValid);
+        Assert.All(parsed!.Properties!, row => Assert.Empty(row.Property.Mapping.Properties));
+        Assert.NotEqual(root.SemanticDigest, emptyRoot.SemanticDigest);
+    }
+
+    [Theory]
+    [InlineData("articleId")]
+    [InlineData("siteScope")]
+    [InlineData("articleRevisionId")]
+    [InlineData("propertyRevision")]
+    [InlineData("draftId")]
+    [InlineData("draftServerRevision")]
+    [InlineData("publicationId")]
+    [InlineData("snapshotDigest")]
+    [InlineData("mappingDigest")]
+    public void PropertyRoot_RejectsEverySourceCoordinateAndDigestMismatch(string field)
+    {
+        var fixture = PropertyRootFixture();
+        var articles = fixture.Articles.ToArray();
+        var source = articles[0].Source;
+        articles[0] = articles[0] with
+        {
+            Source = field switch
+            {
+                "articleId" => source with { ArticleId = 100 },
+                "siteScope" => source with { SiteScope = "other-site" },
+                "articleRevisionId" => source with { ArticleRevisionId = 100 },
+                "propertyRevision" => source with { PropertyRevision = 100 },
+                "draftId" => source with { DraftId = 10, DraftServerRevision = 5 },
+                "draftServerRevision" => source with { DraftId = 10, DraftServerRevision = 6 },
+                "publicationId" => source with { PublicationId = 100 },
+                _ => source
+            },
+            PropertySnapshotDigest = field == "snapshotDigest" ? new string('e', 64) : articles[0].PropertySnapshotDigest,
+            PropertyMappingDigest = field == "mappingDigest" ? new string('e', 64) : articles[0].PropertyMappingDigest
+        };
+        var result = ArticlePackageManifestCandidateCodec.TryCreateCandidate(articles, fixture.Assets, fixture.Inventory, fixture.Properties, out var rejected);
+        Assert.False(result.IsValid);
+        Assert.Equal("article_package_manifest_property_root_source_mismatch", result.ReasonCode);
+        Assert.Null(rejected);
+    }
+
+    [Theory]
+    [InlineData("duplicate")]
+    [InlineData("missing")]
+    [InlineData("foreign")]
+    [InlineData("swapped")]
+    [InlineData("null")]
+    public void PropertyRoot_RejectsForeignDuplicateOrMisassociatedArticleComponents(string change)
+    {
+        var fixture = PropertyRootFixture();
+        var properties = fixture.Properties.ToArray();
+        properties = change switch
+        {
+            "duplicate" => [properties[0], properties[0]],
+            "missing" => [properties[0]],
+            "foreign" => [properties[0] with { PortableArticle = NumberedArticle(99).PortableArticle }, properties[1]],
+            "swapped" => [properties[0] with { Property = properties[1].Property }, properties[1] with { Property = properties[0].Property }],
+            _ => [properties[0] with { Property = null! }, properties[1]]
+        };
+        var root = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+        byte[] bytes = ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties);
+        Assert.False(ArticlePackageManifestCandidateCodec.TryCreateCandidate(fixture.Articles, fixture.Assets, fixture.Inventory, properties, out var rejected).IsValid);
+        Assert.Null(rejected);
+        AssertPropertyRootParseInvalid(bytes, fixture.Assets, fixture.Inventory, properties);
+        Assert.Throws<ArgumentException>(() => ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, properties));
+    }
+
+    [Fact]
+    public void PropertyRoot_ClosesPortableReferenceEndpointsAndRetainsFullOptionalCoordinates()
+    {
+        var foreign = PropertyRootFixture(referenceArticle: 99);
+        var result = ArticlePackageManifestCandidateCodec.TryCreateCandidate(foreign.Articles, foreign.Assets, foreign.Inventory, foreign.Properties, out var rejected);
+        Assert.Equal("article_package_manifest_property_root_reference_mismatch", result.ReasonCode);
+        Assert.Null(rejected);
+        foreach (bool draft in new[] { false, true })
+        {
+            var fixture = PropertyRootFixture(draft: draft, publication: !draft);
+            var root = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+            byte[] bytes = ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties);
+            Assert.True(ArticlePackageManifestCandidateCodec.TryParseCandidate(bytes, fixture.Assets, fixture.Inventory, fixture.Properties, out var parsed).IsValid);
+            Assert.All(parsed!.Properties!, row => Assert.Equal(fixture.Properties.Single(value => value.PortableArticle == row.PortableArticle).Property.Mapping.SourceCoordinates,
+                row.Property.Mapping.SourceCoordinates));
+        }
+    }
+
+    [Theory]
+    [InlineData("value")]
+    [InlineData("owner")]
+    [InlineData("default")]
+    public void PropertyRoot_ResealedRealMapperReplacementCannotSubstituteExternalComponent(string change)
+    {
+        var fixture = PropertyRootFixture();
+        var replacement = PropertyRootFixture(changedBoolean: change == "value", owner: change == "owner" ? 43 : 42, changedDefault: change == "default");
+        var original = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+        var changed = CreatePropertyRoot(replacement.Articles, replacement.Assets, replacement.Inventory, replacement.Properties);
+        Assert.NotEqual(original.SemanticDigest, changed.SemanticDigest);
+        Assert.Equal(IndependentAssetRootDigest(changed, withProperties: true), changed.SemanticDigest);
+        byte[] bytes = ArticlePackageManifestCandidateCodec.WriteCandidate(changed, replacement.Assets, replacement.Inventory, replacement.Properties);
+        AssertPropertyRootParseInvalid(bytes, fixture.Assets, fixture.Inventory, fixture.Properties);
+        Assert.Throws<ArgumentException>(() => ArticlePackageManifestCandidateCodec.WriteCandidate(original, fixture.Assets, fixture.Inventory, replacement.Properties));
+    }
+
+    [Theory]
+    [InlineData("projection")]
+    [InlineData("componentDigest")]
+    [InlineData("semanticDigest")]
+    [InlineData("mappingDigest")]
+    [InlineData("snapshotDigest")]
+    [InlineData("owner")]
+    [InlineData("unknown")]
+    [InlineData("private")]
+    [InlineData("missingPresence")]
+    [InlineData("nullDefault")]
+    [InlineData("duplicate")]
+    [InlineData("duplicateArticle")]
+    public void PropertyRoot_RejectsPayloadRootAndClosedSchemaTamper(string change)
+    {
+        var fixture = PropertyRootFixture();
+        var root = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+        var json = JsonNode.Parse(ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties))!.AsObject();
+        var component = json["properties"]![0]!["property"]!.AsObject();
+        switch (change)
+        {
+            case "projection":
+                component["properties"]![2]!["projection"]!["value"] = true;
+                break;
+            case "componentDigest":
+                component["componentDigest"] = new string('0', 64);
+                break;
+            case "semanticDigest":
+                json["semanticDigest"] = new string('0', 64);
+                break;
+            case "mappingDigest":
+                component["mappingDigest"] = new string('0', 64);
+                break;
+            case "snapshotDigest":
+                component["sourceSnapshotDigest"] = new string('0', 64);
+                break;
+            case "owner":
+                component["sourceCoordinates"]!["definitionOwnerUserId"] = 43;
+                break;
+            case "unknown":
+                component["future"] = null;
+                break;
+            case "private":
+                component["properties"]![0]!["token"] = "private";
+                break;
+            case "missingPresence":
+                component["properties"]![8]!.AsObject().Remove("presence");
+                break;
+            case "nullDefault":
+                component["properties"]![10]!["defaultApplied"] = null;
+                break;
+            case "duplicate":
+                json["properties"]![1] = json["properties"]![0]!.DeepClone();
+                break;
+            case "duplicateArticle":
+                json["articles"]![1] = json["articles"]![0]!.DeepClone();
+                break;
+        }
+        AssertPropertyRootParseInvalid(JsonSerializer.SerializeToUtf8Bytes(json), fixture.Assets, fixture.Inventory, fixture.Properties);
+    }
+
+    [Fact]
+    public void PropertyRoot_RechecksForgedComponentSealAndOwnedPayloadBeforeEmission()
+    {
+        var fixture = PropertyRootFixture();
+        var root = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+        var flags = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+        var constructor = Assert.Single(typeof(ArticlePackageManifestPropertyCandidate).GetConstructors(flags));
+        var forged = (ArticlePackageManifestPropertyCandidate)constructor.Invoke([fixture.Properties[0].Property.Mapping, new string('0', 64)]);
+        var properties = fixture.Properties.ToArray();
+        properties[0] = properties[0] with
+        {
+            Property = forged
+        };
+        Assert.False(ArticlePackageManifestCandidateCodec.TryCreateCandidate(fixture.Articles, fixture.Assets, fixture.Inventory, properties, out _).IsValid);
+        Assert.Throws<ArgumentException>(() => ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, properties));
+        typeof(ArticlePackageManifestCandidate).GetProperty("Properties")!.SetValue(root, Array.AsReadOnly(properties));
+        Assert.Throws<ArgumentException>(() => ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties));
+    }
+
+    [Fact]
+    public void PropertyRoot_FreezesBoundedInputAndCanonicalizesComponentOrder()
+    {
+        var fixture = PropertyRootFixture();
+        var input = fixture.Properties.Reverse().ToArray();
+        var list = new RootIndexList<ArticlePackageManifestArticleProperty>(input);
+        var root = CreatePropertyRoot(fixture.Articles.Reverse().ToArray(), fixture.Assets, fixture.Inventory, list);
+        Assert.Equal(1, list.CountReads);
+        Assert.Equal(2, list.IndexReads);
+        byte[] bytes = ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties);
+        input[0] = null!;
+        Assert.Equal(bytes, ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties));
+        Assert.Throws<NotSupportedException>(() => ((IList<ArticlePackageManifestArticleProperty>)root.Properties!)[0] = fixture.Properties[1]);
+        var json = JsonNode.Parse(bytes)!.AsObject();
+        json["properties"] = new JsonArray(json["properties"]!.AsArray().Reverse().Select(value => value!.DeepClone()).ToArray());
+        Assert.True(ArticlePackageManifestCandidateCodec.TryParseCandidate(JsonSerializer.SerializeToUtf8Bytes(json), fixture.Assets, fixture.Inventory, fixture.Properties, out var parsed).IsValid);
+        Assert.Equal(bytes, ArticlePackageManifestCandidateCodec.WriteCandidate(parsed!, fixture.Assets, fixture.Inventory, fixture.Properties));
+    }
+
+    [Theory]
+    [InlineData("depth")]
+    [InlineData("duplicateKey")]
+    [InlineData("utf8")]
+    [InlineData("surrogate")]
+    [InlineData("version")]
+    public void PropertyRoot_RejectsDepthEncodingDuplicateKeysAndWrongTuple(string change)
+    {
+        var fixture = PropertyRootFixture();
+        var root = CreatePropertyRoot(fixture.Articles, fixture.Assets, fixture.Inventory, fixture.Properties);
+        string text = Encoding.UTF8.GetString(ArticlePackageManifestCandidateCodec.WriteCandidate(root, fixture.Assets, fixture.Inventory, fixture.Properties));
+        byte[] bytes = change switch
+        {
+            "depth" => Encoding.UTF8.GetBytes(text.Insert(1, "\"extra\":[[[[[[[[[]]]]]]]]],")),
+            "duplicateKey" => Encoding.UTF8.GetBytes(text.Replace("\"definitionOwnerUserId\":42", "\"definitionOwnerUserId\":42,\"definitionOwnerUserId\":42", StringComparison.Ordinal)),
+            "utf8" => [.. Encoding.UTF8.GetBytes(text), 0xff],
+            "surrogate" => Encoding.UTF8.GetBytes(text.Replace("\"site\"", "\"\\ud800\"", StringComparison.Ordinal)),
+            _ => Encoding.UTF8.GetBytes(text.Replace("\"schemaVersion\":3", "\"schemaVersion\":2", StringComparison.Ordinal))
+        };
+        AssertPropertyRootParseInvalid(bytes, fixture.Assets, fixture.Inventory, fixture.Properties);
+    }
+
+    [Fact]
+    public void PropertyRoot_EnforcesCombinedExactSixteenMiBWithoutChangingDepthOrComponentBudgets()
+    {
+        var articles = Enumerable.Range(1, 100).Select(NumberedArticle).ToArray();
+        var properties = articles.Select(article => MapRootProperty(article, [RootPropertyEntry(1, new ArticlePropertyTextValue(new string('界', 16384)))])).ToArray();
+        for (int index = 0; index < articles.Length; index++)
+        {
+            articles[index] = BindRootProperty(articles[index], properties[index]);
+            Assert.True(ArticlePackageManifestCandidateCodec.WritePropertyCandidate(properties[index].Property).Length < ArticlePackageManifestCandidateCodec.MaxJsonBytes);
+        }
+        var inventory = new[] { Entry("manifest.json", 1), Entry("checksums.json", 1) }
+            .Concat(articles.Select(article => Entry("articles/" + article.PortableArticle.FileNameToken + ".md", article.SourceBytes.ByteLength))).ToArray();
+        Assert.True(ArticlePackageManifestCandidateCodec.TryCreateAssetCollectionCandidate([], [], inventory, out var assets).IsValid);
+        var baseline = CreatePropertyRoot(articles, assets!, inventory, properties);
+        int remaining = ArticlePackageManifestCandidateCodec.MaxJsonBytes - ArticlePackageManifestCandidateCodec.WriteCandidate(baseline, assets, inventory, properties).Length;
+        Assert.True(remaining > 0);
+        for (int index = 0; remaining > 0; index++)
+        {
+            int added = Math.Min(remaining, ArticlePackageTitleSummaryLimits.MaxCanonicalTextCodeUnits - articles[index].Title.Length - 1);
+            articles[index] = articles[index] with
+            {
+                Title = articles[index].Title + new string('x', added)
+            };
+            remaining -= added;
+        }
+        Assert.True(ArticlePackageManifestCandidateCodec.TryCreateCandidate(articles, assets, inventory, out _).IsValid);
+        var exact = CreatePropertyRoot(articles, assets!, inventory, properties);
+        byte[] bytes = ArticlePackageManifestCandidateCodec.WriteCandidate(exact, assets, inventory, properties);
+        Assert.Equal(ArticlePackageManifestCandidateCodec.MaxJsonBytes, bytes.Length);
+        Assert.True(ArticlePackageManifestCandidateCodec.TryParseCandidate(bytes, assets, inventory, properties, out _).IsValid);
+        AssertPropertyRootParseInvalid([.. bytes, (byte)' '], assets, inventory, properties, "article_package_manifest_document_budget_exceeded");
+        articles[^1] = articles[^1] with
+        {
+            Title = articles[^1].Title + "x"
+        };
+        var result = ArticlePackageManifestCandidateCodec.TryCreateCandidate(articles, assets, inventory, properties, out var over);
+        Assert.False(result.IsValid);
+        Assert.Null(over);
+        Assert.Equal("article_package_manifest_document_budget_exceeded", result.ReasonCode);
+        var constructor = Assert.Single(typeof(ArticlePackageManifestCandidate).GetConstructors(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance));
+        var forged = (ArticlePackageManifestCandidate)constructor.Invoke([articles, exact.SemanticDigest]);
+        typeof(ArticlePackageManifestCandidate).GetProperty("Assets")!.SetValue(forged, assets);
+        typeof(ArticlePackageManifestCandidate).GetProperty("Properties")!.SetValue(forged, exact.Properties);
+        Assert.Throws<ArgumentException>(() => ArticlePackageManifestCandidateCodec.WriteCandidate(forged, assets, inventory, properties));
+    }
+
+    private static (ArticlePackageManifestArticle[] Articles, ArticlePackageManifestAssetCollectionCandidate Assets,
+        ArticlePackageInventoryEntry[] Inventory, ArticlePackageManifestArticleProperty[] Properties) PropertyRootFixture(
+        bool empty = false, int referenceArticle = 2, bool changedBoolean = false, long? owner = 42,
+        bool draft = false, bool publication = false, bool changedDefault = false)
+    {
+        var fixture = AssetRootFixture();
+        var articles = fixture.Articles.Select(article => article with
+        {
+            Source = article.Source with
+            {
+                DraftId = draft ? 10 : null,
+                DraftServerRevision = draft ? 5 : null,
+                PublicationId = publication ? 11 : null
+            }
+        }).ToArray();
+        ArticlePropertyValueEntry[] values = empty ? [] : [
+            RootPropertyEntry(1, new ArticlePropertyTextValue("")), RootPropertyEntry(2, new ArticlePropertyNumberValue(0)),
+            RootPropertyEntry(3, new ArticlePropertyBooleanValue(changedBoolean)), RootPropertyEntry(4, new ArticlePropertyDateValue(new(2026, 10, 18, 0, 0, 0, DateTimeKind.Utc))),
+            RootPropertyEntry(5, new ArticlePropertySingleSelectValue(RootPropertyId(101))), RootPropertyEntry(6, new ArticlePropertyMultiSelectValue([RootPropertyId(101), RootPropertyId(102)])),
+            RootPropertyEntry(7, new ArticlePropertyArticleReferenceValue([referenceArticle])), RootPropertyEntry(8, new ArticlePropertyUrlValue("https://example.com/exact")),
+            RootPropertyEntry(9, null, ArticlePropertyValuePresence.Missing), RootPropertyEntry(10, null, ArticlePropertyValuePresence.Null),
+            RootPropertyEntry(11, new ArticlePropertyTextValue("default"), defaultApplied: !changedDefault)
+        ];
+        var properties = articles.Select(article => MapRootProperty(article, values, owner)).ToArray();
+        for (int index = 0; index < articles.Length; index++)
+        {
+            articles[index] = BindRootProperty(articles[index], properties[index]);
+        }
+        return (articles, fixture.Assets, fixture.Inventory, properties);
+    }
+
+    private static ArticlePackageManifestArticle BindRootProperty(ArticlePackageManifestArticle article, ArticlePackageManifestArticleProperty property)
+        => article with
+        {
+            PropertySnapshotDigest = property.Property.Mapping.SourceSnapshotDigest,
+            PropertyMappingDigest = property.Property.Mapping.MappingDigest
+        };
+
+    private static ArticlePackageManifestArticleProperty MapRootProperty(ArticlePackageManifestArticle article, ArticlePropertyValueEntry[] values, long? owner = 42)
+    {
+        var source = article.Source;
+        var coordinates = new ArticlePropertySnapshotCoordinates(owner, source.SiteScope, source.ArticleId, source.PropertyRevision,
+            source.ArticleRevisionId, source.DraftId, source.DraftServerRevision, source.PublicationId);
+        var snapshot = new ArticlePropertyValueSnapshot(1, coordinates, values, ArticlePropertyValueDigest.ComputeSnapshot(coordinates, values));
+        var definitions = values.Select((value, index) => new ArticlePackagePropertyDefinitionBinding(value.DefinitionId, value.DefinitionSchemaRevision,
+            value.DefinitionDigest, RootPropertyIdentity(ArticlePackageIdentityKind.Definition, index + 1))).ToArray();
+        var options = values.SelectMany((value, index) => RootOptionIds(value.Value).Select((option, optionIndex) => new ArticlePackagePropertyOptionBinding(value.DefinitionId, option,
+            RootPropertyIdentity(ArticlePackageIdentityKind.Option, index * 1000 + optionIndex + 1)))).ToArray();
+        var references = values.SelectMany(value => value.Value is ArticlePropertyArticleReferenceValue reference ? reference.ArticleIds : [])
+            .Distinct().Select(id => new ArticlePackagePropertyArticleBinding(id, NumberedArticle(checked((int)id)).PortableArticle,
+                new ArticleRelationTargetFacts(new ArticleRelationTargetIdentity(NumberedArticle(checked((int)id)).PortableArticle.Value!, ArticleRelationTargetKind.Article, null, null),
+                    "revision:" + id, 1, ArticleRelationRevisionKind.Current, ArticleRelationLifecycleState.Published, ArticleRelationPermissionState.Allowed))).ToArray();
+        var bindings = new ArticlePackagePropertyMappingBindings(coordinates, snapshot.ContentDigest, definitions, options, references);
+        var result = ArticlePackagePropertyMapper.TryMapCandidate(snapshot, bindings, out var mapping);
+        Assert.True(result.IsValid, result.ReasonCode);
+        Assert.True(ArticlePackageManifestCandidateCodec.TryCreatePropertyCandidate(mapping, out var property).IsValid);
+        Assert.True(ArticlePackageManifestPropertyBinder.TryBindCandidate(property, snapshot, bindings, out _).IsValid);
+        return new(article.PortableArticle, property!);
+    }
+
+    private static ArticlePropertyValueEntry RootPropertyEntry(int index, ArticlePropertyTypedValue? value,
+        ArticlePropertyValuePresence presence = ArticlePropertyValuePresence.Present, bool defaultApplied = false)
+    {
+        var input = new ArticlePropertyValueInput(RootPropertyId(index), 1, new string('a', 64), presence, value);
+        return new(input.DefinitionId, input.DefinitionSchemaRevision, input.DefinitionDigest, presence, value,
+            ArticlePropertyValueDigest.ComputeValue(input, defaultApplied), defaultApplied);
+    }
+
+    private static IEnumerable<Guid> RootOptionIds(ArticlePropertyTypedValue? value)
+        => value switch
+        {
+            ArticlePropertySingleSelectValue single => [single.OptionId],
+            ArticlePropertyMultiSelectValue multiple => multiple.OptionIds,
+            _ => []
+        };
+
+    private static Guid RootPropertyId(int index) => Guid.Parse($"20000000-0000-4000-8000-{index:x12}");
+
+    private static ArticlePackageIdentity RootPropertyIdentity(ArticlePackageIdentityKind kind, int index)
+    {
+        Assert.True(ArticlePackageIdentity.TryCreate(kind, (kind == ArticlePackageIdentityKind.Definition ? "portable-definition:" : "portable-option:") + RootPropertyId(index).ToString("D"), out var identity).IsValid);
+        return identity;
+    }
+
+    private static ArticlePackageManifestCandidate CreatePropertyRoot(IReadOnlyList<ArticlePackageManifestArticle> articles,
+        ArticlePackageManifestAssetCollectionCandidate assets, IReadOnlyList<ArticlePackageInventoryEntry> inventory,
+        IReadOnlyList<ArticlePackageManifestArticleProperty> properties)
+    {
+        var result = ArticlePackageManifestCandidateCodec.TryCreateCandidate(articles, assets, inventory, properties, out var root);
+        Assert.True(result.IsValid, result.ReasonCode);
+        return root!;
+    }
+
+    private static void AssertPropertyRootParseInvalid(byte[] bytes, ArticlePackageManifestAssetCollectionCandidate? assets,
+        IReadOnlyList<ArticlePackageInventoryEntry>? inventory, IReadOnlyList<ArticlePackageManifestArticleProperty>? properties, string? reason = null)
+    {
+        var result = ArticlePackageManifestCandidateCodec.TryParseCandidate(bytes, assets, inventory, properties, out var parsed);
+        Assert.False(result.IsValid);
+        Assert.Null(parsed);
+        if (reason is not null)
+        {
+            Assert.Equal(reason, result.ReasonCode);
+        }
+    }
+
     private static (ArticlePackageManifestArticle[] Articles, ArticlePackageManifestAssetCollectionCandidate Assets, ArticlePackageInventoryEntry[] Inventory) AssetRootFixture()
     {
         ArticlePackageManifestArticle[] articles = [NumberedArticle(1), NumberedArticle(2)];
@@ -936,7 +1454,7 @@ public sealed class ArticlePackageManifestCandidateCodecTests
     }
 
     // Independent little-endian v2 preimage writer; no codec digest or serializer is called.
-    private static string IndependentAssetRootDigest(ArticlePackageManifestCandidate root)
+    private static string IndependentAssetRootDigest(ArticlePackageManifestCandidate root, bool withProperties = false)
     {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, new UTF8Encoding(false, true), true);
@@ -962,8 +1480,8 @@ public sealed class ArticlePackageManifestCandidateCodecTests
                 writer.Write(value.Value);
             }
         }
-        Text("fsusblog.article-package.manifest-candidate.v2");
-        writer.Write(2);
+        Text(withProperties ? "fsusblog.article-package.manifest-candidate.v3" : "fsusblog.article-package.manifest-candidate.v2");
+        writer.Write(withProperties ? 3 : 2);
         writer.Write(1);
         writer.Write(1);
         writer.Write(root.Articles.Count);
@@ -999,6 +1517,15 @@ public sealed class ArticlePackageManifestCandidateCodecTests
             NullableText(article.Lifecycle.ScheduledPublishAt?.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'", System.Globalization.CultureInfo.InvariantCulture));
         }
         Text(root.Assets!.ComponentDigest);
+        if (withProperties)
+        {
+            writer.Write(root.Properties!.Count);
+            foreach (var row in root.Properties)
+            {
+                Text(row.PortableArticle.Value!);
+                Text(row.Property.ComponentDigest);
+            }
+        }
         writer.Flush();
         return Convert.ToHexStringLower(SHA256.HashData(stream.ToArray()));
     }

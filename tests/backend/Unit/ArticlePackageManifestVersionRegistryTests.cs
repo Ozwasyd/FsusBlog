@@ -15,9 +15,9 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ArticlePackageManifestVersionRegistryTests
 {
     [Fact]
-    public void Registry_RegistersOnlyLegacyAndExplicitAssetRootIdentities()
+    public void Registry_RegistersOnlyExplicitImplementedRootIdentities()
     {
-        Assert.Equal(2, ArticlePackageManifestVersionRegistry.Registrations.Count);
+        Assert.Equal(3, ArticlePackageManifestVersionRegistry.Registrations.Count);
         ArticlePackageManifestVersionRegistration registration = ArticlePackageManifestVersionRegistry.Registrations[0];
         var assetRoot = ArticlePackageManifestVersionRegistry.AssetCollection;
         Assert.Same(assetRoot, ArticlePackageManifestVersionRegistry.Registrations[1]);
@@ -45,6 +45,27 @@ public sealed class ArticlePackageManifestVersionRegistryTests
     }
 
     [Fact]
+    public void Registry_PropertyPayloadIsIdentityOnlyAndNeverReinterpretsV1OrV2()
+    {
+        var property = ArticlePackageManifestVersionRegistry.PropertyPayload;
+        Assert.Same(property, ArticlePackageManifestVersionRegistry.Registrations[2]);
+        Assert.Equal(new(3, 1, 1), property.Versions);
+        Assert.True(ArticlePackageManifestVersionRegistry.TryGetRegistration(property.Versions, out var registered));
+        Assert.Same(property, registered);
+        Assert.Equal(ArticlePackageManifestMigrationDisposition.Identity,
+            ArticlePackageManifestVersionRegistry.GetDisposition(property.Versions, property.Versions));
+        Assert.Equal(ArticlePackageManifestMigrationDisposition.Refused,
+            ArticlePackageManifestVersionRegistry.GetDisposition(property.Versions, property.Versions, true));
+        foreach (var old in new[] { ArticlePackageManifestVersionRegistry.Current, ArticlePackageManifestVersionRegistry.AssetCollection })
+        {
+            Assert.Equal(ArticlePackageManifestMigrationDisposition.Refused,
+                ArticlePackageManifestVersionRegistry.GetDisposition(old.Versions, property.Versions));
+            Assert.Equal(ArticlePackageManifestMigrationDisposition.Refused,
+                ArticlePackageManifestVersionRegistry.GetDisposition(property.Versions, old.Versions));
+        }
+    }
+
+    [Fact]
     public void Registry_IsImmutableAndTupleCopiesCannotRegisterVersions()
     {
         IReadOnlyList<ArticlePackageManifestVersionRegistration> registrations = ArticlePackageManifestVersionRegistry.Registrations;
@@ -61,7 +82,7 @@ public sealed class ArticlePackageManifestVersionRegistryTests
         Assert.All(typeof(ArticlePackageManifestVersionRegistry).GetProperties(), property => Assert.False(property.CanWrite));
         ArticlePackageManifestVersions copy = current.Versions with
         {
-            SchemaVersion = 3
+            SchemaVersion = 4
         };
         Assert.False(ArticlePackageManifestVersionRegistry.TryGetRegistration(copy, out var refused));
         Assert.Null(refused);
@@ -74,7 +95,7 @@ public sealed class ArticlePackageManifestVersionRegistryTests
     [InlineData(1, 0, 1)]
     [InlineData(1, 1, 0)]
     [InlineData(2, 2, 2)]
-    [InlineData(3, 1, 1)]
+    [InlineData(4, 1, 1)]
     [InlineData(1, 2, 1)]
     [InlineData(1, 1, 2)]
     [InlineData(-1, 1, 1)]
