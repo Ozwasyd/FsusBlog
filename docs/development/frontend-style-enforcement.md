@@ -59,6 +59,53 @@ TypeScript, JavaScript and Vue script use 4 spaces, Allman braces, explicit semi
 
 Type-like and Vue component names are PascalCase; parameters and locals are camelCase. The #1157 mapping deliberately keeps `useXxx` for Vue composables, PascalCase without a mandatory `I` for TypeScript structural interfaces, `#camelCase` for ECMAScript private fields, and camelCase for normal module bindings. These are named entries in `config/development/frontend-style-rule-registry.json`, not implicit ecosystem exceptions.
 
+### Transparent rejection forwarding
+
+The local `rejection-forwarding.mjs` adapter invokes the locked original
+`@typescript-eslint/prefer-promise-reject-errors` rule with its original visitors,
+metadata, options and diagnostic identity. Its configuration keeps Error creation
+strict: empty rejection, arbitrary `any` and `unknown`, and type allowances remain
+disabled. It recognizes an existing external rejection value only at a proven
+native `Promise.reject` or an unchanged native Promise executor rejection parameter.
+Every other original diagnostic is retained.
+
+The finite source proofs are an unchanged single parameter of an inline native
+Promise `then` rejection callback or `catch` callback, a proven native signal's direct
+`reason` property, or a direct local function call whose complete body is one return
+of its unchanged native-typed parameter's
+`reason ?? new DOMException(message, 'AbortError')`. The helper's message must be a
+string literal and its actual argument must have proven native signal origin.
+Reassignment anywhere in the callback or helper binding's scope, including nested
+closures and later writes, refuses the proof. Direct member assignment, update or
+deletion on the helper's parameter also refuses it.
+
+Receiver provenance is deliberately limited to direct fresh expressions: native
+`new Promise(...)`, `Promise.reject(...)` or zero-argument `Promise.resolve()` for
+Promise receivers, and native `AbortSignal.abort(...)` or
+`new AbortController().signal` for signals. `Promise.resolve(value)` is excluded:
+it can return a caller-owned Promise whose methods were replaced. There is no general
+helper inference, callback alias, receiver/value alias, cast, computed member,
+transformed value or recursive summary. Merely annotating a parameter as `Promise`
+or `AbortSignal` proves no object origin because those TypeScript types are structural.
+Forwarding from such parameters remains an original-rule failure, including through
+an otherwise valid abort helper; this adapter cannot resolve those consumer sites.
+
+Native identity requires TypeScript's actual default-library declarations, including
+the finite Promise declaration merges in the locked compiler. Local structural
+lookalikes, shadowed constructors and source declaration augmentations do not qualify.
+Intact native globals and prototypes are the trust boundary; program-wide monkey
+patching is not proved absent. Fresh receiver origin is required in addition to native
+declaration identity. Event state, cleanup and settlement ordering remain runtime-test
+responsibilities. The adapter does not modify or execute application callbacks,
+normalize reasons or wrap their identity.
+
+The adapter is a configuration input in the existing digest and SOURCE comparison
+closure. Changing it invalidates historical exemptions through the original binding
+checks. It cannot promote its own policy, authorize a baseline correction, qualify a
+consumer candidate or replace independent owner review. The existing frontend style
+fixture suite compares the adapter with the unmodified locked rule on identical
+positive and negative source, including unchanged diagnostics from all other rules.
+
 Vue templates use 4-space indentation, one attribute per multiline row, stable closing brackets and PascalCase component references. Standard HTML, ARIA and `data-*` spellings remain browser contracts. Existing public emit names remain unchanged until a semantic caller migration is reviewed.
 
 CSS, SCSS and Vue style blocks use 4 spaces, an Allman opening brace and one declaration per line. CSS classes, BEM selectors and custom properties remain kebab-case contracts; SCSS internal variables, mixins and functions use camelCase. Property order is centrally set to `semantic-preserve`: token dependencies, logical-property fallbacks and component state grouping are not destroyed for alphabetical churn.

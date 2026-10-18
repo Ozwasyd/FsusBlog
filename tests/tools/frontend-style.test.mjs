@@ -144,6 +144,138 @@ function withFixture(callback)
     }
 }
 
+test('original rejection rule admits only bounded native forwarding provenance', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const bridge = body => `function forward(task: Promise<void>) {
+    return new Promise<void>((resolve, reject) => { ${body} });
+}`;
+        const abort = (body, argument = 'AbortSignal.abort()') => `function reason(signal: AbortSignal): unknown { ${body} }
+function forward(signal: AbortSignal | undefined) {
+    return new Promise<void>((resolve, reject) => { if (signal) { reject(reason(${argument})); } });
+}`;
+        const provenBridge = body => bridge(body.replaceAll('task.', 'Promise.resolve().'));
+        const cases = [
+            ['typed then receiver is unproved', bridge('task.then(resolve, error => reject(error));'), 1, 1],
+            ['typed catch receiver is unproved', bridge('task.catch(error => reject(error));'), 1, 1],
+            ['typed function callback receiver is unproved', bridge('task.catch(function (error) { reject(error); });'), 1, 1],
+            ['typed static sink receiver is unproved', 'function f(task: Promise<void>) { return task.catch(error => Promise.reject(error)); }', 1, 1],
+            ['typed signal is unproved', 'function f(signal: AbortSignal) { return Promise.reject(signal.reason); }', 1, 1],
+            ['typed helper argument is unproved', abort("return signal.reason ?? new DOMException('aborted', 'AbortError');", 'signal'), 1, 1],
+            ['asserted typed helper argument is unproved', abort("return signal.reason ?? new DOMException('aborted', 'AbortError');", 'signal!'), 1, 1],
+            ['fresh native then receiver', 'new Promise<void>((resolve, reject) => { Promise.resolve().then(resolve, error => reject(error)); });', 1, 0],
+            ['fresh native catch receiver', 'new Promise<void>((resolve, reject) => { Promise.resolve().catch(error => reject(error)); });', 1, 0],
+            ['fresh native function callback', 'new Promise<void>((resolve, reject) => { Promise.resolve().catch(function (error) { reject(error); }); });', 1, 0],
+            ['fresh native static sink', 'Promise.resolve().catch(error => Promise.reject(error));', 1, 0],
+            ['fresh native constructor receiver', 'new Promise<void>(() => {}).catch(error => Promise.reject(error));', 1, 0],
+            ['fresh native rejection receiver', 'Promise.reject(new Error("original")).catch(error => Promise.reject(error));', 1, 0],
+            ['fresh native signal factory', 'function f(reason: unknown) { return Promise.reject(AbortSignal.abort(reason).reason); }', 1, 0],
+            ['fresh native controller signal', 'Promise.reject(new AbortController().signal.reason);', 1, 0],
+            ['proven native signal helper argument', 'function reason(signal: AbortSignal): unknown { return signal.reason ?? new DOMException("aborted", "AbortError"); } function f(raw: unknown) { return Promise.reject(reason(AbortSignal.abort(raw))); }', 1, 0],
+            ['resolve argument may preserve overwritten methods', 'function f(task: Promise<void>) { return Promise.resolve(task).catch(error => Promise.reject(error)); }', 1, 1],
+            ['native annotation on structural lookalike', 'function f(task: Promise<void>) { return task.catch(error => Promise.reject(error)); } f({ then: () => undefined, catch: callback => callback("created"), finally: () => undefined, [Symbol.toStringTag]: "Promise" } as Promise<void>);', 1, 1],
+            ['Error creation', 'function f() { return Promise.reject(new Error("created")); }', 0, 0],
+            ['unknown creation', 'function f(reason: unknown) { return Promise.reject(reason); }', 1, 1],
+            ['any creation', 'function f(reason: any) { return Promise.reject(reason); }', 1, 1],
+            ['literal', 'Promise.reject("new");', 1, 1],
+            ['empty', 'Promise.reject();', 1, 1],
+            ['number', 'Promise.reject(0);', 1, 1],
+            ['null', 'Promise.reject(null);', 1, 1],
+            ['undefined', 'Promise.reject(undefined);', 1, 1],
+            ['object', 'Promise.reject({ reason: "new" });', 1, 1],
+            ['transformed callback', provenBridge('task.catch(error => reject(String(error)));'), 1, 1],
+            ['copied callback', provenBridge('task.catch(error => { const copied = error; reject(copied); });'), 1, 1],
+            ['reassigned callback', provenBridge('task.catch(error => { error = "new"; reject(error); });'), 1, 1],
+            ['later reassignment', provenBridge('task.catch(error => { reject(error); error = "new"; });'), 1, 1],
+            ['nested reassignment', provenBridge('task.catch(error => { const mutate = () => { error = "new"; }; reject(error); });'), 1, 1],
+            ['fulfillment value', provenBridge('task.then(value => reject(value));'), 1, 1],
+            ['callback shadow', provenBridge('task.catch(error => { function inner(error: unknown) { reject(error); } });'), 1, 1],
+            ['callback assertion', provenBridge('task.catch(error => reject(error as unknown));'), 1, 1],
+            ['callback default', provenBridge('task.catch((error = "new") => reject(error));'), 1, 1],
+            ['unproved callback helper', provenBridge('function handler(error: unknown) { reject(error); } task.catch(handler);'), 1, 1],
+            ['reassigned task', bridge('task = Promise.resolve(); task.catch(error => reject(error));'), 1, 1],
+            ['overwritten native method', bridge('task.catch = handler => { handler("created"); return task; }; task.catch(error => reject(error));'), 1, 1],
+            ['lookalike task', 'function f(task: { catch(handler: (error: any) => void): void }) { return new Promise<void>((resolve, reject) => { task.catch(error => reject(error)); }); }', 1, 1],
+            ['any task', 'function f(task: any) { return new Promise<void>((resolve, reject) => { task.catch((error: any) => reject(error)); }); }', 1, 1],
+            ['shadowed Promise sink', 'function f(Promise: PromiseConstructor, task: globalThis.Promise<void>) { return new Promise<void>((resolve, reject) => { task.catch(error => reject(error)); }); }', 1, 1],
+            ['shadowed static sink', 'function f(Promise: PromiseConstructor, task: globalThis.Promise<void>) { return task.catch(error => Promise.reject(error)); }', 1, 1],
+            ['lookalike Promise type', 'interface Promise<T> { catch(handler: (error: any) => void): void; } function f(task: Promise<void>) { return new globalThis.Promise<void>((resolve, reject) => { task.catch(error => reject(error)); }); }', 1, 1],
+            ['lookalike signal', 'function f(signal: { reason: any }) { return Promise.reject(signal.reason); }', 1, 1],
+            ['shadowed AbortSignal', 'interface AbortSignal { reason: any; } function f(signal: AbortSignal) { return Promise.reject(signal.reason); }', 1, 1],
+            ['asserted signal', 'function f(signal: unknown) { return Promise.reject((signal as AbortSignal).reason); }', 1, 1],
+            ['computed reason', 'function f(signal: AbortSignal) { return Promise.reject(signal["reason"]); }', 1, 1],
+            ['reassigned signal', 'function f(signal: AbortSignal, next: AbortSignal) { signal = next; return Promise.reject(signal.reason); }', 1, 1],
+            ['overwritten signal reason', 'function f(signal: AbortSignal) { signal.reason = "new"; return Promise.reject(signal.reason); }', 1, 1],
+            ['unproved helper', abort('return "new";'), 1, 1],
+            ['truthy fallback', abort("return signal.reason || new DOMException('aborted', 'AbortError');"), 1, 1],
+            ['wrong fallback', abort('return signal.reason ?? "new";'), 1, 1],
+            ['wrong exception name', abort("return signal.reason ?? new DOMException('aborted', 'OtherError');"), 1, 1],
+            ['transformed helper', abort("return String(signal.reason) ?? new DOMException('aborted', 'AbortError');"), 1, 1],
+            ['extra helper statement', abort("const value = 1; return signal.reason ?? new DOMException('aborted', 'AbortError');"), 1, 1],
+            ['unknown helper argument', 'function reason(signal: AbortSignal): unknown { return signal.reason ?? new DOMException("aborted", "AbortError"); } function f(signal: any) { return Promise.reject(reason(signal)); }', 1, 1],
+            ['shadowed DOMException', 'function f(signal: AbortSignal, DOMException: typeof globalThis.DOMException) { function reason(signal: AbortSignal): unknown { return signal.reason ?? new DOMException("aborted", "AbortError"); } return Promise.reject(reason(AbortSignal.abort())); }', 1, 1],
+            ['reassigned helper', 'function reason(signal: AbortSignal): unknown { return signal.reason ?? new DOMException("aborted", "AbortError"); } function f(signal: AbortSignal) { reason = () => "new"; return Promise.reject(reason(AbortSignal.abort())); }', 1, 1],
+            ['reassigned sink', provenBridge('reject = () => {}; task.catch(error => reject(error));'), 1, 1]
+        ];
+        let fixtureSource = '/// <reference lib="webworker" />\nexport {};\n';
+        const ranges = cases.map(([name, code, original, candidate]) =>
+        {
+            const firstLine = fixtureSource.split('\n').length;
+            fixtureSource += `{\n${code}\n}\n`;
+            return { name, firstLine, lastLine: fixtureSource.split('\n').length - 1, original, candidate };
+        });
+        writeFixture(fixtureRoot, 'src/frontend/src/forwarding.ts', fixtureSource);
+        const ruleId = '@typescript-eslint/prefer-promise-reject-errors';
+        const lint = () =>
+        {
+            const result = spawnSync(process.execPath, [path.join(toolchain, 'node_modules/eslint/bin/eslint.js'),
+                '--config', path.join(fixtureRoot, 'eslint.config.mjs'), '--format', 'json',
+                'src/frontend/src/forwarding.ts'], {
+                cwd: fixtureRoot,
+                env: { ...process.env, FSUSBLOG_STYLE_ROOT: fixtureRoot, FSUSBLOG_USE_LOCAL_FSUSUI: '0' },
+                encoding: 'utf8', timeout: 90_000
+            });
+            assert.ok([0, 1].includes(result.status), output(result));
+            const reports = JSON.parse(result.stdout);
+            assert.equal(reports.length, 1);
+            assert.equal(reports[0].fatalErrorCount, 0, result.stdout);
+            return reports[0].messages;
+        };
+        const candidateMessages = lint();
+        // Run the locked, unmodified upstream implementation against identical source.
+        writeFixture(fixtureRoot, 'eslint.config.mjs', `import configs from '${pathToFileURL(eslintConfig).href}';
+import tseslint from '${pathToFileURL(path.join(toolchain, 'node_modules/typescript-eslint/dist/index.js')).href}';
+export default configs.map(config => config.plugins?.['@typescript-eslint']
+    ? { ...config, plugins: { ...config.plugins, '@typescript-eslint': tseslint.plugin } } : config);
+`);
+        const originalMessages = lint();
+        assert.deepEqual(candidateMessages.filter(message => message.ruleId !== ruleId),
+            originalMessages.filter(message => message.ruleId !== ruleId), 'all other strict controls remain unchanged');
+        const candidate = candidateMessages.filter(message => message.ruleId === ruleId);
+        const original = originalMessages.filter(message => message.ruleId === ruleId);
+        for (const range of ranges)
+        {
+            const selected = messages => messages.filter(message => message.line >= range.firstLine && message.line <= range.lastLine);
+            assert.equal(selected(original).length, range.original, `${range.name}: original control`);
+            assert.equal(selected(candidate).length, range.candidate, `${range.name}: candidate boundary`);
+            if (range.candidate === range.original)
+            {
+                assert.deepEqual(selected(candidate), selected(original), `${range.name}: original diagnostic identity`);
+            }
+        }
+        writeFixture(fixtureRoot, 'eslint.config.mjs', `export { default } from '${pathToFileURL(eslintConfig).href}';\n`);
+        writeFixture(fixtureRoot, 'src/frontend/src/augmentation.d.ts', `export {};
+declare global {
+    interface Promise<T> { inventedPromiseMember: T; }
+    interface AbortSignal { inventedSignalMember: string; }
+}
+`);
+        assert.deepEqual(lint().filter(message => message.ruleId === ruleId), original,
+            'source declaration augmentations cannot impersonate default-library contracts');
+    });
+});
+
 test('frontend style governance accepts C#-mapped TypeScript JavaScript Vue and CSS fixtures', () =>
 {
     withFixture((fixtureRoot) =>
