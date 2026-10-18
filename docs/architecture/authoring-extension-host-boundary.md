@@ -581,7 +581,12 @@ cannot manufacture this lifetime. The producer supplies no execution-result sour
 ordinary state/receipt methods own their own transactions, and the native/staged
 publication ports are not supplied here. The original observation-store dependency
 now supplies genuine held initial migration/deletion observations; it does not supply
-native result authority or a read-only settled migration reacquisition port. Both migration and deletion completion
+native result authority. The recovery dependency additionally supplies
+ObserveSettledMigrationAsync for Completed/RolledBack: it reads original settled
+rows against a hash recorded atomically by the original settlement transaction,
+without reapplying or completing effects. Its hash-only companion table must be
+installed by the original migration owner; missing historical hashes refuse and
+must never be backfilled by a recovery retry. Both migration and deletion completion
 therefore fail closed when that real custody is missing, even if metadata hashes
 look valid. Data-codec tests and internal SQL-CAS component tests do not qualify
 whole runtime or user admission.

@@ -13,9 +13,10 @@
                 "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionScopeProvenanceStore.cs",
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateContract.cs",
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateObservationScope.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionStateStore.cs"
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionStateStore.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateStorageSchema.cs"
             ],
-            "reason": "Preserve original payload/composite package identities, SQL column names and authenticated admin claim names in the unique approval owner sources. This successor adds exact-scope/canonical-result refusal dependencies and changes no trusted policy or environment setting. The frozen genuine scope provenance dependency retains its own configured-site, authenticated-claim, SQL and issuance-setting spellings; this candidate binds that actual source dependency without changing its implementation. The exact original state observation/lifetime dependency is also a registered C# naming surface; this manifest preserves its SQL protocol names and does not alter that owner implementation or the trusted registry."
+            "reason": "Preserve original payload/composite package identities, SQL column names and authenticated admin claim names in the unique approval owner sources. This successor adds exact-scope/canonical-result refusal dependencies and changes no trusted policy or environment setting. The frozen genuine scope provenance dependency retains its own configured-site, authenticated-claim, SQL and issuance-setting spellings; this candidate binds that actual source dependency without changing its implementation. The exact original state observation/lifetime dependency is also a registered C# naming surface; this manifest preserves its SQL protocol names and does not alter that owner implementation or the trusted registry. The original recovery dependency declares its hash-only settlement companion in the original leaf DDL; the approval candidate changes neither its SQL identity nor installation policy."
         },
         {
             "id": "css-like-contract",
@@ -29,7 +30,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "Preserve the original collection schema and every existing member while registering the actual 53 cases in the owned approval PostgreSQL class; pre-existing global collection drift remains visible."
+            "reason": "Preserve the original collection schema and every existing member while registering the actual 55 cases in the owned approval PostgreSQL class; pre-existing global collection drift remains visible."
         }
     ]
 }
