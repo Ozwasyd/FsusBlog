@@ -124,7 +124,7 @@ describe('comment API', () => {
       nonce: 'n',
       salt: 's',
       answer: 1
-    }
+    } as const
 
     await createCommentV2(dto)
 
@@ -411,7 +411,6 @@ describe('comment API', () => {
       parentId: '100',
       rootId: '90',
       replyToCommentId: '80',
-      credentialEpoch: 20260618,
       circuitNumericId: 7,
       publicInputLayoutVersion: 6,
       anonymousScope: 'article:42',
@@ -421,8 +420,10 @@ describe('comment API', () => {
       nullifierHash: new Uint8Array([9, 10]),
       credentialRoot: new Uint8Array([23, 24]),
       revocationRoot: new Uint8Array([25, 26]),
-      credentialLevel: 'strong_anonymous',
-      reputationBucket: 'rep:low',
+      isEligible: true,
+      mayComment: true,
+      rateClass: 'common',
+      requiresModeration: false,
       zkProof: new Uint8Array([11, 12]),
       publicInputs: new Uint8Array([13, 14])
     }, { signal })
@@ -442,6 +443,11 @@ describe('comment API', () => {
     expect(call.requestOptions?.requiresPow).toBeUndefined()
     expect(call.requestOptions?.headers).toBeUndefined()
     expect(readAedsFrameType(body)).toBe(FrameType.AnonymousCommentTicketRequest)
+    const payload = readAedsPayload(body)
+    expect(payload[7]).toBe(1)
+    expect(payload[38]).toBe(1)
+    expect(payload[39]).toBe(0)
+    expect(readSliceText(payload, payload.subarray(124), 96)).toBe('common')
   })
 
   it('uses the same bodyless public artifact transcript for every credential', async () => {
