@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/dependencies/update-surface.json"
+            ],
+            "reason": "Preserve the existing dependency catalog schema, npm package name, devDependencies pointer and Renovate group keys while registering the locked Markdownlint toolchain."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/native-tooling-style-enforcement.md"
+            ],
+            "reason": "Preserve documented Markdown rule IDs, package API identifiers and command spellings while replacing the global installation instructions with the repository-local locked toolchain."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/style/check-native-tooling-style.mjs"
+            ],
+            "reason": "Preserve the existing FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS process contract while resolving the original Markdownlint bin from the local installation."
+        }
+    ]
+}
