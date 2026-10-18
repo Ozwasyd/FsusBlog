@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringCommandContributions.cs"
+            ],
+            "reason": "Declare the existing environment-variable path registration for this typed validation edit. Preserve existing external spellings and repository C# identifiers; this candidate introduces or renames no process environment variables."
+        }
+    ]
+}
