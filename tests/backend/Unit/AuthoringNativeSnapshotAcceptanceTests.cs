@@ -180,6 +180,7 @@ public sealed class AuthoringNativeSnapshotAcceptanceTests
     {
         string root = Path.Combine(Path.GetTempPath(), "authoring-native-snapshot-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
+        using var operationCancellation = new CancellationTokenSource();
         IAsyncDisposable? owner = null;
         AuthoringNativeStateSnapshotAcceptance? acceptance = null;
         try
@@ -192,7 +193,7 @@ public sealed class AuthoringNativeSnapshotAcceptanceTests
                     "/usr/bin/prlimit", "/usr/bin/bwrap", Path.Combine(root, "native"), TimeSpan.FromSeconds(5)));
                 IAuthoringServiceProcess process = await runtime.StartAsync(fixture.ServiceDescriptor!, default);
                 owner = process;
-                acceptance = await process.AcceptStateSnapshotAsync(fixture.Package, fixture.Target, fixture.Snapshot, 2, s_operation, default);
+                acceptance = await process.AcceptStateSnapshotAsync(fixture.Package, fixture.Target, fixture.Snapshot, 2, s_operation, operationCancellation.Token);
             }
             else
             {
@@ -201,7 +202,7 @@ public sealed class AuthoringNativeSnapshotAcceptanceTests
                     "/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2", Path.Combine(root, "native"), TimeSpan.FromSeconds(5)));
                 IAuthoringWorkerSandboxInstance worker = await runtime.StartAsync(fixture.WorkerDescriptor!, default);
                 owner = worker;
-                acceptance = await worker.AcceptStateSnapshotAsync(fixture.Package, fixture.Target, fixture.Snapshot, 2, s_operation, default);
+                acceptance = await worker.AcceptStateSnapshotAsync(fixture.Package, fixture.Target, fixture.Snapshot, 2, s_operation, operationCancellation.Token);
             }
             {
                 await acceptance.VerifyCurrentAsync(owner, fixture.Package, fixture.Target, fixture.Snapshot, 2, s_operation);
@@ -229,6 +230,9 @@ public sealed class AuthoringNativeSnapshotAcceptanceTests
                     await process.TerminateTreeAsync("native-control-complete", default);
                 }
                 await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                    await acceptance.VerifyCurrentAsync(owner, fixture.Package, fixture.Target, fixture.Snapshot, 2, s_operation));
+                operationCancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
                     await acceptance.VerifyCurrentAsync(owner, fixture.Package, fixture.Target, fixture.Snapshot, 2, s_operation));
             }
         }

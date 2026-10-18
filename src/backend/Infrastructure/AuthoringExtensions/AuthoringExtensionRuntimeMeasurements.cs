@@ -320,25 +320,30 @@ public sealed class AuthoringNativeStateSnapshotAcceptance : IAsyncDisposable
     private readonly object _owner;
     private readonly AuthoringRuntimeIncarnationLease _incarnation;
     private readonly AuthoringNativeStateSnapshotBinding _binding;
+    private readonly CancellationToken _operationCancellation;
     private readonly SemaphoreSlim _verification = new(1, 1);
     private bool _disposed;
 
     private AuthoringNativeStateSnapshotAcceptance(
         object owner,
         AuthoringRuntimeIncarnationLease incarnation,
-        AuthoringNativeStateSnapshotBinding binding)
+        AuthoringNativeStateSnapshotBinding binding,
+        CancellationToken operationCancellation)
     {
         _owner = owner;
         _incarnation = incarnation;
         _binding = binding;
+        _operationCancellation = operationCancellation;
     }
 
     internal static AuthoringNativeStateSnapshotAcceptance Issue(
         object owner,
         object authority,
         AuthoringRuntimeIncarnationLease incarnation,
-        AuthoringNativeStateSnapshotBinding binding)
+        AuthoringNativeStateSnapshotBinding binding,
+        CancellationToken operationCancellation)
     {
+        operationCancellation.ThrowIfCancellationRequested();
         if (!incarnation.IsCurrentOwner(owner) ||
             !(LinuxBubblewrapAuthoringWorkerRuntime.OwnsSnapshotLoad(owner, authority, binding) ||
               LinuxBubblewrapAuthoringServiceRuntime.OwnsSnapshotLoad(owner, authority, binding)))
@@ -346,7 +351,7 @@ public sealed class AuthoringNativeStateSnapshotAcceptance : IAsyncDisposable
             throw new AuthoringExtensionContractException("Only the original native snapshot loader can issue acceptance.");
         }
 
-        var acceptance = new AuthoringNativeStateSnapshotAcceptance(owner, incarnation, binding);
+        var acceptance = new AuthoringNativeStateSnapshotAcceptance(owner, incarnation, binding, operationCancellation);
         s_issued.Add(acceptance, owner);
         return acceptance;
     }
@@ -365,7 +370,8 @@ public sealed class AuthoringNativeStateSnapshotAcceptance : IAsyncDisposable
         string operationSha256,
         CancellationToken cancellationToken = default)
     {
-        await _verification.WaitAsync(cancellationToken);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _operationCancellation);
+        await _verification.WaitAsync(cancellation.Token);
         try
         {
             RequireCurrent(exactNativeOwner);
@@ -380,14 +386,14 @@ public sealed class AuthoringNativeStateSnapshotAcceptance : IAsyncDisposable
             if (_owner is IAuthoringWorkerSandboxInstance)
             {
                 await LinuxBubblewrapAuthoringWorkerRuntime.VerifySnapshotAcceptanceAsync(
-                    _owner, this, _binding, cancellationToken);
+                    _owner, this, _binding, cancellation.Token);
             }
             else
             {
                 await LinuxBubblewrapAuthoringServiceRuntime.VerifySnapshotAcceptanceAsync(
-                    _owner, this, _binding, cancellationToken);
+                    _owner, this, _binding, cancellation.Token);
             }
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             RequireCurrent(exactNativeOwner);
         }
         finally
@@ -398,6 +404,7 @@ public sealed class AuthoringNativeStateSnapshotAcceptance : IAsyncDisposable
 
     private void RequireCurrent(object owner)
     {
+        _operationCancellation.ThrowIfCancellationRequested();
         if (_disposed || !ReferenceEquals(owner, _owner) ||
             !s_issued.TryGetValue(this, out object? issuedOwner) || !ReferenceEquals(owner, issuedOwner) ||
             !_incarnation.IsCurrentOwner(owner))
