@@ -6,9 +6,13 @@
             "paths": [
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalContract.cs",
                 "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalAuthority.cs",
-                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionApprovalStore.cs"
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionApprovalStore.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionScopeProvenanceAuthority.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionScopeProvenanceStorageSchema.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateScopeIssuer.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionScopeProvenanceStore.cs"
             ],
-            "reason": "Preserve original payload/composite package identities, SQL column names and authenticated admin claim names in the unique approval owner sources. This successor adds exact-scope/canonical-result refusal dependencies and changes no trusted policy or environment setting."
+            "reason": "Preserve original payload/composite package identities, SQL column names and authenticated admin claim names in the unique approval owner sources. This successor adds exact-scope/canonical-result refusal dependencies and changes no trusted policy or environment setting. The frozen genuine scope provenance dependency retains its own configured-site, authenticated-claim, SQL and issuance-setting spellings; this candidate binds that actual source dependency without changing its implementation."
         },
         {
             "id": "css-like-contract",
@@ -22,7 +26,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "Preserve the original collection schema and every existing member while registering the actual 46 cases in the owned approval PostgreSQL class; pre-existing global collection drift remains visible."
+            "reason": "Preserve the original collection schema and every existing member while registering the actual 52 cases in the owned approval PostgreSQL class; pre-existing global collection drift remains visible."
         }
     ]
 }

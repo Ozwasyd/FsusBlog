@@ -18,54 +18,107 @@ public sealed class PostgresAuthoringExtensionApprovalStore(NpgsqlDataSource dat
 {
     private readonly IDataProtector _protector = protection.CreateProtector("FsusBlog.AuthoringExtensionApproval.v2");
 
+    // The approval owner opens the final transaction and pins actor rows before any foreign
+    // custody. Providers enlist in this transaction; they never commit or dispose it.
+    internal sealed class ApprovalTransaction(NpgsqlConnection connection, NpgsqlTransaction transaction, AuthoringApprovalActor actor, bool actorPinned = true) : IAsyncDisposable
+    {
+        internal NpgsqlConnection Connection { get; } = connection;
+        internal NpgsqlTransaction Transaction { get; } = transaction;
+        internal AuthoringApprovalActor Actor { get; } = actor;
+        internal bool ActorPinned { get; } = actorPinned;
+
+        public async ValueTask DisposeAsync()
+        {
+            try
+            {
+                await Transaction.DisposeAsync();
+            }
+            finally
+            {
+                await Connection.DisposeAsync();
+            }
+        }
+    }
+
+    internal async ValueTask<ApprovalTransaction> BeginAsync(long principalId, string sessionId, string siteId, CancellationToken token)
+    {
+        NpgsqlConnection connection = await dataSource.OpenConnectionAsync(token);
+        try
+        {
+            NpgsqlTransaction transaction = await connection.BeginTransactionAsync(token);
+            try
+            {
+                AuthoringApprovalActor actor = await ActorAsync(connection, principalId, sessionId, siteId, token);
+                return new(connection, transaction, actor);
+            }
+            catch
+            {
+                await transaction.DisposeAsync();
+                throw;
+            }
+        }
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
+    }
+
+    // Failure-only audit is allowed after identity loss; it never acquires foreign custody or
+    // grants success. SettleAsync rejects this unpinned transaction for Completed.
+    internal async ValueTask<ApprovalTransaction> BeginFailureAsync(AuthoringExtensionApprovalAuthority.ApprovedClaim claim, CancellationToken token)
+    {
+        NpgsqlConnection connection = await dataSource.OpenConnectionAsync(token);
+        try
+        {
+            return new(connection, await connection.BeginTransactionAsync(token), claim.Actor, false);
+        }
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
+    }
+
+    internal async ValueTask<AuthoringApprovalDecision> ObserveAsync(ApprovalTransaction held, string decisionId, CancellationToken token)
+        => await ReadDecisionAsync(held.Connection, decisionId, false, token);
+
     internal async ValueTask<AuthoringApprovalDecision> CreateAsync(
-        long principalId, string sessionId, string siteId,
-        Func<AuthoringApprovalActor, AuthoringApprovalDecision> prepare,
+        ApprovalTransaction held, AuthoringApprovalDecision decision,
         Func<CancellationToken, ValueTask> verifyScope, CancellationToken cancellationToken)
     {
-        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
-        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(cancellationToken);
-        AuthoringApprovalActor actor = await ActorAsync(connection, principalId, sessionId, siteId, cancellationToken);
-        AuthoringApprovalDecision decision = prepare(actor);
-        await FenceLifecycleAsync(connection, decision.ExpectedLifecycleReceipt, cancellationToken);
-        Require(await ActorAsync(connection, principalId, sessionId, siteId, cancellationToken) == actor,
-            "approval_actor_expired_or_changed_before_commit");
+        NpgsqlConnection connection = held.Connection;
+        Require(held.ActorPinned && decision.Actor == held.Actor, "approval_creation_actor_mismatch");
         decision = decision with
         {
             ExpiresAt = (await NowAsync(connection, cancellationToken)).AddMinutes(5)
         };
-        await verifyScope(cancellationToken);
+        // Obtain both decision and effect-uniqueness locks before the receipt key. An INSERT
+        // blocked by the unique operation index must never hold a higher-order receipt lock.
         await WriteAsync(connection, decision, true, cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        await FenceLifecycleAsync(connection, decision.ExpectedLifecycleReceipt, cancellationToken);
+        await VerifyActorAsync(held, cancellationToken);
+        await verifyScope(cancellationToken);
+        await held.Transaction.CommitAsync(cancellationToken);
         return decision;
     }
 
     internal async ValueTask<AuthoringApprovalDecision> ChangeAsync(
-        string decisionId, long principalId, string sessionId, string siteId,
+        ApprovalTransaction held, AuthoringApprovalDecision observed,
         Func<AuthoringApprovalDecision, CancellationToken, ValueTask<AuthoringApprovalDecision>> change,
-        Func<AuthoringApprovalDecision, CancellationToken, ValueTask> verifyScope,
+        Func<CancellationToken, ValueTask> verifyScope,
         CancellationToken cancellationToken, bool fenceLifecycle = true)
     {
-        Require(IsDigest(decisionId), "approval_decision_id_invalid");
-        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
-        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(cancellationToken);
-        AuthoringApprovalActor actor = await ActorAsync(connection, principalId, sessionId, siteId, cancellationToken);
-        AuthoringApprovalDecision current;
-        await using (var command = new NpgsqlCommand("""
-            SELECT status, revision, protected_payload, operation_sha256 FROM authoring_extension_approval_decision
-            WHERE decision_id = $1 FOR UPDATE;
-            """, connection))
-        {
-            command.Parameters.AddWithValue(decisionId);
-            await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
-            Require(await reader.ReadAsync(cancellationToken), "approval_decision_missing");
-            current = Decode(reader.GetFieldValue<byte[]>(2));
-            Require(current.DecisionId == decisionId && (int)current.Status == reader.GetInt16(0) &&
-                current.Revision == reader.GetInt64(1) && current.OperationSha256 == reader.GetString(3), "approval_decision_tampered");
-        }
+        NpgsqlConnection connection = held.Connection;
+        AuthoringApprovalActor actor = held.Actor;
+        Require(held.ActorPinned, "approval_actor_not_pinned");
+        AuthoringApprovalDecision current = await ReadDecisionAsync(connection, observed.DecisionId, true, cancellationToken);
+        // The nonlocking observation routes custody acquisition only. Re-read and validate after
+        // locking the row; a changed immutable descriptor must never reuse earlier custody.
+        Require(SameDescriptor(observed, current), "approval_observed_descriptor_changed");
         await ValidateJournalAsync(connection, current, cancellationToken);
         Require(current.Actor == actor, "approval_actor_site_or_permission_drift");
-        await verifyScope(current, cancellationToken);
+        await verifyScope(cancellationToken);
         // Expiration itself is durable even when the attempted claim is rejected after commit.
         AuthoringApprovalDecision next;
         if (current.Status is AuthoringApprovalStatus.Pending or AuthoringApprovalStatus.Approved &&
@@ -86,8 +139,7 @@ public sealed class PostgresAuthoringExtensionApprovalStore(NpgsqlDataSource dat
         }
         // Time may advance while state/receipt owners or a concurrent generation hold locks.
         // Recheck both SQL session lifetime and decision expiry at the final durable transition.
-        Require(await ActorAsync(connection, principalId, sessionId, siteId, cancellationToken) == actor,
-            "approval_actor_expired_or_changed_before_commit");
+        await VerifyActorAsync(held, cancellationToken);
         if (current.Status is AuthoringApprovalStatus.Pending or AuthoringApprovalStatus.Approved &&
             next.Status is AuthoringApprovalStatus.Approved or AuthoringApprovalStatus.Claimed &&
             current.ExpiresAt <= await NowAsync(connection, cancellationToken))
@@ -97,7 +149,7 @@ public sealed class PostgresAuthoringExtensionApprovalStore(NpgsqlDataSource dat
                 Status = AuthoringApprovalStatus.Expired
             };
         }
-        await verifyScope(current, cancellationToken);
+        await verifyScope(cancellationToken);
         if (next != current)
         {
             Require(IsTransitionAllowed(current.Status, next.Status), "approval_transition_invalid");
@@ -107,13 +159,13 @@ public sealed class PostgresAuthoringExtensionApprovalStore(NpgsqlDataSource dat
             };
             await WriteAsync(connection, next, false, cancellationToken);
         }
-        await transaction.CommitAsync(cancellationToken);
+        await held.Transaction.CommitAsync(cancellationToken);
         return next;
     }
 
     // Terminal success fences the exact final receipt inside this owned transaction. The original
     // receipt store is not invoked here: it owns another transaction and the same advisory key.
-    internal async ValueTask SettleAsync(AuthoringExtensionApprovalAuthority.ApprovedClaim claim,
+    internal async ValueTask SettleAsync(ApprovalTransaction held, AuthoringExtensionApprovalAuthority.ApprovedClaim claim,
         AuthoringApprovalStatus terminal, AuthoringLifecycleReceipt? result, string? executionResultSha256,
         Func<CancellationToken, ValueTask>? verifyCurrent, CancellationToken cancellationToken)
     {
@@ -122,25 +174,12 @@ public sealed class PostgresAuthoringExtensionApprovalStore(NpgsqlDataSource dat
         Require(terminal == AuthoringApprovalStatus.Completed
             ? result is not null && IsDigest(executionResultSha256) && verifyCurrent is not null
             : result is null && executionResultSha256 is null, "approval_result_missing_or_unexpected");
-        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken);
-        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(cancellationToken);
+        NpgsqlConnection connection = held.Connection;
         if (terminal == AuthoringApprovalStatus.Completed)
         {
-            Require(await ActorAsync(connection, claim.Actor.PrincipalId, claim.Actor.SessionId, claim.Actor.SiteId, cancellationToken) == claim.Actor,
-                "approval_completion_actor_drift");
+            Require(held.ActorPinned && held.Actor == claim.Actor, "approval_completion_actor_drift");
         }
-        AuthoringApprovalDecision current;
-        await using (var command = new NpgsqlCommand("""
-            SELECT status, revision, protected_payload, operation_sha256 FROM authoring_extension_approval_decision WHERE decision_id = $1 FOR UPDATE;
-            """, connection))
-        {
-            command.Parameters.AddWithValue(claim.DecisionId);
-            await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
-            Require(await reader.ReadAsync(cancellationToken), "approval_decision_missing");
-            current = Decode(reader.GetFieldValue<byte[]>(2));
-            Require(current.DecisionId == claim.DecisionId && (int)current.Status == reader.GetInt16(0) &&
-                current.Revision == reader.GetInt64(1) && current.OperationSha256 == reader.GetString(3), "approval_decision_tampered");
-        }
+        AuthoringApprovalDecision current = await ReadDecisionAsync(connection, claim.DecisionId, true, cancellationToken);
         await ValidateJournalAsync(connection, current, cancellationToken);
         Require(claim.Matches(current), "approval_claim_mismatch");
         if (terminal == AuthoringApprovalStatus.Completed)
@@ -156,13 +195,12 @@ public sealed class PostgresAuthoringExtensionApprovalStore(NpgsqlDataSource dat
                 "approval_result_package_state_or_binding_mismatch");
             await FenceLifecycleAsync(connection, result, cancellationToken);
             await verifyCurrent!(cancellationToken);
-            Require(await ActorAsync(connection, current.Actor.PrincipalId, current.Actor.SessionId, current.Actor.SiteId, cancellationToken) == current.Actor,
-                "approval_completion_actor_expired_or_changed");
+            await VerifyActorAsync(held, cancellationToken);
         }
         if (current.Status == terminal && current.ResultReceiptSha256 == result?.ReceiptSha256 &&
             current.ExecutionResultSha256 == executionResultSha256)
         {
-            await transaction.CommitAsync(cancellationToken);
+            await held.Transaction.CommitAsync(cancellationToken);
             return;
         }
         Require(current.Status == AuthoringApprovalStatus.Claimed, "approval_claim_already_settled");
@@ -173,7 +211,39 @@ public sealed class PostgresAuthoringExtensionApprovalStore(NpgsqlDataSource dat
             ResultReceiptSha256 = result?.ReceiptSha256,
             ExecutionResultSha256 = executionResultSha256
         }, false, cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        await held.Transaction.CommitAsync(cancellationToken);
+    }
+
+    private static async ValueTask VerifyActorAsync(ApprovalTransaction held, CancellationToken token)
+    {
+        AuthoringApprovalActor actor = held.Actor;
+        Require(await ActorAsync(held.Connection, actor.PrincipalId, actor.SessionId, actor.SiteId, token) == actor,
+            "approval_actor_expired_or_changed_before_commit");
+    }
+
+    private static bool SameDescriptor(AuthoringApprovalDecision observed, AuthoringApprovalDecision current) =>
+        Digest(current with
+        {
+            Status = observed.Status,
+            Revision = observed.Revision,
+            ExecutionResultSha256 = observed.ExecutionResultSha256,
+            ResultReceiptSha256 = observed.ResultReceiptSha256
+        }) == Digest(observed);
+
+    private async ValueTask<AuthoringApprovalDecision> ReadDecisionAsync(NpgsqlConnection connection, string decisionId, bool forUpdate, CancellationToken token)
+    {
+        Require(IsDigest(decisionId), "approval_decision_id_invalid");
+        await using var command = new NpgsqlCommand("""
+            SELECT status, revision, protected_payload, operation_sha256 FROM authoring_extension_approval_decision
+            WHERE decision_id=$1
+            """ + (forUpdate ? " FOR UPDATE;" : ";"), connection);
+        command.Parameters.AddWithValue(decisionId);
+        await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(token);
+        Require(await reader.ReadAsync(token), "approval_decision_missing");
+        AuthoringApprovalDecision decision = Decode(reader.GetFieldValue<byte[]>(2));
+        Require(decision.DecisionId == decisionId && (int)decision.Status == reader.GetInt16(0) &&
+            decision.Revision == reader.GetInt64(1) && decision.OperationSha256 == reader.GetString(3), "approval_decision_tampered");
+        return decision;
     }
 
     public static bool IsTransitionAllowed(AuthoringApprovalStatus from, AuthoringApprovalStatus to) => (from, to) switch
