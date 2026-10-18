@@ -1,0 +1,1536 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/outcome-adapter-membership.v1.json",
+    "$defs": {
+        "backend": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "plannedTestIds",
+                "executedTestIds",
+                "passedTestIds",
+                "failedTestIds",
+                "skippedTestIds",
+                "blockedTestIds",
+                "assertions",
+                "caseIdentities",
+                "coverageIds",
+                "artifactSemanticDigests",
+                "stateSemanticDigests",
+                "policyDigests",
+                "projectionReceipts"
+            ],
+            "properties": {
+                "plannedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "executedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "passedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "failedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "skippedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "blockedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "assertions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "testId",
+                            "caseId",
+                            "assertionId",
+                            "status",
+                            "evidenceId"
+                        ],
+                        "properties": {
+                            "testId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "caseId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "assertionId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "status": {
+                                "enum": [
+                                    "passed",
+                                    "failed"
+                                ]
+                            },
+                            "evidenceId": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    }
+                },
+                "caseIdentities": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "testId",
+                            "caseId",
+                            "inputDigest",
+                            "shrinkSequenceIdentity",
+                            "transitionIds"
+                        ],
+                        "properties": {
+                            "testId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "caseId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "inputDigest": {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "shrinkSequenceIdentity": {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "transitionIds": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "uniqueItems": true
+                            }
+                        }
+                    }
+                },
+                "coverageIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "artifactSemanticDigests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                },
+                "stateSemanticDigests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                },
+                "policyDigests": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "retryPolicyDigest",
+                        "failureTaxonomyDigest",
+                        "projectionPolicyDigest"
+                    ],
+                    "properties": {
+                        "retryPolicyDigest": {
+                            "type": "string",
+                            "pattern": "^sha256:[a-f0-9]{64}$"
+                        },
+                        "failureTaxonomyDigest": {
+                            "type": "string",
+                            "pattern": "^sha256:[a-f0-9]{64}$"
+                        },
+                        "projectionPolicyDigest": {
+                            "anyOf": [
+                                {
+                                    "type": "string",
+                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    }
+                },
+                "projectionReceipts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "projectionId",
+                            "receiptDigest"
+                        ],
+                        "properties": {
+                            "projectionId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "receiptDigest": {
+                                "type": "string",
+                                "pattern": "^sha256:[a-f0-9]{64}$"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "frontend": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "plannedTestIds",
+                "executedTestIds",
+                "passedTestIds",
+                "failedTestIds",
+                "skippedTestIds",
+                "blockedTestIds",
+                "plannedSuiteIds",
+                "executedSuiteIds",
+                "passedSuiteIds",
+                "failedSuiteIds",
+                "skippedSuiteIds",
+                "blockedSuiteIds",
+                "plannedParameterizedTestIds",
+                "executedParameterizedTestIds",
+                "passedParameterizedTestIds",
+                "failedParameterizedTestIds",
+                "skippedParameterizedTestIds",
+                "blockedParameterizedTestIds",
+                "configId",
+                "projectId",
+                "policyDigests",
+                "suiteTestIds",
+                "parameterizedTestIds",
+                "assertions",
+                "failures",
+                "coverageIds",
+                "artifactSemanticDigests",
+                "stateSemanticDigests",
+                "scenarioIds",
+                "projectionReceipts",
+                "redactedSecrets"
+            ],
+            "properties": {
+                "plannedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "executedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "passedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "failedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "skippedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "blockedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "plannedSuiteIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "executedSuiteIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "passedSuiteIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "failedSuiteIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "skippedSuiteIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "blockedSuiteIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "plannedParameterizedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "executedParameterizedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "passedParameterizedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "failedParameterizedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "skippedParameterizedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "blockedParameterizedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "configId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "projectId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "policyDigests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                },
+                "suiteTestIds": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    }
+                },
+                "parameterizedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "assertions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "id",
+                            "testId",
+                            "status",
+                            "failureClass",
+                            "failureKind",
+                            "failureIdentity"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "testId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "status": {
+                                "enum": [
+                                    "passed",
+                                    "failed",
+                                    "skipped",
+                                    "blocked"
+                                ]
+                            },
+                            "failureClass": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "failureKind": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "failureIdentity": {
+                                "anyOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "required": [
+                                            "producerId"
+                                        ],
+                                        "properties": {
+                                            "producerId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "testId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "caseId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "assertionId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "scenarioId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "phase": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "actionId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "projectId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "browserId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "evidenceId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "identityField": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "schemaPath": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "semanticId": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "temporalContextDigest": {
+                                                "type": "string",
+                                                "pattern": "^sha256:[a-f0-9]{64}$"
+                                            },
+                                            "replayPlanDigest": {
+                                                "type": "string",
+                                                "pattern": "^sha256:[a-f0-9]{64}$"
+                                            },
+                                            "executionEnvelopeDigest": {
+                                                "type": "string",
+                                                "pattern": "^sha256:[a-f0-9]{64}$"
+                                            },
+                                            "semanticPayloadDigest": {
+                                                "type": "string",
+                                                "pattern": "^sha256:[a-f0-9]{64}$"
+                                            },
+                                            "toolchainDigest": {
+                                                "type": "string",
+                                                "pattern": "^sha256:[a-f0-9]{64}$"
+                                            },
+                                            "attemptNumber": {
+                                                "type": "integer",
+                                                "minimum": 1
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                "failures": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "producerId",
+                            "testId",
+                            "assertionId",
+                            "failureClass",
+                            "failureKind",
+                            "identity",
+                            "semanticArtifactIds"
+                        ],
+                        "properties": {
+                            "producerId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "testId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "assertionId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "failureClass": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "failureKind": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "identity": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "producerId"
+                                ],
+                                "properties": {
+                                    "producerId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "testId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "caseId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "assertionId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "scenarioId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "phase": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "actionId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "projectId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "browserId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "evidenceId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "identityField": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "schemaPath": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "semanticId": {
+                                        "type": "string",
+                                        "minLength": 1
+                                    },
+                                    "temporalContextDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    },
+                                    "replayPlanDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    },
+                                    "executionEnvelopeDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    },
+                                    "semanticPayloadDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    },
+                                    "toolchainDigest": {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    },
+                                    "attemptNumber": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    }
+                                }
+                            },
+                            "semanticArtifactIds": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "uniqueItems": true
+                            }
+                        }
+                    }
+                },
+                "coverageIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "artifactSemanticDigests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                },
+                "stateSemanticDigests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                },
+                "scenarioIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "projectionReceipts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "projectionId",
+                            "receiptDigest"
+                        ],
+                        "properties": {
+                            "projectionId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "receiptDigest": {
+                                "type": "string",
+                                "pattern": "^sha256:[a-f0-9]{64}$"
+                            }
+                        }
+                    }
+                },
+                "redactedSecrets": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "semanticId",
+                            "present",
+                            "type",
+                            "contextDigest"
+                        ],
+                        "properties": {
+                            "semanticId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "present": {
+                                "type": "boolean"
+                            },
+                            "type": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "contextDigest": {
+                                "type": "string",
+                                "pattern": "^sha256:[a-f0-9]{64}$"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "browser": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "plannedMemberIds",
+                "executedMemberIds",
+                "passedMemberIds",
+                "failedMemberIds",
+                "skippedMemberIds",
+                "blockedMemberIds",
+                "plannedProjectIds",
+                "plannedBrowserIds",
+                "plannedTestIds",
+                "plannedAssertionIds",
+                "members",
+                "interruptionKind",
+                "artifactSemanticDigests"
+            ],
+            "properties": {
+                "plannedMemberIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "executedMemberIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "passedMemberIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "failedMemberIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "skippedMemberIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "blockedMemberIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "plannedProjectIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "plannedBrowserIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "plannedTestIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "plannedAssertionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "members": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "id",
+                            "projectId",
+                            "browserId",
+                            "testId",
+                            "assertionId",
+                            "required",
+                            "executed",
+                            "status",
+                            "failureKinds",
+                            "artifactIds"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "projectId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "browserId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "testId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "assertionId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "required": {
+                                "type": "boolean"
+                            },
+                            "executed": {
+                                "type": "boolean"
+                            },
+                            "status": {
+                                "enum": [
+                                    "passed",
+                                    "failed",
+                                    "skipped",
+                                    "blocked"
+                                ]
+                            },
+                            "failureKinds": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "uniqueItems": true
+                            },
+                            "artifactIds": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1
+                                },
+                                "uniqueItems": true
+                            }
+                        }
+                    }
+                },
+                "interruptionKind": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "artifactSemanticDigests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                }
+            }
+        },
+        "reliability": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "scenarioIds",
+                "memberOutcomes"
+            ],
+            "properties": {
+                "scenarioIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "memberOutcomes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "scenarioId",
+                            "planned",
+                            "executed",
+                            "terminalClassification",
+                            "reachedPhase",
+                            "lifecycle",
+                            "failureReasons",
+                            "semanticEvidence"
+                        ],
+                        "properties": {
+                            "scenarioId": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "planned": {
+                                "const": true
+                            },
+                            "executed": {
+                                "type": "boolean"
+                            },
+                            "terminalClassification": {
+                                "enum": [
+                                    "qualified-success",
+                                    "product-failure",
+                                    "precondition-failure",
+                                    "infra-no-conclusion",
+                                    "cancelled",
+                                    "not-reached"
+                                ]
+                            },
+                            "reachedPhase": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "lifecycle": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "actionId",
+                                        "phase",
+                                        "status",
+                                        "stateDomains",
+                                        "isolationEvidenceDigest"
+                                    ],
+                                    "properties": {
+                                        "actionId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "phase": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "status": {
+                                            "enum": [
+                                                "passed",
+                                                "failed",
+                                                "timed-out",
+                                                "cancelled",
+                                                "not-run"
+                                            ]
+                                        },
+                                        "stateDomains": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "uniqueItems": true
+                                        },
+                                        "isolationEvidenceDigest": {
+                                            "anyOf": [
+                                                {
+                                                    "type": "string",
+                                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                                },
+                                                {
+                                                    "type": "null"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            "failureReasons": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "kind",
+                                        "producerId",
+                                        "identity"
+                                    ],
+                                    "properties": {
+                                        "kind": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "producerId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "identity": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "producerId"
+                                            ],
+                                            "properties": {
+                                                "producerId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "testId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "caseId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "assertionId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "scenarioId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "phase": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "actionId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "projectId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "browserId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "evidenceId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "identityField": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "schemaPath": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "semanticId": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                },
+                                                "temporalContextDigest": {
+                                                    "type": "string",
+                                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                                },
+                                                "replayPlanDigest": {
+                                                    "type": "string",
+                                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                                },
+                                                "executionEnvelopeDigest": {
+                                                    "type": "string",
+                                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                                },
+                                                "semanticPayloadDigest": {
+                                                    "type": "string",
+                                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                                },
+                                                "toolchainDigest": {
+                                                    "type": "string",
+                                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                                },
+                                                "attemptNumber": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                }
+                                            }
+                                        },
+                                        "failureClass": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "diagnosticEvidenceId": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        },
+                                        "semanticArtifactIds": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "uniqueItems": true
+                                        },
+                                        "stateIds": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string",
+                                                "minLength": 1
+                                            },
+                                            "uniqueItems": true
+                                        }
+                                    }
+                                }
+                            },
+                            "semanticEvidence": {
+                                "anyOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "required": [
+                                            "metricsDigest",
+                                            "stateDigest",
+                                            "assertions",
+                                            "contentDigest"
+                                        ],
+                                        "properties": {
+                                            "metricsDigest": {
+                                                "type": "string",
+                                                "pattern": "^sha256:[a-f0-9]{64}$"
+                                            },
+                                            "stateDigest": {
+                                                "type": "string",
+                                                "pattern": "^sha256:[a-f0-9]{64}$"
+                                            },
+                                            "assertions": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "additionalProperties": false,
+                                                    "required": [
+                                                        "assertionId",
+                                                        "status",
+                                                        "expectedDigest",
+                                                        "actualDigest"
+                                                    ],
+                                                    "properties": {
+                                                        "assertionId": {
+                                                            "type": "string",
+                                                            "minLength": 1
+                                                        },
+                                                        "status": {
+                                                            "enum": [
+                                                                "passed",
+                                                                "failed"
+                                                            ]
+                                                        },
+                                                        "expectedDigest": {
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "string",
+                                                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                                                },
+                                                                {
+                                                                    "type": "null"
+                                                                }
+                                                            ]
+                                                        },
+                                                        "actualDigest": {
+                                                            "anyOf": [
+                                                                {
+                                                                    "type": "string",
+                                                                    "pattern": "^sha256:[a-f0-9]{64}$"
+                                                                },
+                                                                {
+                                                                    "type": "null"
+                                                                }
+                                                            ]
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "contentDigest": {
+                                                "type": "string",
+                                                "pattern": "^sha256:[a-f0-9]{64}$"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "immutable-build-semantic-outcome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "actualArtifactIds",
+                "plannedArtifactIds",
+                "verificationAssertionIds",
+                "verifiedArtifactIds",
+                "artifactSemanticDigests"
+            ],
+            "properties": {
+                "actualArtifactIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "plannedArtifactIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "verificationAssertionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "verifiedArtifactIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "artifactSemanticDigests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "contentDigest",
+                            "imageDigest",
+                            "manifestDigest",
+                            "provenanceDigest"
+                        ],
+                        "properties": {
+                            "contentDigest": {
+                                "type": "string",
+                                "pattern": "^sha256:[a-f0-9]{64}$"
+                            },
+                            "imageDigest": {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "pattern": "^sha256:[a-f0-9]{64}$"
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "manifestDigest": {
+                                "type": "string",
+                                "pattern": "^sha256:[a-f0-9]{64}$"
+                            },
+                            "provenanceDigest": {
+                                "type": "string",
+                                "pattern": "^sha256:[a-f0-9]{64}$"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "release-projection-semantic-outcome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "blockedProjectionIds",
+                "failedProjectionIds",
+                "producedProjectionIds",
+                "requiredProjectionIds",
+                "verifiedProjectionIds",
+                "semanticDigests"
+            ],
+            "properties": {
+                "blockedProjectionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "failedProjectionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "producedProjectionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "requiredProjectionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "verifiedProjectionIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "semanticDigests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                }
+            }
+        },
+        "release-finalizer-semantic-outcome": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "blockedInputIds",
+                "consumedInputIds",
+                "failedInputIds",
+                "producedOutputIds",
+                "requiredInputIds",
+                "requiredOutputIds",
+                "verifiedInputIds",
+                "outputDigests"
+            ],
+            "properties": {
+                "blockedInputIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "consumedInputIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "failedInputIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "producedOutputIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "requiredInputIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "requiredOutputIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "verifiedInputIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "uniqueItems": true
+                },
+                "outputDigests": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                }
+            }
+        }
+    }
+}

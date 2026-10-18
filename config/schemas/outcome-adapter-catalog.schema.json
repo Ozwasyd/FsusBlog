@@ -1,0 +1,106 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/outcome-adapter-catalog.v1.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "schemaVersion",
+        "candidateSchema",
+        "fieldDispositionSchema",
+        "membershipSchema",
+        "entries"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.outcome-adapter-catalog.v1"
+        },
+        "schemaVersion": {
+            "const": "1"
+        },
+        "candidateSchema": {
+            "const": "fsusblog.producer-semantic-outcome-candidate.v1"
+        },
+        "fieldDispositionSchema": {
+            "const": "fsusblog.outcome-field-dispositions.v2"
+        },
+        "membershipSchema": {
+            "const": "config/schemas/outcome-adapter-membership.schema.json"
+        },
+        "entries": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "family",
+                    "producerIds",
+                    "authorityId",
+                    "adapterExport",
+                    "verifierExport",
+                    "sourceCommit",
+                    "sourceDigest",
+                    "membershipSchema",
+                    "normalizationStatus",
+                    "owner",
+                    "proofTestId"
+                ],
+                "properties": {
+                    "family": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "producerIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "authorityId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "adapterExport": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "verifierExport": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "sourceCommit": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{40}$"
+                    },
+                    "sourceDigest": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    },
+                    "membershipSchema": {
+                        "type": "string",
+                        "pattern": "^#/[a-zA-Z$]+/[a-zA-Z0-9-]+$"
+                    },
+                    "normalizationStatus": {
+                        "enum": [
+                            "existing-v2",
+                            "data-only-schema"
+                        ]
+                    },
+                    "owner": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "proofTestId": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        }
+    }
+}
