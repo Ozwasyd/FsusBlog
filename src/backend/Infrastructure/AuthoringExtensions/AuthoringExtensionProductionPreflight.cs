@@ -110,6 +110,10 @@ public sealed class AuthoringExtensionProductionPreflight(
         if (!await HasGrantsAsync(active, targets, cancellationToken).ConfigureAwait(false))
         {
             blockers.Add("production_required_grant_missing");
+            if (scope.DocumentId is null)
+            {
+                blockers.Add("production_document_grant_scope_unavailable");
+            }
         }
         if (receipt is null)
         {
@@ -317,9 +321,9 @@ public sealed class AuthoringExtensionProductionPreflight(
 
     internal void RequireQualifiedEffects()
     {
-        // The successor issuer requires original scope and execution-result
-        // custody. Those real dependencies and independent qualification remain
-        // absent here. No caller flag or test adapter can enable native effects.
+        // Genuine issued scope and original state custody alone do not qualify
+        // native acceptance, old host settlement or final execution-result CAS.
+        // No caller flag or test adapter can enable those effects.
         throw new AuthoringExtensionContractException("production_approval_qualification_pending");
     }
 
@@ -427,6 +431,7 @@ public sealed class AuthoringExtensionProductionPreflight(
     internal async ValueTask<ImmutableArray<string>> FindBoundGrantIdsAsync(
         VerifiedAuthoringPackage package, AuthoringExecutionTarget target, CancellationToken cancellationToken)
     {
+        Require(scope.DocumentId is not null, "production_document_grant_scope_unavailable");
         ImmutableArray<AuthoringCapabilityGrant> found = await grants.FindActiveExactAsync(target.ExtensionId,
             target.ExtensionVersion, target.ContributionId, target.RuntimeIdentity, target.ExecutionClass,
             scope.DocumentId!, cancellationToken).ConfigureAwait(false);
@@ -453,6 +458,16 @@ public sealed class AuthoringExtensionProductionPreflight(
         {
             AuthoringContributionDeclaration declaration = package.Contract.Manifest.Contributions.Single(
                 candidate => candidate.Id == target.ContributionId);
+            if (declaration.Capabilities.IsEmpty)
+            {
+                continue;
+            }
+            // The real grant catalog is document-scoped. A genuine site-only
+            // state registration does not supply a document or grant consent.
+            if (scope.DocumentId is null)
+            {
+                return false;
+            }
             ImmutableArray<AuthoringCapabilityGrant> found = await grants.FindActiveExactAsync(
                 target.ExtensionId, target.ExtensionVersion, target.ContributionId, target.RuntimeIdentity,
                 target.ExecutionClass, scope.DocumentId!, cancellationToken).ConfigureAwait(false);

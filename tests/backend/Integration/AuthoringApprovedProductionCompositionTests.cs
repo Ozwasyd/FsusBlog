@@ -54,7 +54,7 @@ public sealed class AuthoringApprovedProductionCompositionTests(
                 AuthoringLifecycleReceipt? current = await refused.Receipts.GetLatestAsync(refused.Target.Package.Contract.Manifest.Id, default);
                 Assert.Equal(migration ? AuthoringLifecycleState.Enabled : AuthoringLifecycleState.RetainedData, current!.State);
                 observed = true;
-            });
+            }, issueOriginalScope: false);
         });
         Assert.Equal("approval_exact_scope_authority_unavailable", error.Message);
         Assert.True(observed);
@@ -173,7 +173,10 @@ public sealed class AuthoringApprovedProductionCompositionTests(
     public async Task OriginalV1_ConsumesRealFencedApply_AndRefusesUnqualifiedEffects(string mutation, string code)
     {
         await using Harness host = await CreateAsync(true);
-        await host.Target.StoreGrantAsync();
+        if (host.Target.Scope.DocumentId is not null)
+        {
+            await host.Target.StoreGrantAsync();
+        }
         AuthoringExtensionProductionComposition composition = host.Compose();
         IAuthoringFencedLifecycleResourceAuthorityV1 resources = composition.Resources;
         Assert.Same(composition, resources);
@@ -338,7 +341,161 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         }
     }
 
-    private async Task<Harness> CreateAsync(bool migration, Func<Harness, Task>? verifyRefusal = null)
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OriginalServerIssuance_CreatesRealExactClaim_WithoutDocumentGrantOrRuntimeAdmission(bool migration)
+    {
+        await using Harness host = await CreateAsync(migration);
+        AuthoringExtensionProductionComposition composition = host.Compose();
+        Assert.Null(host.Target.Scope.DocumentId);
+        Assert.Matches("^[0-9a-f]{64}$", host.Target.Scope.UserId);
+        Assert.NotEqual("1", host.Target.Scope.UserId);
+        Assert.NotEqual("7", host.Target.Scope.UserId);
+        Assert.Equal(host.Target.Scope.UserId, host.Claim.OperationContext.StateUserId);
+        Assert.Equal(host.Target.Scope.DocumentId, host.Claim.OperationContext.DocumentId);
+        Assert.Equal(migration ? 2 : 1, await host.Db.Ado.GetIntAsync(
+            "SELECT count(*) FROM authoring_extension_scope_provenance WHERE status=1 AND creation_seen;"));
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(host.Claim.DecisionId)).Status);
+        Assert.Equal(new(0, 1), await composition.HostResources.InspectRegistrationsAsync(host.Target.Package, host.Target.Targets));
+        AuthoringProductionPreflightObservation observation = await composition.Preflight.InspectAsync(host.Target.Package, host.Target.Targets);
+        Assert.DoesNotContain("production_approval_claim_missing", observation.Blockers);
+        Assert.Contains("production_document_grant_scope_unavailable", observation.Blockers);
+        Assert.Contains("production_required_grant_missing", observation.Blockers);
+        Assert.False(await composition.Preflight.HasRequiredPermissionsAsync(host.Target.Package, host.Target.Targets, default));
+        Assert.False(await composition.Preflight.VerifyAsync(host.Target.Package, host.Target.Targets, default));
+        Assert.Equal(0, composition.HostResources.PublishedGenerations);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task OriginalActorPinnedRecovery_BorrowsTheSameStateCustody_AndRefusesMissingRecordedHistory(bool recorded)
+    {
+        await using Harness host = await CreateAsync(true);
+        AuthoringExtensionProductionComposition composition = host.Compose();
+        AuthoringStateSnapshot actualApply = await host.ApplyAsync();
+        await host.CompleteStateAsync();
+        AuthoringStateSnapshot settled = await host.ReadTargetAsync();
+        if (!recorded)
+        {
+            await host.Db.Ado.ExecuteCommandAsync("DELETE FROM authoring_extension_state_settlement;");
+        }
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        await using (var actor = await host.ApprovalStore.BeginAsync(1, "production-approval-session",
+            host.Target.Scope.SiteId, deadline.Token))
+        {
+            if (!recorded)
+            {
+                var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                    await composition.AcquireSettledStateCustodyAsync(actor.Connection, actor.Transaction, deadline.Token));
+                Assert.Equal("state_settled_observation_not_recorded", error.Message);
+            }
+            else
+            {
+                await using IAuthoringExtensionStateObservation custody = await composition.AcquireSettledStateCustodyAsync(
+                    actor.Connection, actor.Transaction, deadline.Token);
+                Assert.Equal(AuthoringStateMigrationPhase.Completed, custody.State.Phase);
+                Assert.Equal(settled.ContentSha256, custody.State.To!.Snapshot.ContentSha256);
+                Assert.NotEqual(actualApply.Revision, custody.State.To.Snapshot.Revision);
+                Assert.Equal(actualApply.Entries.Select(static entry => entry.Key),
+                    custody.State.To.Snapshot.Entries.Select(static entry => entry.Key));
+                foreach (AuthoringStateEntry entry in actualApply.Entries)
+                {
+                    Assert.Equal(entry.Value.ToArray(), custody.State.To.Snapshot.Entries.Single(item => item.Key == entry.Key).Value.ToArray());
+                }
+                using var writerCancellation = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
+                await using NpgsqlConnection writer = await host.Source.OpenConnectionAsync(deadline.Token);
+                await using var truncate = new NpgsqlCommand("TRUNCATE authoring_extension_state_scope CASCADE;", writer);
+                Task<int> queued = truncate.ExecuteNonQueryAsync(writerCancellation.Token);
+                try
+                {
+                    await host.WaitForLockAsync("query LIKE 'TRUNCATE authoring_extension_state_scope%' AND wait_event_type='Lock'", deadline.Token);
+                    Assert.False(queued.IsCompleted);
+                    // This exact original object is borrowed. A second state
+                    // connection/SELECT would queue behind the real TRUNCATE.
+                    await using IAuthoringExtensionApprovalScope access = await host.ScopeAuthority.AcquireWithStateCustodyAsync(
+                        host.Context, AuthoringApprovalOperation.Migration, host.Claim.Scope, host.Claim.FrozenPlan!.To,
+                        custody, deadline.Token);
+                    await access.VerifyCurrentAsync(deadline.Token);
+                    await custody.VerifyCurrentAsync(deadline.Token);
+                }
+                finally
+                {
+                    writerCancellation.Cancel();
+                    _ = await Record.ExceptionAsync(async () => await queued);
+                }
+                // Borrower disposal does not dispose/reacquire the original scope.
+                await custody.VerifyCurrentAsync(deadline.Token);
+                Assert.Equal(settled.ContentSha256, custody.State.To!.Snapshot.ContentSha256);
+            }
+        }
+        Assert.Equal(settled.ContentSha256, (await host.ReadTargetAsync()).ContentSha256);
+        Assert.Equal(recorded ? 1 : 0, await host.Db.Ado.GetIntAsync("SELECT count(*) FROM authoring_extension_state_settlement;"));
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(host.Claim.DecisionId)).Status);
+        Assert.Equal(0, composition.HostResources.PublishedGenerations);
+    }
+
+    [Theory]
+    [InlineData("document", "scope_document_authority_unavailable")]
+    [InlineData("legacy-user", "scope_provenance_missing")]
+    public async Task OriginalProvenance_RefusesUnissuedDocumentAndLegacyUser(string mutation, string code)
+    {
+        await using Harness host = await CreateAsync(false);
+        AuthoringStateScope unissued = mutation == "document"
+            ? host.Target.Scope with
+            {
+                DocumentId = "document-1"
+            }
+            : host.Target.Scope with
+            {
+                UserId = "7"
+            };
+        await host.State.InitializeAsync(host.Target.Package, unissued, default);
+        AuthoringStateMeasurement measurement = await host.State.MeasureAsync(host.Target.Package, unissued, default);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using (var actor = await host.ApprovalStore.BeginAsync(1, "production-approval-session",
+            host.Target.Scope.SiteId, deadline.Token))
+        {
+            await using IAuthoringExtensionStateObservation custody = await host.State.ObserveDeletionAsync(
+                host.Target.Package, measurement, deadline.Token);
+            var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await host.ScopeAuthority.AcquireWithStateCustodyAsync(host.Context, AuthoringApprovalOperation.Deletion,
+                    unissued, null, custody, deadline.Token));
+            Assert.Equal(code, error.Message);
+            await custody.VerifyCurrentAsync(deadline.Token);
+        }
+        Assert.Equal(measurement, await host.State.MeasureAsync(host.Target.Package, unissued, default));
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(host.Claim.DecisionId)).Status);
+    }
+
+    [Fact]
+    public async Task OriginalCompletingIssuer_RejectsRealSettledStateAndRunningReceiptWithoutNativeGenerationCustody()
+    {
+        await using Harness host = await CreateAsync(true);
+        AuthoringExtensionProductionComposition composition = host.Compose();
+        AuthoringStateSnapshot actualApply = await host.ApplyAsync();
+        await host.CompleteStateAsync();
+        AuthoringLifecycleReceipt starting = await host.AppendStartingAsync(host.Target.Package.Contract.Manifest.PackageSha256);
+        AuthoringExtensionApprovalExecutionResult data = AuthoringExtensionApprovalContract.MigrationResult(
+            host.Claim, actualApply, host.Claim.OrderedOldTargets, host.Target.Targets, starting.Generation + 1);
+        AuthoringLifecycleReceipt running = Sign(Next(starting, AuthoringLifecycleState.Running) with
+        {
+            ScopeDigest = data.ContentSha256
+        });
+        await host.Receipts.AppendAsync(running, default);
+        // Actual state effects and a real durable receipt still cannot issue
+        // missing process-bound/native and old-generation settlement lifetimes.
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await host.CompletingAuthority(composition).CompleteAsync(host.Claim, data, running));
+        Assert.Equal("production_execution_generation_custody_unavailable", error.Message);
+        Assert.Equal(running, await host.Receipts.GetLatestAsync(running.ExtensionId, default));
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(host.Claim.DecisionId)).Status);
+        Assert.Equal(0, composition.HostResources.PublishedGenerations);
+    }
+
+    private async Task<Harness> CreateAsync(bool migration, Func<Harness, Task>? verifyRefusal = null,
+        bool issueOriginalScope = true)
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(postgres);
         SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
@@ -376,10 +533,9 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         // Only off-path FIDO/JWT/audit collaborators are substituted. The exercised
         // step-up proof issuer/one-time consumer, Redis, SQL actor checks, durable
         // approval issuer, package verification, state and receipts are real.
-        // No scope or execution-result adapter is supplied. Successor 1647fc953
-        // correctly refuses the retained positive cases at that missing real
-        // dependency; their failure is recorded as unsupported, never skipped or
-        // replaced by a permissive test scope to manufacture an approved claim.
+        // Legacy controls retain the absent-scope refusal. Genuine controls use
+        // only the original server issuer, insertion witness and scope authority;
+        // no test scope or execution-result adapter manufactures approval.
         var administrators = new AdminPrincipalService(Substitute.For<IFido2>(), db, cache, cache,
             Substitute.For<IJwtHelper>(), configuration, NullLogger<AdminPrincipalService>.Instance,
             Substitute.For<IAdminAuditLogChannel>());
@@ -397,12 +553,36 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         var source = NpgsqlDataSource.Create(connectionString);
         var state = new PostgresAuthoringExtensionStateStore(db);
         var receipts = new PostgresAuthoringLifecycleReceiptStore(db);
+        var approvalStore = new PostgresAuthoringExtensionApprovalStore(source, new EphemeralDataProtectionProvider());
+        PostgresAuthoringExtensionScopeProvenanceStore? provenance = null;
+        AuthoringExtensionScopeProvenanceAuthority? scopeAuthority = null;
+        if (issueOriginalScope)
+        {
+            await db.Ado.ExecuteCommandAsync(AuthoringExtensionScopeProvenanceStorageSchema.CreateTablesSql);
+            provenance = new(source, configuration);
+            scopeAuthority = new(provenance);
+        }
         var authority = new AuthoringExtensionApprovalAuthority(context, configuration,
-            new PostgresAuthoringExtensionApprovalStore(source, new EphemeralDataProtectionProvider()), state, receipts, administrators);
-        var host = new Harness(db, source, connection, cache, oldPackage, target, authority, state, receipts);
+            approvalStore, state, receipts, administrators, scopeAuthority);
+        var host = new Harness(db, source, connection, cache, oldPackage, target, authority, state, receipts,
+            approvalStore, scopeAuthority, context, configuration, administrators);
         try
         {
-            await state.InitializeAsync(oldPackage.Package, oldPackage.Scope, default);
+            if (issueOriginalScope)
+            {
+                var issuer = new AuthoringExtensionStateScopeIssuer(source, configuration, provenance!);
+                AuthoringExtensionScopeRegistration first = await issuer.BeginAsync(context.HttpContext!, oldPackage.Package);
+                oldPackage.UseIssuedStateScope(await issuer.CompleteAsync(context.HttpContext!, oldPackage.Package, first.RegistrationId));
+                if (migration)
+                {
+                    AuthoringExtensionScopeRegistration next = await issuer.BeginAsync(context.HttpContext!, target.Package, oldPackage.Scope);
+                    target.UseIssuedStateScope(await issuer.CompleteAsync(context.HttpContext!, target.Package, next.RegistrationId));
+                }
+            }
+            else
+            {
+                await state.InitializeAsync(oldPackage.Package, oldPackage.Scope, default);
+            }
             await state.WriteAsync(oldPackage.Package, oldPackage.Scope, 0, new("old", [1, 2]), default);
             AuthoringLifecycleReceipt receipt = Sign(new(1, 1, oldPackage.Package.Contract.Manifest.Id,
                 oldPackage.Package.Contract.Manifest.PackageSha256, "1.0.0", 1, 1, AuthoringLifecycleState.Installed,
@@ -410,7 +590,10 @@ public sealed class AuthoringApprovedProductionCompositionTests(
             await receipts.AppendAsync(receipt, default);
             if (migration)
             {
-                await state.InitializeAsync(target.Package, target.Scope, default);
+                if (!issueOriginalScope)
+                {
+                    await state.InitializeAsync(target.Package, target.Scope, default);
+                }
                 AuthoringStateSnapshot snapshot = await state.ReadAsync(oldPackage.Package, oldPackage.Scope, default);
                 AuthoringFencedStateMigration plan = AuthoringStateProcessWorker.Plan(snapshot, target.Scope) with
                 {
@@ -489,15 +672,25 @@ public sealed class AuthoringApprovedProductionCompositionTests(
     private sealed class Harness(SqlSugarClient db, NpgsqlDataSource source, ConnectionMultiplexer connection,
         UnifiedCache cache, AuthoringProductionPreflightFixture oldPackage, AuthoringProductionPreflightFixture target,
         AuthoringExtensionApprovalAuthority authority, PostgresAuthoringExtensionStateStore state,
-        PostgresAuthoringLifecycleReceiptStore receipts) : IAsyncDisposable
+        PostgresAuthoringLifecycleReceiptStore receipts, PostgresAuthoringExtensionApprovalStore approvalStore,
+        AuthoringExtensionScopeProvenanceAuthority? scopeAuthority, ContextAccessor contexts,
+        IConfigurationRoot configuration, AdminPrincipalService administrators) : IAsyncDisposable
     {
         private bool _settled;
         public SqlSugarClient Db => db;
         public NpgsqlDataSource Source => source;
         public PostgresAuthoringLifecycleReceiptStore Receipts => receipts;
         public AuthoringProductionPreflightFixture Target => target;
+        public AuthoringProductionPreflightFixture OldPackage => oldPackage;
         public AuthoringExtensionApprovalAuthority Authority => authority;
+        public PostgresAuthoringExtensionApprovalStore ApprovalStore => approvalStore;
+        public AuthoringExtensionScopeProvenanceAuthority ScopeAuthority => scopeAuthority!;
+        public HttpContext Context => contexts.HttpContext!;
+        public PostgresAuthoringExtensionStateStore State => state;
         public AuthoringExtensionApprovalAuthority.ApprovedClaim Claim { get; set; } = null!;
+
+        public AuthoringExtensionApprovalAuthority CompletingAuthority(AuthoringExtensionProductionComposition composition) =>
+            new(contexts, configuration, approvalStore, state, receipts, administrators, scopeAuthority, composition.ExecutionResults);
 
         public async ValueTask<AuthoringStateSnapshot> ApplyAsync()
         {

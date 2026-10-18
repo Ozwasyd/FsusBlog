@@ -751,6 +751,16 @@ interface implementation cannot substitute caller-supplied observations. This
 point-in-time read is not a held publication capability, and the consumer neither
 maps admin IDs to opaque state users nor encodes approval scope digests.
 
+The original server scope issuer persists Pending, observes the original state
+initializer's insertion witness, and activates the exact registration before the
+approval owner can consume it. It generates the opaque state user and currently
+issues site scopes with no document. A legacy user such as `7`, an existing state
+row or a caller-selected document cannot replace that provenance. The original
+Filter `ArticleQuery` grant catalog requires a document; site-only state ownership
+does not mint that binding. Preflight reports the missing document grant scope and
+returns permission refusal without querying the catalog with a null document or
+substituting a default document.
+
 Preflight supplies a five-second cooperative cancellation deadline. The original
 state owner binds it to ADO and a SQL timeout; the original receipt owner currently
 checks it before/after database awaits without binding advisory-lock waits to ADO
@@ -820,6 +830,13 @@ hashes and later drift refuse; consumers never backfill or reconstruct an old
 Apply return. The hash-only companion must be installed by the original migration
 owner before activating the updated store. Read-only state recovery alone supplies
 neither native acceptance, old-resource settlement nor final authorization.
+The composition's settled-state acquisition receives the original approval
+transaction after its owner has pinned actor/session rows, and returns the original
+observation itself. Ordered provenance borrows that identical object. The consumer
+does not commit/dispose the supplied actor transaction, acquire another state key
+or copy a snapshot into an authorization scope. Original actor-pinned, real-issued
+scope tests can exercise this read-only combination even while native and old host
+custody prevent the final execution-result scope and CAS from succeeding.
 
 Prepared verification checks current native owners, service health, exact current
 grants, authenticated claim, package trust and the exact durable Starting or Running
