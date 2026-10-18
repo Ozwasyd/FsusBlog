@@ -130,8 +130,9 @@ public static class UserLocaleMutationReceiptPersistence
         {
             return null;
         }
-        // xmin is used solely to reject an unrelated transaction's absent-row insert.
-        // It is neither persisted as a coordinate nor converted into a source generation.
+        // Native MVCC visibility plus an in-progress inserting XID proves an own write,
+        // including a released child transaction. Foreign in-progress inserts are invisible;
+        // visible foreign/old inserts are committed. No XID is a source coordinate.
         if (after is not null && !writtenHere)
         {
             throw new InvalidOperationException("locale_receipt_original_write_required");
@@ -176,9 +177,22 @@ public static class UserLocaleMutationReceiptPersistence
     private static async Task<(UserLocalePreferenceReceiptState? State, bool WrittenHere)> ReadStateAsync(
         NpgsqlConnection connection, NpgsqlTransaction transaction, int accountId, CancellationToken cancellationToken)
     {
+        // A child XID follows its top-level XID modulo 2^32. Reconstruct its xid8 epoch
+        // only within PostgreSQL's forward half-range; older/frozen XIDs fail closed.
+        // Read the actual MVCC-visible, locked tuple: status alone is not ownership proof.
         await using NpgsqlCommand command = new("""
-            SELECT mode, fixed_locale, revision, updated_at, xmin = pg_current_xact_id()::xid
-            FROM user_locale_preference WHERE account_id = @AccountId FOR UPDATE;
+            SELECT preference.mode, preference.fixed_locale, preference.revision, preference.updated_at,
+                CASE WHEN distance.value < 2147483648 THEN
+                    COALESCE(pg_xact_status(
+                        (owner.xid::text::numeric + distance.value)::text::xid8) = 'in progress', false)
+                ELSE false END
+            FROM user_locale_preference preference
+            CROSS JOIN (SELECT pg_current_xact_id() AS xid) owner
+            CROSS JOIN LATERAL (
+                SELECT mod(preference.xmin::text::numeric - (owner.xid::xid)::text::numeric
+                    + 4294967296, 4294967296) AS value
+            ) distance
+            WHERE preference.account_id = @AccountId FOR UPDATE OF preference;
             """, connection, transaction);
         command.Parameters.AddWithValue("AccountId", accountId);
         await using NpgsqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);

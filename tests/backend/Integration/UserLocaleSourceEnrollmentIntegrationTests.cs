@@ -18,6 +18,54 @@ public sealed class UserLocaleSourceEnrollmentIntegrationTests(PostgresSchemaMig
 {
     private static readonly DateTimeOffset s_now = new(2026, 10, 18, 12, 0, 0, TimeSpan.Zero);
 
+    [Fact]
+    public async Task BorrowedUpdateAndCompensationStayInOriginalGroupAndRollbackAllReceipts()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        db.Ado.BeginTran();
+        var original = db.Ado.Transaction;
+        UserLocalePreferenceUpdateResult result = await Service(db).UpdateAsync(1, new("fixed", "ja-JP", 0));
+        Assert.True(result.Success);
+        Assert.Same(original, db.Ado.Transaction);
+        Assert.True(await Service(db).CompensateAsync(1, result.Preference!.Value,
+            result.PreviousPreference!.Value, result.PreviousPreferenceExisted));
+        Assert.Same(original, db.Ado.Transaction);
+        Assert.Equal(2, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        Assert.Equal(2, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM user_locale_mutation_receipt;"));
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+        Assert.Equal(0, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM user_locale_mutation_receipt;"));
+        db.Ado.RollbackTran();
+        Assert.Equal(0, await observer.Queryable<UserLocalePreference>().CountAsync());
+        Assert.Equal(0, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM user_locale_mutation_receipt;"));
+        Assert.Equal(0, await observer.Queryable<ArticleSourceObservation>().CountAsync());
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BorrowedEnrollmentFailureEscapesToOriginalGroupOwner(bool compensate)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        UserLocalePreferenceUpdateResult? result = compensate
+            ? await Service(db).UpdateAsync(1, new("fixed", "ja-JP", 0)) : null;
+        await FailEnrollmentAsync(db);
+        db.Ado.BeginTran();
+        var original = db.Ado.Transaction;
+        if (compensate)
+            await Assert.ThrowsAnyAsync<Exception>(() => Service(db).CompensateAsync(1, result!.Value.Preference!.Value,
+                result.Value.PreviousPreference!.Value, result.Value.PreviousPreferenceExisted));
+        else
+            await Assert.ThrowsAnyAsync<Exception>(() => Service(db).UpdateAsync(1, new("fixed", "ja-JP", 0)));
+        Assert.Same(original, db.Ado.Transaction);
+        db.Ado.RollbackTran();
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Assert.Equal(compensate ? 1 : 0, await observer.Queryable<UserLocalePreference>().CountAsync());
+        Assert.Equal(compensate ? 1 : 0, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM user_locale_mutation_receipt;"));
+        Assert.Equal(compensate ? 1L : (long?)null, await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

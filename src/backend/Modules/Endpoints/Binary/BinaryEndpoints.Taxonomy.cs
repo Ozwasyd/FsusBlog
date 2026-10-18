@@ -733,7 +733,7 @@ public static partial class BinaryEndpoints
 
     internal static async Task<TagDeleteOutcome> DeleteTagIfUnlinkedAsync(ISqlSugarClient db, int id)
     {
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        async Task<TagDeleteOutcome> ApplyAsync()
         {
             await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db).ConfigureAwait(false);
             if (await db.Queryable<ArticleTag>().AnyAsync(at => at.TagId == id))
@@ -748,7 +748,10 @@ public static partial class BinaryEndpoints
             TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture, id, deleted).ConfigureAwait(false);
             await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId).ConfigureAwait(false);
             return TagDeleteOutcome.Deleted;
-        }).ConfigureAwait(false);
+        }
+        if (db.Ado.Transaction is not null)
+            return await ApplyAsync().ConfigureAwait(false);
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
         if (!transaction.IsSuccess)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transaction.ErrorException
                 ?? new InvalidOperationException(transaction.ErrorMessage)).Throw();
@@ -758,7 +761,7 @@ public static partial class BinaryEndpoints
     internal static async Task<CategoryDeleteOutcome> DeleteCategoryIfUnlinkedAsync(
         ISqlSugarClient db, int id, CancellationToken cancellationToken = default)
     {
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        async Task<CategoryDeleteOutcome> ApplyAsync()
         {
             await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             if (await db.Queryable<Article>().AnyAsync(article => article.CategoryId == id
@@ -774,7 +777,10 @@ public static partial class BinaryEndpoints
             TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture, id, deleted, cancellationToken).ConfigureAwait(false);
             await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId, cancellationToken).ConfigureAwait(false);
             return CategoryDeleteOutcome.Deleted;
-        }).ConfigureAwait(false);
+        }
+        if (db.Ado.Transaction is not null)
+            return await ApplyAsync().ConfigureAwait(false);
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
         if (!transaction.IsSuccess)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transaction.ErrorException
                 ?? new InvalidOperationException(transaction.ErrorMessage)).Throw();
@@ -819,7 +825,7 @@ public static partial class BinaryEndpoints
     internal static async Task<int> CreateCategoryAsync(
         ISqlSugarClient db, string name, string? description, CancellationToken cancellationToken)
     {
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        async Task<int> ApplyAsync()
         {
             await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             TaxonomyReceipts.Capture capture = await TaxonomyReceipts.CaptureCreateAsync(db,
@@ -829,7 +835,10 @@ public static partial class BinaryEndpoints
             TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture, id, 1, cancellationToken).ConfigureAwait(false);
             await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId, cancellationToken).ConfigureAwait(false);
             return id;
-        }).ConfigureAwait(false);
+        }
+        if (db.Ado.Transaction is not null)
+            return await ApplyAsync().ConfigureAwait(false);
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
         if (!transaction.IsSuccess)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transaction.ErrorException
                 ?? new InvalidOperationException(transaction.ErrorMessage)).Throw();
@@ -839,7 +848,7 @@ public static partial class BinaryEndpoints
     internal static async Task<int> CreateTagAsync(
         ISqlSugarClient db, string name, string? description, CancellationToken cancellationToken)
     {
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        async Task<int> ApplyAsync()
         {
             await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             TaxonomyReceipts.Capture capture = await TaxonomyReceipts.CaptureCreateAsync(db,
@@ -849,7 +858,10 @@ public static partial class BinaryEndpoints
             TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture, id, 1, cancellationToken).ConfigureAwait(false);
             await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId, cancellationToken).ConfigureAwait(false);
             return id;
-        }).ConfigureAwait(false);
+        }
+        if (db.Ado.Transaction is not null)
+            return await ApplyAsync().ConfigureAwait(false);
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
         if (!transaction.IsSuccess)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transaction.ErrorException
                 ?? new InvalidOperationException(transaction.ErrorMessage)).Throw();
@@ -878,7 +890,7 @@ public static partial class BinaryEndpoints
         CancellationToken cancellationToken)
     {
         TaxonomyUpdateApplyResult result = new(TaxonomyUpdateOutcome.NotFound, false, false);
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        async Task ApplyAsync()
         {
             await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             Category? current = await db.Queryable<Category>()
@@ -957,7 +969,13 @@ public static partial class BinaryEndpoints
                 ArticleMutationEventTypes.CategoryUpdated,
                 cancellationToken);
             result = new(TaxonomyUpdateOutcome.Updated, true, change.DescriptionChanged);
-        });
+        }
+        if (db.Ado.Transaction is not null)
+        {
+            await ApplyAsync().ConfigureAwait(false);
+            return result;
+        }
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
         if (!transaction.IsSuccess)
         {
             throw new InvalidOperationException($"category projection transaction failed: {transaction.ErrorMessage}");
@@ -988,7 +1006,7 @@ public static partial class BinaryEndpoints
         CancellationToken cancellationToken)
     {
         TaxonomyUpdateApplyResult result = new(TaxonomyUpdateOutcome.NotFound, false, false);
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        async Task ApplyAsync()
         {
             await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             Tag? currentTag = await db.Queryable<Tag>()
@@ -1106,7 +1124,13 @@ public static partial class BinaryEndpoints
                 ArticleMutationEventTypes.TagUpdated,
                 cancellationToken);
             result = new(TaxonomyUpdateOutcome.Updated, true, change.DescriptionChanged);
-        });
+        }
+        if (db.Ado.Transaction is not null)
+        {
+            await ApplyAsync().ConfigureAwait(false);
+            return result;
+        }
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
         if (!transaction.IsSuccess)
         {
             throw new InvalidOperationException($"tag projection transaction failed: {transaction.ErrorMessage}");

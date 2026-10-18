@@ -12,6 +12,64 @@ public sealed partial class ArticleSourceMutationHooksIntegrationTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task LiveTaxonomy_BorrowedCreateUpdateDeleteBatchKeepsOriginalTransactionAndRollsBack(bool tag)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        db.Ado.BeginTran();
+        var original = db.Ado.Transaction;
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db);
+        int id = tag
+            ? await BinaryEndpoints.CreateTagAsync(db, "borrowed target", null, default)
+            : await BinaryEndpoints.CreateCategoryAsync(db, "borrowed target", null, default);
+        Assert.Same(original, db.Ado.Transaction);
+        var updated = tag
+            ? await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(db, id, "borrowed target", "updated", false, default)
+            : await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(db, id, "borrowed target", "updated", false, default);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated, updated.Outcome);
+        Assert.Same(original, db.Ado.Transaction);
+        if (tag)
+            Assert.Equal(BinaryEndpoints.TagDeleteOutcome.Deleted, await BinaryEndpoints.DeleteTagIfUnlinkedAsync(db, id));
+        else
+            Assert.Equal(BinaryEndpoints.CategoryDeleteOutcome.Deleted, await BinaryEndpoints.DeleteCategoryIfUnlinkedAsync(db, id));
+        Assert.Same(original, db.Ado.Transaction);
+        Assert.Equal(3, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        Assert.Equal(3, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM taxonomy_mutation_receipt;"));
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+        Assert.Equal(0, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM taxonomy_mutation_receipt;"));
+        db.Ado.RollbackTran();
+        Assert.Equal(0, await observer.Queryable<Category>().CountAsync());
+        Assert.Equal(0, await observer.Queryable<Tag>().CountAsync());
+        Assert.Equal(0, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM taxonomy_mutation_receipt;"));
+        Assert.Equal(0, await observer.Queryable<ArticleSourceObservation>().CountAsync());
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+    }
+
+    [Fact]
+    public async Task LiveTaxonomy_BorrowedEnrollmentFailureEscapesToOriginalGroupOwner()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        await db.Ado.ExecuteCommandAsync("""
+            CREATE FUNCTION fail_borrowed_taxonomy_source() RETURNS trigger AS $$
+            BEGIN RAISE EXCEPTION 'borrowed taxonomy enrollment failed'; END;
+            $$ LANGUAGE plpgsql;
+            CREATE TRIGGER fail_borrowed_taxonomy_source BEFORE INSERT ON article_source_observation
+                FOR EACH ROW WHEN (NEW.origin_kind = 'taxonomy') EXECUTE FUNCTION fail_borrowed_taxonomy_source();
+            """);
+        db.Ado.BeginTran();
+        var original = db.Ado.Transaction;
+        await Assert.ThrowsAnyAsync<Exception>(() => BinaryEndpoints.CreateTagAsync(db, "group failure", null, default));
+        Assert.Same(original, db.Ado.Transaction);
+        db.Ado.RollbackTran();
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        Assert.Equal(0, await observer.Queryable<Tag>().CountAsync());
+        Assert.Equal(0, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM taxonomy_mutation_receipt;"));
+        Assert.Null(await ArticleSourceGenerationAuthority.ReadGenerationAsync(observer));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task LiveTaxonomy_CreateDescriptionNoOpAndDelete_EnrollOnlyActualReceipts(bool tag)
     {
         using SqlSugarClient db = await DatabaseAsync();

@@ -83,12 +83,13 @@ public sealed class UserLocalePreferenceService(
             return new UserLocalePreferenceUpdateResult(invalid, null, null, false);
         }
 
+        bool borrowed = db.Ado.Transaction is not null;
         try
         {
             UserLocalePreferenceDto previous = s_default;
             bool previousExisted = false;
             UserLocalePreferenceDto? committed = null;
-            var transaction = await db.Ado.UseTranAsync(async () =>
+            async Task ApplyAsync()
             {
                 await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
                 UserLocaleMutationReceiptPersistence.Capture capture = await UserLocaleMutationReceiptPersistence
@@ -143,17 +144,24 @@ public sealed class UserLocalePreferenceService(
                     committed = new UserLocalePreferenceDto(
                         actual.Mode, actual.FixedLocale, actual.Revision, actual.UpdatedAt);
                 }
-            }).ConfigureAwait(false);
-
-            if (!transaction.IsSuccess)
+            }
+            if (borrowed)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                logger.LogWarning("Locale preference transaction failed | reason=transaction_error");
-                return new UserLocalePreferenceUpdateResult(
-                    UserLocalePreferenceUpdateOutcome.Unavailable,
-                    null,
-                    null,
-                    false);
+                await ApplyAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
+                if (!transaction.IsSuccess)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    logger.LogWarning("Locale preference transaction failed | reason=transaction_error");
+                    return new UserLocalePreferenceUpdateResult(
+                        UserLocalePreferenceUpdateOutcome.Unavailable,
+                        null,
+                        null,
+                        false);
+                }
             }
 
             return committed.HasValue
@@ -172,7 +180,7 @@ public sealed class UserLocalePreferenceService(
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!borrowed)
         {
             logger.LogWarning(exception, "Locale preference update unavailable | reason=persistence_error");
             return new UserLocalePreferenceUpdateResult(
@@ -190,9 +198,10 @@ public sealed class UserLocalePreferenceService(
         bool previousPreferenceExisted,
         CancellationToken cancellationToken = default)
     {
+        bool borrowed = db.Ado.Transaction is not null;
         try
         {
-            var transaction = await db.Ado.UseTranAsync(async () =>
+            async Task<bool> ApplyAsync()
             {
                 await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
                 Guid? originalReceiptId = await FindUncompensatedUpdateReceiptAsync(accountId,
@@ -243,7 +252,10 @@ public sealed class UserLocalePreferenceService(
                 await ArticleSourceGenerationAuthority.RecordDisplayLocaleAsync(db, receipt.ReceiptId, cancellationToken)
                     .ConfigureAwait(false);
                 return true;
-            }).ConfigureAwait(false);
+            }
+            if (borrowed)
+                return await ApplyAsync().ConfigureAwait(false);
+            var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             if (!transaction.IsSuccess)
             {
@@ -256,7 +268,7 @@ public sealed class UserLocalePreferenceService(
         {
             throw;
         }
-        catch (Exception exception)
+        catch (Exception exception) when (!borrowed)
         {
             logger.LogError(exception, "Locale preference compensation failed | account={AccountId}", accountId);
             return false;
