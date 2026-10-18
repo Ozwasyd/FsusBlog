@@ -18,12 +18,14 @@ export interface ArticleWorkspaceTabFixture {
     block(): void;
     defer(): void;
     release(): void;
+    reset(count: number): Promise<void>;
     remount(): Promise<void>;
 }
 
 /** Controlled host receipts exercise the production component, registry and public Button. */
 export async function mountArticleWorkspaceTabFixture(count: number, theme: string): Promise<void>
 {
+    delete document.documentElement.dataset.workspaceTabFixtureReady;
     document.documentElement.classList.toggle('dark', theme === 'dark');
     const coordinator = new ArticleWorkspaceTabRouter();
     const navigation = {
@@ -94,6 +96,11 @@ export async function mountArticleWorkspaceTabFixture(count: number, theme: stri
             })
         }),
         release: () => release?.(),
+        async reset(nextCount: number): Promise<void>
+        {
+            app.unmount();
+            await mountArticleWorkspaceTabFixture(nextCount, theme);
+        },
         async remount(): Promise<void>
         {
             app.unmount();

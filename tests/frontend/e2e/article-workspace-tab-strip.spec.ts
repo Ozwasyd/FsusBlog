@@ -41,6 +41,11 @@ async function openFixture(page: Page, count: number, theme: 'light' | 'dark'): 
     }));
     // Static module dependencies participate in load; readiness then measures the mounted fixture.
     await page.goto(`/__article-workspace-tab-fixture?count=${count}&theme=${theme}`);
+    await expectFixtureReady(page);
+}
+
+async function expectFixtureReady(page: Page): Promise<void>
+{
     await expect(page.locator('html')).toHaveAttribute('data-workspace-tab-fixture-ready', 'true');
     await expect(page).toHaveTitle('Article workspace tab fixture');
     await expect(page.locator('vite-error-overlay')).toHaveCount(0);
@@ -55,7 +60,9 @@ for (const theme of ['light', 'dark'] as const)
         const restingWidth = await page.locator('.article-workspace-tabs__item').first().evaluate(element => element.getBoundingClientRect().width);
         for (const count of [0, 1, 20, 100])
         {
-            await openFixture(page, count, theme);
+            await page.evaluate((nextCount: number) => (window as FixtureWindow).articleWorkspaceTabFixture!.reset(nextCount), count);
+            await expectFixtureReady(page);
+            expect(await page.evaluate(() => (window as FixtureWindow).articleWorkspaceTabFixture!.snapshot().entries.length)).toBe(count);
             await expect(page.getByRole('tab')).toHaveCount(Math.min(count, 24));
         }
         await expect(page.locator('button button')).toHaveCount(0);
