@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Memory/Platform/LinuxCgroupTimedObservationReader.cs"
+            ],
+            "reason": "Preserve external process/runtime spellings on the registered C# environment-name surface while wrapping the existing cgroup owner; this adapter adds no environment setting and internal names retain the C# mapping."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve existing documented DOM/token and Markdown identifiers while adding cgroup observation provenance; no CSS, token or observable UI contract is changed."
+        }
+    ]
+}
