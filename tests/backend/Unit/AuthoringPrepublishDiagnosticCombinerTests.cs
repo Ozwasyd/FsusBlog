@@ -235,12 +235,19 @@ public sealed class AuthoringPrepublishDiagnosticCombinerTests
     }
 
     [Theory]
-    [InlineData("acme.author-tools")]
-    [InlineData("acme.check.item0")]
-    public void IdentityNegativeControls_CoreCannotAliasPluginExtensionOrContributionBeforeCombination(string coreCheckId)
+    [InlineData("acme.author-tools", false)]
+    [InlineData("acme.entry.diagnostic", true)]
+    public void IdentityNegativeControls_CoreCannotAliasPluginExtensionOrContributionBeforeCombination(
+        string coreCheckId,
+        bool aliasFirstContribution)
     {
+        AuthoringPrepublishDiagnosticRegistry valid = Registry(aliasFirstContribution: aliasFirstContribution);
+        Assert.Equal("acme.check.item0", valid.ExpectedDiagnostics.Registrations[0].DiagnosticId);
+        Assert.Equal(aliasFirstContribution ? "acme.entry.diagnostic" : "acme.check.item0",
+            valid.Get("acme.check.item0").ContributionId);
+        Assert.Equal(2, Combine(valid, []).Coverage.Slots.Length);
         AuthoringExtensionContractException refusal = Assert.Throws<AuthoringExtensionContractException>(() =>
-            Combine(Registry(coreCheckId: coreCheckId), []));
+            Combine(Registry(coreCheckId: coreCheckId, aliasFirstContribution: aliasFirstContribution), []));
 
         Assert.Equal("Manifest extension or contribution identity conflicts with a core check.", refusal.Message);
     }
@@ -375,7 +382,8 @@ public sealed class AuthoringPrepublishDiagnosticCombinerTests
         int count = 2,
         bool optionalOnly = false,
         bool nested = false,
-        string coreCheckId = "security.authoring")
+        string coreCheckId = "security.authoring",
+        bool aliasFirstContribution = false)
     {
         AuthoringExtensionManifest original = AuthoringExtensionContractsTests.CreateManifest();
         var budget = new AuthoringDiagnosticBudget(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5),
@@ -392,12 +400,12 @@ public sealed class AuthoringPrepublishDiagnosticCombinerTests
                 string id = nested ? index == 0 ? "acme.check" : "acme.check.nested" : $"acme.check.item{index}";
                 AuthoringContributionDeclaration declaration = original.Contributions[0] with
                 {
-                    Id = id,
+                    Id = aliasFirstContribution && index == 0 ? "acme.entry.diagnostic" : id,
                     Kind = AuthoringContributionKind.PrepublishDiagnostic,
                     Capabilities = [AuthoringCapability.DiagnosticReport]
                 };
                 declarations.Add(declaration);
-                contributions.Add(new(1, id, "1.0.0", extensionId, id, declaration.Entrypoint.ContentSha256,
+                contributions.Add(new(1, id, "1.0.0", extensionId, declaration.Id, declaration.Entrypoint.ContentSha256,
                     declaration.ExecutionClass, declaration.Capabilities,
                     new(1, AuthoringDiagnosticReadScope.Metadata, "read-model.metadata.v1", []), "policy.diagnostic.v1", budget));
                 policies.Add(new(id, "policy.diagnostic.v1", !optionalOnly && index % 2 == 0,
