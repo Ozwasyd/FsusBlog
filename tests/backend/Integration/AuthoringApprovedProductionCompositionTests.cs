@@ -142,6 +142,56 @@ public sealed class AuthoringApprovedProductionCompositionTests(
     }
 
     [Theory]
+    [InlineData("unchanged", "production_approval_qualification_pending")]
+    [InlineData("digest", "production_applied_snapshot_tampered")]
+    [InlineData("revision", "production_applied_snapshot_binding_drift")]
+    [InlineData("scope", "production_applied_snapshot_binding_drift")]
+    [InlineData("receipt", "production_starting_generation_not_current")]
+    public async Task OriginalV1_ConsumesRealFencedApply_AndRefusesUnqualifiedEffects(string mutation, string code)
+    {
+        await using Harness host = await CreateAsync(true);
+        await host.Target.StoreGrantAsync();
+        AuthoringExtensionProductionComposition composition = host.Compose();
+        IAuthoringFencedLifecycleResourceAuthorityV1 resources = composition.Resources;
+        Assert.Same(composition, resources);
+        AuthoringStateSnapshot applied = await host.ApplyAsync();
+        try
+        {
+            // The only snapshot input is the original Apply return. An ordinary
+            // Read remains fenced, and no test opens that fence to make Prepare pass.
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await host.ReadTargetAsync());
+            AuthoringLifecycleReceipt starting = await host.AppendStartingAsync(
+                mutation == "receipt" ? host.Target.Package.PackageIdentity : host.Target.Package.Contract.Manifest.PackageSha256);
+            AuthoringStateSnapshot supplied = mutation switch
+            {
+                "digest" => applied with { ContentSha256 = new string('f', 64) },
+                "revision" => AuthoringExtensionStateContract.Snapshot(applied.Scope, applied.PackageIdentity,
+                    applied.Revision + 1, applied.Entries),
+                "scope" => AuthoringExtensionStateContract.Snapshot(applied.Scope with
+                {
+                    DocumentId = "other-document"
+                },
+                    applied.PackageIdentity, applied.Revision, applied.Entries),
+                _ => applied
+            };
+            var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await resources.PrepareAsync(host.Target.Package, host.Target.Targets, supplied, starting.Generation + 1, default));
+            Assert.Equal(code, error.Message);
+            Assert.Equal(0, composition.HostResources.PublishedGenerations);
+            Assert.Equal(starting, await host.Receipts.GetLatestAsync(starting.ExtensionId, default));
+            using IAuthoringInstalledPackageReadScope held = await host.Target.Packages.ExecutionResolver
+                .AcquireReadScopeAsync(host.Target.Package, default);
+            Assert.Equal(host.Target.Package.PackageIdentity, held.ActivePackage.PackageIdentity);
+            Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(host.Claim.DecisionId)).Status);
+        }
+        finally
+        {
+            await host.RollbackAsync();
+        }
+    }
+
+    [Theory]
     [InlineData("version")]
     [InlineData("schema")]
     public async Task OriginalIssuer_MustRejectMismatchedTerminalReceipt(string field)
@@ -201,6 +251,7 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         }
         Task completion = host.Authority.CompleteAsync(host.Claim, running, deadline.Token).AsTask();
         Task? advance = null;
+        bool transactionCommitted = false;
         try
         {
             while (!completion.IsCompleted && !await host.HasLockAsync(
@@ -234,6 +285,7 @@ public sealed class AuthoringApprovedProductionCompositionTests(
                 await advance;
             }
             await transaction.CommitAsync(deadline.Token);
+            transactionCommitted = true;
             Exception? error = await Record.ExceptionAsync(async () => await completion);
             if (error is null)
             {
@@ -251,7 +303,7 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         }
         finally
         {
-            if (transaction.Connection is not null)
+            if (!transactionCommitted)
             {
                 await transaction.RollbackAsync();
             }
@@ -410,6 +462,36 @@ public sealed class AuthoringApprovedProductionCompositionTests(
         public AuthoringProductionPreflightFixture Target => target;
         public AuthoringExtensionApprovalAuthority Authority => authority;
         public AuthoringExtensionApprovalAuthority.ApprovedClaim Claim { get; set; } = null!;
+
+        public async ValueTask<AuthoringStateSnapshot> ApplyAsync()
+        {
+            await state.BackupAsync(oldPackage.Package, target.Package, Claim.FrozenPlan!, default);
+            return await state.ApplyAsync(oldPackage.Package, target.Package, Claim.FrozenPlan!, default);
+        }
+
+        public ValueTask<AuthoringStateSnapshot> ReadTargetAsync() => state.ReadAsync(target.Package, target.Scope, default);
+
+        public ValueTask RollbackAsync() => state.RollbackAsync(oldPackage.Package, target.Package, Claim.FrozenPlan!, default);
+
+        public async ValueTask<AuthoringLifecycleReceipt> AppendStartingAsync(string packageSha256)
+        {
+            AuthoringLifecycleReceipt receipt = Next(Claim.ExpectedLifecycleReceipt, AuthoringLifecycleState.Disabled);
+            await receipts.AppendAsync(receipt, default);
+            receipt = Next(receipt, AuthoringLifecycleState.Updating);
+            await receipts.AppendAsync(receipt, default);
+            receipt = Sign(Next(receipt, AuthoringLifecycleState.Migrating) with
+            {
+                PackageSha256 = packageSha256,
+                Version = target.Package.Contract.Manifest.Version,
+                StateSchemaVersion = target.Package.Contract.Manifest.StateSchemaVersion,
+                DataSchemaVersion = target.Package.Contract.Manifest.DataSchemaVersion,
+                ScopeDigest = Claim.Digest
+            });
+            await receipts.AppendAsync(receipt, default);
+            receipt = Next(receipt, AuthoringLifecycleState.Starting);
+            await receipts.AppendAsync(receipt, default);
+            return receipt;
+        }
 
         public AuthoringExtensionProductionComposition Compose(AuthoringStateScope? suppliedScope = null)
         {
