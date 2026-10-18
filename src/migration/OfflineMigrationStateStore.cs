@@ -190,7 +190,10 @@ internal static class OfflineMigrationStateStore
             if (await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) != 1)
                 throw new InvalidOperationException("offline_apply_journal_append_failed");
         }
-        catch (Exception failure) { first = failure; }
+        catch (Exception failure)
+        {
+            first = failure;
+        }
         try
         {
             await command.DisposeAsync().ConfigureAwait(false);
