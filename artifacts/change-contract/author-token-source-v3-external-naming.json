@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.PropertyIntake.cs"
+            ],
+            "reason": "Preserve the original evaluator reason identifiers and source contract names while binding unadmitted token and typed-input evidence to source v3 request incarnation and generation. No process environment key, property adapter, predicate admission or new authority is introduced."
+        }
+    ]
+}

@@ -14,10 +14,12 @@ public sealed record AuthorSearchTokenCandidate(
 /// <summary>
 /// Internal bounded query-stage evidence. Candidates are unadmitted index facts, not
 /// a response, total, facet, snippet, receipt, or permission-safe selection target.
+/// The instance identity is retained from the request snapshot across every await;
+/// a replacement writer cannot rebind evidence by reusing its local generation.
 /// The remaining ranking factors require their original current-source authorities.
 /// </summary>
 public sealed record AuthorSearchTokenEvaluation(
-    string QueryDigest, long IndexGeneration, long SourceGeneration, string SnapshotDigest,
+    string QueryDigest, Guid IndexInstanceId, long IndexGeneration, long SourceGeneration, string SnapshotDigest,
     ImmutableArray<AuthorSearchTokenCandidate> Candidates);
 
 /// <summary>
@@ -47,9 +49,11 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         {
             throw new AuthorSearchContractException("author_search_current_updated_at_unavailable");
         }
+        // Every read uses the immutable request identity, including the final reread.
+        // Reading index.IndexInstanceId here would silently rebind an old request.
         AuthorSearchRegistrySnapshot registry = AuthorFullTextSearchVerifier.CaptureRegistry();
         AuthorSearchIndexReadSnapshot snapshot = await index.ReadSnapshotAsync(query.UserId,
-            query.SiteScope, query.IndexGeneration, cancellationToken).ConfigureAwait(false);
+            query.SiteScope, query.IndexInstanceId, query.IndexGeneration, cancellationToken).ConfigureAwait(false);
         if (snapshot.RegistryDigest != registry.ContentDigest)
         {
             throw new AuthorSearchContractException("author_search_registry_tampered_or_stale");
@@ -134,15 +138,16 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         }
         cancellationToken.ThrowIfCancellationRequested();
         AuthorSearchIndexReadSnapshot current = await index.ReadSnapshotAsync(query.UserId,
-            query.SiteScope, query.IndexGeneration, cancellationToken).ConfigureAwait(false);
-        if (current.SourceGeneration != snapshot.SourceGeneration
+            query.SiteScope, query.IndexInstanceId, query.IndexGeneration, cancellationToken).ConfigureAwait(false);
+        if (current.IndexInstanceId != snapshot.IndexInstanceId
+            || current.SourceGeneration != snapshot.SourceGeneration
             || current.RegistryDigest != snapshot.RegistryDigest
             || !ReferenceEquals(current.Articles, snapshot.Articles))
         {
             throw new AuthorSearchContractException("author_search_index_source_snapshot_stale");
         }
         cancellationToken.ThrowIfCancellationRequested();
-        return new(query.ContentDigest, snapshot.IndexGeneration, snapshot.SourceGeneration, SnapshotDigest(snapshot, cancellationToken),
+        return new(query.ContentDigest, snapshot.IndexInstanceId, snapshot.IndexGeneration, snapshot.SourceGeneration, SnapshotDigest(snapshot, cancellationToken),
             [.. Order(candidates)]);
     }
 
@@ -151,14 +156,18 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
         AuthorSearchQuery query, AuthorSearchTokenEvaluation evaluation, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (query.ContentDigest != AuthorFullTextSearchContract.SealQuery(query).ContentDigest
-            || evaluation.QueryDigest != query.ContentDigest || evaluation.IndexGeneration != query.IndexGeneration)
+        if (query.SchemaVersion != AuthorFullTextSearchContract.SchemaVersion
+            || query.Schema != AuthorFullTextSearchContract.QuerySchema
+            || query.ContentDigest != AuthorFullTextSearchContract.SealQuery(query).ContentDigest
+            || evaluation.QueryDigest != query.ContentDigest || evaluation.IndexInstanceId != query.IndexInstanceId
+            || evaluation.IndexInstanceId == Guid.Empty || evaluation.IndexGeneration != query.IndexGeneration)
         {
             throw new AuthorSearchContractException("author_search_query_evaluation_stale");
         }
         AuthorSearchIndexReadSnapshot current = await index.ReadSnapshotAsync(query.UserId,
-            query.SiteScope, query.IndexGeneration, cancellationToken).ConfigureAwait(false);
-        if (evaluation.SourceGeneration != current.SourceGeneration
+            query.SiteScope, query.IndexInstanceId, query.IndexGeneration, cancellationToken).ConfigureAwait(false);
+        if (evaluation.IndexInstanceId != current.IndexInstanceId
+            || evaluation.SourceGeneration != current.SourceGeneration
             || evaluation.SnapshotDigest != SnapshotDigest(current, cancellationToken))
         {
             throw new AuthorSearchContractException("author_search_index_source_snapshot_stale");
@@ -177,7 +186,7 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSea
     {
         await RevalidateIndexAsync(query, evaluation, cancellationToken).ConfigureAwait(false);
         AuthorSearchIndexReadSnapshot snapshot = await index.ReadSnapshotAsync(query.UserId,
-            query.SiteScope, query.IndexGeneration, cancellationToken).ConfigureAwait(false);
+            query.SiteScope, query.IndexInstanceId, query.IndexGeneration, cancellationToken).ConfigureAwait(false);
         await AuthorFullTextSearchIndexVerifier.VerifyAsync(snapshot, source, cancellationToken).ConfigureAwait(false);
         await RevalidateIndexAsync(query, evaluation, cancellationToken).ConfigureAwait(false);
     }
