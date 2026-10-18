@@ -14,8 +14,8 @@ namespace FsusBlog.Migration.Tests;
 
 public sealed class OfflineMigrationApplyJournalTests
 {
-    private static readonly string IdentityDigest = new('a', 64);
-    private static readonly DateTimeOffset RecordedAt = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
+    private static readonly string s_identityDigest = new('a', 64);
+    private static readonly DateTimeOffset s_recordedAt = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public void First_entry_is_the_original_successfully_accepted_attempt_start_across_forks_and_resume()
@@ -37,10 +37,10 @@ public sealed class OfflineMigrationApplyJournalTests
         Accept(fork, Control(plan, fork, OfflineMigrationApplyJournalState.RecoveryRequired,
             failure: "offline_apply_prior_attempt_interrupted"));
         Accept(fork, Control(plan, fork, OfflineMigrationApplyJournalState.AttemptStarted, attempt: 2)
-            with { RecordedAt = RecordedAt.AddMinutes(1) });
+            with { RecordedAt = s_recordedAt.AddMinutes(1) });
         Assert.Same(first, fork.First);
-        Assert.Equal(RecordedAt, fork.First!.RecordedAt);
-        Assert.Equal(RecordedAt.AddMinutes(1), fork.Last!.RecordedAt);
+        Assert.Equal(s_recordedAt, fork.First!.RecordedAt);
+        Assert.Equal(s_recordedAt.AddMinutes(1), fork.Last!.RecordedAt);
         Assert.Same(first, verifier.First);
         Assert.Same(first, verifier.Last);
     }
@@ -633,7 +633,7 @@ public sealed class OfflineMigrationApplyJournalTests
         Accept(verifier, Proof(verifier) with { Attempt = 2 });
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted, attempt: 2));
         Assert.True(verifier.Completed);
-        Assert.Equal(RecordedAt, verifier.First!.RecordedAt);
+        Assert.Equal(s_recordedAt, verifier.First!.RecordedAt);
         Assert.Equal(prepared.Media.Binding, verifier.StepProofs[0].Media!.Binding);
     }
 
@@ -1108,7 +1108,7 @@ public sealed class OfflineMigrationApplyJournalTests
             }
             await using (DbTransaction transaction = await session.BeginAsync(token.Token))
             {
-                OfflineMigrationApplyJournalEntry sibling = Seal(first with { Sequence = 2, RecordedAt = RecordedAt.AddSeconds(1) });
+                OfflineMigrationApplyJournalEntry sibling = Seal(first with { Sequence = 2, RecordedAt = s_recordedAt.AddSeconds(1) });
                 SqliteException failure = await Assert.ThrowsAsync<SqliteException>(() => OfflineMigrationStateStore.AppendApplyJournalAsync(
                     fixture.Connection, transaction, sibling, token.Token));
                 Assert.Equal(19, failure.SqliteErrorCode);
@@ -1232,30 +1232,30 @@ public sealed class OfflineMigrationApplyJournalTests
         CurrentSchemaProviderKind provider = CurrentSchemaProviderKind.PostgreSql, bool destructive = false)
     {
         var database = new CurrentSchemaDatabaseIdentity(provider, "instance", "database");
-        var source = new OfflineMigrationSourceObservation(database, "extractor", "v1", [], [], [], IdentityDigest);
-        var artifact = new CurrentSchemaArtifactReference("fixture-backup", IdentityDigest);
+        var source = new OfflineMigrationSourceObservation(database, "extractor", "v1", [], [], [], s_identityDigest);
+        var artifact = new CurrentSchemaArtifactReference("fixture-backup", s_identityDigest);
         var backup = new OfflineMigrationBackupObservation(artifact, artifact, artifact, "fixture-owner", "v1",
-            RecordedAt, RecordedAt, "fixture-snapshot", IdentityDigest, IdentityDigest,
+            s_recordedAt, s_recordedAt, "fixture-snapshot", s_identityDigest, s_identityDigest,
             source, source with { Database = database with { DatabaseId = "restored" } },
             new[] { "aotCache", "configRedacted", "dataProtectionKeyRing", "database", "searchIndex", "uploads" }
-                .Select(name => new OfflineMigrationFact(name, IdentityDigest)).ToImmutableArray());
+                .Select(name => new OfflineMigrationFact(name, s_identityDigest)).ToImmutableArray());
         var step = new OfflineMigrationStep("owned-step", "owned-source", "owned-target", [], "owned-idempotency", destructive,
             new("v1", mode == OfflineMigrationExecutionMode.Transaction ? 0 : 1, "owned-watermark", "owned-replay"),
             Enum.GetValues<CurrentSchemaProviderKind>().Select(provider => new OfflineMigrationProviderOperation(
-                provider, "fixture-operation", IdentityDigest, IdentityDigest, mode)).ToImmutableArray());
+                provider, "fixture-operation", s_identityDigest, s_identityDigest, mode)).ToImmutableArray());
         var registry = new OfflineMigrationSourceRegistry("v1",
             [new("fixture-profile", "v1", "fixture-owner", [nameof(Complete_transaction_chain_requires_committed_unit_then_verified_step)],
                 step.StepId, Enum.GetValues<CurrentSchemaProviderKind>().Select(value => new OfflineMigrationSourceShape(
                     value, source.ExtractorId, source.ExtractorVersion, [], [], [])).ToImmutableArray())]);
         var dag = new OfflineMigrationDag("fixture-dag", "v1", [step]);
-        var target = new CurrentSchemaTargetIdentity("v1", "v1", "v1", IdentityDigest, IdentityDigest);
-        var tool = new CurrentSchemaVerifierIdentity(new('a', 40), IdentityDigest, IdentityDigest, IdentityDigest);
+        var target = new CurrentSchemaTargetIdentity("v1", "v1", "v1", s_identityDigest, s_identityDigest);
+        var tool = new CurrentSchemaVerifierIdentity(new('a', 40), s_identityDigest, s_identityDigest, s_identityDigest);
         OfflineMigrationPlan plan = OfflineMigrationPlanBuilder.Create(source, backup, target, tool, registry, dag,
-            RecordedAt, TimeSpan.FromHours(1));
+            s_recordedAt, TimeSpan.FromHours(1));
         // The normal pure builder/verifier validates this synthetic fixture's closure.
         // None of these fixture observations are a real backup, DB proof, or operation grant.
         return OfflineMigrationPlanVerifier.Verify(plan, source, backup, target, tool, registry, dag,
-            RecordedAt, TimeSpan.FromHours(1)).Plan;
+            s_recordedAt, TimeSpan.FromHours(1)).Plan;
     }
 
     private static CurrentSchemaArtifactReference Artifact(OfflineMigrationPlan plan)
@@ -1272,7 +1272,7 @@ public sealed class OfflineMigrationApplyJournalTests
         => new(OfflineMigrationApplyJournalVerifier.Format, Artifact(plan), plan.ContentDigest, plan.Source.Database, "invocation",
             (verifier.Last?.Sequence ?? 0) + 1, attempt, null, null, null, state, null, null, null, null,
             0, 0, false, null, null, verifier.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest,
-            string.Empty, failure, RecordedAt);
+            string.Empty, failure, s_recordedAt);
     private static OfflineMigrationPredicateObservation Observation(OfflineMigrationPlan plan, string predicate)
     {
         OfflineMigrationProviderOperation operation = plan.OrderedSteps[0].Operations[0];

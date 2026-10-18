@@ -17,15 +17,15 @@ public sealed class OfflineMigrationFingerprintCommandTests
     [InlineData(OfflineMigrationFingerprintCategory.Extractor)]
     public void HostPreservesExactRedactedDifferencesWithoutHistoricalText(OfflineMigrationFingerprintCategory category)
     {
-        const string sensitiveName = "unknown-password-field";
-        const string sensitiveValue = "historical-private-value";
+        const string SensitiveName = "unknown-password-field";
+        const string SensitiveValue = "historical-private-value";
         var expected = Shape();
         OfflineMigrationSourceShape actual = category switch
         {
-            OfflineMigrationFingerprintCategory.Schema => expected with { Schema = [new(sensitiveName, sensitiveValue)] },
-            OfflineMigrationFingerprintCategory.History => expected with { History = [new(sensitiveName, sensitiveValue)] },
-            OfflineMigrationFingerprintCategory.Business => expected with { BusinessShape = [new(sensitiveName, sensitiveValue)] },
-            OfflineMigrationFingerprintCategory.Extractor => expected with { ExtractorVersion = sensitiveValue },
+            OfflineMigrationFingerprintCategory.Schema => expected with { Schema = [new(SensitiveName, SensitiveValue)] },
+            OfflineMigrationFingerprintCategory.History => expected with { History = [new(SensitiveName, SensitiveValue)] },
+            OfflineMigrationFingerprintCategory.Business => expected with { BusinessShape = [new(SensitiveName, SensitiveValue)] },
+            OfflineMigrationFingerprintCategory.Extractor => expected with { ExtractorVersion = SensitiveValue },
             _ => throw new InvalidOperationException()
         };
         OfflineMigrationSourceFingerprintException failure = OfflineMigrationSourceFingerprintException.Unknown(
@@ -40,8 +40,8 @@ public sealed class OfflineMigrationFingerprintCommandTests
         Assert.Equal(JsonSerializer.Serialize(failure.Differences), root.GetProperty("differences").GetRawText());
         Assert.Empty(root.GetProperty("ambiguousBaselineIdSha256s").EnumerateArray());
         Assert.Contains(failure.Differences, difference => difference.Category == category);
-        Assert.DoesNotContain(sensitiveName, json, StringComparison.Ordinal);
-        Assert.DoesNotContain(sensitiveValue, json, StringComparison.Ordinal);
+        Assert.DoesNotContain(SensitiveName, json, StringComparison.Ordinal);
+        Assert.DoesNotContain(SensitiveValue, json, StringComparison.Ordinal);
         Assert.DoesNotContain("private-baseline", json, StringComparison.Ordinal);
         Assert.Equal(new[] { "status", "code", "differences", "ambiguousBaselineIdSha256s" },
             root.EnumerateObject().Select(property => property.Name));

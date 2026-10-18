@@ -100,7 +100,7 @@ public sealed class OfflineMigrationSourceCommandLineTests
             Assert.Equal(first.RootElement.GetProperty("Source").GetRawText(), evidence.GetProperty("Source").GetRawText());
             Assert.Equal(first.RootElement.GetProperty("SnapshotId").GetString(), evidence.GetProperty("SnapshotId").GetString());
             Assert.Equal(first.RootElement.GetProperty("CapturedAt").GetString(), evidence.GetProperty("CapturedAt").GetString());
-            Assert.Equal(ContractObserver.SnapshotTime, evidence.GetProperty("CapturedAt").GetDateTimeOffset());
+            Assert.Equal(ContractObserver.s_snapshotTime, evidence.GetProperty("CapturedAt").GetDateTimeOffset());
             Assert.Equal(30, evidence.GetProperty("TimeoutSeconds").GetInt32());
             Assert.Equal(Digest, evidence.GetProperty("DatabaseDumpSha256").GetString());
         }
@@ -292,8 +292,8 @@ public sealed class OfflineMigrationSourceCommandLineTests
     // A pure stdio protocol fixture. It is not a native transaction, dump, or backup proof.
     private sealed class ContractObserver : IOfflineMigrationSnapshotSourceObserver
     {
-        internal static readonly DateTimeOffset SnapshotTime = new(2026, 10, 3, 0, 0, 0, TimeSpan.Zero);
-        private static readonly OfflineMigrationSourceObservation Source = new(
+        internal static readonly DateTimeOffset s_snapshotTime = new(2026, 10, 3, 0, 0, 0, TimeSpan.Zero);
+        private static readonly OfflineMigrationSourceObservation s_source = new(
             new(CurrentSchemaProviderKind.PostgreSql, "contract-source", "contract-database"),
             "contract-observer", "v1", ImmutableArray<OfflineMigrationFact>.Empty,
             ImmutableArray<OfflineMigrationFact>.Empty, ImmutableArray<OfflineMigrationFact>.Empty, Digest);
@@ -308,7 +308,7 @@ public sealed class OfflineMigrationSourceCommandLineTests
             string connectionString, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(Source);
+            return Task.FromResult(s_source);
         }
 
         public async Task<(OfflineMigrationSourceObservation Source, string SnapshotId, DateTimeOffset CapturedAt, string DumpSha256)> CapturePostgreSqlSnapshotAsync(
@@ -318,10 +318,10 @@ public sealed class OfflineMigrationSourceCommandLineTests
             CaptureCalls++;
             try
             {
-                DumpPath = await awaitCompletedDumpPath(Source, "contract-snapshot", SnapshotTime, cancellationToken);
+                DumpPath = await awaitCompletedDumpPath(s_source, "contract-snapshot", s_snapshotTime, cancellationToken);
                 DumpHandshake.TrySetResult();
                 await Terminal.Task.WaitAsync(cancellationToken);
-                return (Source, "contract-snapshot", SnapshotTime, Digest);
+                return (s_source, "contract-snapshot", s_snapshotTime, Digest);
             }
             finally
             {
