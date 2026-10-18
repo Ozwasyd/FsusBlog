@@ -205,6 +205,98 @@ describe('real Vue builder controls', () => {
         expect(wrapper.props('revision')).toBe(7);
     });
 
+    it.each([
+        { key: 'Escape' },
+        { key: 'Enter', ctrlKey: true },
+        { key: 'Enter', metaKey: true }
+    ])('ignores composing shortcut $key ctrl=$ctrlKey meta=$metaKey and preserves the draft', async shortcut => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        const input = wrapper.get('input[aria-label="条件 2 值 1"]');
+        const event = new KeyboardEvent('keydown', { ...shortcut, isComposing: true, bubbles: true, cancelable: true });
+        input.element.dispatchEvent(event);
+        await nextTick();
+        expect(wrapper.find('form').exists()).toBe(true);
+        expect(wrapper.emitted('cancel')).toBeUndefined();
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        expect(event.defaultPrevented).toBe(false);
+        expect(wrapper.text()).toContain('修改尚未同步');
+        expect((wrapper.get('input[aria-label="每页数量"]').element as HTMLInputElement).value).toBe('25');
+    });
+
+    it.each([
+        { key: 'Escape' },
+        { key: 'Enter', ctrlKey: true },
+        { key: 'Enter', metaKey: true }
+    ])('tracks composition start/end before handling shortcut $key ctrl=$ctrlKey meta=$metaKey', async shortcut => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        const input = wrapper.get('input[aria-label="条件 2 值 1"]');
+        await input.trigger('compositionstart');
+        const composing = new KeyboardEvent('keydown', { ...shortcut, bubbles: true, cancelable: true });
+        input.element.dispatchEvent(composing);
+        await nextTick();
+        expect(wrapper.find('form').exists()).toBe(true);
+        expect(wrapper.emitted('cancel')).toBeUndefined();
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        expect(composing.defaultPrevented).toBe(false);
+        await input.trigger('compositionend');
+        const normal = new KeyboardEvent('keydown', { ...shortcut, bubbles: true, cancelable: true });
+        input.element.dispatchEvent(normal);
+        await nextTick();
+        expect(normal.defaultPrevented).toBe(true);
+        if (shortcut.key === 'Escape') {
+            expect(wrapper.find('form').exists()).toBe(false);
+            expect(wrapper.emitted('cancel')).toHaveLength(1);
+            expect(document.activeElement).toBe(wrapper.get('[data-action="edit"]').element);
+        } else {
+            expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 7, query: { ...query(), pageSize: 25 } }]]);
+        }
+    });
+
+    it.each([
+        { key: 'Escape' },
+        { key: 'Enter', ctrlKey: true },
+        { key: 'Enter', metaKey: true }
+    ])('ignores legacy keyCode 229 after compositionend for $key ctrl=$ctrlKey meta=$metaKey', async shortcut => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        const input = wrapper.get('input[aria-label="条件 2 值 1"]');
+        await input.trigger('compositionstart');
+        await input.trigger('compositionend');
+        const event = new KeyboardEvent('keydown', { ...shortcut, keyCode: 229, bubbles: true, cancelable: true });
+        input.element.dispatchEvent(event);
+        await nextTick();
+        expect(wrapper.find('form').exists()).toBe(true);
+        expect(wrapper.emitted('cancel')).toBeUndefined();
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        expect(event.defaultPrevented).toBe(false);
+        await input.trigger('keydown', { key: 'Enter', ctrlKey: true });
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 7, query: { ...query(), pageSize: 25 } }]]);
+    });
+
+    it('leaves plain Enter and unrelated keys untouched and restores shortcuts after reopening', async () => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        const input = wrapper.get('input[aria-label="条件 2 值 1"]');
+        for (const key of ['Enter', 'a']) {
+            const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+            input.element.dispatchEvent(event);
+            expect(event.defaultPrevented).toBe(false);
+        }
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        await input.trigger('compositionstart');
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('30');
+        await wrapper.get('form').trigger('keydown', { key: 'Enter', metaKey: true });
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 7, query: { ...query(), pageSize: 30 } }]]);
+    });
+
     it('defaults to unavailable save transport even for a valid edited AST', async () => {
         const wrapper = builder();
         await wrapper.get('[data-action="edit"]').trigger('click');
