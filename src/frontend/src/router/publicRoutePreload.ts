@@ -656,8 +656,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
                 throwIfAborted(linked.controller.signal);
                 const envelope = decodePublicAotPayloadBytes<PublicNavigationSnapshotEnvelope>(frame);
                 const expectedPageId = getSharedPublicPageManifestEntry(matchedRoute.kind).pageId;
-                if (!envelope ||
-            envelope.pageKind !== matchedRoute.kind ||
+                if (envelope?.pageKind !== matchedRoute.kind ||
             envelope.pageId !== expectedPageId)
                 {
                     throw new Error('route-snapshot-decode-failed: invalid navigation snapshot');
