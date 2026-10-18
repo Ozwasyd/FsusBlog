@@ -80,7 +80,7 @@ internal sealed record AuthoringApprovalActor(
     long PrincipalValidationVersion, long SessionValidationVersion);
 
 // Protected at rest by the application's Data Protection provider, including every status transition.
-// No state values or MFA tokens are persisted here.
+// No state snapshots or MFA tokens are persisted here; plan defaults remain protected.
 internal sealed record AuthoringApprovalDecision(
     int ContractVersion,
     string DecisionId,
