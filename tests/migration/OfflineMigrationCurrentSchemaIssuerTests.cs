@@ -261,7 +261,10 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
             }
             if (variant == "semantic-seal-is-not-file-sha")
             {
-                reference = reference with { Sha256 = fixture.Plan.ContentDigest };
+                reference = reference with
+                {
+                    Sha256 = fixture.Plan.ContentDigest
+                };
             }
             else
             {
@@ -384,7 +387,10 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
             "rejected-status" => observed with { Status = CurrentSchemaReceiptStatus.Rejected, Reasons = ["postcondition_failed"] },
             _ => throw new InvalidOperationException("Unknown receipt mutation.")
         };
-        changed = changed with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(changed) };
+        changed = changed with
+        {
+            ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(changed)
+        };
 
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationCurrentSchemaIssuer.ValidateObservedReceipt(changed, observed));
     }
@@ -411,11 +417,17 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
             },
             "unknown-provider" => fixture.Request with
             {
-                Database = fixture.Request.Database with { Provider = (CurrentSchemaProviderKind)999 }
+                Database = fixture.Request.Database with
+                {
+                    Provider = (CurrentSchemaProviderKind)999
+                }
             },
             "unsupported-provider" => fixture.Request with
             {
-                Database = fixture.Request.Database with { Provider = CurrentSchemaProviderKind.MySql }
+                Database = fixture.Request.Database with
+                {
+                    Provider = CurrentSchemaProviderKind.MySql
+                }
             },
             "empty-checkpoints" => fixture.Request with { Checkpoints = [] },
             "default-checkpoints" => fixture.Request with { Checkpoints = default },
@@ -458,11 +470,17 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
             "wrong-plan-semantic-seal" => fixture.Apply with { PlanContentDigest = new string('b', 64) },
             "wrong-terminal-checkpoint" => fixture.Apply with
             {
-                Checkpoint = fixture.Checkpoint with { Sequence = fixture.Checkpoint.Sequence - 1 }
+                Checkpoint = fixture.Checkpoint with
+                {
+                    Sequence = fixture.Checkpoint.Sequence - 1
+                }
             },
             "wrong-invocation" => fixture.Apply with
             {
-                Checkpoint = fixture.Checkpoint with { InvocationId = "other-invocation" }
+                Checkpoint = fixture.Checkpoint with
+                {
+                    InvocationId = "other-invocation"
+                }
             },
             _ => throw new InvalidOperationException("Unknown apply mutation.")
         };
@@ -492,7 +510,10 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
                 changed = new byte[] { (byte)' ' }.Concat(bytes).ToArray();
                 break;
             case "semantic-as-artifact-sha":
-                reference = reference with { Sha256 = fixture.Plan.ContentDigest };
+                reference = reference with
+                {
+                    Sha256 = fixture.Plan.ContentDigest
+                };
                 break;
         }
 
@@ -581,9 +602,15 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
     {
         Fixture fixture = CreateFixture();
         OfflineMigrationCurrentSchemaIssuer.ValidateNativeProofs(fixture.Plan, fixture.Apply, fixture.Journal);
-        OfflineMigrationApplyJournalEntry changed = fixture.Apply.StepProofs[0] with { RecordedAt = s_recordedAt.AddTicks(1) };
+        OfflineMigrationApplyJournalEntry changed = fixture.Apply.StepProofs[0] with
+        {
+            RecordedAt = s_recordedAt.AddTicks(1)
+        };
         changed = Seal(changed);
-        OfflineMigrationApplyResult substituted = fixture.Apply with { StepProofs = [changed] };
+        OfflineMigrationApplyResult substituted = fixture.Apply with
+        {
+            StepProofs = [changed]
+        };
 
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationCurrentSchemaIssuer.ValidateNativeProofs(
             fixture.Plan, substituted, fixture.Journal));
@@ -621,7 +648,13 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
         var backupRef = new CurrentSchemaArtifactReference("fixture-backup", s_digest);
         var backup = new OfflineMigrationBackupObservation(backupRef, backupRef, backupRef, "fixture-owner", "v1",
             s_recordedAt, s_recordedAt, "fixture-snapshot", s_digest, s_digest,
-            source, source with { Database = database with { DatabaseId = "restored" } },
+            source, source with
+            {
+                Database = database with
+                {
+                    DatabaseId = "restored"
+                }
+            },
             new[] { "aotCache", "configRedacted", "dataProtectionKeyRing", "database", "searchIndex", "uploads" }
                 .Select(name => new OfflineMigrationFact(name, s_digest)).ToImmutableArray());
         var step = new OfflineMigrationStep("owned-step", "owned-source", "owned-target", [], "owned-idempotency", false,
@@ -646,15 +679,21 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
         OfflineMigrationApplyJournalEntry unit = Seal(Control(plan, artifact, journal,
             OfflineMigrationApplyJournalState.TransactionCommitted) with
         {
-            StepId = step.StepId, OperationReference = step.Operations[0].OperationReference,
-            Mode = OfflineMigrationExecutionMode.Transaction, IdempotencyKey = step.IdempotencyDefinition,
-            RowsProcessed = 2, ExpectedRows = 2, UnitComplete = true,
-            Before = Observation(step, step.SourcePrecondition), After = Observation(step, step.TargetPostcondition)
+            StepId = step.StepId,
+            OperationReference = step.Operations[0].OperationReference,
+            Mode = OfflineMigrationExecutionMode.Transaction,
+            IdempotencyKey = step.IdempotencyDefinition,
+            RowsProcessed = 2,
+            ExpectedRows = 2,
+            UnitComplete = true,
+            Before = Observation(step, step.SourcePrecondition),
+            After = Observation(step, step.TargetPostcondition)
         });
         journal.Accept(unit);
         journal.Accept(Seal(unit with
         {
-            Sequence = journal.Last!.Sequence + 1, State = OfflineMigrationApplyJournalState.StepVerified,
+            Sequence = journal.Last!.Sequence + 1,
+            State = OfflineMigrationApplyJournalState.StepVerified,
             PreviousDigest = journal.Last.ContentDigest
         }));
         journal.Accept(Control(plan, artifact, journal, OfflineMigrationApplyJournalState.ApplyCompleted));
@@ -680,7 +719,10 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
                 s_digest, s_digest, fixture.Apply.StepProofs[0].After!.ContentDigest)],
             fixture.Plan.Backup.Package, fixture.Plan.Backup.Manifest, fixture.Plan.Backup.RestoreDrill,
             [], fixture.Plan.Tool, [], string.Empty);
-        return receipt with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt) };
+        return receipt with
+        {
+            ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt)
+        };
     }
 
     private static OfflineMigrationApplyJournalEntry Control(OfflineMigrationPlan plan, CurrentSchemaArtifactReference artifact,
@@ -701,10 +743,16 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
     }
 
     private static OfflineMigrationPredicateObservation Seal(OfflineMigrationPredicateObservation observation)
-        => observation with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation) };
+        => observation with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeObservationDigest(observation)
+        };
 
     private static OfflineMigrationApplyJournalEntry Seal(OfflineMigrationApplyJournalEntry entry)
-        => entry with { ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry) };
+        => entry with
+        {
+            ContentDigest = OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry)
+        };
 
     private static CurrentSchemaArtifactReference ByteReference(string reference, byte[] bytes)
         => new(reference, Convert.ToHexStringLower(SHA256.HashData(bytes)));
