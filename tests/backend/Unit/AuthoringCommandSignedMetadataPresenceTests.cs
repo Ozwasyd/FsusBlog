@@ -38,7 +38,6 @@ public sealed class AuthoringCommandSignedMetadataPresenceTests
     [InlineData("inputSchemaReference")]
     [InlineData("resultSchemaReference")]
     [InlineData("preferredSurfaces")]
-    [InlineData("shortcut")]
     [InlineData("localization.labelReference")]
     [InlineData("localization.descriptionReference")]
     [InlineData("localization.keywordReferences")]
@@ -131,6 +130,46 @@ public sealed class AuthoringCommandSignedMetadataPresenceTests
         JsonArray metadata = CreateMetadata();
         (JsonObject owner, string property) = FindProperty(metadata, path);
         owner[property] = null;
+
+        AssertClosedJson(metadata.ToJsonString());
+    }
+
+    [Fact]
+    public void Activate_OmittedShortcut_RemainsLegalAndUnrequested()
+    {
+        JsonArray metadata = CreateMetadata();
+        Assert.True(metadata[0]!.AsObject().Remove("shortcut"));
+        (VerifiedAuthoringPackage package, ImmutableArray<AuthoringExecutionTarget> targets) =
+            CreatePackage(metadata.ToJsonString());
+        var authority = new AuthoringCommandRegistryAuthority(
+            new VerifiedPackageAuthoringCommandSource(),
+            ImmutableHashSet<string>.Empty,
+            ImmutableHashSet<string>.Empty);
+
+        AuthoringCommandAuthorityReport report = authority.Activate(package, targets);
+        AuthoringCommandRegistry registry = authority.Snapshot();
+        AuthoringCommandContribution command = registry.Get(CreateCommand().CommandId);
+        AuthoringCommandContribution expected = CreateCommand() with
+        {
+            Shortcut = null
+        };
+
+        Assert.Equal(1, report.Commands);
+        Assert.Equal(4, report.Surfaces);
+        Assert.Equivalent(expected, command, strict: true);
+        Assert.Equal("shortcut-not-requested", registry.ResolveShortcut(command).StableReason);
+    }
+
+    [Theory]
+    [InlineData("category")]
+    [InlineData("when.fact")]
+    [InlineData("when.operator")]
+    public void Read_OmittedShortcut_DoesNotPermitMissingEnum(string path)
+    {
+        JsonArray metadata = CreateMetadata();
+        Assert.True(metadata[0]!.AsObject().Remove("shortcut"));
+        (JsonObject owner, string property) = FindProperty(metadata, path);
+        Assert.True(owner.Remove(property));
 
         AssertClosedJson(metadata.ToJsonString());
     }
