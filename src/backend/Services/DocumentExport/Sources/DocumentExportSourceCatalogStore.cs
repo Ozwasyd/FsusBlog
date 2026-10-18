@@ -39,13 +39,28 @@ public sealed class DocumentExportSourceCatalogStore(ISqlSugarClient db)
             }
             cancellationToken.ThrowIfCancellationRequested();
         }
-        catch
+        catch (Exception failure)
         {
             // Cleanup owns this transaction and must be able to roll back after the caller cancels.
             db.Ado.CancellationToken = null;
             if (db.Ado.Transaction is not null)
             {
-                await db.Ado.RollbackTranAsync().ConfigureAwait(false);
+                try
+                {
+                    await db.Ado.RollbackTranAsync().ConfigureAwait(false);
+                }
+                catch
+                {
+                    try
+                    {
+                        // Provider diagnostics may contain private SQL; retain only a fixed cleanup code.
+                        failure.Data["DocumentExportSourceRollbackFailure"] = "document_export_source_rollback_failed";
+                    }
+                    catch
+                    {
+                        // Diagnostics must not replace the original transaction failure.
+                    }
+                }
             }
             throw;
         }
