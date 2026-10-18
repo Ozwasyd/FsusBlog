@@ -14,8 +14,7 @@
                 "src/backend/Services/Authoring/ArticleTemplateExpansionPlanner.cs",
                 "src/backend/Services/Authoring/ArticleTemplateExpansionVerifier.cs",
                 "src/backend/Services/Authoring/ArticleTemplateReceiptContract.cs",
-                "src/backend/Services/Authoring/PostgresArticleTemplateReferenceAuthority.cs",
-                "tests/backend/Integration/ArticlePropertyValueInitialCreateIntegrationTests.cs"
+                "src/backend/Services/Authoring/PostgresArticleTemplateReferenceAuthority.cs"
             ],
             "reason": "Exact changed C# paths under the existing src/**/*.cs environment-variable registration. Existing process keys and external SQL names remain unchanged; this declaration grants no policy, naming, runtime or acceptance exemption. Typed template dependency source is imported verbatim from unaccepted bb83e08f5f925f2e366518eaa65272591ce86026; only the property participant is new."
         }

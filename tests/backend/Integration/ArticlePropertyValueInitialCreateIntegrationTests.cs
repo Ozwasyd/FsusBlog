@@ -125,7 +125,7 @@ public sealed class ArticlePropertyValueInitialCreateIntegrationTests(PostgresSc
             ExecuteAsync(data, data.Db, data.Command), ExecuteAsync(data, second, data.Command));
         Assert.Equal(receipts[0].ReceiptId, receipts[1].ReceiptId);
         Assert.Equal(receipts[0].ArticleId, receipts[1].ArticleId);
-        Assert.Single(receipts.Where(static receipt => !receipt.IsIdempotentReplay));
+        Assert.Single(receipts, static receipt => !receipt.IsIdempotentReplay);
         Assert.Equal(1, await CountAsync(data.Db, "article_revision"));
         Assert.Equal(1, await CountAsync(data.Db, "article_property_value_factset"));
         Assert.Equal(1, await CountAsync(data.Db, "article_property_value_snapshot"));
@@ -414,7 +414,9 @@ public sealed class ArticlePropertyValueInitialCreateIntegrationTests(PostgresSc
                 calls++;
                 string draftKey = $"canonical-create:{command.RequestId:N}";
                 int article = db.Ado.GetInt("SELECT article_id FROM article_draft WHERE draft_key = @Key;", new SugarParameter("@Key", draftKey));
-                long revision = db.Ado.GetLong("SELECT base_revision_id FROM article_draft WHERE draft_key = @Key;", new SugarParameter("@Key", draftKey));
+                long revision = Convert.ToInt64(db.Ado.GetScalar(
+                    "SELECT base_revision_id FROM article_draft WHERE draft_key = @Key;", new SugarParameter("@Key", draftKey)),
+                    CultureInfo.InvariantCulture);
                 var transaction = Assert.IsType<NpgsqlTransaction>(db.Ado.Transaction);
                 if (write is not null)
                 {

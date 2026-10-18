@@ -45,7 +45,7 @@ public sealed partial class ArticlePropertyValuePersistence
             SELECT a.id FROM article a JOIN article_revision r ON r.article_id = a.id
             WHERE a.id = @Article AND r.id = @Revision AND a.current_revision_id = r.id
               AND r.revision_no = 1 AND r.created_by_admin_principal_id = @Actor
-              AND a.status = 0 AND NOT a.is_deleted AND a.current_publication_id IS NULL
+              AND a.status = 0 AND NOT a.isdeleted AND a.current_publication_id IS NULL
               AND a.published_at IS NULL
               AND a.xmin::text::bigint = pg_current_xact_id()::text::bigint % 4294967296
               AND r.xmin::text::bigint = pg_current_xact_id()::text::bigint % 4294967296
