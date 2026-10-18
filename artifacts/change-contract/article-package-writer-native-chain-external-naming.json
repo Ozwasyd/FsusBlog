@@ -1,0 +1,34 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.CurrentAssets.cs",
+                "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs",
+                "src/backend/Services/Authoring/ArticlePackageImportAssetCandidateValidator.cs",
+                "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+                "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+                "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+                "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+                "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+                "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs",
+                "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+                "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs",
+                "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs"
+            ],
+            "reason": "Bind original dependency source and the own writer partials to the existing C# environment-variable registration. Preserve original external spellings and fail-closed source/session/record/byte checks; add no environment access, naming policy or authority switch."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Append the own current-writer public boundary and its qualification limits while preserving existing canonical document, JSON and external contract spellings. Do not change authority, generated sections, registry or policy."
+        }
+    ]
+}
