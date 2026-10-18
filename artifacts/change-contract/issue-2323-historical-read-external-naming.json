@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/ArticleService.ArticlePropertyValues.HistoricalRead.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValuePersistence.HistoricalRead.cs"
+            ],
+            "reason": "The trusted base registers all src/**/*.cs paths under this existing environment-variable surface. These two additive partials introduce or change no process environment keys: configuration and audit-key resolution remain with the original owners. This candidate-only declaration covers the required exact changed path roster and grants no exception to internal C# naming."
+        }
+    ]
+}
