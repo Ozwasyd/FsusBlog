@@ -69,12 +69,26 @@ export function verifyLoadProfileMeasurement(document, { routeIds, paths, requir
         throw new Error('load planned/actual route counts differ');
     }
     const readings = document.resourceSamples;
+    const window = probe.window;
     if (!Array.isArray(readings) || readings.length < 2
         || readings[0].phase !== 'start' || readings.at(-1).phase !== 'end'
+        || !Number.isFinite(window.resourceSamplingStartedMonotonicMs)
+        || !Number.isFinite(window.resourceSamplingFinishedMonotonicMs)
+        || window.resourceSamplingStartedMonotonicMs < 0
+        || window.resourceSamplingStartedMonotonicMs > window.measurementStart
+        || window.resourceSamplingFinishedMonotonicMs < window.finishedMonotonicMs
+        || window.resourceSamplingFinishedMonotonicMs > window.identityVerificationStartedMonotonicMs
+        || readings[0].observedMonotonicMs < window.resourceSamplingStartedMonotonicMs
+        || readings[0].observedMonotonicMs > window.measurementStart
+        || readings.at(-1).observedMonotonicMs < window.finishedMonotonicMs
+        || readings.at(-1).observedMonotonicMs > window.resourceSamplingFinishedMonotonicMs
         || readings.some((reading, index) => !Number.isFinite(reading.observedMonotonicMs)
-            || index > 0 && reading.observedMonotonicMs < readings[index - 1].observedMonotonicMs))
+            || index > 0 && reading.observedMonotonicMs <= readings[index - 1].observedMonotonicMs
+            || index > 0 && index < readings.length - 1
+                && (reading.phase !== 'interval' || reading.observedMonotonicMs < window.measurementStart
+                    || reading.observedMonotonicMs > window.finishedMonotonicMs)))
     {
-        throw new Error('load resource sample curve is incomplete');
+        throw new Error('load resource sample curve is incomplete or outside observed load window');
     }
     if (document.resourceObservability.rssBytes.status === 'ok'
         && (readings.some((r) => r.status !== 'ok' || !Number.isSafeInteger(r.value) || r.value < 0)

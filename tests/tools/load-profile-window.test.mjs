@@ -110,6 +110,113 @@ test('barrier waits for identity confirmation and wall-clock reversal cannot sho
     }
 });
 
+test('final identity verification is separate from request drain and the RPS duration', async (context) =>
+{
+    const runtime = await fixture(context);
+    let calls = 0;
+    let verificationStarted;
+    let verificationFinished;
+    const result = await runLoadWindow(execution(runtime, { verifyIdentity: async () =>
+    {
+        calls += 1;
+        if (calls === 2)
+        {
+            verificationStarted = performance.now();
+            await delay(350);
+            verificationFinished = performance.now();
+        }
+        return { stable: true };
+    } }));
+    assert.equal(result.status, 'ok', result.failureReasons.join(';'));
+    context.diagnostic(JSON.stringify({ requests: result.calculated.completed,
+        observedDrainBeforeVerificationMs: verificationStarted - result.window.dispatchClosed,
+        reportedDrainMs: result.window.drainMs, reportedRps: result.calculated.rps,
+        rpsBeforeVerification: result.calculated.completed / (verificationStarted - result.window.measurementStart) * 1000,
+        verificationStarted, verificationFinished, window: result.window }));
+    assert.ok(result.window.finishedMonotonicMs <= verificationStarted,
+        'request observation must end before final identity verification');
+    assert.equal(result.window.totalElapsedMs, result.window.finishedMonotonicMs - result.window.measurementStart);
+    assert.equal(result.window.drainMs, result.window.finishedMonotonicMs - result.window.dispatchClosed);
+    assert.equal(result.calculated.rps, result.calculated.completed / result.window.totalElapsedMs * 1000);
+    assert.ok(result.window.identityVerificationStartedMonotonicMs >= result.window.finishedMonotonicMs);
+    assert.ok(result.window.identityVerificationStartedMonotonicMs <= verificationStarted);
+    assert.ok(result.window.identityVerificationFinishedMonotonicMs >= verificationFinished);
+    const contaminated = structuredClone(result);
+    contaminated.window.finishedMonotonicMs = result.window.identityVerificationFinishedMonotonicMs;
+    contaminated.window.totalElapsedMs = contaminated.window.finishedMonotonicMs - result.window.measurementStart;
+    contaminated.window.drainMs = contaminated.window.finishedMonotonicMs - result.window.dispatchClosed;
+    assert.ok(loadWindowFailures(contaminated).includes('load-post-window-identity-phase-invalid'));
+});
+
+test('resource sampling covers only the load phase between the two identity checks', async (context) =>
+{
+    const runtime = await fixture(context);
+    let sampler;
+    let calls = 0;
+    let identityBeforeFinished;
+    const result = await runLoadWindow(execution(runtime, {
+        startSampling: () =>
+        {
+            assert.equal(calls, 1);
+            sampler = startResourceSampling(() => ({ status: 'ok', value: process.memoryUsage().rss,
+                source: 'owned-fixture-process' }), 10);
+            return sampler;
+        },
+        verifyIdentity: async () =>
+        {
+            calls += 1;
+            if (calls === 1)
+            {
+                await delay(40);
+                identityBeforeFinished = performance.now();
+            }
+            else
+            {
+                assert.equal(sampler.readings.at(-1).phase, 'end');
+                const count = sampler.readings.length;
+                await delay(40);
+                assert.equal(sampler.readings.length, count);
+            }
+            return { stable: true };
+        }
+    }));
+    assert.equal(result.status, 'ok', result.failureReasons.join(';'));
+    const window = result.window;
+    assert.ok(window.resourceSamplingStartedMonotonicMs >= identityBeforeFinished);
+    assert.ok(sampler.readings[0].observedMonotonicMs >= window.resourceSamplingStartedMonotonicMs);
+    assert.ok(sampler.readings[0].observedMonotonicMs <= window.measurementStart);
+    assert.ok(sampler.readings.at(-1).observedMonotonicMs >= window.finishedMonotonicMs);
+    assert.ok(sampler.readings.at(-1).observedMonotonicMs <= window.resourceSamplingFinishedMonotonicMs);
+    assert.ok(window.resourceSamplingFinishedMonotonicMs <= window.identityVerificationStartedMonotonicMs);
+    assert.ok(sampler.readings.slice(1, -1).every((reading) => reading.phase === 'interval'
+        && reading.observedMonotonicMs >= window.measurementStart
+        && reading.observedMonotonicMs <= window.finishedMonotonicMs));
+});
+
+test('failed final identity verification preserves settled request timing and remains failed', async (context) =>
+{
+    const runtime = await fixture(context);
+    let calls = 0;
+    let verificationStarted;
+    const result = await runLoadWindow(execution(runtime, { verifyIdentity: async () =>
+    {
+        calls += 1;
+        if (calls === 2)
+        {
+            verificationStarted = performance.now();
+            await delay(40);
+            throw new Error('owned-final-identity-failure');
+        }
+        return { stable: true };
+    } }));
+    assert.equal(result.status, 'failed');
+    assert.ok(result.failureReasons.includes('owned-final-identity-failure'));
+    assert.equal(result.samples.length, result.expectedRequests.length);
+    assert.ok(result.window.finishedMonotonicMs <= verificationStarted);
+    assert.ok(result.window.identityVerificationFinishedMonotonicMs > verificationStarted);
+    assert.equal(result.calculated.rps, result.calculated.completed / result.window.totalElapsedMs * 1000);
+});
+
 test('slow requests are drained but insufficient per-worker rounds fail without extending dispatch', async (context) =>
 {
     const runtime = await fixture(context);
@@ -251,6 +358,40 @@ test('canonical metrics reject dropped failure samples and keep error/timeout de
         frameType: null, errorKind: 'timeout', errorCode: null };
     assert.equal(calculateLoadSampleMetrics({ samples, expectedRequests, durationMs: 100 }).timeoutRate, 0.01);
     assert.throws(() => calculateLoadSampleMetrics({ samples: [samples[0], samples[0]], expectedRequests }));
+});
+
+test('monotonic deadline comparison preserves the full policy despite subtraction rounding', () =>
+{
+    // Controlled numeric facts only; no runtime load, resource or lease claim.
+    const plan = createLoadExecutionPlan({ concurrency: 1, rounds: 1, durationMs: 15000 }, ['system-seo']);
+    const measurementStart = 1384.4441638;
+    const deadline = measurementStart + plan.durationMs;
+    assert.ok(deadline - measurementStart < plan.durationMs);
+    const sample = { sampleId: 'worker-0:0', workerId: 'worker-0', sequence: 0, path: '/fixture',
+        startedMonotonicMs: measurementStart, finishedMonotonicMs: measurementStart + 1, durationMs: 1,
+        outcome: 'success', httpStatus: 200, bytes: 1, contentType: 'application/octet-stream', frameType: 13,
+        errorKind: null, errorCode: null, errorDigest: null };
+    const expectedRequests = [{ sampleId: sample.sampleId, workerId: sample.workerId, sequence: 0, path: sample.path }];
+    const dispatchClosed = deadline + 1;
+    const finishedMonotonicMs = dispatchClosed + 1;
+    const window = { measurementStart, deadline, dispatchClosed, finishedMonotonicMs,
+        observedActiveWindowMs: dispatchClosed - measurementStart,
+        totalElapsedMs: finishedMonotonicMs - measurementStart, drainMs: finishedMonotonicMs - dispatchClosed,
+        identityVerificationStartedMonotonicMs: finishedMonotonicMs + 1,
+        identityVerificationFinishedMonotonicMs: finishedMonotonicMs + 2,
+        workerCount: 1, peakInFlight: 1,
+        workers: [{ workerId: 'worker-0', readyMonotonicMs: measurementStart - 1, dispatched: 1, completed: 1 }] };
+    const observation = { plan, window, samples: [sample], expectedRequests,
+        dispatches: [{ ordinal: 0, routeId: 'system-seo', ...expectedRequests[0], startedMonotonicMs: measurementStart }] };
+    assert.deepEqual(loadWindowFailures(observation), []);
+    const short = structuredClone(observation);
+    short.window.dispatchClosed = deadline - 1;
+    short.window.observedActiveWindowMs = short.window.dispatchClosed - measurementStart;
+    short.window.drainMs = finishedMonotonicMs - short.window.dispatchClosed;
+    assert.ok(loadWindowFailures(short).includes('load-window-duration-not-reached'));
+    const extended = structuredClone(observation);
+    extended.window.deadline += 1;
+    assert.ok(loadWindowFailures(extended).includes('load-window-duration-not-reached'));
 });
 
 test('actual child environment admission rejects ambient duration override before producer spawn', async (context) =>

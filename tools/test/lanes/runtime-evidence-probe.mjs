@@ -4510,23 +4510,21 @@ export async function loadProfile(profile, outFile, { diagnostic = false, signal
         return { binding: currentBinding, target };
     };
     const target = discoverBackendProcessTarget();
-    const sampler = startResourceSampling(() => target.status === 'ok'
-        ? readReleaseResourceRssBytes(target)
-        : { status: 'unavailable', reason: target.reason ?? 'backend process was not observed' });
-    let probe;
-    let readings;
-    try
-    {
-        probe = await runLoadWindow({ plan, signal, verifyIdentity,
-            pathForRoute: (routeId) => routeContract(routeId).pathTemplate,
-            request: (routeId, options) => fetchRouteSample({ routeId, baseUrl,
-                headers: defaultHeaders, timeoutMs, signal: options.signal }) });
-    }
-    finally
-    {
-        readings = sampler.stop();
-    }
-    const unavailable = readings.find((reading) => reading.status !== 'ok');
+    let sampler;
+    const probe = await runLoadWindow({ plan, signal, verifyIdentity,
+        startSampling: () =>
+        {
+            sampler = startResourceSampling(() => target.status === 'ok'
+                ? readReleaseResourceRssBytes(target)
+                : { status: 'unavailable', reason: target.reason ?? 'backend process was not observed' });
+            return sampler;
+        },
+        pathForRoute: (routeId) => routeContract(routeId).pathTemplate,
+        request: (routeId, options) => fetchRouteSample({ routeId, baseUrl,
+            headers: defaultHeaders, timeoutMs, signal: options.signal }) });
+    const readings = sampler?.readings ?? [];
+    const unavailable = readings.find((reading) => reading.status !== 'ok')
+        ?? (readings.length === 0 ? { reason: 'load measurement did not start' } : null);
     const resourceObservability = normalizeLoadResourceObservability({
         rssBytes: unavailable
             ? { status: target.status === 'ok' ? 'probe-failed' : 'unavailable', value: null,

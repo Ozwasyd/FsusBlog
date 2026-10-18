@@ -1532,6 +1532,9 @@ function passingVerifierEvidence(root, scenario, releaseReliability)
                 routeContractDigest: bytesDigest(Buffer.from(JSON.stringify(routeCatalog))),
                 window: { measurementStart: 100, deadline: 100 + plan.durationMs,
                     dispatchClosed: 100 + plan.durationMs, finishedMonotonicMs: 100 + plan.durationMs + 5,
+                    resourceSamplingStartedMonotonicMs: 99, resourceSamplingFinishedMonotonicMs: 100 + plan.durationMs + 6,
+                    identityVerificationStartedMonotonicMs: 100 + plan.durationMs + 6,
+                    identityVerificationFinishedMonotonicMs: 100 + plan.durationMs + 7,
                     observedActiveWindowMs: plan.durationMs, totalElapsedMs: plan.durationMs + 5,
                     drainMs: 5, workerCount: plan.concurrency, peakInFlight: plan.concurrency, workers }
             }
