@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/SqlArticleGraphAdmissionReader.cs"
+            ],
+            "reason": "Preserve the registered C# reader surface and existing permission contract spellings while bounding provider decision capture to the original zero-or-one request. No environment key, provider authority, query/host registration or governance rule is introduced."
+        }
+    ]
+}

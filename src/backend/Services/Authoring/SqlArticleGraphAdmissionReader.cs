@@ -29,6 +29,8 @@ internal sealed record ArticleGraphCurrentArticleAdmission(
 /// Admission requires PostgreSQL READ COMMITTED statement snapshots, in autocommit or a caller-owned transaction.
 /// Active ambient and fixed-snapshot contexts are unavailable; the caller's transaction is never changed.
 /// The original connection and transaction references must survive every read; auto-open/close is permitted.
+/// Provider decisions are captured by fixed index only after the exact zero/one count is checked;
+/// count/entry rereads and the original digest must agree with the owned immutable copy.
 /// </summary>
 public sealed class SqlArticleGraphAdmissionReader(
     ISqlSugarClient db,
@@ -166,28 +168,42 @@ public sealed class SqlArticleGraphAdmissionReader(
         AuthorArticlePinPermissionSnapshot snapshot = await permissions.ResolveAsync(
             new(request.Owner, request.RequestId, articleIds), cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
-        // Freeze first, then verify the ORIGINAL supplied digest over the copied values.
-        snapshot = snapshot with
-        {
-            Decisions = Array.AsReadOnly(snapshot.Decisions.ToArray())
-        };
-        if (snapshot.Status != AuthorArticlePinPermissionSnapshotStatus.Current || snapshot.Owner != request.Owner
-            || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.PermissionRevision)
-            || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.SiteRevision)
-            || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.SessionRevision)
-            || snapshot.ContentDigest != AuthorArticlePinProjectionContract.ComputePermissionDigest(snapshot)
-            || snapshot.Decisions.Count != articleIds.Count)
+        // Never enumerate a provider-owned collection, including in the digest authority.
+        // This reader requests only an empty preflight or one root decision.
+        int count = articleIds.Count;
+        IReadOnlyList<AuthorArticlePinPermissionDecision> supplied = snapshot.Decisions;
+        if (count is < 0 or > 1 || supplied is null || supplied.Count != count)
         {
             return null;
         }
-        if (articleIds.Count == 1)
+        AuthorArticlePinPermissionDecision[] decisions = count == 0 ? [] : [supplied[0]];
+        snapshot = snapshot with
         {
-            AuthorArticlePinPermissionDecision decision = snapshot.Decisions[0];
-            if (decision.ArticleId != articleIds[0] || !decision.CanProject || !decision.CanOpen
+            Decisions = Array.AsReadOnly(decisions)
+        };
+        if (supplied.Count != count
+            || snapshot.Status != AuthorArticlePinPermissionSnapshotStatus.Current || snapshot.Owner != request.Owner
+            || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.PermissionRevision)
+            || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.SiteRevision)
+            || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(snapshot.SessionRevision))
+        {
+            return null;
+        }
+        if (count == 1)
+        {
+            AuthorArticlePinPermissionDecision decision = decisions[0];
+            if (decision is null || decision.ArticleId != articleIds[0] || !decision.CanProject || !decision.CanOpen
                 || !AuthorArticlePinProjectionContract.IsRequiredRevisionReference(decision.PermissionReference))
             {
                 return null;
             }
+        }
+        // Verify the ORIGINAL digest, then reject observed same-count entry replacement.
+        // Finite rereads are not an atomic provider revision or host usage fence.
+        if (snapshot.ContentDigest != AuthorArticlePinProjectionContract.ComputePermissionDigest(snapshot)
+            || count == 1 && supplied[0] != decisions[0] || supplied.Count != count)
+        {
+            return null;
         }
         return await HasFreshStatementSnapshotsAsync(context, cancellationToken).ConfigureAwait(false) ? snapshot : null;
     }

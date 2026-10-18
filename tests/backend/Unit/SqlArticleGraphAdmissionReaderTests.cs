@@ -90,6 +90,70 @@ public sealed class SqlArticleGraphAdmissionReaderTests : IDisposable
         Assert.Single(permission.Requests);
     }
 
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(int.MaxValue)]
+    public async Task PreflightDecisionCountRefusesBeforeProviderEnumerationOrIndexing(int count)
+    {
+        var decisions = new DecisionList(_ => count);
+        var permission = new PermissionSource(request => Snapshot(request) with { Decisions = decisions });
+        Assert.Null(await CreateReader(permission).ReadCurrentAsync(s_request));
+        Assert.Equal(1, decisions.CountReads);
+        Assert.Equal(0, decisions.IndexReads);
+        Assert.Equal(0, decisions.Enumerations);
+    }
+
+    [Fact]
+    public async Task EmptyPreflightUsesRecheckedCountWithoutEnumeratingProviderDecisions()
+    {
+        var decisions = new DecisionList(_ => 0);
+        var permission = new PermissionSource(request => Snapshot(request) with { Decisions = decisions });
+        using var db = new SqlSugarClient(new ConnectionConfig
+        {
+            DbType = SqlSugar.DbType.Sqlite,
+            ConnectionString = "Data Source=:memory:",
+            InitKeyType = InitKeyType.Attribute
+        });
+        // The unsupported DB context refuses after permission capture; it must never be opened.
+        Assert.Null(await CreateReader(permission, db).ReadCurrentAsync(s_request));
+        Assert.InRange(decisions.CountReads, 2, 3);
+        Assert.Equal(0, decisions.IndexReads);
+        Assert.Equal(0, decisions.Enumerations);
+        Assert.Equal(System.Data.ConnectionState.Closed, db.Ado.Connection.State);
+    }
+
+    [Fact]
+    public async Task ChangedOrThrowingPreflightCountReturnsNoPartialFact()
+    {
+        foreach (bool fail in new[] { false, true })
+        {
+            var decisions = new DecisionList(read => read == 1 ? 0
+                : fail ? throw new InvalidOperationException("private provider detail") : 1);
+            var permission = new PermissionSource(request => Snapshot(request) with { Decisions = decisions });
+            Assert.Null(await CreateReader(permission).ReadCurrentAsync(s_request));
+            Assert.Equal(2, decisions.CountReads);
+            Assert.Equal(0, decisions.IndexReads);
+            Assert.Equal(0, decisions.Enumerations);
+        }
+    }
+
+    [Fact]
+    public async Task CallerCancellationDuringProviderCountPropagates()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var decisions = new DecisionList(_ =>
+        {
+            cancellation.Cancel();
+            throw new InvalidOperationException("provider failed after cancellation");
+        });
+        var permission = new PermissionSource(request => Snapshot(request) with { Decisions = decisions });
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            CreateReader(permission).ReadCurrentAsync(s_request, cancellation.Token));
+        Assert.Equal(0, decisions.Enumerations);
+    }
+
     [Fact]
     public async Task UnrelatedDependencyCancellationIsAnUnavailableSource()
     {
@@ -182,5 +246,39 @@ public sealed class SqlArticleGraphAdmissionReaderTests : IDisposable
         public Task<IReadOnlyList<AuthorArticlePinArticleFact>> ReadCurrentBatchAsync(
             IReadOnlyList<int> articleIds, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Metadata must not be reached.");
+    }
+
+    private sealed class DecisionList(Func<int, int> count) : IReadOnlyList<AuthorArticlePinPermissionDecision>
+    {
+        public int CountReads
+        {
+            get; private set;
+        }
+        public int IndexReads
+        {
+            get; private set;
+        }
+        public int Enumerations
+        {
+            get; private set;
+        }
+        public int Count => count(++CountReads);
+
+        public AuthorArticlePinPermissionDecision this[int index]
+        {
+            get
+            {
+                IndexReads++;
+                throw new InvalidOperationException("Empty preflight cannot index provider decisions.");
+            }
+        }
+
+        public IEnumerator<AuthorArticlePinPermissionDecision> GetEnumerator()
+        {
+            Enumerations++;
+            throw new InvalidOperationException("Provider enumeration must not be entered.");
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

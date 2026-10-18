@@ -64,6 +64,7 @@ public sealed class SqlArticleGraphAdmissionReaderIntegrationTests(PostgresSchem
             }));
             Assert.Equal(1, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM article_relation_article_binding;"));
             Assert.Equal(2, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM article_relation_source_coordinate;"));
+            await VerifyBoundedPermissionCaptureAsync(db, request);
             await db.Ado.CommitTranAsync();
         }
         catch
@@ -604,6 +605,160 @@ public sealed class SqlArticleGraphAdmissionReaderIntegrationTests(PostgresSchem
         }
     }
 
+    private static async Task VerifyBoundedPermissionCaptureAsync(SqlSugarClient db, ArticleGraphCurrentArticleReadRequest request)
+    {
+        var captured = new List<DecisionList>();
+        var permission = new PermissionProbe(CreatePermission(db))
+        {
+            Transform = (_, snapshot) =>
+            {
+                var decisions = new DecisionList(snapshot.Decisions);
+                captured.Add(decisions);
+                return snapshot with
+                {
+                    Decisions = decisions
+                };
+            }
+        };
+        var article = new ArticleProbe(new SqlAuthorArticlePinArticleProjectionSource(db));
+        ArticleGraphCurrentArticleAdmission admission = Assert.IsType<ArticleGraphCurrentArticleAdmission>(
+            await Reader(db, permission, article).ReadCurrentAsync(request));
+        Assert.Equal(new[] { 0, 1, 1 }, permission.Requests.Select(static value => value.ArticleIds.Count));
+        Assert.Equal(2, article.Reads);
+        Assert.True(Assert.Single(admission.Permission.Decisions).CanOpen);
+        Assert.Equal(admission.Permission.ContentDigest, AuthorArticlePinProjectionContract.ComputePermissionDigest(admission.Permission));
+        Assert.All(captured, static decisions =>
+        {
+            Assert.InRange(decisions.CountReads, 2, 3);
+            Assert.InRange(decisions.IndexReads, 0, 2);
+            Assert.Equal(0, decisions.Enumerations);
+        });
+
+        foreach (int stage in new[] { 2, 3 })
+        {
+            foreach (string change in new[]
+            {
+                "oversized", "missing", "count-change", "late-count-change", "count-failure",
+                "index-failure", "value-digest", "value-change"
+            })
+            {
+                DecisionList? supplied = null;
+                permission = new PermissionProbe(CreatePermission(db))
+                {
+                    Transform = (call, snapshot) =>
+                    {
+                        if (call != stage)
+                        {
+                            return snapshot;
+                        }
+                        supplied = new(snapshot.Decisions)
+                        {
+                            ReadCount = read => change switch
+                            {
+                                "oversized" => int.MaxValue,
+                                "missing" => 0,
+                                "count-change" when read > 1 => 0,
+                                "late-count-change" when read == 3 => 2,
+                                "count-failure" when read > 1 => throw new InvalidOperationException("private count detail"),
+                                _ => 1
+                            },
+                            ReadIndex = (read, decision) => change switch
+                            {
+                                "index-failure" => throw new InvalidOperationException("private index detail"),
+                                "value-digest" => decision with { PermissionReference = "unsealed-change" },
+                                "value-change" when read > 1 => decision with { CanOpen = false },
+                                _ => decision
+                            }
+                        };
+                        return snapshot with
+                        {
+                            Decisions = supplied
+                        };
+                    }
+                };
+                article = new(new SqlAuthorArticlePinArticleProjectionSource(db));
+                Assert.Null(await Reader(db, permission, article).ReadCurrentAsync(request));
+                Assert.Equal(stage, permission.Requests.Count);
+                Assert.Equal(stage == 2 ? 0 : 2, article.Reads);
+                Assert.NotNull(supplied);
+                Assert.InRange(supplied.CountReads, 1, 3);
+                Assert.InRange(supplied.IndexReads, 0, 2);
+                Assert.Equal(0, supplied.Enumerations);
+            }
+            await VerifyConcurrentPermissionReplacementAsync(db, request, stage);
+        }
+    }
+
+    private static async Task VerifyConcurrentPermissionReplacementAsync(
+        SqlSugarClient db, ArticleGraphCurrentArticleReadRequest request, int stage)
+    {
+        using var captured = new ManualResetEventSlim();
+        using var mutated = new ManualResetEventSlim();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        AuthorArticlePinPermissionDecision? current = null;
+        DecisionList? supplied = null;
+        Task mutation = Task.Run(() =>
+        {
+            captured.Wait(cancellation.Token);
+            current = current! with
+            {
+                CanOpen = false
+            };
+            mutated.Set();
+        }, cancellation.Token);
+        var permission = new PermissionProbe(CreatePermission(db))
+        {
+            Transform = (call, snapshot) =>
+            {
+                if (call != stage)
+                {
+                    return snapshot;
+                }
+                current = Assert.Single(snapshot.Decisions);
+                supplied = new(snapshot.Decisions)
+                {
+                    ReadIndex = (read, decision) =>
+                    {
+                        if (read == 1)
+                        {
+                            captured.Set();
+                            mutated.Wait(cancellation.Token);
+                            return decision;
+                        }
+                        return current!;
+                    }
+                };
+                return snapshot with
+                {
+                    Decisions = supplied
+                };
+            }
+        };
+        var article = new ArticleProbe(new SqlAuthorArticlePinArticleProjectionSource(db));
+        try
+        {
+            ArticleGraphCurrentArticleAdmission? admission = await Reader(db, permission, article).ReadCurrentAsync(request);
+            await mutation;
+            Assert.Null(admission);
+            Assert.Equal(stage, permission.Requests.Count);
+            Assert.Equal(stage == 2 ? 0 : 2, article.Reads);
+            Assert.NotNull(supplied);
+            Assert.Equal(2, supplied.IndexReads);
+            Assert.Equal(0, supplied.Enumerations);
+        }
+        finally
+        {
+            cancellation.Cancel();
+            try
+            {
+                await mutation;
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+            }
+        }
+    }
+
     private async Task<SqlSugarClient> CreateDatabaseAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -738,6 +893,57 @@ public sealed class SqlArticleGraphAdmissionReaderIntegrationTests(PostgresSchem
             AuthorArticlePinPermissionSnapshot snapshot = await inner.ResolveAsync(request, cancellationToken);
             return Transform?.Invoke(Requests.Count, snapshot) ?? snapshot;
         }
+    }
+
+    private sealed class DecisionList(IReadOnlyList<AuthorArticlePinPermissionDecision> values)
+        : IReadOnlyList<AuthorArticlePinPermissionDecision>
+    {
+        public Func<int, int>? ReadCount
+        {
+            get; init;
+        }
+        public Func<int, AuthorArticlePinPermissionDecision, AuthorArticlePinPermissionDecision>? ReadIndex
+        {
+            get; init;
+        }
+        public int CountReads
+        {
+            get; private set;
+        }
+        public int IndexReads
+        {
+            get; private set;
+        }
+        public int Enumerations
+        {
+            get; private set;
+        }
+        public int Count
+        {
+            get
+            {
+                CountReads++;
+                return ReadCount?.Invoke(CountReads) ?? values.Count;
+            }
+        }
+
+        public AuthorArticlePinPermissionDecision this[int index]
+        {
+            get
+            {
+                IndexReads++;
+                Assert.Equal(0, index);
+                return ReadIndex?.Invoke(IndexReads, values[index]) ?? values[index];
+            }
+        }
+
+        public IEnumerator<AuthorArticlePinPermissionDecision> GetEnumerator()
+        {
+            Enumerations++;
+            throw new InvalidOperationException("Provider enumeration must not be entered.");
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private sealed class ArticleProbe(IAuthorArticlePinArticleProjectionSource inner)
