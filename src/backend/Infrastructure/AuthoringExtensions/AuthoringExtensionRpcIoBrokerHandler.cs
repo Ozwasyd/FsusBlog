@@ -48,17 +48,26 @@ internal sealed class AuthoringExtensionRpcIoBrokerHandler(
         {
             throw new AuthoringExtensionContractException("Broker RPC capability is not declared by the exact verified package.");
         }
-        package = package with { Contract = contract };
+        package = package with
+        {
+            Contract = contract
+        };
         AuthoringResourceLimits limits = contract.Manifest.Limits;
         ValidateProposal(envelope, limits);
         // Capture the complete proposal before the first await, including a
         // defensive byte copy even when ImmutableArray wraps caller storage.
         if (envelope.Payload.FileBroker is { } file && !file.ProposedBytes.IsDefault)
         {
-            envelope = envelope with { Payload = envelope.Payload with
+            envelope = envelope with
             {
-                FileBroker = file with { ProposedBytes = [.. file.ProposedBytes] }
-            } };
+                Payload = envelope.Payload with
+                {
+                    FileBroker = file with
+                    {
+                        ProposedBytes = [.. file.ProposedBytes]
+                    }
+                }
+            };
         }
         byte[] metadata = SerializeRequest(envelope, limits.MaximumObjectDepth);
         if (metadata.Length > limits.MaximumRequestBytes)
@@ -177,9 +186,15 @@ internal sealed class AuthoringExtensionRpcIoBrokerHandler(
                 {
                     throw new AuthoringExtensionContractException("Broker RPC authority expired before publication.");
                 }
-                AuthoringRpcEnvelope context = envelope with { Payload = new AuthoringRpcPayload(BrokerGrantId: envelope.GrantDigest, StateValue: []) };
+                AuthoringRpcEnvelope context = envelope with
+                {
+                    Payload = new AuthoringRpcPayload(BrokerGrantId: envelope.GrantDigest, StateValue: [])
+                };
                 var receipt = new AuthoringRpcBrokerReceipt(context, proposalDigest, io.Receipt, string.Empty);
-                receipt = receipt with { ReceiptDigest = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(receipt))) };
+                receipt = receipt with
+                {
+                    ReceiptDigest = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(receipt)))
+                };
                 var result = new AuthoringRpcBrokerResult([.. io.Payload], receipt);
                 ValidateResultBinding(envelope, result);
                 ValidateResponse(result, limits);
@@ -363,17 +378,25 @@ internal sealed class AuthoringExtensionRpcIoBrokerHandler(
         var file = envelope.Payload.FileBroker;
         return JsonSerializer.SerializeToUtf8Bytes(new
         {
-            Context = envelope with { Payload = new AuthoringRpcPayload(BrokerGrantId: envelope.GrantDigest, StateValue: []) },
+            Context = envelope with
+            {
+                Payload = new AuthoringRpcPayload(BrokerGrantId: envelope.GrantDigest, StateValue: [])
+            },
             envelope.Payload.NetworkBroker,
-            FileBroker = file is null ? null : new { file.RelativePath, file.Operation,
-                ProposedBytes = file.ProposedBytes.IsDefault ? null : file.ProposedBytes.ToArray() }
+            FileBroker = file is null ? null : new
+            {
+                file.RelativePath,
+                file.Operation,
+                ProposedBytes = file.ProposedBytes.IsDefault ? null : file.ProposedBytes.ToArray()
+            }
         }, new JsonSerializerOptions { MaxDepth = depth });
     }
 
     private static string ScopeDigest(IAuthoringCapabilityBrokerGrantReadScope scope) =>
         Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
         {
-            scope.NetworkGrant, scope.FileGrant
+            scope.NetworkGrant,
+            scope.FileGrant
         })));
 
     internal static void ValidateResultBinding(AuthoringRpcEnvelope request, AuthoringRpcBrokerResult result)
@@ -405,7 +428,10 @@ internal sealed class AuthoringExtensionRpcIoBrokerHandler(
             contextPayload.DiagnosticSchemaReference is not null || contextPayload.StateKey is not null ||
             contextPayload.StateValue.IsDefault || !contextPayload.StateValue.IsEmpty ||
             contextPayload.NetworkBroker is not null || contextPayload.FileBroker is not null ||
-            (receipt.Context with { Payload = expected.Payload }) != expected)
+            (receipt.Context with
+            {
+                Payload = expected.Payload
+            }) != expected)
         {
             throw new AuthoringExtensionContractException("Broker receipt context contains drift or content-bearing data.");
         }
@@ -421,7 +447,10 @@ internal sealed class AuthoringExtensionRpcIoBrokerHandler(
             io.Outcome != outcome || io.Bytes != content.Length ||
             io.ContentSha256 != Convert.ToHexStringLower(SHA256.HashData(content.AsSpan())) ||
             (write ? result.Payload.Length != 0 || !IsDigest(io.ArtifactReference) : io.ArtifactReference is not null) ||
-            receipt.ReceiptDigest != Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(receipt with { ReceiptDigest = string.Empty }))))
+            receipt.ReceiptDigest != Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(receipt with
+            {
+                ReceiptDigest = string.Empty
+            }))))
         {
             throw new AuthoringExtensionContractException("Broker RPC result is not bound to the exact proposal and context.");
         }
@@ -432,7 +461,10 @@ internal sealed class AuthoringExtensionRpcIoBrokerHandler(
 
     private static void ValidateResponse(AuthoringRpcBrokerResult result, AuthoringResourceLimits limits)
     {
-        long bytes = JsonSerializer.SerializeToUtf8Bytes(result with { Payload = [] }, new JsonSerializerOptions
+        long bytes = JsonSerializer.SerializeToUtf8Bytes(result with
+        {
+            Payload = []
+        }, new JsonSerializerOptions
         {
             MaxDepth = limits.MaximumObjectDepth
         }).LongLength;
