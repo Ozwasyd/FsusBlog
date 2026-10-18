@@ -98,8 +98,11 @@ function createFixture(userScope = 'user:7', sourceRevision = 0)
     region.setAttribute('data-authoring-workspace-extension-region', authoringWorkspacePanelSlotId);
     region.textContent = 'selected extension presentation';
     root.append(editorCore, region);
-    document.body.append(root);
-    cleanup.push(() => root.remove());
+    const frame = document.createElement('div');
+    frame.className = 'account-route-frame admin-workspace-frame';
+    frame.append(root);
+    document.body.append(frame);
+    cleanup.push(() => frame.remove());
     rectangles.set(root, rect(0, 0, 1200, 900));
     rectangles.set(editorCore, rect(0, 0, 1000, 200));
     rectangles.set(editorElement, rect(0, 0, 1000, 200));
@@ -293,6 +296,118 @@ describe('authoring workspace live panel host', () =>
         f.root.append(f.region);
         rectangles.set(f.region, rect(0, 80, 600, 160));
         expect(f.host.observe(createQuery())).toMatchObject({ status: 'blocked', reason: 'core-region-conflict' });
+    });
+
+    // Exact review5561705868 geometry counterexamples, plus its known-core control.
+    it('refuses the actual tab strip owned outside the Write root', async () =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        const strip = document.createElement('nav');
+        strip.setAttribute('data-article-workspace-tab-strip', 'desktop');
+        f.root.parentElement!.prepend(strip);
+        rectangles.set(strip, rect(0, 220, 600, 160));
+        expect(f.host.observe(createQuery()).status).toBe('blocked');
+    });
+
+    it('refuses an inspector moved by the final native callback without changing host rectangles', async () =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        const inspector = document.createElement('aside');
+        inspector.setAttribute('data-active-inspector', 'details');
+        f.root.append(inspector);
+        rectangles.set(inspector, rect(900, 220, 100, 160));
+        let reads = 0;
+        f.setCurrent({ ...f.binding, readNativeEditor: () =>
+        {
+            reads += 1;
+            if (reads === 3) rectangles.set(inspector, rect(0, 220, 600, 160));
+            return f.binding.nativeEditor;
+        } });
+        expect(f.host.observe(createQuery()).status).toBe('blocked');
+    });
+
+    it('refuses a transparent ancestor even when the region opacity and rectangles remain visible', async () =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        f.root.style.opacity = '0';
+        expect(getComputedStyle(f.region).opacity).not.toBe('0');
+        expect(f.host.observe(createQuery()).status).toBe('blocked');
+    });
+
+    it('retains the known inspector overlap refusal control', async () =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        const inspector = document.createElement('aside');
+        inspector.setAttribute('data-active-inspector', 'details');
+        f.root.append(inspector);
+        rectangles.set(inspector, rect(0, 220, 600, 160));
+        expect(f.host.observe(createQuery())).toMatchObject({ status: 'blocked', reason: 'core-region-conflict' });
+    });
+
+
+    it('clips space to an overflow ancestor outside the Write root', async () =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        const frame = f.root.parentElement!;
+        frame.style.overflow = 'hidden';
+        rectangles.set(frame, rect(0, 0, 1200, 200));
+        expect(f.host.observe(createQuery()).status).toBe('blocked');
+    });
+
+    it.each(['visibility', 'tab-marker', 'mobile', 'ancestor-clip'])('rechecks final callback %s admission', async reason =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        let reads = 0;
+        f.setCurrent({ ...f.binding, readNativeEditor: () =>
+        {
+            reads += 1;
+            if (reads === 3)
+            {
+                if (reason === 'visibility') f.root.style.opacity = '0';
+                if (reason === 'tab-marker') f.region.setAttribute('data-article-workspace-tab-strip', 'desktop');
+                if (reason === 'mobile') f.measured.mobile = true;
+                if (reason === 'ancestor-clip')
+                {
+                    f.root.parentElement!.style.overflow = 'hidden';
+                    rectangles.set(f.root.parentElement!, rect(0, 0, 1200, 200));
+                }
+            }
+            return f.binding.nativeEditor;
+        } });
+        expect(f.host.observe(createQuery()).status).toBe('blocked');
+    });
+
+    it.each(['core', 'auth'])('rechecks %s after revoking the previous observation', async reason =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        const inspector = document.createElement('aside');
+        inspector.setAttribute('data-active-inspector', 'details');
+        f.root.append(inspector);
+        rectangles.set(inspector, rect(900, 220, 100, 160));
+        const first = f.host.observe(createQuery());
+        if (first.status !== 'observed') throw new Error('positive observation required');
+        first.signal.addEventListener('abort', () =>
+        {
+            if (reason === 'core') rectangles.set(inspector, rect(0, 220, 600, 160));
+            else privateRequestRuntime.advance('admin');
+        }, { once: true });
+        expect(f.host.observe(createQuery()).status).toBe('blocked');
+        expect(first.signal.aborted).toBe(true);
+    });
+
+    it('refuses losing the actual core owner boundary', async () =>
+    {
+        const f = createFixture();
+        expect(await f.host.refreshAuthority()).toBe(true);
+        f.root.parentElement!.className = 'different-owner';
+        expect(f.host.observe(createQuery()).status).toBe('blocked');
     });
 
     it('refuses empty, detached and hidden regions and a duplicate registration marker', async () =>
