@@ -85,7 +85,13 @@ async function fetchPage(next?: string | null): Promise<void>
     }
 
     const response = await getComments(articleId, next ?? null, 10);
-    comments.value = next ? [...comments.value, ...response.data] : response.data;
+    const page = response.data.map(({ node, childrenPreview }): CommentThreadItem => ({
+        ...node,
+        replyCount: node.childCount,
+        hasMoreReplies: node.hasMoreChildren,
+        repliesPreview: childrenPreview
+    }));
+    comments.value = next ? [...comments.value, ...page] : page;
     cursor.value = response.nextCursor;
     hasMore.value = response.hasMore;
     hasLoadError.value = false;

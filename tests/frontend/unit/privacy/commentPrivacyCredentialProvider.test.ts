@@ -5,6 +5,7 @@ import {
   createBlindRsaCredentialSuite
 } from '@/privacy/commentPrivacyBlindRsaSuite'
 import { createCommentPrivacyCredentialProvider } from '@/privacy/commentPrivacyCredentialProvider'
+import { createMemoryOnlyCommentPrivacyCredentialVault } from '@/privacy/commentPrivacyCredentialVault'
 import type {
   CommentPrivacyCredentialIssueResponse,
   CommentPrivacyCredentialIssuerMetadata,
@@ -262,6 +263,32 @@ describe('RFC 9474 blind anonymous credential suite', () => {
     expect(await provider.prepareCredential({ signal: new AbortController().signal })).toBeNull()
     expect(createCredentialRequest).toHaveBeenCalledOnce()
     expect(issueCredential).not.toHaveBeenCalled()
+  })
+
+  it.each([0, -1])('rejects issuer expiry at now plus %i ms before accepting or storing a credential', async offset => {
+    const now = Date.now()
+    const vault = createMemoryOnlyCommentPrivacyCredentialVault({ indexedDB: null, now: () => now })
+    const put = vi.spyOn(vault, 'put')
+    const realSuite = createBlindRsaCredentialSuite({ crypto })
+    const acceptIssuerResponse = vi.fn(realSuite.acceptIssuerResponse)
+    const issueCredential = vi.fn(async (request: { blindedMessage: Uint8Array }) => ({
+      ...issuerResponse(blindSign(request.blindedMessage)),
+      expiresAtUnixMs: now + offset
+    }))
+    const provider = createCommentPrivacyCredentialProvider({
+      vault,
+      loadMetadata: async () => issuerMetadata(),
+      issueCredential,
+      credentialSuite: { ...realSuite, acceptIssuerResponse },
+      crypto,
+      now: () => now,
+      unavailableCacheTtlMs: 0
+    })
+
+    expect(await provider.prepareCredential({ signal: new AbortController().signal })).toBeNull()
+    expect(issueCredential).toHaveBeenCalledOnce()
+    expect(acceptIssuerResponse).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
   })
 
   it('does not enter provider lifecycle when already cancelled', async () => {
