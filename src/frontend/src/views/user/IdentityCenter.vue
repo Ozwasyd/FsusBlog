@@ -719,11 +719,36 @@ const isWebAuthnAbort = (error: unknown): boolean =>
     'name' in error &&
     (error as { name?: string; }).name === 'NotAllowedError';
 
+interface PasskeyStepUpChallenge {
+    challengeToken?: string | null;
+    ChallengeToken?: string | null;
+    options?: Record<string, unknown> | null;
+    Options?: Record<string, unknown> | null;
+}
+
 const resolvePasskeyStepUpProof = async (action: string): Promise<string> =>
 {
-    const challenge = await userStepUpPasskeyBegin(action);
-    const challengeToken = (challenge as any).challengeToken || (challenge as any).ChallengeToken;
-    const options = (challenge as any).options || (challenge as any).Options;
+    const challenge: PasskeyStepUpChallenge = await userStepUpPasskeyBegin(action);
+    const primaryChallengeToken = challenge.challengeToken;
+    let challengeToken: PasskeyStepUpChallenge['challengeToken'];
+    if (primaryChallengeToken)
+    {
+        challengeToken = primaryChallengeToken;
+    }
+    else
+    {
+        challengeToken = challenge.ChallengeToken;
+    }
+    const primaryOptions = challenge.options;
+    let options: PasskeyStepUpChallenge['options'];
+    if (primaryOptions)
+    {
+        options = primaryOptions;
+    }
+    else
+    {
+        options = challenge.Options;
+    }
     if (!challengeToken || !options || typeof options !== 'object')
     {
         throw new Error('MFA_PROOF_REQUIRED');
@@ -732,15 +757,17 @@ const resolvePasskeyStepUpProof = async (action: string): Promise<string> =>
     let assertion: Awaited<ReturnType<typeof startAuthentication>>;
     try
     {
-        assertion = await startAuthentication({
-            ['options' + String.fromCharCode(74, 83, 79, 78)]: normalizeLocalPasskeyOptions(options as Record<string, unknown>)
-        } as any);
+        // Keep API options opaque until the SDK validates its own request contract.
+        const authenticationOptions: { optionsJSON: unknown; } = {
+            optionsJSON: normalizeLocalPasskeyOptions(options)
+        };
+        assertion = await startAuthentication(authenticationOptions as Parameters<typeof startAuthentication>[0]);
     }
     catch (error)
     {
         if (isWebAuthnAbort(error))
         {
-            throw new Error('MFA_PROOF_REQUIRED');
+            throw new Error('MFA_PROOF_REQUIRED', { cause: error });
         }
         throw error;
     }
@@ -942,10 +969,16 @@ const identityAccountSnapshot = computed(() =>
     const features = workspaceFeatures.value;
     const policies = workspacePolicies.value;
     const user = userStore.userInfo;
+    const storedPublicHandle = user?.publicHandle;
+    let publicHandle = '';
+    if (storedPublicHandle)
+    {
+        publicHandle = storedPublicHandle;
+    }
 
     return {
         accountId: user?.accountId ?? 0,
-        publicHandle: user?.publicHandle || '',
+        publicHandle,
         passkeyEnabled: passkeyCredentials.value.length > 0,
         recoveryEnabled: user?.recoveryEnabled === true || recoveryKeyKnown.value || recoveryKeyPlaintext.value.length > 0,
         totpStepUpEnabled: mfaProfile.value?.enabled === true,
@@ -1312,7 +1345,14 @@ const revokeOtherSessionDevices = async (): Promise<void> =>
 };
 
 const formatSessionDevice = (label: string | null | undefined): string =>
-    label?.trim() || sessionsCopy.value.deviceFallback;
+{
+    const trimmedLabel = label?.trim();
+    if (trimmedLabel)
+    {
+        return trimmedLabel;
+    }
+    return sessionsCopy.value.deviceFallback;
+};
 
 const formatAuthenticationMethod = (method: UserSessionSummary['authenticationMethod']): string => ({
     passkey: sessionsCopy.value.authenticationPasskey,
@@ -1353,7 +1393,7 @@ watch(currentRouteName, () =>
 </script>
 
 <style scoped>
-@reference "@/assets/main.css";
+@import "@/assets/main.css" reference;
 
 .identity-center
  {
