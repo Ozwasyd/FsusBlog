@@ -189,6 +189,7 @@ interface Request {
     pendingRef: string | null;
     receipt: AuthoringNavigationEntrypointReceipt | null;
     groupRevision: number | null;
+    acknowledgedAdmission: (() => void) | null;
 }
 
 const owners = new WeakSet<OpenArticleDocumentRegistry>();
@@ -418,7 +419,8 @@ export class AuthoringNavigationEntrypoints
             return Promise.resolve(this.#receipt(requestId, sequence, entrypoint, 'cancelled', 'caller-aborted'));
         }
         this.cancel();
-        const request: Request = { requestId, sequence, controller: new AbortController(), pendingRef: null, receipt: null, groupRevision: null };
+        const request: Request = { requestId, sequence, controller: new AbortController(), pendingRef: null, receipt: null,
+            groupRevision: null, acknowledgedAdmission: null };
         this.#active = request;
         this.#sequence = sequence;
         const abort = (): void =>
@@ -500,16 +502,23 @@ export class AuthoringNavigationEntrypoints
     #editor(entry: OpenArticleDocumentEntry, mounted: AuthoringNavigationMountedEditor): ArticlePositionMapBinding
     {
         this.#entryCurrent(entry);
+        if (this.#mounted?.current(entry) !== mounted)
+        {
+            throw new Error('authoring-navigation-mounted-loan-retired');
+        }
         const document = mounted.document.context;
         const scope = this.history.exportState().scope;
-        if (!validateArticleDocumentContext(document) || document.articleId !== entry.identity.articleId
+        if (!validateArticleDocumentContext(document) || !mounted.document.isCurrentContext(document)
+            || document.articleId !== entry.identity.articleId
             || document.draftId !== entry.identity.draftId || document.documentId !== entry.identity.documentId
             || document.documentEpoch !== entry.documentContext.documentEpoch || document.editorSessionId !== entry.editorSessionRef
             || document.userScope !== scope.userScope || document.siteScope !== scope.siteScope)
         {
             throw new Error('authoring-navigation-mounted-document-mismatch');
         }
-        const native = mounted.editor.getSession(entry.editorSessionRef).inspectContentDigest(value =>
+        const editor = mounted.editor;
+        const session = editor.getSession(entry.editorSessionRef);
+        const native = session.inspectContentDigest(value =>
             // This is the original native source loan, not a history body or an adapter-owned copy.
             mounted.document.context.contentDigest === document.contentDigest
                 ? calculateOpenArticleDocumentDigest({ schema: articleDocumentContextSchema, content: value }) : '');
@@ -519,9 +528,17 @@ export class AuthoringNavigationEntrypoints
             throw new Error('authoring-navigation-native-session-mismatch');
         }
         const binding = mounted.binding();
-        if (binding.document.contextDigest !== document.contextDigest)
+        if (binding.document.contextDigest !== document.contextDigest || !mounted.anchors.isCurrentPositionBinding(binding))
         {
             throw new Error('authoring-navigation-public-map-stale');
+        }
+        // Recheck custody after every producer read above; matching metadata cannot keep a retired loan live.
+        this.#entryCurrent(entry);
+        if (this.#mounted?.current(entry) !== mounted || mounted.editor !== editor
+            || editor.getSession(entry.editorSessionRef) !== session || mounted.document.context !== document
+            || !mounted.document.isCurrentContext(document))
+        {
+            throw new Error('authoring-navigation-mounted-loan-changed');
         }
         return binding;
     }
@@ -529,7 +546,18 @@ export class AuthoringNavigationEntrypoints
     #capture(entry: OpenArticleDocumentEntry, mounted: AuthoringNavigationMountedEditor): ArticleAnchorContext
     {
         const binding = this.#editor(entry, mounted);
-        return mounted.anchors.capture(binding, mounted.selection(), mounted.captureOptions());
+        const selection = mounted.selection();
+        const options = mounted.captureOptions();
+        if (this.#editor(entry, mounted).document.contextDigest !== binding.document.contextDigest)
+        {
+            throw new Error('authoring-navigation-context-changed');
+        }
+        const captured = mounted.anchors.capture(binding, selection, options);
+        if (this.#editor(entry, mounted).document.contextDigest !== captured.document.contextDigest)
+        {
+            throw new Error('authoring-navigation-context-changed');
+        }
+        return captured;
     }
 
     #observe(entry: OpenArticleDocumentEntry, anchor: AuthoringNavigationAnchor | null,
@@ -558,6 +586,23 @@ export class AuthoringNavigationEntrypoints
         anchor: AuthoringNavigationAnchor | null): Promise<ArticleAnchorCommand | null>
     {
         const binding = this.#editor(entry, mounted);
+        const documentOwner = mounted.document;
+        const anchors = mounted.anchors;
+        const editor = mounted.editor;
+        const session = editor.getSession(entry.editorSessionRef);
+        const contextDigest = binding.document.contextDigest;
+        const admit = (): void =>
+        {
+            this.#admit(request);
+            const current = this.#editor(entry, mounted);
+            if (mounted.document !== documentOwner || mounted.anchors !== anchors || mounted.editor !== editor
+                || editor.getSession(entry.editorSessionRef) !== session || current.document.contextDigest !== contextDigest)
+            {
+                throw new Error('authoring-navigation-context-changed');
+            }
+            this.#admit(request);
+        };
+        admit();
         let command: ArticleAnchorCommand | null = null;
         if (anchor)
         {
@@ -567,23 +612,16 @@ export class AuthoringNavigationEntrypoints
                 throw new Error('authoring-navigation-original-anchor-unavailable');
             }
             const viewport = mounted.viewport();
+            const transactions = mounted.transactions(saved);
+            admit();
             command = mounted.anchors.restore(saved, binding, { origin: 'outline', now: request.sequence,
-                viewportHeight: viewport.height, reducedMotion: viewport.reducedMotion, transactions: mounted.transactions(saved) });
+                viewportHeight: viewport.height, reducedMotion: viewport.reducedMotion, transactions });
+            admit();
             if (command.status !== 'ready' || command.kind !== 'exact' && command.kind !== 'rebased')
             {
                 return command;
             }
         }
-        const contextDigest = binding.document.contextDigest;
-        const admit = (): void =>
-        {
-            this.#admit(request);
-            const current = this.#editor(entry, mounted);
-            if (current.document.contextDigest !== contextDigest)
-            {
-                throw new Error('authoring-navigation-context-changed');
-            }
-        };
         admit();
         const acknowledgement = await mounted.reveal(command, request.controller.signal, admit);
         admit();
@@ -591,12 +629,19 @@ export class AuthoringNavigationEntrypoints
         {
             throw new Error('authoring-navigation-focus-or-viewport-unacknowledged');
         }
+        request.acknowledgedAdmission = admit;
         return command;
     }
 
     async #updateRoute(request: Request, entry: OpenArticleDocumentEntry, policy: AuthoringNavigationIntent['routePolicy'],
         origin: AuthoringNavigationRouteOrigin['origin']): Promise<void>
     {
+        const admit = request.acknowledgedAdmission;
+        if (!admit)
+        {
+            throw new Error('authoring-navigation-acknowledgement-unavailable');
+        }
+        admit();
         if (policy === 'none')
         {
             return;
@@ -609,11 +654,9 @@ export class AuthoringNavigationEntrypoints
         this.#origins.set(token, request);
         await this.#route.update(entry, policy, token, request.controller.signal, () =>
         {
-            this.#admit(request);
-            this.#entryCurrent(entry);
+            admit();
         });
-        this.#admit(request);
-        this.#entryCurrent(entry);
+        admit();
     }
 
     async #visit(request: Request, intent: AuthoringNavigationIntent): Promise<AuthoringNavigationEntrypointReceipt>
@@ -684,6 +727,7 @@ export class AuthoringNavigationEntrypoints
         receipt.open = this.#registry.openOrActivate({ ...open, commandId: request.requestId, idempotencyKey: request.requestId,
             expectedRevision: this.#registry.getRevision(), entrypoint: registryEntrypoint(intent.entrypoint),
             targetGroupId: entry?.owningGroupId ?? targetGroupId });
+        this.#admit(request);
         if (!['applied', 'activated-existing', 'replayed'].includes(receipt.open.status) || !receipt.open.tabId)
         {
             return this.#finish(receipt, 'invalid', receipt.open.reason ?? receipt.open.status);
@@ -719,6 +763,7 @@ export class AuthoringNavigationEntrypoints
         {
             return this.#finish(receipt, 'invalid', 'mounted-context-changed-before-append');
         }
+        request.acknowledgedAdmission?.();
         const transition = this.#command(request, { kind: 'append', visit: {
             entryId: `visit:${request.requestId}`, identity: entry.identity, documentContext: entry.documentContext,
             anchor, owningGroupId: entry.owningGroupId, targetGroupId: entry.owningGroupId,
@@ -783,6 +828,7 @@ export class AuthoringNavigationEntrypoints
             }
             receipt.open = this.#registry.openOrActivate({ ...selected, commandId: request.requestId, idempotencyKey: request.requestId,
                 expectedRevision: revision, targetGroupId: target.owningGroupId });
+            this.#admit(request);
             entry = receipt.open.tabId ? this.#registry.getEntry(receipt.open.tabId) : null;
             if (!entry || !['applied', 'activated-existing', 'replayed'].includes(receipt.open.status))
             {
@@ -822,6 +868,7 @@ export class AuthoringNavigationEntrypoints
             intent: 'workspace', entrypoint: 'direct-route', identity: entry.identity, documentContext: entry.documentContext,
             editorSessionRef: entry.editorSessionRef, tabId: entry.tabId, targetGroupId: entry.owningGroupId,
             tabKind: entry.isPinned ? 'pinned' : 'preview', status: entry.status, lastActiveAnchorRef: entry.lastActiveAnchorRef });
+        this.#admit(request);
         const opened = receipt.open.tabId ? this.#registry.getEntry(receipt.open.tabId) : null;
         if (!opened || !['applied', 'activated-existing', 'replayed'].includes(receipt.open.status))
         {
@@ -845,6 +892,7 @@ export class AuthoringNavigationEntrypoints
         }
         await this.#updateRoute(request, opened, 'replace', 'history-navigation');
         this.#admit(request);
+        request.acknowledgedAdmission?.();
         const settled = this.#settle(request, 'completed');
         if (!settled)
         {

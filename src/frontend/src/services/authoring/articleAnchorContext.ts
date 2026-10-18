@@ -220,6 +220,21 @@ export class ArticleAnchorContextAdapter
         return this.intent;
     }
 
+    /** Read-only admission through the original owner; anchorless effects need the same map checks as restore/capture. */
+    public isCurrentPositionBinding(binding: ArticlePositionMapBinding): boolean
+    {
+        const current = this.owner.context;
+        try
+        {
+            this.assertBinding(binding);
+            return this.owner.context === current && this.owner.isCurrentContext(current);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public manual(kind: ArticleManualScrollKind, pane: ArticleAnchorPane, now: number): void
     {
         this.resetForDocument();
