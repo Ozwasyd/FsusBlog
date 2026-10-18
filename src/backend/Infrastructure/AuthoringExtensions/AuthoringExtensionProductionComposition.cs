@@ -3,9 +3,9 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 
-using Npgsql;
-
 using FsusBlog.Server.Services.Authoring;
+
+using Npgsql;
 
 namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
@@ -320,9 +320,11 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
                 // VerifyCoreAsync: its unjoined diagnostics read issuer/receipt
                 // owners independently. No state scope acquired before actor
                 // pinning, copied snapshot or result record can be imported here.
-                // Actual native acceptance and old-settlement producers have no
-                // consumed live contract yet, so no result scope is manufactured.
-                throw new AuthoringExtensionContractException("production_joined_native_custody_unavailable");
+                await VerifyNativeSnapshotsAsync(cancellationToken).ConfigureAwait(false);
+                // The original old-generation settlement lifetime is still
+                // required alongside that same original settled-state scope.
+                // Native acceptance alone cannot manufacture the result scope.
+                throw new AuthoringExtensionContractException("production_joined_settlement_custody_unavailable");
             }
             finally
             {
@@ -387,6 +389,8 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
                     custody.Lease = lease;
                     await _nativeResources.TrackWorkerAsync(target.ExtensionId, Generation, worker, cancellationToken).ConfigureAwait(false);
                     custody.Tracked = true;
+                    custody.Acceptance = await worker.AcceptStateSnapshotAsync(Package, target, _snapshot,
+                        Generation, _owner.Preflight.RequireOperationSha256(), cancellationToken).ConfigureAwait(false);
                 }
                 else if (target.ExecutionClass == AuthoringExecutionClass.OutOfProcessService)
                 {
@@ -408,6 +412,8 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
                     custody.Lease = lease;
                     await _nativeResources.TrackServiceAsync(target.ExtensionId, Generation, service, cancellationToken).ConfigureAwait(false);
                     custody.Tracked = true;
+                    custody.Acceptance = await service.AcceptStateSnapshotAsync(Package, target, _snapshot,
+                        Generation, _owner.Preflight.RequireOperationSha256(), cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -476,11 +482,35 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
                     "production_service_readiness_drift");
             }
             VerifyNativeOwners();
-            // Original Execute requests require canonical document epoch/revision;
-            // neither is supplied by a state snapshot. Do not invent those facts,
-            // accept a data echo, or mistake module readiness for state acceptance.
-            // A real native/state acceptance producer is still required here.
-            throw new AuthoringExtensionContractException("production_runtime_snapshot_acceptance_unavailable");
+            await VerifyNativeSnapshotsAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        private async ValueTask VerifyNativeSnapshotsAsync(CancellationToken cancellationToken)
+        {
+            if (!OperatingSystem.IsLinux())
+            {
+                throw new AuthoringExtensionContractException("production_platform_unsupported");
+            }
+            AuthoringExtensionProductionPreflight.Require(_workers.Count + _services.Count == _targets.Length,
+                "production_native_snapshot_custody_incomplete");
+            string operation = _owner.Preflight.RequireOperationSha256();
+            foreach (WorkerCustody worker in _workers)
+            {
+                AuthoringExtensionProductionPreflight.Require(worker.Acceptance is not null,
+                    "production_worker_snapshot_acceptance_missing");
+                AuthoringExecutionTarget target = _targets.Single(item => item.ContributionId == worker.Descriptor.ContributionId);
+                await worker.Acceptance!.VerifyCurrentAsync(worker.Owner, Package, target, _snapshot,
+                    Generation, operation, cancellationToken).ConfigureAwait(false);
+            }
+            foreach (ServiceCustody service in _services)
+            {
+                AuthoringExtensionProductionPreflight.Require(service.Acceptance is not null,
+                    "production_service_snapshot_acceptance_missing");
+                AuthoringExecutionTarget target = _targets.Single(item => item.ContributionId == service.Descriptor.ContributionId);
+                await service.Acceptance!.VerifyCurrentAsync(service.Owner, Package, target, _snapshot,
+                    Generation, operation, cancellationToken).ConfigureAwait(false);
+            }
+            VerifyNativeOwners();
         }
 
         private void RequireStarting(AuthoringLifecycleReceipt? starting)
@@ -548,6 +578,28 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
                 }
                 _aborting = true;
                 await _owner.HostResources.UnpublishAsync(_stage, cancellationToken).ConfigureAwait(false);
+                // Acceptance holds the original transport exclusion. Release it
+                // before Resources terminates/disposes the actual native owners.
+                // A failed release retains its reference and prevents settlement.
+                if (OperatingSystem.IsLinux())
+                {
+                    foreach (WorkerCustody worker in _workers)
+                    {
+                        if (worker.Acceptance is not null)
+                        {
+                            await worker.Acceptance.DisposeAsync().ConfigureAwait(false);
+                            worker.Acceptance = null;
+                        }
+                    }
+                    foreach (ServiceCustody service in _services)
+                    {
+                        if (service.Acceptance is not null)
+                        {
+                            await service.Acceptance.DisposeAsync().ConfigureAwait(false);
+                            service.Acceptance = null;
+                        }
+                    }
+                }
                 AuthoringLifecycleResourceReport remaining = await _nativeResources.RevokeAllAsync(
                     Package.Contract.Manifest.Id, Generation, cancellationToken).ConfigureAwait(false);
                 foreach (WorkerCustody worker in _workers.Where(static item => !item.Tracked))
@@ -616,6 +668,10 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         private sealed class WorkerCustody(IAuthoringWorkerSandboxInstance owner, AuthoringWorkerLaunchDescriptor descriptor)
         {
             internal IAuthoringWorkerSandboxInstance Owner => owner;
+            internal AuthoringNativeStateSnapshotAcceptance? Acceptance
+            {
+                get; set;
+            }
             internal AuthoringRuntimeIncarnationLease? Lease
             {
                 get; set;
@@ -630,6 +686,10 @@ public sealed class AuthoringExtensionProductionComposition : IAuthoringFencedLi
         private sealed class ServiceCustody(IAuthoringServiceProcess owner, AuthoringServiceLaunchDescriptor descriptor)
         {
             internal IAuthoringServiceProcess Owner => owner;
+            internal AuthoringNativeStateSnapshotAcceptance? Acceptance
+            {
+                get; set;
+            }
             internal AuthoringRuntimeIncarnationLease? Lease
             {
                 get; set;

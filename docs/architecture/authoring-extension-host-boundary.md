@@ -767,8 +767,10 @@ actual owner lease and staged registrations within its own current generation.
 from the original Linux runtime options; missing providers and unsupported host
 platforms remain closed. Migration/deletion approval is not generic enable
 consent, and the current claim does not bind runtime grant purpose/publication.
-Launch capability admission, qualified approval and actual snapshot acceptance
-remain unavailable, so `VerifyAsync` cannot yet admit a production activation.
+Launch capability admission and qualified joined approval remain unavailable.
+The original native snapshot acceptance port is consumed behind that guard;
+its presence does not qualify physical startup in this environment, so
+`VerifyAsync` cannot yet admit a production activation.
 
 `AuthoringExtensionHostResourceAuthority` owns original command and filter registry
 instances and performs signed-metadata preparation under the package lifetime.
@@ -831,20 +833,27 @@ uses the original claim digest. Payload digests remain manifest `PackageSha256`,
 while state snapshots keep compound `PackageIdentity`. A result record describes
 data and cannot replace the original held execution-result authority. After
 publication, observations reacquire the actual package scope. Publication
-repeats verification under the common registry gate. However, original native
-readiness does not attest the applied state snapshot, and original document Execute
-requests require document epoch/revision facts absent from the state snapshot.
-The consumer therefore explicitly refuses verification/publication with
-`production_runtime_snapshot_acceptance_unavailable`; it does not invent document
-facts, accept an echo as proof or overload a schema digest with snapshot content.
+repeats verification under the common registry gate. Original native readiness
+does not attest the applied state snapshot. After actual startup, lease observation
+and successful Resources.Track, the consumer calls the original owner-bound
+`AcceptStateSnapshotAsync` with the retained actual Apply return, exact target,
+receipt-derived generation and the original claim's `OperationSha256` (distinct
+from its approval digest). It retains the actual sealed acceptance and verifies
+it in place against that same owner and binding; the original native implementation
+reads stored state again without resending the expected bytes. Missing acceptance,
+revocation, changed state or unsupported snapshot ABI refuse. No document
+epoch/revision, acceptance object, schema identity or native success is fabricated.
 The composition consumes the original canonical result-source interface, validates
 the supplied approval transaction and exact owned claim/generation, and consults
 its actual retained prepared group. This acquisition never calls the unjoined
 issuer/receipt diagnostic reads, commits/disposes the caller transaction or
-manufactures a result scope. Missing actual native acceptance and old-settlement
-lifetimes remain explicit refusals. This is a closed integration path, not a
+manufactures a result scope. It revalidates actual retained native acceptances
+without those diagnostic reads, then refuses the missing joined old-settlement
+and original settled-state lifetimes. This is a closed integration path, not a
 completed joined authority or production registration.
-Abort first hides the staged generation, then uses original Resources/native and
+Abort first hides the staged generation and releases original native acceptance
+lifetimes before Resources can dispose owners and wait on their transport locks.
+A failed release retains its reference and prevents settlement. It then uses original Resources/native and
 grant owners to settle known custody. Failed or unobservable startup remains
 retained and fails closed. Published global resources cannot be reported empty
 without their original remaining-resource authorities. This remains WIP with no
