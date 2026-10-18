@@ -62,7 +62,7 @@ it('must announce a definite rejected cancel operation', async () => {
         ),
     });
 
-    const wrapper = shallowMount(ExportCenter, {
+    const wrapper = shallowMount(ExportCenter<DocumentExportPresentation, unknown>, {
         props: {
             visible: true,
             identity: 'controlled-user/site/session',
