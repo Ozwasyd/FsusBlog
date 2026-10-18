@@ -155,6 +155,10 @@ public sealed class AuthoringExtensionProductionPreflight(
         cancellationToken = acquisition.Token;
         cancellationToken.ThrowIfCancellationRequested();
         await VerifyApprovedOperationAsync(package, cancellationToken).ConfigureAwait(false);
+        if (approvedClaim?.Operation == AuthoringApprovalOperation.Migration)
+        {
+            Require(targets.SequenceEqual(approvedClaim.OrderedNewTargets), "production_approval_ordered_target_drift");
+        }
         Require(OperatingSystem.IsLinux() && platform == AuthoringHostPlatform.ServerLinux,
             "production_platform_unsupported");
         AuthoringExtensionManifest manifest = package.Contract.Manifest;
@@ -244,7 +248,9 @@ public sealed class AuthoringExtensionProductionPreflight(
             && current.Operation == approvedClaim.Operation && current.Scope == approvedClaim.Scope
             && current.ExpiresAt == approvedClaim.ExpiresAt
             && current.OperationContext == approvedClaim.OperationContext
-            && current.ExpectedLifecycleReceipt == approvedClaim.ExpectedLifecycleReceipt,
+            && current.ExpectedLifecycleReceipt == approvedClaim.ExpectedLifecycleReceipt
+            && current.OrderedOldTargets.SequenceEqual(approvedClaim.OrderedOldTargets)
+            && current.OrderedNewTargets.SequenceEqual(approvedClaim.OrderedNewTargets),
             "production_approval_claim_not_current");
     }
 
@@ -311,9 +317,21 @@ public sealed class AuthoringExtensionProductionPreflight(
 
     internal void RequireQualifiedEffects()
     {
-        // The current original issuer has independently demonstrated false
-        // acceptances. No caller flag can qualify it or enable native effects.
+        // The successor issuer requires original scope and execution-result
+        // custody. Those real dependencies and independent qualification remain
+        // absent here. No caller flag or test adapter can enable native effects.
         throw new AuthoringExtensionContractException("production_approval_qualification_pending");
+    }
+
+    internal AuthoringExtensionApprovalExecutionResult FreezeExecutionResult(AuthoringStateSnapshot applied,
+        ImmutableArray<AuthoringExecutionTarget> targets, long runningGeneration)
+    {
+        Require(approvedClaim?.Operation == AuthoringApprovalOperation.Migration,
+            "production_migration_claim_required");
+        // The original codec describes actual data, not runtime acceptance or a
+        // held execution-result authority. Never use this record as that proof.
+        return AuthoringExtensionApprovalContract.MigrationResult(approvedClaim!, applied,
+            approvedClaim!.OrderedOldTargets, targets, runningGeneration);
     }
 
     internal ValueTask<AuthoringLifecycleReceipt?> ReadLatestReceiptAsync(string extensionId, CancellationToken cancellationToken)

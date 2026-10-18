@@ -15,7 +15,7 @@
             "paths": [
                 "docs/architecture/authoring-extension-host-boundary.md"
             ],
-            "reason": "Preserve existing external DOM, path and protocol spellings in the current architecture and security boundary while documenting the unfinished Starting, approval and publication ports."
+            "reason": "Preserve existing external DOM, path and protocol spellings in the current architecture and security boundary while documenting original staged lifecycle ports and unqualified scope, snapshot and execution-result custody."
         },
         {
             "id": "json-wire-key",
