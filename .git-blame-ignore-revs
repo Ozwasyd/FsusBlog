@@ -42,3 +42,6 @@ a5f53a1aaae8d410216ec1d5f25d526b9fd43a9d
 
 # Reviewed migration guard mechanical formatting for #3663.
 9a23051edcbd5cbb1b6d5209e2508c7fa58ae986
+
+# Assigned Migration journal and plan test whitespace pass for #4667.
+af2d534a731f53e3416598777ac8044ded7d3eb2
