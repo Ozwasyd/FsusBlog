@@ -227,7 +227,16 @@ function calculateWithShardWorkers(salt: string, browserFp: string, difficulty: 
                 failures += 1;
                 if (failures >= shardCount)
                 {
-                    settle(() => reject(createAppError(AppErrorCode.InfraFailure, error || 'POW_SHARDS_FAILED')));
+                    settle(() =>
+                    {
+                        if (error)
+                        {
+                            reject(createAppError(AppErrorCode.InfraFailure, error));
+                            return;
+                        }
+
+                        reject(createAppError(AppErrorCode.InfraFailure, 'POW_SHARDS_FAILED'));
+                    });
                 }
             };
 
