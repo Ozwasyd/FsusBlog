@@ -386,14 +386,21 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
         return true;
     }
 
-    private static FileStream CreateRaw(string path) => new(path, new FileStreamOptions
+    private static FileStream CreateRaw(string path)
     {
-        Mode = FileMode.CreateNew,
-        Access = FileAccess.ReadWrite,
-        Share = FileShare.None,
-        Options = FileOptions.Asynchronous,
-        UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
-    });
+        if (!OperatingSystem.IsLinux())
+        {
+            throw Failure("linux_operation_owner_required");
+        }
+        return new(path, new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.ReadWrite,
+            Share = FileShare.None,
+            Options = FileOptions.Asynchronous,
+            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+        });
+    }
 
     private sealed class RawFileOwner(FileStream stream) : IAsyncDisposable
     {

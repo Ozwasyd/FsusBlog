@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 using FsusBlog.Contracts.Migration;
@@ -198,7 +199,7 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
         }
     }
 
-    private static void Require(bool condition, string code)
+    private static void Require([DoesNotReturnIf(false)] bool condition, string code)
     {
         if (!condition) throw Failure(code);
     }

@@ -25,14 +25,18 @@ internal static class OfflineMigrationArtifactPublisher
         bool created = false;
         try
         {
-            await using (var output = new FileStream(staging, new FileStreamOptions
+            var options = new FileStreamOptions
             {
                 Mode = FileMode.CreateNew,
                 Access = FileAccess.Write,
                 Share = FileShare.None,
-                Options = FileOptions.Asynchronous,
-                UnixCreateMode = OperatingSystem.IsWindows() ? null : UnixFileMode.UserRead | UnixFileMode.UserWrite
-            }))
+                Options = FileOptions.Asynchronous
+            };
+            if (!OperatingSystem.IsWindows())
+            {
+                options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            }
+            await using (var output = new FileStream(staging, options))
             {
                 created = true;
                 await output.WriteAsync(frozen, cancellationToken).ConfigureAwait(false);
