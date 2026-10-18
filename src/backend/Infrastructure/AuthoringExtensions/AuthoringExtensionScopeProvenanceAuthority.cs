@@ -15,6 +15,21 @@ public sealed class AuthoringExtensionScopeProvenanceAuthority(
         AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destinationScope,
         CancellationToken cancellationToken)
     {
+        ValidateRequest(operation, scope, destinationScope);
+        throw new AuthoringExtensionContractException("scope_original_state_custody_required");
+    }
+
+    public ValueTask<IAuthoringExtensionApprovalScope> AcquireWithStateCustodyAsync(HttpContext context,
+        AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destinationScope,
+        IAuthoringExtensionStateObservation stateCustody, CancellationToken cancellationToken)
+    {
+        ValidateRequest(operation, scope, destinationScope);
+        return store.AcquireWithStateCustodyAsync(context, operation, scope, destinationScope, stateCustody, cancellationToken);
+    }
+
+    private static void ValidateRequest(AuthoringApprovalOperation operation, AuthoringStateScope scope,
+        AuthoringStateScope? destinationScope)
+    {
         ValidateScope(scope);
         Require(scope.DocumentId is null, "scope_document_authority_unavailable");
         Require(operation is AuthoringApprovalOperation.Deletion && destinationScope is null ||
@@ -27,6 +42,5 @@ public sealed class AuthoringExtensionScopeProvenanceAuthority(
                 scope.SiteId == destinationScope.SiteId && scope.UserId == destinationScope.UserId,
                 "scope_migration_owner_mismatch");
         }
-        return store.AcquireAsync(context, operation, scope, destinationScope, cancellationToken);
     }
 }

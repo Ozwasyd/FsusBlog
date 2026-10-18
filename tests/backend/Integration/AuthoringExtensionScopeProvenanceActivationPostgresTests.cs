@@ -12,6 +12,32 @@ namespace FsusBlog.Server.Tests.Integration;
 public sealed class AuthoringExtensionScopeProvenanceActivationPostgresTests(PostgresSchemaMigrationFixture postgres)
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RevocationCommittedBeforeActorPin_CannotActivateAfterOriginalInitializationWait(bool principal)
+    {
+        await using var host = await AuthoringExtensionScopeProvenancePostgresTests.CreateHarnessAsync(postgres);
+        AuthoringExtensionScopeRegistration registration = await host.BeginAsync();
+        await using NpgsqlConnection blocker = await host.DataSource.OpenConnectionAsync();
+        await using NpgsqlTransaction transaction = await blocker.BeginTransactionAsync();
+        await using (var key = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtextextended($1,2143))", blocker))
+        {
+            key.Parameters.AddWithValue($"authoring-extension-state:{AuthoringExtensionStateContract.ScopeId(registration.Scope)}");
+            await key.ExecuteNonQueryAsync();
+        }
+        Task<AuthoringStateScope> activation = host.CompleteAsync(registration);
+        await host.WaitForBlockedWriterAsync();
+        await host.SqlAsync(principal ? "UPDATE admin_principal SET status='disabled' WHERE id=1"
+            : "UPDATE admin_session SET revokedatutc=clock_timestamp() WHERE adminprincipalid=1");
+        await transaction.RollbackAsync();
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => activation);
+        await using NpgsqlConnection inspect = await host.DataSource.OpenConnectionAsync();
+        await using var status = new NpgsqlCommand("SELECT status FROM authoring_extension_scope_provenance WHERE registration_id=$1", inspect);
+        status.Parameters.AddWithValue(registration.RegistrationId);
+        Assert.Equal((short)0, await status.ExecuteScalarAsync());
+    }
+
+    [Theory]
     [InlineData("none")]
     [InlineData("expiry")]
     [InlineData("site")]
