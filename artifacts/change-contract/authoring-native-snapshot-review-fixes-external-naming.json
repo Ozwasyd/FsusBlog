@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRuntimeMeasurements.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs"
+            ],
+            "reason": "Preserve existing external process spellings while reusing the original resolver identity computation and aligning bounded native snapshot frames; no environment identifier, activation check or permission is renamed or relaxed."
+        }
+    ]
+}

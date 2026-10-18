@@ -271,9 +271,9 @@ public sealed class AuthoringNativeSnapshotAcceptanceTests
         var verifier = new AuthoringPackageVerifier(new Trust(), new Archive(contents), TimeProvider.System);
         VerifiedAuthoringPackage package = await verifier.VerifyAsync(new AuthoringPackageArtifact([.. archive], [1], "acme", "key-1",
             "approved-source/catalog-1", "provenance/build-1", Convert.ToHexStringLower(SHA256.HashData(archive))), AuthoringHostPlatform.ServerLinux);
-        var target = new AuthoringExecutionTarget(AuthoringExecutionResolutionStatus.Ready, manifest.Contributions[0].ExecutionClass,
-            manifest.Id, manifest.Version, manifest.PackageSha256, manifest.Contributions[0].Id, manifest.Contributions[0].Kind,
-            path, null, new string('a', 64), null);
+        var resolver = new AuthoringExecutionResolver(new ClosedTrustedAuthoringAdapterRegistry([]),
+            new NoSource(), new NoModule(), new Installed());
+        AuthoringExecutionTarget target = await resolver.ResolveAsync(package, manifest.Contributions[0].Id, AuthoringHostPlatform.ServerLinux);
         var scope = new AuthoringStateScope(manifest.Id, manifest.Version, "site", "user", null, manifest.StateSchemaVersion);
         AuthoringStateSnapshot snapshot = AuthoringExtensionStateContract.Snapshot(scope, package.PackageIdentity, 4,
             [new AuthoringStateEntry("settings", [1, 2, 3])]);
@@ -304,6 +304,19 @@ public sealed class AuthoringNativeSnapshotAcceptanceTests
     private sealed class Archive(AuthoringPackageArchiveContents contents) : IAuthoringPackageArchiveReader
     {
         public ValueTask<AuthoringPackageArchiveContents> ReadAsync(ReadOnlyMemory<byte> archive, CancellationToken token) => ValueTask.FromResult(contents);
+    }
+
+    private sealed class NoSource : ITrustedAuthoringAdapterSourceVerifier
+    {
+        public ValueTask<bool> IsCheckedInSourceExactAsync(TrustedAuthoringAdapterDescriptor descriptor, CancellationToken token) => ValueTask.FromResult(false);
+    }
+    private sealed class NoModule : ITrustedAuthoringAdapterModuleVerifier
+    {
+        public ValueTask<bool> IsLoadedModuleExactAsync(TrustedAuthoringAdapterDescriptor descriptor, CancellationToken token) => ValueTask.FromResult(false);
+    }
+    private sealed class Installed : IAuthoringInstalledPackageAuthority
+    {
+        public ValueTask<bool> IsActiveExactAsync(VerifiedAuthoringPackage package, CancellationToken token) => ValueTask.FromResult(true);
     }
 
     private sealed class CallerWorker : IAuthoringWorkerSandboxInstance
@@ -375,7 +388,7 @@ public sealed class AuthoringNativeSnapshotAcceptanceTests
         await File.WriteAllTextAsync(source, """
             #include <stdio.h>
             #include <string.h>
-            static char line[140000], stored[90000], binding[4097];
+            static char line[140000], stored[90000], binding[65537];
             int main(int argc, char **argv) {
                 if (argc != 6) return 2;
                 setvbuf(stdout, NULL, _IOLBF, 0);
