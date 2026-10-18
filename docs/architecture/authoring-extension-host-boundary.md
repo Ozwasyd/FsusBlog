@@ -739,19 +739,33 @@ archive and trust, and binds manifest, payload, target, host API and bounded
 resource policy. Fenced state and durable lifecycle receipts are read from their
 original owners. Required grants are queried by exact version, contribution,
 execution class and document, then checked for site, purpose, digest and expiry.
-Scope parameters here are diagnostic host observations, not authenticated actor
-identity or consent. This consumer cannot map an opaque user ID to an admin.
+Unbound scope parameters are diagnostic host observations, not authenticated actor
+identity or consent. `ForApprovedOperation` accepts only the original issuer's
+actual `ApprovedClaim`, derives the scope from its frozen migration destination
+or deletion scope, and exposes that same claim's `AuthoringExtensionOperationContext`.
+Every package/registry inspection rechecks Claimed status, context, exact expected
+receipt, target package and expiry through the original concrete issuer's SQL-backed
+`ReadAsync`. This includes real actor/session/permissions/xmin and protected-journal
+checks. The interface currently lacks a current-claim read port, so another
+interface implementation cannot substitute caller-supplied observations. This
+point-in-time read is not a held publication capability, and the consumer neither
+maps admin IDs to opaque state users nor encodes approval scope digests.
 
-Preflight bounds its package acquisition and read operations with a five-second
-cancellation deadline. The underlying owners retain their cancellation and
-transaction responsibilities. A valid static target or configured native provider
+Preflight supplies a five-second cooperative cancellation deadline. The original
+state owner binds it to ADO and a SQL timeout; the original receipt owner currently
+checks it before/after database awaits without binding advisory-lock waits to ADO
+cancellation. This is not a hard five-second completion guarantee or production
+deadline admission. The underlying owners retain transaction settlement. A valid
+static target or configured native provider
 does not prove physical startup. Enable must not require an incarnation before
 Starting: the original coordinator must prepare runtime startup, bounded handshake,
 actual owner lease and staged registrations within its own current generation.
 `AuthoringProductionRuntimeProviders` can be constructed only by this composition
 from the original Linux runtime options; missing providers and unsupported host
-platforms remain closed. Launch capability admission and the authenticated
-ApprovalContract operation context are still unavailable to this consumer.
+platforms remain closed. Migration/deletion approval is not generic enable
+consent, and the current claim does not bind runtime grant purpose/publication.
+Launch capability admission and the common Starting/publication ports remain
+unavailable, so `VerifyAsync` cannot yet admit a production activation.
 
 `AuthoringExtensionHostResourceAuthority` owns original command and filter registry
 instances and performs signed-metadata preparation under the package lifetime.
@@ -767,8 +781,10 @@ Resources without installing a production route. Its optional worker/service
 observations use the original incarnation issuer's owner-bound lease and retained
 descriptor. These observations are not pre-enable requirements or a Track/receipt
 join. Resources at the integrated producer still exposes no current Track read
-port. Until the original coordinator, ApprovalContract and registry owners freeze
-their shared ports, this composition is WIP and cannot activate an extension.
+port. Module/service readiness also does not attest the applied state snapshot.
+Until the original coordinator, state/runtime and registry owners supply those
+ports, this composition is WIP and cannot activate an extension. Consumers must
+not copy a prototype lifecycle interface into a parallel contract.
 
 ## Resource budgets, crash isolation, and telemetry
 
