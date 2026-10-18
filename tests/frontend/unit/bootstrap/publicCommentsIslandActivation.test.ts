@@ -2,6 +2,9 @@ import { Window as HappyDomWindow } from 'happy-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { articleRightsFixture } from '../fixtures/articleRights'
 import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
+import type { PublicArticleDetailHydrationPayload, PublicHomeHydrationPayload } from '@/public-renderers/types'
+import { createArticleListViewContract } from '@/view-contracts/articleList'
+import { createArticleRightsViewContract, emptyArticleDetailPageView } from '@/view-contracts/articleDetail'
 
 const mountArticleCommentsIsland = vi.fn<(...args: unknown[]) => Promise<void>>()
 const unmountArticleCommentsIsland = vi.fn()
@@ -54,6 +57,7 @@ class FakeIntersectionObserver implements IntersectionObserver {
 
   readonly root = null
   readonly rootMargin = '0px'
+  readonly scrollMargin = '0px'
   readonly thresholds = [0]
   readonly observe = vi.fn()
   readonly disconnect = vi.fn()
@@ -90,15 +94,17 @@ const articlePayload = {
   routeKey: 'article:101',
   rendererVersion: 'test-renderer',
   title: 'Fallback comments',
+  bodyContent: '',
   articleId: 101,
   rights: articleRightsFixture,
   detailView: {
-    rights: articleRightsFixture
+    ...emptyArticleDetailPageView,
+    rights: createArticleRightsViewContract(articleRightsFixture)
   },
   commentsIsland: {
     articleId: 101
   }
-}
+} satisfies PublicArticleDetailHydrationPayload
 
 const homePayload = {
   ...PUBLIC_PAYLOAD_IDENTITY,
@@ -109,14 +115,10 @@ const homePayload = {
   currentPage: 1,
   pageSize: 10,
   total: 0,
-  articles: [],
-  view: {
-    articles: [],
-    pagination: {
-      indicator: '1 / 1'
-    }
-  }
-}
+  featuredArticles: [],
+  hotArticles: [],
+  view: createArticleListViewContract({ items: [], total: 0 }, { currentPage: 1, pageSize: 10 })
+} satisfies PublicHomeHydrationPayload
 
 function resetDocument(url = 'http://127.0.0.1:7568/article/101'): void {
   window.location.href = url
