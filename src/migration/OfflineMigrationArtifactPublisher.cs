@@ -49,7 +49,8 @@ internal static class OfflineMigrationArtifactPublisher
         }
         finally
         {
-            if (created) File.Delete(staging);
+            if (created)
+                File.Delete(staging);
         }
     }
 }
