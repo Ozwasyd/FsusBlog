@@ -19,6 +19,9 @@ public sealed class AuthoringCanvasRequestLifetime(
     IHttpContextAccessor? contexts = null)
 {
     private static readonly ConditionalWeakTable<ISqlSugarClient, SemaphoreSlim> s_publicationGates = new();
+    private readonly object _bindingGate = new();
+    private HttpContext? _request;
+    private AdminAuthenticatedRequestFeature? _feature;
 
     internal Borrow Acquire(AuthoringCanvasOwner owner, CancellationToken cancellationToken)
     {
@@ -38,6 +41,18 @@ public sealed class AuthoringCanvasRequestLifetime(
             || !string.Equals(context.User.GetAdminSessionId(), binding.SessionId, StringComparison.Ordinal))
         {
             throw new AuthoringCanvasAccessDeniedException();
+        }
+        // One scoped consumer borrows one original request registration. A new valid
+        // session cannot replace an enclosing operation's authority between awaits.
+        lock (_bindingGate)
+        {
+            if (_feature is not null
+                && (!ReferenceEquals(_feature, feature) || !ReferenceEquals(_request, context)))
+            {
+                throw new AuthoringCanvasAccessDeniedException();
+            }
+            _request = context;
+            _feature = feature;
         }
         CancellationToken previous = (db ?? context.RequestServices.GetService<ISqlSugarClient>())
             ?.Ado.CancellationToken ?? CancellationToken.None;

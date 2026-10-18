@@ -345,7 +345,13 @@ public sealed class AuthoringCanvasInFlightSessionPostgresTests(PostgresSchemaMi
                 "SELECT note_source FROM authoring_canvas_node WHERE node_id = @Node;", new SugarParameter("@Node", before.Id)));
             db.Aop.OnLogExecuted = null;
             await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
-            AuthoringCanvasOperationReceipt acceptedB = await engine.ApplyAsync(request);
+            var scopeB = new AuthoringCanvasRequestLifetime(db);
+            var transactionB = new PostgresAuthoringCanvasOperationTransaction(db, store, TimeProvider.System, scopeB);
+            var resolverB = Resolver(db, new AuthoringCanvasReferenceProjectionCache(),
+                new RequestContextAccessor { HttpContext = context });
+            var engineB = new AuthoringCanvasOperationEngine(store, transactionB,
+                new AuthoringCanvasOperationReferenceValidator(resolverB, scopeB), scopeB);
+            AuthoringCanvasOperationReceipt acceptedB = await engineB.ApplyAsync(request);
             Assert.Equal(revokeDuringCommit ? AuthoringCanvasOperationStatus.IdempotentReplay
                 : AuthoringCanvasOperationStatus.Committed, acceptedB.Status);
             Assert.Equal(1, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM authoring_canvas_operation_journal;"));
@@ -455,6 +461,11 @@ public sealed class AuthoringCanvasInFlightSessionPostgresTests(PostgresSchemaMi
         Assert.False(original.Lifetime.Invalidated.IsCancellationRequested);
         Assert.True((await resolver.VerifyAsync(request, batch)).Valid);
         Assert.True(original.Lifetime.IsCurrent);
+        await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
+        Assert.True(original.Lifetime.IsCurrent);
+        await Assert.ThrowsAsync<AuthoringCanvasAccessDeniedException>(() => resolver.ResolveAsync(request));
+        AuthoringCanvasReferenceResolver nextRequest = Resolver(db, new AuthoringCanvasReferenceProjectionCache(), accessor);
+        Assert.Equal("Private summary", Assert.Single((await nextRequest.ResolveAsync(request)).Projections).ContextSnippet);
     }
 
     [Theory]
@@ -705,6 +716,132 @@ public sealed class AuthoringCanvasInFlightSessionPostgresTests(PostgresSchemaMi
         AuthoringCanvasDocumentHeader header = (await store.GetAsync(s_owner, request.CanvasId))!;
         Assert.Equal(request.CanvasRevision, header.Revision);
         Assert.Equal(request.CanvasContentDigest, header.ContentDigest);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FinalColdOrWarmPublication_HoldsActualSessionRowsUntilPublicationCompletes(bool warmCache)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        using SqlSugarClient writer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        using SqlSugarClient observer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
+        HttpContext context = new HttpContextAccessor().HttpContext!;
+        AdminAuthenticatedRequestLifetime lifetimeA = context.Features.Get<IAdminAuthenticatedRequestFeature>()!.Lifetime;
+        string sessionA = lifetimeA.RequireBinding().SessionId;
+        var accessor = new RequestContextAccessor { HttpContext = context };
+        var cache = new AuthoringCanvasReferenceProjectionCache();
+        AuthoringCanvasReferenceResolver resolver = Resolver(db, cache, accessor);
+        AuthoringCanvasReferenceResolutionRequest request = await CreateRequestAsync(db);
+        if (warmCache)
+        {
+            await resolver.ResolveAsync(request);
+        }
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var released = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int reads = 0;
+        db.Aop.OnLogExecuted = (sql, _) =>
+        {
+            if (sql.Contains("WITH principal AS", StringComparison.Ordinal)
+                && Interlocked.Increment(ref reads) == (warmCache ? 2 : 4))
+            {
+                entered.TrySetResult();
+                released.Task.WaitAsync(TimeSpan.FromSeconds(30)).GetAwaiter().GetResult();
+            }
+        };
+        Task<AuthoringCanvasReferenceResolutionBatch> pending = Task.Run(() => resolver.ResolveAsync(request));
+        Task<int>? revoking = null;
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            await writer.Ado.BeginTranAsync();
+            int writerProcess = await writer.Ado.GetIntAsync("SELECT pg_backend_pid();");
+            revoking = RevokeAsync(writer, sessionA);
+            await WaitForServerLockAsync(observer, writerProcess);
+            Assert.False(revoking.IsCompleted);
+            Assert.False(pending.IsCompleted);
+            released.TrySetResult();
+            AuthoringCanvasReferenceResolutionBatch publishedA = await pending;
+            Assert.Equal(warmCache ? 1 : 0, publishedA.Receipt.CacheHitCount);
+            Assert.Equal("Private summary", Assert.Single(publishedA.Projections).ContextSnippet);
+            Assert.Equal(1, await revoking);
+            await writer.Ado.CommitTranAsync();
+            // The result was built while SQL excluded revocation. A later SQL commit
+            // does not fabricate a synchronous update in this intentionally lagging projection.
+            Assert.True(lifetimeA.IsCurrent);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => resolver.ResolveAsync(request));
+            Assert.Equal(1, cache.EntryCount);
+            db.Aop.OnLogExecuted = null;
+            await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
+            AuthoringCanvasReferenceResolver resolverB = Resolver(db, cache, accessor);
+            AuthoringCanvasReferenceResolutionBatch publishedB = await resolverB.ResolveAsync(request);
+            Assert.Equal(0, publishedB.Receipt.CacheHitCount);
+            Assert.NotEqual(publishedA.AuthorityCoordinate.PermissionFingerprint,
+                publishedB.AuthorityCoordinate.PermissionFingerprint);
+            Assert.True((await resolverB.VerifyAsync(request, publishedB)).Valid);
+            AuthoringCanvasReferenceVerificationResult crossed = await resolverB.VerifyAsync(request, publishedA);
+            Assert.False(crossed.Valid);
+            Assert.Contains("authority_coordinate_mismatch", crossed.Reasons);
+            Assert.Equal(2, cache.EntryCount);
+        }
+        finally
+        {
+            released.TrySetResult();
+            if (revoking is not null)
+            {
+                await DrainAsync(revoking);
+            }
+            if (writer.Ado.Transaction is not null)
+            {
+                await writer.Ado.RollbackTranAsync();
+            }
+            await DrainAsync(pending);
+            db.Aop.OnLogExecuted = null;
+        }
+    }
+
+    [Fact]
+    public async Task ActivePrincipalVersionDrift_RejectsOldRegistrationUntilOriginalProducerRevalidates()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        using SqlSugarClient writer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
+        HttpContext context = new HttpContextAccessor().HttpContext!;
+        AdminAuthenticatedRequestLifetime original = context.Features.Get<IAdminAuthenticatedRequestFeature>()!.Lifetime;
+        var projection = (AdminSessionProjection)context.Items[typeof(AdminSessionProjection)]!;
+        var admission = (AdminSessionValidationService)context.Items[typeof(AdminSessionValidationService)]!;
+        string token = (string)context.Items["canvas-auth-fixture-token"]!;
+        var accessor = new RequestContextAccessor { HttpContext = context };
+        var cache = new AuthoringCanvasReferenceProjectionCache();
+        AuthoringCanvasReferenceResolver resolver = Resolver(db, cache, accessor);
+        AuthoringCanvasReferenceResolutionRequest request = await CreateRequestAsync(db);
+        Assert.Equal(1, await writer.Ado.ExecuteCommandAsync(
+            "UPDATE admin_principal SET validationversion = 2 WHERE id = 73 AND status = 'active';"));
+        Assert.True(original.IsCurrent);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => resolver.ResolveAsync(request));
+        Assert.Equal(0, cache.EntryCount);
+        var options = AdminSessionProjectionRuntimeOptions.FromConfiguration(new ConfigurationBuilder().Build());
+        var authority = new AdminSessionProjectionAuthorityReader(writer, projection, options, TimeProvider.System);
+        AdminSessionProjectionPrincipalUpdate update = (await authority.ReadPrincipalAsync(s_owner.AdminPrincipalId))!.Value;
+        var invalidation = DistributedInvalidationEvent.Create(Guid.CreateVersion7().ToString("N"),
+            DistributedInvalidationEventKinds.AdminSessionProjectionMutation, "version-writer", "version-test",
+            [], [], [AdminSessionProjectionEventCodec.Format(update)], Guid.CreateVersion7().ToString("N"), TimeProvider.System);
+        var applier = new DistributedInvalidationLocalApplier(null!, null!, null!, null!, null!, null!, null!, null!,
+            NullLogger<DistributedInvalidationLocalApplier>.Instance, adminSessionProjection: projection);
+        Assert.NotNull(await applier.ApplyAsync(invalidation));
+        Assert.False(original.IsCurrent);
+        AdminSessionValidationResult admitted = await admission.ValidateAsync(context.User, token, CancellationToken.None);
+        Assert.True(admitted.IsValid);
+        using AdminAuthenticatedRequestLifetime current = Assert.IsType<AdminAuthenticatedRequestLifetime>(admitted.RequestLifetime);
+        Assert.Equal(2, current.RequireBinding().PrincipalVersion);
+        current.BindRequest(context.RequestAborted);
+        context.Features.Set<IAdminAuthenticatedRequestFeature>(new AdminAuthenticatedRequestFeature(current));
+        await Assert.ThrowsAsync<AuthoringCanvasAccessDeniedException>(() => resolver.ResolveAsync(request));
+        AuthoringCanvasReferenceResolutionBatch accepted = await Resolver(db, cache, accessor).ResolveAsync(request);
+        Assert.Equal("Private summary", Assert.Single(accepted.Projections).ContextSnippet);
+        Assert.Equal(0, accepted.Receipt.CacheHitCount);
+        Assert.Equal(1, cache.EntryCount);
     }
 
     private static async Task WaitForServerLockAsync(SqlSugarClient observer, int processId)

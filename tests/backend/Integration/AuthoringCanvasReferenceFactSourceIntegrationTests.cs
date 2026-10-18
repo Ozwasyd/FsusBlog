@@ -114,6 +114,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
 
         var otherAccount = new AuthoringCanvasOwner(74, "primary-site");
         using IDisposable otherAccountRequest = await AuthoringCanvasAuthenticatedTestScope.SwitchOwnerAsync(db, otherAccount.AdminPrincipalId);
+        source = new AuthoringCanvasReferenceFactSource(reader, new AuthoringCanvasCoordinateFactProvider([]));
         AuthoringCanvasReferenceAuthorityCoordinate otherAccountCoordinate =
             await source.ReadAuthorityCoordinateAsync(
                 otherAccount,
@@ -129,6 +130,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         Assert.Null(hiddenFromOtherAccount.StableRoute);
 
         otherAccountRequest.Dispose();
+        source = new AuthoringCanvasReferenceFactSource(reader, new AuthoringCanvasCoordinateFactProvider([]));
         AuthoringCanvasReferenceTarget missingTarget = Target(Guid.CreateVersion7()) with
         {
             TargetArticleId = 999
@@ -142,6 +144,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
 
         var rootOwner = new AuthoringCanvasOwner(75, "primary-site");
         using IDisposable rootRequest = await AuthoringCanvasAuthenticatedTestScope.SwitchOwnerAsync(db, rootOwner.AdminPrincipalId);
+        source = new AuthoringCanvasReferenceFactSource(reader, new AuthoringCanvasCoordinateFactProvider([]));
         AuthoringCanvasReferenceAuthorityCoordinate rootCoordinate =
             await source.ReadAuthorityCoordinateAsync(
                 rootOwner,
@@ -152,6 +155,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         Assert.Equal("Current title", rootFact.Title);
 
         rootRequest.Dispose();
+        source = new AuthoringCanvasReferenceFactSource(reader, new AuthoringCanvasCoordinateFactProvider([]));
         var otherSite = new AuthoringCanvasOwner(73, "other-site");
         AuthoringCanvasReferenceAuthorityCoordinate otherSiteCoordinate =
             await source.ReadAuthorityCoordinateAsync(
@@ -529,11 +533,13 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
             using IDisposable? ownerRequest = deniedRequest.Owner.AdminPrincipalId != s_owner.AdminPrincipalId
                 ? await AuthoringCanvasAuthenticatedTestScope.SwitchOwnerAsync(db, deniedRequest.Owner.AdminPrincipalId)
                 : null;
+            resolver = Resolver(db, cache);
             AuthoringCanvasReferenceResolutionBatch denied = await resolver.ResolveAsync(deniedRequest);
             Assert.Equal(0, denied.Receipt.CacheHitCount);
             AssertDenied(Assert.Single(denied.Projections));
             Assert.True((await resolver.VerifyAsync(deniedRequest, denied)).Valid);
         }
+        resolver = Resolver(db, cache);
         await Assert.ThrowsAsync<AuthoringCanvasAccessDeniedException>(() =>
             resolver.ResolveAsync(allowed with
             {
