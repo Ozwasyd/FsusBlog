@@ -131,13 +131,18 @@ public sealed class PinnedHttpsAuthoringNetworkTransport : IAuthoringPinnedNetwo
     internal static async ValueTask<byte[]> ReadBoundedAsync(
         Stream stream,
         long maximumBytes,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action? validateBoundary = null)
     {
         using var buffer = new MemoryStream((int)Math.Min(maximumBytes, 64 * 1024));
         byte[] chunk = new byte[16 * 1024];
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            validateBoundary?.Invoke();
             int read = await stream.ReadAsync(chunk, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            validateBoundary?.Invoke();
             if (read == 0)
             {
                 return buffer.ToArray();
@@ -149,6 +154,8 @@ public sealed class PinnedHttpsAuthoringNetworkTransport : IAuthoringPinnedNetwo
             }
 
             await buffer.WriteAsync(chunk.AsMemory(0, read), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            validateBoundary?.Invoke();
         }
     }
 }
@@ -237,10 +244,12 @@ public sealed class AuthoringExtensionServiceIoBroker
             throw new AuthoringExtensionContractException("Network request purpose drifted from its grant.");
         }
 
+        using var deadline = new GrantIoDeadline(grant.ExpiresAt, cancellationToken);
         ImmutableArray<IPAddress> addresses = await _grantValidator.ResolveNetworkAsync(
             grant,
             runtimeIdentity,
-            cancellationToken);
+            deadline.Token);
+        deadline.ThrowIfExpiredOrCancelled();
         AuthoringPinnedNetworkResponse response = await _network.GetAsync(
             new AuthoringPinnedNetworkRequest(
                 grant.Host,
@@ -249,13 +258,16 @@ public sealed class AuthoringExtensionServiceIoBroker
                 addresses,
                 grant.MaximumBytes,
                 grant.ExpiresAt),
-            cancellationToken);
+            deadline.Token);
+        deadline.ThrowIfExpiredOrCancelled();
         if (response.Payload.IsDefault || response.Payload.Length > grant.MaximumBytes)
         {
             throw new AuthoringExtensionContractException("Network broker returned an unbounded payload.");
         }
 
-        return CreateResult(grant.GrantId, runtimeIdentity, purpose, response.Payload, "network-read");
+        AuthoringServiceIoResult result = CreateResult(grant.GrantId, runtimeIdentity, purpose, response.Payload, "network-read");
+        deadline.ThrowIfExpiredOrCancelled();
+        return result;
     }
 
     public async ValueTask<AuthoringServiceIoResult> ReadFileAsync(
@@ -270,7 +282,9 @@ public sealed class AuthoringExtensionServiceIoBroker
             throw new AuthoringExtensionContractException("File read operation or purpose drifted from its grant.");
         }
 
-        string path = await _grantValidator.ResolveFileAsync(grant, runtimeIdentity, cancellationToken);
+        using var deadline = new GrantIoDeadline(grant.ExpiresAt, cancellationToken);
+        string path = await _grantValidator.ResolveFileAsync(grant, runtimeIdentity, deadline.Token);
+        deadline.ThrowIfExpiredOrCancelled();
         var file = new FileInfo(path);
         if (!file.Exists || file.Length > grant.MaximumBytes ||
             (file.Attributes & (FileAttributes.Directory | FileAttributes.Device | FileAttributes.ReparsePoint)) != 0)
@@ -278,18 +292,27 @@ public sealed class AuthoringExtensionServiceIoBroker
             throw new AuthoringExtensionContractException("File grant did not resolve to a bounded regular file.");
         }
 
-        await using var stream = new FileStream(
+        byte[] payload;
+        await using (var stream = new FileStream(
             path,
             FileMode.Open,
             FileAccess.Read,
             FileShare.Read,
             16 * 1024,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
-        byte[] payload = await PinnedHttpsAuthoringNetworkTransport.ReadBoundedAsync(
-            stream,
-            grant.MaximumBytes,
-            cancellationToken);
-        return CreateResult(grant.GrantId, runtimeIdentity, purpose, [.. payload], "file-read");
+            FileOptions.Asynchronous | FileOptions.SequentialScan))
+        {
+            payload = await PinnedHttpsAuthoringNetworkTransport.ReadBoundedAsync(
+                stream,
+                grant.MaximumBytes,
+                deadline.Token,
+                deadline.ThrowIfExpiredOrCancelled);
+            deadline.ThrowIfExpiredOrCancelled();
+        }
+
+        deadline.ThrowIfExpiredOrCancelled();
+        AuthoringServiceIoResult result = CreateResult(grant.GrantId, runtimeIdentity, purpose, [.. payload], "file-read");
+        deadline.ThrowIfExpiredOrCancelled();
+        return result;
     }
 
     public async ValueTask<AuthoringServiceIoReceipt> StageProposedWriteAsync(
@@ -306,7 +329,9 @@ public sealed class AuthoringExtensionServiceIoBroker
             throw new AuthoringExtensionContractException("Proposed file write is missing, unbounded, or purpose-drifted.");
         }
 
-        _ = await _grantValidator.ResolveFileAsync(grant, runtimeIdentity, cancellationToken);
+        using var deadline = new GrantIoDeadline(grant.ExpiresAt, cancellationToken);
+        _ = await _grantValidator.ResolveFileAsync(grant, runtimeIdentity, deadline.Token);
+        deadline.ThrowIfExpiredOrCancelled();
         string digest = Convert.ToHexStringLower(SHA256.HashData(payload.AsSpan()));
         string proposalId = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n',
             grant.GrantId,
@@ -314,14 +339,7 @@ public sealed class AuthoringExtensionServiceIoBroker
             purpose,
             digest))));
         string proposalPath = Path.Combine(_privateStagingRoot, proposalId);
-        await WriteOwnedProposalAsync(
-            proposalPath,
-            payload.AsMemory(),
-            SetProposalPermissions,
-            File.Delete,
-            cancellationToken);
-
-        return new AuthoringServiceIoReceipt(
+        var receipt = new AuthoringServiceIoReceipt(
             grant.GrantId,
             runtimeIdentity,
             purpose,
@@ -329,6 +347,28 @@ public sealed class AuthoringExtensionServiceIoBroker
             digest,
             "write-staged-for-host-approval",
             proposalId);
+        deadline.ThrowIfExpiredOrCancelled();
+        await WriteOwnedProposalAsync(
+            proposalPath,
+            payload.AsMemory(),
+            SetProposalPermissions,
+            File.Delete,
+            deadline.Token,
+            deadline.ThrowIfExpiredOrCancelled);
+
+        try
+        {
+            deadline.ThrowIfExpiredOrCancelled();
+            return receipt;
+        }
+        catch (Exception failure)
+        {
+            // Only a settled successful CreateNew transfers this proposal to us.
+            var cleanupFailures = ImmutableArray.CreateBuilder<Exception>();
+            DeleteOwnedProposal(proposalPath, File.Delete, cleanupFailures);
+            RecordCleanupFailures(failure, cleanupFailures);
+            throw;
+        }
     }
 
     internal static async ValueTask WriteOwnedProposalAsync(
@@ -336,23 +376,28 @@ public sealed class AuthoringExtensionServiceIoBroker
         ReadOnlyMemory<byte> payload,
         Action<string> setPermissions,
         Action<string> deleteProposal,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action? validateBoundary = null,
+        Func<string, Stream>? createProposal = null)
     {
         ArgumentNullException.ThrowIfNull(setPermissions);
         ArgumentNullException.ThrowIfNull(deleteProposal);
-        FileStream? stream = null;
+        Stream? stream = null;
         Exception? failure = null;
         ImmutableArray<Exception>.Builder cleanupFailures = ImmutableArray.CreateBuilder<Exception>();
         try
         {
-            stream = new FileStream(
+            // A successful factory return transfers an exclusively created proposal stream.
+            stream = createProposal is null ? new FileStream(
                 proposalPath,
                 FileMode.CreateNew,
                 FileAccess.Write,
                 FileShare.None,
                 16 * 1024,
-                FileOptions.Asynchronous | FileOptions.WriteThrough);
+                FileOptions.Asynchronous | FileOptions.WriteThrough) : createProposal(proposalPath);
             await stream.WriteAsync(payload, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            validateBoundary?.Invoke();
         }
         catch (Exception exception)
         {
@@ -382,7 +427,11 @@ public sealed class AuthoringExtensionServiceIoBroker
         {
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                validateBoundary?.Invoke();
                 setPermissions(proposalPath);
+                cancellationToken.ThrowIfCancellationRequested();
+                validateBoundary?.Invoke();
             }
             catch (Exception exception)
             {
@@ -395,22 +444,155 @@ public sealed class AuthoringExtensionServiceIoBroker
             // A failed CreateNew never owns an existing proposal at this path.
             if (stream is not null)
             {
-                try
-                {
-                    deleteProposal(proposalPath);
-                }
-                catch (Exception exception)
-                {
-                    cleanupFailures.Add(exception);
-                }
+                DeleteOwnedProposal(proposalPath, deleteProposal, cleanupFailures);
             }
 
-            if (cleanupFailures.Count != 0)
-            {
-                failure.Data[StagedWriteCleanupFailuresKey] = cleanupFailures.ToImmutable();
-            }
+            RecordCleanupFailures(failure, cleanupFailures);
 
             ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+    }
+
+    private static void DeleteOwnedProposal(
+        string proposalPath,
+        Action<string> deleteProposal,
+        ImmutableArray<Exception>.Builder cleanupFailures)
+    {
+        try
+        {
+            deleteProposal(proposalPath);
+        }
+        catch (Exception exception)
+        {
+            cleanupFailures.Add(exception);
+        }
+    }
+
+    private static void RecordCleanupFailures(Exception failure, ImmutableArray<Exception>.Builder cleanupFailures)
+    {
+        if (cleanupFailures.Count != 0)
+        {
+            ImmutableArray<Exception> existing = failure.Data[StagedWriteCleanupFailuresKey] is ImmutableArray<Exception> recorded
+                && !recorded.IsDefault ? recorded : [];
+            failure.Data[StagedWriteCleanupFailuresKey] = existing.AddRange(cleanupFailures);
+        }
+    }
+
+    internal sealed class GrantIoDeadline : IDisposable
+    {
+        private static readonly TimeSpan s_maximumTimerDelay = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
+
+        private readonly object _gate = new();
+        private readonly DateTimeOffset _expiresAt;
+        private readonly TimeProvider _timeProvider;
+        private readonly CancellationToken _callerToken;
+        private readonly CancellationTokenSource _expiry;
+        private readonly CancellationTokenSource _linked;
+        private readonly ITimer _timer;
+        private bool _disposed;
+        private bool _resourcesReleased;
+        private int _activeCallbacks;
+
+        internal GrantIoDeadline(DateTimeOffset expiresAt, CancellationToken callerToken, TimeProvider? timeProvider = null)
+        {
+            _expiresAt = expiresAt;
+            _timeProvider = timeProvider ?? TimeProvider.System;
+            _callerToken = callerToken;
+            callerToken.ThrowIfCancellationRequested();
+            TimeSpan remaining = expiresAt - _timeProvider.GetUtcNow();
+            if (remaining <= TimeSpan.Zero)
+            {
+                throw new OperationCanceledException("Service I/O grant expired.", callerToken);
+            }
+
+            _expiry = new CancellationTokenSource();
+            _linked = CancellationTokenSource.CreateLinkedTokenSource(callerToken, _expiry.Token);
+            try
+            {
+                _timer = _timeProvider.CreateTimer(static state => ((GrantIoDeadline)state!).OnTimer(),
+                    this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+                _timer.Change(remaining < s_maximumTimerDelay ? remaining : s_maximumTimerDelay, Timeout.InfiniteTimeSpan);
+            }
+            catch
+            {
+                _timer?.Dispose();
+                _linked.Dispose();
+                _expiry.Dispose();
+                throw;
+            }
+        }
+
+        internal CancellationToken Token => _linked.Token;
+
+        internal void ThrowIfExpiredOrCancelled()
+        {
+            _callerToken.ThrowIfCancellationRequested();
+            if (_expiresAt <= _timeProvider.GetUtcNow())
+            {
+                throw new OperationCanceledException("Service I/O grant expired.", Token);
+            }
+
+            Token.ThrowIfCancellationRequested();
+        }
+
+        private void OnTimer()
+        {
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                TimeSpan remaining = _expiresAt - _timeProvider.GetUtcNow();
+                if (remaining > TimeSpan.Zero)
+                {
+                    // System timers have a finite range; rearm without changing the grant.
+                    _timer.Change(remaining < s_maximumTimerDelay ? remaining : s_maximumTimerDelay, Timeout.InfiniteTimeSpan);
+                    return;
+                }
+
+                _activeCallbacks++;
+            }
+
+            try
+            {
+                _expiry.Cancel();
+            }
+            finally
+            {
+                lock (_gate)
+                {
+                    _activeCallbacks--;
+                    if (_resourcesReleased && _activeCallbacks == 0)
+                    {
+                        _expiry.Dispose();
+                    }
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+                _disposed = true;
+            }
+
+            _timer.Dispose();
+            _linked.Dispose();
+            lock (_gate)
+            {
+                _resourcesReleased = true;
+                if (_activeCallbacks == 0)
+                {
+                    _expiry.Dispose();
+                }
+            }
         }
     }
 
