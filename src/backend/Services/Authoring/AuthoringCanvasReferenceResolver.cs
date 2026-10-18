@@ -13,6 +13,7 @@ public sealed class AuthoringCanvasReferenceResolver(
 {
     private readonly AuthoringCanvasRequestLifetime _requestLifetime = requestLifetime ?? new();
     private readonly AuthoringCanvasReferenceVerifier _verifier = new(canvasStore, factSource, requestLifetime);
+    private readonly AuthoringCanvasReferenceResolutionKernel _kernel = new(canvasStore, factSource, timeProvider);
 
     public async Task<AuthoringCanvasReferenceResolutionBatch> ResolveAsync(
         AuthoringCanvasReferenceResolutionRequest request,
@@ -34,6 +35,39 @@ public sealed class AuthoringCanvasReferenceResolver(
         using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(request.Owner, cancellationToken);
         using IDisposable databaseCancellation = _requestLifetime.BindDatabaseCancellation(authorityScope);
         cancellationToken = authorityScope.Token;
+        AuthoringCanvasReferenceResolutionKernel.Prepared prepared = await _kernel.PrepareAsync(
+            request, useCache, ReadCachedFact, cancellationToken).ConfigureAwait(false);
+        return await _requestLifetime.PublishAsync(
+            authorityScope,
+            token => _kernel.CompleteAsync(request, prepared, token),
+            _ => cache.PublishBatch(prepared.Cacheable, authorityScope.EnsureCurrent, authorityScope.Token)).ConfigureAwait(false);
+    }
+
+    private AuthoringCanvasReferenceFact? ReadCachedFact(AuthoringCanvasReferenceCacheKey key)
+        => cache.TryGet(key, out AuthoringCanvasReferenceFact? fact) ? fact : null;
+}
+
+// Domain computation has no request authority or cache publication capability.
+// Public entry points retain the genuine request lifetime and own final publication.
+internal sealed class AuthoringCanvasReferenceResolutionKernel(
+    IAuthoringCanvasDocumentStore canvasStore,
+    IAuthoringCanvasReferenceFactSource factSource,
+    TimeProvider timeProvider)
+{
+    internal sealed record Prepared(
+        long Started,
+        AuthoringCanvasReferenceAuthorityCoordinate Coordinate,
+        AuthoringCanvasReferenceTarget[] Targets,
+        Dictionary<Guid, AuthoringCanvasReferenceFact> FactsByNode,
+        List<(AuthoringCanvasReferenceCacheKey Key, AuthoringCanvasReferenceFact Fact)> Cacheable,
+        int CacheHits);
+
+    internal async Task<Prepared> PrepareAsync(
+        AuthoringCanvasReferenceResolutionRequest request,
+        bool useCache,
+        Func<AuthoringCanvasReferenceCacheKey, AuthoringCanvasReferenceFact?> readCachedFact,
+        CancellationToken cancellationToken)
+    {
         AuthoringCanvasReferenceContract.ValidateRequest(request);
         await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -52,9 +86,10 @@ public sealed class AuthoringCanvasReferenceResolver(
         foreach (AuthoringCanvasReferenceTarget target in targets)
         {
             AuthoringCanvasReferenceCacheKey cacheKey = CacheKey(request, coordinate, target);
-            if (useCache && cache.TryGet(cacheKey, out AuthoringCanvasReferenceFact? cached))
+            AuthoringCanvasReferenceFact? cached = useCache ? readCachedFact(cacheKey) : null;
+            if (cached is not null)
             {
-                factsByNode.Add(target.NodeId, cached!);
+                factsByNode.Add(target.NodeId, cached);
                 cacheHits++;
             }
             else
@@ -92,86 +127,93 @@ public sealed class AuthoringCanvasReferenceResolver(
             }
         }
 
-        return await _requestLifetime.PublishAsync(
-            authorityScope,
-            async cancellationToken =>
-            {
-                // Reject a result that lost the document race before it can enter cache or reach a consumer.
-                await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-                // Cache hits bypass batch revalidation, so recheck authority before any fact is exposed or cached.
-                AuthoringCanvasReferenceAuthorityCoordinate verifiedCoordinate = await factSource.ReadAuthorityCoordinateAsync(
-                    request.Owner,
-                    request.Permission,
-                    cancellationToken).ConfigureAwait(false);
-                AuthoringCanvasReferenceContract.ValidateAuthorityCoordinate(verifiedCoordinate);
-                cancellationToken.ThrowIfCancellationRequested();
-                if (verifiedCoordinate != coordinate)
-                {
-                    throw new AuthoringCanvasValidationException("canvas_reference_authority_changed");
-                }
-                // The authority read is asynchronous too; keep the final document check after it.
-                await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-                var projections = new List<AuthoringCanvasReferenceProjection>(targets.Length);
-                foreach (AuthoringCanvasReferenceTarget target in targets)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (!factsByNode.TryGetValue(target.NodeId, out AuthoringCanvasReferenceFact? fact))
-                    {
-                        fact = DeniedOrUnknown(target);
-                    }
-                    projections.Add(Project(target, fact, request.TargetWorkspaceGroupId));
-                }
+        return new Prepared(started, coordinate, targets, factsByNode, cacheable, cacheHits);
+    }
 
-                string batchDigest = AuthoringCanvasReferenceContract.ComputeBatchDigest(request, coordinate, projections);
-                AuthoringCanvasReferenceResolutionReceiptItem[] receiptItems = projections.Select(static projection =>
-                    new AuthoringCanvasReferenceResolutionReceiptItem(
-                        projection.NodeId,
-                        projection.TargetArticleId,
-                        projection.TargetHeadingIdentity,
-                        projection.TargetBlockIdentity,
-                        projection.TargetRevision,
-                        projection.Status,
-                        projection.Title,
-                        projection.ContextSnippet,
-                        projection.OpenIntent,
-                        projection.ContentDigest)).ToArray();
-                long elapsedMilliseconds = Math.Max(
-                    0,
-                    (long)timeProvider.GetElapsedTime(started).TotalMilliseconds);
-                string receiptDigest = AuthoringCanvasReferenceContract.ComputeReceiptDigest(
-                    request,
-                    coordinate,
-                    receiptItems,
-                    batchDigest,
-                    projections.Count,
-                    cacheHits,
-                    elapsedMilliseconds);
-                var receipt = new AuthoringCanvasReferenceResolutionReceipt(
-                    request.RequestId,
-                    request.CanvasId,
-                    request.CanvasRevision,
-                    request.CanvasContentDigest,
-                    request.Permission,
-                    coordinate.PermissionFingerprint,
-                    coordinate.Generation,
-                    coordinate.ContentDigest,
-                    projections.Count,
-                    cacheHits,
-                    elapsedMilliseconds,
-                    receiptItems,
-                    receiptDigest);
-                return new AuthoringCanvasReferenceResolutionBatch(
-                    request.CanvasId,
-                    request.CanvasRevision,
-                    request.CanvasContentDigest,
-                    coordinate,
-                    projections,
-                    batchDigest,
-                    receipt);
-            },
-            _ => cache.PublishBatch(cacheable, authorityScope.EnsureCurrent, authorityScope.Token)).ConfigureAwait(false);
+    internal async Task<AuthoringCanvasReferenceResolutionBatch> CompleteAsync(
+        AuthoringCanvasReferenceResolutionRequest request,
+        Prepared prepared,
+        CancellationToken cancellationToken)
+    {
+        long started = prepared.Started;
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate = prepared.Coordinate;
+        AuthoringCanvasReferenceTarget[] targets = prepared.Targets;
+        Dictionary<Guid, AuthoringCanvasReferenceFact> factsByNode = prepared.FactsByNode;
+        int cacheHits = prepared.CacheHits;
+        // Reject a result that lost the document race before it can enter cache or reach a consumer.
+        await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Cache hits bypass batch revalidation, so recheck authority before any fact is exposed or cached.
+        AuthoringCanvasReferenceAuthorityCoordinate verifiedCoordinate = await factSource.ReadAuthorityCoordinateAsync(
+            request.Owner,
+            request.Permission,
+            cancellationToken).ConfigureAwait(false);
+        AuthoringCanvasReferenceContract.ValidateAuthorityCoordinate(verifiedCoordinate);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (verifiedCoordinate != coordinate)
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_authority_changed");
+        }
+        // The authority read is asynchronous too; keep the final document check after it.
+        await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        var projections = new List<AuthoringCanvasReferenceProjection>(targets.Length);
+        foreach (AuthoringCanvasReferenceTarget target in targets)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!factsByNode.TryGetValue(target.NodeId, out AuthoringCanvasReferenceFact? fact))
+            {
+                fact = DeniedOrUnknown(target);
+            }
+            projections.Add(Project(target, fact, request.TargetWorkspaceGroupId));
+        }
+
+        string batchDigest = AuthoringCanvasReferenceContract.ComputeBatchDigest(request, coordinate, projections);
+        AuthoringCanvasReferenceResolutionReceiptItem[] receiptItems = projections.Select(static projection =>
+            new AuthoringCanvasReferenceResolutionReceiptItem(
+                projection.NodeId,
+                projection.TargetArticleId,
+                projection.TargetHeadingIdentity,
+                projection.TargetBlockIdentity,
+                projection.TargetRevision,
+                projection.Status,
+                projection.Title,
+                projection.ContextSnippet,
+                projection.OpenIntent,
+                projection.ContentDigest)).ToArray();
+        long elapsedMilliseconds = Math.Max(
+            0,
+            (long)timeProvider.GetElapsedTime(started).TotalMilliseconds);
+        string receiptDigest = AuthoringCanvasReferenceContract.ComputeReceiptDigest(
+            request,
+            coordinate,
+            receiptItems,
+            batchDigest,
+            projections.Count,
+            cacheHits,
+            elapsedMilliseconds);
+        var receipt = new AuthoringCanvasReferenceResolutionReceipt(
+            request.RequestId,
+            request.CanvasId,
+            request.CanvasRevision,
+            request.CanvasContentDigest,
+            request.Permission,
+            coordinate.PermissionFingerprint,
+            coordinate.Generation,
+            coordinate.ContentDigest,
+            projections.Count,
+            cacheHits,
+            elapsedMilliseconds,
+            receiptItems,
+            receiptDigest);
+        return new AuthoringCanvasReferenceResolutionBatch(
+            request.CanvasId,
+            request.CanvasRevision,
+            request.CanvasContentDigest,
+            coordinate,
+            projections,
+            batchDigest,
+            receipt);
     }
 
     private static AuthoringCanvasReferenceTarget ToTarget(AuthoringCanvasNode node)
