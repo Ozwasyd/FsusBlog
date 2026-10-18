@@ -81,7 +81,10 @@ public sealed class ArticlePreservationSourceReaderTests
         using var transaction = new AdmissionTransaction(connection, IsolationLevel.RepeatableRead);
         await Assert.ThrowsAsync<InvalidOperationException>(() => ArticlePreservationSourceReader.ReadAsync(
             CurrentSchemaProviderKind.PostgreSql, connection, transaction, new(),
-            relativeBase ? s_origin : s_origin with { Sha256 = "missing" },
+            relativeBase ? s_origin : s_origin with
+            {
+                Sha256 = "missing"
+            },
             relativeBase ? new Uri("/article/1", UriKind.Relative) : s_documentBase,
             s_limits, TimeSpan.FromSeconds(1), default));
         Assert.Equal(0, connection.CommandsCreated);
@@ -104,7 +107,10 @@ public sealed class ArticlePreservationSourceReaderTests
 
     private sealed class AdmissionConnection(ConnectionState state = ConnectionState.Open) : DbConnection
     {
-        internal int CommandsCreated { get; private set; }
+        internal int CommandsCreated
+        {
+            get; private set;
+        }
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string ConnectionString { get; set; } = string.Empty;
         public override string Database => "unit";
@@ -126,7 +132,10 @@ public sealed class ArticlePreservationSourceReaderTests
 
     private sealed class AdmissionTransaction(DbConnection connection, IsolationLevel isolation) : DbTransaction
     {
-        internal int Mutations { get; private set; }
+        internal int Mutations
+        {
+            get; private set;
+        }
         public override IsolationLevel IsolationLevel => isolation;
         protected override DbConnection DbConnection => connection;
         public override void Commit()

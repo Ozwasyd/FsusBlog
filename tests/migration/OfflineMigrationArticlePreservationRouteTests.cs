@@ -48,13 +48,16 @@ public sealed class OfflineMigrationArticlePreservationRouteTests
         var registry = new FixtureRegistry();
         OfflineMigrationSourceObservation source = Source(CurrentSchemaProviderKind.PostgreSql, true);
         Assert.Equal(OfflineMigrationSourceFingerprints.LegacyId, OfflineMigrationSourceFingerprints.CreateRegistry().Match(source).Id);
-        source = source with { Schema = drift switch
+        source = source with
         {
-            "unknown-table" => [.. source.Schema, new("table/unknown", "base")],
-            "partial-schema" => source.Schema.RemoveAt(source.Schema.Length - 1),
-            "unsupported-object" => source.Schema.Select(fact => fact.Name == "objects.unsupported" ? fact with { Value = "1" } : fact).ToImmutableArray(),
-            _ => throw new ArgumentOutOfRangeException(nameof(drift))
-        } };
+            Schema = drift switch
+            {
+                "unknown-table" => [.. source.Schema, new("table/unknown", "base")],
+                "partial-schema" => source.Schema.RemoveAt(source.Schema.Length - 1),
+                "unsupported-object" => source.Schema.Select(fact => fact.Name == "objects.unsupported" ? fact with { Value = "1" } : fact).ToImmutableArray(),
+                _ => throw new ArgumentOutOfRangeException(nameof(drift))
+            }
+        };
         Assert.ThrowsAny<InvalidOperationException>(() => Select(source, article, dag, registry));
         Assert.Empty(registry.Resolved);
     }
@@ -68,7 +71,10 @@ public sealed class OfflineMigrationArticlePreservationRouteTests
         var registry = new FixtureRegistry();
         OfflineMigrationArticlePreservationRoute.RequireCompiledClosure(dag, registry, article, article.Operations[0], CancellationToken.None);
         registry.Resolved.Clear();
-        dag = dag with { Steps = [article with { Operations = article.Operations.Where(value => value.Provider != missing).ToImmutableArray() }] };
+        dag = dag with
+        {
+            Steps = [article with { Operations = article.Operations.Where(value => value.Provider != missing).ToImmutableArray() }]
+        };
         Assert.Throws<InvalidOperationException>(() => Select(Source(CurrentSchemaProviderKind.PostgreSql, true), article, dag, registry));
         Assert.Empty(registry.Resolved);
     }
@@ -90,13 +96,22 @@ public sealed class OfflineMigrationArticlePreservationRouteTests
             "resume" => article with { ResumePolicy = article.ResumePolicy with { Version = "unrelated-resume" } },
             "destructive" => article with { Destructive = !article.Destructive },
             "entry" => article with { StepId = "alias-legacy-entry" },
-            "pg-identity" => article with { Operations = article.Operations.Select(value => value.Provider == CurrentSchemaProviderKind.PostgreSql
-                ? value with { OperationReference = "unrelated-owner" } : value).ToImmutableArray() },
+            "pg-identity" => article with
+            {
+                Operations = article.Operations.Select(value => value.Provider == CurrentSchemaProviderKind.PostgreSql
+                ? value with
+                {
+                    OperationReference = "unrelated-owner"
+                } : value).ToImmutableArray()
+            },
             _ => throw new ArgumentOutOfRangeException(nameof(drift))
         };
         var registry = new FixtureRegistry();
         Assert.Throws<InvalidOperationException>(() => Select(Source(CurrentSchemaProviderKind.PostgreSql, true), article,
-            dag with { Steps = [changed] }, registry));
+            dag with
+            {
+                Steps = [changed]
+            }, registry));
         Assert.Empty(registry.Resolved);
     }
 
@@ -127,7 +142,11 @@ public sealed class OfflineMigrationArticlePreservationRouteTests
             "unknown-identity" => article,
             _ => throw new ArgumentOutOfRangeException(nameof(drift))
         };
-        if (drift == "unknown-identity") identity = identity with { OperationReference = "unregistered-owner" };
+        if (drift == "unknown-identity")
+            identity = identity with
+            {
+                OperationReference = "unregistered-owner"
+            };
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationArticlePreservationRoute.RequireDeclaredOperation(dag, requested, identity));
     }
 
@@ -172,7 +191,10 @@ public sealed class OfflineMigrationArticlePreservationRouteTests
             "missing-sqlite" => article.Operations.Where(value => value.Provider != CurrentSchemaProviderKind.Sqlite).ToImmutableArray(),
             "duplicate-provider" => [.. article.Operations, article.Operations[0]],
             "divergent-semantics" => article.Operations.Select(value => value.Provider == CurrentSchemaProviderKind.MySql
-                ? value with { SemanticDigest = new string('c', 64) } : value).ToImmutableArray(),
+                ? value with
+                {
+                    SemanticDigest = new string('c', 64)
+                } : value).ToImmutableArray(),
             _ => throw new ArgumentOutOfRangeException(nameof(drift))
         };
         ImmutableArray<OfflineMigrationApplyOperation> owners = identities
@@ -262,7 +284,8 @@ public sealed class OfflineMigrationArticlePreservationRouteTests
         public OfflineMigrationApplyOperation Resolve(OfflineMigrationStep step, OfflineMigrationProviderOperation identity)
         {
             Resolved.Add(identity.Provider);
-            if (drift == "missing") throw new InvalidOperationException("fixture-actual-owner-missing");
+            if (drift == "missing")
+                throw new InvalidOperationException("fixture-actual-owner-missing");
             return new FixtureOperation(drift switch
             {
                 "identity" => identity with { OperationReference = "changed-real-owner" },
