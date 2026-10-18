@@ -92,6 +92,7 @@ function implementationPaths(ownership)
         ownership.producer.implementation,
         ownership.composition.implementation,
         ...ownership.ports.map((item) => item.implementation),
+        ...ownership.ports.flatMap((item) => item.implementationPaths ?? []),
         ...(ownership.supportImplementations ?? []).map((item) => item.implementation),
         ...ownership.gateways.map((item) => item.implementation)
     ]);
@@ -102,6 +103,14 @@ function scanSources(root, ownership)
     const violations = [];
     const expected = implementationPaths(ownership);
     const consumerPaths = new Set(ownership.consumers.map((item) => item.implementation));
+    // Entry points keep their original markers; owned partials/read helpers are
+    // scanned and fingerprinted without turning into independent producers.
+    const markerOwners = new Set([
+        ownership.producer.implementation,
+        ownership.composition.implementation,
+        ...ownership.ports.map((item) => item.implementation),
+        ...ownership.gateways.map((item) => item.implementation)
+    ]);
     const markers = [];
     const { listed, deleted } = trackedFiles(root);
     for (const relativePath of deleted)
@@ -158,13 +167,12 @@ function scanSources(root, ownership)
             }
         }
         violations.push(...firstRowViolations(relativePath, source));
-        if (!expected.has(relativePath) && source.includes(producerMarker))
+        if (!markerOwners.has(relativePath) && source.includes(producerMarker))
         {
             violations.push({ id: 'second-producer', path: relativePath, line: 1, detail: 'producer marker is outside exact ownership' });
         }
     }
-    const supportPaths = new Set((ownership.supportImplementations ?? []).map((item) => item.implementation));
-    const expectedMarkers = [...expected].filter((item) => !supportPaths.has(item)).sort();
+    const expectedMarkers = [...markerOwners].sort();
     markers.sort();
     if (JSON.stringify(markers) !== JSON.stringify(expectedMarkers))
     {
@@ -982,7 +990,10 @@ export function buildCommentFixtureCleanupReceipt({ root = repositoryRoot } = {}
         ownershipDigest: contract.ownershipDigest,
         producerId: contract.inventory.producerId,
         scanner: { status: violations.length === 0 ? 'accepted' : 'rejected', violations },
-        exactOwnership: violations.every((item) => !['second-producer', 'producer-owner-exactness'].includes(item.id)),
+        exactOwnership: violations.every((item) => ![
+            'second-producer', 'producer-owner-exactness', 'owned-implementation-missing',
+            'consumer-implementation-missing', 'source-file-identity'
+        ].includes(item.id)),
         warnings: []
     };
     return Object.freeze({ ...receipt, contentDigest: digestCommentFixtureValue(receipt) });

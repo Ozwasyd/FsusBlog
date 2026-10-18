@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/comment-fixture-contract.mjs",
+                "tools/test/comment-fixture-governance.mjs"
+            ],
+            "reason": "These governance modules are registered under the environment-variable surface. Preserve the existing caller-visible fixture identifiers, producer marker and exported source-identity interface while binding the complete implementation roster; no process environment spelling or internal naming convention is changed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/comment-fixture-ownership.json"
+            ],
+            "reason": "Preserve the ownership schema keys and typed lifecycle identifiers consumed by the original contract reader, scanner and receipt producer. The implementationPaths key names the complete owned source roster without renaming existing JSON contracts or runtime adapters."
+        }
+    ]
+}
