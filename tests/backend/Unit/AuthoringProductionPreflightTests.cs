@@ -1,6 +1,7 @@
 using SqlSugar;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -19,7 +20,7 @@ public sealed class AuthoringProductionPreflightTests
     }
 
     [Fact]
-    public async Task RealPackageReadScope_ValidatesSignedFilterRegistryWithoutDatabaseOrActivation()
+    public async Task RealPackageReadScope_ValidatesSignedMetadataAndIsolatedRegistryOwner()
     {
         using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
         using SqlSugarClient unavailable = UnavailableDatabase();
@@ -31,6 +32,16 @@ public sealed class AuthoringProductionPreflightTests
         Assert.Equal(result, await composition.HostResources.InspectRegistrationsAsync(fixture.Package, fixture.Targets));
         using IAuthoringInstalledPackageReadScope held = await fixture.Packages.ExecutionResolver.AcquireReadScopeAsync(fixture.Package, default);
         Assert.Equal(fixture.Package.PackageIdentity, held.ActivePackage.PackageIdentity);
+        // Independent original-owner positive control. This private test registry
+        // publishes metadata only; it is not the production composition or enable.
+        var registry = new AuthoringFilterRegistryAuthority(new VerifiedPackageAuthoringFilterSource(),
+            new([], [], [], [], []), new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([])));
+        registry.ActivateAtomically(held.ActivePackage, fixture.Targets);
+        AuthoringRegisteredFilter registered = Assert.Single(registry.Snapshot());
+        Assert.Equal(held.ActivePackage.PackageIdentity, registered.PackageIdentity);
+        Assert.Equal(fixture.Targets[0], registered.Target);
+        registry.Remove(fixture.Package.Contract.Manifest.Id);
+        Assert.Empty(registry.Snapshot());
     }
 
     [Theory]
