@@ -1,0 +1,65 @@
+{
+    "schema": "fsusblog.migration-observer-source-successor-baseline.v1",
+    "frozenBase": "e5f0d2d21b21635232b37dc6175f1f744129c836",
+    "predecessorHead": "6f6aee0454949621297e0463ae21a76b60053e84",
+    "preFormatSourceRevision": "52a4d0c2f0937ac8cc3e173e7497af4656c3f768",
+    "paths": [
+        "tests/migration/OfflineMigrationExpandSafetyTests.cs",
+        "tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs",
+        "tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs",
+        "tests/migration/OfflineMigrationSourceFingerprintExceptionTests.cs",
+        "tests/migration/OfflineMigrationSourceObserverTests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs",
+        "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs"
+    ],
+    "frozenSourceSha256": {
+        "tests/migration/OfflineMigrationExpandSafetyTests.cs": "640441817ba38b00cd9f15357208d1343e5ef8fcfeeff50277f7a81ca5ae3d79",
+        "tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs": "83dbadea9f49410af61089af60bfa22beebedc0e86b821afac928767de871f21",
+        "tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs": "19d65cc8811351cc307e348733882ea3285c23844f117b5368da326caa235049",
+        "tests/migration/OfflineMigrationSourceFingerprintExceptionTests.cs": "6cba205e074d0fd4a99d8bcf775c84b8749231ea11ac8a43aec838c046dd6ff7",
+        "tests/migration/OfflineMigrationSourceObserverTests.cs": "cdf3c2c9d5377bf792a6a22abe0f0411533c3ca263cba6be7d92e3e516285bc5",
+        "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs": "2f09db3171f5b6e59334c3aeeec9479b4ad3098a85714d4b79e55ed3f05098ec",
+        "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs": "b8c63c3f5e2dc25f3ada25cb1aa793a8a4ee9ae45f517ff51f2d217f1ad6d79e",
+        "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs": "75178a27aeb772c7274e13a7d67d8270e4b5b1c21cdb9684748a0f0c45d2373c",
+        "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs": "0f170fd7ac10659f3b2b83eb48db885e4cf729f35772c02d3a5e8c2b703f4b68",
+        "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs": "18a17f6300bf65f5ee8cc6f235217066f2772b9535557cc3f3e67474b56f4aac",
+        "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs": "ed3581d3f59ab48705fa1d71945161f084133afed481319f3431275defa2cdac"
+    },
+    "strictMigrationReleaseObservation": {
+        "uniqueDiagnostics": 1572,
+        "selectedFileIde0055": 250,
+        "exitCode": 1,
+        "command": "tools/test/run-with-dotnet-release-build-lock.sh dotnet build tests/migration/FsusBlog.Migration.Tests.csproj --no-restore --no-incremental -c Release -warnaserror -v minimal /m:1",
+        "rawLogSha256": "0054c785377a86d30cc14b0c87817e163a82d0045705c3afcf243651e5b4a4b5"
+    },
+    "originalTestObservation": {
+        "configurations": [
+            "Debug",
+            "Release"
+        ],
+        "casesPerRun": 440,
+        "passed": 386,
+        "failed": 54,
+        "notExecutedOrAbortedOrTimeout": 0,
+        "rawTrxSha256": {
+            "baseline/baseline.trx": "1c0d50da090f37251f50bbd78b06c5005faff393c651d237b810d9852e52a81e",
+            "baseline-debug/baseline-debug.trx": "81abd2e2709597e1ee82d407db49612bfa57241d8d28b254a44710a031b11475"
+        }
+    },
+    "remainingPredecessorSourceFindings": [
+        "[csharp-style] tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs:14 using-order: using directives must place System first and sort namespaces within a group [FsusBlog.Contracts.Migration]",
+        "[csharp-style] tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs:24 method-name: method/local function must use PascalCase; scenario separators are allowed only in declared test/benchmark scopes [Driver_tuple_without_original_Begin_cannot_enter_the_writer_read_callback]",
+        "[csharp-style] tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs:36 allman-brace: opening brace must be on its own line [native.WithOwnedReadScopeAsync(transaction, (_, _) => { called = true; return Task.CompletedTask; }, default));]",
+        "[csharp-style] tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs:36 one-statement: only one statement is allowed per line [native.WithOwnedReadScopeAsync(transaction, (_, _) => { called = true; return Task.CompletedTask; }, default));]",
+        "[csharp-style] tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs:46 method-name: method/local function must use PascalCase; scenario separators are allowed only in declared test/benchmark scopes [Fresh_borrower_token_cannot_escape_the_cancelled_creator_before_any_native_IO]",
+        "[csharp-style] tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs:58 allman-brace: opening brace must be on its own line [Substitute.For<DbTransaction>(), (_, _) => { called = true; return Task.CompletedTask; }, borrower.Token));]",
+        "[csharp-style] tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs:58 one-statement: only one statement is allowed per line [Substitute.For<DbTransaction>(), (_, _) => { called = true; return Task.CompletedTask; }, borrower.Token));]",
+        "[csharp-style] tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs:68 method-name: method/local function must use PascalCase; scenario separators are allowed only in declared test/benchmark scopes [Missing_creator_cancellation_cannot_mint_a_native_read_scope]",
+        "[csharp-style] tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs:80 method-name: method/local function must use PascalCase; scenario separators are allowed only in declared test/benchmark scopes [Sqlite_transaction_state_is_not_admitted_as_a_transaction_epoch]"
+    ],
+    "note": "Frozen measurements only; no debt allowance, threshold, approval, native qualification or full-matrix acceptance."
+}
