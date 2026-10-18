@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 
 using Microsoft.AspNetCore.Http;
 
+using Npgsql;
+
 using static FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionStateContract;
 
 namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
@@ -148,6 +150,8 @@ internal sealed record AuthoringApprovalDecision(
 
 /// <summary>
 /// Original scope-owner read custody, not a new admin-to-user mapping or client credential.
+/// The approval owner pins actor rows and acquires original state custody before requesting
+/// this lease. VerifyCurrentAsync uses its held owner connection and never reacquires state keys.
 /// Missing implementation always refuses. The owner must bind the authenticated actor to exact
 /// original scopes, include revocation/version facts in AuthorizationSha256, and hold exclusion
 /// against authority drift through disposal. The approval producer supplies no permissive adapter.
@@ -197,11 +201,17 @@ public sealed record AuthoringExtensionApprovalExecutionResult(
 /// settled state facts. Implementations must hold original state exclusion and, for migration,
 /// native/resource lifetimes through
 /// disposal. A Running receipt or synthetic target roster cannot implement this authority.
+/// Acquires original state custody after the supplied final transaction pins actor rows and
+/// before provenance/decision/receipt locks. Original state observations may own a dedicated held transaction;
+/// this does not enlist it or confer cross-store effect atomicity. Providers never commit/dispose
+/// the supplied transaction. No custody held before actor pinning may be imported out of order;
+/// verification only uses held owner connections and never reacquires state/receipt keys.
 /// No implementation or production registration is supplied by the approval producer.
 /// </summary>
 public interface IAuthoringExtensionApprovalExecutionResultSource
 {
     ValueTask<IAuthoringExtensionApprovalExecutionResultScope> AcquireAsync(
+        NpgsqlConnection connection, NpgsqlTransaction transaction,
         AuthoringExtensionApprovalAuthority.ApprovedClaim claim, long generation,
         CancellationToken cancellationToken);
 }

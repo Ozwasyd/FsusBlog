@@ -577,9 +577,11 @@ state/data schemas, state, failure absence, generation/sequence and result diges
 The canonical execution-result source must hold actual original state exclusion
 and, for migration, original native/resource-generation custody through final CAS.
 It supplies original settled snapshots/measurement; separate ordinary state rereads
-cannot manufacture this lifetime. The producer supplies no source implementation:
-current state/receipt methods own their own transactions, and the native/staged
-publication ports are not supplied here. Both migration and deletion completion
+cannot manufacture this lifetime. The producer supplies no execution-result source implementation:
+ordinary state/receipt methods own their own transactions, and the native/staged
+publication ports are not supplied here. The original observation-store dependency
+now supplies genuine held initial migration/deletion observations; it does not supply
+native result authority or a read-only settled migration reacquisition port. Both migration and deletion completion
 therefore fail closed when that real custody is missing, even if metadata hashes
 look valid. Data-codec tests and internal SQL-CAS component tests do not qualify
 whole runtime or user admission.
@@ -591,6 +593,35 @@ approval-row lock is blocked refuses; an earlier transaction's GetLatest is only
 precheck. Exact package metadata is also rechecked against the protected decision
 inside this final transaction. No existing receipt/state store is enlisted in an
 ambient transaction, and no cross-store effect atomicity is claimed.
+
+The approval owner opens its final PostgreSQL transaction and locks the actual
+principal then session before requesting foreign custody. The execution-result source receives this exact Npgsql connection and transaction;
+providers never commit/dispose them. The original scope authority retains its own
+held connection and verifies through that connection. Original state observations retain their own dedicated transaction
+acquired after actor locks and before provenance and held through approval commit; no enlistment
+or cross-store atomicity is claimed. Change first observes a decision without locking solely to route
+custody acquisition, then re-reads FOR UPDATE and validates its immutable descriptor.
+The positive acquisition sequence is actor, original state scopes in ordinal ScopeId
+order, provenance custody, decision/effect uniqueness, and lifecycle receipt. This
+follows the actual original INSERT/delete witness trigger and provenance activation
+writer order: state before provenance. A provenance-first state wait can deadlock
+against these writers. Historical reads, denial, revocation and recovery marking
+acquire only actor and the protected actor-owned decision; they grant no execution
+and never require an obsolete initial state. Document scopes remain refused by the
+genuine provenance producer until a document authority exists. Creation
+obtains the operation unique-index lock before waiting for the receipt key. Receipt
+chain prechecks finish before foreign custody; final receipt validation stays in the
+owned transaction. VerifyCurrent must use held owner connections without opening
+another transaction or reacquiring a state/receipt key. Original state read-custody,
+provenance writers and native generation publication must prove this order before
+production activation. Prepare/Confirm/Claim consume the exact original observation
+store, verify on its held connection, and hold it through CAS; they never call the
+independent Read/Measure API while that state custody is held. Deletion preparation
+may measure before acquiring the exact observation, which revalidates any gap.
+Failure-only settlement after identity loss has a separate unpinned, decision-only
+transaction and cannot settle Completed. Principal DELETE/cascading document FKs,
+provenance revocation, original state writers and receipt appends remain required
+cross-owner race controls; fixture ACL controls alone do not qualify provenance.
 
 The leaf schema supplies only DDL; runtime methods do not create tables, alter
 existing state/receipt schemas, or register production migrations/DI. Lifecycle,

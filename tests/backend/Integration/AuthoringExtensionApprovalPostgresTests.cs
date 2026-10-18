@@ -5,12 +5,14 @@ using Fido2NetLib;
 
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -94,6 +96,158 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         Assert.Equal(pending.DecisionId, (await claim).DecisionId);
         await revoke;
         await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.ClaimMigrationAsync(pending).AsTask());
+    }
+
+    [Fact]
+    public async Task Change_AcquiresExactScopeBeforeDecisionLock()
+    {
+        await using Harness host = await CreateAsync();
+        var pending = await host.PrepareMigrationAsync();
+        await host.ConfirmMigrationAsync(pending);
+        await using var blocker = await host.OpenConnectionAsync();
+        await using var blockerTransaction = await blocker.BeginTransactionAsync();
+        await using (var command = new NpgsqlCommand("SELECT scope_id FROM approval_fixture_scope_acl FOR UPDATE;", blocker))
+        {
+            await command.ExecuteNonQueryAsync();
+        }
+        Task claim = host.ClaimMigrationAsync(pending).AsTask();
+        try
+        {
+            await host.WaitForDatabaseLockAsync("query LIKE '%approval_fixture_scope_acl%FOR SHARE%' AND wait_event_type='Lock'");
+            // NOWAIT succeeds only when the approval path has not locked the decision before
+            // waiting for scope custody. The fixture ACL remains an explicit test-only owner.
+            await using var probe = await host.OpenConnectionAsync();
+            await using var probeTransaction = await probe.BeginTransactionAsync();
+            await using var command = new NpgsqlCommand("SELECT decision_id FROM authoring_extension_approval_decision WHERE decision_id=$1 FOR UPDATE NOWAIT;", probe);
+            command.Parameters.AddWithValue(pending.DecisionId);
+            Assert.Equal(pending.DecisionId, await command.ExecuteScalarAsync());
+            await probeTransaction.RollbackAsync();
+        }
+        finally
+        {
+            await blockerTransaction.RollbackAsync();
+            await claim;
+        }
+    }
+
+    [Fact]
+    public async Task Claim_HoldsOriginalStateCustodyUntilDecisionAndReceiptCommit()
+    {
+        await using Harness host = await CreateAsync();
+        var pending = await host.PrepareMigrationAsync();
+        await host.ConfirmMigrationAsync(pending);
+        await using var blocker = await host.OpenConnectionAsync();
+        await using var blockerTransaction = await blocker.BeginTransactionAsync();
+        await using (var command = new NpgsqlCommand("SELECT decision_id FROM authoring_extension_approval_decision WHERE decision_id=$1 FOR UPDATE;", blocker))
+        {
+            command.Parameters.AddWithValue(pending.DecisionId);
+            await command.ExecuteScalarAsync();
+        }
+        Task claim = host.ClaimMigrationAsync(pending).AsTask();
+        Task? writer = null;
+        try
+        {
+            await host.WaitForDatabaseLockAsync("query LIKE '%authoring_extension_approval_decision%FOR UPDATE%' AND wait_event_type='Lock'");
+            writer = host.WriteOriginalStateIndependentlyAsync();
+            await host.WaitForDatabaseLockAsync("query LIKE '%pg_advisory_xact_lock%2143%' AND wait_event='advisory'");
+        }
+        finally
+        {
+            await blockerTransaction.RollbackAsync();
+            try
+            {
+                await claim;
+            }
+            finally
+            {
+                if (writer is not null)
+                {
+                    await writer;
+                }
+            }
+        }
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(pending.DecisionId)).Status);
+        Assert.Equal(host.Plan.ExpectedFromRevision + 1, (await host.State.ReadAsync(host.OldPackage, host.From, default)).Revision);
+    }
+
+    [Theory]
+    [InlineData("activation")]
+    [InlineData("revoke")]
+    [InlineData("truncate")]
+    public async Task GenuineProvenanceWriters_RespectStateThenProvenanceThroughApprovalCAS(string writerKind)
+    {
+        await using Harness host = await CreateAsync();
+        await host.InitializeGenuineProvenanceAsync();
+        var pending = await host.PrepareMigrationAsync();
+        await host.ConfirmMigrationAsync(pending);
+        await using var blocker = await host.OpenConnectionAsync();
+        await using var blockerTransaction = await blocker.BeginTransactionAsync();
+        await using (var command = new NpgsqlCommand("SELECT decision_id FROM authoring_extension_approval_decision WHERE decision_id=$1 FOR UPDATE;", blocker))
+        {
+            command.Parameters.AddWithValue(pending.DecisionId);
+            await command.ExecuteScalarAsync();
+        }
+        Task claim = host.ClaimMigrationAsync(pending).AsTask();
+        Task? writer = null;
+        try
+        {
+            await host.WaitForDatabaseLockAsync("query LIKE '%authoring_extension_approval_decision%FOR UPDATE%' AND wait_event_type='Lock'");
+            writer = host.RunGenuineProvenanceWriterAsync(writerKind);
+            string waiting = writerKind switch
+            {
+                "activation" => "query LIKE '%pg_advisory_xact_lock%2143%' AND wait_event='advisory'",
+                "revoke" => "query LIKE '%UPDATE authoring_extension_scope_provenance SET status=2%' AND wait_event_type='Lock'",
+                _ => "query LIKE 'TRUNCATE authoring_extension_state_scope%' AND wait_event_type='Lock'"
+            };
+            await host.WaitForDatabaseLockAsync(waiting);
+        }
+        finally
+        {
+            await blockerTransaction.RollbackAsync();
+            try
+            {
+                await claim;
+            }
+            finally
+            {
+                if (writer is not null)
+                {
+                    await writer;
+                }
+            }
+        }
+        Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(pending.DecisionId)).Status);
+        if (writerKind != "activation")
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => host.ClaimMigrationAsync(pending).AsTask());
+        }
+    }
+
+    [Fact]
+    public async Task ActorFirst_PrincipalDeletionWithOriginalCanvasCascadeWaitsBeforeDocument()
+    {
+        await using Harness host = await CreateAsync();
+        Guid canvasId = await host.CreateOriginalCanvasAsync();
+        await using var approval = await host.ApprovalStore.BeginAsync(1, "first-session", "synthetic-site", default);
+        await using (var command = new NpgsqlCommand("SELECT id FROM authoring_canvas_document WHERE id=$1 FOR SHARE;", approval.Connection))
+        {
+            command.Parameters.AddWithValue(canvasId);
+            Assert.Equal(canvasId, await command.ExecuteScalarAsync());
+        }
+        // Actual original migration FK and actual principal DELETE, without a fabricated
+        // production provenance provider or an approved/native execution result.
+        Task deletion = host.ExecuteIndependentAsync("DELETE FROM admin_principal WHERE id=1;");
+        try
+        {
+            await host.WaitForDatabaseLockAsync("query LIKE 'DELETE FROM admin_principal%' AND wait_event_type='Lock'");
+            Assert.Equal(1, await host.ScalarAsync("SELECT count(*) FROM authoring_canvas_document;"));
+        }
+        finally
+        {
+            await approval.Transaction.RollbackAsync();
+            await deletion;
+        }
+        Assert.Equal(0, await host.ScalarAsync("SELECT count(*) FROM authoring_canvas_document;"));
     }
 
     [Fact]
@@ -482,6 +636,7 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         var claim = await host.ClaimMigrationAsync(pending);
         var (execution, result) = await host.RunningResultAsync(claim);
         await host.Receipts.AppendAsync(result, default);
+        await using var approvalTransaction = await host.ApprovalStore.BeginAsync(claim.Actor.PrincipalId, claim.Actor.SessionId, claim.Actor.SiteId, default);
         await using var access = await host.ScopeAuthority.AcquireAsync(host.Context.HttpContext!, claim.Operation, claim.Scope, claim.FrozenPlan!.To, default);
         await using var blocker = await host.OpenConnectionAsync();
         await using var transaction = await blocker.BeginTransactionAsync();
@@ -492,13 +647,14 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
         }
         // Exercise the exact SQL terminal-CAS component without pretending that this fixture
         // supplies a native result owner. Public migration Complete already refuses that absence.
-        Task complete = host.ApprovalStore.SettleAsync(claim, AuthoringApprovalStatus.Completed, result,
+        Task complete = host.ApprovalStore.SettleAsync(approvalTransaction, claim, AuthoringApprovalStatus.Completed, result,
             execution.ContentSha256, access.VerifyCurrentAsync, default).AsTask();
         await host.WaitForDatabaseLockAsync("query LIKE '%authoring_extension_approval_decision%FOR UPDATE%' AND wait_event_type='Lock'");
         await host.Receipts.AppendAsync(NextReceipt(result, AuthoringLifecycleState.Disabled), default);
         await transaction.CommitAsync();
         var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () => await complete);
         Assert.Equal("approval_lifecycle_drift", error.Message);
+        await approvalTransaction.Transaction.RollbackAsync();
         Assert.Equal(AuthoringApprovalStatus.Claimed, (await host.Authority.ReadAsync(claim.DecisionId)).Status);
     }
 
@@ -814,7 +970,7 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
                 string[] scopes = destination is null ? [AuthoringExtensionStateContract.ScopeId(scope)] :
                     [AuthoringExtensionStateContract.ScopeId(scope), AuthoringExtensionStateContract.ScopeId(destination)];
                 var versions = new List<string>();
-                foreach (string id in scopes)
+                foreach (string id in scopes.Order(StringComparer.Ordinal))
                 {
                     await using var command = new NpgsqlCommand("""
                         SELECT xmin::text FROM approval_fixture_scope_acl
@@ -899,8 +1055,13 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
 
         public ImmutableArray<AuthoringExecutionTarget> OldTargets => Targets(OldPackage);
         public ImmutableArray<AuthoringExecutionTarget> NewTargets => Targets(NewPackage);
-        public AuthoringStateScope From => AuthoringStateProcessWorker.Scope(OldPackage);
-        public AuthoringStateScope To => AuthoringStateProcessWorker.Scope(NewPackage);
+        private AuthoringStateScope? _issuedFrom;
+        private AuthoringStateScope? _issuedTo;
+        private AuthoringExtensionStateScopeIssuer? _scopeIssuer;
+        private PostgresAuthoringExtensionScopeProvenanceStore? _provenance;
+        private AuthoringExtensionScopeRegistration? _registration;
+        public AuthoringStateScope From => _issuedFrom ?? AuthoringStateProcessWorker.Scope(OldPackage);
+        public AuthoringStateScope To => _issuedTo ?? AuthoringStateProcessWorker.Scope(NewPackage);
         public AuthoringFencedStateMigration Plan { get; set; } = null!;
         public AuthoringLifecycleReceipt Receipt { get; private set; } = null!;
         public PostgresAuthoringExtensionStateStore State { get; } = new(db);
@@ -911,6 +1072,57 @@ public sealed class AuthoringExtensionApprovalPostgresTests(
 
         public AuthoringExtensionApprovalAuthority NewAuthority() => new(Context, configuration,
             new PostgresAuthoringExtensionApprovalStore(source, protection), State, Receipts, admins, new FixtureScopeAuthority(source));
+
+        public async Task InitializeGenuineProvenanceAsync()
+        {
+            await db.Ado.ExecuteCommandAsync(AuthoringExtensionScopeProvenanceStorageSchema.CreateTablesSql);
+            _provenance = new(source, configuration);
+            _scopeIssuer = new(source, configuration, _provenance);
+            _registration = await _scopeIssuer.BeginAsync(Context.HttpContext!, OldPackage);
+            _issuedFrom = await _scopeIssuer.CompleteAsync(Context.HttpContext!, OldPackage, _registration.RegistrationId);
+            AuthoringExtensionScopeRegistration next = await _scopeIssuer.BeginAsync(Context.HttpContext!, NewPackage, From);
+            _issuedTo = await _scopeIssuer.CompleteAsync(Context.HttpContext!, NewPackage, next.RegistrationId);
+            await State.WriteAsync(OldPackage, From, 0, new("old", [1, 2]), default);
+            Plan = AuthoringStateProcessWorker.Plan(await State.ReadAsync(OldPackage, From, default), To);
+            Authority = new(Context, configuration, new PostgresAuthoringExtensionApprovalStore(source, protection),
+                State, Receipts, admins, new AuthoringExtensionScopeProvenanceAuthority(_provenance));
+        }
+
+        public async Task RunGenuineProvenanceWriterAsync(string kind)
+        {
+            if (kind == "activation")
+            {
+                await _scopeIssuer!.CompleteAsync(Context.HttpContext!, OldPackage, _registration!.RegistrationId);
+            }
+            else if (kind == "revoke")
+            {
+                await _provenance!.RevokeAsync(Context.HttpContext!, _registration!.RegistrationId);
+            }
+            else
+            {
+                await ExecuteIndependentAsync("TRUNCATE authoring_extension_state_scope CASCADE;");
+            }
+        }
+
+        public async Task WriteOriginalStateIndependentlyAsync()
+        {
+            using SqlSugarClient independent = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+            var original = new PostgresAuthoringExtensionStateStore(independent);
+            await original.WriteAsync(OldPackage, From, Plan.ExpectedFromRevision, new AuthoringStateEntry("concurrent", [9]), default);
+        }
+
+        public async Task<Guid> CreateOriginalCanvasAsync()
+        {
+            foreach (var step in AuthoringCanvasDocumentMigrationDefinitions.BuildMigration().Steps)
+            {
+                await step.ExecuteAsync(db, CancellationToken.None);
+            }
+            Guid id = Guid.CreateVersion7();
+            var original = new AuthoringCanvasDocumentStore(db, TimeProvider.System);
+            await original.CreateAsync(new CreateAuthoringCanvasCommand(id, new AuthoringCanvasOwner(1, "synthetic-site"),
+                "Approval lock order", new AuthoringCanvasViewport(0, 0, 1), Guid.CreateVersion7()));
+            return id;
+        }
 
         public async Task InitializeAsync()
         {

@@ -88,14 +88,22 @@ public sealed class AuthoringExtensionApprovalAuthority(
         AuthoringFencedStateMigration frozen = FreezePlan(oldPackage, newPackage, plan);
         ImmutableArray<AuthoringExecutionTarget> oldTargets = AuthoringExtensionApprovalContract.FreezeTargets(oldPackage, orderedOldTargets);
         ImmutableArray<AuthoringExecutionTarget> newTargets = AuthoringExtensionApprovalContract.FreezeTargets(newPackage, orderedNewTargets);
-        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(AuthoringApprovalOperation.Migration, frozen.From, frozen.To, cancellationToken);
+        await using var transaction = await store.BeginAsync(actor.Id, actor.SessionId, actor.SiteId, cancellationToken);
+        await ValidateReceiptAsync(oldPackage, expectedLifecycleReceipt, cancellationToken);
         Require(frozen.From.SiteId == actor.SiteId, "approval_site_mismatch");
-        (long records, long bytes) = await ValidateMigrationAsync(oldPackage, newPackage, frozen, expectedLifecycleReceipt, cancellationToken);
+        await using IAuthoringExtensionStateObservation observedState = await ObserveMigrationAsync(oldPackage, newPackage, frozen, cancellationToken);
+        await observedState.VerifyCurrentAsync(cancellationToken);
+        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(AuthoringApprovalOperation.Migration, frozen.From, frozen.To, cancellationToken);
+        (long records, long bytes) = MigrationCounts(observedState);
         string digest = MigrationDigest(oldPackage, newPackage, frozen, oldTargets, newTargets, expectedLifecycleReceipt, records, bytes, access.AuthorizationSha256);
-        AuthoringApprovalDecision result = await store.CreateAsync(actor.Id, actor.SessionId, actor.SiteId,
-            current => Decision(current, AuthoringApprovalOperation.Migration, oldPackage, newPackage, frozen.From,
+        AuthoringApprovalDecision result = await store.CreateAsync(transaction,
+            Decision(transaction.Actor, AuthoringApprovalOperation.Migration, oldPackage, newPackage, frozen.From,
                 frozen, null, records, bytes, RetainBackups, digest, expectedLifecycleReceipt, oldTargets, newTargets, access.AuthorizationSha256),
-            access.VerifyCurrentAsync, cancellationToken);
+            async token =>
+            {
+                await access.VerifyCurrentAsync(token);
+                await observedState.VerifyCurrentAsync(token);
+            }, cancellationToken);
         return Preview(result);
     }
 
@@ -105,16 +113,23 @@ public sealed class AuthoringExtensionApprovalAuthority(
     {
         var actor = CurrentActor();
         Require(scope.SiteId == actor.SiteId, "approval_site_mismatch");
-        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(AuthoringApprovalOperation.Deletion, scope, null, cancellationToken);
+        await using var transaction = await store.BeginAsync(actor.Id, actor.SessionId, actor.SiteId, cancellationToken);
+        await ValidateReceiptAsync(package, expectedLifecycleReceipt, cancellationToken);
         Require(expectedLifecycleReceipt.State == AuthoringLifecycleState.RetainedData, "approval_deletion_requires_retained_data");
         ValidateOwner(package, scope);
-        await ValidateReceiptAsync(package, expectedLifecycleReceipt, cancellationToken);
         AuthoringStateMeasurement measurement = await state.MeasureAsync(package, scope, cancellationToken);
+        await using IAuthoringExtensionStateObservation observedState = await ObserveDeletionAsync(package, measurement, expectedLifecycleReceipt, cancellationToken);
+        await observedState.VerifyCurrentAsync(cancellationToken);
+        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(AuthoringApprovalOperation.Deletion, scope, null, cancellationToken);
         string digest = DeletionDigest(package, measurement, expectedLifecycleReceipt, access.AuthorizationSha256);
-        AuthoringApprovalDecision result = await store.CreateAsync(actor.Id, actor.SessionId, actor.SiteId,
-            current => Decision(current, AuthoringApprovalOperation.Deletion, package, package, scope,
+        AuthoringApprovalDecision result = await store.CreateAsync(transaction,
+            Decision(transaction.Actor, AuthoringApprovalOperation.Deletion, package, package, scope,
                 null, measurement, measurement.Records, measurement.Bytes, PurgeBackups, digest, expectedLifecycleReceipt, [], [], access.AuthorizationSha256),
-            access.VerifyCurrentAsync, cancellationToken);
+            async token =>
+            {
+                await access.VerifyCurrentAsync(token);
+                await observedState.VerifyCurrentAsync(token);
+            }, cancellationToken);
         return Preview(result);
     }
 
@@ -128,10 +143,10 @@ public sealed class AuthoringExtensionApprovalAuthority(
         AuthoringFencedStateMigration frozen = FreezePlan(oldPackage, newPackage, frozenPlan);
         ImmutableArray<AuthoringExecutionTarget> oldTargets = AuthoringExtensionApprovalContract.FreezeTargets(oldPackage, orderedOldTargets);
         ImmutableArray<AuthoringExecutionTarget> newTargets = AuthoringExtensionApprovalContract.FreezeTargets(newPackage, orderedNewTargets);
+        (long records, long bytes) = (0L, 0L);
         return Preview(await ChangeAsync(decisionId, async (current, token) =>
         {
             Require(current.Status == AuthoringApprovalStatus.Pending, "approval_not_pending");
-            (long records, long bytes) = await ValidateMigrationAsync(oldPackage, newPackage, frozen, expectedLifecycleReceipt, token);
             Match(current, AuthoringApprovalOperation.Migration,
                 MigrationDigest(oldPackage, newPackage, frozen, oldTargets, newTargets, expectedLifecycleReceipt, records, bytes, current.ScopeAuthorizationSha256), expectedLifecycleReceipt);
             Require(current.Digest == displayedDigest, "approval_display_digest_mismatch");
@@ -140,7 +155,24 @@ public sealed class AuthoringExtensionApprovalAuthority(
             {
                 Status = AuthoringApprovalStatus.Approved
             };
-        }, cancellationToken, AuthoringApprovalStatus.Approved));
+        }, cancellationToken, AuthoringApprovalStatus.Approved,
+            async (_, token) =>
+            {
+                IAuthoringExtensionStateObservation observation = await ObserveMigrationAsync(oldPackage, newPackage, frozen, token);
+                try
+                {
+                    await observation.VerifyCurrentAsync(token);
+                    token.ThrowIfCancellationRequested();
+                    (records, bytes) = MigrationCounts(observation);
+                    return observation;
+                }
+                catch
+                {
+                    await observation.DisposeAsync();
+                    throw;
+                }
+            },
+            (_, token) => ValidateReceiptAsync(oldPackage, expectedLifecycleReceipt, token)));
     }
 
     public async ValueTask<AuthoringExtensionApprovalPreview> ConfirmDeletionAsync(
@@ -150,7 +182,6 @@ public sealed class AuthoringExtensionApprovalAuthority(
         Preview(await ChangeAsync(decisionId, async (current, token) =>
         {
             Require(current.Status == AuthoringApprovalStatus.Pending, "approval_not_pending");
-            await ValidateDeletionAsync(package, measurement, expectedLifecycleReceipt, token);
             Match(current, AuthoringApprovalOperation.Deletion, DeletionDigest(package, measurement, expectedLifecycleReceipt, current.ScopeAuthorizationSha256), expectedLifecycleReceipt);
             Require(current.Digest == displayedDigest, "approval_display_digest_mismatch");
             await ConsumeProofAsync(current, stepUpProof, token);
@@ -158,7 +189,9 @@ public sealed class AuthoringExtensionApprovalAuthority(
             {
                 Status = AuthoringApprovalStatus.Approved
             };
-        }, cancellationToken, AuthoringApprovalStatus.Approved));
+        }, cancellationToken, AuthoringApprovalStatus.Approved,
+            (_, token) => ObserveDeletionAsync(package, measurement, expectedLifecycleReceipt, token),
+            (_, token) => ValidateReceiptAsync(package, expectedLifecycleReceipt, token)));
 
     public async ValueTask<ApprovedClaim> ClaimMigrationAsync(
         string decisionId, VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage,
@@ -169,17 +202,34 @@ public sealed class AuthoringExtensionApprovalAuthority(
         AuthoringFencedStateMigration frozen = FreezePlan(oldPackage, newPackage, frozenPlan);
         ImmutableArray<AuthoringExecutionTarget> oldTargets = AuthoringExtensionApprovalContract.FreezeTargets(oldPackage, orderedOldTargets);
         ImmutableArray<AuthoringExecutionTarget> newTargets = AuthoringExtensionApprovalContract.FreezeTargets(newPackage, orderedNewTargets);
-        AuthoringApprovalDecision decision = await ChangeAsync(decisionId, async (current, token) =>
+        (long records, long bytes) = (0L, 0L);
+        AuthoringApprovalDecision decision = await ChangeAsync(decisionId, (current, token) =>
         {
             Require(current.Status == AuthoringApprovalStatus.Approved, "approval_not_approved_or_replayed");
-            (long records, long bytes) = await ValidateMigrationAsync(oldPackage, newPackage, frozen, expectedLifecycleReceipt, token);
             Match(current, AuthoringApprovalOperation.Migration,
                 MigrationDigest(oldPackage, newPackage, frozen, oldTargets, newTargets, expectedLifecycleReceipt, records, bytes, current.ScopeAuthorizationSha256), expectedLifecycleReceipt);
-            return current with
+            return ValueTask.FromResult(current with
             {
                 Status = AuthoringApprovalStatus.Claimed
-            };
-        }, cancellationToken, AuthoringApprovalStatus.Claimed);
+            });
+        }, cancellationToken, AuthoringApprovalStatus.Claimed,
+            async (_, token) =>
+            {
+                IAuthoringExtensionStateObservation observation = await ObserveMigrationAsync(oldPackage, newPackage, frozen, token);
+                try
+                {
+                    await observation.VerifyCurrentAsync(token);
+                    token.ThrowIfCancellationRequested();
+                    (records, bytes) = MigrationCounts(observation);
+                    return observation;
+                }
+                catch
+                {
+                    await observation.DisposeAsync();
+                    throw;
+                }
+            },
+            (_, token) => ValidateReceiptAsync(oldPackage, expectedLifecycleReceipt, token));
         return new(s_issuer, decision, oldPackage, newPackage);
     }
 
@@ -187,16 +237,17 @@ public sealed class AuthoringExtensionApprovalAuthority(
         string decisionId, VerifiedAuthoringPackage package, AuthoringStateMeasurement measurement,
         AuthoringLifecycleReceipt expectedLifecycleReceipt, CancellationToken cancellationToken = default)
     {
-        AuthoringApprovalDecision decision = await ChangeAsync(decisionId, async (current, token) =>
+        AuthoringApprovalDecision decision = await ChangeAsync(decisionId, (current, token) =>
         {
             Require(current.Status == AuthoringApprovalStatus.Approved, "approval_not_approved_or_replayed");
-            await ValidateDeletionAsync(package, measurement, expectedLifecycleReceipt, token);
             Match(current, AuthoringApprovalOperation.Deletion, DeletionDigest(package, measurement, expectedLifecycleReceipt, current.ScopeAuthorizationSha256), expectedLifecycleReceipt);
-            return current with
+            return ValueTask.FromResult(current with
             {
                 Status = AuthoringApprovalStatus.Claimed
-            };
-        }, cancellationToken, AuthoringApprovalStatus.Claimed);
+            });
+        }, cancellationToken, AuthoringApprovalStatus.Claimed,
+            (_, token) => ObserveDeletionAsync(package, measurement, expectedLifecycleReceipt, token),
+            (_, token) => ValidateReceiptAsync(package, expectedLifecycleReceipt, token));
         return new(s_issuer, decision, package, package);
     }
 
@@ -244,7 +295,13 @@ public sealed class AuthoringExtensionApprovalAuthority(
     public ValueTask SettleFailureAsync(ApprovedClaim claim, AuthoringApprovalStatus terminal, CancellationToken cancellationToken = default)
     {
         Require(terminal is AuthoringApprovalStatus.Failed or AuthoringApprovalStatus.RecoveryRequired, "approval_failure_terminal_required");
-        return store.SettleAsync(claim, terminal, null, null, null, cancellationToken);
+        return SettleFailureCoreAsync(claim, terminal, cancellationToken);
+    }
+
+    private async ValueTask SettleFailureCoreAsync(ApprovedClaim claim, AuthoringApprovalStatus terminal, CancellationToken token)
+    {
+        await using var transaction = await store.BeginFailureAsync(claim, token);
+        await store.SettleAsync(transaction, claim, terminal, null, null, null, token);
     }
 
     public async ValueTask CompleteAsync(ApprovedClaim claim,
@@ -254,9 +311,8 @@ public sealed class AuthoringExtensionApprovalAuthority(
         var actor = CurrentActor();
         Require(actor.Id == claim.Actor.PrincipalId && actor.SessionId == claim.Actor.SessionId && actor.SiteId == claim.Actor.SiteId,
             "approval_completion_actor_mismatch");
-        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(claim.Operation, claim.Scope,
-            claim.FrozenPlan?.To, cancellationToken);
-        Require(access.AuthorizationSha256 == claim.ScopeAuthorizationSha256, "approval_scope_authority_drift");
+        await using var transaction = await store.BeginAsync(actor.Id, actor.SessionId, actor.SiteId, cancellationToken);
+        Require(await receipts.GetLatestAsync(result.ExtensionId, cancellationToken) == result, "approval_result_not_durable");
         AuthoringExtensionApprovalExecutionResult frozen = AuthoringExtensionApprovalContract.FreezeResult(claim, executionResult);
         Require(result.SchemaVersion == 1 && result.PackageSha256 == claim.ResultPackageSha256 &&
             result.Version == claim.ResultVersion && result.StateSchemaVersion == claim.ResultStateSchemaVersion &&
@@ -274,7 +330,11 @@ public sealed class AuthoringExtensionApprovalAuthority(
         // transactions; they cannot manufacture that lifetime. No permissive adapter is supplied.
         Require(executionResults is not null, "approval_execution_result_authority_unavailable");
         await using IAuthoringExtensionApprovalExecutionResultScope held =
-            await executionResults!.AcquireAsync(claim, result.Generation, cancellationToken);
+            await executionResults!.AcquireAsync(transaction.Connection, transaction.Transaction, claim, result.Generation, cancellationToken);
+        await held.VerifyCurrentAsync(cancellationToken);
+        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(claim.Operation, claim.Scope,
+            claim.FrozenPlan?.To, cancellationToken);
+        Require(access.AuthorizationSha256 == claim.ScopeAuthorizationSha256, "approval_scope_authority_drift");
         await held.VerifyCurrentAsync(cancellationToken);
         AuthoringExtensionApprovalExecutionResult observed = AuthoringExtensionApprovalContract.FreezeResult(claim, held.Result);
         Require(Digest(observed) == Digest(frozen), "approval_execution_observation_mismatch");
@@ -287,9 +347,8 @@ public sealed class AuthoringExtensionApprovalAuthority(
         {
             Require(held.DeletedMeasurement == frozen.DeletionResult, "approval_deletion_result_drift");
         }
-        Require(await receipts.GetLatestAsync(result.ExtensionId, cancellationToken) == result, "approval_result_not_durable");
         await held.VerifyCurrentAsync(cancellationToken);
-        await store.SettleAsync(claim, AuthoringApprovalStatus.Completed, result, frozen.ContentSha256,
+        await store.SettleAsync(transaction, claim, AuthoringApprovalStatus.Completed, result, frozen.ContentSha256,
             async token =>
             {
                 await access.VerifyCurrentAsync(token);
@@ -317,34 +376,44 @@ public sealed class AuthoringExtensionApprovalAuthority(
 
     private async ValueTask<AuthoringApprovalDecision> AccessDecisionAsync(string id,
         Func<AuthoringApprovalDecision, CancellationToken, ValueTask<AuthoringApprovalDecision>> change,
-        CancellationToken token, bool fenceLifecycle = true)
+        CancellationToken token, bool fenceLifecycle = true,
+        Func<AuthoringApprovalDecision, CancellationToken, ValueTask<IAuthoringExtensionStateObservation>>? observeState = null,
+        Func<AuthoringApprovalDecision, CancellationToken, ValueTask>? beforeCustody = null)
     {
         var actor = CurrentActor();
-        IAuthoringExtensionApprovalScope? access = null;
-        try
+        await using var transaction = await store.BeginAsync(actor.Id, actor.SessionId, actor.SiteId, token);
+        AuthoringApprovalDecision observed = await store.ObserveAsync(transaction, id, token);
+        Require(observed.Actor == transaction.Actor, "approval_actor_site_or_permission_drift");
+        if (beforeCustody is not null)
         {
-            return await store.ChangeAsync(id, actor.Id, actor.SessionId, actor.SiteId, change,
-                async (current, cancellation) =>
-                {
-                    access ??= await AcquireScopeAsync(current.Operation, current.Scope, current.FrozenPlan?.To, cancellation);
-                    Require(access.AuthorizationSha256 == current.ScopeAuthorizationSha256, "approval_scope_authority_drift");
-                    await access.VerifyCurrentAsync(cancellation);
-                }, token, fenceLifecycle);
+            await beforeCustody(observed, token);
         }
-        finally
+        if (observeState is null)
         {
-            if (access is not null)
+            // Audit/history, denial, revocation and recovery marking grant no execution. They
+            // use only pinned actor + protected decision and never take provenance before state.
+            return await store.ChangeAsync(transaction, observed, change, _ => ValueTask.CompletedTask, token, fenceLifecycle);
+        }
+        await using IAuthoringExtensionStateObservation observedState = await observeState(observed, token);
+        await observedState.VerifyCurrentAsync(token);
+        await using IAuthoringExtensionApprovalScope access = await AcquireScopeAsync(
+            observed.Operation, observed.Scope, observed.FrozenPlan?.To, token);
+        Require(access.AuthorizationSha256 == observed.ScopeAuthorizationSha256, "approval_scope_authority_drift");
+        return await store.ChangeAsync(transaction, observed, change,
+            async cancellation =>
             {
-                await access.DisposeAsync();
-            }
-        }
+                await access.VerifyCurrentAsync(cancellation);
+                await observedState.VerifyCurrentAsync(cancellation);
+            }, token, fenceLifecycle);
     }
 
     private async ValueTask<AuthoringApprovalDecision> ChangeAsync(string id,
         Func<AuthoringApprovalDecision, CancellationToken, ValueTask<AuthoringApprovalDecision>> change,
-        CancellationToken token, AuthoringApprovalStatus expected)
+        CancellationToken token, AuthoringApprovalStatus expected,
+        Func<AuthoringApprovalDecision, CancellationToken, ValueTask<IAuthoringExtensionStateObservation>>? observeState = null,
+        Func<AuthoringApprovalDecision, CancellationToken, ValueTask>? beforeCustody = null)
     {
-        AuthoringApprovalDecision result = await AccessDecisionAsync(id, change, token);
+        AuthoringApprovalDecision result = await AccessDecisionAsync(id, change, token, observeState: observeState, beforeCustody: beforeCustody);
         Require(result.Status == expected, "approval_expired_or_invalid");
         return result;
     }
@@ -366,28 +435,30 @@ public sealed class AuthoringExtensionApprovalAuthority(
         return (id, sessionId!, siteId!);
     }
 
-    private async ValueTask<(long Records, long Bytes)> ValidateMigrationAsync(
+    private async ValueTask<IAuthoringExtensionStateObservation> ObserveMigrationAsync(
         VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage, AuthoringFencedStateMigration plan,
-        AuthoringLifecycleReceipt expected, CancellationToken token)
+        CancellationToken token)
     {
         Require(oldPackage.Trust.ValidUntil > DateTimeOffset.UtcNow && newPackage.Trust.ValidUntil > DateTimeOffset.UtcNow,
             "approval_package_trust_expired");
-        await ValidateReceiptAsync(oldPackage, expected, token);
-        AuthoringStateSnapshot source = await state.ReadAsync(oldPackage, plan.From, token);
-        AuthoringStateSnapshot target = await state.ReadAsync(newPackage, plan.To, token);
-        Require(source.Revision == plan.ExpectedFromRevision && target.Revision == plan.ExpectedToRevision &&
-            source.ContentSha256 == plan.SourceContentSha256, "approval_plan_state_drift");
-        _ = Transform(source, plan, token);
+        Require(state is IAuthoringExtensionStateObservationStore, "approval_state_observation_authority_unavailable");
+        return await ((IAuthoringExtensionStateObservationStore)state).ObserveInitialAsync(oldPackage, newPackage, plan, token);
+    }
+
+    private static (long Records, long Bytes) MigrationCounts(IAuthoringExtensionStateObservation observation)
+    {
+        AuthoringStateSnapshot source = observation.State.From.Snapshot;
+        AuthoringStateSnapshot target = observation.State.To!.Snapshot;
         return (source.Entries.Length + target.Entries.Length, ValueBytes(source) + ValueBytes(target));
     }
 
-    private async ValueTask ValidateDeletionAsync(VerifiedAuthoringPackage package, AuthoringStateMeasurement measurement,
-        AuthoringLifecycleReceipt expected, CancellationToken token)
+    private async ValueTask<IAuthoringExtensionStateObservation> ObserveDeletionAsync(VerifiedAuthoringPackage package,
+        AuthoringStateMeasurement measurement, AuthoringLifecycleReceipt expected, CancellationToken token)
     {
         Require(expected.State == AuthoringLifecycleState.RetainedData, "approval_deletion_requires_retained_data");
         ValidateOwner(package, measurement.Scope);
-        await ValidateReceiptAsync(package, expected, token);
-        Require(await state.MeasureAsync(package, measurement.Scope, token) == measurement, "approval_deletion_measurement_drift");
+        Require(state is IAuthoringExtensionStateObservationStore, "approval_state_observation_authority_unavailable");
+        return await ((IAuthoringExtensionStateObservationStore)state).ObserveDeletionAsync(package, measurement, token);
     }
 
     private async ValueTask ValidateReceiptAsync(VerifiedAuthoringPackage package, AuthoringLifecycleReceipt expected, CancellationToken token)
