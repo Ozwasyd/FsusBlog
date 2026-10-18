@@ -254,8 +254,11 @@ public static class ArticlePackageFrozenExportCandidateWriter
                         return Invalid("article_package_export_asset_binding_mismatch");
                     }
                     ArticlePackageManifestAssetMetadata metadata = planned.Metadata.Metadata;
-                    if (asset.MediaType != metadata.MimeType || asset.Sha256 != metadata.Sha256
-                        || asset.Sha256 != planned.RawByteSha256 || asset.Bytes.Length != metadata.SizeBytes
+                    // Document digests use a sha256: prefix; package hashes are raw lowercase
+                    // hex. Recompute the package domain from bytes instead of equating claims.
+                    string rawHash = Convert.ToHexStringLower(SHA256.HashData(asset.Bytes.AsSpan()));
+                    if (asset.MediaType != metadata.MimeType || rawHash != metadata.Sha256
+                        || rawHash != planned.RawByteSha256 || asset.Bytes.Length != metadata.SizeBytes
                         || !asset.Bytes.AsSpan().SequenceEqual(planned.Source.SourceBytes.Span))
                     {
                         return Invalid("article_package_export_asset_binding_mismatch");

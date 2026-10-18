@@ -560,6 +560,8 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
         var sources = Enumerable.Range(1, assetCount).Select(AssetSource).ToArray();
         var exports = fixtures.Select(fixture => WithContentAssets(fixture.Export, sources)).ToArray();
         var plan = AssetPlan(fixtures, sources);
+        Assert.StartsWith("sha256:", exports[0].Input.Assets.Last().Sha256);
+        Assert.Equal(64, plan.Assets![0].RawByteSha256.Length);
         var first = Write(plan, exports);
         var second = Write(plan, exports.Reverse().ToArray());
         Assert.Equal(first.CopyArchiveBytes(), second.CopyArchiveBytes());
@@ -855,12 +857,17 @@ public sealed class ArticlePackageFrozenExportCandidateWriterTests
 
     private static ArticlePackageFrozenExportCandidateInput WithContentAssets(ArticlePackageFrozenExportCandidateInput input,
         ArticlePackageAssetCollectionSource[] sources)
-        => input with
+    {
+        DocumentExportFrozenInput document = WithAssets(input.Input, [.. input.Input.Assets, .. sources.Select(source =>
+            new DocumentExportAsset(source.Record.Id.ToString(), source.Record.MimeType,
+                DocumentExportDigest.ComputeBytes(source.SourceBytes.Span), source.SourceBytes.ToArray().ToImmutableArray(),
+                "synthetic image", "image", string.Empty, 0, "normal"))]);
+        DocumentExportContractValidator.Validate(document);
+        return input with
         {
-            Input = WithAssets(input.Input, [.. input.Input.Assets, .. sources.Select(source =>
-            new DocumentExportAsset(source.Record.Id.ToString(), source.Record.MimeType, source.Record.Sha256,
-                source.SourceBytes.ToArray().ToImmutableArray(), "synthetic image", "image", string.Empty, 0, "normal"))])
+            Input = document
         };
+    }
 
     private static ArticlePackageManifestCandidatePlan AssetPlan(ExportFixture[] fixtures, ArticlePackageAssetCollectionSource[] sources,
         ArticlePackageManifestAssetReference[]? explicitReferences = null)
