@@ -1,5 +1,7 @@
 using SqlSugar;
 
+using Microsoft.AspNetCore.Http;
+
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -10,6 +12,45 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AuthoringProductionPreflightPostgresTests(PostgresSchemaMigrationFixture postgres)
 {
+    [Fact]
+    public async Task CanonicalOrderedScope_MissingOverrideRefusesWithoutLegacyFallbackOrTakingStateOwnership()
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        using SqlSugarClient db = await DatabaseAsync();
+        var state = new PostgresAuthoringExtensionStateStore(db);
+        await state.InitializeAsync(fixture.Package, fixture.Scope, default);
+        AuthoringStateMeasurement expected = await state.MeasureAsync(fixture.Package, fixture.Scope, default);
+        await using IAuthoringExtensionStateObservation held = await state.ObserveDeletionAsync(fixture.Package, expected, default);
+        var legacy = new DenyingLegacyScopeOwner();
+        IAuthoringExtensionApprovalScopeAuthority authority = legacy;
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await authority.AcquireWithStateCustodyAsync(new DefaultHttpContext(), AuthoringApprovalOperation.Deletion,
+                fixture.Scope, null, held, default));
+        Assert.Equal("approval_ordered_scope_authority_unavailable", error.Message);
+        Assert.Equal(0, legacy.Calls);
+        await held.VerifyCurrentAsync(default);
+        Assert.Equal(expected, held.State.From.Measurement);
+        AuthoringExtensionProductionComposition composition = fixture.Compose(db);
+        Assert.Same(composition, composition.ExecutionResults);
+        Assert.Equal(0, composition.HostResources.PublishedGenerations);
+    }
+
+    private sealed class DenyingLegacyScopeOwner : IAuthoringExtensionApprovalScopeAuthority
+    {
+        public int Calls
+        {
+            get; private set;
+        }
+
+        public ValueTask<IAuthoringExtensionApprovalScope> AcquireAsync(HttpContext context,
+            AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destinationScope,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            throw new InvalidOperationException("legacy_scope_must_not_be_called");
+        }
+    }
+
     [Theory]
     [InlineData("unchanged")]
     [InlineData("content")]
