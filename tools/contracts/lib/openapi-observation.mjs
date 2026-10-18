@@ -55,7 +55,7 @@ const exactKeys = (value, expected) => isObject(value)
     && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...expected].sort());
 const isSortedUnique = (values) => Array.isArray(values)
     && JSON.stringify(values) === JSON.stringify([...new Set(values)].sort((left, right) =>
-        typeof left === 'number' ? left - right : String(left).localeCompare(String(right))));
+        typeof left === 'number' ? left - right : String(left) < String(right) ? -1 : String(left) > String(right) ? 1 : 0));
 const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minProperties', 'maxProperties'];
 const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'item', 'enumValues', 'bounds'];
 const valueKeys = ['type', 'nullable', 'format', 'schemaRef', 'item', 'enumValues', 'bounds'];

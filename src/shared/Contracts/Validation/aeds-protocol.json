@@ -1692,6 +1692,54 @@
             "value": 281,
             "goldenFamily": "document-export-page-response",
             "goldenOrder": 272
+        },
+        {
+            "name": "ArticlePropertyValueMutationCommand",
+            "value": 282,
+            "goldenFamily": "article-property-mutation",
+            "goldenOrder": 273
+        },
+        {
+            "name": "ArticlePropertyValueMutationReceipt",
+            "value": 283,
+            "goldenFamily": "article-property-mutation",
+            "goldenOrder": 274
+        },
+        {
+            "name": "ArticlePropertyDefinitionCreateRequest",
+            "value": 284,
+            "goldenFamily": "article-property-mutation",
+            "goldenOrder": 275
+        },
+        {
+            "name": "ArticlePropertyDefinitionUpdateRequest",
+            "value": 285,
+            "goldenFamily": "article-property-mutation",
+            "goldenOrder": 276
+        },
+        {
+            "name": "ArticlePropertyDefinitionRenameRequest",
+            "value": 286,
+            "goldenFamily": "article-property-mutation",
+            "goldenOrder": 277
+        },
+        {
+            "name": "ArticlePropertyDefinitionDeprecateRequest",
+            "value": 287,
+            "goldenFamily": "article-property-mutation",
+            "goldenOrder": 278
+        },
+        {
+            "name": "ArticlePropertyDefinitionDeleteRequest",
+            "value": 288,
+            "goldenFamily": "article-property-mutation",
+            "goldenOrder": 279
+        },
+        {
+            "name": "ArticlePropertyDefinitionMutationReceipt",
+            "value": 289,
+            "goldenFamily": "article-property-mutation",
+            "goldenOrder": 280
         }
     ],
     "goldenCatalog": {

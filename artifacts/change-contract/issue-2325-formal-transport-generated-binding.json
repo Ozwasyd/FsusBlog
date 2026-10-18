@@ -1,0 +1,66 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/contracts/generate-article-property-value-read-wire.mjs",
+        "tools/contracts/generate-article-property-value-read-golden.mjs",
+        "tools/contracts/lib/openapi-observation.mjs",
+        "tools/fact-extractors/openapi-aeds/extract.mjs",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "src/shared/Contracts/Validation/article-property-value-read-wire.json",
+        "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyDefinitionMutationContracts.cs",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePropertyDefinitionRoutes.cs",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePropertyValueRoutes.cs",
+        "tests/frontend/fixtures/cross-stack-contract-matrix.json"
+    ],
+    "outputs": [
+        {
+            "path": "src/core/Algorithms/AedsFrameType.cs",
+            "sha256": "5ce04d5bafcf50db43e5c99b261057ee1c3156d84d610902e047fe027709a652"
+        },
+        {
+            "path": "src/shared/AedsFrameHeader.cs",
+            "sha256": "ba617e5625364b97b166c2174352690abe9bbaacacd1769ac71f95a2ed177978"
+        },
+        {
+            "path": "src/frontend/wasm/web/protocol/frame.ts",
+            "sha256": "7e56403ebe9fe53a6b72cd3278c44f632d6c2ad7bf8705160811f5ece7d2d446"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+            "sha256": "1e8e0d91090f8bcfeca1db4edb0cbd8d0cda383eb2ba8bcfb0231bcc3322262d"
+        },
+        {
+            "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "sha256": "feaa427d6892a89114d274854523b337aa94fc082d5c4208ea025c11e174bb4b"
+        },
+        {
+            "path": "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
+            "sha256": "f4cdfec9d64dc9a323454cfa11d3b6646a0cc1273df7181ba0b7d97294ca0ffe"
+        },
+        {
+            "path": "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+            "sha256": "d347b44a14db7317c20f99b76d04029fcaef304754ecd18cac51357436ac8985"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/property_value_read.generated.hpp",
+            "sha256": "6698af3f192c24d5b9afcce4852825c6752fd44d9caa8ce31b9684c08deb2f0c"
+        },
+        {
+            "path": "tests/fixtures/protocol/article-property-mutation-wire-golden.json",
+            "sha256": "c4c4f0ac639383c7ead754338f63c1c9b345c3b84b518fc36c2a4ebe342a6c26"
+        },
+        {
+            "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "sha256": "6830c681b854c27a56d6d5e7f6ee6fcd9bcae5a5ba2a9087116df1a96641031b"
+        },
+        {
+            "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "sha256": "acc0987f00e886401b5fe3dbbdb7a81acdfb9b25719a63a921406ae6210b7cd5"
+        },
+        {
+            "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+            "sha256": "df41b2da045426d71f7ac55dc92c294e6cfe4894d4c593cf12cffb615e8b660f"
+        }
+    ]
+}

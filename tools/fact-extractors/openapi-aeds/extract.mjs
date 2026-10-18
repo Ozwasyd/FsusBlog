@@ -37,7 +37,7 @@ const exactKeys = (value, expected) => value && typeof value === 'object'
 const isObject = (value) => value != null && typeof value === 'object' && !Array.isArray(value);
 const isSortedUnique = (values) => Array.isArray(values)
   && JSON.stringify(values) === JSON.stringify([...new Set(values)].sort((left, right) =>
-    typeof left === 'number' ? left - right : String(left).localeCompare(String(right))));
+    typeof left === 'number' ? left - right : String(left) < String(right) ? -1 : String(left) > String(right) ? 1 : 0));
 const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minProperties', 'maxProperties'];
 const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'item', 'enumValues', 'bounds'];
 const valueKeys = ['type', 'nullable', 'format', 'schemaRef', 'item', 'enumValues', 'bounds'];
@@ -578,7 +578,7 @@ function projectRequest(request)
         compactObject([
             ['identity', identity],
             ['requiredFields', definition.requiredFields.length > 0 ? definition.requiredFields : null],
-            ['properties', projectProperties(definition.properties)],
+            ['properties', Object.keys(definition.properties).length > 0 ? projectProperties(definition.properties) : null],
             ['oneOf', definition.oneOf.length > 0 ? definition.oneOf : null],
             ['discriminator', definition.discriminator],
             ['bounds', Object.keys(definition.bounds).length > 0

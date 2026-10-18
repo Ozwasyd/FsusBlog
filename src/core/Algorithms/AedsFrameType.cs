@@ -277,5 +277,13 @@ public enum AedsFrameType : ushort
     DocumentExportRequest = 278,
     DocumentExportTaskRequest = 279,
     DocumentExportJobResponse = 280,
-    DocumentExportPageResponse = 281
+    DocumentExportPageResponse = 281,
+    ArticlePropertyValueMutationCommand = 282,
+    ArticlePropertyValueMutationReceipt = 283,
+    ArticlePropertyDefinitionCreateRequest = 284,
+    ArticlePropertyDefinitionUpdateRequest = 285,
+    ArticlePropertyDefinitionRenameRequest = 286,
+    ArticlePropertyDefinitionDeprecateRequest = 287,
+    ArticlePropertyDefinitionDeleteRequest = 288,
+    ArticlePropertyDefinitionMutationReceipt = 289
 }

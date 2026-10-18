@@ -138,6 +138,8 @@ test('read-only API passes canonical IDs, admin scope and no-store through exist
     globalThis.__propertyReadResponses = [user, witness('empty-site-owner')];
     const apiSource = readFileSync(path.join(root, 'src/frontend/src/api/articlePropertyValues.ts'), 'utf8')
         .replace("'@/composition/binaryTransport'", JSON.stringify(transportUrl))
+        .replace("'@/api/binaryFrame'", JSON.stringify(moduleUrl('export function encodeAedsFrame() { throw new Error("read_test_cannot_mutate"); }')))
+        .replace("'@/codecs/binary/articlePropertyValueReadWire.generated'", JSON.stringify(moduleUrl(readFileSync(path.join(root, 'src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts'), 'utf8'))))
         .replace("'@wasm/protocol/frame'", JSON.stringify(moduleUrl('export const FrameType = { ArticlePropertyValueReadResponse: 269 };')));
     const { articlePropertyValuesApi }
         = await import(moduleUrl(apiSource));
@@ -195,4 +197,25 @@ test('v2 scope must match every definition and current coordinates; all v1 bytes
     const retired = golden.cases.filter(item => item.name.startsWith('retired-v1-'));
     assert.equal(retired.length, 35);
     for (const item of retired) assert.throws(() => wire.decodeArticlePropertyValueReadResponse(Buffer.from(item.payloadHex, 'hex')));
+});
+
+test('mutation roots execute all exact typed cases and refuse every truncated prefix', () =>
+{
+    const mutations = JSON.parse(readFileSync(path.join(root, 'tests/fixtures/protocol/article-property-mutation-wire-golden.json'), 'utf8'));
+    for (const item of mutations.cases)
+    {
+        const payload = Uint8Array.from(Buffer.from(item.payloadHex, 'hex'));
+        const decode = wire[`decode${item.record}`];
+        if (!item.valid)
+        {
+            assert.throws(() => decode(payload), item.name);
+            continue;
+        }
+        assert.deepEqual(wire[`encode${item.record}`](decode(payload)), payload, item.name);
+        for (let length = 0; length < payload.length; length++) assert.throws(() => decode(payload.slice(0, length)), `${item.name}:${length}`);
+    }
+    const empty = mutations.cases.find(item => item.name === 'empty-replace');
+    const mode = Uint8Array.from(Buffer.from(empty.payloadHex, 'hex'));
+    mode[mode.length - 5] = 255;
+    assert.throws(() => wire.decodeArticlePropertyValueMutationCommand(mode), 'Unknown mode fails closed');
 });

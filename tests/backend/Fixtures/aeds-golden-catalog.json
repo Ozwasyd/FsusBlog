@@ -292,6 +292,14 @@
     { "name": "DocumentExportRequest", "value": 278, "family": "document-export-request" },
     { "name": "DocumentExportTaskRequest", "value": 279, "family": "document-export-task-request" },
     { "name": "DocumentExportJobResponse", "value": 280, "family": "document-export-job-response" },
-    { "name": "DocumentExportPageResponse", "value": 281, "family": "document-export-page-response" }
+    { "name": "DocumentExportPageResponse", "value": 281, "family": "document-export-page-response" },
+    { "name": "ArticlePropertyValueMutationCommand", "value": 282, "family": "article-property-mutation" },
+    { "name": "ArticlePropertyValueMutationReceipt", "value": 283, "family": "article-property-mutation" },
+    { "name": "ArticlePropertyDefinitionCreateRequest", "value": 284, "family": "article-property-mutation" },
+    { "name": "ArticlePropertyDefinitionUpdateRequest", "value": 285, "family": "article-property-mutation" },
+    { "name": "ArticlePropertyDefinitionRenameRequest", "value": 286, "family": "article-property-mutation" },
+    { "name": "ArticlePropertyDefinitionDeprecateRequest", "value": 287, "family": "article-property-mutation" },
+    { "name": "ArticlePropertyDefinitionDeleteRequest", "value": 288, "family": "article-property-mutation" },
+    { "name": "ArticlePropertyDefinitionMutationReceipt", "value": 289, "family": "article-property-mutation" }
   ]
 }

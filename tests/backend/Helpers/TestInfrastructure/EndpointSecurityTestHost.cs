@@ -172,6 +172,8 @@ public sealed class EndpointContractSnapshot : IEndpointRouteBuilder, IDisposabl
 
 public sealed class EndpointSecurityTestServerOptions
 {
+    public long AdminPrincipalId { get; init; } = 17;
+
     public Action<IServiceCollection>? ConfigureServices
     {
         get; init;
@@ -579,8 +581,9 @@ public sealed class EndpointSecurityTestServer : IDisposable
         WebApplication app = builder.Build();
         app.UseMiddleware<ApiBinaryResponseMiddleware>();
         app.UseRouting();
+        app.UseFsusEndpointMetadataHeaders();
         app.UseAuthentication();
-        app.Use(ApplyTestRequestContextAsync);
+        app.Use((context, next) => ApplyTestRequestContextAsync(context, next, options.AdminPrincipalId));
         app.UseRateLimiter();
         app.UseMiddleware<BannedUserMiddleware>();
         app.UseAuthorization();
@@ -683,7 +686,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         }
     }
 
-    private static async Task ApplyTestRequestContextAsync(HttpContext context, Func<Task> next)
+    private static async Task ApplyTestRequestContextAsync(HttpContext context, Func<Task> next, long adminPrincipalId)
     {
         string remoteIp = context.Request.Headers["X-Test-Remote-Ip"].ToString();
         context.Connection.RemoteIpAddress = IPAddress.TryParse(remoteIp, out IPAddress? parsed)
@@ -696,7 +699,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
             var claims = new List<Claim>
             {
                 new("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
-                new("admin_id", "17"),
+                new("admin_id", adminPrincipalId.ToString(System.Globalization.CultureInfo.InvariantCulture)),
                 new("admin_sid", "admin-session-17")
             };
             foreach (string permission in context.Request.Headers["X-Test-Permissions"].ToString()

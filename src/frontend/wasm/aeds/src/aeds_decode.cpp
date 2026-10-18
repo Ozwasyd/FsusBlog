@@ -176,7 +176,7 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         return MakeError(ErrorCode::ArticleCanvasLinkPayloadInvalid);
     }
 
-    if (FrameType == 269 && !ValidateArticlePropertyValueReadPayload(FrameType, payload, PayloadLength))
+    if (IsArticlePropertyPayloadFrame(FrameType) && !ValidateArticlePropertyValueReadPayload(FrameType, payload, PayloadLength))
     {
         return MakeError(ErrorCode::ArticlePropertyValueReadPayloadInvalid);
     }

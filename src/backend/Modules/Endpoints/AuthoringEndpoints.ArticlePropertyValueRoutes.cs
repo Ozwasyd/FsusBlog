@@ -4,11 +4,14 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleProperties;
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 
 namespace FsusBlog.Server.Modules.Endpoints;
 
@@ -16,6 +19,39 @@ public static partial class AuthoringEndpoints
 {
     private static void MapArticlePropertyValueRoutes(IEndpointRouteBuilder group)
     {
+        group.MapPost("/articles/{articleId:int}/properties", static async Task<BinaryFrameResult> (
+            int articleId, HttpContext context, IAedsEncoder aeds, IArticlePropertyValueAuthority authority,
+            IBinaryEndpointRequestContext requests, CancellationToken cancellationToken) =>
+        {
+            using BinaryRequestPayload payload = await requests.ReadFrameAsync(context, aeds,
+                AedsFrameType.ArticlePropertyValueMutationCommand, cancellationToken,
+                ArticlePropertyValueReadWireContract.MaxPayloadBytes + AedsFrameHeader.Size);
+            if (!payload.IsSuccess)
+            {
+                return BinaryResults.FromError(payload.Error, aeds);
+            }
+            if (!PodBinaryCodec.TryDecodeArticlePropertyValueMutationCommand(payload.Payload, out var command)
+                || command.ArticleId != articleId || command.SiteScope != "primary-site"
+                || context.Request.QueryString.HasValue)
+            {
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation,
+                    "article_property_value_command_invalid"), aeds);
+            }
+            return await ExecutePropertyMutationAsync(aeds, async () =>
+            {
+                ArticlePropertyValueMutationReceipt receipt = await authority.MutateAsync(
+                    ResolveRequiredAdminPrincipalId(context), command, cancellationToken).ConfigureAwait(false);
+                return BinaryResults.Frame(aeds, AedsFrameType.ArticlePropertyValueMutationReceipt,
+                    destination => PodBinaryCodec.WriteArticlePropertyValueMutationReceipt(receipt, destination));
+            }).ConfigureAwait(false);
+        })
+        .WithName("binary_author_article_property_values_mutate")
+        .WithMetadata(new FsusOpenApiAedsContractMetadata(AedsFrameType.ArticlePropertyValueMutationCommand,
+            AedsFrameType.ArticlePropertyValueMutationReceipt))
+        .RequireNoStoreResponse()
+        .RequireAdminPermission(AdminPermissions.ArticleWrite)
+        .AddEndpointFilterWithMetadata<RequiresPowFilter>();
+
         group.MapGet("/articles/{articleId:int}/properties", static async Task<BinaryFrameResult> (
             int articleId, HttpContext context, IAedsEncoder aeds, IArticlePropertyValueAuthority authority,
             CancellationToken cancellationToken) =>
@@ -47,7 +83,7 @@ public static partial class AuthoringEndpoints
                 return BinaryResults.Frame(aeds, AedsFrameType.ArticlePropertyValueReadResponse,
                     destination => PodBinaryCodec.WriteArticlePropertyValueReadResponse(response, destination));
             }
-            catch (ArticlePropertyDefinitionAccessDeniedException)
+            catch (Exception error) when (error is ArticlePropertyDefinitionAccessDeniedException or AuthoringCanvasAccessDeniedException)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound,
                     "article_property_value_unavailable"), aeds);

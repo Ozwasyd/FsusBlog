@@ -11,6 +11,7 @@
 #include "aeds_decode.hpp"
 #include "aeds_frame.hpp"
 #include "font_theme_admin_pods.hpp"
+#include "property_value_read.generated.hpp"
 
 namespace
 {
@@ -384,7 +385,7 @@ int main(int argc, char** argv)
                     return 1;
                 }
             }
-            else if (frame_type == 269)
+            else if (FsusBlog::Aeds::IsArticlePropertyPayloadFrame(frame_type))
             {
                 if (decoded.error_code != FsusBlog::Aeds::ErrorCode::ArticlePropertyValueReadPayloadInvalid)
                 {
@@ -405,8 +406,27 @@ int main(int argc, char** argv)
                     return 19;
                 }
             }
+            else if (frame_type == static_cast<std::uint16_t>(FsusBlog::Aeds::FrameType::AuthorArticleSelectionRevalidateRequest)
+                || frame_type == static_cast<std::uint16_t>(FsusBlog::Aeds::FrameType::AuthorArticleSelectionRevalidateResponse))
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::AuthorArticleSelectionPayloadInvalid)
+                {
+                    return 24;
+                }
+            }
+            else if (frame_type == static_cast<std::uint16_t>(FsusBlog::Aeds::FrameType::DocumentExportRequest)
+                || frame_type == static_cast<std::uint16_t>(FsusBlog::Aeds::FrameType::DocumentExportTaskRequest)
+                || frame_type == static_cast<std::uint16_t>(FsusBlog::Aeds::FrameType::DocumentExportJobResponse)
+                || frame_type == static_cast<std::uint16_t>(FsusBlog::Aeds::FrameType::DocumentExportPageResponse))
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::DocumentExportPayloadInvalid)
+                {
+                    return 25;
+                }
+            }
             else if (!decoded.ok || decoded.frame_type != frame_type || decoded.payload_len != 0U)
             {
+                std::cerr << "unexpected empty-frame result for " << frame_type << " error=" << static_cast<unsigned>(decoded.error_code) << '\n';
                 return 12;
             }
         }

@@ -2941,6 +2941,19 @@
           "cache": "no-store",
           "rateLimit": "none",
           "operationId": "binary_author_article_property_values_read"
+        },
+        {
+          "method": "POST",
+          "path": "/author/articles/{articleId:int}/properties",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticlePropertyValueMutationCommand",
+          "responseFrame": "ArticlePropertyValueMutationReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_property_values_mutate"
         }
       ]
     },
@@ -2997,6 +3010,79 @@
           "rateLimit": "none",
           "requestFrame": "AuthorArticleSelectionRevalidateRequest",
           "operationId": "binary_author_article_selection_revalidate"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/AuthoringEndpoints.ArticlePropertyDefinitionRoutes.cs",
+      "frontendWrapper": "src/frontend/src/api/articlePropertyDefinitions.ts",
+      "frontendAdapter": "src/frontend/src/codecs/binary/articlePropertyValueReadWire.generated.ts",
+      "id": "article-property-definition-mutation",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/author/property-definitions",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticlePropertyDefinitionCreateRequest",
+          "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_property_definition_create"
+        },
+        {
+          "method": "PUT",
+          "path": "/author/property-definitions/{definitionId:guid}",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticlePropertyDefinitionUpdateRequest",
+          "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_property_definition_update"
+        },
+        {
+          "method": "POST",
+          "path": "/author/property-definitions/{definitionId:guid}/rename",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticlePropertyDefinitionRenameRequest",
+          "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_property_definition_rename"
+        },
+        {
+          "method": "POST",
+          "path": "/author/property-definitions/{definitionId:guid}/deprecate",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticlePropertyDefinitionDeprecateRequest",
+          "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_property_definition_deprecate"
+        },
+        {
+          "method": "DELETE",
+          "path": "/author/property-definitions/{definitionId:guid}",
+          "auth": "admin",
+          "pow": true,
+          "requestFrame": "ArticlePropertyDefinitionDeleteRequest",
+          "responseFrame": "ArticlePropertyDefinitionMutationReceipt",
+          "errorFrame": "ApiError",
+          "successStatus": 200,
+          "cache": "no-store",
+          "rateLimit": "none",
+          "operationId": "binary_author_article_property_definition_delete"
         }
       ]
     }
@@ -3184,5 +3270,5 @@
     "protocol": "src/shared/Contracts/Validation/aeds-protocol.json",
     "endpointContracts": "src/shared/Contracts/Validation/aeds-endpoint-contracts.json"
   },
-  "openapiOperationCount": 291
+  "openapiOperationCount": 297
 }

@@ -200,7 +200,7 @@ public partial class ArticleService : IArticlePropertyValueAuthority
         {
             throw new ArticlePropertyDefinitionAccessDeniedException();
         }
-        string[] permissions = reader.GetBoolean(0) ? AdminPermissions.All : reader.GetString(1).Split('\n');
+        string[] permissions = reader.GetBoolean(0) ? AdminPermissions.All : reader.GetString(1).Split('\n', StringSplitOptions.RemoveEmptyEntries);
         var actor = new ArticlePropertyDefinitionActor(actorAdminPrincipalId, permissions);
         new ArticlePropertyDefinitionPermissionAuthority().EnsureAllowed(actor, owner, manage: false);
         return actor;

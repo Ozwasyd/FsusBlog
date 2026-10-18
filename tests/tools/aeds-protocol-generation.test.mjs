@@ -58,7 +58,7 @@ test('the original producer owns five products with manifest-derived identities 
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
     assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
-    assert.equal(golden.frames.length, 273);
+    assert.equal(golden.frames.length, 281);
 });
 
 test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
@@ -225,3 +225,15 @@ for (const [label, mutate, expected] of [
         assert.throws(() => renderAedsProtocolOutputs(source), expected);
     });
 }
+
+test('property mutation allocation is independently fixed without changing any previous identity', () =>
+{
+    const expected = [
+        ['ArticlePropertyValueMutationCommand', 282], ['ArticlePropertyValueMutationReceipt', 283],
+        ['ArticlePropertyDefinitionCreateRequest', 284], ['ArticlePropertyDefinitionUpdateRequest', 285],
+        ['ArticlePropertyDefinitionRenameRequest', 286], ['ArticlePropertyDefinitionDeprecateRequest', 287],
+        ['ArticlePropertyDefinitionDeleteRequest', 288], ['ArticlePropertyDefinitionMutationReceipt', 289]
+    ];
+    const source = JSON.parse(readFileSync(path.join(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
+    assert.deepEqual(source.frameTypes.filter(frame => frame.goldenFamily === 'article-property-mutation').map(frame => [frame.name, frame.value]), expected);
+});
