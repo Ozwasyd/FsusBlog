@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycleResources.cs"
+            ],
+            "reason": "Declare the original resource owner under the existing src/**/*.cs environment-variable naming registration. Held generation and native-custody changes introduce no environment-variable reads, writes or renamed keys; original external spellings and internal C# naming remain preserved."
+        }
+    ]
+}
