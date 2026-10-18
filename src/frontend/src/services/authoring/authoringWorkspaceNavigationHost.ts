@@ -160,6 +160,12 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
     async function prepare(entry: OpenArticleDocumentEntry, request: AbortSignal): Promise<ArticleAnchorPrimaryRetainedAdmission | null>
     {
         request.throwIfAborted();
+        // The first borrower owns the in-flight native refresh and its fences.
+        // A repeat cannot inspect or revoke that transitional retained mount.
+        if (pending)
+        {
+            return null;
+        }
         if (retained)
         {
             if (!currentMount())
@@ -173,7 +179,7 @@ export function createAuthoringWorkspaceNavigationHost(options: Readonly<{
                 return retained;
             }
         }
-        if (pending || retained || disposed)
+        if (retained || disposed)
         {
             return null;
         }
