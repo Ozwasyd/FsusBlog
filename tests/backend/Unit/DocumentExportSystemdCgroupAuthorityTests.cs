@@ -259,11 +259,7 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
         AssertClosedShellAssignment(versionBody);
         Assert.Equal(1, compiled.Split("System.Diagnostics.Process.Start", StringSplitOptions.None).Length - 1);
         Assert.Equal(2, compiled.Split("System.Diagnostics.ProcessStartInfo.set_UseShellExecute", StringSplitOptions.None).Length - 1);
-        Assert.DoesNotContain("/bin/sh", compiled, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.Environment.GetEnvironment", compiled, StringComparison.Ordinal);
-        Assert.DoesNotContain("CPUQuota", compiled, StringComparison.Ordinal);
-        Assert.DoesNotContain("cpu.max", compiled, StringComparison.Ordinal);
-        Assert.DoesNotContain("--scope", compiled, StringComparison.Ordinal);
+        AssertNoForbiddenAuthorityFacts(authorityType);
 
         DocumentExportSystemdCgroupAuthorityContract contract =
             DocumentExportSystemdCgroupAuthority.DiscoverInstalledContract();
@@ -303,6 +299,7 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
         Assert.Single(ProcessStartCalls(type));
         Assert.Contains("System.Diagnostics.Process.Start", RuntimeMetadataInspection.DescribeType(type), StringComparison.Ordinal);
         AssertProcessStartOwner(type, RequireDeclaredMethod(type, "StartClosedProcess"));
+        AssertNoForbiddenAuthorityFacts(type);
     }
 
     [Fact]
@@ -346,6 +343,7 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
             Assert.Contains(forbidden, compiled, StringComparison.Ordinal);
             Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => Assert.DoesNotContain(forbidden, compiled, StringComparison.Ordinal));
         }
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertNoForbiddenAuthorityFacts(type));
     }
 
     public void Dispose()
@@ -369,6 +367,20 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
 
     private const BindingFlags DeclaredMembers = BindingFlags.Instance | BindingFlags.Static
         | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+    private static void AssertNoForbiddenAuthorityFacts(Type type)
+    {
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type),
+            RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(type));
+
+        Assert.DoesNotContain("/bin/sh", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Environment.GetEnvironment", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("CPUQuota", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("cpu.max", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("--scope", compiled, StringComparison.Ordinal);
+    }
 
     private static MethodInfo RequireDeclaredMethod(Type type, string name)
         => Assert.IsAssignableFrom<MethodInfo>(type.GetMethod(name, DeclaredMembers));
