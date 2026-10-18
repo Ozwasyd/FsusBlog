@@ -47,11 +47,13 @@ class FakeEditorSession implements FsusUiPublicEditorSession
     public lastRestoredSnapshot: AuthoringSessionSnapshotRefs | null = null;
     private resources = activeResources();
 
-    public constructor(
-        public readonly editorSessionRef: string,
-        private readonly rejectRestore = false
-    )
+    public readonly editorSessionRef: string;
+    private readonly rejectRestore: boolean;
+
+    public constructor(editorSessionRef: string, rejectRestore = false)
     {
+        this.editorSessionRef = editorSessionRef;
+        this.rejectRestore = rejectRestore;
     }
 
     public captureSnapshot(context: AuthoringSessionSnapshotContext): AuthoringSessionSnapshotRefs
@@ -157,7 +159,13 @@ class FakeEditorSessionFactory implements FsusUiPublicEditorSessionFactory
     }
 }
 
-function makeEntry(index: number, overrides: Partial<OpenArticleDocumentEntry> = {}): OpenArticleDocumentEntry
+type EntryOverrides = Omit<Partial<OpenArticleDocumentEntry>, 'identity' | 'documentContext' | 'status'> & {
+    identity?: Partial<OpenArticleDocumentEntry['identity']>;
+    documentContext?: Partial<OpenArticleDocumentEntry['documentContext']>;
+    status?: Partial<OpenArticleDocumentEntry['status']>;
+};
+
+function makeEntry(index: number, overrides: EntryOverrides = {}): OpenArticleDocumentEntry
 {
     const base = {
         schema: openArticleDocumentEntrySchema,

@@ -270,6 +270,9 @@ describe('ArticlePrivatePreviewPanel structured rendering boundary', () => {
     expect(rendererRoot.findAll('[srcdoc]').length).toBe(0)
     expect(rendererRoot.findAll('[href], [src]').some(node => {
       const value = node.attributes('href') || node.attributes('src')
+      if (value === undefined) {
+        throw new Error('preview_url_attribute_missing')
+      }
       return /^(?:javascript:|vbscript:|data:text\/html)/iu.test(value.trim())
     })).toBe(false)
     const renderResult = renderer.emitted('render-complete')?.[0]?.[0]
