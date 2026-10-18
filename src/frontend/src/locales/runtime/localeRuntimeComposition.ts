@@ -23,6 +23,7 @@ import { LOCALE_FONT_WEIGHTS } from '../localeFontCatalog';
 
 import {
     LocaleRuntimeCoordinator,
+    type LocaleFontPreparationReceipt,
     type LocalePreferenceCommitCommand,
     type LocalePreferenceCommitReceipt,
     type LocaleRuntimeOutcome,
@@ -193,7 +194,7 @@ function readNavigatorLanguageTags(): readonly string[]
     {
         return Object.freeze([]);
     }
-    const languages = Array.isArray(navigator.languages) ? navigator.languages : [];
+    const languages: readonly string[] = Array.isArray(navigator.languages) ? navigator.languages : [];
     if (languages.length > 0)
     {
         return Object.freeze([...languages]);
@@ -340,13 +341,16 @@ function createTestPorts(
 {
     return {
         fontPreparationPort: overrides?.fontPreparationPort ?? Object.freeze({
-            prepareLocaleFonts: async (locale) => Object.freeze({
-                locale,
-                generation: 1
+            prepareLocaleFonts: (locale) => new Promise<LocaleFontPreparationReceipt>((resolve) =>
+            {
+                resolve(Object.freeze({
+                    locale,
+                    generation: 1
+                }));
             })
         }),
         preferenceCommitPort: overrides?.preferenceCommitPort ?? Object.freeze({
-            commit: async (command) =>
+            commit: (command) => new Promise<LocalePreferenceCommitReceipt>((resolve) =>
             {
                 const effectiveLocale = command.mode === 'fixed'
                     ? command.locale
@@ -358,13 +362,13 @@ function createTestPorts(
                     updatedAt: new Date(0).toISOString()
                 }) satisfies UserLocalePreference;
                 preferenceSnapshot.value = snapshot;
-                return Object.freeze({
+                resolve(Object.freeze({
                     mode: snapshot.mode,
                     fixedLocale: snapshot.fixedLocale,
                     effectiveLocale,
                     revision: snapshot.revision
-                });
-            }
+                }));
+            })
         }),
         ...overrides
     };
