@@ -42,3 +42,6 @@ a5f53a1aaae8d410216ec1d5f25d526b9fd43a9d
 
 # Reviewed migration guard mechanical formatting for #3663.
 9a23051edcbd5cbb1b6d5209e2508c7fa58ae986
+
+# Original SDK whitespace pass for assigned Migration test fixture owners (#4667).
+35e8df0f5b62ab4e72a674731c0916e98b1cb529
