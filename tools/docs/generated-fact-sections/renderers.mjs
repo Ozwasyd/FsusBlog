@@ -112,7 +112,12 @@ function formatDurationLike(value, unitHint)
 
 function escapeTableCell(value)
 {
-    return normalizeScalarText(value).replace(/\|/gu, '\\|').replace(/\r?\n/gu, ' ');
+    return normalizeScalarText(value)
+        .replace(/&/gu, '&amp;')
+        .replace(/</gu, '&lt;')
+        .replace(/>/gu, '&gt;')
+        .replace(/\|/gu, '\\|')
+        .replace(/\r?\n/gu, ' ');
 }
 
 function markdownTable(headers, rows)
@@ -261,7 +266,7 @@ function parseTransition(entry)
         failShape('transition-table', 'transition must be string or object');
     }
     // Supports "Action:From->To" and "From->To[:guard]" forms.
-    const withAction = entry.match(/^(?:([^:]+):)?([^:>\-]+)->([^:]+)(?::(.+))?$/u);
+    const withAction = entry.match(/^(?:([^:]+):)?([^:>-]+)->([^:]+)(?::(.+))?$/u);
     if (!withAction)
     {
         failShape('transition-table', `unparseable transition ${entry}`);
