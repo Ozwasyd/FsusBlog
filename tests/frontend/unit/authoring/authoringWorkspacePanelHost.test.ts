@@ -550,4 +550,82 @@ describe('authoring workspace live panel host', () =>
         expect(first.signal.aborted).toBe(true);
         expect(f.host.observe({ ...createQuery(), AvailableSize: { inline: 9000, block: 9000 } } as AuthoringWorkspacePanelSpaceQuery).status).toBe('blocked');
     });
+    // Review5561808683: fresh producer snapshots must be sampled after callbacks.
+    it.each(['mobile', 'viewport', 'space', 'frame', 'abort-snapshot'])(
+        'refuses a replaced final %s geometry snapshot', async kind =>
+        {
+            const f = createFixture();
+            expect(await f.host.refreshAuthority()).toBe(true);
+            let current = structuredClone(f.measured);
+            let frame = { ...current.frame };
+            vi.spyOn(f.binding.layoutSource, 'measure').mockImplementation(() => structuredClone(current));
+            vi.spyOn(f.binding.layoutPort, 'readFrameRect').mockImplementation(() => ({ ...frame }));
+            const change = () =>
+            {
+                if (kind === 'mobile') current = { ...current, mobile: true };
+                if (kind === 'viewport') current = { ...current, layoutViewportWidthCssPx: 900 };
+                if (kind === 'space' || kind === 'abort-snapshot')
+                {
+                    current = { ...current, visualViewport: { ...current.visualViewport, width: 150 } };
+                }
+                if (kind === 'frame') frame = { ...frame, width: 150 };
+            };
+            const first = f.host.observe(createQuery());
+            expect(first.status).toBe('observed');
+            if (first.status !== 'observed') throw new Error('positive observation required');
+            if (kind === 'abort-snapshot') first.signal.addEventListener('abort', change, { once: true });
+            else
+            {
+                let reads = 0;
+                f.setCurrent({ ...f.binding, readNativeEditor: () =>
+                {
+                    reads += 1;
+                    if (reads === 3) change();
+                    return f.binding.nativeEditor;
+                } });
+            }
+            expect(f.host.observe(createQuery({ viewports: [0] })).status).toBe('blocked');
+            expect(first.signal.aborted).toBe(true);
+        }
+    );
+
+    it.each(['stable', 'fresh-equal', 'aborted', 'request', 'auth', 'remove', 'reparent',
+        'owner', 'region-marker', 'duplicate', 'hidden', 'core', 'unknown-scope', 'clone'])(
+        'retains final geometry boundary %s control', async kind =>
+        {
+            const f = createFixture(kind === 'unknown-scope' ? 'unknown' : 'user:7');
+            const ready = await f.host.refreshAuthority();
+            if (kind === 'unknown-scope')
+            {
+                expect(ready).toBe(false);
+                expect(f.host.observe(createQuery()).status).toBe('blocked');
+                return;
+            }
+            expect(ready).toBe(true);
+            if (kind === 'fresh-equal')
+            {
+                vi.spyOn(f.binding.layoutSource, 'measure').mockImplementation(() => structuredClone(f.measured));
+                vi.spyOn(f.binding.layoutPort, 'readFrameRect').mockImplementation(() => ({ ...f.measured.frame }));
+            }
+            const first = f.host.observe(createQuery());
+            expect(first.status).toBe('observed');
+            if (first.status !== 'observed') throw new Error('positive observation required');
+            if (kind === 'clone')
+            {
+                expect(f.host.assertCurrent({ ...first })).toBe(false);
+                return;
+            }
+            if (kind === 'aborted') f.lifetime.abort();
+            if (kind === 'request') privateRequestRuntime.advance('admin');
+            if (kind === 'auth') await privateSurfaceRuntime.invalidate('account-switch', () => undefined);
+            if (kind === 'remove') f.region.remove();
+            if (kind === 'reparent') f.root.parentElement!.append(f.region);
+            if (kind === 'owner') f.root.parentElement!.className = 'different-owner';
+            if (kind === 'region-marker') f.region.removeAttribute('data-authoring-workspace-extension-region');
+            if (kind === 'duplicate') f.root.append(f.region.cloneNode(true));
+            if (kind === 'hidden') f.root.hidden = true;
+            if (kind === 'core') f.region.setAttribute('data-active-inspector', 'details');
+            expect(f.host.observe(createQuery()).status).toBe(['stable', 'fresh-equal'].includes(kind) ? 'observed' : 'blocked');
+        }
+    );
 });
