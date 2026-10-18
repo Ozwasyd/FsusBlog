@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.CurrentPermissions.cs"
+            ],
+            "reason": "Preserve existing Search contract and permission reason spellings while fencing each actual source page with the unchanged SQL issuer. No environment key, source producer, second query model, alternate hash or permission authority is introduced."
+        }
+    ]
+}

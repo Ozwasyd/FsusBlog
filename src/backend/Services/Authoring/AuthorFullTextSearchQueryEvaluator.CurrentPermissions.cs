@@ -47,9 +47,18 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator
         {
             throw new AuthorSearchContractException("author_search_index_source_snapshot_stale");
         }
-        await AuthorFullTextSearchIndexVerifier.VerifyAsync(snapshot, currentSource, cancellationToken).ConfigureAwait(false);
-        await fence.CheckAsync(cancellationToken).ConfigureAwait(false);
-        fence.RequireIndexCurrent(index);
+        try
+        {
+            await AuthorFullTextSearchIndexVerifier.VerifyAsync(snapshot,
+                new PermissionCheckedSource(currentSource, fence, index), cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Current authority/cancellation takes precedence on verifier errors too.
+            // If these fences pass, the original verifier exception propagates intact.
+            await fence.CheckAsync(cancellationToken).ConfigureAwait(false);
+            fence.RequireIndexCurrent(index);
+        }
         // The SQL owner performs its own final context/clock checks. No further await
         // follows this synchronous index/registry fence before bounded evidence returns.
         AuthorFullTextSearchContract.ValidateQuery(query, definitions);
@@ -72,6 +81,33 @@ public sealed partial class AuthorFullTextSearchQueryEvaluator
 
     private static AuthorSearchContractException PermissionUnavailable()
         => new("author_search_current_permission_unavailable");
+
+    /// <summary>
+    /// Fences every real page read, including a throwing or terminal read, before the
+    /// verifier can consume that page or request another. This delegates unchanged
+    /// source coordinates and never manufactures source data or authorization facts.
+    /// </summary>
+    private sealed class PermissionCheckedSource(
+        IAuthorFullTextSearchIndexSource source, CurrentPermissionFence fence, AuthorFullTextSearchIndex index)
+        : IAuthorFullTextSearchIndexSource
+    {
+        public async Task<AuthorSearchIndexSourcePage> ReadAsync(int userId, string siteScope, int afterArticleId,
+            int pageSize, long? expectedSourceGeneration, CancellationToken cancellationToken)
+        {
+            await fence.CheckAsync(cancellationToken).ConfigureAwait(false);
+            fence.RequireIndexCurrent(index);
+            try
+            {
+                return await source.ReadAsync(userId, siteScope, afterArticleId, pageSize,
+                    expectedSourceGeneration, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await fence.CheckAsync(cancellationToken).ConfigureAwait(false);
+                fence.RequireIndexCurrent(index);
+            }
+        }
+    }
 
     private sealed class CurrentPermissionFence(
         AuthorSearchQuery query, SqlAuthorRecentArticleHistoryPermissionAuthority authority,

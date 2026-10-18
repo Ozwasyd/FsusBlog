@@ -490,4 +490,346 @@ public sealed class AuthorFullTextSearchAuthorizedQueryPostgresTests(PostgresSch
             return new(1, [.. articles.Where(article => article.ArticleId > afterArticleId).Take(pageSize)], false);
         }
     }
+
+    [Theory]
+    [InlineData("revoked")]
+    [InlineData("session-row")]
+    [InlineData("owner")]
+    [InlineData("context")]
+    public async Task EachSourcePageMustRevalidateBeforeReadingTheNextPage(string change)
+    {
+        using Case test = await CreateCaseAsync();
+        using AuthorFullTextSearchIndex index = await test.IndexAsync();
+        var pages = new PagedSource(test.Source, gatePage: 1);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        Task<AuthorSearchTokenEvaluation> pending = new AuthorFullTextSearchQueryEvaluator(index).InspectIndexAsync(
+            test.Query(index, 0), test.Definitions, pages, test.Authority, timeout.Token);
+        try
+        {
+            await pages.Entered.Task.WaitAsync(timeout.Token);
+            Assert.False(pending.IsCompleted);
+            test.Change(change);
+            pages.Release.TrySetResult();
+            Assert.Equal("author_search_current_permission_unavailable",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
+            Assert.Equal(1, pages.ReadCount);
+        }
+        finally
+        {
+            pages.Release.TrySetResult();
+            _ = await Record.ExceptionAsync(() => pending);
+        }
+    }
+
+    [Fact]
+    public async Task RevocationAfterFirstPageTakesPriorityOverLaterSourceFailure()
+    {
+        using Case test = await CreateCaseAsync();
+        using AuthorFullTextSearchIndex index = await test.IndexAsync();
+        var pages = new PagedSource(test.Source, gatePage: 1, errorPage: 2);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        Task<AuthorSearchTokenEvaluation> pending = new AuthorFullTextSearchQueryEvaluator(index).InspectIndexAsync(
+            test.Query(index, 0), test.Definitions, pages, test.Authority, timeout.Token);
+        try
+        {
+            await pages.Entered.Task.WaitAsync(timeout.Token);
+            test.Change("revoked");
+            pages.Release.TrySetResult();
+            Assert.Equal("author_search_current_permission_unavailable",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
+            Assert.Equal(1, pages.ReadCount);
+        }
+        finally
+        {
+            pages.Release.TrySetResult();
+            _ = await Record.ExceptionAsync(() => pending);
+        }
+    }
+
+    /// <summary>
+    /// Real verifier pagination over the original algorithm fixture. Only test source
+    /// I/O is synthetic; actual SQL authority, row mutations and issuer stay unchanged.
+    /// The gate deliberately ignores cancellation so the consumer must enforce it.
+    /// </summary>
+    private sealed class PagedSource(Source original, int gatePage = 0, int errorPage = 0)
+        : IAuthorFullTextSearchIndexSource
+    {
+        internal TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal int ReadCount
+        {
+            get; private set;
+        }
+        internal InvalidOperationException Error { get; } = new("synthetic page I/O failure");
+        internal int MalformedPage
+        {
+            get; set;
+        }
+        internal int LookupPage
+        {
+            get; set;
+        }
+        internal Action? OnDefinitionLookup
+        {
+            get; set;
+        }
+
+        public async Task<AuthorSearchIndexSourcePage> ReadAsync(int userId, string siteScope, int afterArticleId,
+            int pageSize, long? expectedSourceGeneration, CancellationToken cancellationToken)
+        {
+            int page = ++ReadCount;
+            if (page == gatePage)
+            {
+                Entered.TrySetResult();
+                await Release.Task.ConfigureAwait(false);
+            }
+            if (page == errorPage)
+            {
+                throw Error;
+            }
+            AuthorSearchIndexSourcePage source = await original.ReadAsync(userId, siteScope, afterArticleId,
+                1, expectedSourceGeneration, cancellationToken).ConfigureAwait(false);
+            if (page == LookupPage)
+            {
+                AuthorSearchIndexArticleSource article = source.Articles.Single();
+                source = source with
+                {
+                    Articles = [article with { Definitions = new LookupDefinitions(article.Definitions, OnDefinitionLookup!) }]
+                };
+            }
+            return source with
+            {
+                HasMore = source.Articles.Single().ArticleId < 3,
+                SourceGeneration = page == MalformedPage ? source.SourceGeneration + 1 : source.SourceGeneration
+            };
+        }
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, 3)]
+    public async Task AuthorizedPaginationPreservesOriginalOwnershipTypedPredicateAndPageTrimming(int value, int articleId)
+    {
+        using Case test = await CreateCaseAsync();
+        using AuthorFullTextSearchIndex index = await test.IndexAsync();
+        var pages = new PagedSource(test.Source);
+        AuthorSearchQuery query = AuthorFullTextSearchContract.SealQuery(test.Query(index, value) with
+        {
+            PageSize = 1
+        });
+        AuthorSearchTokenEvaluation result = await new AuthorFullTextSearchQueryEvaluator(index)
+            .InspectIndexAsync(query, test.Definitions, pages, test.Authority);
+        Assert.Equal(articleId, Assert.Single(result.Candidates).Document.Identity.ArticleId);
+        Assert.Equal(3, pages.ReadCount);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task AuthorizedSourceErrorsRetainTheirOriginalException(int page)
+    {
+        using Case test = await CreateCaseAsync();
+        using AuthorFullTextSearchIndex index = await test.IndexAsync();
+        var pages = new PagedSource(test.Source, errorPage: page);
+        Exception error = await Assert.ThrowsAsync<InvalidOperationException>(() => new AuthorFullTextSearchQueryEvaluator(index)
+            .InspectIndexAsync(test.Query(index, 0), test.Definitions, pages, test.Authority));
+        Assert.Same(pages.Error, error);
+        Assert.Equal(page, pages.ReadCount);
+    }
+
+    [Theory]
+    [InlineData(1, "throw")]
+    [InlineData(3, "throw")]
+    [InlineData(1, "generation")]
+    [InlineData(3, "generation")]
+    public async Task RevocationWinsAtThrowingAndMalformedPageBoundariesIncludingTheTerminalPage(int page, string fault)
+    {
+        using Case test = await CreateCaseAsync();
+        using AuthorFullTextSearchIndex index = await test.IndexAsync();
+        var pages = new PagedSource(test.Source, page, fault == "throw" ? page : 0)
+        {
+            MalformedPage = fault == "generation" ? page : 0
+        };
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        Task<AuthorSearchTokenEvaluation> pending = new AuthorFullTextSearchQueryEvaluator(index).InspectIndexAsync(
+            test.Query(index, 99), test.Definitions, pages, test.Authority, timeout.Token);
+        try
+        {
+            await pages.Entered.Task.WaitAsync(timeout.Token);
+            test.Change("revoked");
+            pages.Release.TrySetResult();
+            Assert.Equal("author_search_current_permission_unavailable",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
+            Assert.Equal(page, pages.ReadCount);
+        }
+        finally
+        {
+            pages.Release.TrySetResult();
+            _ = await Record.ExceptionAsync(() => pending);
+        }
+    }
+
+    [Theory]
+    [InlineData("normal")]
+    [InlineData("throw")]
+    [InlineData("generation")]
+    public async Task CancellationWinsAtTheTerminalReadEvenWhenSourceIgnoresItsToken(string fault)
+    {
+        using Case test = await CreateCaseAsync();
+        using AuthorFullTextSearchIndex index = await test.IndexAsync();
+        var pages = new PagedSource(test.Source, 3, fault == "throw" ? 3 : 0)
+        {
+            MalformedPage = fault == "generation" ? 3 : 0
+        };
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        Task<AuthorSearchTokenEvaluation> pending = new AuthorFullTextSearchQueryEvaluator(index).InspectIndexAsync(
+            test.Query(index, 99), test.Definitions, pages, test.Authority, cancellation.Token);
+        try
+        {
+            await pages.Entered.Task.WaitAsync(deadline.Token);
+            test.Change("revoked");
+            cancellation.Cancel();
+            pages.Release.TrySetResult();
+            var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+            Assert.Equal(cancellation.Token, error.CancellationToken);
+            Assert.Equal(3, pages.ReadCount);
+        }
+        finally
+        {
+            pages.Release.TrySetResult();
+            _ = await Record.ExceptionAsync(() => pending);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DriftWhileProcessingAPageMustBeCheckedBeforeTheNextSourceRead(bool cancel)
+    {
+        using Case test = await CreateCaseAsync();
+        using AuthorFullTextSearchIndex index = await test.IndexAsync();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        bool changed = false;
+        var pages = new PagedSource(test.Source)
+        {
+            LookupPage = 1,
+            OnDefinitionLookup = () =>
+            {
+                changed = true;
+                if (cancel)
+                {
+                    cancellation.Cancel();
+                }
+                else
+                {
+                    test.Change("revoked");
+                }
+            }
+        };
+        Task<AuthorSearchTokenEvaluation> pending = new AuthorFullTextSearchQueryEvaluator(index).InspectIndexAsync(
+            test.Query(index, 99), test.Definitions, pages, test.Authority, cancellation.Token);
+        if (cancel)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        }
+        else
+        {
+            Assert.Equal("author_search_current_permission_unavailable",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
+        }
+        Assert.True(changed);
+        Assert.Equal(1, pages.ReadCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TerminalVerifierFailureStillRevalidatesActualAuthorityAndCancellation(bool cancel)
+    {
+        using Case test = await CreateCaseAsync();
+        using AuthorFullTextSearchIndex index = await test.IndexAsync();
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        bool changed = false;
+        var pages = new PagedSource(test.Source) { LookupPage = 3 };
+        pages.OnDefinitionLookup = () =>
+        {
+            changed = true;
+            test.Change("revoked");
+            if (cancel)
+            {
+                cancellation.Cancel();
+            }
+            throw pages.Error;
+        };
+        Task<AuthorSearchTokenEvaluation> pending = new AuthorFullTextSearchQueryEvaluator(index).InspectIndexAsync(
+            test.Query(index, 99), test.Definitions, pages, test.Authority, cancellation.Token);
+        if (cancel)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        }
+        else
+        {
+            Assert.Equal("author_search_current_permission_unavailable",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
+        }
+        Assert.True(changed);
+        Assert.Equal(3, pages.ReadCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task EveryPageChecksOriginalIndexGenerationEvenWhenSourceThrows(bool fail)
+    {
+        using Case test = await CreateCaseAsync();
+        using AuthorFullTextSearchIndex index = await test.IndexAsync();
+        var pages = new PagedSource(test.Source, 1, fail ? 1 : 0);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        Task<AuthorSearchTokenEvaluation> pending = new AuthorFullTextSearchQueryEvaluator(index).InspectIndexAsync(
+            test.Query(index, 0), test.Definitions, pages, test.Authority, timeout.Token);
+        try
+        {
+            await pages.Entered.Task.WaitAsync(timeout.Token);
+            while (await index.RebuildStepAsync(cancellationToken: timeout.Token) is not null)
+            {
+            }
+            pages.Release.TrySetResult();
+            Assert.Equal("author_search_index_source_snapshot_stale",
+                (await Assert.ThrowsAsync<AuthorSearchContractException>(() => pending)).Message);
+            Assert.Equal(1, pages.ReadCount);
+        }
+        finally
+        {
+            pages.Release.TrySetResult();
+            _ = await Record.ExceptionAsync(() => pending);
+        }
+    }
+
+    /// <summary>Runs a real SQL/cancellation mutation during synchronous verifier processing, after a page's I/O fence.</summary>
+    private sealed class LookupDefinitions(IReadOnlyDictionary<Guid, ArticlePropertyDefinition> definitions, Action onLookup)
+        : IReadOnlyDictionary<Guid, ArticlePropertyDefinition>
+    {
+        private Action? _onLookup = onLookup;
+        public int Count => definitions.Count;
+        public IEnumerable<Guid> Keys => definitions.Keys;
+        public IEnumerable<ArticlePropertyDefinition> Values => definitions.Values;
+        public ArticlePropertyDefinition this[Guid key]
+        {
+            get
+            {
+                Interlocked.Exchange(ref _onLookup, null)?.Invoke();
+                return definitions[key];
+            }
+        }
+        public bool ContainsKey(Guid key) => definitions.ContainsKey(key);
+        public bool TryGetValue(Guid key, out ArticlePropertyDefinition value)
+        {
+            Interlocked.Exchange(ref _onLookup, null)?.Invoke();
+            return definitions.TryGetValue(key, out value!);
+        }
+        public IEnumerator<KeyValuePair<Guid, ArticlePropertyDefinition>> GetEnumerator() => definitions.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
 }
