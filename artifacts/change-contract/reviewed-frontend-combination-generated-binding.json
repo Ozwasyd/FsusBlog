@@ -1,0 +1,92 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/frontend/checks/static/check-canonical-viewport-safe-area.mjs",
+        "tests/frontend/checks/static/check-document-viewport-source.mjs",
+        "tests/frontend/support/aeds-envelope.mjs",
+        "tests/frontend/support/playwright/browser-capability-contract.mjs",
+        "tests/frontend/support/playwright/readiness.mjs",
+        "tests/frontend/support/playwright/screenshotPathTemplate.mjs",
+        "tests/frontend/support/playwright/uxViewportPlan.mjs",
+        "tests/frontend/support/public-fixtures.mjs",
+        "tests/frontend/support/publicBootstrapCausalEvidence.mjs",
+        "tests/frontend/support/runtime-browser-timeout.mjs",
+        "tests/frontend/support/system-chromium.mjs",
+        "tools/docs/public-preview-quality.mjs",
+        "tools/docs/public-preview-registry.mjs",
+        "tools/frontend/generate-canonical-test-declarations.mjs",
+        "tools/test-fixtures/receipt/canonical.mjs",
+        "tools/test/playwright-browser-identity.mjs",
+        "tools/test/random-streams.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/frontend/checks/static/check-canonical-viewport-safe-area.d.mts",
+            "sha256": "ab6e587e135278e6c17a30f0107d25f3906100c3ee59de37fd52d96a2ee00da4"
+        },
+        {
+            "path": "tests/frontend/checks/static/check-document-viewport-source.d.mts",
+            "sha256": "38d6addf45b58701dd11a7e4a3b19b505da1225deea16027801312e1b665bdc5"
+        },
+        {
+            "path": "tests/frontend/support/aeds-envelope.d.mts",
+            "sha256": "557227b14d0643b82900e5c536a733157021913bb206aadd5b842ab119710557"
+        },
+        {
+            "path": "tests/frontend/support/playwright/browser-capability-contract.d.mts",
+            "sha256": "fa9292c5a4738c1f770609901710c425194b0aff2ff2c8570d8d660717524bc5"
+        },
+        {
+            "path": "tests/frontend/support/playwright/readiness.d.mts",
+            "sha256": "49cc96b8e59b444271e1151be9b1e019eea299b2e2173d61318398ea86a09246"
+        },
+        {
+            "path": "tests/frontend/support/playwright/screenshotPathTemplate.d.mts",
+            "sha256": "bb92dec23008c5d5b82fa52dfc6dbf1ce3277249deee2a65e9231feb13d9d42f"
+        },
+        {
+            "path": "tests/frontend/support/playwright/uxViewportPlan.d.mts",
+            "sha256": "7b3bd47177615e340030f69417fc8cbc83f8819a4fb2a90ac0acbc0356b8e38f"
+        },
+        {
+            "path": "tests/frontend/support/public-fixtures.d.mts",
+            "sha256": "04d604f087e22de8bcd4d64daa86e3b4f087a1341b5a80322c4bdd2d5151cb2f"
+        },
+        {
+            "path": "tests/frontend/support/publicBootstrapCausalEvidence.d.mts",
+            "sha256": "a79c2989377bfd4360dfd03ffcd93062262381e747c81fbba6fb7f8e2b80dec1"
+        },
+        {
+            "path": "tests/frontend/support/runtime-browser-timeout.d.mts",
+            "sha256": "0eeb8119f44cc3d0d8a26e60cb53d3f10d6a73ce32116de52493df18791985d0"
+        },
+        {
+            "path": "tests/frontend/support/system-chromium.d.mts",
+            "sha256": "1cb5d81957a3bbff02ab397dd2ee4f2c70bb1791626841c719d84de26e6d1454"
+        },
+        {
+            "path": "tools/docs/public-preview-quality.d.mts",
+            "sha256": "2e7a1f75cba45e21a57fac97409fd947bd1a8a3e068e3c557dde2d5e4492ec62"
+        },
+        {
+            "path": "tools/docs/public-preview-registry.d.mts",
+            "sha256": "df9b1c3f87eb2aa35a15c76d90e0940b0df426b0832a7dd8a3a17cf2a2640ef8"
+        },
+        {
+            "path": "tools/test-fixtures/receipt/canonical.d.mts",
+            "sha256": "e8729615315b9d164e87c9bfeecb4e10de3c9e0ad0efca480c55800837f80066"
+        },
+        {
+            "path": "tools/test/playwright-browser-identity.d.mts",
+            "sha256": "89a68669e9be5137edfb2bc40bdebb7e9ba1d0f276f6733cfb75368448b3720e"
+        },
+        {
+            "path": "tools/test/random-streams.d.mts",
+            "sha256": "63b42c97d69b9e8d24224f7875a86a87b294e8e220020f50a4aa115bd20fbb2a"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "8b78f79afcf7357a4ebdeb7ccde6640c180d25406b487930fb48faa48e00e28e"
+        }
+    ]
+}
