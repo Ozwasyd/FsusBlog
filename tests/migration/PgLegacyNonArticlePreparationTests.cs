@@ -64,7 +64,8 @@ public sealed class PgLegacyNonArticlePreparationTests
     public void UnknownAssignedOrExcludedPropertyCannotDisappear(string change)
     {
         var expressions = new Dictionary<string, string> { ["Id"] = "s.id", ["Value"] = "s.value" };
-        if (change == "unknown") expressions.Add("Unknown", "s.other");
+        if (change == "unknown")
+            expressions.Add("Unknown", "s.other");
         Assert.Throws<InvalidOperationException>(() => PgLegacyNonArticlePreparation.BindTable(
             Table(), Owner, "SELECT * FROM original", expressions, null, change == "omitted" ? ["Unknown"] : [], false, Input()));
     }
@@ -88,7 +89,10 @@ public sealed class PgLegacyNonArticlePreparationTests
         SchemaTableModel table = Table();
         Assert.Throws<InvalidOperationException>(() => PgLegacyNonArticlePreparation.BindTable(
             table, Owner, "SELECT * FROM original", new Dictionary<string, string> { ["Value"] = "s.value" }, "Id", [], false, Input()));
-        table.Columns["actual_id"] = table.Columns["actual_id"] with { IsIdentity = true };
+        table.Columns["actual_id"] = table.Columns["actual_id"] with
+        {
+            IsIdentity = true
+        };
         var program = PgLegacyNonArticlePreparation.BindTable(table, Owner, "SELECT * FROM original",
             new Dictionary<string, string> { ["Value"] = "s.value" }, "Id", [], false, Input());
         Assert.DoesNotContain("CAST((s.id)", program.InsertSql, StringComparison.Ordinal);
@@ -160,7 +164,10 @@ public sealed class PgLegacyNonArticlePreparationTests
 
     private sealed class FailingResource : IAsyncDisposable
     {
-        internal bool Disposed { get; private set; }
+        internal bool Disposed
+        {
+            get; private set;
+        }
         public ValueTask DisposeAsync()
         {
             Disposed = true;

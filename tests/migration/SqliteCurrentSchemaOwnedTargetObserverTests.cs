@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 
 using Microsoft.Data.Sqlite;
+
 using Xunit;
 
 using FsusBlog.Contracts.Migration;
@@ -195,7 +196,10 @@ public sealed class SqliteCurrentSchemaOwnedTargetObserverTests
             }.ToString());
         }
 
-        internal SqliteConnection Connection { get; }
+        internal SqliteConnection Connection
+        {
+            get;
+        }
         internal DbTransaction Transaction => _transaction!;
         internal CancellationToken Token => _cancellation.Token;
 

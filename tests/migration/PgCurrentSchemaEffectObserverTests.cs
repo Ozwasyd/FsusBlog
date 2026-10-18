@@ -63,9 +63,18 @@ public sealed class PgCurrentSchemaEffectObserverTests
     public void ExtraMissingAndDuplicateEffects_AreNotAClosedOwnedProjection()
     {
         PgCurrentSchemaEffectObservation original = Original();
-        Assert.NotEmpty(PgCurrentSchemaEffectObserver.CompareEffects(s_expected, original with { Sequences = [] }));
-        Assert.NotEmpty(PgCurrentSchemaEffectObserver.CompareEffects(s_expected, original with { Functions = [.. original.Functions, original.Functions[0]] }));
-        Assert.NotEmpty(PgCurrentSchemaEffectObserver.CompareEffects(s_expected, original with { Triggers = [.. original.Triggers, original.Triggers[0] with { Name = "foreign_guard" }] }));
+        Assert.NotEmpty(PgCurrentSchemaEffectObserver.CompareEffects(s_expected, original with
+        {
+            Sequences = []
+        }));
+        Assert.NotEmpty(PgCurrentSchemaEffectObserver.CompareEffects(s_expected, original with
+        {
+            Functions = [.. original.Functions, original.Functions[0]]
+        }));
+        Assert.NotEmpty(PgCurrentSchemaEffectObserver.CompareEffects(s_expected, original with
+        {
+            Triggers = [.. original.Triggers, original.Triggers[0] with { Name = "foreign_guard" }]
+        }));
     }
 
     [Fact]

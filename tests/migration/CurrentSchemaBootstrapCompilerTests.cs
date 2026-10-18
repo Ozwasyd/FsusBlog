@@ -114,10 +114,16 @@ public sealed class CurrentSchemaBootstrapCompilerTests
         Assert.False(compiled.Commands[6].IsDdl);
         Assert.NotEqual(input.EntityProjection.Identity.ContentDigest, compiled.Target.ContentDigest);
         Assert.Equal(compiled.Target, CurrentSchemaBootstrapCompiler.Compile(input, owner, SchemaProviderKind.PostgreSql, binding).Target);
-        var dropped = input with { RequiredRecipes = [] };
+        var dropped = input with
+        {
+            RequiredRecipes = []
+        };
         Assert.Contains("recipe_closure_unavailable", Assert.Throws<InvalidOperationException>(() =>
             CurrentSchemaBootstrapCompiler.Compile(dropped, owner, SchemaProviderKind.PostgreSql, binding)).Message);
-        table.Columns["value"] = columns["value"] with { DefaultValue = "1" };
+        table.Columns["value"] = columns["value"] with
+        {
+            DefaultValue = "1"
+        };
         Assert.Contains("recipe_semantic_binding_invalid", Assert.Throws<InvalidOperationException>(() =>
             CurrentSchemaBootstrapCompiler.Compile(input, owner, SchemaProviderKind.PostgreSql, binding)).Message);
     }
@@ -149,7 +155,10 @@ public sealed class CurrentSchemaBootstrapCompilerTests
         CurrentSchemaProducerIdentity owner = Owner();
         var input = new CurrentSchemaBootstrapInput(Projection(), owner, []);
         Assert.Contains("owner_binding_invalid", Assert.Throws<InvalidOperationException>(
-            () => CurrentSchemaBootstrapCompiler.Compile(input, owner with { ProducerAssemblySha256 = new string('c', 64) },
+            () => CurrentSchemaBootstrapCompiler.Compile(input, owner with
+            {
+                ProducerAssemblySha256 = new string('c', 64)
+            },
                 SchemaProviderKind.PostgreSql)).Message);
     }
 
