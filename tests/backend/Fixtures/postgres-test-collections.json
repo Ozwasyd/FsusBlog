@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 348,
+      "estimatedFacts": 377,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -176,6 +176,10 @@
         {
           "path": "Integration/AuthoringExtensionStatePostgresTests.cs",
           "class": "AuthoringExtensionStatePostgresTests"
+        },
+        {
+          "path": "Integration/AuthoringExtensionApprovalPostgresTests.cs",
+          "class": "AuthoringExtensionApprovalPostgresTests"
         }
       ]
     },

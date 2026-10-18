@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalContract.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalAuthority.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionApprovalStore.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionApprovalStorageSchema.cs"
+            ],
+            "reason": "These exact new server C# files are covered by the existing src/**/*.cs environment-variable surface. Preserve existing admin claim, admin-sensitive proof and PostgreSQL storage spellings; no environment setting or trusted policy is changed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Document the exact server approval producer and remaining HTTP/AEDS/UI and migration owner boundaries in the current architecture document, preserving its existing externally addressable fragments."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Register only the added approval PostgreSQL class and its actual 29 cases in the existing collection manifest without changing existing test membership or hiding pre-existing collection drift."
+        }
+    ]
+}

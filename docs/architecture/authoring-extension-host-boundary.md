@@ -517,6 +517,79 @@ claimed as terminal acceptance. Removing the scoped registration is the rollback
 boundary; preserve existing receipt rows for audit and do not recreate an empty
 store as a recovery shortcut.
 
+## Durable authoring state approval producer (WIP consumers)
+
+`AuthoringExtensionApprovalAuthority` prepares migration and independent data-deletion
+confirmations using the original `FreezePlan`, `AuthoringFencedStateMigration`,
+`ReadAsync`, `MeasureAsync`, and `AuthoringStateMeasurement` contracts. The preview
+includes both exact migration scopes, observed record/byte counts, schemas, full
+plan digest, lifecycle head and generation, expiry, and a closed retention policy.
+Deletion requires the original RetainedData lifecycle head and includes current
+state and retained backup measurement; equal counts do
+not authorize different bytes. Uninstall does not imply data-deletion consent.
+
+The host must display this preview and submit its exact digest through the
+operation-specific confirmation method. The existing `admin-sensitive` one-time
+proof is consumed through `IAdminPrincipalService`; it establishes recent identity,
+not consent to a plan. There is no generic plugin confirmation or approved boolean.
+The store enforces one decision for the same package/scope/revision/content effect;
+changing a plan ID, actor or lifecycle head cannot create another approval after a lost response.
+An ID locates a durable decision. It cannot authorize an operation by itself.
+
+The producer requires an authenticated admin principal from `HttpContext`, its
+`admin_id` and `admin_sid`, an explicit `AuthoringExtensions:SiteId` configuration,
+and current SQL `admin_principal` / `admin_session` rows. Missing configuration,
+permissions, schema, keys, session, state or receipt authority fails closed. V1
+requires the actual `system.config` permission for site administration; root status
+or claimed permissions alone do not substitute for it. Principal/session `xmin`,
+validation versions, active status, both expiry bounds and revocation are checked.
+Row locks exclude concurrent permission/session mutation until the decision commits.
+
+`AuthoringExtensionOperationContext` is the sole versioned binding for lifecycle
+preflight consumers. Its actor hash binds the SQL principal/session snapshot and
+configured site; its other fields bind the exact opaque state user, nullable
+document, source/destination scope digests, and lifecycle generation/head. There is
+no canonical admin ID to state `UserId` mapping. Policy
+`system-config-site-state-admin-v1` explicitly authorizes a site administrator to
+manage only the separately confirmed extension-owned state scope; it grants no
+core document read, authorship, history, asset, or cross-site permission. The
+context is descriptive and must be consumed from the same issued `ApprovedClaim`,
+not treated as an independently supplied credential.
+
+`PostgresAuthoringExtensionApprovalStore` persists a Data Protection protected
+exact decision and every status event. Pending transitions to Approved or Denied;
+only Approved can transition once to Claimed. Completed, Failed, RecoveryRequired,
+Revoked and Expired cannot become another claim. The protected journal is checked
+against the current row so restoring an earlier approved head alone fails. A
+confirmation that loses its SQL commit also loses its decision/event update; its
+already consumed identity proof requires fresh step-up. Claim failure rolls back
+the claim event. No state values or proof tokens enter plaintext audit records.
+
+Prepare reads actual state and lifecycle facts before creating the decision. State
+and receipt stores retain their original independently owned transactions: they
+are never placed inside an ambient approval transaction. Claim rechecks the exact
+plan/measurement and lifecycle generation, and uses the receipt store's existing
+advisory lock at its final decision CAS. This does not create atomicity across
+stores. The lifecycle coordinator must recheck its original state fences,
+revisions and exact receipt before effects, and bind the result receipt scope
+digest to the claim digest. A response lost after claim does not authorize a second
+claim or another deletion. Restart inspection can mark that same durable claim
+RecoveryRequired without issuing a new capability. Automated resumption of an
+effect is not supplied by this producer; the coordinator must recover the same
+operation using its exact durable state/receipt evidence.
+
+The leaf `AuthoringExtensionApprovalStorageSchema` supplies only DDL. Runtime
+methods do not create tables, change existing state/receipt schemas, or register
+production migrations. The migration definitions/catalog/manifest, production DI,
+lifecycle consumer, HTTP/AEDS transport and real confirmation UI remain separately
+owned WIP work. The preview/context here are internal host contracts, not newly
+registered AEDS frames; the shared protocol owner must serialize any future wire
+contract. Tests use isolated PostgreSQL databases, real state/receipt stores,
+Data Protection, and the existing admin proof issuer with real Redis one-time
+consumption. They do not establish a human confirmation or a new Passkey ceremony.
+Rollback removes producer registration/consumers while preserving decisions and
+events for recovery; never recreate an empty approval store to retry an effect.
+
 ## Resource budgets, crash isolation, and telemetry
 
 Every runtime operation is admitted against the exact resource policy from its
