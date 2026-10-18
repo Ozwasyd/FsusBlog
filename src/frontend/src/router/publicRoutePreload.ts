@@ -569,7 +569,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
 
                 // Component chunk and navigation snapshot are independent producers.
                 // Start both before either resolves; abort the sibling on hard failure.
-                let producerFailure: { stage: 'component' | 'snapshot'; error: unknown; } | null = null;
+                const producerFailure: { current: { stage: 'component' | 'snapshot'; error: unknown; } | null; } = { current: null };
                 const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
                 const componentTask = (async () =>
@@ -586,7 +586,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
                         state.routeComponentMs = Math.max(0, nowMs() - startedAt);
                         if (!isAbortError(error))
                         {
-                            producerFailure ??= { stage: 'component', error };
+                            producerFailure.current ??= { stage: 'component', error };
                             if (!linked.controller.signal.aborted)
                             {
                                 linked.controller.abort(error);
@@ -610,7 +610,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
                         state.routeSnapshotMs = Math.max(0, nowMs() - startedAt);
                         if (!isAbortError(error) && !linked.controller.signal.aborted)
                         {
-                            producerFailure ??= { stage: 'snapshot', error };
+                            producerFailure.current ??= { stage: 'snapshot', error };
                             linked.controller.abort(error);
                         }
                         throw error;
@@ -628,13 +628,13 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
                 }
                 catch (error)
                 {
-                    if (producerFailure?.stage === 'component')
+                    if (producerFailure.current?.stage === 'component')
                     {
-                        throw new Error(`route-component-failed: ${failureMessage(producerFailure.error)}`);
+                        throw new Error(`route-component-failed: ${failureMessage(producerFailure.current.error)}`);
                     }
-                    if (producerFailure?.stage === 'snapshot')
+                    if (producerFailure.current?.stage === 'snapshot')
                     {
-                        throw new Error(`route-snapshot-failed: ${failureMessage(producerFailure.error)}`);
+                        throw new Error(`route-snapshot-failed: ${failureMessage(producerFailure.current.error)}`);
                     }
                     throw error;
                 }
