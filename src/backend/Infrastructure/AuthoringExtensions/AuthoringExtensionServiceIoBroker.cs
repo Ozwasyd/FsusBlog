@@ -502,7 +502,7 @@ public sealed class AuthoringExtensionServiceIoBroker
             TimeSpan remaining = expiresAt - _timeProvider.GetUtcNow();
             if (remaining <= TimeSpan.Zero)
             {
-                throw new OperationCanceledException("Service I/O grant expired.", callerToken);
+                throw new AuthoringExtensionContractException("Service I/O grant expired.");
             }
 
             _expiry = new CancellationTokenSource();
@@ -529,7 +529,7 @@ public sealed class AuthoringExtensionServiceIoBroker
             _callerToken.ThrowIfCancellationRequested();
             if (_expiresAt <= _timeProvider.GetUtcNow())
             {
-                throw new OperationCanceledException("Service I/O grant expired.", Token);
+                throw new AuthoringExtensionContractException("Service I/O grant expired.");
             }
 
             Token.ThrowIfCancellationRequested();

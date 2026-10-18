@@ -17,11 +17,12 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         using var fixture = new IoFixture();
         AuthoringNetworkGrant grant = fixture.NetworkGrant(DateTimeOffset.UtcNow.AddMilliseconds(100));
         int calls = 0;
-        fixture.ResolveAddress = async _ =>
+        fixture.ResolveAddress = async token =>
         {
             if (++calls == expireOnCall)
             {
                 await PassDeadlineAsync(grant.ExpiresAt);
+                await ObserveCancellationAsync(token);
             }
         };
 
@@ -38,7 +39,7 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         AuthoringNetworkGrant grant = fixture.NetworkGrant(DateTimeOffset.UtcNow.AddMilliseconds(100));
         fixture.GetResponse = _ => PassDeadlineAsync(grant.ExpiresAt);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await fixture.Broker().FetchAsync(grant, grant.RuntimeIdentity, grant.Purpose, "/"));
 
         Assert.Equal(1, fixture.NetworkCalls);
@@ -82,7 +83,11 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
     {
         using var fixture = new IoFixture();
         AuthoringFileGrant grant = fixture.FileGrant(stage, DateTimeOffset.UtcNow.AddMilliseconds(100));
-        fixture.ResolvePath = _ => PassDeadlineAsync(grant.ExpiresAt);
+        fixture.ResolvePath = async token =>
+        {
+            await PassDeadlineAsync(grant.ExpiresAt);
+            await ObserveCancellationAsync(token);
+        };
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
@@ -155,7 +160,7 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         }
         else
         {
-            Assert.Throws<OperationCanceledException>(deadline.ThrowIfExpiredOrCancelled);
+            Assert.Throws<AuthoringExtensionContractException>(deadline.ThrowIfExpiredOrCancelled);
         }
     }
 
@@ -209,7 +214,14 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         {
             released.TrySetResult();
         }
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        if (operation == 1)
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(() => run);
+        }
+        else
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        }
         Assert.Empty(Directory.EnumerateFiles(fixture.Staging));
     }
 
@@ -254,7 +266,7 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         int checks = 0;
         int permissions = 0;
         int deletes = 0;
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await AuthoringExtensionServiceIoBroker.WriteOwnedProposalAsync(
                 path,
                 new byte[] { 4, 5, 6 },
@@ -317,7 +329,7 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         DateTimeOffset expiresAt = clock.Now.AddMinutes(1);
         using var deadline = new AuthoringExtensionServiceIoBroker.GrantIoDeadline(expiresAt, default, clock);
         using var stream = new CallbackReadStream(() => clock.Now = expiresAt, returnedBytes);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
             await PinnedHttpsAuthoringNetworkTransport.ReadBoundedAsync(stream, 10, deadline.Token, deadline.ThrowIfExpiredOrCancelled));
     }
 
@@ -499,7 +511,7 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         clock.Now = expiresAt;
         clock.Timer.Fire();
         Assert.True(token.IsCancellationRequested);
-        Assert.Throws<OperationCanceledException>(deadline.ThrowIfExpiredOrCancelled);
+        Assert.Throws<AuthoringExtensionContractException>(deadline.ThrowIfExpiredOrCancelled);
         deadline.Dispose();
         deadline.Dispose();
         Assert.True(clock.Timer.Disposed);
@@ -589,7 +601,7 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
         fixture.GetResponse = Expire;
         fixture.ResolvePath = Expire;
         var broker = fixture.Broker();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        async Task Run()
         {
             if (operation == 0)
             {
@@ -606,7 +618,15 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
                 AuthoringFileGrant grant = fixture.FileGrant(true, expiresAt);
                 await broker.StageProposedWriteAsync(grant, grant.RuntimeIdentity, grant.Purpose, [4, 5, 6]);
             }
-        });
+        }
+        if (operation == 0)
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(Run);
+        }
+        else
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(Run);
+        }
         Assert.Empty(Directory.EnumerateFiles(fixture.Staging));
         Assert.Equal(new byte[] { 1, 2, 3 }, File.ReadAllBytes(fixture.Input));
     }
@@ -703,6 +723,14 @@ public sealed class AuthoringServiceIoGrantDeadlineTests
     {
         public DateTimeOffset Now { get; set; } = now;
         public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private static async Task ObserveCancellationAsync(CancellationToken token)
+    {
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using CancellationTokenRegistration registration = token.Register(() => cancelled.TrySetResult());
+        await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(token.IsCancellationRequested);
     }
 
     private static async Task PassDeadlineAsync(DateTimeOffset deadline)
