@@ -12,6 +12,69 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AuthoringProductionPreflightPostgresTests(PostgresSchemaMigrationFixture postgres)
 {
+    [Theory]
+    [InlineData("completed")]
+    [InlineData("rolledback")]
+    [InlineData("missing-history")]
+    [InlineData("later-drift")]
+    public async Task OriginalRecoveryObservation_IsReadOnly_AndRefusesMissingHistoryOrLaterDrift(string scenario)
+    {
+        using var source = await AuthoringProductionPreflightFixture.CreateAsync();
+        using var target = await AuthoringProductionPreflightFixture.CreateAsync(version: "2.0.0");
+        using SqlSugarClient db = await DatabaseAsync();
+        var state = new PostgresAuthoringExtensionStateStore(db);
+        await state.InitializeAsync(source.Package, source.Scope, default);
+        await state.InitializeAsync(target.Package, target.Scope, default);
+        await state.WriteAsync(source.Package, source.Scope, 0, new("old", [1, 2, 3]), default);
+        AuthoringStateSnapshot original = await state.ReadAsync(source.Package, source.Scope, default);
+        AuthoringFencedStateMigration plan = AuthoringStateProcessWorker.Plan(original, target.Scope);
+        await state.BackupAsync(source.Package, target.Package, plan, default);
+        AuthoringStateSnapshot actualApply = await state.ApplyAsync(source.Package, target.Package, plan, default);
+        AuthoringStateMigrationPhase phase = scenario == "rolledback"
+            ? AuthoringStateMigrationPhase.RolledBack : AuthoringStateMigrationPhase.Completed;
+        if (phase == AuthoringStateMigrationPhase.RolledBack)
+        {
+            await state.RollbackAsync(source.Package, target.Package, plan, default);
+        }
+        else
+        {
+            await state.CompleteAsync(source.Package, target.Package, plan, default);
+        }
+        if (scenario == "missing-history")
+        {
+            await db.Ado.ExecuteCommandAsync("DELETE FROM authoring_extension_state_settlement;");
+        }
+        if (scenario == "later-drift")
+        {
+            AuthoringStateSnapshot current = await state.ReadAsync(target.Package, target.Scope, default);
+            await state.WriteAsync(target.Package, target.Scope, current.Revision, new("later", [9]), default);
+        }
+        int journals = await db.Ado.GetIntAsync("SELECT count(*) FROM authoring_extension_state_settlement;");
+        AuthoringStateSnapshot before = await state.ReadAsync(target.Package, target.Scope, default);
+        AuthoringExtensionProductionComposition composition = target.Compose(db);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        if (scenario is "missing-history" or "later-drift")
+        {
+            var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await composition.Preflight.AcquireSettledStateObservationAsync(source.Package, target.Package, plan, phase, deadline.Token));
+            Assert.Equal(scenario == "missing-history" ? "state_settled_observation_not_recorded"
+                : "state_settled_observation_drift_requires_recovery", error.Message);
+        }
+        else
+        {
+            await using IAuthoringExtensionStateObservation held = await composition.Preflight.AcquireSettledStateObservationAsync(
+                source.Package, target.Package, plan, phase, deadline.Token);
+            await held.VerifyCurrentAsync(deadline.Token);
+            Assert.Equal(phase, held.State.Phase);
+            Assert.Equal(before.ContentSha256, held.State.To!.Snapshot.ContentSha256);
+            Assert.NotEqual(actualApply.Revision, held.State.To.Snapshot.Revision);
+        }
+        Assert.Equal(journals, await db.Ado.GetIntAsync("SELECT count(*) FROM authoring_extension_state_settlement;"));
+        Assert.Equal(before.ContentSha256, (await state.ReadAsync(target.Package, target.Scope, deadline.Token)).ContentSha256);
+        Assert.Equal((int)phase, await db.Ado.GetIntAsync("SELECT phase FROM authoring_extension_state_migration;"));
+        Assert.Equal(0, composition.HostResources.PublishedGenerations);
+    }
+
     [Fact]
     public async Task CanonicalOrderedScope_MissingOverrideRefusesWithoutLegacyFallbackOrTakingStateOwnership()
     {
