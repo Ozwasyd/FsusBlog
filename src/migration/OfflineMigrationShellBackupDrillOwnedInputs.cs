@@ -104,7 +104,10 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
     private async Task VerifyToolsAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        Require(OperatingSystem.IsLinux(), "linux_operation_owner_required");
+        if (!OperatingSystem.IsLinux())
+        {
+            throw Failure("linux_operation_owner_required");
+        }
         Require(_scope.ExpectedDatabase is not null
             && _scope.ExpectedDatabase.Provider == CurrentSchemaProviderKind.PostgreSql
             && !string.IsNullOrWhiteSpace(_scope.ExpectedDatabase.InstanceId)
