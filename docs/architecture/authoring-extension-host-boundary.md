@@ -784,15 +784,22 @@ ports are unknown. Removed counts are never reported as remaining counts.
 `PrepareAsync` freezes the actual fenced `ApplyAsync` return, validates its exact
 scope, package, revision, bounded bytes and canonical digest, and joins it to the
 original current Starting receipt and proposed next Running generation. It never
-performs an ordinary state read through the migration fence. Known unsafe approval
-input is refused before native effects. Behind that explicit qualification guard,
+performs an ordinary state read through the migration fence. Unqualified scope/result custody
+is refused before native effects. Behind that explicit qualification guard,
 the preparation code retains failed-start custody before the first native await,
 launches only original providers, observes their exact owner-bound physical leases
 and descriptors, and calls the original Resources.Track at the supplied generation.
 No static identity, caller-ready flag or arbitrary generation supplies custody.
 
-Prepared verification checks current native owners, service health, authenticated
-claim, package trust and the exact durable Starting or Running receipt. Publication
+Prepared verification checks current native owners, service health, exact current
+grants, authenticated claim, package trust and the exact durable Starting or Running
+receipt. The original approval codec binds the actual applied snapshot, ordered
+old/new targets and proposed Running generation in an execution-result record;
+Running `ScopeDigest` must equal that record's content digest. Starting still
+uses the original claim digest. Payload digests remain manifest `PackageSha256`,
+while state snapshots keep compound `PackageIdentity`. A result record describes
+data and cannot replace the original held execution-result authority. After
+publication, observations reacquire the actual package scope. Publication
 repeats verification under the common registry gate. However, original native
 readiness does not attest the applied state snapshot, and original document Execute
 requests require document epoch/revision facts absent from the state snapshot.
