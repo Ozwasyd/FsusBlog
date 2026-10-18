@@ -9,6 +9,11 @@ describe('user comment moderation status view contract', () => {
       createTime: '2026-06-17T00:00:00.000Z',
       articleId: 5,
       articleTitle: 'Article Title',
+      author: {
+        mode: 'public',
+        displayName: 'Comment author',
+        displayLanguage: 'zh-CN'
+      },
       moderationStatus: 0,
       moderationStatusLabel: '待审核，仅自己可见',
       visibilityState: 'pending',

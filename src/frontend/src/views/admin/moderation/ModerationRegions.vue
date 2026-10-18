@@ -19,7 +19,7 @@
 
             <FsusUiDataList
                 class="moderation-regions-mobile-list"
-                :rows="displayRegions"
+                :rows="regionNavigationRows"
                 :columns="regionMobileColumns"
                 row-key="regionCode"
                 :active-key="selectedRegionCode"
@@ -36,9 +36,7 @@
                         v-if="column.key === 'region'"
                         class="moderation-regions-mobile-summary"
                         :class="{
-                            'moderation-regions-mobile-summary--child': isChildRegion(
-                                row as ModerationRegionDefinition,
-                            ),
+                            'moderation-regions-mobile-summary--child': row.isChild,
                         }"
                     >
                         <span
@@ -52,9 +50,9 @@
                         </span>
                         <span
                             class="moderation-regions-mobile-cell moderation-regions-mobile-meta"
-                            :title="formatRegionListMeta(row as ModerationRegionDefinition)"
+                            :title="readRuleField(row, 'meta')"
                         >
-                            {{ formatRegionListMeta(row as ModerationRegionDefinition) }}
+                            {{ readRuleField(row, 'meta') }}
                         </span>
                     </span>
                     <span
@@ -430,7 +428,15 @@ const formatChecksum = (checksum?: string | null): string =>
 
 const getRegionParentCode = (
     region: ModerationRegionDefinition
-): string | null => region.parentRegion?.trim() || null;
+): string | null =>
+{
+    const parentCode = region.parentRegion?.trim();
+    if (!parentCode)
+    {
+        return null;
+    }
+    return parentCode;
+};
 
 const isChildRegion = (region: ModerationRegionDefinition): boolean =>
     getRegionParentCode(region) !== null;
@@ -507,6 +513,14 @@ const formatRegionListMeta = (region: ModerationRegionDefinition): string =>
     return parts.join(" · ");
 };
 
+const regionNavigationRows = computed<FsusUiDataListRow[]>(() =>
+    displayRegions.value.map((region) => ({
+        regionCode: region.regionCode,
+        isChild: isChildRegion(region),
+        meta: formatRegionListMeta(region)
+    }))
+);
+
 const formatSourceId = (sourceId?: string | null): string =>
 {
     if (!sourceId)
@@ -566,8 +580,9 @@ const regionPreviewHref = (regionCode: string): string =>
     }).href;
 };
 
-const getRegionCode = (row: FsusUiDataListRow): string =>
-    String(row.regionCode ?? "");
+const getRegionCode = (
+    row: { regionCode?: FsusUiDataListRowKey | null; }
+): string => String(row.regionCode ?? "");
 const regionPreviewHrefForRow = (row: FsusUiDataListRow): string =>
     regionPreviewHref(getRegionCode(row));
 const handleMobileRegionClick = (
