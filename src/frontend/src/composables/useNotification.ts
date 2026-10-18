@@ -2,6 +2,7 @@ import { storeToRefs } from 'pinia';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import type { mapPowChallengeFromPayload } from '@/adapters/binary/authAdapter';
 import { getPowChallenge } from '@/api/auth';
 import { usePow } from '@/composables/usePow';
 import { toast } from '@/fsusui/feedback';
@@ -172,7 +173,7 @@ export function useNotification()
 
         prewarm();
         const fp = getBrowserFp();
-        const challengeRes = await getPowChallenge();
+        const challengeRes = await getPowChallenge() as ReturnType<typeof mapPowChallengeFromPayload>;
         const { salt, difficulty, timestamp, signature } = challengeRes;
         const { nonce } = await calculate(salt, fp, difficulty);
         const pow: PowParams = { nonce, salt, fp, signature, difficulty, timestamp };

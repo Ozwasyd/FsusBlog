@@ -584,3 +584,75 @@ describe('authBroadcastRuntime', () => {
     expect(result.items.find(item => item.id === 'admin-pinia')).toMatchObject({ status: 'cleared', affected: 1 })
   })
 })
+
+
+describe('private surface rejection identity and transition ordering', () => {
+  beforeEach(() => {
+    privateSurfaceRuntime.resetForTests()
+    privateRequestRuntime.resetForTests()
+  })
+
+  afterEach(() => {
+    privateSurfaceRuntime.resetForTests()
+    privateRequestRuntime.resetForTests()
+  })
+
+  const failures: [string, unknown][] = [
+    ['Error', new Error('cleanup failed')],
+    ['object', { code: 'cleanup failed' }],
+    ['string', 'cleanup failed'],
+    ['symbol', Symbol('cleanup failed')],
+    ['undefined', undefined]
+  ]
+
+  it.each(failures)('preserves a thrown %s and synchronous cleanup before navigation', async (_label, failure) => {
+    const order: string[] = []
+    const previousGeneration = privateSurfaceRuntime.authGeneration.value
+    privateSurfaceRuntime.registerTerminationHandler(() => {
+      order.push('termination throws')
+      throw failure
+    })
+    privateSurfaceRuntime.registerTerminationHandler(() => { order.push('next termination') })
+    privateSurfaceRuntime.setNavigationHandler(() => { order.push('navigation') })
+
+    const transition = privateSurfaceRuntime.invalidate('logout', () => {
+      order.push('cleanup throws')
+      throw failure
+    })
+    order.push('returned')
+
+    expect(order).toEqual(['termination throws', 'next termination', 'cleanup throws', 'returned'])
+    expect(privateSurfaceRuntime.isClearing.value).toBe(true)
+    expect(privateSurfaceRuntime.authGeneration.value).not.toBe(previousGeneration)
+    await expect(transition).rejects.toBe(failure)
+    expect(order).toEqual(['termination throws', 'next termination', 'cleanup throws', 'returned', 'navigation'])
+    expect(privateSurfaceRuntime.isClearing.value).toBe(false)
+  })
+
+  it('keeps overlapping transitions ordered when the first navigation rejects', async () => {
+    const order: string[] = []
+    const failure = { code: 'redirect failed' }
+    let releaseCleanup!: () => void
+    const cleanup = new Promise<void>((resolve) => { releaseCleanup = resolve })
+    privateSurfaceRuntime.setNavigationHandler((reason) => {
+      order.push(`navigation ${reason}`)
+      expect(privateSurfaceRuntime.isClearing.value).toBe(true)
+      if (reason === 'logout') throw failure
+    })
+    const first = privateSurfaceRuntime.invalidate('logout', () => {
+      order.push('first cleanup')
+      return cleanup
+    })
+    const firstResult = first.catch((error: unknown) => error)
+    const second = privateSurfaceRuntime.invalidate('account-switch', () => { order.push('second cleanup') })
+
+    expect(order).toEqual(['first cleanup'])
+    expect(privateSurfaceRuntime.isClearing.value).toBe(true)
+    releaseCleanup()
+    await expect(firstResult).resolves.toBe(failure)
+    await second
+
+    expect(order).toEqual(['first cleanup', 'navigation logout', 'second cleanup', 'navigation account-switch'])
+    expect(privateSurfaceRuntime.isClearing.value).toBe(false)
+  })
+})
