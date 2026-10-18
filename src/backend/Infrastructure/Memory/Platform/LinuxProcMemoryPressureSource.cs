@@ -100,81 +100,100 @@ public sealed class LinuxProcMemoryPressureSource : IDisposable
             {
                 throw new InvalidOperationException("The pressure source is disabled.");
             }
-            DateTimeOffset sampledAt = _clock.GetUtcNow();
-            long timestamp = _clock.GetTimestamp();
-            var observations = new MemoryPressureObservation[5];
-            Read("/proc/meminfo", 0, [
-                (MemoryPressureMetric.HostAvailableBytes, "MemAvailable"),
-                (MemoryPressureMetric.HostSwapTotalBytes, "SwapTotal"),
-                (MemoryPressureMetric.HostSwapFreeBytes, "SwapFree")
-            ], _hostDomain, MemoryPressureScope.HostCurrent);
-            Read("/proc/self/status", 3, [
-                (MemoryPressureMetric.ProcessWorkingSetBytes, "VmRSS"),
-                (MemoryPressureMetric.ProcessSwapBytes, "VmSwap")
-            ], _processDomain, MemoryPressureScope.Process);
-            long completed = _clock.GetTimestamp();
-            bool stale;
+            byte[] buffer = _buffer!;
             try
             {
-                long elapsed = checked(completed - timestamp);
-                stale = elapsed < 0 || _clock.GetElapsedTime(timestamp, completed) > _maximumCaptureDuration;
-            }
-            catch (OverflowException)
-            {
-                stale = true;
-            }
-            if (stale)
-            {
-                for (int index = 0; index < observations.Length; index++)
+                long frequency = _clock.TimestampFrequency;
+                if (frequency <= 0)
                 {
-                    MemoryPressureObservation item = observations[index];
-                    observations[index] = new(item.Metric, item.Unit, item.Scope, item.Domain, item.DomainRevision,
-                        MemoryObservationState.Stale, null, item.Source, item.SampledAt, item.Timestamp, item.TimestampFrequency);
+                    throw new InvalidOperationException("The pressure source clock frequency is invalid.");
                 }
-            }
-            return Array.AsReadOnly(observations);
-
-            void Read(string path, int offset, (MemoryPressureMetric Metric, string Field)[] fields,
-                ResourceDomainId domain, MemoryPressureScope scope)
-            {
-                int length = 0;
-                MemoryObservationState state = MemoryObservationState.Available;
-                _readAttempts = _readAttempts == long.MaxValue ? long.MaxValue : _readAttempts + 1;
+                DateTimeOffset sampledAt = _clock.GetUtcNow();
+                long timestamp = _clock.GetTimestamp();
+                var observations = new MemoryPressureObservation[5];
+                Read("/proc/meminfo", 0, [
+                    (MemoryPressureMetric.HostAvailableBytes, "MemAvailable"),
+                    (MemoryPressureMetric.HostSwapTotalBytes, "SwapTotal"),
+                    (MemoryPressureMetric.HostSwapFreeBytes, "SwapFree")
+                ], _hostDomain, MemoryPressureScope.HostCurrent);
+                Read("/proc/self/status", 3, [
+                    (MemoryPressureMetric.ProcessWorkingSetBytes, "VmRSS"),
+                    (MemoryPressureMetric.ProcessSwapBytes, "VmSwap")
+                ], _processDomain, MemoryPressureScope.Process);
+                long completed = _clock.GetTimestamp();
+                DateTimeOffset completedAt = _clock.GetUtcNow();
+                long completedFrequency = _clock.TimestampFrequency;
+                bool stale;
                 try
                 {
-                    using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1);
-                    while (length < _buffer!.Length)
+                    long elapsed = checked(completed - timestamp);
+                    // Compare using the frozen scale without rounding an over-bound interval down.
+                    stale = completedFrequency != frequency || completedAt < sampledAt
+                        || completedAt - sampledAt > _maximumCaptureDuration || elapsed < 0
+                        || (UInt128)(ulong)elapsed * (ulong)TimeSpan.TicksPerSecond
+                            > (UInt128)(ulong)_maximumCaptureDuration.Ticks * (ulong)frequency;
+                }
+                catch (OverflowException)
+                {
+                    stale = true;
+                }
+                if (stale)
+                {
+                    for (int index = 0; index < observations.Length; index++)
                     {
-                        int read = stream.Read(_buffer.AsSpan(length));
-                        if (read == 0)
+                        MemoryPressureObservation item = observations[index];
+                        observations[index] = new(item.Metric, item.Unit, item.Scope, item.Domain, item.DomainRevision,
+                            MemoryObservationState.Stale, null, item.Source, item.SampledAt, item.Timestamp, item.TimestampFrequency);
+                    }
+                }
+                return Array.AsReadOnly(observations);
+
+                void Read(string path, int offset, (MemoryPressureMetric Metric, string Field)[] fields,
+                    ResourceDomainId domain, MemoryPressureScope scope)
+                {
+                    int length = 0;
+                    MemoryObservationState state = MemoryObservationState.Available;
+                    _readAttempts = _readAttempts == long.MaxValue ? long.MaxValue : _readAttempts + 1;
+                    try
+                    {
+                        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite, 1);
+                        while (length < buffer.Length)
                         {
-                            break;
+                            int read = stream.Read(buffer.AsSpan(length));
+                            if (read == 0)
+                            {
+                                break;
+                            }
+                            length += read;
                         }
-                        length += read;
+                        if (length == buffer.Length)
+                        {
+                            state = MemoryObservationState.Malformed;
+                        }
                     }
-                    if (length == _buffer.Length)
+                    catch (UnauthorizedAccessException)
                     {
-                        state = MemoryObservationState.Malformed;
+                        state = MemoryObservationState.Denied;
                     }
+                    catch (IOException)
+                    {
+                        state = MemoryObservationState.Unknown;
+                    }
+                    for (int index = 0; index < fields.Length; index++)
+                    {
+                        (MemoryObservationState parsedState, long? value) = state == MemoryObservationState.Available
+                            ? ParseKilobytes(buffer.AsSpan(0, length), fields[index].Field)
+                            : (state, null);
+                        observations[offset + index] = new(fields[index].Metric, MemoryResourceUnit.Bytes, scope,
+                            domain, domainRevision, parsedState, value, $"{_sourceIdentity};{path}:{fields[index].Field}",
+                            sampledAt, timestamp, frequency);
+                    }
+                    Array.Clear(buffer);
                 }
-                catch (UnauthorizedAccessException)
-                {
-                    state = MemoryObservationState.Denied;
-                }
-                catch (IOException)
-                {
-                    state = MemoryObservationState.Unknown;
-                }
-                for (int index = 0; index < fields.Length; index++)
-                {
-                    (MemoryObservationState parsedState, long? value) = state == MemoryObservationState.Available
-                        ? ParseKilobytes(_buffer.AsSpan(0, length), fields[index].Field)
-                        : (state, null);
-                    observations[offset + index] = new(fields[index].Metric, MemoryResourceUnit.Bytes, scope,
-                        domain, domainRevision, parsedState, value, $"{_sourceIdentity};{path}:{fields[index].Field}",
-                        sampledAt, timestamp, _clock.TimestampFrequency);
-                }
-                Array.Clear(_buffer!);
+            }
+            finally
+            {
+                Array.Clear(buffer);
             }
         }
     }
