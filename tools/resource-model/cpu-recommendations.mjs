@@ -3,16 +3,18 @@ import { recommendationInputs } from './sample-ledger.mjs';
 
 export const cpuSchema = 'fsusblog.adaptive.cpu-recommendations.v1';
 
-/** Relative weights are clamped; grants are normalized inside the unchanged CPU envelope. */
+/** Relative weights are clamped; protected grants stay held inside the unchanged CPU envelope. */
 export function recommendCpu(inputs)
 {
     const history = recommendationInputs(inputs);
     const { capacity } = inputs;
+    const heldCpuUnits = new Map();
     const recommendations = history.defaults.map((previous) =>
     {
         const rows = history.rows(previous.producerId);
         const score = rows.length ? confidence(rows.map((row) => row.actualCpuUnits), 5) : 0;
         let weight = previous.cpuWeight;
+        let holdGrant = true;
         const reasons = [];
         if (rows.length < 5 || score < 0.8)
         {
@@ -32,6 +34,7 @@ export function recommendCpu(inputs)
         }
         else
         {
+            holdGrant = false;
             const utilization = quantile(rows.map((row) => row.actualCpuUnits / row.grantedCpuUnits), 0.5);
             const efficiency = quantile(rows.map((row) => row.grantEfficiency), 0.5);
             const blocked = quantile(rows.map((row) => row.capacityBlockedMs), 0.5);
@@ -52,11 +55,14 @@ export function recommendCpu(inputs)
                 reasons.push('no-supported-change');
             }
         }
+        if (holdGrant)
+        {
+            heldCpuUnits.set(previous.producerId, previous.cpuUnits);
+        }
         return {
             producerId: previous.producerId, recommendedCpuWeight: weight,
             recommendedMinCpuUnits: previous.minCpuUnits, confidence: score, sampleCount: rows.length,
             benchmark: previous.benchmark, fixedCpuUnits: previous.benchmark ? previous.cpuUnits : null,
-            decision: weight === previous.cpuWeight ? 'no-change' : 'recommend',
             reasonVector: [...reasons, 'retain-safe-minimum']
         };
     });
@@ -64,14 +70,22 @@ export function recommendCpu(inputs)
     requireCondition(minimumTotal <= capacity.minimumSupportedCpuUnits,
         'infeasible-cpu-minimum', 'recommendations');
     const reservedCpu = recommendations.reduce((sum, row) => sum
-        + (row.benchmark ? row.fixedCpuUnits : row.recommendedMinCpuUnits), 0);
+        + (heldCpuUnits.get(row.producerId) ?? row.recommendedMinCpuUnits), 0);
     requireCondition(reservedCpu <= capacity.effectiveCpuUnits, 'infeasible-cpu-envelope', 'recommendations');
-    const totalWeight = recommendations.filter((row) => !row.benchmark)
+    const totalWeight = recommendations.filter((row) => !heldCpuUnits.has(row.producerId))
         .reduce((sum, row) => sum + row.recommendedCpuWeight, 0);
-    for (const row of recommendations)
+    for (const [index, row] of recommendations.entries())
     {
-        row.recommendedCpuUnits = row.benchmark ? row.fixedCpuUnits : row.recommendedMinCpuUnits
-            + (capacity.effectiveCpuUnits - reservedCpu) * row.recommendedCpuWeight / totalWeight;
+        const previous = history.defaults[index];
+        row.recommendedCpuUnits = heldCpuUnits.get(row.producerId) ?? (row.recommendedMinCpuUnits
+            + (capacity.effectiveCpuUnits - reservedCpu) * row.recommendedCpuWeight / totalWeight);
+        row.decision = row.recommendedCpuWeight === previous.cpuWeight
+            && row.recommendedMinCpuUnits === previous.minCpuUnits
+            && row.recommendedCpuUnits === previous.cpuUnits ? 'no-change' : 'recommend';
+        if (row.recommendedCpuUnits !== previous.cpuUnits)
+        {
+            row.reasonVector.push('normalized-cpu-grant-change');
+        }
     }
     requireCondition(recommendations.reduce((sum, row) => sum + row.recommendedCpuUnits, 0)
         <= capacity.effectiveCpuUnits + 1e-9, 'infeasible-cpu-envelope', 'recommendations');
