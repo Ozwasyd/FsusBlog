@@ -38,17 +38,23 @@ public sealed class ArticlePackageManifestVersionRegistration
 }
 
 /// <summary>
-/// Closed candidate-codec registry. Only the implemented (1,1,1) identity is registered;
+/// Closed candidate-codec registry. The legacy (1,1,1) and asset-root (2,1,1) identities are registered;
 /// it grants no source, permission, migration or complete-package admission.
 /// </summary>
 public static class ArticlePackageManifestVersionRegistry
 {
     private static readonly ArticlePackageManifestVersionRegistration s_current = new(
         new(1, 1, 1), ArticlePackageManifestMigrationDisposition.Identity);
+    // Preserve the v1 article-only wire and digest. Assets require a distinct schema and digest
+    // domain; neither identity registers a converter between these candidate formats.
+    private static readonly ArticlePackageManifestVersionRegistration s_assetCollection = new(
+        new(2, 1, 1), ArticlePackageManifestMigrationDisposition.Identity);
     private static readonly IReadOnlyList<ArticlePackageManifestVersionRegistration> s_registrations
-        = Array.AsReadOnly(new[] { s_current });
+        = Array.AsReadOnly(new[] { s_current, s_assetCollection });
 
     public static ArticlePackageManifestVersionRegistration Current => s_current;
+    /// <summary>Explicit asset-root format; Current remains the legacy article-only default.</summary>
+    public static ArticlePackageManifestVersionRegistration AssetCollection => s_assetCollection;
     public static IReadOnlyList<ArticlePackageManifestVersionRegistration> Registrations => s_registrations;
 
     /// <summary>Refuses unregistered tuples and drift from the actual canonical/property implementations.</summary>
@@ -57,18 +63,18 @@ public static class ArticlePackageManifestVersionRegistry
         out ArticlePackageManifestVersionRegistration? registration)
     {
         registration = null;
-        if (versions != s_current.Versions
+        if ((versions != s_current.Versions && versions != s_assetCollection.Versions)
             || versions.CanonicalHashVersion != ArticleCanonicalHashV1.HashVersion
             || versions.PropertySchemaVersion != ArticlePropertyValueSnapshot.CurrentSchemaVersion)
         {
             return false;
         }
-        registration = s_current;
+        registration = versions == s_current.Versions ? s_current : s_assetCollection;
         return true;
     }
 
     /// <summary>
-    /// Returns identity only for the registered source and target tuple. Lossy requests and every
+    /// Returns identity only when both tuples are the same registered format. Lossy requests and every
     /// other source/target combination are refused; no historical or future converter is implied.
     /// </summary>
     public static ArticlePackageManifestMigrationDisposition GetDisposition(

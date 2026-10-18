@@ -9,7 +9,7 @@ using FsusBlog.Contracts.Articles;
 namespace FsusBlog.Shared.Contracts.ArticlePackages;
 
 /// <summary>
-/// Closed v1 candidate codec. It validates source shape and finite semantic self-consistency only;
+/// Closed, versioned candidate codec. It validates source shape and finite semantic self-consistency only;
 /// actual source binding and all missing package authorities remain independent acceptance gates.
 /// </summary>
 public static partial class ArticlePackageManifestCandidateCodec
@@ -17,6 +17,8 @@ public static partial class ArticlePackageManifestCandidateCodec
     public const int MaxArticles = 1000;
     public const int MaxJsonBytes = 16 * 1024 * 1024;
     public const string DigestDomain = "fsusblog.article-package.manifest-candidate.v1";
+
+    public const string AssetRootDigestDomain = "fsusblog.article-package.manifest-candidate.v2";
 
     private const int MaxSiteScopeCharacters = 128;
     // Parsing can observe a rejected authority's empty container before closed-schema validation.
@@ -26,6 +28,27 @@ public static partial class ArticlePackageManifestCandidateCodec
 
     public static ArticlePackageManifestCandidateResult TryCreateCandidate(
         IReadOnlyList<ArticlePackageManifestArticle>? articles,
+        out ArticlePackageManifestCandidate? candidate)
+        => TryCreateRootCandidate(articles, null, out candidate);
+
+    /// <summary>
+    /// Binds the real asset collection to an independently supplied inventory and the exact root
+    /// article roster. Rechecks all component digests; this supplies no asset operation authority.
+    /// </summary>
+    public static ArticlePackageManifestCandidateResult TryCreateCandidate(
+        IReadOnlyList<ArticlePackageManifestArticle>? articles,
+        ArticlePackageManifestAssetCollectionCandidate? assets,
+        IReadOnlyList<ArticlePackageInventoryEntry>? inventory,
+        out ArticlePackageManifestCandidate? candidate)
+    {
+        candidate = null;
+        ArticlePackageManifestCandidateResult result = RecheckRootAssets(assets, inventory, out var held);
+        return result.IsValid ? TryCreateRootCandidate(articles, held, out candidate) : result;
+    }
+
+    private static ArticlePackageManifestCandidateResult TryCreateRootCandidate(
+        IReadOnlyList<ArticlePackageManifestArticle>? articles,
+        ArticlePackageManifestAssetCollectionCandidate? assets,
         out ArticlePackageManifestCandidate? candidate)
     {
         candidate = null;
@@ -38,7 +61,7 @@ public static partial class ArticlePackageManifestCandidateCodec
         {
             return Invalid("article_package_manifest_article_budget_exceeded");
         }
-        ArticlePackageManifestVersions versions = ArticlePackageManifestVersionRegistry.Current.Versions;
+        ArticlePackageManifestVersions versions = RootVersions(assets);
         if (!SupportedVersions(versions.SchemaVersion, versions.CanonicalHashVersion, versions.PropertySchemaVersion))
         {
             return Invalid("article_package_manifest_version_unsupported");
@@ -76,13 +99,19 @@ public static partial class ArticlePackageManifestCandidateCodec
                 }
             }
             Array.Sort(held, static (left, right) => string.CompareOrdinal(left.PortableArticle.Value, right.PortableArticle.Value));
+            if (assets is not null && !RootArticleMembership(held, assets))
+            {
+                return Invalid("article_package_manifest_asset_root_membership_mismatch");
+            }
             using var countStream = new BudgetStream();
             using (var writer = new Utf8JsonWriter(countStream))
             {
-                WriteDocument(writer, held, new string('0', 64));
+                WriteDocument(writer, held, new string('0', 64), assets);
             }
-            string digest = ComputeDigest(held);
-            candidate = new ArticlePackageManifestCandidate(held, digest);
+            string digest = ComputeDigest(held, assets);
+            candidate = assets is null
+                ? new ArticlePackageManifestCandidate(held, digest)
+                : ArticlePackageManifestCandidate.WithAssets(held, digest, assets);
             return new(true, null);
         }
         catch (EncoderFallbackException)
@@ -106,6 +135,25 @@ public static partial class ArticlePackageManifestCandidateCodec
     public static ArticlePackageManifestCandidateResult TryParseCandidate(
         ReadOnlySpan<byte> json,
         out ArticlePackageManifestCandidate? candidate)
+        => TryParseRootCandidate(json, null, null, false, out candidate);
+
+    /// <summary>
+    /// Reads an asset-root document against a real collection and external inventory. Neither
+    /// component membership nor inventory authority is inferred from JSON or missing fields.
+    /// </summary>
+    public static ArticlePackageManifestCandidateResult TryParseCandidate(
+        ReadOnlySpan<byte> json,
+        ArticlePackageManifestAssetCollectionCandidate? assets,
+        IReadOnlyList<ArticlePackageInventoryEntry>? inventory,
+        out ArticlePackageManifestCandidate? candidate)
+        => TryParseRootCandidate(json, assets, inventory, true, out candidate);
+
+    private static ArticlePackageManifestCandidateResult TryParseRootCandidate(
+        ReadOnlySpan<byte> json,
+        ArticlePackageManifestAssetCollectionCandidate? assets,
+        IReadOnlyList<ArticlePackageInventoryEntry>? inventory,
+        bool withAssets,
+        out ArticlePackageManifestCandidate? candidate)
     {
         candidate = null;
         if (json.Length > MaxJsonBytes)
@@ -126,8 +174,9 @@ public static partial class ArticlePackageManifestCandidateCodec
                 CommentHandling = JsonCommentHandling.Disallow
             });
             JsonElement root = document.RootElement;
-            ArticlePackageManifestCandidateResult keys = CheckKeys(root,
-                "schemaVersion", "canonicalHashVersion", "propertySchemaVersion", "articles", "semanticDigest");
+            ArticlePackageManifestCandidateResult keys = withAssets
+                ? CheckKeys(root, "schemaVersion", "canonicalHashVersion", "propertySchemaVersion", "articles", "assets", "semanticDigest")
+                : CheckKeys(root, "schemaVersion", "canonicalHashVersion", "propertySchemaVersion", "articles", "semanticDigest");
             if (!keys.IsValid)
             {
                 return keys;
@@ -135,7 +184,9 @@ public static partial class ArticlePackageManifestCandidateCodec
             if (!ReadInt(root, "schemaVersion", out int schemaVersion)
                 || !ReadInt(root, "canonicalHashVersion", out int canonicalVersion)
                 || !ReadInt(root, "propertySchemaVersion", out int propertyVersion)
-                || !SupportedVersions(schemaVersion, canonicalVersion, propertyVersion))
+                || !SupportedVersions(schemaVersion, canonicalVersion, propertyVersion)
+                || new ArticlePackageManifestVersions(schemaVersion, canonicalVersion, propertyVersion)
+                    != (withAssets ? ArticlePackageManifestVersionRegistry.AssetCollection : ArticlePackageManifestVersionRegistry.Current).Versions)
             {
                 return Invalid("article_package_manifest_version_unsupported");
             }
@@ -159,7 +210,26 @@ public static partial class ArticlePackageManifestCandidateCodec
                 }
                 articles[index++] = article!;
             }
-            ArticlePackageManifestCandidateResult created = TryCreateCandidate(articles, out ArticlePackageManifestCandidate? parsed);
+            ArticlePackageManifestAssetCollectionCandidate? checkedAssets = null;
+            if (withAssets)
+            {
+                ArticlePackageManifestCandidateResult supplied = RecheckRootAssets(assets, inventory, out var heldAssets);
+                if (!supplied.IsValid)
+                {
+                    return supplied;
+                }
+                ArticlePackageManifestCandidateResult component = TryParseAssetCollectionCandidate(
+                    s_utf8.GetBytes(root.GetProperty("assets").GetRawText()), heldAssets!.Inventory, out checkedAssets);
+                if (!component.IsValid)
+                {
+                    return component;
+                }
+                if (checkedAssets!.ComponentDigest != heldAssets.ComponentDigest)
+                {
+                    return Invalid("article_package_manifest_asset_root_collection_mismatch");
+                }
+            }
+            ArticlePackageManifestCandidateResult created = TryCreateRootCandidate(articles, checkedAssets, out ArticlePackageManifestCandidate? parsed);
             if (!created.IsValid)
             {
                 return created;
@@ -188,6 +258,10 @@ public static partial class ArticlePackageManifestCandidateCodec
     /// <summary>Writes deterministic fixed keys after rechecking the complete finite candidate.</summary>
     public static byte[] WriteCandidate(ArticlePackageManifestCandidate candidate)
     {
+        if (candidate?.Assets is not null)
+        {
+            throw new ArgumentException("article_package_manifest_assets_authority_unavailable");
+        }
         if (candidate is null
             || !SupportedVersions(candidate.SchemaVersion, candidate.CanonicalHashVersion, candidate.PropertySchemaVersion)
             || !TryCreateCandidate(candidate.Articles, out ArticlePackageManifestCandidate? canonical).IsValid
@@ -202,6 +276,84 @@ public static partial class ArticlePackageManifestCandidateCodec
         }
         return stream.ToArray();
     }
+
+    /// <summary>Rebinds the candidate, supplied collection and inventory before emitting any bytes.</summary>
+    public static byte[] WriteCandidate(
+        ArticlePackageManifestCandidate candidate,
+        ArticlePackageManifestAssetCollectionCandidate? assets,
+        IReadOnlyList<ArticlePackageInventoryEntry>? inventory)
+    {
+        if (candidate is null || candidate.Assets is null
+            || !TryCreateCandidate(candidate.Articles, assets, inventory, out var canonical).IsValid
+            || !RecheckRootAssets(candidate.Assets, canonical!.Assets!.Inventory, out var original).IsValid
+            || canonical!.Assets!.ComponentDigest != original!.ComponentDigest
+            || canonical.SemanticDigest != candidate.SemanticDigest)
+        {
+            throw new ArgumentException("article_package_manifest_candidate_invalid");
+        }
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(stream))
+        {
+            WriteDocument(writer, canonical.Articles, canonical.SemanticDigest, canonical.Assets);
+        }
+        return stream.ToArray();
+    }
+
+    private static ArticlePackageManifestCandidateResult RecheckRootAssets(
+        ArticlePackageManifestAssetCollectionCandidate? assets,
+        IReadOnlyList<ArticlePackageInventoryEntry>? inventory,
+        out ArticlePackageManifestAssetCollectionCandidate? canonical)
+    {
+        canonical = null;
+        if (assets is null || !TryCopyMetadataRows(inventory, ArticlePackageInventory.MaxEntries, out ArticlePackageInventoryEntry[] held))
+        {
+            return Invalid("article_package_manifest_asset_root_input_invalid");
+        }
+        ArticlePackageValidationResult validation = ArticlePackageInventory.Validate(held);
+        if (!validation.IsValid)
+        {
+            return Invalid(validation.ReasonCode!);
+        }
+        try
+        {
+            // Use the original component writer/parser to recheck child and collection digests.
+            byte[] bytes = WriteAssetCollectionCandidate(assets);
+            if (!assets.Inventory.SequenceEqual(held.OrderBy(static entry => entry.Path, StringComparer.Ordinal)))
+            {
+                return Invalid("article_package_manifest_asset_root_inventory_mismatch");
+            }
+            return TryParseAssetCollectionCandidate(bytes, held, out canonical);
+        }
+        catch (ArgumentException)
+        {
+            return Invalid("article_package_manifest_asset_collection_candidate_invalid");
+        }
+    }
+
+    private static bool RootArticleMembership(
+        IReadOnlyList<ArticlePackageManifestArticle> articles,
+        ArticlePackageManifestAssetCollectionCandidate assets)
+    {
+        var expected = articles.ToDictionary(static article => "articles/" + article.PortableArticle.FileNameToken + ".md", StringComparer.Ordinal);
+        int count = 0;
+        foreach (ArticlePackageInventoryEntry entry in assets.Inventory)
+        {
+            if (!entry.Path.StartsWith("articles/", StringComparison.Ordinal))
+            {
+                continue;
+            }
+            if (!expected.TryGetValue(entry.Path, out var article) || entry.UncompressedBytes != article.SourceBytes.ByteLength)
+            {
+                return false;
+            }
+            count++;
+        }
+        var identities = articles.Select(static article => article.PortableArticle).ToHashSet();
+        return count == articles.Count && assets.References.All(reference => identities.Contains(reference.PortableArticle));
+    }
+
+    private static ArticlePackageManifestVersions RootVersions(ArticlePackageManifestAssetCollectionCandidate? assets)
+        => (assets is null ? ArticlePackageManifestVersionRegistry.Current : ArticlePackageManifestVersionRegistry.AssetCollection).Versions;
 
     private static bool IsValidArticle(ArticlePackageManifestArticle? article)
     {
@@ -360,7 +512,8 @@ public static partial class ArticlePackageManifestCandidateCodec
                 "sourceMetadata" => "article_package_manifest_source_metadata_authority_unavailable",
                 _ => null
             };
-            if (unavailable is not null && denyUnavailableAuthorities)
+            if (unavailable is not null && denyUnavailableAuthorities
+                && !(property.Name == "assets" && names.Contains("assets", StringComparer.Ordinal)))
             {
                 return Invalid(unavailable);
             }
@@ -455,9 +608,7 @@ public static partial class ArticlePackageManifestCandidateCodec
     }
 
     private static bool SupportedVersions(int schema, int canonical, int property)
-        => ArticlePackageManifestVersionRegistry.GetDisposition(
-            new(schema, canonical, property), ArticlePackageManifestVersionRegistry.Current.Versions)
-            == ArticlePackageManifestMigrationDisposition.Identity;
+        => ArticlePackageManifestVersionRegistry.TryGetRegistration(new(schema, canonical, property), out _);
 
     private static bool BoundedCount(int count) => count is >= 0 and <= ArticlePackageSourceBytes.MaximumByteLength;
 
@@ -525,12 +676,12 @@ public static partial class ArticlePackageManifestCandidateCodec
         return result;
     }
 
-    private static string ComputeDigest(IReadOnlyList<ArticlePackageManifestArticle> articles)
+    private static string ComputeDigest(IReadOnlyList<ArticlePackageManifestArticle> articles, ArticlePackageManifestAssetCollectionCandidate? assets)
     {
         using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var writer = new DigestWriter(hash);
-        writer.Add(DigestDomain);
-        ArticlePackageManifestVersions versions = ArticlePackageManifestVersionRegistry.Current.Versions;
+        writer.Add(assets is null ? DigestDomain : AssetRootDigestDomain);
+        ArticlePackageManifestVersions versions = RootVersions(assets);
         writer.Add(versions.SchemaVersion);
         writer.Add(versions.CanonicalHashVersion);
         writer.Add(versions.PropertySchemaVersion);
@@ -567,15 +718,20 @@ public static partial class ArticlePackageManifestCandidateCodec
             writer.AddNullable(FormatDate(article.Lifecycle.PublishedAt));
             writer.AddNullable(FormatDate(article.Lifecycle.ScheduledPublishAt));
         }
+        if (assets is not null)
+        {
+            writer.Add(assets.ComponentDigest);
+        }
         return Convert.ToHexStringLower(hash.GetHashAndReset());
     }
 
     private static string? FormatDate(DateTime? date) => date?.ToString(UtcFormat, CultureInfo.InvariantCulture);
 
-    private static void WriteDocument(Utf8JsonWriter writer, IReadOnlyList<ArticlePackageManifestArticle> articles, string digest)
+    private static void WriteDocument(Utf8JsonWriter writer, IReadOnlyList<ArticlePackageManifestArticle> articles, string digest,
+        ArticlePackageManifestAssetCollectionCandidate? assets = null)
     {
         writer.WriteStartObject();
-        ArticlePackageManifestVersions versions = ArticlePackageManifestVersionRegistry.Current.Versions;
+        ArticlePackageManifestVersions versions = RootVersions(assets);
         writer.WriteNumber("schemaVersion", versions.SchemaVersion);
         writer.WriteNumber("canonicalHashVersion", versions.CanonicalHashVersion);
         writer.WriteNumber("propertySchemaVersion", versions.PropertySchemaVersion);
@@ -586,6 +742,11 @@ public static partial class ArticlePackageManifestCandidateCodec
             writer.Flush();
         }
         writer.WriteEndArray();
+        if (assets is not null)
+        {
+            writer.WritePropertyName("assets");
+            writer.WriteRawValue(WriteAssetCollectionCandidate(assets));
+        }
         writer.WriteString("semanticDigest", digest);
         writer.WriteEndObject();
     }
