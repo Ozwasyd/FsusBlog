@@ -28,7 +28,7 @@ public sealed class AuthoringProductionPreflightPostgresTests(PostgresSchemaMigr
         Assert.Equal(1, observed.StateRevision);
         Assert.Equal(receipt.ReceiptSha256, observed.LifecycleReceiptSha256);
         Assert.DoesNotContain("production_required_grant_missing", observed.Blockers);
-        Assert.Contains("production_approval_contract_unavailable", observed.Blockers);
+        Assert.Contains("production_approval_claim_missing", observed.Blockers);
         Assert.Contains("production_worker_launch_provider_missing", observed.Blockers);
         Assert.True(await composition.Preflight.HasRequiredPermissionsAsync(fixture.Package, fixture.Targets, default));
         Assert.False(await composition.Preflight.VerifyAsync(fixture.Package, fixture.Targets, default));
