@@ -431,12 +431,12 @@ public sealed class AuthoringCanvasCoordinateAuthorityTests
             await Assert.ThrowsAsync<OperationCanceledException>(() => pending);
         }
         Assert.True(readerDisposed);
-        Assert.True(command.Disposed);
+        Assert.True(command.IsDisposed);
         Assert.Equal(CommandBehavior.SequentialAccess, command.ObservedBehavior);
         Assert.Equal(cancellation.Token, command.ObservedToken);
         Assert.Same(transaction, command.Transaction);
         Assert.Equal(0, connection.CloseCalls);
-        Assert.False(connection.Disposed);
+        Assert.False(connection.IsDisposed);
         transaction.DidNotReceive().Commit();
         transaction.DidNotReceive().Rollback();
     }
@@ -455,7 +455,7 @@ public sealed class AuthoringCanvasCoordinateAuthorityTests
         {
             get; private set;
         }
-        internal bool Disposed
+        internal bool IsDisposed
         {
             get; private set;
         }
@@ -469,7 +469,7 @@ public sealed class AuthoringCanvasCoordinateAuthorityTests
             command.Connection = this;
             return command;
         }
-        protected override void Dispose(bool disposing) => Disposed = true;
+        protected override void Dispose(bool disposing) => IsDisposed = true;
     }
 
     private sealed class BorrowedCommand(DbDataReader reader, Action onDispose) : DbCommand
@@ -510,7 +510,7 @@ public sealed class AuthoringCanvasCoordinateAuthorityTests
         {
             get; private set;
         }
-        internal bool Disposed
+        internal bool IsDisposed
         {
             get; private set;
         }
@@ -532,7 +532,7 @@ public sealed class AuthoringCanvasCoordinateAuthorityTests
         {
             await Task.Yield();
             onDispose();
-            Disposed = true;
+            IsDisposed = true;
         }
     }
 

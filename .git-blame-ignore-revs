@@ -33,3 +33,6 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 
 # Official C# whitespace pass for the explicit unoccupied source scope.
 a138a5000299457537cf7d43a11f454f21d8e255
+
+# Assigned original backend test formatting for #3663.
+5eebf8fde645f5ad430c2697ec0d950bcadbd8ef

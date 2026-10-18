@@ -188,6 +188,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
             true,
             false);
         Assert.True(current.Success, current.Message);
+        SessionTokenResponseDto currentData = Assert.NotNull(current.Data);
 
         string connectionString = setupDb.CurrentConnectionConfig.ConnectionString;
         using SqlSugarClient revokeDb = PostgresSqlSugarTestClient.Create(connectionString);
@@ -196,7 +197,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         UserLoginWorkflowService loginService = CreateService(loginDb);
 
         await RealConcurrencyHarness.RunInterleavedAsync(
-            () => commandService.RevokeOtherSessionsAsync(user.Id, current.Data!.Value.SessionId),
+            () => commandService.RevokeOtherSessionsAsync(user.Id, currentData.SessionId),
             async revokeTask =>
             {
                 var loginTask = loginService.CompleteLoginAsync(
@@ -213,7 +214,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
                 List<UserSession> active = await setupDb.Queryable<UserSession>()
                     .Where(session => session.UserId == user.Id && session.RevokedAt == null)
                     .ToListAsync();
-                Assert.Contains(active, session => session.SessionId == current.Data.Value.SessionId);
+                Assert.Contains(active, session => session.SessionId == currentData.SessionId);
                 Assert.Contains(active, session => session.SessionId == login.Data!.Value.SessionId);
             },
             static () => { });

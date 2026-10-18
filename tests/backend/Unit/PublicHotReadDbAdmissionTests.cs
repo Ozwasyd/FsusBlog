@@ -166,9 +166,9 @@ public sealed class PublicHotReadDbAdmissionTests
         MethodInfo fallbackMethod = GetEndpointMethod(nameof(IArticleEndpointService.GetByIdAsync));
         IReadOnlyList<MethodInstruction> detailInstructions = Assert.Single(
             EnumerateDeclaredMethods(typeof(BinaryEndpoints))
-                .Select(ReadMethodInstructions)
-                .Where(instructions => instructions.Any(instruction => IsCallTo(instruction, artifactMethod))
-                    && instructions.Any(instruction => IsCallTo(instruction, fallbackMethod))));
+                .Select(ReadMethodInstructions),
+            instructions => instructions.Any(instruction => IsCallTo(instruction, artifactMethod))
+                && instructions.Any(instruction => IsCallTo(instruction, fallbackMethod)));
         IReadOnlyList<string> detailReferences = RuntimeMetadataInspection.DescribeDeclaredMemberReferencesInOrderContaining(
             typeof(BinaryEndpoints),
             nameof(IArticleEndpointService.GetPublicArtifactBackedDetailAsync),
@@ -238,18 +238,18 @@ public sealed class PublicHotReadDbAdmissionTests
         Assert.False(HasArtifactBeforeFallback(tokens));
 
         IReadOnlyList<MethodInstruction> foreign = ReadFixtureInstructions(nameof(CallForeignDetailMethods));
-        MethodInstruction foreignArtifact = Assert.Single(foreign.Where(instruction => IsCall(instruction.OpCode)
-            && instruction.Method.Name == artifactMethod.Name));
-        MethodInstruction foreignFallback = Assert.Single(foreign.Where(instruction => IsCall(instruction.OpCode)
-            && instruction.Method.Name == fallbackMethod.Name));
+        MethodInstruction foreignArtifact = Assert.Single(foreign, instruction => IsCall(instruction.OpCode)
+            && instruction.Method.Name == artifactMethod.Name);
+        MethodInstruction foreignFallback = Assert.Single(foreign, instruction => IsCall(instruction.OpCode)
+            && instruction.Method.Name == fallbackMethod.Name);
         Assert.Equal(typeof(ForeignDetailMethods), foreignArtifact.Method.DeclaringType);
         Assert.Equal(typeof(ForeignDetailMethods), foreignFallback.Method.DeclaringType);
         Assert.True(foreignArtifact.Offset < foreignFallback.Offset);
         Assert.False(HasArtifactBeforeFallback(foreign));
 
         IReadOnlyList<MethodInstruction> reversed = ReadFixtureInstructions(nameof(CallFallbackBeforeArtifact));
-        MethodInstruction reversedArtifact = Assert.Single(reversed.Where(instruction => IsCallTo(instruction, artifactMethod)));
-        MethodInstruction reversedFallback = Assert.Single(reversed.Where(instruction => IsCallTo(instruction, fallbackMethod)));
+        MethodInstruction reversedArtifact = Assert.Single(reversed, instruction => IsCallTo(instruction, artifactMethod));
+        MethodInstruction reversedFallback = Assert.Single(reversed, instruction => IsCallTo(instruction, fallbackMethod));
         Assert.True(reversedFallback.Offset < reversedArtifact.Offset);
         Assert.False(HasArtifactBeforeFallback(reversed));
     }
@@ -260,8 +260,8 @@ public sealed class PublicHotReadDbAdmissionTests
         MethodInfo artifactMethod = GetEndpointMethod(nameof(IArticleEndpointService.GetPublicArtifactBackedDetailAsync));
         MethodInfo fallbackMethod = GetEndpointMethod(nameof(IArticleEndpointService.GetByIdAsync));
         IReadOnlyList<MethodInstruction> instructions = ReadFixtureInstructions(nameof(CallArtifactBeforeFallback));
-        MethodInstruction artifact = Assert.Single(instructions.Where(instruction => IsCallTo(instruction, artifactMethod)));
-        MethodInstruction fallback = Assert.Single(instructions.Where(instruction => IsCallTo(instruction, fallbackMethod)));
+        MethodInstruction artifact = Assert.Single(instructions, instruction => IsCallTo(instruction, artifactMethod));
+        MethodInstruction fallback = Assert.Single(instructions, instruction => IsCallTo(instruction, fallbackMethod));
         Assert.True(artifact.Offset < fallback.Offset);
         Assert.Contains(instructions, static instruction => instruction.Method.DeclaringType == typeof(GC));
         Assert.True(HasArtifactBeforeFallback(instructions));

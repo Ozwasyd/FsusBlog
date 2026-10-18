@@ -14,11 +14,11 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
     public void OriginalIndependentSequence_ExportsEveryConfigurationFactAndNotAColumnIdentity()
     {
         CurrentSchemaRequiredRecipeReference recipe = Assert.Single(
-            CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes().Where(static reference =>
+            CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes(), static reference =>
                 reference.SemanticDescription!.AdditionalOperations.Any(static operation =>
-                    operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence)));
-        CurrentSchemaRecipeOperation operation = Assert.Single(recipe.SemanticDescription!.AdditionalOperations.Where(
-            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+                    operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+        CurrentSchemaRecipeOperation operation = Assert.Single(recipe.SemanticDescription!.AdditionalOperations,
+            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence);
         Assert.Equal("public_article_projection_version_seq", operation.Name);
         Assert.Equal(new CurrentSchemaIndependentSequenceFacts("bigint", 1, 1, 1, long.MaxValue, 1, false, true),
             operation.Sequence);
@@ -88,7 +88,10 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
         var changed = original.ToArray();
         changed[recipeIndex] = original[recipeIndex] with
         {
-            SemanticDescription = originalFacts with { AdditionalOperations = operations }
+            SemanticDescription = originalFacts with
+            {
+                AdditionalOperations = operations
+            }
         };
         Assert.NotEqual(CurrentSchemaOwnedTargetProjection.Observe(entity, original).ContentDigest,
             CurrentSchemaOwnedTargetProjection.Observe(entity, changed).ContentDigest);
@@ -118,11 +121,14 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
         int recipeIndex = Array.FindIndex(recipes, static reference => reference.SemanticDescription!.AdditionalOperations.Any(
             static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
         CurrentSchemaRecipeFacts facts = recipes[recipeIndex].SemanticDescription!;
-        CurrentSchemaRecipeOperation duplicate = Assert.Single(facts.AdditionalOperations.Where(
-            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+        CurrentSchemaRecipeOperation duplicate = Assert.Single(facts.AdditionalOperations,
+            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence);
         recipes[recipeIndex] = recipes[recipeIndex] with
         {
-            SemanticDescription = facts with { AdditionalOperations = facts.AdditionalOperations.Append(duplicate).ToArray() }
+            SemanticDescription = facts with
+            {
+                AdditionalOperations = facts.AdditionalOperations.Append(duplicate).ToArray()
+            }
         };
         Assert.Contains("independent_sequence_duplicate", Assert.Throws<InvalidOperationException>(() =>
             CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(entity, recipes, SchemaProviderKind.PostgreSql)).Message);
@@ -222,11 +228,23 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
         Assert.Throws<JsonException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
             Encoding.UTF8.GetBytes("{\"UnknownApproval\":true," + json[1..]), producer));
         Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
-            JsonSerializer.SerializeToUtf8Bytes(artifact with { InputSha256 = new string('d', 64) }), producer));
+            JsonSerializer.SerializeToUtf8Bytes(artifact with
+            {
+                InputSha256 = new string('d', 64)
+            }), producer));
         Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
-            original, producer with { SourceCommit = new string('e', 40) }));
+            original, producer with
+            {
+                SourceCommit = new string('e', 40)
+            }));
         Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
-            JsonSerializer.SerializeToUtf8Bytes(artifact with { Input = input with { RequiredRecipes = [] } }), producer));
+            JsonSerializer.SerializeToUtf8Bytes(artifact with
+            {
+                Input = input with
+                {
+                    RequiredRecipes = []
+                }
+            }), producer));
     }
 
     [Fact]
@@ -258,7 +276,11 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
             Recipes = recipes.Select(static reference => reference.SemanticDescription).ToArray()
         }));
         var input = new CurrentSchemaBootstrapInput(previousEntity, producer, recipes);
-        var previousTarget = previousEntityIdentity with { SourceDigest = source, ContentDigest = content };
+        var previousTarget = previousEntityIdentity with
+        {
+            SourceDigest = source,
+            ContentDigest = content
+        };
         var previous = new CurrentSchemaOwnedTargetArtifact(CurrentSchemaOwnedTargetProjection.ArtifactSchemaVersion,
             input, CurrentSchemaOwnedTargetProjection.ComputeInputDigest(input), previousTarget);
         byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(previous);
@@ -388,7 +410,10 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
             restored.Input.RequiredRecipes.Sum(static recipe => recipe.SemanticDescription!.AdditionalOperations.Count));
         SchemaTableModel table = restored.Input.RequiredRecipes[0].SemanticDescription!.Table;
         string column = table.Columns.Keys.First();
-        table.Columns[column] = table.Columns[column] with { IsNullable = !table.Columns[column].IsNullable };
+        table.Columns[column] = table.Columns[column] with
+        {
+            IsNullable = !table.Columns[column].IsNullable
+        };
         Assert.NotEqual(artifact.InputSha256, CurrentSchemaOwnedTargetProjection.ComputeInputDigest(restored.Input));
         Assert.NotEqual(artifact.Target.ContentDigest, CurrentSchemaOwnedTargetProjection.Observe(restored.Input).ContentDigest);
     }

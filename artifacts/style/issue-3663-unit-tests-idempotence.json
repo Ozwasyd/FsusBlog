@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "5eebf8fde645f5ad430c2697ec0d950bcadbd8ef",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace /workspace/FsusBlog --folder --include tests/backend/Unit/ArticlePropertyDefinitionAuthorityTests.cs tests/backend/Unit/AuthorSavedViewContractTests.cs tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs tests/backend/Unit/AuthoringExtensionRpcTests.cs tests/backend/Unit/CurrentSchemaOwnedProjectionExporterTests.cs tests/backend/Unit/DocumentExportHtmlProviderTests.cs tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs tests/backend/Unit/PublicHotReadDbAdmissionTests.cs tests/backend/Unit/UserSessionLoginConcurrencyTests.cs --verbosity minimal"
+    },
+    "paths": [
+        "tests/backend/Unit/ArticlePropertyDefinitionAuthorityTests.cs",
+        "tests/backend/Unit/AuthorSavedViewContractTests.cs",
+        "tests/backend/Unit/AuthoringCanvasCoordinateAuthorityTests.cs",
+        "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+        "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
+        "tests/backend/Unit/CurrentSchemaOwnedProjectionExporterTests.cs",
+        "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
+        "tests/backend/Unit/DocumentExportSystemdCgroupAuthorityTests.cs",
+        "tests/backend/Unit/PublicHotReadDbAdmissionTests.cs",
+        "tests/backend/Unit/UserSessionLoginConcurrencyTests.cs"
+    ],
+    "firstPassTreeSha256": "cc1fd5cd7f1cdacb973c042288dae7ac3c9ab5fb257f619569c50253920ad996",
+    "secondPassTreeSha256": "cc1fd5cd7f1cdacb973c042288dae7ac3c9ab5fb257f619569c50253920ad996",
+    "idempotent": true
+}
