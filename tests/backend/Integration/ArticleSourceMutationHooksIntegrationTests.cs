@@ -1,24 +1,24 @@
 using System.Data;
 using System.Reflection;
 
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using Npgsql;
+using SqlSugar;
+
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Articles;
-using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
+using FsusBlog.Migration;
+using FsusBlog.Server.Infrastructure.Integrity;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
-
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-
-using Npgsql;
-
-using NSubstitute;
-
-using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;
 
@@ -184,6 +184,66 @@ public sealed class ArticleSourceMutationHooksIntegrationTests(PostgresSchemaMig
         Assert.Equal(9, (await db.Queryable<ArticleSourceSequence>().SingleAsync()).SourceSequence);
     }
 
+    [Fact]
+    public async Task TaxonomyRenameTransactions_EnrollEveryCategoryAndTagEvent()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        int categoryId = await db.Insertable(new Category { Name = "source category" }).ExecuteReturnIdentityAsync();
+        int tagId = await db.Insertable(new Tag { Name = "source tag" }).ExecuteReturnIdentityAsync();
+        Assert.Equal(1, categoryId);
+        ArticleCreateMutationAuthority.Result? created = null;
+        var seed = await db.Ado.UseTranAsync(async () => created = await CreateAsync(db, tagIds: [tagId]));
+        Assert.True(seed.IsSuccess, seed.ErrorException?.ToString());
+        await InstallLockOrderGuardAsync(db);
+        await db.Ado.ExecuteCommandAsync("""
+            CREATE TRIGGER require_category_source_lock BEFORE UPDATE ON category
+                FOR EACH ROW EXECUTE FUNCTION require_source_family_lock();
+            CREATE TRIGGER require_tag_source_lock BEFORE UPDATE ON tag
+                FOR EACH ROW EXECUTE FUNCTION require_source_family_lock();
+            """);
+
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateCategoryAndEnqueueProjectionAsync(
+                db, categoryId, "renamed source category", CancellationToken.None)).Outcome);
+        Assert.Equal(BinaryEndpoints.TaxonomyUpdateOutcome.Updated,
+            (await BinaryEndpoints.UpdateTagAndEnqueueProjectionAsync(
+                db, tagId, "renamed source tag", CancellationToken.None)).Outcome);
+
+        await AssertEveryEventEnrolledAsync(db, 3);
+        Assert.Equal(new ArticleSourceCursor(created!.ArticleId, 3, 3),
+            await ArticleSourceGenerationAuthority.ReadArticleCursorAsync(db, created.ArticleId));
+    }
+
+    [Fact]
+    public async Task RightsProofUnavailable_OriginalProjectionTransactionEnlistsItsActualEvent()
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        ArticleCreateMutationAuthority.Result? created = null;
+        var seed = await db.Ado.UseTranAsync(async () => created = await CreateAsync(db));
+        Assert.True(seed.IsSuccess, seed.ErrorException?.ToString());
+        await InstallLockOrderGuardAsync(db);
+        await db.Ado.ExecuteCommandAsync("""
+            CREATE TRIGGER require_rights_proof_source_lock BEFORE INSERT OR UPDATE ON article_rights_proof
+                FOR EACH ROW EXECUTE FUNCTION require_source_family_lock();
+            """);
+        var artifacts = Substitute.For<IArticleDetailAedsArtifactStore>();
+        var scheduler = new IntegrityProofScheduler(db, artifacts, new PublicHotReadStore(),
+            new PublishProofTransparencyLog(db), Configuration(), NullLogger<IntegrityProofScheduler>.Instance,
+            TimeProvider.System);
+
+        IntegrityProofScheduleResult result = await scheduler.ScheduleArticleRightsProofFromOutboxAsync(
+            created!.ArticleId, ArticleMutationEventTypes.Created,
+            ArticleMutationReplayEdges.Required.ToHashSet(StringComparer.Ordinal));
+
+        Assert.True(result.Scheduled);
+        Assert.NotEqual(PublishProofStatus.Ready, result.Status);
+        Assert.Empty(artifacts.ReceivedCalls());
+        Assert.Equal(1, await db.Queryable<ArticleRightsProof>().CountAsync());
+        Assert.Equal(1, await db.Queryable<ArticleMutationOutboxEvent>()
+            .Where(row => row.EventType == ArticleMutationEventTypes.RightsProofUpdated).CountAsync());
+        await AssertEveryEventEnrolledAsync(db, 2);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -295,17 +355,18 @@ public sealed class ArticleSourceMutationHooksIntegrationTests(PostgresSchemaMig
             typeof(ArticleRevision), typeof(ArticleRevisionContentBlock), typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot), typeof(ArticleResponsibilitySnapshot), typeof(ArticlePublicationRecord),
             typeof(ArticleMutationOutboxEvent), typeof(ArticleMutationCommand), typeof(AdminPrincipal), typeof(AuditLog),
-            typeof(ContentAsset), typeof(ContentAssetReference), typeof(ContentAssetCleanupQueueItem));
+            typeof(ContentAsset), typeof(ContentAssetReference), typeof(ContentAssetCleanupQueueItem),
+            typeof(Category), typeof(Tag), typeof(TagUrlAlias), typeof(ArticleRightsProof), typeof(ArticlePublishProof));
         return db;
     }
 
     private static Task<ArticleCreateMutationAuthority.Result> CreateAsync(SqlSugarClient db,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, IReadOnlyList<int>? tagIds = null)
         => ArticleCreateMutationAuthority.ExecuteAsync(db, new(
-            "source hook test", "# source", "summary", null, 1, [], ArticleStatus.Draft,
+            "source hook test", "# source", "summary", null, 1, tagIds ?? [], ArticleStatus.Draft,
             null, null, null, null, null, s_now, ArticleProductionNormalizers.NormalizeArticleRights(null),
             1, "initial source", ArticleMutationEventTypes.Created, ArticlePublicationTransitionKinds.SaveDraft,
-            new ArticleMutationScopeSnapshot(1, [], "draft")), cancellationToken);
+            new ArticleMutationScopeSnapshot(1, tagIds?.ToArray() ?? [], "draft")), cancellationToken);
 
     private static Task<ArticleLifecycleTransitionWriter.Result> UpdateAsync(SqlSugarClient db,
         ArticleLifecycleTransitionWriter.Result current, long admin, ArticleStatus target)

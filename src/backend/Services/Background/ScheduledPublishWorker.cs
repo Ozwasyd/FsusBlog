@@ -1,4 +1,3 @@
-using FsusBlog.Server.Services.Articles;
 using FsusBlog.Contracts.Articles;
 using System.Data.Common;
 using System.Diagnostics;
@@ -9,6 +8,7 @@ using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Operations;
+using FsusBlog.Server.Services.Articles;
 
 using SqlSugar;
 
