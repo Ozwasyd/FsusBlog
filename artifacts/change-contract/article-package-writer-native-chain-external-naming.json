@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs",
+                "src/backend/Services/Authoring/ArticlePackageImportAssetCandidateValidator.cs",
+                "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+                "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+                "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+                "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+                "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+                "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs",
+                "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+                "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+                "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs",
+                "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs"
+            ],
+            "reason": "Preserve original dependency source spellings byte-for-byte at this source-composition stage. These exact changed paths retain their existing trusted naming registration; no new environment access, naming policy or authority switch is introduced."
+        }
+    ]
+}

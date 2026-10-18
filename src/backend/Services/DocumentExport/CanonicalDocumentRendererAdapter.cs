@@ -1,3 +1,5 @@
+using FsusBlog.Server.Services.DocumentExport.Jobs;
+
 namespace FsusBlog.Server.Services.DocumentExport;
 
 internal sealed record CanonicalDocumentRendererResult(
@@ -5,7 +7,13 @@ internal sealed record CanonicalDocumentRendererResult(
     byte[] ResponseBytes,
     DocumentExportSandboxPlan SandboxPlan,
     DocumentExportSandboxReceipt SandboxReceipt,
-    DocumentExportToolContract Tool);
+    DocumentExportToolContract Tool)
+{
+    internal DocumentExportAttemptResources? AttemptResources
+    {
+        get; init;
+    }
+}
 
 /// <summary>
 /// The replaceable boundary to the one canonical Markdown renderer. It owns the
@@ -23,6 +31,13 @@ internal interface ICanonicalDocumentRendererAdapter
         DocumentExportTask task,
         DocumentExportFrozenInput input,
         CancellationToken cancellationToken = default);
+
+    Task<CanonicalDocumentRendererResult> RenderAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException("Canonical renderer does not support the shared attempt resource owner.");
 }
 
 internal sealed class SandboxCanonicalDocumentRendererAdapter : ICanonicalDocumentRendererAdapter
@@ -52,6 +67,13 @@ internal sealed class SandboxCanonicalDocumentRendererAdapter : ICanonicalDocume
         DocumentExportTask task,
         DocumentExportFrozenInput input,
         CancellationToken cancellationToken = default)
+        => await RenderAsync(task, input, _sandbox.CreateAttemptResources(task, input), cancellationToken);
+
+    public async Task<CanonicalDocumentRendererResult> RenderAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken = default)
     {
         var request = new DocumentExportRendererRequest(
             DocumentExportContractCatalog.RendererRequestSchema,
@@ -70,19 +92,19 @@ internal sealed class SandboxCanonicalDocumentRendererAdapter : ICanonicalDocume
             input.Locale,
             input.Assets);
 
-        DocumentExportSandboxResult sandboxResult = await _sandbox.ExecuteAsync(
+        DocumentExportSandboxResult sandboxResult = await _sandbox.ExecuteCanonicalRendererAsync(
             task,
             input,
-            _tool,
             (output, token) => DocumentExportDigest.SerializeAsync(output, request, token),
+            resources,
             cancellationToken);
-        DocumentExportSandboxRuntime.ValidateReceipt(
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(
             sandboxResult.Receipt,
             sandboxResult.Plan,
             task,
             input,
             _tool,
-            sandboxResult.Plan.HostBuildDigest,
+            _sandbox.HostBuildDigest,
             sandboxResult.OutputBytes);
         DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(
             sandboxResult.OutputBytes);
@@ -91,7 +113,10 @@ internal sealed class SandboxCanonicalDocumentRendererAdapter : ICanonicalDocume
             sandboxResult.OutputBytes,
             sandboxResult.Plan,
             sandboxResult.Receipt,
-            _tool);
+            _tool)
+        {
+            AttemptResources = resources
+        };
     }
 }
 
@@ -102,6 +127,7 @@ internal sealed class SandboxCanonicalDocumentRendererAdapter : ICanonicalDocume
 public sealed class DocumentExportProviderRegistry
 {
     private readonly SelfContainedHtmlDocumentExportProvider _html;
+    private readonly IDocumentExportJobProvider _htmlJobProvider;
 
     public DocumentExportProviderRegistry(DocumentExportSandboxRuntime sandbox)
     {
@@ -110,6 +136,7 @@ public sealed class DocumentExportProviderRegistry
         DocumentExportToolContract tool = sandbox.RequireRegisteredTool("self-contained-html");
         _html = new SelfContainedHtmlDocumentExportProvider(
             new SandboxCanonicalDocumentRendererAdapter(sandbox, tool));
+        _htmlJobProvider = new RegisteredHtmlJobProvider(_html, tool, sandbox.HostBuildDigest, sandbox);
     }
 
     public SelfContainedHtmlDocumentExportProvider RequireSelfContainedHtml(string formatId)
@@ -120,6 +147,60 @@ public sealed class DocumentExportProviderRegistry
             throw new InvalidOperationException($"Document export format '{formatId}' has no active provider.");
         }
         return _html;
+    }
+
+    public IDocumentExportJobProvider RequireJobProvider(string formatId)
+    {
+        _ = RequireSelfContainedHtml(formatId);
+        return _htmlJobProvider;
+    }
+
+    private sealed class RegisteredHtmlJobProvider(
+        SelfContainedHtmlDocumentExportProvider html,
+        DocumentExportToolContract tool,
+        string hostBuildDigest,
+        DocumentExportSandboxRuntime sandbox) : IDocumentExportAttemptJobProvider
+    {
+        public string ProviderId => DocumentExportContractCatalog.RequireProvider("self-contained-html").ProviderId;
+
+        public Task<DocumentExportProviderResult> ExportAsync(
+            DocumentExportTask task,
+            DocumentExportFrozenInput input,
+            CancellationToken cancellationToken)
+            => html.ExportAsync(task, input, cancellationToken);
+
+        public DocumentExportAttemptResources CreateAttemptResources(
+            DocumentExportTask task, DocumentExportFrozenInput input, TimeProvider time)
+            => sandbox.CreateAttemptResources(task, input, time);
+
+        public Task<DocumentExportProviderResult> ExportAsync(
+            DocumentExportTask task, DocumentExportFrozenInput input,
+            DocumentExportAttemptResources resources, CancellationToken cancellationToken)
+            => html.ExportAsync(task, input, resources, cancellationToken);
+
+        public async Task VerifyAsync(
+            DocumentExportProviderResult result, DocumentExportTask task, DocumentExportFrozenInput input,
+            DocumentExportAttemptResources resources, CancellationToken cancellationToken)
+        {
+            await VerifyAsync(result, task, input, cancellationToken);
+            resources.RequireCompleted();
+        }
+
+        public Task VerifyAsync(
+            DocumentExportProviderResult result,
+            DocumentExportTask task,
+            DocumentExportFrozenInput input,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            SelfContainedHtmlDocumentExportProvider.ValidateResult(result, task, input, tool, hostBuildDigest);
+            DocumentExportContractValidator.Validate(
+                result.Receipt,
+                task,
+                input,
+                DocumentExportContractCatalog.RequireProvider("self-contained-html"));
+            return Task.CompletedTask;
+        }
     }
 }
 
