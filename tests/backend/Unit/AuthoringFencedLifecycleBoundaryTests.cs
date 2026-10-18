@@ -12,10 +12,12 @@ namespace FsusBlog.Server.Tests;
 /// <summary>Refusal before any host or database access; no simulated approval issuer.</summary>
 public sealed class AuthoringFencedLifecycleBoundaryTests
 {
-    [Fact]
-    public async Task LegacyUpdate_WithRealFencedStore_RefusesBeforeRevocationOrReceiptPublication()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LegacyUpdate_WithRealFencedStore_RefusesBeforeRevocationOrReceiptPublication(bool preparedResourcePort)
     {
-        Fixture f = Create();
+        Fixture f = Create(preparedResourcePort: preparedResourcePort);
         VerifiedAuthoringPackage next = AuthoringStateProcessWorker.Package("2.0.0", 2);
         var plan = new AuthoringStateMigrationPlan("synthetic-plan", AuthoringStateProcessWorker.Scope(f.Package),
             AuthoringStateProcessWorker.Scope(next), 100, 1024, TimeSpan.FromSeconds(5),
@@ -58,11 +60,15 @@ public sealed class AuthoringFencedLifecycleBoundaryTests
         f.AssertUntouched();
     }
 
-    private static Fixture Create(AuthoringLifecycleState state = AuthoringLifecycleState.Running)
+    private static Fixture Create(
+        AuthoringLifecycleState state = AuthoringLifecycleState.Running,
+        bool preparedResourcePort = false)
     {
         VerifiedAuthoringPackage package = AuthoringStateProcessWorker.Package("1.0.0", 1);
         var db = Substitute.For<ISqlSugarClient>();
-        var resources = Substitute.For<IAuthoringLifecycleResourceAuthority>();
+        IAuthoringLifecycleResourceAuthority resources = preparedResourcePort
+            ? Substitute.For<IAuthoringFencedLifecycleResourceAuthorityV1>()
+            : Substitute.For<IAuthoringLifecycleResourceAuthority>();
         var preflight = Substitute.For<IAuthoringLifecyclePreflight>();
         var receipts = Substitute.For<IAuthoringLifecycleReceiptStore>();
         var grants = Substitute.For<IAuthoringCapabilityGrantCatalog>();
