@@ -13,9 +13,11 @@ internal sealed class OfflineMigrationArticleMediaJournal : IArticleMediaPreserv
     private readonly DbConnection _connection;
     private readonly DbTransaction _transaction;
     private readonly int _attempt;
+    private readonly OfflineMigrationApplyNativeSession.OwnedReadContext? _originalWrite;
 
     internal OfflineMigrationArticleMediaJournal(OfflineMigrationApplyJournalVerifier committed,
-        OfflineMigrationApplyJournalVerifier staged, DbConnection connection, DbTransaction transaction, int attempt)
+        OfflineMigrationApplyJournalVerifier staged, DbConnection connection, DbTransaction transaction, int attempt,
+        OfflineMigrationApplyNativeSession.OwnedReadContext? originalWrite = null)
     {
         _prepared = committed.PendingMedia ?? throw new InvalidOperationException("offline_apply_media_preparation_missing");
         if (_prepared.State != OfflineMigrationApplyJournalState.MediaPrepared || _prepared.Media?.GenerationIdentity is not null
@@ -27,6 +29,19 @@ internal sealed class OfflineMigrationArticleMediaJournal : IArticleMediaPreserv
         _connection = connection;
         _transaction = transaction;
         _attempt = attempt;
+        if (originalWrite is not null && (!ReferenceEquals(originalWrite.OriginalConnection, connection)
+            || !ReferenceEquals(originalWrite.OriginalTransaction, transaction)))
+            throw new InvalidOperationException("offline_apply_media_original_transaction_required");
+        _originalWrite = originalWrite;
+    }
+
+    internal async Task<OfflineMigrationApplyNativeSession.OwnedReadContext> RequireOriginalWriteAsync(CancellationToken token)
+    {
+        var context = _originalWrite ?? throw new InvalidOperationException("offline_apply_media_original_write_scope_required");
+        await context.RequireBoundaryAsync(token).ConfigureAwait(false);
+        if (!ReferenceEquals(context.OriginalConnection, _connection) || !ReferenceEquals(context.OriginalTransaction, _transaction))
+            throw new InvalidOperationException("offline_apply_media_original_transaction_required");
+        return context;
     }
 
     public Task<ArticleMediaJournalState> RequirePreparedAsync(ArticleMediaBinding binding, CancellationToken token)
