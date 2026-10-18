@@ -124,6 +124,9 @@ internal sealed class AuthoringProductionPreflightFixture : IDisposable
 
     public async Task<AuthoringCapabilityGrant> StoreGrantAsync(string? site = null, string? document = null)
     {
+        // Seed the actual persistent catalog for diagnostic scope/revocation
+        // controls only. These test receipt strings are not issued consent or
+        // production approval; every composition admission remains refused.
         AuthoringExecutionTarget target = Targets[0];
         AuthoringCapabilityGrant grant = new("", target.RuntimeIdentity, target.ExtensionId, target.ExtensionVersion,
             target.ContributionId, target.ExecutionClass, AuthoringCapability.ArticleQuery, document ?? Scope.DocumentId!,
