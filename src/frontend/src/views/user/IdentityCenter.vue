@@ -757,9 +757,11 @@ const resolvePasskeyStepUpProof = async (action: string): Promise<string> =>
     let assertion: Awaited<ReturnType<typeof startAuthentication>>;
     try
     {
-        assertion = await startAuthentication({
-            optionsJSON: normalizeLocalPasskeyOptions(options) as Parameters<typeof startAuthentication>[0]['optionsJSON']
-        });
+        // Keep API options opaque until the SDK validates its own request contract.
+        const authenticationOptions: { optionsJSON: unknown; } = {
+            optionsJSON: normalizeLocalPasskeyOptions(options)
+        };
+        assertion = await startAuthentication(authenticationOptions as Parameters<typeof startAuthentication>[0]);
     }
     catch (error)
     {
