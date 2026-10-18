@@ -91,13 +91,13 @@ public sealed class AuthoringExtensionLifecycleResources(
     {
         if (cancellationToken.IsCancellationRequested)
         {
-            await TerminateAndDisposeWorkerAsync(worker, "lifecycle-track-cancelled");
+            await TerminateAndDisposeWorkerAsync(new(worker), "lifecycle-track-cancelled");
             cancellationToken.ThrowIfCancellationRequested();
         }
 
-        if (!TryTrack(extensionId, generation, worker, static (resources, instance) => resources.Workers.Add(instance)))
+        if (!TryTrack(extensionId, generation, worker, static resources => resources.Workers))
         {
-            await TerminateAndDisposeWorkerAsync(worker, "lifecycle-not-active");
+            await TerminateAndDisposeWorkerAsync(new(worker), "lifecycle-not-active");
             throw new AuthoringExtensionContractException("Worker started outside an active lifecycle generation.");
         }
     }
@@ -110,38 +110,28 @@ public sealed class AuthoringExtensionLifecycleResources(
     {
         if (cancellationToken.IsCancellationRequested)
         {
-            await TerminateAndDisposeServiceAsync(service, "lifecycle-track-cancelled");
+            await TerminateAndDisposeServiceAsync(new(service), "lifecycle-track-cancelled");
             cancellationToken.ThrowIfCancellationRequested();
         }
 
-        if (!TryTrack(extensionId, generation, service, static (resources, process) => resources.Services.Add(process)))
+        if (!TryTrack(extensionId, generation, service, static resources => resources.Services))
         {
-            await TerminateAndDisposeServiceAsync(service, "lifecycle-not-active");
+            await TerminateAndDisposeServiceAsync(new(service), "lifecycle-not-active");
             throw new AuthoringExtensionContractException("Service started outside an active lifecycle generation.");
         }
     }
 
-    public async ValueTask ReleaseWorkerAsync(
+    public ValueTask ReleaseWorkerAsync(
         string extensionId,
         long generation,
-        IAuthoringWorkerSandboxInstance worker)
-    {
-        if (TryRelease(extensionId, generation, worker, static resources => resources.Workers))
-        {
-            await worker.DisposeAsync();
-        }
-    }
+        IAuthoringWorkerSandboxInstance worker) =>
+        ReleaseAsync(extensionId, generation, worker, static resources => resources.Workers);
 
-    public async ValueTask ReleaseServiceAsync(
+    public ValueTask ReleaseServiceAsync(
         string extensionId,
         long generation,
-        IAuthoringServiceProcess service)
-    {
-        if (TryRelease(extensionId, generation, service, static resources => resources.Services))
-        {
-            await service.DisposeAsync();
-        }
-    }
+        IAuthoringServiceProcess service) =>
+        ReleaseAsync(extensionId, generation, service, static resources => resources.Services);
 
     public async ValueTask<AuthoringLifecycleResourceReport> RevokeAllAsync(
         string extensionId,
@@ -151,8 +141,8 @@ public sealed class AuthoringExtensionLifecycleResources(
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
-            IAuthoringWorkerSandboxInstance[] workers;
-            IAuthoringServiceProcess[] services;
+            TrackedResource<IAuthoringWorkerSandboxInstance>[] workers;
+            TrackedResource<IAuthoringServiceProcess>[] services;
             lock (_lock)
             {
                 if (!_active.TryGetValue(extensionId, out ActiveResources? resources))
@@ -170,46 +160,40 @@ public sealed class AuthoringExtensionLifecycleResources(
                     resources.Revoking = true;
                     workers = [.. resources.Workers];
                     services = [.. resources.Services];
-                    resources.Workers.Clear();
-                    resources.Services.Clear();
                 }
             }
 
-            List<IAuthoringWorkerSandboxInstance> workerFailures = [];
-            List<IAuthoringServiceProcess> serviceFailures = [];
-            foreach (IAuthoringWorkerSandboxInstance worker in workers)
+            int workerFailures = 0;
+            int serviceFailures = 0;
+            foreach (TrackedResource<IAuthoringWorkerSandboxInstance> worker in workers)
             {
                 try
                 {
                     await TerminateAndDisposeWorkerAsync(worker, "lifecycle-revoked");
+                    lock (_lock)
+                    {
+                        _active[extensionId].Workers.Remove(worker);
+                    }
                 }
                 catch
                 {
-                    workerFailures.Add(worker);
+                    workerFailures++;
                 }
             }
 
-            foreach (IAuthoringServiceProcess service in services)
+            foreach (TrackedResource<IAuthoringServiceProcess> service in services)
             {
                 try
                 {
                     await TerminateAndDisposeServiceAsync(service, "lifecycle-revoked");
+                    lock (_lock)
+                    {
+                        _active[extensionId].Services.Remove(service);
+                    }
                 }
                 catch
                 {
-                    serviceFailures.Add(service);
-                }
-            }
-
-            if (workerFailures.Count > 0 || serviceFailures.Count > 0)
-            {
-                lock (_lock)
-                {
-                    if (_active.TryGetValue(extensionId, out ActiveResources? resources))
-                    {
-                        resources.Workers.AddRange(workerFailures);
-                        resources.Services.AddRange(serviceFailures);
-                    }
+                    serviceFailures++;
                 }
             }
 
@@ -218,8 +202,8 @@ public sealed class AuthoringExtensionLifecycleResources(
                 CancellationToken.None);
             var report = new AuthoringLifecycleResourceReport(
                 host.ContributionRegistrations,
-                workerFailures.Count,
-                serviceFailures.Count,
+                workerFailures,
+                serviceFailures,
                 host.RpcRequests,
                 host.Grants,
                 host.ScheduledJobs,
@@ -333,8 +317,8 @@ public sealed class AuthoringExtensionLifecycleResources(
         string extensionId,
         long generation,
         T resource,
-        Action<ActiveResources, T> add)
-        where T : class
+        Func<ActiveResources, List<TrackedResource<T>>> select)
+        where T : class, IAsyncDisposable
     {
         if (string.IsNullOrWhiteSpace(extensionId) || generation < 1 || resource is null)
         {
@@ -349,80 +333,122 @@ public sealed class AuthoringExtensionLifecycleResources(
                 return false;
             }
 
-            add(resources, resource);
+            List<TrackedResource<T>> tracked = select(resources);
+            if (!tracked.Any(candidate => ReferenceEquals(candidate.Instance, resource)))
+            {
+                tracked.Add(new(resource));
+            }
             return true;
         }
     }
 
-    private bool TryRelease<T>(
+    private async ValueTask ReleaseAsync<T>(
         string extensionId,
         long generation,
         T resource,
-        Func<ActiveResources, List<T>> select)
-        where T : class
+        Func<ActiveResources, List<TrackedResource<T>>> select)
+        where T : class, IAsyncDisposable
     {
+        TrackedResource<T>? tracked;
+        TaskCompletionSource? completion = null;
+        Task release;
         lock (_lock)
         {
             if (generation < 1 ||
                 !_active.TryGetValue(extensionId, out ActiveResources? resources) ||
-                generation > resources.Generation)
+                generation > resources.Generation || resources.Revoking)
             {
-                return false;
+                return;
             }
 
-            List<T> tracked = select(resources);
-            int index = tracked.FindIndex(candidate => ReferenceEquals(candidate, resource));
-            if (index < 0)
+            tracked = select(resources).Find(candidate => ReferenceEquals(candidate.Instance, resource));
+            if (tracked is null)
             {
-                return false;
+                return;
             }
 
-            tracked.RemoveAt(index);
-            return true;
+            if (tracked.ReleaseTask is null)
+            {
+                completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                tracked.ReleaseTask = completion.Task;
+            }
+            release = tracked.ReleaseTask;
         }
+
+        if (completion is not null)
+        {
+            try
+            {
+                await resource.DisposeAsync();
+                tracked.Disposed = true;
+                lock (_lock)
+                {
+                    select(_active[extensionId]).Remove(tracked);
+                }
+                completion.SetResult();
+            }
+            catch (Exception exception)
+            {
+                completion.SetException(exception);
+            }
+        }
+
+        await release;
     }
 
-    private static async ValueTask TerminateAndDisposeWorkerAsync(
-        IAuthoringWorkerSandboxInstance worker,
-        string reason)
+    private static ValueTask TerminateAndDisposeWorkerAsync(
+        TrackedResource<IAuthoringWorkerSandboxInstance> worker,
+        string reason) =>
+        TerminateAndDisposeAsync(worker,
+            instance => instance.TerminateAsync(reason, CancellationToken.None),
+            "Lifecycle could not confirm worker termination before disposal.");
+
+    private static ValueTask TerminateAndDisposeServiceAsync(
+        TrackedResource<IAuthoringServiceProcess> service,
+        string reason) =>
+        TerminateAndDisposeAsync(service,
+            instance => instance.TerminateTreeAsync(reason, CancellationToken.None),
+            "Lifecycle could not confirm service-tree termination before disposal.");
+
+    private static async ValueTask TerminateAndDisposeAsync<T>(
+        TrackedResource<T> resource,
+        Func<T, ValueTask> terminate,
+        string terminationFailure)
+        where T : class, IAsyncDisposable
     {
-        bool terminated = false;
-        try
+        if (resource.ReleaseTask is not null)
         {
-            await worker.TerminateAsync(reason, CancellationToken.None);
-            terminated = true;
-        }
-        catch
-        {
-        }
-
-        await worker.DisposeAsync();
-        if (!terminated)
-        {
-            throw new AuthoringExtensionContractException(
-                "Lifecycle could not confirm worker termination before disposal.");
-        }
-    }
-
-    private static async ValueTask TerminateAndDisposeServiceAsync(
-        IAuthoringServiceProcess service,
-        string reason)
-    {
-        bool terminated = false;
-        try
-        {
-            await service.TerminateTreeAsync(reason, CancellationToken.None);
-            terminated = true;
-        }
-        catch
-        {
+            try
+            {
+                await resource.ReleaseTask;
+            }
+            catch
+            {
+                // Release reports its failure to its callers; revoke retains the cleanup retry.
+            }
         }
 
-        await service.DisposeAsync();
-        if (!terminated)
+        if (!resource.Disposed)
         {
-            throw new AuthoringExtensionContractException(
-                "Lifecycle could not confirm service-tree termination before disposal.");
+            bool terminated = false;
+            try
+            {
+                await terminate(resource.Instance);
+                terminated = true;
+            }
+            catch
+            {
+            }
+
+            await resource.Instance.DisposeAsync();
+            resource.Disposed = true;
+            resource.TerminationFailed = !terminated;
+        }
+
+        if (resource.TerminationFailed)
+        {
+            // Successful disposal cannot be repeated to confirm an earlier failed termination.
+            throw new AuthoringExtensionContractException(terminationFailure);
         }
     }
 
@@ -452,11 +478,32 @@ public sealed class AuthoringExtensionLifecycleResources(
     {
         public long Generation { get; set; } = generation;
 
-        public List<IAuthoringWorkerSandboxInstance> Workers { get; } = [];
+        public List<TrackedResource<IAuthoringWorkerSandboxInstance>> Workers { get; } = [];
 
-        public List<IAuthoringServiceProcess> Services { get; } = [];
+        public List<TrackedResource<IAuthoringServiceProcess>> Services { get; } = [];
 
         public bool Revoking
+        {
+            get; set;
+        }
+    }
+
+    private sealed class TrackedResource<T>(T instance)
+        where T : class, IAsyncDisposable
+    {
+        public T Instance { get; } = instance;
+
+        public Task? ReleaseTask
+        {
+            get; set;
+        }
+
+        public bool Disposed
+        {
+            get; set;
+        }
+
+        public bool TerminationFailed
         {
             get; set;
         }
