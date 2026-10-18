@@ -323,6 +323,45 @@ public sealed class AuthoringExtensionProductionPreflight(
         throw new AuthoringExtensionContractException("production_approval_qualification_pending");
     }
 
+    internal async ValueTask<IAuthoringExtensionStateObservation> AcquireAppliedStateObservationAsync(
+        VerifiedAuthoringPackage oldPackage, VerifiedAuthoringPackage newPackage,
+        AuthoringFencedStateMigration plan, AuthoringStateSnapshot actualApplied,
+        CancellationToken cancellationToken)
+    {
+        Require(stateStore is IAuthoringExtensionStateObservationStore, "production_state_observation_owner_missing");
+        AuthoringExtensionStateContract.ValidatePlan(oldPackage, newPackage, plan);
+        AuthoringStateSnapshot applied = FreezeAppliedSnapshot(actualApplied);
+        IAuthoringExtensionStateObservation held = await ((IAuthoringExtensionStateObservationStore)stateStore)
+            .ObserveFencedAsync(oldPackage, newPackage, plan, AuthoringStateMigrationPhase.Applied, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // This verifies on the original held connection. Never replace it
+            // with ordinary Read/Measure or a second observation acquisition.
+            await held.VerifyCurrentAsync(cancellationToken).ConfigureAwait(false);
+            AuthoringStateObservation observed = held.State;
+            ImmutableArray<string> expectedScopes = [.. new[] { plan.From, plan.To }
+                .Select(AuthoringExtensionStateContract.ScopeId).Order(StringComparer.Ordinal)];
+            Require(held.AcquiredScopeIds.SequenceEqual(expectedScopes)
+                && observed.Phase == AuthoringStateMigrationPhase.Applied
+                && observed.From.Fence == plan.ContentSha256 && observed.To?.Fence == plan.ContentSha256
+                && observed.From.Snapshot.Scope == plan.From
+                && observed.From.Snapshot.PackageIdentity == oldPackage.PackageIdentity
+                && observed.From.Snapshot.Revision == checked(plan.ExpectedFromRevision + 1)
+                && observed.To is not null
+                && applied.Scope == plan.To && applied.PackageIdentity == newPackage.PackageIdentity
+                && applied.Revision == checked(plan.ExpectedToRevision + 2)
+                && AuthoringExtensionStateContract.Encode(observed.To.Snapshot).AsSpan()
+                    .SequenceEqual(AuthoringExtensionStateContract.Encode(applied)),
+                "production_applied_state_observation_drift");
+            return held;
+        }
+        catch
+        {
+            await held.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
     internal AuthoringExtensionApprovalExecutionResult FreezeExecutionResult(AuthoringStateSnapshot applied,
         ImmutableArray<AuthoringExecutionTarget> targets, long runningGeneration)
     {
