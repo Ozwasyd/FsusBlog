@@ -2,6 +2,7 @@ using System.Text;
 
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Shared.Contracts.ArticleProperties;
 
 using NSubstitute;
 
@@ -38,7 +39,13 @@ public sealed class ArticleTemplatePlanImmutabilityTests
         ArticleTemplateAssetPin[] assets = [pin];
         var property = new ArticleTemplatePropertyDefault(Guid.CreateVersion7(), ArticleTemplatePropertyValueKind.Text, "safe");
         ArticleTemplatePropertyDefault[] properties = [property];
-        var dependencies = new ArticleTemplateExpansionDependencies(null, tags, assets, properties, null, null, null);
+        var value = new ArticlePropertyValueEntry(property.DefinitionId, 1, new string('b', 64),
+            ArticlePropertyValuePresence.Present, new ArticlePropertyTextValue("safe"), new string('c', 64));
+        var propertyPin = new ArticleTemplatePropertyPin(ArticlePropertyDefinitionOwner.User(42, "synthetic-site"),
+            property.DefinitionId, 1, value.DefinitionDigest, ArticlePropertyValueType.Text, ArticlePropertyCardinality.Single,
+            ArticlePropertyDefinitionStatus.Active, new string('d', 64), new string('e', 64), new string('f', 64), value);
+        ArticleTemplatePropertyPin[] propertyPins = [propertyPin];
+        var dependencies = new ArticleTemplateExpansionDependencies(null, tags, assets, properties, null, null, null, propertyPins);
         ArticleTemplateExpansionPlan plan = CreatePlan([], dependencies);
         string digest = plan.ContentDigest;
 
@@ -48,13 +55,19 @@ public sealed class ArticleTemplatePlanImmutabilityTests
             State = "retired"
         };
         properties[0] = new ArticleTemplatePropertyDefault(Guid.CreateVersion7(), ArticleTemplatePropertyValueKind.Text, "changed");
+        propertyPins[0] = propertyPin with
+        {
+            SchemaRevision = 2
+        };
 
         Assert.Equal(11, Assert.Single(plan.Dependencies.TagIds));
         Assert.Equal(pin, Assert.Single(plan.Dependencies.AssetPins));
         Assert.Same(property, Assert.Single(plan.Dependencies.PropertyDefaults));
+        Assert.Same(propertyPin, Assert.Single(plan.Dependencies.PropertyPins));
         Assert.Throws<NotSupportedException>(() => ((IList<int>)dependencies.TagIds)[0] = 99);
         Assert.Throws<NotSupportedException>(() => ((IList<ArticleTemplateAssetPin>)dependencies.AssetPins)[0] = pin);
         Assert.Throws<NotSupportedException>(() => ((IList<ArticleTemplatePropertyDefault>)dependencies.PropertyDefaults)[0] = property);
+        Assert.Throws<NotSupportedException>(() => ((IList<ArticleTemplatePropertyPin>)dependencies.PropertyPins)[0] = propertyPin);
         Assert.Equal(digest, ArticleTemplateContract.ComputeExpansionPlanDigest(plan));
     }
 
@@ -82,6 +95,8 @@ public sealed class ArticleTemplatePlanImmutabilityTests
             null, [], new ArticleTemplateAssetPin[ArticleTemplateContract.MaxAssets + 1], [], null, null, null));
         Assert.Throws<ArticleTemplateBudgetExceededException>(() => new ArticleTemplateExpansionDependencies(
             null, [], [], new ArticleTemplatePropertyDefault[ArticleTemplateContract.MaxPropertyDefaults + 1], null, null, null));
+        Assert.Throws<ArticleTemplateBudgetExceededException>(() => new ArticleTemplateExpansionDependencies(
+            null, [], [], [], null, null, null, new ArticleTemplatePropertyPin[ArticleTemplateContract.MaxPropertyDefaults + 1]));
     }
 
     [Fact]

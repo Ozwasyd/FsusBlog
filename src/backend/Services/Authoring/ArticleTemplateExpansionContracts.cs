@@ -1,3 +1,4 @@
+using FsusBlog.Shared.Contracts.ArticleProperties;
 using FsusBlog.Shared.Contracts.Localization;
 
 namespace FsusBlog.Server.Services.Authoring;
@@ -95,6 +96,24 @@ public sealed record ArticleTemplateAssetPin(
     DateTime UpdatedAtUtc);
 
 /// <summary>
+/// Current definition coordinates and the value accepted by the canonical property validator.
+/// Component digests come from the definition owner, never template labels or scalar guesses.
+/// This read-only pin is not a property snapshot or transaction acceptance.
+/// </summary>
+public sealed record ArticleTemplatePropertyPin(
+    ArticlePropertyDefinitionOwner Owner,
+    Guid DefinitionId,
+    long SchemaRevision,
+    string DefinitionDigest,
+    ArticlePropertyValueType ValueType,
+    ArticlePropertyCardinality Cardinality,
+    ArticlePropertyDefinitionStatus Status,
+    string ConstraintDigest,
+    string OptionsDigest,
+    string PolicyDigest,
+    ArticlePropertyValueEntry ValidatedValue);
+
+/// <summary>
 /// Current revision truth for every external reference the plan relies on. Pins record the
 /// authority state observed while planning so staleness is detectable, never repaired by name.
 /// </summary>
@@ -107,14 +126,16 @@ public sealed record ArticleTemplateExpansionDependencies
         IReadOnlyList<ArticleTemplatePropertyDefault> propertyDefaults,
         ArticleTemplateProfileReference? rightsProfile,
         ArticleTemplateProfileReference? responsibilityProfile,
-        ArticleTemplateProfileReference? prepublishProfile)
+        ArticleTemplateProfileReference? prepublishProfile,
+        IReadOnlyList<ArticleTemplatePropertyPin>? propertyPins = null)
     {
         ArgumentNullException.ThrowIfNull(tagIds);
         ArgumentNullException.ThrowIfNull(assetPins);
         ArgumentNullException.ThrowIfNull(propertyDefaults);
         if (tagIds.Count > ArticleTemplateContract.MaxTags
             || assetPins.Count > ArticleTemplateContract.MaxAssets
-            || propertyDefaults.Count > ArticleTemplateContract.MaxPropertyDefaults)
+            || propertyDefaults.Count > ArticleTemplateContract.MaxPropertyDefaults
+            || propertyPins?.Count > ArticleTemplateContract.MaxPropertyDefaults)
         {
             throw new ArticleTemplateBudgetExceededException("article_template_expansion_dependency_budget_exceeded");
         }
@@ -123,6 +144,7 @@ public sealed record ArticleTemplateExpansionDependencies
         TagIds = Array.AsReadOnly(tagIds.ToArray());
         AssetPins = Array.AsReadOnly(assetPins.ToArray());
         PropertyDefaults = Array.AsReadOnly(propertyDefaults.ToArray());
+        PropertyPins = Array.AsReadOnly((propertyPins ?? []).ToArray());
         RightsProfile = rightsProfile;
         ResponsibilityProfile = responsibilityProfile;
         PrepublishProfile = prepublishProfile;
@@ -141,6 +163,10 @@ public sealed record ArticleTemplateExpansionDependencies
         get;
     }
     public IReadOnlyList<ArticleTemplatePropertyDefault> PropertyDefaults
+    {
+        get;
+    }
+    public IReadOnlyList<ArticleTemplatePropertyPin> PropertyPins
     {
         get;
     }
@@ -294,6 +320,16 @@ public interface IArticleTemplateExpansionVerifier
 {
     Task<ArticleTemplateVerificationResult> VerifyAsync(
         ArticleTemplateExpansionPlan plan,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Create-side context binding. The host supplies the currently authorized actor and
+    /// definition owner; historical plan permissions cannot supply current admission.
+    /// </summary>
+    Task<ArticleTemplateVerificationResult> VerifyAsync(
+        ArticleTemplateExpansionPlan plan,
+        ArticleTemplateActor currentActor,
+        ArticlePropertyDefinitionOwner currentPropertyOwner,
         CancellationToken cancellationToken = default);
 }
 

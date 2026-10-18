@@ -38,8 +38,14 @@ public sealed class ArticleTemplateExpansionPlanner(
         }
 
         // Stable references re-validated against current authorities before planning.
-        await referenceAuthority.ValidateAsync(input.Actor, definition.Scope, version.Defaults, cancellationToken)
+        IReadOnlyList<ArticleTemplatePropertyPin> propertyPins = await referenceAuthority
+            .ValidateAndPinAsync(input.Actor, definition.Scope, version.Defaults, cancellationToken)
             .ConfigureAwait(false);
+        if (!propertyPins.Select(static pin => pin.DefinitionId)
+                .SequenceEqual(version.Defaults.PropertyDefaults.Select(static value => value.DefinitionId)))
+        {
+            throw new ArticleTemplateReferenceException("article_template_property_pins_invalid");
+        }
         string actorDisplayName = await expansionAuthority
             .ResolveActorDisplayNameAsync(input.Actor.AdminPrincipalId, cancellationToken)
             .ConfigureAwait(false);
@@ -69,7 +75,8 @@ public sealed class ArticleTemplateExpansionPlanner(
             version.Defaults.PropertyDefaults,
             version.Defaults.RightsProfile,
             version.Defaults.ResponsibilityProfile,
-            version.Defaults.PrepublishProfile);
+            version.Defaults.PrepublishProfile,
+            propertyPins);
         return new ArticleTemplateExpansionPlan(
             input,
             version.VersionId,
