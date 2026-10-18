@@ -421,6 +421,9 @@ public sealed class AuthoringExtensionProductionPreflight(
     internal string RequireClaimDigest()
         => approvedClaim?.Digest ?? throw new AuthoringExtensionContractException("production_migration_claim_required");
 
+    internal string RequireOperationSha256()
+        => approvedClaim?.OperationSha256 ?? throw new AuthoringExtensionContractException("production_migration_claim_required");
+
     internal async ValueTask<ImmutableArray<string>> FindBoundGrantIdsAsync(
         VerifiedAuthoringPackage package, AuthoringExecutionTarget target, CancellationToken cancellationToken)
     {
