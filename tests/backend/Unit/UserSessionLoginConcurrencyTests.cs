@@ -217,7 +217,9 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
                 Assert.Contains(active, session => session.SessionId == currentData.SessionId);
                 Assert.Contains(active, session => session.SessionId == login.Data!.Value.SessionId);
             },
-            static () => { });
+            static () =>
+            {
+            });
     }
 
     [Fact]
@@ -264,7 +266,9 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
                     .Where(session => session.UserId == user.Id && session.RevokedAt == null)
                     .ToListAsync());
             },
-            static () => { });
+            static () =>
+            {
+            });
     }
 
     private static async Task<User> SeedAccountAsync(SqlSugarClient db)
