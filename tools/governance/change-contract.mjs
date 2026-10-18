@@ -1,3 +1,4 @@
+import { isUtf8 } from 'node:buffer';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
@@ -9,10 +10,12 @@ import { createGeneratedOutputDigestRepairRepository } from './generated-output-
 import { verifyGeneratedOutputDigestRepairV2 } from './generated-output-digest-repair-v2.mjs';
 import { verifyGeneratedOutputHistoryRepairV3 } from './generated-output-history-repair-v3.mjs';
 import { javascriptFormatFingerprint } from './javascript-format-equivalence.mjs';
+import { csharpFormatFingerprint } from './csharp-format-equivalence.mjs';
 
 const { default: commitlintConfig } = await import(new URL('../../commitlint.config.mjs', import.meta.url));
 
 export { javascriptFormatFingerprint };
+export { csharpFormatFingerprint };
 
 const genericSummaries = new Set([
     'apply fixes',
@@ -4493,7 +4496,8 @@ export function validateFormatOnlyDiff(root, base, head, { ignoredPaths = [] } =
         {
             const before = readFileAtRevision(root, base, path);
             const after = readFileAtRevision(root, head, path);
-            if (before.includes(0) || after.includes(0))
+            if (before.includes(0) || after.includes(0)
+                || (/\.cs$/u.test(path) && (!isUtf8(before) || !isUtf8(after))))
             {
                 changedTokens.push(path);
                 continue;
@@ -4662,6 +4666,10 @@ function preprocessorFingerprint(source)
 
 function formatFingerprint(source, path)
 {
+    if (/\.cs$/u.test(path))
+    {
+        return csharpFormatFingerprint(source);
+    }
     if (/\.(?:mjs|cjs|js)$/u.test(path))
     {
         return javascriptFormatFingerprint(source, path);

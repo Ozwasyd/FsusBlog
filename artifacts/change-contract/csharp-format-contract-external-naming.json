@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md",
+                "docs/development/csharp-style-enforcement.md"
+            ],
+            "reason": "Preserve the documented external .editorconfig, formatter CLI and evidence-schema spellings; internal naming and all source formatting requirements remain enforced."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dotnet/check-csharp-style.mjs",
+                "tools/governance/change-contract.mjs",
+                "tools/governance/csharp-format-equivalence.mjs"
+            ],
+            "reason": "Preserve existing checker CLI, diagnostics and inherited process-environment spelling while binding the fixed SDK parser; internal JavaScript identifiers retain repository naming."
+        }
+    ]
+}
