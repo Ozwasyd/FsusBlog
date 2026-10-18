@@ -1,0 +1,193 @@
+{
+    "schema": "fsusblog.article-package.writer-verification.v1",
+    "status": "WIP finite synthetic component verification; not independent supplier or original-project acceptance",
+    "sourceHead": "16e041d4f44d87d3a9092265fb6c617a72d3d2b4",
+    "sourceTree": "3d74a90166f9ac61825cc84d5e99fcac48ef6bd1",
+    "sourceBlobs": {
+        "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs": "a0b1960c6bbcf8836cb5c7e8b61307d89bf99f28",
+        "tests/backend/Unit/ArticlePackageFrozenExportCandidateWriterTests.cs": "05fda30248c7de5a426ea7c3027c4baa0015d6b7"
+    },
+    "provenance": "artifacts/change-contract/article-package-writer-source-provenance.json",
+    "supplierClosureCheck": {
+        "status": "PASS",
+        "paths": 9,
+        "method": "Compare each candidate Git blob against the exact supplier head blob in provenance; no locally authored supplier edits"
+    },
+    "environment": {
+        "sdk": "10.0.401",
+        "configuration": "Debug",
+        "data": "synthetic canonical article/property/media/font fixtures only; no private source reads"
+    },
+    "sourceCompositionBaseline": {
+        "status": "PASS",
+        "head": "066d5b3ce01a838a0f57cec492d208ab80d315a0",
+        "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore -p:RunAnalyzers=false --filter 'FullyQualifiedName~ArticlePackage' --logger 'trx;LogFileName=source-baseline.trx' --results-directory .tmp/writer-evidence",
+        "counts": {
+            "total": 1187,
+            "executed": 1187,
+            "passed": 1187,
+            "failed": 0,
+            "notExecuted": 0
+        },
+        "trxSha256": "61c6f7ea2d934493b2f2547107d314fed3386d6b45c6174f1f277ddc21d0001a",
+        "classCaseCounts": {
+            "ArticlePackageAssetCollectionTests": 97,
+            "ArticlePackageAssetMetadataMapperTests": 30,
+            "ArticlePackageChecksumTests": 70,
+            "ArticlePackageCurrentPropertyReaderTests": 57,
+            "ArticlePackageFrozenExportCandidateWriterTests": 60,
+            "ArticlePackageImportAssetCandidateTests": 55,
+            "ArticlePackageImportCandidateByteTests": 36,
+            "ArticlePackageImportCandidatePlanTests": 55,
+            "ArticlePackageImportCandidateReviewProjectionTests": 18,
+            "ArticlePackageImportZipCandidateTests": 72,
+            "ArticlePackageInventoryTests": 87,
+            "ArticlePackageManifestCandidateCodecTests": 132,
+            "ArticlePackageManifestCandidatePlannerTests": 89,
+            "ArticlePackageManifestMetadataCodecTests": 64,
+            "ArticlePackageManifestPropertyCodecTests": 38,
+            "ArticlePackageManifestTaxonomyCodecTests": 35,
+            "ArticlePackageManifestVersionRegistryTests": 43,
+            "ArticlePackagePropertyMapperTests": 69,
+            "ArticlePackageSourceByteTests": 12,
+            "ArticlePackageTitleSummaryMapperTests": 67,
+            "RevisionComparePlannerTests": 1
+        }
+    },
+    "preservedIterations": [
+        {
+            "status": "FAIL",
+            "stage": "initial feature trial against original writer",
+            "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore -p:RunAnalyzers=false --filter 'FullyQualifiedName~ArticlePackageFrozenExportCandidateWriterTests.AssetWriter'",
+            "counts": {
+                "total": 22,
+                "executed": 22,
+                "passed": 0,
+                "failed": 22,
+                "notExecuted": 0
+            },
+            "trxSha256": "54485c27fbb58223f8de9c9f28063f1e94ffd5661f42eedde77d1cfd8636f747",
+            "limitation": "Initial nonempty frozen fixtures incorrectly supplied package bare hashes to the document contract. This run is diagnostic, not valid red/green feature proof."
+        },
+        {
+            "status": "FAIL",
+            "stage": "first implementation trial",
+            "sourceHead": "857a4a552691942ea90fad82f13048e11e61270f",
+            "counts": {
+                "total": 1281,
+                "executed": 1281,
+                "passed": 1259,
+                "failed": 22,
+                "notExecuted": 0
+            },
+            "trxSha256": "a22fbac44d088b3d00ae211311a8ba57516441e649299ca7b7e6b901fdf12908",
+            "correction": "Use the real document sha256-prefixed digest fixture and validate it before writer positives; recompute raw package SHA-256 from frozen bytes instead of comparing the two representations."
+        }
+    ],
+    "backend": {
+        "status": "PASS",
+        "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter 'FullyQualifiedName~ArticlePackage|FullyQualifiedName~DocumentExportContractTests' --logger 'trx;LogFileName=verified.trx' --results-directory .tmp/writer-evidence",
+        "counts": {
+            "total": 1281,
+            "executed": 1281,
+            "passed": 1281,
+            "failed": 0,
+            "notExecuted": 0
+        },
+        "trxSha256": "1ccbe43ed005c46f694ce3f07f72a1b4a097cd5eeec5d707c467e3f9177ccf3e",
+        "classCaseCounts": {
+            "ArticlePackageAssetCollectionTests": 97,
+            "ArticlePackageAssetMetadataMapperTests": 30,
+            "ArticlePackageChecksumTests": 70,
+            "ArticlePackageCurrentPropertyReaderTests": 57,
+            "ArticlePackageFrozenExportCandidateWriterTests": 84,
+            "ArticlePackageImportAssetCandidateTests": 55,
+            "ArticlePackageImportCandidateByteTests": 36,
+            "ArticlePackageImportCandidatePlanTests": 55,
+            "ArticlePackageImportCandidateReviewProjectionTests": 18,
+            "ArticlePackageImportZipCandidateTests": 72,
+            "ArticlePackageInventoryTests": 87,
+            "ArticlePackageManifestCandidateCodecTests": 132,
+            "ArticlePackageManifestCandidatePlannerTests": 89,
+            "ArticlePackageManifestMetadataCodecTests": 64,
+            "ArticlePackageManifestPropertyCodecTests": 38,
+            "ArticlePackageManifestTaxonomyCodecTests": 35,
+            "ArticlePackageManifestVersionRegistryTests": 43,
+            "ArticlePackagePropertyMapperTests": 69,
+            "ArticlePackageSourceByteTests": 12,
+            "ArticlePackageTitleSummaryMapperTests": 67,
+            "DocumentExportContractTests": 70,
+            "RevisionComparePlannerTests": 1
+        },
+        "coverage": "Entire ArticlePackage filter plus DocumentExportContractTests, including original writer/ZIP/bytes/collection/inventory/checksum suites and future root versions. Writer: 60 original + 24 new cases."
+    },
+    "newControls": [
+        "Actual valid frozen image bytes, canonical source IDs, one/multiple assets and shared references",
+        "Reordered source plans and repeated archive writes produce identical bytes",
+        "Fixed timestamps, ordinal paths, stored sizes, regular file attributes and detached asset copies",
+        "Explicit empty v2 stays distinct from legacy; presentation fonts are not content entries",
+        "Missing/extra/source-ID/MIME/actual-byte/hash/font-role drift refuses without partial candidate",
+        "Forged plan root/article/asset/hash/media/record/bytes/inventory/reference/component refuses",
+        "Crosswired per-article edges fail even when the global asset set is unchanged",
+        "Combined reader file budget checked before frozen input indexing",
+        "Precancel and cancellation during bounded copy return null candidate",
+        "Aliased byte tamper and late failures return null candidate; next valid write remains stable",
+        "Actual ZIP payload tamper fails original ZIP/media reader",
+        "RequireExportAuthority, package/archive authority and asset rights/retention authority continue refusing"
+    ],
+    "frontend": {
+        "status": "PASS",
+        "command": "cd src/frontend && FSUSBLOG_USE_LOCAL_FSUSUI=1 FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI ./node_modules/.bin/vitest run --config vitest.config.ts ../../tests/frontend/unit/components/admin/ArticlePackageCandidateReview.test.ts ../../tests/frontend/unit/composables/useArticlePackageCandidateReview.test.ts",
+        "files": 2,
+        "passed": 54,
+        "alias": "/workspace/FsusUI/vue/packages/element-plus/index.ts",
+        "actualHead": "f2d929a5d045439c35e93b4771f912ce50ec2337",
+        "note": "Real local source alias; not canonical pinned baseline or visual acceptance"
+    },
+    "fsusuiCanonicalIdentity": {
+        "status": "FAIL",
+        "command": "node tests/browser-diagnostics/local-fsusui-identity.mjs --verify --root /workspace/FsusUI",
+        "actualHead": "f2d929a5d045439c35e93b4771f912ce50ec2337",
+        "expectedHead": "6c836baff8bc1879b487bf019359fd5e433f58ea",
+        "reason": "Actual checkout differs from canonical baseline; no override or baseline change"
+    },
+    "otherChecks": [
+        {
+            "status": "PASS",
+            "command": "dotnet format whitespace tests/backend/FsusBlog.Server.Tests.csproj --no-restore --verify-no-changes --include src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs tests/backend/Unit/ArticlePackageFrozenExportCandidateWriterTests.cs"
+        },
+        {
+            "status": "PASS",
+            "command": "node tools/governance/check-change-contract.mjs --repository"
+        },
+        {
+            "status": "PASS",
+            "command": "node tools/governance/check-change-contract.mjs --range 4585ca0fa8fde5d2ef6345ffbbd226d431aba178..16e041d4f44d87d3a9092265fb6c617a72d3d2b4"
+        },
+        {
+            "status": "PASS",
+            "command": "git diff --check 4585ca0fa8fde5d2ef6345ffbbd226d431aba178 16e041d4f44d87d3a9092265fb6c617a72d3d2b4"
+        }
+    ],
+    "unrun": [
+        {
+            "status": "UNRUN",
+            "scope": "Full test matrix, full backend unit lane, production/release/native qualification and rendered visual acceptance"
+        },
+        {
+            "status": "UNRUN",
+            "scope": "Independent #4587/#4589 supplier review and original #2400/#2410 acceptance"
+        },
+        {
+            "status": "UNRUN",
+            "scope": "Persistent staging/timeout/cleanup/idempotency execution; this writer owns only private memory streams and has no temporary/output file path"
+        }
+    ],
+    "remainingGaps": [
+        "Canonical authorized current source reads and persistent source authority",
+        "Download permission, rights and retention authorization remain unavailable; no bool authorization or provider registration",
+        "Complete syntax/dependencies and nonnull frozen embed materialization",
+        "New #4588 v3 properties are outside this task; only supplied v2 asset-root/property-v1 path is supported"
+    ],
+    "delivery": "Draft only; no merge or package publication; no private data or raw environment logs committed"
+}
