@@ -4,12 +4,15 @@ import {
     validateArticleAnchorContext,
     validateArticleAnchorCommand,
     type ArticleAnchorCaptureOptions,
+    type ArticleAnchorNativeEditorPort,
+    type ArticleAnchorPositionProducer,
     type ArticleAnchorCommand,
     type ArticleAnchorContext,
     type ArticleAnchorContextAdapter,
     type ArticlePositionMapBinding
 } from './articleAnchorContext';
-import { articleDocumentContextSchema, validateArticleDocumentContext, type ArticleDocumentContextAdapter } from './articleDocumentContext';
+import { articleDocumentContextSchema, inspectArticleDocumentEditorSessionAssociation, validateArticleDocumentContext,
+    type ArticleDocumentContextAdapter, type ArticleDocumentEditorSessionAssociation } from './articleDocumentContext';
 import {
     AuthoringNavigationHistory,
     authoringNavigationCommandSchema,
@@ -38,6 +41,7 @@ import type {
     OpenArticleDocumentRegistry,
     OpenOrActivateArticleCommand
 } from './openArticleDocumentRegistry';
+import type { MarkdownEditorRevealCompletion, MarkdownEditorRevealCompletionOptions } from '@ozwasyd/element-plus';
 
 export const authoringNavigationEntrypointSchema = 'fsusblog.authoring-navigation-entrypoint.v1' as const;
 
@@ -75,6 +79,148 @@ export interface AuthoringNavigationMountedEditor {
         focusAcknowledged: boolean;
         viewportAcknowledged: boolean;
     }>;
+}
+
+/** Required public UI1060 loan. The editor issues completion; this adapter never measures or echoes focus. */
+export interface AuthoringNavigationRevealEditor extends ArticleAnchorNativeEditorPort {
+    revealSourceRangeAndWait(selection: MarkdownEditorResolvedSelection,
+        options: MarkdownEditorRevealCompletionOptions): Promise<MarkdownEditorRevealCompletion>;
+}
+
+export interface AuthoringNavigationOwnedMount {
+    readonly document: ArticleDocumentContextAdapter;
+    readonly anchors: ArticleAnchorContextAdapter;
+    readonly association: ArticleDocumentEditorSessionAssociation;
+    readonly editor: AuthoringNavigationRevealEditor;
+    /** The mounted host owns this exact loan's retirement, including same-ID replacement. */
+    readonly isCurrent: () => boolean;
+    readonly captureOptions: () => ArticleAnchorCaptureOptions;
+    readonly viewport: () => { height: number; reducedMotion: boolean; };
+}
+
+export interface AuthoringNavigationOwnedMountedEditor extends AuthoringNavigationMountedEditor {
+    /** Exact producer issued by Anchor; the host routes controlled native mutations through this owner. */
+    readonly positionProducer: ArticleAnchorPositionProducer;
+}
+
+const ownedMountedSessions = new WeakMap<AuthoringNavigationMountedEditor, ArticleDocumentEditorSessionAssociation>();
+
+/** Compose existing owners only. Installing it in the real host requires its original retained/mounted loan. */
+export function createAuthoringNavigationOwnedMountedEditor(options: AuthoringNavigationOwnedMount): AuthoringNavigationOwnedMountedEditor
+{
+    const { document, anchors, association, editor, isCurrent } = options;
+    const initial = inspectArticleDocumentEditorSessionAssociation(association, document);
+    if (!initial || typeof editor.revealSourceRangeAndWait !== 'function' || !isCurrent())
+    {
+        throw new Error('authoring-navigation-owned-mount-unavailable');
+    }
+    const session = editor.getSession(initial.registryEditorSessionRef);
+    const producer = anchors.bindOwnedPositionProducer(association, editor);
+    const read = (): ArticlePositionMapBinding =>
+    {
+        const observation = inspectArticleDocumentEditorSessionAssociation(association, document);
+        const binding = producer.binding();
+        if (!isCurrent() || observation?.registry !== initial.registry || observation.handle !== initial.handle
+            || observation.document !== document.context || binding?.document !== observation.document
+            || !anchors.isCurrentPositionBinding(binding) || editor.getSession(observation.registryEditorSessionRef) !== session)
+        {
+            throw new Error('authoring-navigation-owned-mount-retired');
+        }
+        const native = session.inspectContentDigest(content => calculateOpenArticleDocumentDigest({ schema: articleDocumentContextSchema, content }));
+        if (native.documentIdentity.id !== binding.document.documentId || native.documentIdentity.epoch !== binding.document.documentEpoch
+            || native.revision !== binding.document.sourceRevision || native.editorContentDigest !== binding.document.contentDigest
+            || !isCurrent() || document.context !== binding.document
+            || !inspectArticleDocumentEditorSessionAssociation(association, document))
+        {
+            throw new Error('authoring-navigation-owned-mount-changed');
+        }
+        return binding;
+    };
+    const selection = (): MarkdownEditorResolvedSelection =>
+    {
+        const binding = read();
+        const snapshot = session.captureSnapshot(content => calculateOpenArticleDocumentDigest({ schema: articleDocumentContextSchema, content }),
+            { documentIdentity: document.documentIdentity, revision: binding.document.sourceRevision, assertAdmission: () =>
+            {
+                const observed = inspectArticleDocumentEditorSessionAssociation(association, document);
+                if (!isCurrent() || observed?.document !== binding.document || document.context !== binding.document
+                    || observed.registry !== initial.registry || observed.handle !== initial.handle
+                    || editor.getSession(initial.registryEditorSessionRef) !== session)
+                {
+                    throw new Error('authoring-navigation-owned-selection-changed');
+                }
+            } });
+        if (read().document !== binding.document)
+        {
+            throw new Error('authoring-navigation-owned-selection-changed');
+        }
+        return snapshot.selection;
+    };
+    const mounted: AuthoringNavigationOwnedMountedEditor = {
+        document, anchors, editor, positionProducer: producer,
+        binding: read,
+        selection,
+        captureOptions: options.captureOptions,
+        resolveAnchor: reference => anchors.resolveOwnedCapture(reference),
+        transactions: saved =>
+        {
+            const transactions = producer.transactions(saved);
+            if (!transactions)
+            {
+                throw new Error('authoring-navigation-owned-map-chain-unavailable');
+            }
+            return transactions;
+        },
+        viewport: options.viewport,
+        reveal: async (command, signal, admit) =>
+        {
+            const binding = read();
+            const guard = (): void =>
+            {
+                signal.throwIfAborted();
+                admit();
+                if (read().document !== binding.document)
+                {
+                    throw new Error('authoring-navigation-owned-reveal-changed');
+                }
+                signal.throwIfAborted();
+            };
+            guard();
+            if (command && (command.status !== 'ready' || !command.range
+                || command.kind !== 'exact' && command.kind !== 'rebased' || command.document.contextDigest !== binding.document.contextDigest))
+            {
+                throw new Error('authoring-navigation-owned-reveal-command-unavailable');
+            }
+            const requested = Object.freeze(command?.range
+                ? { start: command.range.start, end: command.range.end, direction: command.direction } : { ...selection() });
+            const expected = session.inspectDocumentState();
+            guard();
+            const completion = await editor.revealSourceRangeAndWait(requested, {
+                session, expected, signal, assertAdmission: guard
+            });
+            guard();
+            if (completion.status !== 'success' || completion.editorSessionRef !== session.editorSessionRef
+                || completion.documentIdentity.id !== expected.documentIdentity.id || completion.documentIdentity.epoch !== expected.documentIdentity.epoch
+                || completion.revision !== expected.revision || completion.selection.start !== requested.start
+                || completion.selection.end !== requested.end || completion.selection.direction !== requested.direction
+                || completion.focus !== 'textarea' || completion.viewport !== 'full-selection-visible')
+            {
+                throw new Error('authoring-navigation-public-reveal-completion-mismatch');
+            }
+            return { focusAcknowledged: true, viewportAcknowledged: true };
+        }
+    };
+    try
+    {
+        read();
+        ownedMountedSessions.set(mounted, association);
+        return Object.freeze(mounted);
+    }
+    catch (error)
+    {
+        producer.dispose();
+        throw error;
+    }
 }
 
 export interface AuthoringNavigationMountedPort {
@@ -508,10 +654,16 @@ export class AuthoringNavigationEntrypoints
         }
         const document = mounted.document.context;
         const scope = this.history.exportState().scope;
+        const association = ownedMountedSessions.get(mounted);
+        const owner = association ? inspectArticleDocumentEditorSessionAssociation(association, mounted.document) : null;
+        // Older direct bindings retain their original single-session contract. Retained production
+        // composition requires the original opaque association; independently issued IDs never compare.
+        const sessionMatches = association ? owner?.registry === this.#registry && same(owner.entry, entry)
+            && owner.document === document : document.editorSessionId === entry.editorSessionRef;
         if (!validateArticleDocumentContext(document) || !mounted.document.isCurrentContext(document)
             || document.articleId !== entry.identity.articleId
             || document.draftId !== entry.identity.draftId || document.documentId !== entry.identity.documentId
-            || document.documentEpoch !== entry.documentContext.documentEpoch || document.editorSessionId !== entry.editorSessionRef
+            || document.documentEpoch !== entry.documentContext.documentEpoch || !sessionMatches
             || document.userScope !== scope.userScope || document.siteScope !== scope.siteScope)
         {
             throw new Error('authoring-navigation-mounted-document-mismatch');
