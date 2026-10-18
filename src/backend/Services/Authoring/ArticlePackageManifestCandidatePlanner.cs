@@ -94,10 +94,12 @@ public sealed class ArticlePackageManifestCandidatePlan
 {
     internal ArticlePackageManifestCandidatePlan(
         ArticlePackageManifestCandidate manifest,
-        ArticlePackageManifestPlannedArticle[] articles)
+        ArticlePackageManifestPlannedArticle[] articles,
+        ArticlePackageManifestPlannedAsset[]? assets = null)
     {
         Manifest = manifest;
         Articles = Array.AsReadOnly((ArticlePackageManifestPlannedArticle[])articles.Clone());
+        Assets = assets is null ? null : Array.AsReadOnly((ArticlePackageManifestPlannedAsset[])assets.Clone());
     }
 
     public ArticlePackageManifestCandidate Manifest
@@ -109,9 +111,18 @@ public sealed class ArticlePackageManifestCandidatePlan
         get;
     }
 
+    /// <summary>Null is the legacy article-only plan, never an assertion of an empty asset set.</summary>
+    public IReadOnlyList<ArticlePackageManifestPlannedAsset>? Assets
+    {
+        get;
+    }
+
+    /// <summary>Supplied archive facts, frozen with the collection; not a byte or permission receipt.</summary>
+    public IReadOnlyList<ArticlePackageInventoryEntry>? Inventory => Manifest.Assets?.Inventory;
+
     /// <summary>
-    /// Pure self-consistency never admits a complete package. Asset, syntax, reference, rights,
-    /// responsibility, privacy and persisted-source authorities have not been integrated here.
+    /// Pure self-consistency never admits a complete package. Supplied asset records and bytes
+    /// do not establish authorized ledger reads, syntax, relations, rights or retention authority.
     /// </summary>
     public ArticlePackageManifestCandidateResult RequirePackageAuthority()
         => new(false, "article_package_manifest_authority_unavailable");
