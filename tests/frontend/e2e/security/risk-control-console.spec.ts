@@ -5,11 +5,11 @@ import { encodeAedsFrame } from '../../support/aeds-envelope.mjs'
 
 const encoder = new TextEncoder()
 const protocol = JSON.parse(readFileSync(resolve(process.cwd(), '../../src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'))
-const frameTypes = new Map(protocol.frameTypes.map((frame: { name: string; value: number }) => [frame.name, frame.value]))
+const frameTypes = new Map<string, number>(protocol.frameTypes.map((frame: { name: string; value: number }) => [frame.name, frame.value]))
 
 function frameType(name: string): number {
   const value = frameTypes.get(name)
-  if (!Number.isInteger(value)) {
+  if (value === undefined || !Number.isInteger(value)) {
     throw new Error(`frame_type_missing:${name}`)
   }
   return value
