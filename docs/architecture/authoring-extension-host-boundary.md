@@ -151,6 +151,41 @@ or concurrency measurements. The backend contract tests cover actual category
 registration and result parsing, including malicious controls and 0/1/100/1000
 registrations; full diagnostic runtime and issue acceptance remain open.
 
+### Request-exact diagnostic result cache
+
+`AuthoringPrepublishDiagnosticCache` is an internal, bounded in-memory consumer
+of the original diagnostic registry. The host supplies each admitted current
+input through `SetCurrent`; every call retires the previous local evaluation
+ticket for that article/document/diagnostic. Only identical complete
+`InputSha256` bindings can retain a completed outcome. Plugin/package/content,
+diagnostic/configuration, source revision and document epoch, metadata,
+node/ranges/read model, grant, policy/core results, runtime/host API, request and
+original deadline all participate. There is no article-only or text-hash reuse,
+request rebinding, deadline extension or persistent/distributed cache.
+
+Tickets have reference identity within one cache instance. Foreign, fabricated,
+superseded and invalidated tickets cannot read or store results. Completed
+outcomes are validated again with the original registry and clock on insertion
+and lookup; unavailable outcomes are never stored as completions. A ticket can
+complete once. Explicit entry and aggregate serialized-byte limits refuse
+admission without evicting another live observation. Expiry and extension-wide
+invalidation release the retained input and outcome; source/epoch regression
+against a retained current observation is refused. Invalidation and publication
+share one local lock, so a late insertion cannot restore an invalidated ticket.
+
+The host must advance the observation after source/configuration/policy changes
+and invalidate before authority loss, revoke, update, disable or uninstall.
+`SetCurrent` validates structural binding, not live permission. This cache does
+not subscribe to lifecycle or grant stores, hold their exclusion scopes, or
+qualify receipt publication. Schema v1 has no `LifecycleGeneration` field and the
+original execution resolver's `RuntimeIdentity` is derived from package and
+entrypoint identities, not a running generation. Distinct executions of the same package can share that runtime identity;
+cross-runtime-instance result provenance and same-package restart detection
+require an exact binding from the original schema/lifecycle owner; it must not
+be inferred from a digest or a cache ticket. Production adapter, current grant
+and generation composition, canonical roster/absent outcomes and receipt
+integration remain separate owners and open acceptance work.
+
 ## Verified package and atomic version switch
 
 An authoring package enters production composition only through an exact opaque
