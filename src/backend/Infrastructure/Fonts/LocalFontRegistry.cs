@@ -176,7 +176,7 @@ public static class FontBuiltIns
             []);
 }
 
-public sealed class LocalFontRegistry : IFontRegistry
+public sealed partial class LocalFontRegistry : IFontRegistry, IFontByteSource
 {
     private static readonly JsonSerializerOptions s_jsonOptions = new(JsonSerializerDefaults.Web)
     {
