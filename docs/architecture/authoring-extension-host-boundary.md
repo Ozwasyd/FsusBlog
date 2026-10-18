@@ -811,8 +811,16 @@ identical original object as `StateCustody` to provenance
 `AcquireWithStateCustodyAsync`; no copied snapshot, legacy fallback, second state
 query or replacement connection supplies it. A held Applied observation blocks independent completion, and an already
 completed retry refuses rather than reconstructing historical output. Commit/gap
-drift and effects-and-observe errors require recovery; consumers must not repeat
-destructive effects or reacquire an observation during final verification.
+drift and effects-and-observe errors require recovery. The original
+`ObserveSettledMigrationAsync` is the read-only recovery acquisition for exactly
+Completed or RolledBack. It validates actual journal/state/fences/backups against
+the hash recorded by the original settlement transaction. After actor pinning,
+the canonical source may acquire this new original custody without repeating an
+effect or importing custody acquired before actor pinning. Missing historical
+hashes and later drift refuse; consumers never backfill or reconstruct an old
+Apply return. The hash-only companion must be installed by the original migration
+owner before activating the updated store. Read-only state recovery alone supplies
+neither native acceptance, old-resource settlement nor final authorization.
 
 Prepared verification checks current native owners, service health, exact current
 grants, authenticated claim, package trust and the exact durable Starting or Running
