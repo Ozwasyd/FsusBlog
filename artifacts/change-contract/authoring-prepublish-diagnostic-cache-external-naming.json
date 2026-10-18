@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringPrepublishDiagnosticCache.cs"
+            ],
+            "reason": "Preserve the original authoring host boundary's registered process-environment spelling. This internal cache adds no environment key or permission; its identifiers follow the C# naming map. The declaration covers the existing path-based naming requirement only."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve the current host-boundary document's external scope references. Cache documentation introduces no selector, style token or DOM authority; this exact path declaration satisfies the original document naming registry without exempting internal names."
+        }
+    ]
+}
