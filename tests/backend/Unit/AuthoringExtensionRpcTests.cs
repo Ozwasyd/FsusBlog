@@ -776,7 +776,7 @@ public sealed class AuthoringExtensionRpcTests
         fixture.Authority.ValidateEnvelope(changed);
         await fixture.Grants.RequireAsync(changed.GrantDigest, changed, AuthoringCapability.DocumentMutationRequest);
         Assert.Equal(fixture.Envelope.Payload.MutationPlan!.PlanId, plan.PlanId);
-        Assert.Equal(1, plan.Mutations.Length);
+        Assert.Single(plan.Mutations);
         Assert.NotEqual(fixture.Approval.PreviewDigest, AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(changed));
 
         AuthoringExtensionContractException exception = await Assert.ThrowsAsync<AuthoringExtensionContractException>(

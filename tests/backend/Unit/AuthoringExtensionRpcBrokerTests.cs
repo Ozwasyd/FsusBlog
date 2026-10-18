@@ -448,6 +448,10 @@ public sealed class AuthoringExtensionRpcBrokerTests
     private static async ValueTask<Fixture> CreateAsync(AuthoringFileGrantOperation? operation = null,
         int requestBytes = 65536, int responseBytes = 65536)
     {
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new PlatformNotSupportedException("The production file path verifier is Linux-only.");
+        }
         string taskRoot = Path.Combine(Path.GetTempPath(), "authoring-rpc-broker-" + Guid.NewGuid().ToString("N"));
         string root = Path.Combine(taskRoot, "approved");
         string staging = Path.Combine(taskRoot, "staging");

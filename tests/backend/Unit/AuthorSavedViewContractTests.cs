@@ -139,9 +139,9 @@ public sealed class AuthorSavedViewContractTests
         Assert.Equal(AuthorSavedViewDependencyStatus.Current, fact.Status);
         Assert.Equal(condition.Values.Count, fact.CanonicalValues.Count);
         Assert.Equal(malformedValue, Assert.Single(fact.CanonicalValues));
-        Assert.True(malformedValue.Any(char.IsWhiteSpace));
+        Assert.Contains(malformedValue, char.IsWhiteSpace);
         Assert.False(string.IsNullOrWhiteSpace(malformedValue));
-        Assert.False(malformedValue.Any(char.IsControl));
+        Assert.DoesNotContain(malformedValue, char.IsControl);
         Assert.NotEqual(Assert.Single(condition.Values), malformedValue);
         var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
 

@@ -14,11 +14,11 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
     public void OriginalIndependentSequence_ExportsEveryConfigurationFactAndNotAColumnIdentity()
     {
         CurrentSchemaRequiredRecipeReference recipe = Assert.Single(
-            CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes().Where(static reference =>
+            CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes(), static reference =>
                 reference.SemanticDescription!.AdditionalOperations.Any(static operation =>
-                    operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence)));
-        CurrentSchemaRecipeOperation operation = Assert.Single(recipe.SemanticDescription!.AdditionalOperations.Where(
-            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+                    operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+        CurrentSchemaRecipeOperation operation = Assert.Single(recipe.SemanticDescription!.AdditionalOperations,
+            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence);
         Assert.Equal("public_article_projection_version_seq", operation.Name);
         Assert.Equal(new CurrentSchemaIndependentSequenceFacts("bigint", 1, 1, 1, long.MaxValue, 1, false, true),
             operation.Sequence);
@@ -118,8 +118,8 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
         int recipeIndex = Array.FindIndex(recipes, static reference => reference.SemanticDescription!.AdditionalOperations.Any(
             static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
         CurrentSchemaRecipeFacts facts = recipes[recipeIndex].SemanticDescription!;
-        CurrentSchemaRecipeOperation duplicate = Assert.Single(facts.AdditionalOperations.Where(
-            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence));
+        CurrentSchemaRecipeOperation duplicate = Assert.Single(facts.AdditionalOperations,
+            static operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateSequence);
         recipes[recipeIndex] = recipes[recipeIndex] with
         {
             SemanticDescription = facts with { AdditionalOperations = facts.AdditionalOperations.Append(duplicate).ToArray() }
