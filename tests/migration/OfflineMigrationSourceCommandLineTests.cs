@@ -263,7 +263,10 @@ public sealed class OfflineMigrationSourceCommandLineTests
     private sealed class DeadlineTimeProvider : TimeProvider
     {
         private DeadlineTimer? _timer;
-        internal TimeSpan DueTime { get; private set; }
+        internal TimeSpan DueTime
+        {
+            get; private set;
+        }
         internal void Fire() => _timer?.Fire();
 
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
@@ -285,7 +288,11 @@ public sealed class OfflineMigrationSourceCommandLineTests
 
             public bool Change(TimeSpan dueTime, TimeSpan period) => !_disposed;
             public void Dispose() => _disposed = true;
-            public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+                return ValueTask.CompletedTask;
+            }
         }
     }
 
@@ -300,9 +307,18 @@ public sealed class OfflineMigrationSourceCommandLineTests
 
         internal TaskCompletionSource DumpHandshake { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         internal TaskCompletionSource Terminal { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        internal string? DumpPath { get; private set; }
-        internal bool ScopeClosed { get; private set; }
-        internal int CaptureCalls { get; private set; }
+        internal string? DumpPath
+        {
+            get; private set;
+        }
+        internal bool ScopeClosed
+        {
+            get; private set;
+        }
+        internal int CaptureCalls
+        {
+            get; private set;
+        }
 
         public Task<OfflineMigrationSourceObservation> ObserveAsync(CurrentSchemaProviderKind provider,
             string connectionString, CancellationToken cancellationToken)

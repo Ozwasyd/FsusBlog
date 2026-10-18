@@ -68,7 +68,10 @@ public sealed class OfflineMigrationFingerprintCommandTests
     public void UnverifiedIssuerCleanupDoesNotBecomeOrdinaryFingerprintFailure()
     {
         OfflineMigrationSourceFingerprintException failure = OfflineMigrationSourceFingerprintException.Unknown(
-            [("original", Shape())], Shape() with { Schema = [new("changed", "private")] });
+            [("original", Shape())], Shape() with
+            {
+                Schema = [new("changed", "private")]
+            });
         failure.Data["current_verify_read_only_cleanup_failed"] = true;
         InvalidOperationException cleanup = Assert.Throws<InvalidOperationException>(() =>
             OfflineMigrationOwnedVerifyEvidence.ThrowObservedFailure(failure));
