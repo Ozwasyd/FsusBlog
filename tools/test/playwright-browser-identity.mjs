@@ -1,3 +1,15 @@
+/**
+ * @typedef {'chromium' | 'firefox' | 'webkit'} CorrectnessBrowserName
+ * @typedef {'correctness' | 'browser-contract'} BrowserEvidenceClass
+ * @typedef {{ fontSetDigest: string; localeDataDigest: string; locale: string; deviceScaleFactor: number; renderingMode: 'headless'; colorScheme: 'light'; gpuMode: 'software'; }} BrowserRenderingIdentity
+ * @typedef {{ locale: string; deviceScaleFactor: number; colorScheme: 'light' | 'dark'; renderer: string; }} BrowserRenderingObservation
+ * @typedef {{ schema: string; correctness: { managedOnly: true; allowedEvidenceClasses: BrowserEvidenceClass[]; browserNames: CorrectnessBrowserName[]; forbiddenExecutableEnvironment: string[]; launch: Record<CorrectnessBrowserName, { headless: true; args: string[]; gpuMode: 'software'; firefoxUserPrefs?: Record<string, string | number | boolean>; }>; rendering: { renderingMode: 'headless'; deviceScaleFactor: number; colorScheme: 'light'; }; fontSourceFiles: string[]; fontPackages: string[]; localeSourceRoot: string; }; diagnostic: { qualificationEligible: false; hostBrowserAllowed: true; }; }} PlaywrightBrowserIdentityPolicy
+ * @typedef {{ schema: 'fsusblog.playwright-browser-identity.v1'; executionClass: 'correctness'; evidenceClass: BrowserEvidenceClass; qualificationEligible: true; managedExecutable: true; browserName: CorrectnessBrowserName; browserVersion: string; revision: string; executablePath: string; executableSha256: string; playwright: { package: string; version: string; packageDigest: string; browserCatalogDigest: string; }; launchOptions: import('@playwright/test').LaunchOptions & { args: string[]; }; rendering: BrowserRenderingIdentity; contentDigest: string; browserType: import('@playwright/test').BrowserType; }} CorrectnessBrowserPlan
+ * @typedef {Omit<CorrectnessBrowserPlan, 'browserType'>} SerializableBrowserPlan
+ * @typedef {Omit<SerializableBrowserPlan, 'schema'> & { schema: 'fsusblog.playwright-browser-actual.v1'; planDigest: string; renderingObservation?: BrowserRenderingObservation; }} CorrectnessBrowserActual
+ * @typedef {{ browserName?: CorrectnessBrowserName; evidenceClass?: BrowserEvidenceClass; locale?: string; additionalLaunchArgs?: string[]; repoRoot?: string; frontendRoot?: string; env?: Record<string, string | undefined>; fileSystem?: typeof import('node:fs'); requireFactory?: typeof import('node:module').createRequire; policy?: PlaywrightBrowserIdentityPolicy; }} CorrectnessBrowserPlanOptions
+ */
+
 /* global document, devicePixelRatio, matchMedia */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -110,6 +122,10 @@ function safeRelativeFiles(values)
             && !value.split(/[\\/]/u).includes('..'));
 }
 
+/**
+ * @param {unknown} policy
+ * @returns {PlaywrightBrowserIdentityPolicy}
+ */
 export function validatePlaywrightBrowserIdentityPolicy(policy)
 {
     const correctness = policy?.correctness;
@@ -227,6 +243,10 @@ function assertRenderingIdentity(rendering)
     }
 }
 
+/**
+ * @param {CorrectnessBrowserPlanOptions} [options]
+ * @returns {CorrectnessBrowserPlan}
+ */
 export function createCorrectnessBrowserPlan({
     browserName = 'chromium',
     evidenceClass = 'correctness',
@@ -329,6 +349,10 @@ export function createCorrectnessBrowserPlan({
     return { ...plan, contentDigest: digest(canonicalJson(plan)), browserType: resolved.browserType };
 }
 
+/**
+ * @param {CorrectnessBrowserPlan} plan
+ * @returns {{ browserName: CorrectnessBrowserName; launchOptions: CorrectnessBrowserPlan['launchOptions']; locale: string; deviceScaleFactor: number; colorScheme: 'light'; }}
+ */
 export function correctnessProjectUse(plan)
 {
     validateBrowserIdentityPlan(plan);
@@ -341,6 +365,10 @@ export function correctnessProjectUse(plan)
     };
 }
 
+/**
+ * @param {CorrectnessBrowserPlan} plan
+ * @returns {SerializableBrowserPlan}
+ */
 export function serializableBrowserPlan(plan)
 {
     validateBrowserIdentityPlan(plan);
@@ -349,6 +377,10 @@ export function serializableBrowserPlan(plan)
     return structuredClone(serializable);
 }
 
+/**
+ * @param {{ plans: readonly CorrectnessBrowserPlan[]; frontendRoot: string; env?: Record<string, string | undefined>; }} [options]
+ * @returns {Promise<CorrectnessBrowserActual[]>}
+ */
 export async function verifyCorrectnessBrowserPlans({ plans, frontendRoot, env = process.env } = {})
 {
     if (!Array.isArray(plans) || plans.length === 0)
@@ -412,6 +444,10 @@ export async function verifyCorrectnessBrowserPlans({ plans, frontendRoot, env =
     return receipts;
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<BrowserRenderingObservation>}
+ */
 export async function observeBrowserRendering(page)
 {
     return page.evaluate(() =>
@@ -428,6 +464,11 @@ export async function observeBrowserRendering(page)
     });
 }
 
+/**
+ * @param {CorrectnessBrowserPlan} plan
+ * @param {BrowserRenderingObservation} observation
+ * @returns {true}
+ */
 export function assertBrowserRenderingObservation(plan, observation)
 {
     validateBrowserIdentityPlan(plan);
@@ -448,6 +489,12 @@ export function assertBrowserRenderingObservation(plan, observation)
     return true;
 }
 
+/**
+ * @param {CorrectnessBrowserPlan} plan
+ * @param {CorrectnessBrowserActual} actual
+ * @param {BrowserRenderingObservation} observation
+ * @returns {CorrectnessBrowserActual}
+ */
 export function bindBrowserRenderingObservation(plan, actual, observation)
 {
     assertBrowserPlanActualMatch(plan, actual);
@@ -457,6 +504,10 @@ export function bindBrowserRenderingObservation(plan, actual, observation)
     return { ...content, contentDigest: digest(canonicalJson(content)) };
 }
 
+/**
+ * @param {unknown} plan
+ * @returns {CorrectnessBrowserPlan}
+ */
 export function validateBrowserIdentityPlan(plan)
 {
     if (plan?.schema !== 'fsusblog.playwright-browser-identity.v1'
@@ -490,6 +541,10 @@ export function validateBrowserIdentityPlan(plan)
     return plan;
 }
 
+/**
+ * @param {{ plan: CorrectnessBrowserPlan; browser: Pick<import('@playwright/test').Browser, 'version'>; launchOptions?: CorrectnessBrowserPlan['launchOptions']; rendering?: BrowserRenderingIdentity; fileSystem?: typeof import('node:fs'); }} options
+ * @returns {CorrectnessBrowserActual}
+ */
 export function observeCorrectnessBrowser({ plan, browser, launchOptions = plan?.launchOptions, rendering = plan?.rendering, fileSystem = fs })
 {
     validateBrowserIdentityPlan(plan);
@@ -513,6 +568,11 @@ export function observeCorrectnessBrowser({ plan, browser, launchOptions = plan?
     return { ...actual, contentDigest: digest(canonicalJson(actual)) };
 }
 
+/**
+ * @param {CorrectnessBrowserPlan} plan
+ * @param {CorrectnessBrowserActual} actual
+ * @returns {true}
+ */
 export function assertBrowserPlanActualMatch(plan, actual)
 {
     validateBrowserIdentityPlan(plan);
@@ -540,6 +600,10 @@ export function assertBrowserPlanActualMatch(plan, actual)
     return true;
 }
 
+/**
+ * @param {{ browserName: string; executablePath: string; browserVersion: string; }} options
+ * @returns {{ schema: 'fsusblog.playwright-browser-diagnostic.v1'; executionClass: 'diagnostic'; evidenceClass: 'diagnostic'; qualificationEligible: false; managedExecutable: false; browserName: string; browserVersion: string; executablePath: string; }}
+ */
 export function diagnosticBrowserIdentity({ browserName, executablePath, browserVersion })
 {
     return {

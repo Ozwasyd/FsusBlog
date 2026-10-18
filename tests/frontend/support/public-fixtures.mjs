@@ -1,3 +1,17 @@
+/**
+ * @typedef {{ articleId?: number; categoryId?: number; tagId?: number; articleTitle?: string; searchKeyword?: string; }} PublicFixtureDefaults
+ * @typedef {{ requireCurrent?: boolean; env?: Record<string, string | undefined>; repoRoot?: string; }} PublicFixtureOptions
+ * @typedef {{ articleId: number; categoryId: number; tagId: number; }} PublicFixtureIds
+ * @typedef {{ kind: string; id: number | string; handle?: string; }} PublicFixtureEntity
+ * @typedef {PublicFixtureIds & {
+ *   articleTitle: string; searchKeyword: string;
+ *   schema?: string; notAuthoritative?: boolean; authority?: string; evidenceUse?: string;
+ *   sourcePrepareStateDigest?: string; namespace?: string; catalogDigest?: string; projectionDigest?: string;
+ *   sourceIdentity?: { commit?: string; worktreeFingerprint?: string; };
+ *   idsByKind?: Record<string, (number | string)[]>; entities?: PublicFixtureEntity[];
+ * }} PublicFixtures
+ */
+
 import { existsSync, readFileSync } from 'node:fs';
 
 import { digestCanonical } from '../../../tools/test-fixtures/receipt/canonical.mjs';
@@ -114,6 +128,11 @@ function firstIdByKind(document, kind)
     return match?.id ?? null;
 }
 
+/**
+ * @param {PublicFixtureDefaults} [defaults]
+ * @param {PublicFixtureOptions} [options]
+ * @returns {PublicFixtureIds}
+ */
 export function readPublicFixtureIds(defaults = {}, {
     requireCurrent = false,
     env = process.env,
@@ -166,6 +185,11 @@ export function readPublicFixtureIds(defaults = {}, {
     };
 }
 
+/**
+ * @param {PublicFixtureDefaults} [defaults]
+ * @param {PublicFixtureOptions} [options]
+ * @returns {PublicFixtures}
+ */
 export function readPublicFixtures(defaults = {}, {
     requireCurrent = false,
     env = process.env,
