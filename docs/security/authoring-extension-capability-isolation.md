@@ -204,6 +204,24 @@ receives no command feed until a reviewed internal owner exists; the fixture and
 test executor are evidence for consumer behavior only, not a production adapter
 or permission boundary.
 
+## Controlled workspace panel presentation
+
+The isolated `AuthoringWorkspacePanelRenderer` consumes only a selected read-only
+presentation node union. All text fields use Vue interpolation; node values
+cannot select HTML, styles, components, URL bindings or executable callbacks.
+Public FsusUI controls and semantic definition lists provide the fixed output.
+Arbitrary fallthrough attributes and content slots are not forwarded.
+
+Commands are disabled unless explicitly enabled externally and not disabled.
+Activation emits only node/command identity as a user intent and checks that the
+node is still selected; it does not invoke a command, issue a capability, produce
+an admission or prove authorization. Full package/runtime/workspace/document and
+lifecycle currentness checks remain mandatory in the future consuming host.
+Replacing the selected nodes clears old content; unmount removes the output.
+This component neither starts resources nor replaces the existing host lifecycle
+and cancellation owners. Its browser/component fixture evidence proves isolated
+presentation behavior only, not host mounting or runtime security qualification.
+
 ## Lifecycle revocation and state ownership
 
 Lifecycle receipts are closed, monotonically sequenced, generation-bound, and

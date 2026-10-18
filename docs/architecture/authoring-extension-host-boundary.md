@@ -42,6 +42,29 @@ service broker, RPC, permission, lifecycle, budget enforcement, and concrete
 contribution behavior belong to later child boundaries; these enum values are not
 evidence that any such runtime is active.
 
+## Workspace panel presentation leaf
+
+`AuthoringWorkspacePanelRenderer` is an isolated frontend presentation component.
+Its adjacent read-only presentation union contains only selected text, key/value,
+status and host-command-reference nodes, preserving numeric kinds 0 through 3.
+It uses literal text interpolation, semantic definition lists and the public
+FsusUI `ElTag` and native-button `ElButton` APIs. No arbitrary markup, component,
+style, callback, slot or attribute payload is accepted by this component.
+
+Commands default to disabled. Explicit external enablement and a non-disabled
+state permit only a `commandIntent` containing the selected node ID and command
+ID. A removed node cannot request an intent through its detached control. The
+host still owns full current identity and permission revalidation before acting;
+enablement is presentation state, not a grant or admission. Null or empty selected
+nodes clear the rendered content. The renderer retains no subscription, timer,
+worker, persisted state or document model.
+
+This leaf does not register or mount a panel in the authoring host. Canonical
+slot/layout/snapshot ownership, cancellation adapters, authorization, command
+execution and runtime receipt verification remain with their existing owners.
+The presentation union introduces no wire DTO, JSON parser, digest, or TypeScript
+mapping of document revision, epoch or lifecycle generation.
+
 ## Identity and core non-overlap
 
 Contract identity hashes the canonical manifest together with the schema, host API,
