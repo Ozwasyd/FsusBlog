@@ -100,9 +100,15 @@ public sealed record AuthoringRpcPayload(
     ImmutableArray<byte> StateValue = default)
 {
     // Version-2 broker proposals are data, never grants or live host objects.
-    public AuthoringNetworkBrokerProposal? NetworkBroker { get; init; }
+    public AuthoringNetworkBrokerProposal? NetworkBroker
+    {
+        get; init;
+    }
 
-    public AuthoringFileBrokerProposal? FileBroker { get; init; }
+    public AuthoringFileBrokerProposal? FileBroker
+    {
+        get; init;
+    }
 }
 
 public sealed record AuthoringNetworkBrokerProposal(string Host, int Port, string PathAndQuery);
@@ -240,7 +246,10 @@ public interface IAuthoringCapabilityGrantStore
 /// </summary>
 public interface IAuthoringCapabilityGrantReadScope : IDisposable
 {
-    AuthoringCapabilityGrant Grant { get; }
+    AuthoringCapabilityGrant Grant
+    {
+        get;
+    }
 }
 
 public interface IAuthoringCapabilityGrantReadScopeStore : IAuthoringCapabilityGrantStore
@@ -258,9 +267,15 @@ public interface IAuthoringCapabilityGrantReadScopeStore : IAuthoringCapabilityG
 /// </summary>
 public interface IAuthoringCapabilityBrokerGrantReadScope : IAuthoringCapabilityGrantReadScope
 {
-    AuthoringNetworkGrant? NetworkGrant { get; }
+    AuthoringNetworkGrant? NetworkGrant
+    {
+        get;
+    }
 
-    AuthoringFileGrant? FileGrant { get; }
+    AuthoringFileGrant? FileGrant
+    {
+        get;
+    }
 }
 
 public interface IAuthoringCapabilityBrokerGrantReadScopeStore : IAuthoringCapabilityGrantReadScopeStore
@@ -566,7 +581,10 @@ public sealed class AuthoringExtensionRpcAuthority(
         {
             throw new AuthoringExtensionContractException("Document read manifest no longer matches the verified package.");
         }
-        package = package with { Contract = contract };
+        package = package with
+        {
+            Contract = contract
+        };
         AuthoringContributionDeclaration contribution = contract.Manifest.Contributions.SingleOrDefault(candidate =>
             string.Equals(candidate.Id, envelope.ContributionId, StringComparison.Ordinal)) ??
             throw new AuthoringExtensionContractException("Document read contribution is not declared.");
@@ -714,21 +732,37 @@ public sealed class AuthoringExtensionRpcAuthority(
         {
             return JsonSerializer.SerializeToUtf8Bytes(new
             {
-                envelope.SchemaVersion, envelope.Method, envelope.RuntimeIdentity,
-                envelope.ExtensionId, envelope.ExtensionVersion, envelope.PackageSha256,
-                envelope.ContentSha256, envelope.ContributionId, envelope.ExecutionClass,
-                envelope.RequestId, envelope.DocumentId, envelope.DocumentEpoch,
-                envelope.SourceRevision, envelope.SnapshotSha256, envelope.HostApiDigest,
-                envelope.SchemaDigest, envelope.PolicyDigest, envelope.GrantDigest,
+                envelope.SchemaVersion,
+                envelope.Method,
+                envelope.RuntimeIdentity,
+                envelope.ExtensionId,
+                envelope.ExtensionVersion,
+                envelope.PackageSha256,
+                envelope.ContentSha256,
+                envelope.ContributionId,
+                envelope.ExecutionClass,
+                envelope.RequestId,
+                envelope.DocumentId,
+                envelope.DocumentEpoch,
+                envelope.SourceRevision,
+                envelope.SnapshotSha256,
+                envelope.HostApiDigest,
+                envelope.SchemaDigest,
+                envelope.PolicyDigest,
+                envelope.GrantDigest,
                 envelope.Deadline,
                 Payload = new
                 {
-                    envelope.Payload.DocumentRange, envelope.Payload.MutationPlan,
-                    envelope.Payload.QueryReference, envelope.Payload.BrokerGrantId,
-                    envelope.Payload.DiagnosticSchemaReference, envelope.Payload.StateKey,
+                    envelope.Payload.DocumentRange,
+                    envelope.Payload.MutationPlan,
+                    envelope.Payload.QueryReference,
+                    envelope.Payload.BrokerGrantId,
+                    envelope.Payload.DiagnosticSchemaReference,
+                    envelope.Payload.StateKey,
                     StateValue = (byte[]?)null
                 },
-                envelope.SiteIdentity, envelope.Purpose
+                envelope.SiteIdentity,
+                envelope.Purpose
             }, new JsonSerializerOptions { MaxDepth = maximumDepth });
         }
         catch (JsonException)
@@ -763,7 +797,10 @@ public sealed class AuthoringExtensionRpcAuthority(
         {
             bytes = JsonSerializer.SerializeToUtf8Bytes(result with
             {
-                Snapshot = result.Snapshot with { Text = string.Empty }
+                Snapshot = result.Snapshot with
+                {
+                    Text = string.Empty
+                }
             }, options).Length;
         }
         catch (JsonException)
@@ -907,7 +944,10 @@ public sealed class AuthoringExtensionRpcAuthority(
         {
             Payload = envelope.Payload with
             {
-                MutationPlan = plan with { Mutations = [.. plan.Mutations] }
+                MutationPlan = plan with
+                {
+                    Mutations = [.. plan.Mutations]
+                }
             }
         };
     }

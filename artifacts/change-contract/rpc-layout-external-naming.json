@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs"
+            ],
+            "reason": "Preserve existing external process spelling while changing only physical whitespace in the frozen RPC owners; exact tokens and string values remain unchanged."
+        }
+    ]
+}

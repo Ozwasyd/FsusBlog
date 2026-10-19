@@ -1174,7 +1174,11 @@ public sealed class AuthoringExtensionRpcTests
         }
         else
         {
-            fixture.Reader.OnRead = () => { caller.Cancel(); return ValueTask.CompletedTask; };
+            fixture.Reader.OnRead = () =>
+            {
+                caller.Cancel();
+                return ValueTask.CompletedTask;
+            };
         }
         OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
             await fixture.Authority.ReadDocumentAsync(fixture.Package, AuthoringHostPlatform.ServerLinux, fixture.Envelope, caller.Token));

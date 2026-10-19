@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "803b17d22a07a0e962bb78d8bb5d3ef9d18f2231",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace --folder --include src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs tests/backend/Unit/AuthoringExtensionRpcTests.cs"
+    },
+    "paths": [
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+        "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs",
+        "tests/backend/Unit/AuthoringExtensionRpcTests.cs"
+    ],
+    "firstPassTreeSha256": "8989a5b4f3a5ae3d447381eb910fbac132f97590a7f77a33096d0ce50d60c550",
+    "secondPassTreeSha256": "8989a5b4f3a5ae3d447381eb910fbac132f97590a7f77a33096d0ce50d60c550",
+    "idempotent": true
+}
