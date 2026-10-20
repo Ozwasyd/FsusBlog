@@ -6,12 +6,14 @@ using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Helpers;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
+using FsusBlog.Server.Services.Articles;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 using SqlSugar;
+
 
 namespace FsusBlog.Server.Services.Security;
 
@@ -95,6 +97,7 @@ public sealed class SecurityPolicySnapshotService(
 
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             long nextVersion = await ResolveNextVersionAsync(normalizedPolicyId, cancellationToken);
             await db.Updateable<SecurityPolicySnapshot>()
                 .SetColumns(item => item.RevokedAtUtc == utcNow)
@@ -115,6 +118,7 @@ public sealed class SecurityPolicySnapshotService(
                 Reason = normalizedReason
             };
             await db.Insertable(inserted).ExecuteCommandAsync(cancellationToken);
+            await ArticleSourceGenerationAuthority.RecordPolicySnapshotAsync(db, inserted.PolicyId, inserted.Version, cancellationToken).ConfigureAwait(false);
         });
 
         if (!transaction.IsSuccess || inserted is null)
@@ -183,6 +187,7 @@ public sealed class SecurityPolicySnapshotService(
         SecurityPolicySnapshot? inserted = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             long nextVersion = await ResolveNextVersionAsync(normalizedPolicyId, cancellationToken);
             await db.Updateable<SecurityPolicySnapshot>()
                 .SetColumns(item => item.RevokedAtUtc == utcNow)
@@ -203,6 +208,7 @@ public sealed class SecurityPolicySnapshotService(
                 Reason = normalizedReason
             };
             await db.Insertable(inserted).ExecuteCommandAsync(cancellationToken);
+            await ArticleSourceGenerationAuthority.RecordPolicySnapshotAsync(db, inserted.PolicyId, inserted.Version, cancellationToken).ConfigureAwait(false);
         });
 
         if (!transaction.IsSuccess || inserted is null)

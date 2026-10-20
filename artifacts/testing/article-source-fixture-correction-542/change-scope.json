@@ -1,0 +1,19 @@
+{
+  "frozenSource": "80a33e47d0d775aa6b445dfd994146a5c84fd745",
+  "frozenEvidence": "7c1b45028dcc93afc913d493d796fd34ea451584",
+  "changed": [
+    "tests/backend/Helpers/TestInfrastructure/PostgresSqlSugarTestClient.cs",
+    "tests/backend/Integration/ArticleSourceMutationHooksIntegrationTests.cs",
+    "tests/backend/Unit/CurrentSchemaRuntimeRollupTablesTests.cs"
+  ],
+  "supplierTestFileUnchanged": true,
+  "supplierCorruptionMethodUnchangedFromA02f": true,
+  "productionSourceUnchanged": true,
+  "originalAssertChanges": [
+    "No existing supplier assertion changed.",
+    "Default-null keeps original exception assertion and adds pg_get_expr native-default presence assertion."
+  ],
+  "identityChanges": "No existing method name or InlineData changed; three new production-CHECK theory cases added.",
+  "all26OriginalHookMethodBodiesUnchanged": true,
+  "originalHelperSourceA02fSha256": "93111e11bd7d953c75078dc56b55a74b8e0b69bd54c4ce09f62e6caed50c76d3"
+}

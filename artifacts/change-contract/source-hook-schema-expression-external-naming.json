@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaModel.cs"
+            ],
+            "reason": "Acknowledge the original trusted registry's existing exact path surface while preserving the published #4698 documentation and extending the neutral index-key contract. Existing identifiers and external spellings remain unchanged; new typed facts use ordinary PascalCase. No environment key, security rule, naming waiver or exception boundary is added."
+        }
+    ]
+}

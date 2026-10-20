@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace FsusBlog.Contracts.Schema;
 
 /// <summary>Current-owned recipe facts. These describe effects, not SQL templates or an execution grant.</summary>
@@ -34,7 +36,10 @@ public sealed record CurrentSchemaIndependentSequenceFacts(
     bool IsIndependent)
 {
     /// <summary>Defaults of the original closed CREATE SEQUENCE AS bigint source grammar.</summary>
-    public static CurrentSchemaIndependentSequenceFacts PostgreSqlBigIntDefaults { get; } =
+    public static CurrentSchemaIndependentSequenceFacts PostgreSqlBigIntDefaults
+    {
+        get;
+    } =
         new("bigint", 1, 1, 1, long.MaxValue, 1, false, true);
 }
 
@@ -68,7 +73,50 @@ public sealed record CurrentSchemaRecipeOperation(
     IReadOnlyList<string>? Columns = null,
     IReadOnlyList<string>? Values = null,
     string? ConflictColumn = null,
-    CurrentSchemaIndependentSequenceFacts? Sequence = null);
+    CurrentSchemaIndependentSequenceFacts? Sequence = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SqlState = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CurrentSchemaImmutableTriggerFacts? Trigger = null);
+
+/// <summary>The native scope of an immutable trigger, independent of its provider encoding.</summary>
+public enum CurrentSchemaTriggerLevel
+{
+    Row,
+    Statement
+}
+
+/// <summary>Original mutation events covered by an immutable receipt guard.</summary>
+[Flags]
+public enum CurrentSchemaTriggerEvents
+{
+    None = 0,
+    Update = 1,
+    Delete = 2,
+    Truncate = 4
+}
+
+/// <summary>Complete immutable-trigger invocation facts; null on an old operation retains its original row guard.</summary>
+public sealed record CurrentSchemaImmutableTriggerFacts(CurrentSchemaTriggerLevel Level, CurrentSchemaTriggerEvents Events);
+
+/// <summary>Closed current-owned immutable effects; unknown execution semantics refuse.</summary>
+public static class CurrentSchemaImmutableEffects
+{
+    /// <summary>Validates the original default exception or the actual receipt producer's explicit object-state exception.</summary>
+    public static string? RequireSqlState(string? sqlState)
+        => sqlState is null or "55000" ? sqlState
+            : throw new InvalidOperationException("current_schema_immutable_sqlstate_unavailable");
+
+    /// <summary>Preserves the old row UPDATE/DELETE shape and the original receipt statement UPDATE/DELETE/TRUNCATE shape.</summary>
+    public static CurrentSchemaImmutableTriggerFacts RequireTrigger(CurrentSchemaImmutableTriggerFacts? facts)
+    {
+        facts ??= new(CurrentSchemaTriggerLevel.Row, CurrentSchemaTriggerEvents.Update | CurrentSchemaTriggerEvents.Delete);
+        if (facts.Level == CurrentSchemaTriggerLevel.Row
+                && facts.Events == (CurrentSchemaTriggerEvents.Update | CurrentSchemaTriggerEvents.Delete)
+            || facts.Level == CurrentSchemaTriggerLevel.Statement
+                && facts.Events == (CurrentSchemaTriggerEvents.Update | CurrentSchemaTriggerEvents.Delete | CurrentSchemaTriggerEvents.Truncate))
+            return facts;
+        throw new InvalidOperationException("current_schema_immutable_trigger_shape_unavailable");
+    }
+}
 
 /// <summary>Current control relation facts, not SQL, journal payload or an execution grant.</summary>
 /// <param name="Version">The explicitly versioned current control contract.</param>
@@ -145,7 +193,10 @@ public static class CurrentSchemaControlShape
             Owner = new SchemaOwnerModel("postgresql", "public." + semantic.Name + "." + entry.Key)
         }, StringComparer.Ordinal);
         var constraints = semantic.Constraints.Values.Select(value => value.Kind == "primary-key"
-            ? value with { Name = "pk_" + semantic.Name } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
+            ? value with
+            {
+                Name = "pk_" + semantic.Name
+            } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
         var indexes = constraints.Values.Where(static value => value.Kind == "unique").ToDictionary(static value => value.Name,
             static value => new SchemaIndexModel(value.Name, true,
                 value.Columns.Select(static name => new SchemaIndexKeyModel(name, "asc", "last", "default", "default")).ToArray(),
@@ -174,7 +225,10 @@ public static class CurrentSchemaControlShape
             Owner = new SchemaOwnerModel(owner, location + "." + entry.Key)
         }, StringComparer.Ordinal);
         var constraints = semantic.Constraints.Values.Select(value => !sqlite && value.Kind == "primary-key"
-            ? value with { Name = "PRIMARY" } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
+            ? value with
+            {
+                Name = "PRIMARY"
+            } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
         var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
         int ordinal = 0;
         // The sole declared primary key has four columns, so it is not SQLite's

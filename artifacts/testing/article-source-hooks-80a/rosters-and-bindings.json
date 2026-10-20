@@ -1,0 +1,3052 @@
+{
+  "sourceHead": "80a33e47d0d775aa6b445dfd994146a5c84fd745",
+  "counts": {
+    "Passed": 724,
+    "Failed": 4
+  },
+  "total": 728,
+  "uniqueNames": 728,
+  "sha256": {
+    "backend-final.trx": "d4cc2de0a1b1adea916d2d6f944874e837100318984ec3ef29ff977d167496b9",
+    "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "c573733d42cb6a6fea95c3921e02ad1362da18f96d2f3bf8790ce17f91b06d99",
+    "src/migration/bin/Debug/net10.0/FsusBlog.Migration.dll": "5753218e42ac83926754bfe45419715e5c5d6a6d552f432a4bf7117a8fbff56c",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "8ec4da7d2aa83fc4d5860d3aaa06439107140bddf29d531660d1b76702f2c4f5",
+    "tests/migration/bin/Debug/net10.0/FsusBlog.Migration.Tests.dll": "bc22d5671d821e0924bd364557a946ae4e95131d486d8719967b6b59cc3c3ac7"
+  },
+  "originalCoverage": {
+    "original433": {
+      "total": 433,
+      "retained": 433,
+      "missing": [],
+      "currentOutcomes": {
+        "Passed": 430,
+        "Failed": 3
+      },
+      "previouslyPassingNowFailing": [
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"family\")",
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"journal\")",
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"sequence\")"
+      ]
+    },
+    "previous480": {
+      "total": 480,
+      "retained": 480,
+      "missing": [],
+      "currentOutcomes": {
+        "Passed": 477,
+        "Failed": 3
+      },
+      "previouslyPassingNowFailing": [
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"family\")",
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"journal\")",
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"sequence\")"
+      ]
+    },
+    "previous610": {
+      "total": 610,
+      "retained": 610,
+      "missing": [],
+      "currentOutcomes": {
+        "Passed": 607,
+        "Failed": 3
+      },
+      "previouslyPassingNowFailing": [
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"family\")",
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"journal\")",
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"sequence\")"
+      ]
+    },
+    "current619": {
+      "total": 619,
+      "retained": 619,
+      "missing": [],
+      "currentOutcomes": {
+        "Passed": 616,
+        "Failed": 3
+      },
+      "previouslyPassingNowFailing": [
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"family\")",
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"journal\")",
+        "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"sequence\")"
+      ]
+    }
+  },
+  "supplier": {
+    "unit23": {
+      "Passed": 23
+    },
+    "pg33": {
+      "Passed": 30,
+      "Failed": 3
+    }
+  },
+  "migration": {
+    "counts": {
+      "Passed": 182
+    },
+    "native22": {
+      "Passed": 22
+    }
+  },
+  "groups": {
+    "ArticleSourceMutationHooksIntegrationTests": {
+      "Passed": 26
+    },
+    "SourceReceiptSchemaCoveragePostgresTests": {
+      "Passed": 7
+    },
+    "CurrentSchemaIndexExpressionPostgresTests": {
+      "Passed": 8
+    },
+    "CurrentSchemaOwnedProjectionExporterTests": {
+      "Passed": 31
+    },
+    "CurrentSchemaRuntimeRollupTablesDatabaseTests": {
+      "Passed": 24,
+      "Failed": 1
+    },
+    "ScheduledPublish": {
+      "Passed": 7
+    }
+  },
+  "failures": [
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"family\")",
+      "outcome": "Failed",
+      "message": "Npgsql.PostgresException : 23514: new row for relation \"article_source_generation\" violates check constraint \"ck_article_source_generation_positive\"\n\nDETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.",
+      "stack": "   at Npgsql.Internal.NpgsqlConnector.ReadMessageLong(Boolean async, DataRowLoadingMode dataRowLoadingMode, Boolean readingNotifications, Boolean isReadingPrependedMessage)\n   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteNonQuery(Boolean async, CancellationToken cancellationToken)\n   at SqlSugar.AdoProvider.ExecuteCommandAsync(String sql, SugarParameter[] parameters)\n   at FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(String counter) in /workspace/FsusBlog/tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs:line 393\n--- End of stack trace from previous location ---"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"default-null\")",
+      "outcome": "Failed",
+      "message": "Assert.Throws() Failure: No exception was thrown\nExpected: typeof(FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException)",
+      "stack": "   at FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(String drift) in /workspace/FsusBlog/tests/backend/Unit/CurrentSchemaRuntimeRollupTablesTests.cs:line 290\n   at FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(String drift) in /workspace/FsusBlog/tests/backend/Unit/CurrentSchemaRuntimeRollupTablesTests.cs:line 307\n--- End of stack trace from previous location ---"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"sequence\")",
+      "outcome": "Failed",
+      "message": "Npgsql.PostgresException : 23514: new row for relation \"article_source_sequence\" violates check constraint \"ck_article_source_sequence_positive\"\n\nDETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.",
+      "stack": "   at Npgsql.Internal.NpgsqlConnector.ReadMessageLong(Boolean async, DataRowLoadingMode dataRowLoadingMode, Boolean readingNotifications, Boolean isReadingPrependedMessage)\n   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteNonQuery(Boolean async, CancellationToken cancellationToken)\n   at SqlSugar.AdoProvider.ExecuteCommandAsync(String sql, SugarParameter[] parameters)\n   at FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(String counter) in /workspace/FsusBlog/tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs:line 393\n--- End of stack trace from previous location ---"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"journal\")",
+      "outcome": "Failed",
+      "message": "Npgsql.PostgresException : 23514: new row for relation \"article_source_mutation\" violates check constraint \"ck_article_source_mutation_generation\"\n\nDETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.",
+      "stack": "   at Npgsql.Internal.NpgsqlConnector.ReadMessageLong(Boolean async, DataRowLoadingMode dataRowLoadingMode, Boolean readingNotifications, Boolean isReadingPrependedMessage)\n   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteNonQuery(Boolean async, CancellationToken cancellationToken)\n   at SqlSugar.AdoProvider.ExecuteCommandAsync(String sql, SugarParameter[] parameters)\n   at FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(String counter) in /workspace/FsusBlog/tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs:line 393\n--- End of stack trace from previous location ---"
+    }
+  ],
+  "roster": [
+    {
+      "name": "FsusBlog.Server.Tests.ArticleMutationVersionedOutboxIntegrationTests.ContinuousUpdates_OutOfOrderReplayUsesPersistedPostgresCoordinates",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ArticleMutationVersionedOutboxIntegrationTests.CoordinatorBarrier_NewReleaseCommittedInsideSearchSkipsRemainingConsumers",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ArticleMutationVersionedOutboxIntegrationTests.Dispatcher_SkipsOlderE1BeforeLegacyCurrentE2AndRestartDoesNotDuplicate",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ArticleMutationVersionedOutboxIntegrationTests.ExpandMigration_BackfillsLegacyCoordinatesOnPostgresAndIsIdempotent",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.CompleteOwnedTargetArtifact_RoundTripsEveryOriginalRecipeAndDetectsFactDrift",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.CompletePhysicalProjection_RetainsEveryRecipeAndSeparateUnobservedEffects",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.ExportOnlyCommand_RequiresExactArgumentsAndANewAbsoluteOutput",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_CompletePhysicalTargetRetainsConfigurationAndRejectsDuplicateEffects",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_ExtractionDoesNotAcceptAChangedSqlConfiguration",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"cache\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"column-identity\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"cycle\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"increment\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"maximum\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"minimum\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"missing\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"start\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"type\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"unused-argument\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_MissingChangedOrForeignFactsRefuseCompleteTarget(mutation: \"wrong-kind\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_UnimplementedPhysicalMappingDoesNotInventAnAllocator(provider: MySql)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_UnimplementedPhysicalMappingDoesNotInventAnAllocator(provider: Semantic)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.IndependentSequence_UnimplementedPhysicalMappingDoesNotInventAnAllocator(provider: Sqlite)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.LiveReaderProjectionOverloads_KeepTheOriginalCompositeIdentityAndPhysicalFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.OriginalIndependentSequence_ExportsEveryConfigurationFactAndNotAColumnIdentity",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.OriginalNumericAndDeferredConstraintRecipes_KeepTheirExistingFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.OriginalOwnerInvocation_PublishesCompleteFactsAndRetainsActualChildEvidence",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.OwnedArtifactReader_BindsOriginalFactsAndRejectsDuplicateUnknownOrTamperedPayload",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.OwnedArtifactReader_DuplicatePrecedenceNeverPermitsMalformedInput",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.OwnedArtifact_PreviousV2ProjectionIsNotReinterpretedAsCurrentControlTarget",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.RecipeExtraction_PreservesNestedDefaultsDeferredConstraintsAndLiteralContents",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.RecipeExtraction_UnknownEffectsRefuseWholeExport(additional: \"ALTER TABLE probe DROP COLUMN id;\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.RecipeExtraction_UnknownEffectsRefuseWholeExport(additional: \"CREATE TRIGGER guard AFTER UPDATE ON probe FOR EAC\"\u00b7\u00b7\u00b7)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.RecipeExtraction_UnknownEffectsRefuseWholeExport(additional: \"DROP TABLE probe;\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.RequiredRecipeReferences_UseEveryOriginalCurrentOwnerWithoutCopyingSql",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.ApplyEnsureTableSteps_CreatesStatsRollupTablesQueryableAsEmpty",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompiledCurrentRecipes_MatchOriginalPostgresRecipeEffectsAndImmutableGuards",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompiledEntitySubset_DriftRefusesBeforeAnyRealPostgresWrite",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompiledEntitySubset_LeavesRollbackOwnedByOriginalCallerTransaction",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompiledEntitySubset_MaterializesExactOriginalExtractorFactsOnRealPostgres",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_BorrowsActualCallerRrButCannotAdmitOrOwnItsTerminal",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RejectsNonRrCallerWithoutDisposingIt(isolation: ReadCommitted)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RejectsNonRrCallerWithoutDisposingIt(isolation: Serializable)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"check\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"collation\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"default\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"default-null\")",
+      "outcome": "Failed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"index\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"no-inherit\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"row-security\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"rule\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"same-name-wrong-shape\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"same-shape-standalone-index\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"trigger\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"unknown-history\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"unowned-function\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"unowned-sequence\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.NativeCatalogObserver_OriginalServerParityUsesSamePhysicalModelsAndObservationDigest",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.NativeCatalogObserver_RejectsWrongTransactionClosedConnectionAndCancellationBeforeQueries",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.NativeCatalogObserver_ReusesCallerRepeatableReadSnapshotAcrossConcurrentCatalogChange",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesTests.RuntimeRollupCatalog_CoversStatsEndpointTables",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesTests.RuntimeRollupCatalog_MatchesPostCodeFirstMigrationDdl",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesTests.RuntimeRollupCatalog_RequiresHistoryBeforeCommandAndKeepsOriginalReceiptOwner",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.BlankCreate_ProducesExactOnceDraftGraphReceiptAndAudit",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.CancelledCreate_WritesNothing",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.MissingAsset_AbortsTemplateCreateWithZeroWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.TemplateCreate_ConsumesVerifiedPlanAndNeverFallsBack",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.TemplateUpdateAfterCreate_DoesNotMutateExistingArticle",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleCreateIntegrationTests.Verifier_RejectsTamperedGraph",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleImportImmutableHistoryPostgresTests.ImportHistory_EnrollmentFailureRollsBackHistoryEventAndClockTogether(status: Draft)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleImportImmutableHistoryPostgresTests.ImportHistory_EnrollmentFailureRollsBackHistoryEventAndClockTogether(status: Published)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleImportImmutableHistoryPostgresTests.ImportHistory_InvalidOrDuplicateSourceNumbersDoNotChangeCoordinates(first: 0, second: 1)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleImportImmutableHistoryPostgresTests.ImportHistory_InvalidOrDuplicateSourceNumbersDoNotChangeCoordinates(first: 1, second: 1)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleImportImmutableHistoryPostgresTests.ImportHistory_PreservesIssuedCurrentPublicationAndSnapshots_WhenNumbersOverlap(status: Draft)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleImportImmutableHistoryPostgresTests.ImportHistory_PreservesIssuedCurrentPublicationAndSnapshots_WhenNumbersOverlap(status: Published)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_DdlRejectsInvalidNullableArticleSequencePairs(coordinates: \"1, 0, 1\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_DdlRejectsInvalidNullableArticleSequencePairs(coordinates: \"1, 2, 1\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_DdlRejectsInvalidNullableArticleSequencePairs(coordinates: \"1, NULL, 1\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_DdlRejectsInvalidNullableArticleSequencePairs(coordinates: \"NULL, 1, 1\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_DefinitionAndRealPolicyUseOneFamilyWithoutInventingAnArticle",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_DefinitionJournalAuditAndClockRollBackWhenEnrollmentFails",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_MissingObservationSchemaRefusesOriginalPolicyCommit",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_MissingOriginalReceiptsCannotInitializeClock",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_OriginalDefinitionWaitsForFamilyBeforeItsOwnerAndDefinitionAdvisoryLocks",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_ReadOnlyRepeatableReadComposesWithOriginalReadCommittedPolicyWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_RealPolicyActivationRollsBackSnapshotCounterAndClockOnEnrollmentFailure",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.SourceEnrollment_RealPolicyRollbackAllocatesOnceAndOldSnapshotReplayRetainsItsCoordinates",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_Persists_Typed_Definition_Receipt_Audit_And_Idempotency_Atomically",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_Persists_Unknown_Value_Impact_As_Reconciliation_Obligation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_Refuses_Legacy_Facts_Without_History_And_Does_Not_Reconstruct_Or_Resign_Them",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_Replays_All_Five_Commands_And_Preserves_Interleaved_Tombstone_Identity",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_Uses_Postgres_Owner_Cas_And_Keyset_Pagination",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_roundtrips_legal_constraints_through_typed_postgres_and_authenticated_replay(type: \"date\", value: \"0\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_roundtrips_legal_constraints_through_typed_postgres_and_authenticated_replay(type: \"date\", value: \"3155378975999999999\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_roundtrips_legal_constraints_through_typed_postgres_and_authenticated_replay(type: \"date\", value: \"638962848000000001\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_roundtrips_legal_constraints_through_typed_postgres_and_authenticated_replay(type: \"number\", value: \"-79228162514264337593543950335\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_roundtrips_legal_constraints_through_typed_postgres_and_authenticated_replay(type: \"number\", value: \"0.0000000000000000001\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_roundtrips_legal_constraints_through_typed_postgres_and_authenticated_replay(type: \"number\", value: \"0.1234567890123456789012345670\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Store_roundtrips_legal_constraints_through_typed_postgres_and_authenticated_replay(type: \"number\", value: \"79228162514264337593543950335\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Verification_Refuses_An_Ambient_Transaction_Without_Changing_Its_Isolation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Verification_Refuses_Large_Native_Numeric_Digits_Before_Hydration",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Verification_Refuses_Malformed_Actual_Readsets_Before_Hydration(fault: \"foreign-receipt-owner\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Verification_Refuses_Malformed_Actual_Readsets_Before_Hydration(fault: \"null-audit-chain\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticlePropertyDefinitionAuthorityIntegrationTests.Verification_Uses_One_Snapshot_When_An_Uncooperative_Audit_Writer_Commits_After_Admission",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.CanceledEnrollment_RollsBackWholeOwnerTransaction",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.CancellationDuringJournalInsert_RollsBackCountersAndOriginalMutation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.CancellationWhileWaitingForFamilyLock_AllowsRollbackAndRetry",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.ConcurrentTransactions_SerializeCommitOrder_ForSameAndDifferentArticles(sameArticle: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.ConcurrentTransactions_SerializeCommitOrder_ForSameAndDifferentArticles(sameArticle: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.ConnectionInterruption_RollsBackPendingEnrollment_AndFreshClientRetries",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.DuplicateEvent_AlteredRawPayload_FailsClosedWithoutAdvancing",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.DuplicateEvent_ReturnsOriginalCursor_EvenAfterLaterEventsAndDeliveryChanges",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.GroupEvents_StayInvisibleUntilCommit_AndPreserveEveryStep",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.HistoricalAndReorderedEvents_InvalidateWithoutChangingCurrentPointers",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"family\")",
+      "outcome": "Failed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"journal\")",
+      "outcome": "Failed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"sequence\")",
+      "outcome": "Failed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.Int64Overflow_FailsWithoutAdvancingOrEnrollment(counter: \"article\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.Int64Overflow_FailsWithoutAdvancingOrEnrollment(counter: \"family\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.InvalidPersistedEvent_IsRejectedWithNoEnrollment(fault: \"coordinate\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.InvalidPersistedEvent_IsRejectedWithNoEnrollment(fault: \"foreign-revision\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.InvalidPersistedEvent_IsRejectedWithNoEnrollment(fault: \"missing\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.InvalidPersistedEvent_IsRejectedWithNoEnrollment(fault: \"owner\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.InvalidPersistedEvent_IsRejectedWithNoEnrollment(fault: \"schema\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.InvalidPersistedEvent_IsRejectedWithNoEnrollment(fault: \"unknown-type\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.LostLockAfterSavepointRollback_IsRejected",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.MismatchedConnection_UnsupportedIsolationAndProvider_AreRejected",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.MissingCounterWithSurvivingJournal_RefusesReinitialization(missingCounter: \"family\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.MissingCounterWithSurvivingJournal_RefusesReinitialization(missingCounter: \"sequence\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.MissingSchema_ReadsUnavailableWithoutCreatingTables",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.NoTransaction_NoLock_AndExpiredTransaction_AreRejected",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.OriginalBlankCreateAbsentSnapshotFacts_ArePreservedOnHistoricalEnrollment",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.OriginalCreate_EnrolledInsideBorrowedTransaction_PersistsAcrossNewClient",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.OriginalLifecycleRejectedRevision_ProducesNoClockStepOrEvent",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.OriginalLifecycleWriters_EnrollAllStepsInOneOwnerTransaction",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.Rollback_RemovesArticleEventCountersAndJournal_AndRetryAllocatesFirstStep",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.UninitializedReaders_AndLockAcquisition_PerformZeroWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.ActualContendingCreates_WaitForFamilyBeforeArticleLocks_AndAllocateInCommitOrder",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.ActualCreate_CancellationDuringEnrollment_RollsBackArticleEventAndClockTogether",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.EnrollmentFailure_RollsBackOriginalCreateAndEveryEarlierEventInTheOwnerGroup",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.ImportedHistory_OriginalBypassMustPreserveCurrentCoordinatesAndEnrollItsOwnEvent",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LifecycleGroup_AllNineOriginalTransitionsEnrollWithoutManualRecording",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_ArticleOutboxFailureRollsBackEarlierTaxonomyReceiptAndEnrollment",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_BorrowedCreateUpdateDeleteBatchKeepsOriginalTransactionAndRollsBack(tag: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_BorrowedCreateUpdateDeleteBatchKeepsOriginalTransactionAndRollsBack(tag: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_BorrowedEnrollmentFailureEscapesToOriginalGroupOwner",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_CategoryDeletePreservesOriginalLinkedArticleGuard",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_ContendingCreateWaitsForFamilyBeforeItsTaxonomyRowOrCaptureLocks",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_CreateDescriptionNoOpAndDelete_EnrollOnlyActualReceipts(tag: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_CreateDescriptionNoOpAndDelete_EnrollOnlyActualReceipts(tag: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_EnrollmentFailureRollsBackOriginalInsertReceiptAndClock",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_OriginalSavepointGroupRollsBackReleasedCreateUpdateAndDelete(tag: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.LiveTaxonomy_OriginalSavepointGroupRollsBackReleasedCreateUpdateAndDelete(tag: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalCreate_EnlistsActualEventWithoutCallerEnrollment_AndDoesNotPublishBeforeCommit",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalDdl_IsIdempotentAndTransactional_AndEnforcesSingletonCountersAndUniqueness(codeFirst: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalDdl_IsIdempotentAndTransactional_AndEnforcesSingletonCountersAndUniqueness(codeFirst: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalMigrationIsolation_IsAcceptedByItsOwnerButRefusedBySourceAuthority(isolation: RepeatableRead)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalMigrationIsolation_IsAcceptedByItsOwnerButRefusedBySourceAuthority(isolation: Serializable)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.RightsProofUnavailable_OriginalProjectionTransactionEnlistsItsActualEvent",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.SourceTaxonomy_CreateWithoutArticlesMustEnrollItsActualMutation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.SourceTaxonomy_DeleteUnlinkedTagMustAdvanceTheOriginalFamily",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.SourceTaxonomy_DescriptionOnlyMustAdvanceTheOriginalFamily",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.TaxonomyRenameTransactions_EnrollEveryCategoryAndTagEvent",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.ActualGroup_WaitsForSourceFamilyBeforeItsIdempotencyAdvisoryOrArticleLocks",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.CommittedGroup_WhenTerminalWriteCrashes_RetryReplaysLedgerWithoutDuplicateFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.TwoOperationCommittedGroup_EnlistsEveryActualEventAndReplayDoesNotAllocateAgain",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.ArticleVaultExecutionPostgresIntegrationTests.TwoOperationGroup_WhenSecondWriteFails_RollsBackEveryBusinessSideEffectAndRetryAddsNone",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_AdminWithoutWritePermission_FailsClosedWithoutFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_AllLifecycleVariants_PersistImmutableTimelineAndVerify",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_AuditFailure_RollsBackEveryLifecycleFact",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_BusinessClockRegressesDuringWrite_RollsBackAllAuthorityFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_DoesNotWriteDerivedProjectionTables",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_DuplicateRequest_ReplaysReceiptWithoutNewFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_SameRequestIdentityWithChangedPlan_ConflictsWithoutExtraWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_SameTitleAcrossIncompatibleVariants_UsesDistinctArticles",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_ScheduledPastAndMissingAdmin_FailClosedWithoutFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_ScheduledUpdatePreservesPublicBoundaryAtCurrentBusinessClock",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.ExecuteAsync_StaleExpectedRevision_FailsBeforeNewRevision",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_BusinessClockRegressesDuringWrite_RollsBackDueFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_RejectsSourceDriftWithoutPartialFacts(drift: \"binding\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_RejectsSourceDriftWithoutPartialFacts(drift: \"capability\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_RejectsSourceDriftWithoutPartialFacts(drift: \"permission\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_RejectsSourceDriftWithoutPartialFacts(drift: \"resealed-binding\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_RejectsSourceDriftWithoutPartialFacts(drift: \"revision\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_RejectsSourceDriftWithoutPartialFacts(drift: \"schedule\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_UsesBusinessClockAndPreservesImmutableOldPublication(variant: \"published-scheduled-update\", delayMilliseconds: 0)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_UsesBusinessClockAndPreservesImmutableOldPublication(variant: \"published-scheduled-update\", delayMilliseconds: 1)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_UsesBusinessClockAndPreservesImmutableOldPublication(variant: \"scheduled\", delayMilliseconds: 0)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.PublishScheduledAsync_UsesBusinessClockAndPreservesImmutableOldPublication(variant: \"scheduled\", delayMilliseconds: 1)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.Verifier_DetectsHistoryAndReceiptTampering",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.Verifier_RejectsArchivedAndDeletedPublicStateDrift",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.Verifier_RejectsLaterRevisionAuthorityCoordinateDrift",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticleLifecycleFixturePortIntegrationTests.Verifier_RejectsResealedWriterTimeAndScheduledBoundaryTampering",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.OutboxPayload_RemainsSealedWhenLatestArticleStateDrifts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.ProjectionInvocation_RejectsRelabelAndStaleReferencesAgainstRealRows(scenario: \"invocation-relabel\", expectedViolation: \"publication_current_invocation_command_not_exact\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.ProjectionInvocation_RejectsRelabelAndStaleReferencesAgainstRealRows(scenario: \"plan-drift\", expectedViolation: \"publication_current_invocation_command_mismatch\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.ProjectionInvocation_RejectsRelabelAndStaleReferencesAgainstRealRows(scenario: \"receipt-only\", expectedViolation: \"publication_current_run_binding_missing\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.ProjectionInvocation_RejectsRelabelAndStaleReferencesAgainstRealRows(scenario: \"receipt-relabel\", expectedViolation: \"publication_current_invocation_binding_mismatch\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.ProjectionInvocation_RejectsRelabelAndStaleReferencesAgainstRealRows(scenario: \"rights-drift\", expectedViolation: \"publication_canonical_reference_mismatch\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.ProjectionInvocation_RereadsOriginalRequestAndRealPersistedTupleWithoutWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.PublishAsync_CrossPlanSameRunRole_ConflictsWithoutExtraWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.PublishAsync_CrossRunAndAdmin_CreateDistinctAuthorityFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.PublishAsync_DoesNotWriteDerivedProjectionTables",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.PublishAsync_DuplicateRequest_ReplaysWithoutNewRevisionOrOutbox",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.PublishAsync_HappyPath_PersistsSealedCoordinatesAndPassesVerifier",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.PublishAsync_MissingAdmin_FailsClosedWithZeroWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.PublishAsync_NullResponsibility_FailsClosed",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.PublishAsync_PartialWriteFailure_RollsBackAllAuthorityFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.PublishAsync_SameTitleDifferentRoles_DoesNotReuseArticle",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.Verifier_DetectsPointerMismatchAgainstRealRows",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CanonicalArticlePublicationFixturePortIntegrationTests.Verifier_DetectsReceiptDigestTamperAgainstPersistedFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CurrentSchemaIndexExpressionPostgresTests.ActualIndexDrift_IsNotTheOriginalOwnerFact(drift: \"cast\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CurrentSchemaIndexExpressionPostgresTests.ActualIndexDrift_IsNotTheOriginalOwnerFact(drift: \"collation\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CurrentSchemaIndexExpressionPostgresTests.ActualIndexDrift_IsNotTheOriginalOwnerFact(drift: \"expression\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CurrentSchemaIndexExpressionPostgresTests.ActualIndexDrift_IsNotTheOriginalOwnerFact(drift: \"nulls\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CurrentSchemaIndexExpressionPostgresTests.ActualIndexDrift_IsNotTheOriginalOwnerFact(drift: \"opclass\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CurrentSchemaIndexExpressionPostgresTests.ActualIndexDrift_IsNotTheOriginalOwnerFact(drift: \"sort\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CurrentSchemaIndexExpressionPostgresTests.CatalogAndEffectReaders_UseTheSameOriginalRrAcrossConcurrentIndexCreation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.CurrentSchemaIndexExpressionPostgresTests.OriginalHistoryRecipesAndBothCompilers_PreserveTheActualExpressionKey",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.ActualReceiptTableAndGuardMustBeRepresentedByTheOriginalCurrentSchemaOwner(table: \"taxonomy_mutation_receipt\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.ActualReceiptTableAndGuardMustBeRepresentedByTheOriginalCurrentSchemaOwner(table: \"user_locale_mutation_receipt\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"taxonomy_mutation_receipt\", sqlState: \"P0001\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"user_locale_mutation_receipt\", sqlState: \"55000\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalControlTable_PreservesNativeNotNullAndRefusesItsRemoval",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalReceiptRecipeComponent_PreservesNativeFactsAndRejectsGuardDrift(table: \"taxonomy_mutation_receipt\", sqlState: \"P0001\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalReceiptRecipeComponent_PreservesNativeFactsAndRejectsGuardDrift(table: \"user_locale_mutation_receipt\", sqlState: \"55000\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.AbsentOriginalDmlAndWrongTarget_CannotProduceReceipt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.Batch_UsesEveryRealTargetAndSortedDistinctActualLinks",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.CasFailureAndSuccessfulSqlNoOp_ProduceNoReceipt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.CreateCapture_MispairedUpdateProbe_DemonstratesTrustedStatementKindBoundary",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.CreateCapture_RejectsCommittedForeignWriter_EvenAfterForeignSavepoint(useSavepoint: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.CreateCapture_RejectsCommittedForeignWriter_EvenAfterForeignSavepoint(useSavepoint: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.DescriptionOnly_CapturesExactBeforeAfterAndRealArticleIds",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.ForeignClientAndForeignTransaction_RefuseCapturedIdentity",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.InFlightReceiptInsertCancellation_RollsBackOriginalDml",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.InvalidBatchAndLateInsertFailure_RollBackOriginalDmlAndAllReceipts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.MissingTransactionWrongProviderAndPreCanceledCalls_RefuseWithoutReceipts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.MixedBatch_CapturesCreateRenameAndPhysicalDeleteIdentities",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalCreate_SameTransactionReceiptVisibleOnlyAfterCommit_WithoutCounterAllocation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Create, captureInsideSavepoint: False, releaseBeforePersist: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Create, captureInsideSavepoint: False, releaseBeforePersist: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Create, captureInsideSavepoint: True, releaseBeforePersist: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Create, captureInsideSavepoint: True, releaseBeforePersist: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Delete, captureInsideSavepoint: False, releaseBeforePersist: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Delete, captureInsideSavepoint: False, releaseBeforePersist: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Delete, captureInsideSavepoint: True, releaseBeforePersist: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Delete, captureInsideSavepoint: True, releaseBeforePersist: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Update, captureInsideSavepoint: False, releaseBeforePersist: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Update, captureInsideSavepoint: False, releaseBeforePersist: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Update, captureInsideSavepoint: True, releaseBeforePersist: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalTransactionSavepoint_AcceptsRealDmlAndCaptureBeforeOrAfterRelease(operation: Update, captureInsideSavepoint: True, releaseBeforePersist: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.OriginalUnlinkedTagDelete_PreservesActualDeletedIdentity",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.PersistedReceipts_AreImmutable(sql: \"DELETE FROM taxonomy_mutation_receipt;\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.PersistedReceipts_AreImmutable(sql: \"TRUNCATE taxonomy_mutation_receipt;\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.PersistedReceipts_AreImmutable(sql: \"UPDATE taxonomy_mutation_receipt SET target_id = t\"\u00b7\u00b7\u00b7)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.RollbackAndRetry_RequireFreshCaptureAndRetainOnlyCommittedReceipt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.RollbackPastCapture_RefusesAllOperationsAfterFamilyReacquisition(operation: Create)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.RollbackPastCapture_RefusesAllOperationsAfterFamilyReacquisition(operation: Delete)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.RollbackPastCapture_RefusesAllOperationsAfterFamilyReacquisition(operation: Update)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.RollbackToSavepoint_RemovesDmlAndReceipt_AndRetainedCaptureCanRetry(operation: Create)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.RollbackToSavepoint_RemovesDmlAndReceipt_AndRetainedCaptureCanRetry(operation: Delete)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.RollbackToSavepoint_RemovesDmlAndReceipt_AndRetainedCaptureCanRetry(operation: Update)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.RolledBackCapture_CannotMisidentifySubsequentlyDeletedRow",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.UnsupportedIsolation_RefusesBeforeDml(isolation: RepeatableRead)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyMutationReceiptPostgresTests.UnsupportedIsolation_RefusesBeforeDml(isolation: Serializable)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyProjectionPersistenceTests.ReconcileArticleAsync_ConcurrentFirstProjectionAppliesCountsExactlyOnce",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.TaxonomyProjectionPersistenceTests.ReconcileArticleAsync_PersistsCategoryTagCountsProjectionAndBumpsFrameVersion",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.CancellationAndRollback_LeaveNeitherPreferenceNorReceipt_ThenFreshRetrySucceeds(cancel: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.CancellationAndRollback_LeaveNeitherPreferenceNorReceipt_ThenFreshRetrySucceeds(cancel: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.CancellationWhilePostgresWaitsForReceiptInsert_RollsBackTheOriginalCas",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.CaptureRequiresOriginalNativeTransactionAndFamilyLock_AndRejectsWrongClientAndAccount",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.CasConflictAndNoChange_EmitNoReceipts_ButSameValueSuccessfulCasRetainsRevisionTransition",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.CommittedOriginalTransactionCapture_CannotClaimItsOldWriteInANewTransaction",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.CompensationConflictAndWrongRestoration_RefuseFakeCompensation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.Compensation_RecordsActualRestorationOrDeletion_AndRetainsOriginalReceipt(previouslyExisted: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.Compensation_RecordsActualRestorationOrDeletion_AndRetainsOriginalReceipt(previouslyExisted: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.ContendingOriginalOwners_SerializeBeforeCapture_AndLosingCasEmitsNothing",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.ForeignReleasedSavepointWrite_IsInvisibleUntilCommit_ThenStillRejected",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.InvalidActualTransitionAndLyingAffectedCount_RefuseWithoutReceipts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.MigrationMakesReceiptsImmutable_WithoutCascadingAccountDeletion(sql: \"DELETE FROM user_locale_mutation_receipt\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.MigrationMakesReceiptsImmutable_WithoutCascadingAccountDeletion(sql: \"TRUNCATE user_locale_mutation_receipt\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.MigrationMakesReceiptsImmutable_WithoutCascadingAccountDeletion(sql: \"UPDATE user_locale_mutation_receipt SET mutation_k\"\u00b7\u00b7\u00b7)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.NestedSavepointRelease_RemainsAtomicWithOriginalOwnerRollback(releaseOuter: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.NestedSavepointRelease_RemainsAtomicWithOriginalOwnerRollback(releaseOuter: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.OriginalService_EnlistsActualUpdateAndCompensationThroughTheSourceAuthority",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.ReleasedChildWrite_RemainsOwnedAfterSubtransactionCacheOverflow",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.ReleasedSavepointCompensation_PersistsActualRestorationOrDeletion(previouslyExisted: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.ReleasedSavepointCompensation_PersistsActualRestorationOrDeletion(previouslyExisted: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.RolledBackCaptureLock_CannotClaimForeignCommittedUpdateWithMatchingRevision",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.RolledBackChildCapture_CannotClaimRestoredOldCommittedVersion",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.SavepointRollback_RemovesActualWriteAndReceipt_ThenRetryInSameTransactionSucceeds(previouslyExisted: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.SavepointRollback_RemovesActualWriteAndReceipt_ThenRetryInSameTransactionSucceeds(previouslyExisted: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.SuccessfulCasInsideReleasedSavepoint_RecordsActualOriginalTransaction(previouslyExisted: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.SuccessfulCasInsideReleasedSavepoint_RecordsActualOriginalTransaction(previouslyExisted: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.SuccessfulCas_RecordsActualStatesAndSameTransactionVisibility_WithoutAllocatingGeneration",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleMutationReceiptPostgresTests.UnrelatedAbsentRowInsert_CannotBeClaimedAsAnOriginalTransactionWrite",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.BorrowedEnrollmentFailureEscapesToOriginalGroupOwner(compensate: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.BorrowedEnrollmentFailureEscapesToOriginalGroupOwner(compensate: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.BorrowedUpdateAndCompensationStayInOriginalGroupAndRollbackAllReceipts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.OriginalCompensation_EnrollmentFailureRetainsCommittedPreferenceAndUnconsumedReceipt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.OriginalReleasedSavepointUpdateAndCompensationRollBackWithTheirOwnerGroup",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.OriginalUpdateAndCompensation_EnrollActualReceiptsAcrossDifferentServiceInstances(previouslyExisted: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.OriginalUpdateAndCompensation_EnrollActualReceiptsAcrossDifferentServiceInstances(previouslyExisted: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.OriginalUpdateWaitsForFamilyBeforePreferenceRowLocks",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.OriginalUpdate_EnrollmentFailureRollsBackPreferenceReceiptAndClock_ThenFreshClientRetries",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.RepeatedSameTimestampRevisionCycles_CompensateOnlyTheActualUnconsumedReceipt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.StaleCasAndWrongCompensationFacts_DoNotMintReceiptsOrAdvanceClock",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.UserLocaleSourceEnrollmentIntegrationTests.UpdateReturnsActualPersistedTimestamp_ForReceiptBoundCompensation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ScheduledPublishWorkerTests.PublishDueArticlesAsync_ClaimsDueRowsWithLockingBatchAndLeavesFutureRowsScheduled",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ScheduledPublishWorkerTests.PublishDueArticlesAsync_CommitsPublishedStateAndOutboxWithoutSideEffectServices",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ScheduledPublishWorkerTests.PublishDueArticlesAsync_DuePublishedRevision_SwitchesFromOldPublicationAtomically",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ScheduledPublishWorkerTests.PublishDueArticlesAsync_EstablishesDurableFenceBeforePublishingRow",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ScheduledPublishWorkerTests.PublishDueArticlesAsync_HoldsFamilyBeforeExecutingArticleRowClaim",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ScheduledPublishWorkerTests.PublishDueArticlesAsync_WhenFenceFails_LeavesRowScheduledAndWritesNoOutbox",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.ScheduledPublishWorkerTests.PublishDueArticlesAsync_WhenScopeCreationFails_ReportsDegradedRuntimeState",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.ArticleRightsV3Entities_MapToExpectedDurableTablesAndUniqueKeys",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.EnsureColumnStep_EscapesColumnDefinitionsInsideDynamicSql",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.EnsureColumnStep_NormalizesLegacyPreEscapedColumnDefinitions",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.EnsureColumnStep_PreservesEmptyStringDefaultsInsideDynamicSql",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_AccountRecoveryKey_CreatesIndependentRecoveryKeyTable",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_AccountSubjectProjection_UsesCompatibleExpandAndCanonicalBackfill",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_AdminMessageQueueState_BackfillsOnlyAccountMessages",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_AnonymousCommentGovernance_SeedsRequiredPolicyDefaults",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_AnonymousIdentityAccountSchema_AddsExpectedColumns",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_ArticleRightsV3Schema_CreatesPolicySnapshotProofTablesAndBackfillsDefaults",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_ArticleViewProjectionWatermark_CreatesDurableRepairState",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_AuthoringAdminPrincipalAttribution_RenamesLegacyAuthoringColumns",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_ClearLegacyPublicArtifacts_RunsAsOneTimeMigrationStep",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_CommentAttributionIndexFinalizer_RetiresGenericUserIdIndex",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_CommentGovernance_EnforcesDedupeAppealLimitAndTimelineContext",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_CommentModerationAdminPrincipalAttribution_PreservesLegacyColumnFallback",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_CommentModerationEvent_IsAppendOnlyAndTriggerBacked",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_CommentMutationOutboxDeliveryReservation_IsOwnerBoundAndTerminalAware",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_CommentMutationOutbox_IsMinimalRetryableAndConsumerIdempotent",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_ContainsExpectedLegacyMigrations",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_ContainsUniqueStableMigrationIds",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_ContentAssetCutover_CreatesSingleLedgerAndCleanupBoundary",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_DistributedInvalidationDeliveryLedger_IsAdditiveOnlineExpand",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_ExactlyMatchesOnlineMetadataRoster",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_FreshCreateStepsUseAdminPrincipalColumns",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_MessageLegacyIdentityColumnsFinalize_DropsLegacyColumnsAndSyncObjects",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_PasskeyRecoveryKeyAccountId_RenamesLegacyUserIdColumnsAndIndexes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_PasskeyUserHandle_AddsRandomStableAccountHandleColumn",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_ReadEventRetirementCompat_RepairsPartialLegacyTableBeforeOlderDescriptorsReplay",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_ReadEventRetirement_DropsTrajectoryTableAndClearsDerivedRoutes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_RecoveryPasskeyCompletion_AddsDurableRequestBoundIdempotencyMarker",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_SiteSubscriptionHmacFinalize_DisablesLegacySha256Rows",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_StaticGuardsPreventLegacyModerationAndUsernameMigrationResidue",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_SysUserSecurityProfileSplit_MovesMfaMaterialAndDropsLoginObservations",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_SysUserUsernameFinalize_DropsUsernameAfterCodeFirst",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_TaxonomyDescriptions_AreNullableBoundedOnlineExpand",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_UserLegacyIdentityColumnsFinalize_DropsAllLegacySysUserIdentityColumns",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_VisitLogIpAnonymization_DropsRawIpColumn",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.GetDescriptors_VisitLogIpPseudonymEpoch_ErasesStableHashesAndAddsWindowMetadata",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaMigrationRegistryTests.TaxonomyDescriptions_DoNotChangePublicListWirePayloads",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.BuildExpectedModel_ReflectsManagedTablesAndColumns",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.CandidateVerifierCommand_RoutesExactlyAndRejectsResealedLiveDatabaseForgery",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Comparer_BindsForeignKeyReferenceToExactSchema",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Comparer_EmitsExactOwnedDifferences",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Comparer_RejectsEveryConstraintExecutionSemanticDrift",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Comparer_RejectsEveryIndexSemanticDrift",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Comparer_RejectsEveryPostgreSqlColumnPhysicalSemanticDrift",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Comparer_ReportsProviderColumnIndexAndConstraintSemanticDrift",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Comparer_StillRejectsManagedConversionDriftBetweenSemanticOwners",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.CurrentSchemaMismatch_IsFailClosedAndWriteFree",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Extract_FailsClosedForDuplicateAndAmbiguousOwnersOrUnsupportedConverters",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Extract_ModelsDescendingIndexDefaultsExactly",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Extract_ResolvesInheritanceAttributesDefaultsIgnoredMembersAndConstraints",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_MapsGenerationKindsExactly(identityKind: \"\", rawDefault: \"nextval('public.test_id_seq'::regclass)\", hasOwnedSequence: True, expected: \"owned-sequence-default\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_MapsGenerationKindsExactly(identityKind: \"\", rawDefault: null, hasOwnedSequence: False, expected: \"none\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_MapsGenerationKindsExactly(identityKind: \"a\", rawDefault: null, hasOwnedSequence: True, expected: \"identity-always\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_MapsGenerationKindsExactly(identityKind: \"d\", rawDefault: null, hasOwnedSequence: True, expected: \"identity-by-default\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_NormalizesOnlyDefaultTimestampPrecision(observed: \"timestamp ( 6 ) with time zone\", expected: \"timestamp with time zone\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_NormalizesOnlyDefaultTimestampPrecision(observed: \"timestamp without time zone\", expected: \"timestamp without time zone\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_NormalizesOnlyDefaultTimestampPrecision(observed: \"timestamp(0) without time zone\", expected: \"timestamp(0) without time zone\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_NormalizesOnlyDefaultTimestampPrecision(observed: \"timestamp(3) without time zone\", expected: \"timestamp(3) without time zone\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_NormalizesOnlyDefaultTimestampPrecision(observed: \"timestamp(6) without time zone\", expected: \"timestamp without time zone\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlColumnObservation_RejectsIncompleteGenerationAndCollation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlConstraintObservation_MapsForeignKeyActionsExactly(observed: \"a\", expected: \"no-action\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlConstraintObservation_MapsForeignKeyActionsExactly(observed: \"c\", expected: \"cascade\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlConstraintObservation_MapsForeignKeyActionsExactly(observed: \"d\", expected: \"set-default\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlConstraintObservation_MapsForeignKeyActionsExactly(observed: \"n\", expected: \"set-null\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlConstraintObservation_MapsForeignKeyActionsExactly(observed: \"r\", expected: \"restrict\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlConstraintObservation_MapsForeignKeyMatchTypesExactly(observed: \"f\", expected: \"full\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlConstraintObservation_MapsForeignKeyMatchTypesExactly(observed: \"p\", expected: \"partial\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlConstraintObservation_MapsForeignKeyMatchTypesExactly(observed: \"s\", expected: \"simple\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlConstraintObservation_RejectsUnknownForeignKeyCodes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlIndexObservation_ParsesEveryExactKeySemantic",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.PostgreSqlProviderProjection_BindsPhysicalTypesCollationAndOwnedSequence",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.ProjectionAndIndependentVerifier_RejectOldIdentityAndTampering",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.ProviderProjection_SeparatesSemanticSchemaFromPhysicalDialect",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.ReadinessComparison_UsesSealedIdentityAndEntersSampling",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.SourceIdentity_CoversClassLevelIndexesAndConstraints",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.StartupVerifierSemanticGuard_RejectsTableColumnTypeIndexAndConstraintDrift",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.TestMaterializerBoundary_RequiresTestOptInLoopbackPublicSearchPathAndRunRoot",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.TestMaterializerCommand_RoutesOnlyExactFirstArgument",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.TestMaterializerExactEmptyInventory_ObservesStandaloneCompositeExactlyOnce",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.TestMaterializerOutput_RejectsChildSymlinkEscape",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.TestMaterializerOutput_RejectsInputArtifactAliases",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.TestMaterializerServiceEnvelope_BindsPostgresIdentityAcrossMultiServiceTopology",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.SchemaModelInspectorTests.TestMaterializerServiceEnvelope_BindsRunPostgresPortAndExactAdmission",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleCreateContractTests.Command_BindsPlanIdentityDigestAndActor",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleCreateContractTests.Command_RequiresClosedModeAndCompleteTemplateSet",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleCreateContractTests.Receipt_CarriesNoArticleOrTemplateBody",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleCreateContractTests.RequestDigest_SeparatesModesAndPlans",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleDestructiveMutationBehaviorTests.DeleteAndRestore_EnforceStateMachineAndRestoreToDraft",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleDestructiveMutationBehaviorTests.DeleteAsync_AdvancesOnlySitemapCoordinateAndKeepsTargetedAotEdge",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleDestructiveMutationBehaviorTests.DeleteAsync_ConcurrentWritersAllowExactlyOneStateTransition",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleDestructiveMutationBehaviorTests.DeleteAsync_EstablishesFenceBeforeDeleteAndFailsClosedWhenFenceIsUnavailable",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleDestructiveMutationBehaviorTests.DeleteAsync_StaleRowVersionFailsWithoutChangingArticleState",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleDestructiveMutationBehaviorTests.PermanentDeleteAndClearTrash_NeverRemoveActiveArticles",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleDestructiveMutationBehaviorTests.PermanentlyDeleteArticleAsync_ConcurrentWritersAllowExactlyOneRemoval",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.ConflictingReleaseAliases_AreRejectedInsteadOfReadingLatestState",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.DelayedProjectionCoordinates_PreserveCurrentArtifactsAndNotificationUsesOccurredAt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.DispatcherVersionGate_SkipsSupersededConsumersWithReasonAndRunsCurrentConsumers",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.LegacyEnvelope_UsesStableColumnsAndArticlePublicationCompatibilityAlias",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.Producer_CreatesVersionTwoColumnsAndRoundTripsBeforeAfterScopes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.SupersededDisposition_ReturnsNewlyCompletedAndMarksEveryRemainingEdgeSkipped",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.SupersededReplay_PersistsOneExplicitReasonForEverySkippedEdge",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.UnsupportedFutureSchema_IsRejectedForSafeReplayMigration",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.VersionTwoEnvelope_PreservesExactReleasePolicyResponsibilityAndScopeCoordinates",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxEnvelopeTests.VersionedOutboxMigration_IsAdditiveAndRegistersExactCoordinateBackfill",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxFailurePropagationTests.DispatcherCriticalEdgesRemainPartOfTheRequiredCompletionGate",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxFailurePropagationTests.ReplayOutboxAsync_CancellationIsNeverDowngradedToBestEffortFailure",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxFailurePropagationTests.ReplayOutboxAsync_CriticalProjectorFailureReturnsFailedResult(failedEdge: \"article-detail-aeds\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxFailurePropagationTests.ReplayOutboxAsync_CriticalProjectorFailureReturnsFailedResult(failedEdge: \"public-artifact-revocation\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxFailurePropagationTests.ReplayOutboxAsync_CriticalProjectorFailureReturnsFailedResult(failedEdge: \"public-hot-read\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxFailurePropagationTests.ReplayOutboxAsync_CriticalProjectorFailureReturnsFailedResult(failedEdge: \"search-projection\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxFailurePropagationTests.ReplayOutboxAsync_CriticalProjectorFailureReturnsFailedResult(failedEdge: \"taxonomy-projection\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationOutboxFailurePropagationTests.ReplayOutboxAsync_NotificationFailureIsRecordedWithoutBlockingCriticalConvergence",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationSideEffectBoundaryTests.AfterCreated_UsesInjectedBusinessTimeForPublicFenceCommit",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationSideEffectBoundaryTests.Composition_RegistersEveryMutationBoundaryAsScoped",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationSideEffectBoundaryTests.DependencyGraph_CoordinatorOnlyOwnsOrchestrationPorts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationSideEffectBoundaryTests.DependencyGraph_NarrowOwnersHoldTheirOwnUseCasePorts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleMutationSideEffectBoundaryTests.FenceMethods_AreRemovedFromSideEffectCoordinatorContract",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleResponsibilityVersioningTests.GetHistoryAsync_ReturnsEveryVersionNewestFirstForExactRevision",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleResponsibilityVersioningTests.SaveAsync_AppendsVersionsAdvancesExplicitPublicationAndWritesExactOutbox",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleResponsibilityVersioningTests.SaveAsync_ConcurrentSameExpectedVersionHasOneWinnerAndOneConflict",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleResponsibilityVersioningTests.SaveAsync_OutboxProducerFailureRollsBackSnapshotPublicationAndPointer",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleResponsibilityVersioningTests.SaveAsync_StaleExpectedVersionDoesNotAppendOrAdvancePublication",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.ContentBlockReachabilityAndCleanupDeleteOnlyUnreferencedBlocks",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.CreateAsync_ConcurrentDoubleClickCommitsOneArticleAndReplaysWinner",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.CreateAsync_ResponseLossRetryReturnsOriginalResultWithoutDuplicateWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.CreateAsync_SameIdentityDifferentBodyReturnsConflictWithoutSecondArticle",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.SaveArticleRevisionAsync_ConcurrentWritersProduceOnlyOneNextRevisionNumber",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.SaveArticleRevisionAsync_DeletedArticleDoesNotAllocateRevisionNumber",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.SaveArticleRevisionAsync_DifferentArticlesDoNotWaitAndRollbackReusesNumber",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.SaveArticleRevisionAsync_LegacyUniqueConflictRetriesInUsableTransaction",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_ConcurrentRowVersionMismatchDoesNotRewriteArticleOrTags",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_ContentChangeAdvancesBodyUpdatedAtButPreservesFirstPublishedAt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_ExactRequestReturnsNoChangeWithoutRevisionPublicationOrEvent",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_MetadataAndCopyrightOnlyReuseBodyBlockWhileBodyChangeAllocatesOne",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_MetadataOnlyChangePreservesBodyUpdatedAtAndFirstPublishedAt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_MissingBodyCreatesBodyWithUpdatedAt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_PublicArticleEstablishesFenceBeforeDatabaseMutation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_RowVersionLossAfterFence_QueuesRebuildBeforeReturningFalse",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_SuccessfulUpdateRewritesTagSetWithAtomicUpsert",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_TwoConnectionsWithSameBaseRevision_OnlyFirstWriterCommits",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRevisionConcurrencyTests.UpdateAsync_WhenFenceFails_DoesNotChangePublishedArticle",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.CreateAsync_PublishedArticleEstablishesGlobalFenceBeforeInsert",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.CreateAsync_RollsBackArticlePolicyAndOutboxWhenSnapshotInsertFails",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.CreateAsync_UsesDefaultRightsWhenRequestOmitsRights",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.CreateAsync_WhenGlobalFenceFails_WritesNoArticleOrOutbox",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.CreateAsync_WhenPublicationTaxonomyIsInvalid_WritesNothing",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.CreateAsync_WritesRightsPolicySnapshotAndOutboxInSameTransaction",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.RollbackRevisionAsync_CopiesHistoricalVersionPackageIntoNewCoordinates(targetStatus: Archived)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.RollbackRevisionAsync_CopiesHistoricalVersionPackageIntoNewCoordinates(targetStatus: Draft)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.RollbackRevisionAsync_CopiesHistoricalVersionPackageIntoNewCoordinates(targetStatus: Published)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.RollbackRevisionAsync_IncompleteHistoricalPackageRollsBackAtomically",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.UpdateAsync_ExplicitResetReplacesPolicyWithDefaults",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.UpdateAsync_OmittedRightsPreservesPolicyAndBindsNewRevisionSnapshot",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleRightsWritePathTests.UpdateAsync_RightsOnlyChangeCreatesNewRevisionSnapshotAndOutboxPointer",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"empty-event-id\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"future-schema\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"legacy-schema\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"missing-article\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"missing-revision\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"missing-rights\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"missing-row\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"tampered-revision\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"unknown-type\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"unpaired-publication\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"unpaired-responsibility\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.InvalidOriginalFacts_FailClosed(fault: \"wrong-owner\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"category-updated\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"created\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"deleted\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"permanently-deleted\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"responsibility-updated\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"restored\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"rights-proof-updated\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"scheduled-published\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"tag-updated\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"trash-cleared\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleSourceGenerationAuthorityTests.OriginalProducer_AllSupportedEventTypesValidate(eventType: \"updated\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Bundle_RejectsPayloadMembershipAndActualSourceByteMismatch",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_AcceptsBenignMethodsAndConstructors",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+InstanceFileAccessFixture), forbiddenFact: \"System.IO.\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+InstanceLoadingFixture), forbiddenFact: \"Import\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+InstanceObservationFixture), forbiddenFact: \"Watcher\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+StaticFileAccessFixture), forbiddenFact: \"System.IO.\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+StaticLoadingFixture), forbiddenFact: \"Import\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(fixtureType: typeof(FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests+StaticObservationFixture), forbiddenFact: \"Watcher\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ExecutionSource_HasNoFilesystemWatcherImportOrDirectArticleMutationSidePath",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: AfterRevisionMismatch, expectedReason: \"article_vault_writer_receipt_mismatch\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: ArticleDigestMismatch, expectedReason: \"article_vault_writer_receipt_mismatch\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MalformedAudit, expectedReason: \"article_vault_operation_side_effect_receipt_missin\"\u00b7\u00b7\u00b7)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MalformedOutbox, expectedReason: \"article_vault_operation_side_effect_receipt_missin\"\u00b7\u00b7\u00b7)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MembershipMismatch, expectedReason: \"article_vault_group_receipt_invalid\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MissingAudit, expectedReason: \"article_vault_operation_side_effect_receipt_missin\"\u00b7\u00b7\u00b7)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: MissingOutbox, expectedReason: \"article_vault_operation_side_effect_receipt_missin\"\u00b7\u00b7\u00b7)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: SiteMismatch, expectedReason: \"article_vault_group_receipt_invalid\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnResealedReceiptMismatch(mutation: VaultMismatch, expectedReason: \"article_vault_group_receipt_invalid\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_FailsClosedOnWriterReceiptTamper",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_LoadsSealedReferenceAndDuplicateReplaysTerminalResult",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursDuringObservation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_PersistsCancelledTerminalWhenCancellationOccursInsideWriter",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RecoversCommittedGroupAfterTerminalWriteFailureWithoutRepeatingWriter",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsDuplicateOutboxAndAuditReferencesAcrossGroup",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsExpiredPlanBeforeObservationOrWriter",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_RejectsRevisionPermissionLifecycleAndDependencyDriftBeforeWriter",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsAtCancellationBoundaryWithoutStartingNextGroup",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Executor_StopsWhenPlanExpiresAfterObservationBeforeWriter",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupIdempotency_IsBoundToSiteVaultPlanGroupAndOperations",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.GroupVerifier_RejectsExecutedOperationInFailedAttemptLedger",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.Payload_CannotCarryLifecycleRightsOwnerPathOrImportFallback",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.ResultVerifier_RejectsResealedMembershipAndWriterReferenceTamper",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultExecutionTests.TerminalResultEquivalence_IgnoresOnlyCompletionTimestamp",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.ClosedCodec_RejectsUnknownFieldAndSchemaDrift",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.ClosedCodec_RoundTripsCanonicalRootAndArticleManifests",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.ClosedContract_RejectsExplicitNullAndEmptyRequiredValues",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.ContentDigest_RejectsManifestAndCoordinateTampering",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.EstablishedArticle_RejectsMissingBaseRevisionAndServerIdentity",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.IdentityBinding_IsIndependentFromPathAndRejectsCrossVaultReuse",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.JsonSchemas_AreEmbeddedClosedAndVersioned",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.MetadataContract_IsClosedVersionedAndHasNoLifecycleRightsPublicationOrOwnerFields",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.PathProjection_RejectsEscapeAndControlTreeCollisions(relativePath: \"../article.md\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.PathProjection_RejectsEscapeAndControlTreeCollisions(relativePath: \".fsus/articles/article.md\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.PathProjection_RejectsEscapeAndControlTreeCollisions(relativePath: \"/articles/article.md\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.PathProjection_RejectsEscapeAndControlTreeCollisions(relativePath: \"articles/../../article.md\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.PathProjection_RejectsEscapeAndControlTreeCollisions(relativePath: \"articles//article.md\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.PathProjection_RejectsEscapeAndControlTreeCollisions(relativePath: \"articles\\\\article.md\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.RootInventories_RejectDuplicateOrNonCanonicalEntries",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.SourceByteIdentity_PreservesBomNewlineTrailingSpaceAndFinalNewlineFacts",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateCannotBeSignedFromUiTextOrMtime",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = , PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = False, Deleted = False, ServerRevision = , Source = , MetadataManifestSha256 = , DependencySha256 = , Lifecycle = , PermissionSha256 = , ContentSha256 = 03fe08aa7153b8477cbe66ebf574a1be5f8d8a5a8cf18f0936cc36e3166905ad }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = , Source = VaultSourceByteIdentity { Sha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = False, Deleted = False, ServerRevision = , Source = , MetadataManifestSha256 = , DependencySha256 = , Lifecycle = , PermissionSha256 = , ContentSha256 = 03fe08aa7153b8477cbe66ebf574a1be5f8d8a5a8cf18f0936cc36e3166905ad } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: LocalCreated)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = False, Deleted = False, ServerRevision = , Source = , MetadataManifestSha256 = , DependencySha256 = , Lifecycle = , PermissionSha256 = , ContentSha256 = 03fe08aa7153b8477cbe66ebf574a1be5f8d8a5a8cf18f0936cc36e3166905ad }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = False, Deleted = False, ServerRevision = , Source = , MetadataManifestSha256 = , DependencySha256 = , Lifecycle = , PermissionSha256 = , ContentSha256 = 03fe08aa7153b8477cbe66ebf574a1be5f8d8a5a8cf18f0936cc36e3166905ad }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = False, Deleted = False, ServerRevision = , Source = , MetadataManifestSha256 = , DependencySha256 = , Lifecycle = , PermissionSha256 = , ContentSha256 = 03fe08aa7153b8477cbe66ebf574a1be5f8d8a5a8cf18f0936cc36e3166905ad } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: Untracked)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = False, Deleted = False, ServerRevision = , Source = , MetadataManifestSha256 = , DependencySha256 = , Lifecycle = , PermissionSha256 = , ContentSha256 = 03fe08aa7153b8477cbe66ebf574a1be5f8d8a5a8cf18f0936cc36e3166905ad }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = False, Deleted = False, ServerRevision = , Source = , MetadataManifestSha256 = , DependencySha256 = , Lifecycle = , PermissionSha256 = , ContentSha256 = 03fe08aa7153b8477cbe66ebf574a1be5f8d8a5a8cf18f0936cc36e3166905ad }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: ServerCreated)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: Clean)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode = permission-drift }, State = Clean, ContentSha256 =  }, expected: Blocked)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = operation-conflict, BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: Conflicted)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = operation-applying, ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: Applying)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = operation-applied, LastReceiptSha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: Synced)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: ServerModified)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = True, ServerRevision = 4, Source = , MetadataManifestSha256 = , DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: ServerDeleted)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: LocalModified)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: BothModified)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultManifestContractTests.StateMachine_DerivesEveryParentState(manifest: ArticleVaultArticleManifest { Schema = fsusblog.article-vault.article.v1, SchemaVersion = 1, SiteIdentity = site-primary, VaultIdentity = vault-primary, DeviceIdentity = device-primary, PortableArticleIdentity = portable-article-primary, ServerArticleIdentity = server-article-42, PathProjection = VaultPathProjection { RelativePath = articles/example.md, ProjectionSha256 = 515fe40b1d344f811638960dbc4edb3a634ae9c3afb38ec17ac778888e4c750d }, Coordinates = VaultArticleCoordinates { Base = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Local = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = True, ServerRevision = 4, Source = , MetadataManifestSha256 = , DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 }, Server = VaultArticleCoordinate { Schema = fsusblog.article-vault.coordinate.v1, SchemaVersion = 1, Present = True, Deleted = False, ServerRevision = 4, Source = VaultSourceByteIdentity { Sha256 = aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa, ByteLength = 42, HasUtf8Bom = True, NewlineStyle = CrLf, TrailingWhitespaceLineCount = 2, HasFinalNewline = True }, MetadataManifestSha256 = 9975e739d71cf06bc9f92b59ba53de515bb4427f9e7f3fc3c97399fab7a5d06e, DependencySha256 = bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb, Lifecycle = draft, PermissionSha256 = cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, ContentSha256 = 0bcdeae931a96ff902e7b816d4bedf136f37c8af42ab719b078589afec96f6c4 } }, OperationWatermarks = VaultOperationWatermarks { Sequence = 0, LastPlannedOperationIdentity = , LastAppliedOperationIdentity = , LastReceiptSha256 = , ApplyingOperationIdentity = , ConflictOperationIdentity = , BlockedReasonCode =  }, State = Clean, ContentSha256 =  }, expected: LocalDeleted)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.BothModified_BlocksWholePlanAndFreezesConflict",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.Build_ProducesStableCanonicalPlanAcrossInputOrdering",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.Build_RejectsCrossVaultObservationAndDuplicateArticle",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.Build_RejectsMissingBaseBeforeAnyTwoWayDecision",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.ClosedCodec_RejectsUnknownFieldsOrderTamperAndDigestTamper",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.ExpiryCancellationAndIdempotency_AreExplicitAndFailClosed",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.PlanSchema_IsEmbeddedClosedAndVersioned",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.Planner_UsesPortableIdentityAndNeverPathTitleMtimeOrImportFallback",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.PullPushAndSync_UseOnePlannerWithDirectionOnlyPolicyDifference",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.UnresolvedDependency_ReturnsNoPartialPlan",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.ArticleVaultSyncPlannerTests.VerifyCurrent_RejectsRevisionPermissionAndSchemaDriftAfterSeal",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.AuthoringRevisionRestoreTests.ImportArticleAsync_DeclaresCreateSideRightsPreserve",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.AuthoringRevisionRestoreTests.ImportArticleAsync_ForwardsCallerCancellationToTheOriginalCreateOwner",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.AuthoringRevisionRestoreTests.ImportArticleAsync_PreCanceledCallerDoesNotInvokeCreateOrInitializeSource",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.AuthoringRevisionRestoreTests.RestoreImportedRevisionsAsync_RollsBackDeleteWhenInsertFails",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleFixturePortTests.Binding_RejectsMissingIdentityAdminAndDigests",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleFixturePortTests.ReceiptDigest_IsBoundToVariantAndCoordinateLists",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleFixturePortTests.RollbackZeroTarget_FailsBeforeAnyWrite",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleFixturePortTests.ScheduledPast_FailsBeforeMutationFenceOrDatabase",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleFixturePortTests.Variants_CoverEveryRequiredLifecycleScenario",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.CompletedRecoveryCallDoesNotQualifyPhysicalCleanupOrReturnAcceptedReceipt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.PureCancellationKeepsOriginalCancellationAndUnprovenRecoveryObligation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.RecoveryFaultCannotReplaceOriginalTransactionFault(cause: \"clock\", expectedStatus: 500)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.RecoveryFaultCannotReplaceOriginalTransactionFault(cause: \"origin\", expectedStatus: 500)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.RecoveryFaultCannotReplaceOriginalTransactionFault(cause: \"permission\", expectedStatus: 400)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.TransactionFaultThenCallerCancellationRetainsOriginalClassification(cause: \"clock\", expectedStatus: 500)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.TransactionFaultThenCallerCancellationRetainsOriginalClassification(cause: \"origin\", expectedStatus: 500)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticleLifecycleScheduledFailureTests.TransactionFaultThenCallerCancellationRetainsOriginalClassification(cause: \"permission\", expectedStatus: 400)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.ArticleProductionNormalizers_NormalizeArticleRights_EnforcesDefaults",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.ArticleProductionNormalizers_NormalizeTagIds_DeduplicatesPreservingFirstSeenOrder",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.ArticleProductionNormalizers_NormalizeText_EnforcesBounds",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.ArticleRightsSnapshotBuilder_BuildsDeterministicHashes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.ArticleService_SharedSeams_AreReferencedByProductionSources",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.Binding_AdminPrincipalIdZeroOrNegative_FailsClosed",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.Binding_MissingRequiredFieldsOrInvalidDigests_FailsClosed",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.MemberReferenceRule_DoesNotTreatMetadataTokensAsCallsOrConstruction(constructorToken: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.MemberReferenceRule_DoesNotTreatMetadataTokensAsCallsOrConstruction(constructorToken: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.PortConstructionRule_AcceptsCompiledBenignNestedMembers",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.PortConstructionRule_AcceptsNonConstructionReferences(portType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortConstructorLiteralFixture))",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.PortConstructionRule_AcceptsNonConstructionReferences(portType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortTypeTokenFixture))",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.PortConstructionRule_AcceptsNonConstructionReferences(portType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+SeamFunctionPointerFixture))",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.PortConstructionRule_RejectsCompiledNestedArticleRevisionConstruction(portType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortDeepNestedMethodFixture), declaringType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortDeepNestedMethodFixture+Nested+Deeper), memberName: \"Create\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.PortConstructionRule_RejectsCompiledNestedArticleRevisionConstruction(portType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortNestedConstructorFixture), declaringType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortNestedConstructorFixture+Nested), memberName: \".ctor\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.PortConstructionRule_RejectsCompiledNestedArticleRevisionConstruction(portType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortNestedMethodFixture), declaringType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortNestedMethodFixture+Nested), memberName: \"Create\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.PortConstructionRule_RejectsCompiledNestedArticleRevisionConstruction(portType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortNestedStaticConstructorFixture), declaringType: typeof(FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests+PortNestedStaticConstructorFixture+Nested), memberName: \".cctor\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.Port_DoesNotTouchRedisOrDirectProjections_OutputsRequiredEdges",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.PublishAsync_RightsRecomputeSentinel_FailsClosed",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.ResponsibilityBuilder_Build_ThrowsWhenGovernanceFails",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_PreservesCompiledDelegateAndAsyncClosure",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsFunctionPointerWithoutInvocation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsMatchingStringLiterals(owner: typeof(FsusBlog.Contracts.Articles.ArticleProductionNormalizers), memberName: \"NormalizeArticleRights\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsMatchingStringLiterals(owner: typeof(FsusBlog.Contracts.Articles.ArticleProductionNormalizers), memberName: \"NormalizeTagIds\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsMatchingStringLiterals(owner: typeof(FsusBlog.Contracts.Articles.ArticleProductionNormalizers), memberName: \"NormalizeText\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsMatchingStringLiterals(owner: typeof(FsusBlog.Server.Infrastructure.Integrity.ArticleResponsibilitySnapshotBuilder), memberName: \"Build\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsMatchingStringLiterals(owner: typeof(FsusBlog.Server.Services.Articles.ArticleCreateMutationAuthority), memberName: \"ExecuteAsync\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsMatchingStringLiterals(owner: typeof(FsusBlog.Server.Services.Articles.ArticleRevisionPersistence), memberName: \"SaveAsync\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsMatchingStringLiterals(owner: typeof(FsusBlog.Server.Services.Articles.ArticleRightsPolicyPersistence), memberName: \"UpsertAsync\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsMatchingStringLiterals(owner: typeof(FsusBlog.Server.Services.Articles.ArticleRightsSnapshotBuilder), memberName: \"Build\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsMatchingStringLiterals(owner: typeof(FsusBlog.Server.Services.IArticlePublicMutationFence), memberName: \"BeginPublicMutationFenceAsync\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.SharedSeamRule_RejectsSameMemberNameOnDifferentOwner",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.Verifier_DetectsSchemaMismatch",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.CanonicalArticlePublicationFixturePortTests.Verifier_DetectsTamperedReceiptDigest",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.DataScaleTaxonomyProjectionTests.CanonicalVisibility_ExcludesScheduledArchivedAndDeletedArticles",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.DataScaleTaxonomyProjectionTests.ExpectedTaxonomyModel_CountsOnlyPubliclyVisibleArticles",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.DataScaleTaxonomyProjectionTests.FrameVersion_MonotonicallyAdvancesAndEvictsLegacyKeys",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.ArticleRightsProofUpsert_TypesNullableNumericParametersExplicitly",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.IntegrityProofFailure_IsRecordedAsNonRequiredEdgeWithoutFailingReplay",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.OutboxReplay_SchedulesDistinctArticleRightsProofAfterPublishProofPath",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.OutboxReplay_SchedulesIntegrityProofAfterRequiredEdgesWithoutRequiringIt",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.Planner_ClassifiesMutationAndDoesNotFakeReadyBeforeArtifacts(eventType: \"archived\", publicationState: Archived, expectedInitialStatus: NotPublic)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.Planner_ClassifiesMutationAndDoesNotFakeReadyBeforeArtifacts(eventType: \"created\", publicationState: Public, expectedInitialStatus: Pending)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.Planner_ClassifiesMutationAndDoesNotFakeReadyBeforeArtifacts(eventType: \"deleted\", publicationState: Deleted, expectedInitialStatus: NotPublic)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.Planner_ClassifiesMutationAndDoesNotFakeReadyBeforeArtifacts(eventType: \"rollback\", publicationState: Public, expectedInitialStatus: Pending)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.Planner_ClassifiesMutationAndDoesNotFakeReadyBeforeArtifacts(eventType: \"scheduled-published\", publicationState: Public, expectedInitialStatus: Pending)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.Planner_ClassifiesMutationAndDoesNotFakeReadyBeforeArtifacts(eventType: \"updated\", publicationState: Public, expectedInitialStatus: Pending)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.Planner_UsesCurrentPublicationStateOverEventName",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.Planner_WaitsForRequiredEdgesAndUsesLowCardinalityFailureReasons",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.IntegrityProofPipelineTests.PublishProofUpsert_TypesNullableSupersededTimestampExplicitly",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationCompatibilityTests.AppliedContract_BlocksPreviousReleaseOutsideCompatibilityWindow",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationCompatibilityTests.Expand_AllowsOldAndNewReleaseToReadAndWriteDuringDualReleaseWindow",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationCompatibilityTests.History_RejectsSchemaCoordinateForgedAsAppliedReleaseIdentity",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationCompatibilityTests.History_RejectsUnknownDuplicateAndChecksumMismatchEntriesTogether",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationCompatibilityTests.PendingBackfill_IsReadyOnlyAsWarningInsideCompatibilityWindow",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationCompatibilityTests.PendingExpand_BlocksReadinessWithoutRunningItOnServe",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationCompatibilityTests.Readiness_ReturnsStable503CodeWhenSchemaReleaseIsOutsideManifest",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationCoordinatorTests.CheckAsync_DoesNotInferCurrentSchemaFromCatalog",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationCoordinatorTests.ExecuteAsync_FailsClosedWithoutControlPlaneWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.ArticleAssetReferenceLedger_IsExplicitAdditiveExpand",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.ArticleCommentPolicy_IsExplicitAdditiveExpand",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.Backfill_RequiresBoundedBatchAndDurableResumeToken",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.CommandLine_ParsesStableRolloutInterface",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.CommandLine_RequiresExplicitConfirmationForMutatingContract",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.CommentGovernanceMigrations_AreExplicitlyClassified",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.ContractGate_RequiresNAndNMinusOneWindowAndOperationalEvidence",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.DistributedInvalidationLedgers_AreExplicitAdditiveExpands",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.EnvironmentFile_IsParsedAsDataWithoutShellExpansion",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.ExistingRegistry_IsExplicitlyClassifiedWithoutInferringOnlinePhases",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.ExistingSeptemberAuthorityMigrations_RetainExplicitAdditiveClassifications",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.Expand_RejectsDropRenameTighteningAndRewriteOperations",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.PropertyCommandHistory_IsExplicitExpandThatDeclaresRequiredWriterIsolation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.RefreshTokenLineage_IsExplicitAdditiveExpand",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.ReleaseManifest_BindsRequestedReleaseAndNMinusOneIdentity",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.OnlineSchemaMigrationPolicyTests.UserSessionModeAuthority_IsExplicitAdditiveExpand",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.PodBinaryCodecTests.TaxonomyMetadataMutationRequest_LegacyNamePayload_DecodesWithoutDescription",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.PodBinaryCodecTests.TaxonomyMetadataMutationRequest_NonCanonicalDescriptionSlice_ReturnsFalse",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.PodBinaryCodecTests.TaxonomyMetadataMutationRequest_RoundTrip_PreservesNameAndDescription",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.ConversationStatusAudit_IsAppendOnlyAndCarriesExactOutboxProjection",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.Create_RecompositionIsIdempotent",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.Create_RejectsDescriptorOutsideCatalogRange",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.Create_RejectsDuplicateMigrationIds",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.Create_RejectsMigrationIdPhaseMismatch",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.Create_RejectsMissingMigrationDependency",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.Create_RejectsMissingVersionFromContiguousCatalog",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.Create_RejectsUndeclaredCatalogGap",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.Create_RejectsUnstableCatalogOrder",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.CurrentManifest_UsesVersionedCatalogsAndStableExecutionPlan",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.MessageUnreadAuthority_ConstrainsAndRepairsProjection",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.SourceLayout_PreventsLegacyRegistryDescriptorAggregation",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.UserSessionAuthenticationContext_IsRegisteredAndBackfillsLegacyRowsFailClosed",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.UserSessionMetadataMinimization_ScrubsRawValuesAndAddsPrivacySafeColumns",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.UserSessionModeAuthority_IsRegisteredAndBackfillsAuthoritativeModes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.UserStringDefaults_UseUnquotedSqlSugarLiterals(propertyName: \"AnonymousCredentialLevel\", expectedDefault: \"basic\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.UserStringDefaults_UseUnquotedSqlSugarLiterals(propertyName: \"AnonymousCredentialStatus\", expectedDefault: \"active\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SchemaMigrationCatalogTests.UserStringDefaults_UseUnquotedSqlSugarLiterals(propertyName: \"IdentityKind\", expectedDefault: \"anonymous_account\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.ActivateAsync_ConcurrentSamePolicyIdProducesStrictlyMonotonicVersions",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.ActivateAsync_WritesImmutableVersionsAndRevokesPreviousActive",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.LoadActiveOrLastKnownGoodAsync_FallsBackWhenActiveDocumentCannotDeserialize",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.Migration_CreatesVersionedSecurityPolicySnapshotTable",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.ResolveNextVersionAsync_RuntimeUsesSingleReturningUpdateOnHotPath",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.RollbackAsync_CreatesNewActiveVersionFromHistoricalDocumentAndAudits",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.SecurityEndpoints_AttributePolicyMutationActorsToAdminPrincipal",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.SecurityEndpoints_RequireAdminStepUpAndPersistPolicySnapshotsForWrites",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.StartupLoader_LoadsPolicySnapshotsSequentiallyWithoutSharingScopedDbClientConcurrently",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.SecurityPolicySnapshotPersistenceTests.StartupLoader_LoadsRiskControlAndPerceptionV2ActiveOrLastKnownGoodPolicy",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.CacheIdentities_AreKeyedByKindAndCanonicalId",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.CategoryListCodec_DoesNotCarryDescription",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.Codec_RejectsTrailingBytes",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.Codec_RoundTrip_MapsEmptyDescriptionToNull",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.Codec_RoundTrip_PreservesIdNameAndDescription",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactMetadataPolicy_IsIndependentOfListFrames",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRead_CacheMissStoresDedicatedFrameByCanonicalIdentity",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRead_MissingEntity_ReturnsNotFoundAndDoesNotCache",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRead_NonPositiveId_ReturnsBinaryNotFoundWithoutCache",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRoutes_AreNotPublicHotReadL0(path: \"/api/binary/category/7.aeds\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRoutes_AreNotPublicHotReadL0(path: \"/api/binary/tag/11.aeds\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.ExactRoutes_AreNotPublicHotReadL0(path: \"/api/binary/tag/by-name.aeds\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.MatchCanonicalTagId_ResolvesDisplayNameAndAliasToSameId",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyExactMetadataTests.MatchCanonicalTagId_ReturnsNullForMissingOrAmbiguousNames",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyFieldAwareInvalidationTests.Classify_DescriptionOnly_AndRenameWithDescription",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyFieldAwareInvalidationTests.Classify_LegacyPayload_DoesNotTreatMissingDescriptionAsChange",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyFieldAwareInvalidationTests.Classify_NoOp_WhenNormalizedNameAndDescriptionAreUnchanged",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyFieldAwareInvalidationTests.Dispatch_DescriptionOnlyCategory_InvalidatesExactMetadataAndSitemapGeneration",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyFieldAwareInvalidationTests.Dispatch_DescriptionOnlyTag_InvalidatesExactMetadataAndSitemapGeneration",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyFieldAwareInvalidationTests.Dispatch_NameAndDescription_FollowsRenameInvalidationPath",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyFieldAwareInvalidationTests.Dispatch_NoOp_PerformsNoDownstreamWork",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyFieldAwareInvalidationTests.UpdateHelpers_ClassifyBeforeOutbox_AndSkipAliasesUntilNameChanges",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.TaxonomyProjectionTests.BumpFrameVersionAsync_EvictsLegacyPreviousAndCurrentFrameIdentities",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.LocalePreferenceModes_AreStableContractTokens",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.LocalePreferencePod_GoldenNegative_RejectsNonZeroReservedBytes(payloadHex: \"03000000000000000201080100000000\", updateRequest: True)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.LocalePreferencePod_GoldenNegative_RejectsNonZeroReservedBytes(payloadHex: \"0700000000000000009698A89F0100000201080100000000\", updateRequest: False)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.PreferencePod_GoldenBytes_AreCanonical",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.PreferencePod_RoundTrip_PreservesCanonicalState(mode: \"auto\", fixedLocale: null)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.PreferencePod_RoundTrip_PreservesCanonicalState(mode: \"fixed\", fixedLocale: \"es-419\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.PreferencePod_RoundTrip_PreservesCanonicalState(mode: \"fixed\", fixedLocale: \"ja-JP\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.PreferencePod_RoundTrip_PreservesCanonicalState(mode: \"fixed\", fixedLocale: \"zh-Hant\")",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.UpdateAsync_RejectsInvalidModeAndEleventhLocaleWithoutPersistence",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.UpdateRequestPod_GoldenBytes_AreCanonical",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.UpdateRequestPod_RoundTrip_PreservesFields(mode: \"auto\", fixedLocale: null, expectedRevision: 0)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.UpdateRequestPod_RoundTrip_PreservesFields(mode: \"fixed\", fixedLocale: \"de-DE\", expectedRevision: 3)",
+      "outcome": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Unit.UserLocalePreferenceCodecAndNormalizeTests.WriteFixedPreference_RejectsAliasLocale",
+      "outcome": "Passed"
+    }
+  ]
+}

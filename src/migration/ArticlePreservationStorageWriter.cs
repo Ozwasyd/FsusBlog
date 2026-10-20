@@ -17,7 +17,12 @@ namespace FsusBlog.Migration;
 
 internal sealed record ArticlePreservationWriteLimits(
     int MaximumRows, int MaximumBatchRows, int MaximumBatchParameters, long MaximumArtifactBytes, TimeSpan OperationBudget);
-internal sealed record ArticlePreservationStorageStage(string PlanDigest, long VerifiedRows, bool AlreadyPresent);
+internal sealed record ArticlePreservationStorageStage(string PlanDigest, long VerifiedRows, bool AlreadyPresent)
+{
+    // Transaction-local readback only. The original journal must seal these actual
+    // IDs with the graph before commit; they never imply a successful commit.
+    internal ImmutableArray<ArticlePreservationOutboxReceipt> Outbox { get; init; } = [];
+}
 
 // Stage only: the original apply owner owns lock/admission, media CAS, commit/rollback
 // and its one journal. No connection, transaction, grant or durable receipt is created here.
@@ -119,7 +124,9 @@ internal static class ArticlePreservationStorageWriter
         ArticlePreservationWritePlan plan, ArticlePreservationSourceExport source, ArticlePreservationCurrentExport current,
         OwnedCurrentSchemaTarget ownedTarget, DbConnection connection, DbTransaction transaction,
         CurrentSchemaDatabaseIdentity observedDatabase, ArticlePreservationLimits projectionLimits,
-        ArticleMediaLimits mediaLimits, ArticlePreservationWriteLimits writeLimits, CancellationToken cancellationToken)
+        ArticleMediaLimits mediaLimits, ArticlePreservationWriteLimits writeLimits, CancellationToken cancellationToken,
+        ArticlePreservationOutboxBatch? outbox = null,
+        OfflineMigrationApplyNativeSession.OwnedReadContext? originalWrite = null)
     {
         RequireSession(connection, transaction);
         RequireLimits(writeLimits);
@@ -133,6 +140,16 @@ internal static class ArticlePreservationStorageWriter
         if (expected.ContentDigest != plan.ContentDigest)
             throw new InvalidOperationException("article_preservation_native_plan_changed");
         ArticlePreservationStorageProgram program = ArticlePreservationStorageProgram.Compile(expected, ownedTarget, cancellationToken);
+        ImmutableArray<ArticlePreservationStorageRow> outboxRows = outbox is null ? []
+            : ArticlePreservationStorageProgram.CompileOutbox(expected, outbox, ownedTarget, cancellationToken);
+        if (outbox is not null)
+        {
+            if (originalWrite is null || !ReferenceEquals(originalWrite.OriginalConnection, connection)
+                || !ReferenceEquals(originalWrite.OriginalTransaction, transaction))
+                throw new InvalidOperationException("article_preservation_outbox_original_write_required");
+            _ = originalWrite.RequirePostgreSqlWriteLock();
+            await originalWrite.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        }
         RequireRows(program.Rows, writeLimits);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(writeLimits.OperationBudget);
@@ -147,7 +164,10 @@ internal static class ArticlePreservationStorageWriter
         _ = await observer.ObserveAsync(connection, transaction, observedDatabase, token).ConfigureAwait(false);
         await RequireSiteAuthorAsync(source, ownedTarget.ReadBoundInput().EntityProjection.Schema, connection, transaction, writeLimits, token).ConfigureAwait(false);
         ImmutableArray<SequenceRestart> sequences = BindSequences(program, ownedTarget);
-        bool alreadyPresent = await StageRowsAsync(program.Rows, connection, transaction, writeLimits, token).ConfigureAwait(false);
+        bool alreadyPresent = await StageRowsAsync(program.Rows, connection, transaction, writeLimits, token,
+            originalWrite: originalWrite).ConfigureAwait(false);
+        ImmutableArray<ArticlePreservationOutboxReceipt> receipts = outbox is null ? []
+            : await StageOutboxRowsAsync(outboxRows, alreadyPresent, originalWrite!, writeLimits, token).ConfigureAwait(false);
         foreach (SequenceRestart sequence in sequences)
         {
             token.ThrowIfCancellationRequested();
@@ -174,8 +194,150 @@ internal static class ArticlePreservationStorageWriter
         _ = await observer.ObserveAsync(connection, transaction, observedDatabase, token).ConfigureAwait(false);
         await RequireSiteAuthorAsync(source, ownedTarget.ReadBoundInput().EntityProjection.Schema, connection, transaction, writeLimits, token).ConfigureAwait(false);
         token.ThrowIfCancellationRequested();
-        return new(plan.ContentDigest, program.Rows.Length, alreadyPresent);
+        if (originalWrite is not null)
+            await originalWrite.RequireBoundaryAsync(token).ConfigureAwait(false);
+        return new(plan.ContentDigest, program.Rows.Length, alreadyPresent)
+        {
+            Outbox = receipts
+        };
     }
+
+    // The same native data/receipt body used after the production owner binding.
+    // Test rows do not qualify owned target, media, generation or whole migration.
+    internal static async Task<ArticlePreservationStorageStage> StageRowsWithOutboxAsync(
+        string planDigest, ImmutableArray<ArticlePreservationStorageRow> rows,
+        ImmutableArray<ArticlePreservationStorageRow> outboxRows,
+        OfflineMigrationApplyNativeSession.OwnedReadContext originalWrite,
+        ArticlePreservationWriteLimits limits, CancellationToken token)
+    {
+        OfflineMigrationPlanValidation.RequireDigest(planDigest, "article_preservation_outbox_plan_digest_required");
+        _ = originalWrite.RequirePostgreSqlWriteLock();
+        await originalWrite.RequireBoundaryAsync(token).ConfigureAwait(false);
+        bool alreadyPresent = await StageRowsAsync(rows, originalWrite.OriginalConnection,
+            originalWrite.OriginalTransaction, limits, token, originalWrite: originalWrite).ConfigureAwait(false);
+        var receipts = await StageOutboxRowsAsync(outboxRows, alreadyPresent, originalWrite, limits, token).ConfigureAwait(false);
+        return new(planDigest, rows.Length, alreadyPresent)
+        {
+            Outbox = receipts
+        };
+    }
+
+    private static async Task<ImmutableArray<ArticlePreservationOutboxReceipt>> StageOutboxRowsAsync(
+        ImmutableArray<ArticlePreservationStorageRow> rows, bool alreadyPresent,
+        OfflineMigrationApplyNativeSession.OwnedReadContext originalWrite,
+        ArticlePreservationWriteLimits limits, CancellationToken token)
+    {
+        RequireLimits(limits);
+        if (rows.IsDefault || rows.Length > limits.MaximumRows)
+            throw new InvalidOperationException("article_preservation_outbox_complete_batch_required");
+        long metadataBytes = 0;
+        foreach (var row in rows)
+            foreach (string text in row.Columns.Select(static column => column.Value).OfType<string>())
+            {
+                metadataBytes = checked(metadataBytes + s_utf8.GetByteCount(text));
+                if (metadataBytes > limits.MaximumArtifactBytes)
+                    throw new InvalidOperationException("article_preservation_outbox_payload_budget_exceeded");
+            }
+        _ = originalWrite.RequirePostgreSqlWriteLock();
+        return await OfflineMigrationPostgreSqlNativeSession.WithOriginalWriteAsync(originalWrite, async (connection, transaction, scope) =>
+        {
+            var receipts = ImmutableArray.CreateBuilder<ArticlePreservationOutboxReceipt>();
+            foreach (ArticlePreservationStorageRow row in rows)
+            {
+                scope.ThrowIfCancellationRequested();
+                ArticlePreservationOutboxReceipt? receipt = await ReadOutboxRowAsync(row, connection, transaction, limits, scope, originalWrite).ConfigureAwait(false);
+                if (alreadyPresent && receipt is null)
+                    throw new InvalidOperationException("article_preservation_outbox_committed_binding_missing");
+                if (!alreadyPresent && receipt is not null)
+                    throw new InvalidOperationException("article_preservation_outbox_preexisting_event_refused");
+                if (receipt is null)
+                {
+                    await CommandAsync(connection, transaction, limits, async command =>
+                    {
+                        var columns = row.Columns.Where(static column => !column.IsIdentity).ToArray();
+                        if (columns.Length > limits.MaximumBatchParameters)
+                            throw new InvalidOperationException("article_preservation_outbox_parameter_budget_exceeded");
+                        string values = string.Join(',', columns.Select(column => Parameter(command, column, column.Value)));
+                        command.CommandText = $"INSERT INTO public.{Quote(row.Table)} ({string.Join(',', columns.Select(column => Quote(column.Name)))}) VALUES ({values});";
+                        if (await command.ExecuteNonQueryAsync(scope).ConfigureAwait(false) != 1)
+                            throw new InvalidOperationException("article_preservation_outbox_insert_unobserved");
+                        return true;
+                    }, originalWrite, scope).ConfigureAwait(false);
+                    receipt = await ReadOutboxRowAsync(row, connection, transaction, limits, scope, originalWrite).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException("article_preservation_outbox_insert_unobserved");
+                }
+                receipts.Add(receipt);
+            }
+            return receipts.ToImmutable();
+        }, token).ConfigureAwait(false);
+    }
+
+    // Read-only recovery: never fill missing events after a graph commit.
+    internal static async Task<ImmutableArray<ArticlePreservationOutboxReceipt>> VerifyOutboxAsync(
+        ImmutableArray<ArticlePreservationStorageRow> rows, DbConnection connection, DbTransaction transaction,
+        ArticlePreservationWriteLimits limits, CancellationToken token)
+    {
+        RequireSession(connection, transaction);
+        RequireLimits(limits);
+        if (connection is not NpgsqlConnection || rows.IsDefault || rows.Length > limits.MaximumRows)
+            throw new InvalidOperationException("article_preservation_outbox_complete_batch_required");
+        var receipts = ImmutableArray.CreateBuilder<ArticlePreservationOutboxReceipt>();
+        foreach (var row in rows)
+            receipts.Add(await ReadOutboxRowAsync(row, connection, transaction, limits, token).ConfigureAwait(false)
+                ?? throw new InvalidOperationException("article_preservation_outbox_committed_binding_missing"));
+        return receipts.ToImmutable();
+    }
+
+    private static async Task<ArticlePreservationOutboxReceipt?> ReadOutboxRowAsync(
+        ArticlePreservationStorageRow row, DbConnection connection, DbTransaction transaction,
+        ArticlePreservationWriteLimits limits, CancellationToken token,
+        OfflineMigrationApplyNativeSession.OwnedReadContext? originalWrite = null)
+    {
+        const string OutboxOwner = "FsusBlog.Server.Entities.ArticleMutationOutboxEvent";
+        if (row.EntityOwner != OutboxOwner || row.Columns.IsDefaultOrEmpty
+            || row.Columns.Count(static column => column.IsIdentity && column.IsPrimaryKey) != 1)
+            throw new InvalidOperationException("article_preservation_outbox_owner_binding_required");
+        ArticlePreservationStorageColumn Field(string name) => row.Columns.Single(column => column.PropertyOwner == OutboxOwner + "." + name);
+        string[] immutable = ["EventId", "AggregateType", "AggregateId", "SchemaVersion", "ArticleRevisionId", "RevisionNo",
+            "RightsSnapshotId", "ResponsibilitySnapshotId", "ResponsibilityVersion", "ArticlePublicationId", "PublicationNo",
+            "EventType", "PayloadJson", "CreatedAt"];
+        var columns = immutable.Select(Field).ToArray();
+        if (columns.Any(column => column.Value is string text && s_utf8.GetByteCount(text) > limits.MaximumArtifactBytes))
+            throw new InvalidOperationException("article_preservation_outbox_payload_budget_exceeded");
+        return await CommandAsync(connection, transaction, limits, async command =>
+        {
+            string parameter = Parameter(command, Field("EventId"), Field("EventId").Value);
+            // Bound returned payload bytes before materialization, then compare all immutable
+            // original fields. Dispatcher status/leases are not immutable event facts.
+            string select = string.Join(',', columns.Select(column => column.PropertyOwner == OutboxOwner + ".PayloadJson"
+                ? $"CASE WHEN octet_length({Quote(column.Name)})<={limits.MaximumArtifactBytes.ToString(CultureInfo.InvariantCulture)} THEN {Quote(column.Name)} ELSE NULL END"
+                : Quote(column.Name)));
+            command.CommandText = $"SELECT {Quote(Field("Id").Name)},{select} FROM public.{Quote(row.Table)} WHERE {Quote(Field("EventId").Name)}={parameter};";
+            return await ReaderAsync<ArticlePreservationOutboxReceipt?>(command, token, async reader =>
+            {
+                if (!await ReadOwnedRowAsync(reader, command, token, originalWrite).ConfigureAwait(false))
+                    return null;
+                long actualId = reader.GetInt64(0);
+                if (actualId <= 0)
+                    throw new InvalidOperationException("article_preservation_outbox_id_unobserved");
+                for (int index = 0; index < columns.Length; index++)
+                {
+                    if (reader.IsDBNull(index + 1) || !Equals(reader.GetValue(index + 1), columns[index].Value))
+                        throw new InvalidOperationException("article_preservation_outbox_immutable_facts_changed");
+                }
+                if (await ReadOwnedRowAsync(reader, command, token, originalWrite).ConfigureAwait(false))
+                    throw new InvalidOperationException("article_preservation_outbox_event_ambiguous");
+                return new((int)Field("AggregateId").Value!, actualId, (string)Field("EventId").Value!);
+            }, originalWrite).ConfigureAwait(false);
+        }, originalWrite, token).ConfigureAwait(false);
+    }
+
+    internal static ImmutableArray<OfflineMigrationFact> OutboxJournalFacts(ArticlePreservationStorageStage stage)
+        => stage.Outbox.OrderBy(static receipt => receipt.ArticleId).SelectMany(static receipt => new OfflineMigrationFact[]
+        {
+            new($"outbox.article/{receipt.ArticleId}/event_id", receipt.EventId),
+            new($"outbox.article/{receipt.ArticleId}/row_id", receipt.OutboxId.ToString(CultureInfo.InvariantCulture))
+        }).ToImmutableArray();
 
     internal static void RequireLimits(ArticlePreservationWriteLimits limits)
     {
@@ -595,7 +757,7 @@ internal static class ArticlePreservationStorageWriter
         {
             RequireOwnedIoActive(originalWrite, connection, transaction, token);
             // The reader and command have returned from their actual disposers.
-            // Only now may this one MySQL session run another native proof query.
+            // Only now may this original session run another native proof query.
             if (originalWrite is not null)
             {
                 if (first?.Data[CleanupFailuresKey] is ImmutableArray<string> failures
@@ -684,7 +846,7 @@ internal static class ArticlePreservationStorageWriter
     {
         if (originalWrite is null) return; // Low-level command fixtures grant no native capability.
         token.ThrowIfCancellationRequested();
-        if (originalWrite.Provider != CurrentSchemaProviderKind.MySql
+        if (originalWrite.Provider is not (CurrentSchemaProviderKind.MySql or CurrentSchemaProviderKind.PostgreSql)
             || !ReferenceEquals(originalWrite.OriginalConnection, connection)
             || !ReferenceEquals(originalWrite.OriginalTransaction, transaction)
             || connection.State != ConnectionState.Open || !ReferenceEquals(transaction.Connection, connection))

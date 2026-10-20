@@ -57,6 +57,7 @@ public sealed class PostgresArticleCreatePersistence(
         var pendingChainIds = new List<string>();
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             DateTime now = CanonicalTimestamp();
 
             int articleId = (int)await db.Insertable(new Article
@@ -215,6 +216,7 @@ public sealed class PostgresArticleCreatePersistence(
                 CreatedAt = now
             };
             await db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
 
             var receiptId = Guid.CreateVersion7();
             var auditReference = Guid.CreateVersion7();

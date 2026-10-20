@@ -136,7 +136,8 @@ public partial class ArticleService
         ArticleVersionCoordinates version,
         DateTime createdAt,
         ArticleMutationScopeSnapshot? before = null,
-        ArticleMutationScopeSnapshot? after = null)
+        ArticleMutationScopeSnapshot? after = null,
+        CancellationToken cancellationToken = default)
     {
         ArticleMutationOutboxEvent outbox = ArticleMutationOutboxProducer.Create(
             articleId,
@@ -146,6 +147,7 @@ public partial class ArticleService
             after,
             createdAt);
         await _db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+        await ArticleSourceGenerationAuthority.RecordMutationAsync(_db, outbox.EventId, ResolveCancellationToken(cancellationToken)).ConfigureAwait(false);
         if (IsArticleVaultGroupTransaction)
         {
             (_articleVaultOutboxReferences
@@ -480,8 +482,9 @@ public partial class ArticleService
                     new ArticleMutationScopeSnapshot(
                         dto.CategoryId,
                         tagIds,
-                        ArticleMutationVisibility.From(status)));
-            });
+                        ArticleMutationVisibility.From(status)),
+                    ct);
+            }, ct);
 
             mutationCommitted = result.IsSuccess && articleUpdated;
             ct.ThrowIfCancellationRequested();

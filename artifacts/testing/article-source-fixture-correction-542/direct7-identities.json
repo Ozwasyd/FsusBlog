@@ -1,0 +1,44 @@
+[
+  {
+    "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalProductionDdl_RejectsNegativeCounterUpdatesWithoutChangingOriginalClock(counter: \"sequence\")",
+    "testId": "976ff68c-ae33-5db4-0460-47c0bbca6ab9",
+    "outcome": "Passed",
+    "sameFrozen80Id": "new production case"
+  },
+  {
+    "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"sequence\")",
+    "testId": "e05d76cc-7cd7-0e39-0b82-b182af063000",
+    "outcome": "Passed",
+    "sameFrozen80Id": true
+  },
+  {
+    "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalProductionDdl_RejectsNegativeCounterUpdatesWithoutChangingOriginalClock(counter: \"journal\")",
+    "testId": "659a4f7c-fbc3-c2c0-2ae2-b5d1e9a965b1",
+    "outcome": "Passed",
+    "sameFrozen80Id": "new production case"
+  },
+  {
+    "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"journal\")",
+    "testId": "6ba5d87d-18d6-a23a-3f79-72117aada9ff",
+    "outcome": "Passed",
+    "sameFrozen80Id": true
+  },
+  {
+    "name": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalProductionDdl_RejectsNegativeCounterUpdatesWithoutChangingOriginalClock(counter: \"family\")",
+    "testId": "f27b541e-8eae-333e-ea26-362498cf404c",
+    "outcome": "Passed",
+    "sameFrozen80Id": "new production case"
+  },
+  {
+    "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"default-null\")",
+    "testId": "84a0a360-589b-ff29-b626-d6f89bfe0580",
+    "outcome": "Passed",
+    "sameFrozen80Id": true
+  },
+  {
+    "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"family\")",
+    "testId": "99654f17-a3f4-0c04-1d59-fc9922e70c68",
+    "outcome": "Passed",
+    "sameFrozen80Id": true
+  }
+]

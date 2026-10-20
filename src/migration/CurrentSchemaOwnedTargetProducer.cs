@@ -37,7 +37,10 @@ internal sealed class OwnedCurrentSchemaTarget
         Execution = execution;
     }
 
-    internal CurrentSchemaProducerExecution Execution { get; }
+    internal CurrentSchemaProducerExecution Execution
+    {
+        get;
+    }
 
     internal CurrentSchemaIdentity Target => _artifact.Target;
 
@@ -184,8 +187,7 @@ internal sealed class OwnedCurrentSchemaTarget
 
     internal static CurrentSchemaOwnedTargetArtifact ReadArtifact(byte[] bytes, CurrentSchemaProducerIdentity expectedProducer)
     {
-        using JsonDocument document = JsonDocument.Parse(bytes);
-        RejectDuplicateProperties(document.RootElement);
+        RejectDuplicateProperties(bytes);
         CurrentSchemaOwnedTargetArtifact artifact = JsonSerializer.Deserialize<CurrentSchemaOwnedTargetArtifact>(bytes, s_json)
             ?? throw new InvalidOperationException("current_schema_owned_artifact_empty");
         ValidateArtifact(artifact, expectedProducer);
@@ -247,7 +249,7 @@ internal sealed class OwnedCurrentSchemaTarget
         Directory.CreateDirectory(evidence);
         await WriteNewJsonAsync(Path.Combine(evidence, "producer-before.json"), before, cancellationToken).ConfigureAwait(false);
         int exit = await InvokeArgumentsAsync(node, configuration.SourceRoot,
-            ["--experimental-vm-modules", "--input-type=module", "--eval", s_retainedCompiledReaderBootstrap, "--",
+            ["--experimental-vm-modules", "--input-type=module", "--eval", RetainedCompiledReaderBootstrap, "--",
                 configuration.SourceRoot, configuration.ArtifactRoot, configuration.SdkRoot, .. compiledSources],
             evidence, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CurrentSchemaProducerFile> after = await SnapshotRetainedReaderInputsAsync(inputs,
@@ -305,7 +307,7 @@ internal sealed class OwnedCurrentSchemaTarget
     // Only original compiled resource bytes execute. Identifiers preserve the
     // original import.meta/defaultRoot semantics but never authorize a disk read.
     // Keep this one fixed loader with the sole process owner, not a caller plugin.
-    private const string s_retainedCompiledReaderBootstrap = """
+    private const string RetainedCompiledReaderBootstrap = """
         import vm from 'node:vm';
         import path from 'node:path';
         import { pathToFileURL } from 'node:url';
@@ -419,6 +421,35 @@ internal sealed class OwnedCurrentSchemaTarget
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
     };
+
+    private static void RejectDuplicateProperties(ReadOnlySpan<byte> bytes)
+    {
+        // Reject the first actual duplicate before parsing later nested values.
+        // The strict reader/deserializer still reject malformed/trailing input;
+        // duplicate precedence does not permit a second interpretation.
+        var reader = new Utf8JsonReader(bytes);
+        var objects = new Stack<HashSet<string>?>();
+        while (reader.Read())
+        {
+            switch (reader.TokenType)
+            {
+                case JsonTokenType.StartObject:
+                    objects.Push(new HashSet<string>(StringComparer.Ordinal));
+                    break;
+                case JsonTokenType.StartArray:
+                    objects.Push(null);
+                    break;
+                case JsonTokenType.EndObject:
+                case JsonTokenType.EndArray:
+                    objects.Pop();
+                    break;
+                case JsonTokenType.PropertyName:
+                    if (objects.Peek() is not HashSet<string> keys || !keys.Add(reader.GetString()!))
+                        throw new InvalidOperationException("current_schema_owned_artifact_duplicate_property");
+                    break;
+            }
+        }
+    }
 
     private static void RejectDuplicateProperties(JsonElement element)
     {
@@ -583,7 +614,10 @@ internal sealed class OwnedCurrentSchemaTarget
             {
                 foreach (CurrentSchemaProducerFile child in await SnapshotProducerAsync(entry, cancellationToken).ConfigureAwait(false))
                 {
-                    result.Add(child with { RelativePath = Path.Combine(Path.GetFileName(entry), child.RelativePath) });
+                    result.Add(child with
+                    {
+                        RelativePath = Path.Combine(Path.GetFileName(entry), child.RelativePath)
+                    });
                 }
             }
             else

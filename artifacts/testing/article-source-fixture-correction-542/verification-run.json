@@ -1,0 +1,9 @@
+{
+  "command": [
+    "python3",
+    "artifacts/testing/article-source-fixture-correction-542/verify-results.py"
+  ],
+  "exit": 0,
+  "verifiedSummarySha256": "b64dc72e915d9c312c8b21d93d43b4dc1cb65177aca1a371430d3f2a71a0109d",
+  "source": "542cf9309fef83696c3e6bcd9c2c073bde75495e"
+}

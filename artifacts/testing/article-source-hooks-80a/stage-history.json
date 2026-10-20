@@ -1,0 +1,609 @@
+[
+  {
+    "source": "b3c1778c9a29c36a251f5d3a7e691adb26eb71dd",
+    "file": "backend-focused-first.trx",
+    "counts": {
+      "Passed": 41,
+      "Failed": 4
+    },
+    "sha256": "a5c88d69038bcda0e4d17a254c81efdf75963ad5c32b58e1565009b190a6bc0f",
+    "failures": [
+      {
+        "executionId": "a5c0a95e-685e-4d07-b571-c542ec0fe507",
+        "testId": "13fee264-7d9d-678c-5cd6-deef1e305f2c",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.OwnedArtifactReader_BindsOriginalFactsAndRejectsDuplicateUnknownOrTamperedPayload",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.1900973",
+        "startTime": "2026-10-20T09:28:38.9789589+00:00",
+        "endTime": "2026-10-20T09:28:39.1902055+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "a5c0a95e-685e-4d07-b571-c542ec0fe507",
+        "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.InvalidOperationException)\nActual:   typeof(System.Text.Json.JsonReaderException)\n---- System.Text.Json.JsonReaderException : The JSON object contains a trailing comma at the end which is not supported in this mode. Change the reader options. LineNumber: 0 | BytePositionInLine: 54631."
+      },
+      {
+        "executionId": "581d23fa-18f6-4e2f-940f-7e0ecc007d2a",
+        "testId": "ef65a38a-5676-633f-c568-cfccfd8df0d5",
+        "testName": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"user_locale_mutation_receipt\", sqlState: \"55000\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:18.9157258",
+        "startTime": "2026-10-20T09:29:11.1792170+00:00",
+        "endTime": "2026-10-20T09:29:30.0972823+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "581d23fa-18f6-4e2f-940f-7e0ecc007d2a",
+        "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [\"missing constraint article_source_generation.ck_ar\"\u00b7\u00b7\u00b7, \"missing constraint article_source_generation.ck_ar\"\u00b7\u00b7\u00b7, \"missing constraint article_source_mutation.ck_arti\"\u00b7\u00b7\u00b7, \"missing constraint article_source_mutation.ck_arti\"\u00b7\u00b7\u00b7, \"missing constraint article_source_mutation.ck_arti\"\u00b7\u00b7\u00b7, \u00b7\u00b7\u00b7]"
+      },
+      {
+        "executionId": "97d42c89-3390-4d6d-b743-a8ee8f16d943",
+        "testId": "6c5c70c6-3bb5-c26c-0b73-73e9b40da365",
+        "testName": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"taxonomy_mutation_receipt\", sqlState: \"P0001\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:20.6856563",
+        "startTime": "2026-10-20T09:28:50.4927176+00:00",
+        "endTime": "2026-10-20T09:29:11.1767566+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "97d42c89-3390-4d6d-b743-a8ee8f16d943",
+        "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [\"missing constraint article_source_generation.ck_ar\"\u00b7\u00b7\u00b7, \"missing constraint article_source_generation.ck_ar\"\u00b7\u00b7\u00b7, \"missing constraint article_source_mutation.ck_arti\"\u00b7\u00b7\u00b7, \"missing constraint article_source_mutation.ck_arti\"\u00b7\u00b7\u00b7, \"missing constraint article_source_mutation.ck_arti\"\u00b7\u00b7\u00b7, \u00b7\u00b7\u00b7]"
+      },
+      {
+        "executionId": "899305c5-f91c-46cb-8171-003d4b73be11",
+        "testId": "038ceab2-0452-e8b7-1fbd-25a64ee24f1a",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.CompletePhysicalProjection_RetainsEveryRecipeAndSeparateUnobservedEffects",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.1564965",
+        "startTime": "2026-10-20T09:28:39.3136918+00:00",
+        "endTime": "2026-10-20T09:28:39.4675401+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "899305c5-f91c-46cb-8171-003d4b73be11",
+        "message": "Assert.Equal() Failure: Values differ\nExpected: SchemaIndexModel { Name = ix_author_recent_history_entry_order, IsUnique = False, Keys = FsusBlog.Contracts.Schema.SchemaIndexKeyModel[], IncludedColumns = System.String[], AccessMethod = btree, Predicate = , NullsNotDistinct = False, MySqlPhysical =  }\nActual:   SchemaIndexModel { Name = ix_author_recent_history_entry_order, IsUnique = False, Keys = FsusBlog.Contracts.Schema.SchemaIndexKeyModel[], IncludedColumns = System.String[], AccessMethod = btree, Predicate = , NullsNotDistinct = False, MySqlPhysical =  }"
+      }
+    ]
+  },
+  {
+    "source": "b3c1778c9a29c36a251f5d3a7e691adb26eb71dd",
+    "file": "migration-first.trx",
+    "counts": {
+      "Passed": 174
+    },
+    "sha256": "7fea3681c153bdbbb998a046c263400a0ba2da61e2478ab2361eb0e301eff7ac",
+    "failures": []
+  },
+  {
+    "source": "69eec72e1cc2a900d80115cab47ad64ff7c5c91e",
+    "file": "backend-focused-second.trx",
+    "counts": {
+      "Passed": 43,
+      "Failed": 3
+    },
+    "sha256": "650da50a250be1cd1558fa8d6b82e2560b3b490f0f3bcb3f7998661fbfe0d621",
+    "failures": [
+      {
+        "executionId": "4a88172c-895e-413c-ba95-9738fba783da",
+        "testId": "ef65a38a-5676-633f-c568-cfccfd8df0d5",
+        "testName": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"user_locale_mutation_receipt\", sqlState: \"55000\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:23.3261717",
+        "startTime": "2026-10-20T09:46:53.0255829+00:00",
+        "endTime": "2026-10-20T09:47:16.3536198+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "4a88172c-895e-413c-ba95-9738fba783da",
+        "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [\"constraint mismatch authoring_canvas_document.ck_a\"\u00b7\u00b7\u00b7, \"constraint mismatch authoring_canvas_node.ck_autho\"\u00b7\u00b7\u00b7, \"default mismatch customization_draft.payload expec\"\u00b7\u00b7\u00b7]"
+      },
+      {
+        "executionId": "17e8eb52-db75-4e6e-a4ad-1c4ab0472d6b",
+        "testId": "6c5c70c6-3bb5-c26c-0b73-73e9b40da365",
+        "testName": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"taxonomy_mutation_receipt\", sqlState: \"P0001\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:26.5784484",
+        "startTime": "2026-10-20T09:46:26.4452403+00:00",
+        "endTime": "2026-10-20T09:46:53.0227285+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "17e8eb52-db75-4e6e-a4ad-1c4ab0472d6b",
+        "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [\"constraint mismatch authoring_canvas_document.ck_a\"\u00b7\u00b7\u00b7, \"constraint mismatch authoring_canvas_node.ck_autho\"\u00b7\u00b7\u00b7, \"default mismatch customization_draft.payload expec\"\u00b7\u00b7\u00b7]"
+      },
+      {
+        "executionId": "81a9efa0-0e76-42d2-b178-2c160d6c0fe0",
+        "testId": "038ceab2-0452-e8b7-1fbd-25a64ee24f1a",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.CompletePhysicalProjection_RetainsEveryRecipeAndSeparateUnobservedEffects",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.2199485",
+        "startTime": "2026-10-20T09:46:15.2285917+00:00",
+        "endTime": "2026-10-20T09:46:15.4617677+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "81a9efa0-0e76-42d2-b178-2c160d6c0fe0",
+        "message": "Assert.Equal() Failure: Values differ\nExpected: SchemaColumnModel { Name = activation_id, IsNullable = True, IsPrimaryKey = False, IsIdentity = False, MaxLength = 36, DataType = string, DefaultValue = , Conversion = , ComputedExpression = , PhysicalType = character varying(36), Owner = , Collation = default, GenerationKind = none, OwnedSequence = , MySqlPhysical =  }\nActual:   SchemaColumnModel { Name = activation_id, IsNullable = True, IsPrimaryKey = False, IsIdentity = False, MaxLength = 36, DataType = string, DefaultValue = , Conversion = none, ComputedExpression = , PhysicalType = character varying(36), Owner = , Collation = default, GenerationKind = none, OwnedSequence = , MySqlPhysical =  }"
+      }
+    ]
+  },
+  {
+    "source": "69eec72e1cc2a900d80115cab47ad64ff7c5c91e",
+    "file": "migration-current.trx",
+    "counts": {
+      "Passed": 174
+    },
+    "sha256": "ed5f7ffd677f4c9acde043a712c78525f475d904de5a03ae9c61204e75d0aef2",
+    "failures": []
+  },
+  {
+    "source": "69eec72e1cc2a900d80115cab47ad64ff7c5c91e",
+    "file": "backend-canonical-rest.trx",
+    "counts": {
+      "Passed": 55,
+      "Failed": 18
+    },
+    "sha256": "2fcc71ed17a76e3655ef389ae4243d1bb66d39a2893598f3a53101482d122438",
+    "failures": [
+      {
+        "executionId": "2ec0d829-0964-4892-a332-92a5a6cc1ab8",
+        "testId": "a07dd349-a5b4-e195-822a-6cde4fdf0a13",
+        "testName": "FsusBlog.Server.Tests.SchemaModelInspectorTests.ProviderProjection_SeparatesSemanticSchemaFromPhysicalDialect",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.0330903",
+        "startTime": "2026-10-20T09:46:25.7771793+00:00",
+        "endTime": "2026-10-20T09:46:25.8258005+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "2ec0d829-0964-4892-a332-92a5a6cc1ab8",
+        "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [\"conversion mismatch synthetic_table.payload expect\"\u00b7\u00b7\u00b7]"
+      },
+      {
+        "executionId": "c4da9fd1-d824-495a-adf0-a60e1c06482a",
+        "testId": "50e101eb-4476-15e7-29f9-adbdc645d8cb",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"row-security\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:18.2328940",
+        "startTime": "2026-10-20T09:48:03.3378039+00:00",
+        "endTime": "2026-10-20T09:48:21.5691068+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "c4da9fd1-d824-495a-adf0-a60e1c06482a",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "7a756dfa-0e41-43fa-a263-bd5dcf376b0d",
+        "testId": "0bb5a498-293f-24bb-b41a-e6ce9ca6b2f2",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"index\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:23.2928462",
+        "startTime": "2026-10-20T09:47:40.0393573+00:00",
+        "endTime": "2026-10-20T09:48:03.3355700+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "7a756dfa-0e41-43fa-a263-bd5dcf376b0d",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "a1e17c0c-e8bb-4016-9291-c4daafa086c0",
+        "testId": "dda2e186-0685-ad65-d5be-b9dee1a3f1c3",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"unowned-function\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:27.8729686",
+        "startTime": "2026-10-20T09:50:19.4714661+00:00",
+        "endTime": "2026-10-20T09:50:47.3421311+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "a1e17c0c-e8bb-4016-9291-c4daafa086c0",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "52f1427c-c7af-4329-bad2-2ae2cc4450e0",
+        "testId": "1f002284-ad16-eb6e-34b6-b361cc17070e",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"unknown-history\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:20.0051880",
+        "startTime": "2026-10-20T09:51:31.4544768+00:00",
+        "endTime": "2026-10-20T09:51:51.4614709+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "52f1427c-c7af-4329-bad2-2ae2cc4450e0",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "dd4819d2-5e0b-4a66-abf2-dcf620510572",
+        "testId": "caa7d726-8565-bb68-7da2-f6daaf1456ae",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"check\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:22.2270963",
+        "startTime": "2026-10-20T09:46:56.6973699+00:00",
+        "endTime": "2026-10-20T09:47:18.9321867+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "dd4819d2-5e0b-4a66-abf2-dcf620510572",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "54041abf-713e-4bfe-9a58-5eb59b4471cc",
+        "testId": "e64579a9-43f9-9b35-33bf-558c6edf8714",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"default\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:23.2323096",
+        "startTime": "2026-10-20T09:46:33.4532549+00:00",
+        "endTime": "2026-10-20T09:46:56.6930476+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "54041abf-713e-4bfe-9a58-5eb59b4471cc",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "7a56add0-fa93-417e-90a8-4834cdc89699",
+        "testId": "355faa6d-84a9-6a8d-7bff-ba454a9d3c54",
+        "testName": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Comparer_BindsForeignKeyReferenceToExactSchema",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.0027645",
+        "startTime": "2026-10-20T09:46:25.9885599+00:00",
+        "endTime": "2026-10-20T09:46:25.9912001+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "7a56add0-fa93-417e-90a8-4834cdc89699",
+        "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [\"conversion mismatch synthetic_table.payload expect\"\u00b7\u00b7\u00b7]"
+      },
+      {
+        "executionId": "5db4c182-39dc-42c6-b76b-a68c8128eb3f",
+        "testId": "4db2bbff-10eb-1f55-3a70-0a055f9182d6",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"trigger\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:20.2674397",
+        "startTime": "2026-10-20T09:51:11.1870629+00:00",
+        "endTime": "2026-10-20T09:51:31.4524600+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "5db4c182-39dc-42c6-b76b-a68c8128eb3f",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "cc5022ee-7142-4417-88f4-b598c4577f3d",
+        "testId": "27a28323-45f1-49d9-b32e-49c82c4803eb",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"no-inherit\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:23.8377043",
+        "startTime": "2026-10-20T09:50:47.3460027+00:00",
+        "endTime": "2026-10-20T09:51:11.1831427+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "cc5022ee-7142-4417-88f4-b598c4577f3d",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "427d0968-497e-4f5c-b1df-ae955e659d2b",
+        "testId": "36e04259-cb16-9d0a-4fc5-8b4c0e90165e",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"collation\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:22.9929251",
+        "startTime": "2026-10-20T09:48:21.5707861+00:00",
+        "endTime": "2026-10-20T09:48:44.7485560+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "427d0968-497e-4f5c-b1df-ae955e659d2b",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "599e8a12-2ed1-455b-a8d1-a4de135c57f2",
+        "testId": "56670378-e1b1-72c0-a5a0-fdbb38bed315",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompiledCurrentRecipes_MatchOriginalPostgresRecipeEffectsAndImmutableGuards",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:30.8885326",
+        "startTime": "2026-10-20T09:53:24.0735482+00:00",
+        "endTime": "2026-10-20T09:53:54.9642645+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "599e8a12-2ed1-455b-a8d1-a4de135c57f2",
+        "message": "Assert.Equal() Failure: Collections differ\n                                                                                                                                  \u2193 (pos 3)\nExpected: [\u00b7\u00b7\u00b7, \"column|account_enrollment_session|cancelled_at|tim\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completed_at|tim\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completed_sessio\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completion_lease\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completion_reque\"\u00b7\u00b7\u00b7, \u00b7\u00b7\u00b7]\nActual:   [\u00b7\u00b7\u00b7, \"column|account_enrollment_session|cancelled_at|tim\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completed_at|tim\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completed_sessio\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completion_lease\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completion_reque\"\u00b7\u00b7\u00b7, \u00b7\u00b7\u00b7]\n                                                                                                                                  \u2191 (pos 3)"
+      },
+      {
+        "executionId": "1fb0389d-1bc9-4520-abcd-e9d3597ced1f",
+        "testId": "84a0a360-589b-ff29-b626-d6f89bfe0580",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"default-null\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:37.8528448",
+        "startTime": "2026-10-20T09:48:45.2137005+00:00",
+        "endTime": "2026-10-20T09:49:22.5330505+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "1fb0389d-1bc9-4520-abcd-e9d3597ced1f",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "e992ab3b-816b-4ec2-8012-cc9284b4cd8d",
+        "testId": "c6d3b38e-cf72-1eb8-0072-8b0f6c824df6",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"same-name-wrong-shape\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:32.7853588",
+        "startTime": "2026-10-20T09:49:46.6830394+00:00",
+        "endTime": "2026-10-20T09:50:19.4672796+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "e992ab3b-816b-4ec2-8012-cc9284b4cd8d",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "4bcaf1a0-610c-4d95-aea4-700cf845e129",
+        "testId": "42e9738d-8b8b-d039-6683-9885fdf35284",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"rule\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:24.1439007",
+        "startTime": "2026-10-20T09:49:22.5478606+00:00",
+        "endTime": "2026-10-20T09:49:46.6788929+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "4bcaf1a0-610c-4d95-aea4-700cf845e129",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "25100f7d-86ec-441f-a862-788538ccff10",
+        "testId": "e7e3f0e8-61ff-9aa1-20dd-8064c206b8b1",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"same-shape-standalone-index\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:26.1498396",
+        "startTime": "2026-10-20T09:51:51.4623470+00:00",
+        "endTime": "2026-10-20T09:52:17.6133838+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "25100f7d-86ec-441f-a862-788538ccff10",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "4c54d0ea-6796-4ade-a985-b79acd8c58cd",
+        "testId": "3c7124d5-c5f5-8013-5a0b-095a1b0e1203",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"unowned-sequence\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:21.1020406",
+        "startTime": "2026-10-20T09:47:18.9344322+00:00",
+        "endTime": "2026-10-20T09:47:40.0348482+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "4c54d0ea-6796-4ade-a985-b79acd8c58cd",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      },
+      {
+        "executionId": "d806d766-d2b3-4396-a9a5-836b2030c388",
+        "testId": "2db1537a-5afd-dd0f-fc67-ffe6b6caca71",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_BorrowsActualCallerRrButCannotAdmitOrOwnItsTerminal",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:28.0528528",
+        "startTime": "2026-10-20T09:52:17.6268401+00:00",
+        "endTime": "2026-10-20T09:52:45.6846202+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "d806d766-d2b3-4396-a9a5-836b2030c388",
+        "message": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException : schema_current_mismatch ref=fsusblog.current-schema.mismatch expectedDigest=81ac60804754d2aa5b7ae3b7d10eb5986535c8f256b53e19fb5496388ece1a9f actualDigest=ea27d842a0b9b5b0e052d7ad6772020b01dd2e82b2fe5432113f58469f80e1cb\n- constraint mismatch authoring_canvas_document.ck_authoring_canvas_document_viewport owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- constraint mismatch authoring_canvas_node.ck_authoring_canvas_node_geometry owner=current-runtime-recipe@CurrentSchemaRuntimeRollupTables.Tables\n- default mismatch customization_draft.payload expected=ast:v1:9d0351aa10f9ea6d1888340ed0d1d624b933dcdcda94cefe5e013eeda71141b2 actual=ast:v1:f9ebcf41e6d3d0b16e4d09eef8eaa2a8f0adf328f93ce0d2b51fecb89a10a876 owner=unknown"
+      }
+    ]
+  },
+  {
+    "source": "2103aa74e2773210d23cf2b8328be4d40f1b9f3b",
+    "file": "backend-literal-focused.trx",
+    "counts": {
+      "Passed": 86,
+      "Failed": 8
+    },
+    "sha256": "05ffde835a29b05356daf4e3965cf46e2fe117653b45de017b404acc96b00846",
+    "failures": [
+      {
+        "executionId": "37bfb1ba-7182-4373-8c7e-4d4454b8b8f3",
+        "testId": "07b5bf6c-8ce5-7303-048c-08738dacd62c",
+        "testName": "FsusBlog.Server.Tests.SchemaModelInspectorTests.Comparer_ReportsProviderColumnIndexAndConstraintSemanticDrift",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.4347974",
+        "startTime": "2026-10-20T10:04:45.2673614+00:00",
+        "endTime": "2026-10-20T10:04:45.7717201+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "37bfb1ba-7182-4373-8c7e-4d4454b8b8f3",
+        "message": "Assert.Contains() Failure: Filter not matched in collection\nCollection: [\"missing column synthetic_table.defaultname owner=F\"\u00b7\u00b7\u00b7, \"type mismatch synthetic_table.state expected=strin\"\u00b7\u00b7\u00b7, \"default mismatch synthetic_table.state expected=re\"\u00b7\u00b7\u00b7, \"extra column synthetic_table.default_name owner=un\"\u00b7\u00b7\u00b7, \"extra column synthetic_table.ignored owner=unknown\", \u00b7\u00b7\u00b7]"
+      },
+      {
+        "executionId": "42adfa0f-afe9-4b20-9c47-d281f6df4afe",
+        "testId": "6c5c70c6-3bb5-c26c-0b73-73e9b40da365",
+        "testName": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"taxonomy_mutation_receipt\", sqlState: \"P0001\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.5074628",
+        "startTime": "2026-10-20T10:05:08.0383172+00:00",
+        "endTime": "2026-10-20T10:05:08.5465582+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "42adfa0f-afe9-4b20-9c47-d281f6df4afe",
+        "message": "System.InvalidOperationException : current_schema_bootstrap_recipe_column_capability_unavailable"
+      },
+      {
+        "executionId": "07b9d5dc-ae29-4cbd-bca0-0c9f90470a5d",
+        "testId": "1246f4ae-cc12-7f89-57ae-7645cc15a6fb",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaOwnedProjectionExporterTests.OriginalOwnerInvocation_PublishesCompleteFactsAndRetainsActualChildEvidence",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:07.7566530",
+        "startTime": "2026-10-20T10:04:51.8645208+00:00",
+        "endTime": "2026-10-20T10:04:59.6499941+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "07b9d5dc-ae29-4cbd-bca0-0c9f90470a5d",
+        "message": "System.InvalidOperationException : current_schema_bootstrap_recipe_column_capability_unavailable"
+      },
+      {
+        "executionId": "803f2bc3-4b8d-482e-a2e6-749ca60daad5",
+        "testId": "aa4c995a-96a8-d77b-db83-b60dbf1a45b4",
+        "testName": "FsusBlog.Server.Tests.Integration.CurrentSchemaIndexExpressionPostgresTests.OriginalHistoryRecipesAndBothCompilers_PreserveTheActualExpressionKey",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.6270403",
+        "startTime": "2026-10-20T10:05:11.7685082+00:00",
+        "endTime": "2026-10-20T10:05:12.3972870+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "803f2bc3-4b8d-482e-a2e6-749ca60daad5",
+        "message": "System.InvalidOperationException : current_schema_bootstrap_recipe_column_capability_unavailable"
+      },
+      {
+        "executionId": "24d552f1-967d-475a-ba0a-a37a3d0123e8",
+        "testId": "92ccbce5-d9c1-27f2-2c4b-4ce6ac5e3714",
+        "testName": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalReceiptRecipeComponent_PreservesNativeFactsAndRejectsGuardDrift(table: \"user_locale_mutation_receipt\", sqlState: \"55000\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.0034721",
+        "startTime": "2026-10-20T10:05:08.0340869+00:00",
+        "endTime": "2026-10-20T10:05:08.0362589+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "24d552f1-967d-475a-ba0a-a37a3d0123e8",
+        "message": "System.InvalidOperationException : current_schema_bootstrap_recipe_column_capability_unavailable"
+      },
+      {
+        "executionId": "923dfe18-9dc1-4d27-ad8b-3188025fa973",
+        "testId": "ef65a38a-5676-633f-c568-cfccfd8df0d5",
+        "testName": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"user_locale_mutation_receipt\", sqlState: \"55000\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.3583191",
+        "startTime": "2026-10-20T10:05:08.5593502+00:00",
+        "endTime": "2026-10-20T10:05:08.9092803+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "923dfe18-9dc1-4d27-ad8b-3188025fa973",
+        "message": "System.InvalidOperationException : current_schema_bootstrap_recipe_column_capability_unavailable"
+      },
+      {
+        "executionId": "bad8aadb-3384-4713-95e6-aa6aaa8addda",
+        "testId": "a6b274ef-3aa2-08ec-7e19-61c7f4c3d1e2",
+        "testName": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalReceiptRecipeComponent_PreservesNativeFactsAndRejectsGuardDrift(table: \"taxonomy_mutation_receipt\", sqlState: \"P0001\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.0095192",
+        "startTime": "2026-10-20T10:05:08.0210420+00:00",
+        "endTime": "2026-10-20T10:05:08.0303440+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "bad8aadb-3384-4713-95e6-aa6aaa8addda",
+        "message": "System.InvalidOperationException : current_schema_bootstrap_recipe_column_capability_unavailable"
+      },
+      {
+        "executionId": "177f0602-5e92-46b7-8fb0-4aa8e93abadf",
+        "testId": "56670378-e1b1-72c0-a5a0-fdbb38bed315",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompiledCurrentRecipes_MatchOriginalPostgresRecipeEffectsAndImmutableGuards",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:28.5003796",
+        "startTime": "2026-10-20T10:05:35.0806871+00:00",
+        "endTime": "2026-10-20T10:06:03.5881233+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "177f0602-5e92-46b7-8fb0-4aa8e93abadf",
+        "message": "System.InvalidOperationException : current_schema_bootstrap_recipe_column_capability_unavailable"
+      }
+    ]
+  },
+  {
+    "source": "2103aa74e2773210d23cf2b8328be4d40f1b9f3b",
+    "file": "migration-literal.trx",
+    "counts": {
+      "Passed": 181,
+      "Failed": 1
+    },
+    "sha256": "91814fbf1bcf07fc16967a0965f686e7792d5be37315fa027733466271d075df",
+    "failures": [
+      {
+        "executionId": "6bd43b7c-ef86-4a49-9d23-96e11e28d20c",
+        "testId": "52c877da-3e3c-685e-03b5-50b8967d28fb",
+        "testName": "FsusBlog.Migration.Tests.CurrentSchemaStorageProjectionTests.PhysicalConversionDomain_DoesNotReplaceLogicalInputOrJsonStorageFacts",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:00.0159367",
+        "startTime": "2026-10-20T10:04:33.0371281+00:00",
+        "endTime": "2026-10-20T10:04:33.0839745+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "6bd43b7c-ef86-4a49-9d23-96e11e28d20c",
+        "message": "Assert.NotEmpty() Failure: Collection was empty"
+      }
+    ]
+  },
+  {
+    "source": "630493d1f6a83b9c1d8232a93403d6df5e771354",
+    "file": "backend-conversion-focused.trx",
+    "counts": {
+      "Passed": 93,
+      "Failed": 1
+    },
+    "sha256": "43a569826ed428fa77882a45785f4f12600611ce347c7514ef9e436d540d5ca9",
+    "failures": [
+      {
+        "executionId": "8f2c688b-6987-4936-9a75-0506a1f4f88e",
+        "testId": "56670378-e1b1-72c0-a5a0-fdbb38bed315",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompiledCurrentRecipes_MatchOriginalPostgresRecipeEffectsAndImmutableGuards",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:54.9589615",
+        "startTime": "2026-10-20T10:16:11.9227378+00:00",
+        "endTime": "2026-10-20T10:17:06.8863583+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "8f2c688b-6987-4936-9a75-0506a1f4f88e",
+        "message": "Assert.Equal() Failure: Collections differ\n                                                                                                                                  \u2193 (pos 3)\nExpected: [\u00b7\u00b7\u00b7, \"column|account_enrollment_session|cancelled_at|tim\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completed_at|tim\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completed_sessio\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completion_lease\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completion_reque\"\u00b7\u00b7\u00b7, \u00b7\u00b7\u00b7]\nActual:   [\u00b7\u00b7\u00b7, \"column|account_enrollment_session|cancelled_at|tim\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completed_at|tim\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completed_sessio\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completion_lease\"\u00b7\u00b7\u00b7, \"column|account_enrollment_session|completion_reque\"\u00b7\u00b7\u00b7, \u00b7\u00b7\u00b7]\n                                                                                                                                  \u2191 (pos 3)"
+      }
+    ]
+  },
+  {
+    "source": "630493d1f6a83b9c1d8232a93403d6df5e771354",
+    "file": "migration-conversion.trx",
+    "counts": {
+      "Passed": 182
+    },
+    "sha256": "b68a1dab17f80b925296ad7a832e177adef1b88f60bb0f7e0ad89d9b3552b3a1",
+    "failures": []
+  },
+  {
+    "source": "630493d1f6a83b9c1d8232a93403d6df5e771354",
+    "file": "control-single.trx",
+    "counts": {
+      "Failed": 1
+    },
+    "sha256": "776ff8e759931c017e69191b6b84e413221bb0692b0183be87bfdecbab31786d",
+    "failures": [
+      {
+        "executionId": "23b23da3-8f6d-4bb0-ac4b-4e8b03d036c2",
+        "testId": "e7e3f0e8-61ff-9aa1-20dd-8064c206b8b1",
+        "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"same-shape-standalone-index\")",
+        "computerName": "773f68bd78b2",
+        "duration": "00:00:18.5799014",
+        "startTime": "2026-10-20T10:17:31.9228079+00:00",
+        "endTime": "2026-10-20T10:17:50.5236627+00:00",
+        "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+        "outcome": "Failed",
+        "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+        "relativeResultsDirectory": "23b23da3-8f6d-4bb0-ac4b-4e8b03d036c2",
+        "message": "Assert.Equal() Failure: Values differ\nExpected: 3\nActual:   10"
+      }
+    ]
+  }
+]

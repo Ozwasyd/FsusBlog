@@ -42,6 +42,8 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
     private readonly CurrentSchemaArtifactReference _assembly;
     private OfflineMigrationMediaJournalEvidence? _binding;
     private ArticleMediaPublication? _publication;
+    private ArticlePreservationOutboxBatch? _outboxBatch;
+    private ImmutableArray<ArticlePreservationOutboxReceipt> _outboxReceipts = [];
     private PgLegacyNonArticlePreparation? _nonArticle;
     private PgArticlePreservationRecoveryConfiguration? _recoveryConfiguration;
     private VerifiedOfflineMigrationPlan? _verifiedPlan;
@@ -76,6 +78,22 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
     internal override OfflineMigrationProviderOperation Identity { get; }
     internal OfflineMigrationStep Step { get; }
     internal CurrentSchemaVerifierIdentity RetainedTool { get; }
+
+    // Data-only prerequisite for the source owner's eventual shared producer export.
+    // Retain the exact original batch across restart. No generation hook or default
+    // event factory is installed here; missing owner integration remains explicit.
+    internal void BindOriginalOutboxBatch(ArticlePreservationOutboxBatch batch)
+    {
+        ArgumentNullException.ThrowIfNull(batch);
+        // The existing Core observation permits 256 facts, including four original
+        // target facts. A larger event roster needs the owner's retained receipt
+        // artifact contract; do not raise the original observation limit here.
+        if (batch.Events.IsDefault || (long)batch.Events.Length * 2 + 4 > 256)
+            throw new InvalidOperationException("article_preservation_outbox_journal_budget_exceeded");
+        if (_outboxBatch is not null && _outboxBatch != batch)
+            throw new InvalidOperationException("article_preservation_outbox_batch_changed");
+        _outboxBatch = batch;
+    }
 
     // Mandatory for this whole-legacy operation: a caller-owned finite artifact
     // locator and the actual original retained-tool capability, not a tool DTO.
@@ -282,10 +300,15 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         PgLegacyNonArticlePreparation nonArticle = await PgLegacyNonArticlePreparation.MigrateAsync(
             legacy, connection, transaction, cancellationToken).ConfigureAwait(false);
         _nonArticle = nonArticle;
+        OfflineMigrationApplyNativeSession.OwnedReadContext? originalWrite = _outboxBatch is null ? null
+            : journal is OfflineMigrationArticleMediaJournal originalJournal
+                ? await originalJournal.RequireOriginalWriteAsync(cancellationToken).ConfigureAwait(false)
+                : throw new InvalidOperationException("article_preservation_outbox_original_write_required");
         ArticlePreservationStorageStage graph = await ArticlePreservationStorageWriter.StagePostgreSqlAsync(
             _plan, _source, _current, _owned, connection, transaction, _observation.Database,
             _configuration.ProjectionLimits, _configuration.MediaLimits, _configuration.WriteLimits,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken, _outboxBatch, originalWrite).ConfigureAwait(false);
+        _outboxReceipts = graph.Outbox;
         if (graph.PlanDigest != _plan.ContentDigest)
             throw new InvalidOperationException("article_preservation_operation_graph_binding");
         ArticleMediaPublication publication = await ArticleMediaPreservation.StageAndPublishAsync(
@@ -346,6 +369,15 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
             facts = [new("article.projection_digest", _plan.ContentDigest), new("media.manifest_digest", _plan.Media.ManifestDigest),
                 new(PgLegacyNonArticlePreparation.RecoveryReferenceFact, proof.Reference),
                 new(PgLegacyNonArticlePreparation.RecoveryDigestFact, proof.Sha256)];
+            // Original Core seals actual event IDs in After on this same transaction.
+            // Its verified replay compares these facts before recording completion.
+            if (_outboxBatch is not null)
+                facts = facts.AddRange(ArticlePreservationStorageWriter.OutboxJournalFacts(
+                    new(_plan.ContentDigest, 0, true)
+                    {
+                        Outbox = _outboxReceipts
+                    }))
+                    .OrderBy(static fact => fact.Name, StringComparer.Ordinal).ToImmutableArray();
         }
         else throw new InvalidOperationException("article_preservation_operation_unknown_predicate");
         // Facts are emitted only after complete native readback. A failure throws before an
@@ -380,6 +412,12 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         await ArticlePreservationStorageWriter.VerifyRowsAsync(
             program.Rows.GroupBy(static row => row.Table, StringComparer.Ordinal), connection, transaction,
             _configuration.WriteLimits, token).ConfigureAwait(false);
+        if (_outboxBatch is not null)
+        {
+            var outbox = ArticlePreservationStorageProgram.CompileOutbox(_plan, _outboxBatch, _owned, token);
+            _outboxReceipts = await ArticlePreservationStorageWriter.VerifyOutboxAsync(
+                outbox, connection, transaction, _configuration.WriteLimits, token).ConfigureAwait(false);
+        }
         using var parent = ArticleMediaDirectory.Open(_configuration.TargetParent, writable: false);
         if (parent.Identity != _targetRootIdentity)
             throw new InvalidOperationException("article_preservation_operation_target_root_changed");

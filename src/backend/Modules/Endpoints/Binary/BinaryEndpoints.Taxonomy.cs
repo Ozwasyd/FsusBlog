@@ -29,11 +29,14 @@ using FsusBlog.Server.Models;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Services.Taxonomy;
 using FsusBlog.Shared.Contracts.Outputs;
 
 using SqlSugar;
+
+using TaxonomyReceipts = FsusBlog.Server.Services.Taxonomy.TaxonomyMutationReceiptPersistence;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
@@ -293,14 +296,13 @@ public static partial class BinaryEndpoints
             CancellationToken cancellationToken,
             IAedsEncoder aeds) =>
         {
-            bool hasArticles = await db.Queryable<Article>().AnyAsync(a => a.CategoryId == id && !a.IsDeleted && a.Status != ArticleStatus.Deleted);
-            if (hasArticles)
+            CategoryDeleteOutcome outcome = await DeleteCategoryIfUnlinkedAsync(db, id, cancellationToken);
+            if (outcome == CategoryDeleteOutcome.HasArticles)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "无法删除：该分类下仍有关联文章，请先迁移文章到其他分类"), aeds);
             }
 
-            int deleteCount = await db.Deleteable<Category>().In(id).ExecuteCommandAsync();
-            if (deleteCount <= 0)
+            if (outcome != CategoryDeleteOutcome.Deleted)
             {
                 return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.NotFound, "操作失败：目标分类不存在或已被删除"), aeds);
             }
@@ -731,13 +733,58 @@ public static partial class BinaryEndpoints
 
     internal static async Task<TagDeleteOutcome> DeleteTagIfUnlinkedAsync(ISqlSugarClient db, int id)
     {
-        if (await db.Queryable<ArticleTag>().AnyAsync(at => at.TagId == id))
+        async Task<TagDeleteOutcome> ApplyAsync()
         {
-            return TagDeleteOutcome.HasArticleLinks;
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db).ConfigureAwait(false);
+            if (await db.Queryable<ArticleTag>().AnyAsync(at => at.TagId == id))
+                return TagDeleteOutcome.HasArticleLinks;
+            if (!await db.Queryable<Tag>().AnyAsync(tag => tag.Id == id))
+                return TagDeleteOutcome.NotFound;
+            TaxonomyReceipts.Capture capture = await TaxonomyReceipts.CaptureExistingAsync(db,
+                TaxonomyReceipts.TargetKind.Tag, TaxonomyReceipts.MutationOperation.Delete, id).ConfigureAwait(false);
+            int deleted = await db.Deleteable<Tag>().In(id).ExecuteCommandAsync();
+            if (deleted <= 0)
+                return TagDeleteOutcome.NotFound;
+            TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture, id, deleted).ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId).ConfigureAwait(false);
+            return TagDeleteOutcome.Deleted;
         }
+        if (db.Ado.Transaction is not null)
+            return await ApplyAsync().ConfigureAwait(false);
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transaction.ErrorException
+                ?? new InvalidOperationException(transaction.ErrorMessage)).Throw();
+        return transaction.Data;
+    }
 
-        int deleted = await db.Deleteable<Tag>().In(id).ExecuteCommandAsync();
-        return deleted > 0 ? TagDeleteOutcome.Deleted : TagDeleteOutcome.NotFound;
+    internal static async Task<CategoryDeleteOutcome> DeleteCategoryIfUnlinkedAsync(
+        ISqlSugarClient db, int id, CancellationToken cancellationToken = default)
+    {
+        async Task<CategoryDeleteOutcome> ApplyAsync()
+        {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
+            if (await db.Queryable<Article>().AnyAsync(article => article.CategoryId == id
+                && !article.IsDeleted && article.Status != ArticleStatus.Deleted, cancellationToken))
+                return CategoryDeleteOutcome.HasArticles;
+            if (!await db.Queryable<Category>().AnyAsync(category => category.Id == id, cancellationToken))
+                return CategoryDeleteOutcome.NotFound;
+            TaxonomyReceipts.Capture capture = await TaxonomyReceipts.CaptureExistingAsync(db,
+                TaxonomyReceipts.TargetKind.Category, TaxonomyReceipts.MutationOperation.Delete, id, cancellationToken).ConfigureAwait(false);
+            int deleted = await db.Deleteable<Category>().In(id).ExecuteCommandAsync(cancellationToken);
+            if (deleted <= 0)
+                return CategoryDeleteOutcome.NotFound;
+            TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture, id, deleted, cancellationToken).ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId, cancellationToken).ConfigureAwait(false);
+            return CategoryDeleteOutcome.Deleted;
+        }
+        if (db.Ado.Transaction is not null)
+            return await ApplyAsync().ConfigureAwait(false);
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transaction.ErrorException
+                ?? new InvalidOperationException(transaction.ErrorMessage)).Throw();
+        return transaction.Data;
     }
 
     private static async Task<TaxonomyMetadataMutationPayload> ReadTaxonomyMetadataMutationAsync(
@@ -775,27 +822,51 @@ public static partial class BinaryEndpoints
         return normalized is null || normalized.EnumerateRunes().Count() <= 500;
     }
 
-    internal static Task<int> CreateCategoryAsync(
-        ISqlSugarClient db,
-        string name,
-        string? description,
-        CancellationToken cancellationToken)
-        => db.Insertable(new Category
+    internal static async Task<int> CreateCategoryAsync(
+        ISqlSugarClient db, string name, string? description, CancellationToken cancellationToken)
+    {
+        async Task<int> ApplyAsync()
         {
-            Name = name,
-            Description = description
-        }).ExecuteReturnIdentityAsync(cancellationToken);
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
+            TaxonomyReceipts.Capture capture = await TaxonomyReceipts.CaptureCreateAsync(db,
+                TaxonomyReceipts.TargetKind.Category, name, cancellationToken).ConfigureAwait(false);
+            int id = await db.Insertable(new Category { Name = name, Description = description })
+                .ExecuteReturnIdentityAsync(cancellationToken).ConfigureAwait(false);
+            TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture, id, 1, cancellationToken).ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId, cancellationToken).ConfigureAwait(false);
+            return id;
+        }
+        if (db.Ado.Transaction is not null)
+            return await ApplyAsync().ConfigureAwait(false);
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transaction.ErrorException
+                ?? new InvalidOperationException(transaction.ErrorMessage)).Throw();
+        return transaction.Data;
+    }
 
-    internal static Task<int> CreateTagAsync(
-        ISqlSugarClient db,
-        string name,
-        string? description,
-        CancellationToken cancellationToken)
-        => db.Insertable(new Tag
+    internal static async Task<int> CreateTagAsync(
+        ISqlSugarClient db, string name, string? description, CancellationToken cancellationToken)
+    {
+        async Task<int> ApplyAsync()
         {
-            Name = name,
-            Description = description
-        }).ExecuteReturnIdentityAsync(cancellationToken);
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
+            TaxonomyReceipts.Capture capture = await TaxonomyReceipts.CaptureCreateAsync(db,
+                TaxonomyReceipts.TargetKind.Tag, name, cancellationToken).ConfigureAwait(false);
+            int id = await db.Insertable(new Tag { Name = name, Description = description })
+                .ExecuteReturnIdentityAsync(cancellationToken).ConfigureAwait(false);
+            TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture, id, 1, cancellationToken).ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId, cancellationToken).ConfigureAwait(false);
+            return id;
+        }
+        if (db.Ado.Transaction is not null)
+            return await ApplyAsync().ConfigureAwait(false);
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
+        if (!transaction.IsSuccess)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(transaction.ErrorException
+                ?? new InvalidOperationException(transaction.ErrorMessage)).Throw();
+        return transaction.Data;
+    }
 
     internal static async Task<TaxonomyUpdateApplyResult> UpdateCategoryAndEnqueueProjectionAsync(
         ISqlSugarClient db,
@@ -819,8 +890,9 @@ public static partial class BinaryEndpoints
         CancellationToken cancellationToken)
     {
         TaxonomyUpdateApplyResult result = new(TaxonomyUpdateOutcome.NotFound, false, false);
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        async Task ApplyAsync()
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             Category? current = await db.Queryable<Category>()
                 .Where(category => category.Id == categoryId)
                 .FirstAsync(cancellationToken);
@@ -843,12 +915,21 @@ public static partial class BinaryEndpoints
                 return;
             }
 
+            TaxonomyReceipts.Capture capture = await TaxonomyReceipts.CaptureExistingAsync(db,
+                TaxonomyReceipts.TargetKind.Category, TaxonomyReceipts.MutationOperation.Update, categoryId, cancellationToken).ConfigureAwait(false);
+
             if (!change.NameChanged)
             {
                 int descriptionUpdated = await db.Updateable<Category>()
                     .SetColumns(category => category.Description == description)
                     .Where(category => category.Id == categoryId)
                     .ExecuteCommandAsync(cancellationToken);
+                if (descriptionUpdated > 0)
+                {
+                    TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture,
+                        categoryId, descriptionUpdated, cancellationToken).ConfigureAwait(false);
+                    await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId, cancellationToken).ConfigureAwait(false);
+                }
                 result = descriptionUpdated > 0
                     ? new(TaxonomyUpdateOutcome.Updated, false, true)
                     : new(TaxonomyUpdateOutcome.NotFound, false, false);
@@ -879,13 +960,22 @@ public static partial class BinaryEndpoints
                 return;
             }
 
+            TaxonomyReceipts.Receipt taxonomyReceipt = await TaxonomyReceipts.PersistAsync(db, capture,
+                categoryId, updated, cancellationToken).ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, taxonomyReceipt.ReceiptId, cancellationToken).ConfigureAwait(false);
             await InsertTaxonomyProjectionOutboxAsync(
                 db,
                 affectedArticleIds,
                 ArticleMutationEventTypes.CategoryUpdated,
                 cancellationToken);
             result = new(TaxonomyUpdateOutcome.Updated, true, change.DescriptionChanged);
-        });
+        }
+        if (db.Ado.Transaction is not null)
+        {
+            await ApplyAsync().ConfigureAwait(false);
+            return result;
+        }
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
         if (!transaction.IsSuccess)
         {
             throw new InvalidOperationException($"category projection transaction failed: {transaction.ErrorMessage}");
@@ -916,8 +1006,9 @@ public static partial class BinaryEndpoints
         CancellationToken cancellationToken)
     {
         TaxonomyUpdateApplyResult result = new(TaxonomyUpdateOutcome.NotFound, false, false);
-        var transaction = await db.Ado.UseTranAsync(async () =>
+        async Task ApplyAsync()
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             Tag? currentTag = await db.Queryable<Tag>()
                 .Where(tag => tag.Id == tagId)
                 .FirstAsync(cancellationToken);
@@ -940,12 +1031,21 @@ public static partial class BinaryEndpoints
                 return;
             }
 
+            TaxonomyReceipts.Capture capture = await TaxonomyReceipts.CaptureExistingAsync(db,
+                TaxonomyReceipts.TargetKind.Tag, TaxonomyReceipts.MutationOperation.Update, tagId, cancellationToken).ConfigureAwait(false);
+
             if (!change.NameChanged)
             {
                 int descriptionUpdated = await db.Updateable<Tag>()
                     .SetColumns(tag => tag.Description == description)
                     .Where(tag => tag.Id == tagId)
                     .ExecuteCommandAsync(cancellationToken);
+                if (descriptionUpdated > 0)
+                {
+                    TaxonomyReceipts.Receipt receipt = await TaxonomyReceipts.PersistAsync(db, capture,
+                        tagId, descriptionUpdated, cancellationToken).ConfigureAwait(false);
+                    await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, receipt.ReceiptId, cancellationToken).ConfigureAwait(false);
+                }
                 result = descriptionUpdated > 0
                     ? new(TaxonomyUpdateOutcome.Updated, false, true)
                     : new(TaxonomyUpdateOutcome.NotFound, false, false);
@@ -1015,13 +1115,22 @@ public static partial class BinaryEndpoints
                 return;
             }
 
+            TaxonomyReceipts.Receipt taxonomyReceipt = await TaxonomyReceipts.PersistAsync(db, capture,
+                tagId, updated, cancellationToken).ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordTaxonomyAsync(db, taxonomyReceipt.ReceiptId, cancellationToken).ConfigureAwait(false);
             await InsertTaxonomyProjectionOutboxAsync(
                 db,
                 affectedArticleIds,
                 ArticleMutationEventTypes.TagUpdated,
                 cancellationToken);
             result = new(TaxonomyUpdateOutcome.Updated, true, change.DescriptionChanged);
-        });
+        }
+        if (db.Ado.Transaction is not null)
+        {
+            await ApplyAsync().ConfigureAwait(false);
+            return result;
+        }
+        var transaction = await db.Ado.UseTranAsync(ApplyAsync).ConfigureAwait(false);
         if (!transaction.IsSuccess)
         {
             throw new InvalidOperationException($"tag projection transaction failed: {transaction.ErrorMessage}");
@@ -1084,6 +1193,10 @@ public static partial class BinaryEndpoints
                 $"taxonomy projection outbox insert persisted {inserted} of {events.Count} rows");
         }
 
+        foreach (ArticleMutationOutboxEvent outbox in events)
+        {
+            await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
+        }
         return inserted;
     }
 
@@ -1198,6 +1311,13 @@ public static partial class BinaryEndpoints
 
         public static TaxonomyMetadataMutationPayload Failure(ErrorDetail error)
             => new(false, string.Empty, null, false, error);
+    }
+
+    internal enum CategoryDeleteOutcome
+    {
+        Deleted,
+        NotFound,
+        HasArticles
     }
 
     internal enum TagDeleteOutcome

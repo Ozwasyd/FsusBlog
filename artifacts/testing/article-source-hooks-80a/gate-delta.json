@@ -1,0 +1,19 @@
+{
+  "source": "80a33e47d0d775aa6b445dfd994146a5c84fd745",
+  "extraTables": {
+    "beforeCount": 13,
+    "afterCount": 13,
+    "added": [],
+    "removed": []
+  },
+  "assemblyBoundary": {
+    "before": [
+      "[migration-assembly-boundary] Migration providers contain a duplicate current-schema field mapping",
+      "[migration-assembly-boundary] migration assembly receipt content or symbol inventory is stale"
+    ],
+    "after": [
+      "[migration-assembly-boundary] Migration providers contain a duplicate current-schema field mapping",
+      "[migration-assembly-boundary] migration assembly receipt content or symbol inventory is stale"
+    ]
+  }
+}

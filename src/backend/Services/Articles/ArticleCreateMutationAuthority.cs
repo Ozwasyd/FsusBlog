@@ -63,6 +63,7 @@ public static class ArticleCreateMutationAuthority
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(request);
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
 
         string title = ArticleProductionNormalizers.NormalizeText(
             request.Title, ArticleProductionNormalizers.MaxTitleLength);
@@ -226,6 +227,7 @@ public static class ArticleCreateMutationAuthority
             occurredAt: request.Now,
             publicUpdatedAt: request.PublicUpdatedAt);
         await db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+        await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
 
         ArticleMutationCommand? mutationCommand = null;
         if (request.MutationIdentity is { } identity)

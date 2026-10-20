@@ -301,6 +301,8 @@ public sealed class ArticleCreateIntegrationTests(PostgresSchemaMigrationFixture
             typeof(ArticleDraft),
             typeof(ArticleRightsPolicy),
             typeof(ArticleRightsSnapshot),
+            typeof(ArticleResponsibilitySnapshot),
+            typeof(ArticlePublicationRecord),
             typeof(ArticleMutationOutboxEvent));
         await db.Ado.ExecuteCommandAsync("""
             INSERT INTO "category"(id, name) VALUES (11, 'engineering');

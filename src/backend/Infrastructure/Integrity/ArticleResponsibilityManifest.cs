@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Text.Json;
 
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.PublicAot;
@@ -399,6 +400,7 @@ public sealed class ArticleResponsibilityAuthoringService(
         ArticleResponsibilitySaveResponse? response = null;
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
             ResponsibilityWriteCoordinates? coordinates = await LockCoordinatesAsync(articleId, articleRevisionId, cancellationToken);
             if (coordinates is null)
             {
@@ -707,7 +709,9 @@ public sealed class ArticleResponsibilityAuthoringService(
                 createdAt,
                 cancellationToken)
             .ConfigureAwait(false);
-        return await db.Insertable(outboxEvent).ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+        int inserted = await db.Insertable(outboxEvent).ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+        await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outboxEvent.EventId, cancellationToken).ConfigureAwait(false);
+        return inserted;
     }
 
     private static ArticleResponsibilityVersionResponse ToVersionResponse(ArticleResponsibilitySnapshot snapshot)

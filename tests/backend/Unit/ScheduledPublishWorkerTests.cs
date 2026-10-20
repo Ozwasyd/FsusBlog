@@ -5,6 +5,7 @@ using FsusBlog.Server.Infrastructure.Execution;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
@@ -25,6 +26,32 @@ namespace FsusBlog.Server.Tests;
 public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly DateTimeOffset s_now = new(2026, 7, 19, 8, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public async Task PublishDueArticlesAsync_HoldsFamilyBeforeExecutingArticleRowClaim()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        InsertScheduledArticle(db, "source lock order", s_now.UtcDateTime.AddMinutes(-1));
+        bool claimObserved = false;
+        db.Aop.OnLogExecuting = (sql, _) =>
+        {
+            if (!sql.Contains("FOR UPDATE OF article SKIP LOCKED", StringComparison.OrdinalIgnoreCase))
+                return;
+            using var command = new NpgsqlCommand("""
+                SELECT EXISTS (SELECT 1 FROM pg_locks
+                    WHERE pid = pg_backend_pid() AND locktype = 'advisory' AND granted
+                        AND classid = 1179866444::oid AND objid = 1::oid AND objsubid = 2);
+                """, (NpgsqlConnection)db.Ado.Connection, (NpgsqlTransaction)db.Ado.Transaction);
+            Assert.True((bool)command.ExecuteScalar()!);
+            claimObserved = true;
+        };
+        using ServiceProvider provider = CreateWorkerProvider(db);
+        ScheduledPublishWorker worker = CreateWorker(provider);
+
+        Assert.Equal(1, await worker.PublishDueArticlesAsync(CancellationToken.None));
+        Assert.True(claimObserved);
+        Assert.Equal(1, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+    }
 
     [Fact]
     public async Task PublishDueArticlesAsync_CommitsPublishedStateAndOutboxWithoutSideEffectServices()
@@ -64,6 +91,8 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
 
         Assert.Equal(0, await worker.PublishDueArticlesAsync(CancellationToken.None));
         Assert.Single(await db.Queryable<ArticleMutationOutboxEvent>().ToListAsync());
+        Assert.Equal(1, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        Assert.Equal(outbox.EventId, (await db.Queryable<ArticleSourceMutation>().SingleAsync()).EventId);
     }
 
     [Fact]
@@ -96,6 +125,13 @@ public sealed class ScheduledPublishWorkerTests(PostgresSchemaMigrationFixture f
 
         Assert.InRange(published, 100, 105);
         Assert.Equal(105, published + drained);
+        Assert.Equal(105, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        Assert.Equal(105, await db.Queryable<ArticleSourceMutation>().CountAsync());
+        Assert.Equal(0, await db.Ado.GetIntAsync("""
+            SELECT COUNT(*) FROM article_mutation_outbox event
+            FULL JOIN article_source_mutation journal ON journal.event_id = event.event_id
+            WHERE event.event_id IS NULL OR journal.event_id IS NULL;
+            """));
         List<Article> dueArticles = await db.Queryable<Article>()
             .Where(article => dueIds.Contains(article.Id))
             .OrderBy(static article => article.Id)

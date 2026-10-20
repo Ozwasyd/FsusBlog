@@ -5,6 +5,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Services.ArticleVault;
+using FsusBlog.Server.Services.Articles;
 using FsusBlog.Shared.Contracts.ArticleVault;
 
 using SqlSugar;
@@ -51,6 +52,7 @@ public partial class ArticleService : IArticleVaultCanonicalGroupWriter
                     gateCt.ThrowIfCancellationRequested();
                     return await _db.Ado.UseTranAsync(async () =>
                     {
+                        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(_db, cancellationToken).ConfigureAwait(false);
                         await _db.Ado.ExecuteCommandAsync(
                             "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 0));",
                             new SugarParameter("@Identity", $"article-vault:{idempotency}"));

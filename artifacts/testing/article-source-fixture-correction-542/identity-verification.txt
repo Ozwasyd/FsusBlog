@@ -1,0 +1,132 @@
+{
+  "source": "542cf9309fef83696c3e6bcd9c2c073bde75495e",
+  "counts": {
+    "Passed": 731
+  },
+  "total": 731,
+  "uniqueNames": 731,
+  "frozen80": {
+    "retained": 728,
+    "missing": [],
+    "changedTestIds": [],
+    "currentOutcomes": {
+      "Passed": 728
+    }
+  },
+  "newCases": [
+    {
+      "executionId": "fb9f6fba-5990-4d0d-8556-79d1ca9bac82",
+      "testId": "f27b541e-8eae-333e-ea26-362498cf404c",
+      "testName": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalProductionDdl_RejectsNegativeCounterUpdatesWithoutChangingOriginalClock(counter: \"family\")",
+      "computerName": "773f68bd78b2",
+      "duration": "00:00:08.2672326",
+      "startTime": "2026-10-20T11:22:10.6356218+00:00",
+      "endTime": "2026-10-20T11:22:18.9040785+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "fb9f6fba-5990-4d0d-8556-79d1ca9bac82"
+    },
+    {
+      "executionId": "c5a24983-a5f9-4bf4-be46-5586c9fa9818",
+      "testId": "659a4f7c-fbc3-c2c0-2ae2-b5d1e9a965b1",
+      "testName": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalProductionDdl_RejectsNegativeCounterUpdatesWithoutChangingOriginalClock(counter: \"journal\")",
+      "computerName": "773f68bd78b2",
+      "duration": "00:00:08.4273551",
+      "startTime": "2026-10-20T11:22:02.2085645+00:00",
+      "endTime": "2026-10-20T11:22:10.6347220+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "c5a24983-a5f9-4bf4-be46-5586c9fa9818"
+    },
+    {
+      "executionId": "e1cbbfba-d8eb-4471-a2b8-10ecf9f63cff",
+      "testId": "976ff68c-ae33-5db4-0460-47c0bbca6ab9",
+      "testName": "FsusBlog.Server.Tests.Integration.ArticleSourceMutationHooksIntegrationTests.OriginalProductionDdl_RejectsNegativeCounterUpdatesWithoutChangingOriginalClock(counter: \"sequence\")",
+      "computerName": "773f68bd78b2",
+      "duration": "00:00:08.0870231",
+      "startTime": "2026-10-20T11:21:54.1199178+00:00",
+      "endTime": "2026-10-20T11:22:02.2078457+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "e1cbbfba-d8eb-4471-a2b8-10ecf9f63cff"
+    }
+  ],
+  "originalCoverage": {
+    "original433": {
+      "total": 433,
+      "retained": 433,
+      "missing": [],
+      "currentOutcomes": {
+        "Passed": 433
+      }
+    },
+    "previous480": {
+      "total": 480,
+      "retained": 480,
+      "missing": [],
+      "currentOutcomes": {
+        "Passed": 480
+      }
+    },
+    "previous610": {
+      "total": 610,
+      "retained": 610,
+      "missing": [],
+      "currentOutcomes": {
+        "Passed": 610
+      }
+    },
+    "current619": {
+      "total": 619,
+      "retained": 619,
+      "missing": [],
+      "currentOutcomes": {
+        "Passed": 619
+      }
+    }
+  },
+  "migration": {
+    "counts": {
+      "Passed": 182
+    },
+    "native22": {
+      "Passed": 22
+    }
+  },
+  "sha256": {
+    "backend-full731.trx": "5afa95f2912b22ed38f17ec8915740c8e636926502b6c70d7c44938f4be1fa82"
+  },
+  "supplier": {
+    "unit23": {
+      "Passed": 23
+    },
+    "pg33": {
+      "Passed": 33
+    }
+  },
+  "groups": {
+    "ArticleSourceMutationHooksIntegrationTests": {
+      "Passed": 29
+    },
+    "SourceReceiptSchemaCoveragePostgresTests": {
+      "Passed": 7
+    },
+    "CurrentSchemaIndexExpressionPostgresTests": {
+      "Passed": 8
+    },
+    "CurrentSchemaOwnedProjectionExporterTests": {
+      "Passed": 31
+    },
+    "CurrentSchemaRuntimeRollupTablesDatabaseTests": {
+      "Passed": 25
+    },
+    "ScheduledPublish": {
+      "Passed": 7
+    }
+  },
+  "productionSourceChangedFrom80": [],
+  "binaryChangedDuringTests": []
+}

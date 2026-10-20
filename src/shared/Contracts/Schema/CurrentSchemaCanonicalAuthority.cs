@@ -4,6 +4,10 @@ using System.Text.Json;
 
 namespace FsusBlog.Contracts.Schema;
 
+/// <summary>
+/// Seals current extractor facts with versioned digests and derives semantic and provider-specific schema projections.
+/// </summary>
+/// <remarks>Projection and identity verification do not observe a live database or grant permission to apply a migration.</remarks>
 public static class CurrentSchemaCanonicalAuthority
 {
     public const string ModelVersion = "fsusblog.current-schema.v4";
@@ -64,7 +68,8 @@ public static class CurrentSchemaCanonicalAuthority
                     },
                     StringComparer.Ordinal),
                 table.Value.Indexes,
-                table.Value.IndexDefinitions.ToDictionary(static index => index.Key, static index => index.Value, StringComparer.Ordinal),
+                table.Value.IndexDefinitions.ToDictionary(static index => index.Key,
+                    index => CopyIndexExpressions(index.Value, table.Value.Columns, provider), StringComparer.Ordinal),
                 table.Value.Constraints.ToDictionary(static constraint => constraint.Key, static constraint => constraint.Value, StringComparer.Ordinal),
                 table.Value.Owner)
             {
@@ -115,14 +120,20 @@ public static class CurrentSchemaCanonicalAuthority
             foreach ((string name, SchemaColumnModel column) in original.Columns)
             {
                 // Original recipes use BY DEFAULT identity, unlike entity serials.
-                columns[name] = columns[name] with { GenerationKind = column.GenerationKind };
+                columns[name] = columns[name] with
+                {
+                    GenerationKind = column.GenerationKind
+                };
             }
             var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal);
             var indexes = new Dictionary<string, SchemaIndexModel>(physical.IndexDefinitions, StringComparer.Ordinal);
             foreach (SchemaConstraintModel constraint in physical.Constraints.Values)
             {
                 string name = constraint.Kind == "primary-key" ? "pk_" + physical.Name : constraint.Name;
-                constraints.Add(name, constraint with { Name = name });
+                constraints.Add(name, constraint with
+                {
+                    Name = name
+                });
                 if (constraint.Kind == "unique")
                 {
                     indexes.Add(name, ConstraintIndex(name, constraint.Columns));
@@ -171,7 +182,9 @@ public static class CurrentSchemaCanonicalAuthority
             switch (operation.Kind)
             {
                 case CurrentSchemaRecipeOperationKind.CreateIndex:
-                    SchemaIndexModel index = operation.Index ?? throw new InvalidOperationException("current_schema_complete_target_effect_index_missing");
+                    SchemaIndexModel index = operation.Index
+                        ?? throw new InvalidOperationException("current_schema_complete_target_effect_index_missing");
+                    _ = CopyIndexExpressions(index, columns, provider);
                     if (index.Name != operation.Name || !indexes.TryAdd(index.Name, index))
                     {
                         throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");
@@ -413,7 +426,10 @@ public static class CurrentSchemaCanonicalAuthority
             {
                 throw new InvalidOperationException("current_schema_complete_target_constraint_provider_unavailable");
             }
-            if (!constraints.TryAdd(constraintName, constraint with { Name = constraintName }))
+            if (!constraints.TryAdd(constraintName, constraint with
+            {
+                Name = constraintName
+            }))
             {
                 throw new InvalidOperationException("current_schema_complete_target_constraint_provider_unavailable");
             }
@@ -424,7 +440,11 @@ public static class CurrentSchemaCanonicalAuthority
                 // semantic/source/content identity retain the declared nullability.
                 foreach (string name in constraint.Columns)
                 {
-                    columns[name] = columns[name] with { IsNullable = false, IsPrimaryKey = true };
+                    columns[name] = columns[name] with
+                    {
+                        IsNullable = false,
+                        IsPrimaryKey = true
+                    };
                 }
             }
             ordinal++;
@@ -472,12 +492,19 @@ public static class CurrentSchemaCanonicalAuthority
             {
                 throw new InvalidOperationException("current_schema_complete_target_index_null_placement_unavailable");
             }
-            return key with { NullPlacement = nulls, Collation = provider == SchemaProviderKind.Sqlite ? "BINARY" : "default" };
+            return key with
+            {
+                NullPlacement = nulls,
+                Collation = provider == SchemaProviderKind.Sqlite ? "BINARY" : "default"
+            };
         }).ToArray();
-        return index with { Keys = keys };
+        return index with
+        {
+            Keys = keys
+        };
     }
 
-    private static string ProjectStorageConversion(SchemaColumnModel column)
+    internal static string ProjectStorageConversion(SchemaColumnModel column)
     {
         // Conversion is the compiled CLR/ORM converter, not a database catalog
         // property. Its original value remains in the semantic model, owner input
@@ -516,6 +543,9 @@ public static class CurrentSchemaCanonicalAuthority
 
     public static string ComputeContentDigest(IReadOnlyDictionary<string, SchemaTableModel> tables)
     {
+        foreach (SchemaTableModel table in tables.Values)
+            foreach (SchemaIndexModel index in table.IndexDefinitions.Values)
+                _ = CopyIndexExpressions(index, table.Columns, SchemaProviderKind.Semantic);
         var canonical = tables
             .OrderBy(static table => table.Key, StringComparer.Ordinal)
             .Select(table => new
@@ -585,11 +615,12 @@ public static class CurrentSchemaCanonicalAuthority
     {
         var tables = source.ToDictionary(
             static table => table.Key,
-            static table => new SchemaTableModel(
+            table => new SchemaTableModel(
                 table.Value.Name,
                 table.Value.Columns.ToDictionary(static column => column.Key, static column => column.Value, StringComparer.Ordinal),
                 table.Value.Indexes,
-                table.Value.IndexDefinitions.ToDictionary(static index => index.Key, static index => index.Value, StringComparer.Ordinal),
+                table.Value.IndexDefinitions.ToDictionary(static index => index.Key,
+                    index => CopyIndexExpressions(index.Value, table.Value.Columns, provider), StringComparer.Ordinal),
                 table.Value.Constraints.ToDictionary(static constraint => constraint.Key, static constraint => constraint.Value, StringComparer.Ordinal),
                 table.Value.Owner)
             {
@@ -603,6 +634,23 @@ public static class CurrentSchemaCanonicalAuthority
         => provider == SchemaProviderKind.PostgreSql && column.IsIdentity
             ? "owned-sequence-default"
             : "none";
+
+    private static SchemaIndexModel CopyIndexExpressions(SchemaIndexModel index,
+        IReadOnlyDictionary<string, SchemaColumnModel> columns, SchemaProviderKind provider)
+    {
+        if (!index.Keys.Any(static key => key.Expression is not null))
+            return index;
+        if (provider is not (SchemaProviderKind.Semantic or SchemaProviderKind.PostgreSql)
+            || index.IsUnique || index.AccessMethod != "btree")
+            throw new InvalidOperationException("current_schema_index_expression_provider_unavailable");
+        return index with
+        {
+            Keys = index.Keys.Select(key => key.Expression is null ? key : key with
+            {
+                Expression = SchemaIndexExpressions.Require(key, columns)
+            }).ToArray()
+        };
+    }
 
     private static SchemaMySqlTablePhysicalFacts? CopyMySqlTableFacts(SchemaMySqlTablePhysicalFacts? facts)
         => facts is null ? null : facts with

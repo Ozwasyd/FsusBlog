@@ -1,0 +1,20 @@
+{
+  "source": "80a33e47d0d775aa6b445dfd994146a5c84fd745",
+  "worktreeClean": true,
+  "metadata": [
+    "FsusBlog.Server 80a33e47d0d775aa6b445dfd994146a5c84fd745",
+    "FsusBlog.Migration 80a33e47d0d775aa6b445dfd994146a5c84fd745"
+  ],
+  "binarySha256": {
+    "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "c573733d42cb6a6fea95c3921e02ad1362da18f96d2f3bf8790ce17f91b06d99",
+    "src/migration/bin/Debug/net10.0/FsusBlog.Migration.dll": "5753218e42ac83926754bfe45419715e5c5d6a6d552f432a4bf7117a8fbff56c",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "8ec4da7d2aa83fc4d5860d3aaa06439107140bddf29d531660d1b76702f2c4f5",
+    "tests/migration/bin/Debug/net10.0/FsusBlog.Migration.Tests.dll": "bc22d5671d821e0924bd364557a946ae4e95131d486d8719967b6b59cc3c3ac7",
+    "src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll": "d969176d7904c685c696af2c91ffb71db7d34925ca74b8c89f12dbb667642850",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "c573733d42cb6a6fea95c3921e02ad1362da18f96d2f3bf8790ce17f91b06d99",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Migration.dll": "5753218e42ac83926754bfe45419715e5c5d6a6d552f432a4bf7117a8fbff56c",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Shared.dll": "d969176d7904c685c696af2c91ffb71db7d34925ca74b8c89f12dbb667642850",
+    "tests/migration/bin/Debug/net10.0/FsusBlog.Migration.dll": "5753218e42ac83926754bfe45419715e5c5d6a6d552f432a4bf7117a8fbff56c",
+    "tests/migration/bin/Debug/net10.0/FsusBlog.Shared.dll": "d969176d7904c685c696af2c91ffb71db7d34925ca74b8c89f12dbb667642850"
+  }
+}

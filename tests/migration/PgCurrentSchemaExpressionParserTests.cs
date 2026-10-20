@@ -158,5 +158,46 @@ public sealed class PgCurrentSchemaExpressionParserTests
             PgCurrentSchemaExpressionParser.ParseObservedDefault("'2'::" + physicalType, column, s_columns)));
     }
 
+    [Theory]
+    [InlineData("rate BETWEEN 0.1 AND 4", "rate >= (0.1)::double precision AND rate <= (4)::double precision")]
+    [InlineData("rate >= -10000000", "rate >= ('-10000000'::integer)::double precision")]
+    [InlineData("0.1 <= rate", "(0.1)::double precision <= rate")]
+    public void DirectDoubleComparison_RetainsTheVerifiedNativeLiteralDomain(string original, string observed)
+    {
+        var columns = new Dictionary<string, SchemaColumnModel>
+        {
+            ["rate"] = new("rate", false, false, false, null, "double", PhysicalType: "double precision")
+        };
+        Assert.True(SchemaExpressionIdentity.Equal(PgCurrentSchemaExpressionParser.Parse(original, columns),
+            PgCurrentSchemaExpressionParser.Parse(observed, columns)));
+    }
+
+    [Theory]
+    [InlineData("rate >= 0.1", "rate >= (0.1)::real")]
+    [InlineData("rate >= 0.1", "rate >= 0.1000000001")]
+    [InlineData("rate >= 0.5", "rate >= ((1::numeric / 2)::double precision)")]
+    [InlineData("rate / 2 > 0", "rate / 2.0 > 0")]
+    public void DirectDoubleComparison_DoesNotEraseOtherCastsArithmeticOrChangedValues(string original, string observed)
+    {
+        var columns = new Dictionary<string, SchemaColumnModel>
+        {
+            ["rate"] = new("rate", false, false, false, null, "double", PhysicalType: "double precision")
+        };
+        Assert.False(SchemaExpressionIdentity.Equal(PgCurrentSchemaExpressionParser.Parse(original, columns),
+            PgCurrentSchemaExpressionParser.Parse(observed, columns)));
+    }
+
+    [Fact]
+    public void JsonbLiteralAssignment_RetainsItsStorageCastAndExactContent()
+    {
+        var column = new SchemaColumnModel("payload", false, false, false, null, "json", "'{}'", PhysicalType: "jsonb");
+        SchemaExpressionNode expected = PgCurrentSchemaExpressionParser.ParseExpectedDefault(column, s_columns);
+        Assert.True(SchemaExpressionIdentity.Equal(expected,
+            PgCurrentSchemaExpressionParser.ParseObservedDefault("'{}'::jsonb", column, s_columns)));
+        foreach (string drift in new[] { "'{}'::json", "'{\"x\":1}'::jsonb", "' {}'::jsonb" })
+            Assert.False(SchemaExpressionIdentity.Equal(expected,
+                PgCurrentSchemaExpressionParser.ParseObservedDefault(drift, column, s_columns)));
+    }
+
     private static SchemaExpressionNode Parse(string expression) => PgCurrentSchemaExpressionParser.Parse(expression, s_columns);
 }

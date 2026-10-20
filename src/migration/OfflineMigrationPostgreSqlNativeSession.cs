@@ -9,13 +9,37 @@ using SqlSugar;
 namespace FsusBlog.Migration;
 
 /// <summary>
-/// Owns one real SqlSugar/Npgsql connection and read-only repeatable-read transaction.
+/// Owns the source reader's SqlSugar/Npgsql read-only repeatable-read session, or
+/// borrows the original apply owner's proven native write context without lifecycle ownership.
 /// Content vocabulary belongs to the source observer; dump execution belongs to the backup
 /// owner. Caller cancellation carries the original operation owner's explicit deadline.
 /// A returned result means owned native disposal completed, not provider/restore acceptance.
 /// </summary>
 internal static class OfflineMigrationPostgreSqlNativeSession
 {
+    // Native write adapter for a compiled owner. The read-only SqlSugar factory
+    // below cannot supply this capability. No connection/transaction is opened,
+    // registered, committed, rolled back, detached or disposed by this borrower.
+    internal static async Task<T> WithOriginalWriteAsync<T>(
+        OfflineMigrationApplyNativeSession.OwnedReadContext originalWrite,
+        Func<NpgsqlConnection, NpgsqlTransaction, CancellationToken, Task<T>> write,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(originalWrite);
+        ArgumentNullException.ThrowIfNull(write);
+        using CancellationTokenSource scope = originalWrite.CreateReadScope(cancellationToken);
+        _ = originalWrite.RequirePostgreSqlWriteLock();
+        await originalWrite.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        if (originalWrite.OriginalConnection is not NpgsqlConnection connection
+            || originalWrite.OriginalTransaction is not NpgsqlTransaction transaction)
+            throw new InvalidOperationException("offline_apply_original_postgresql_write_required");
+        OfflineMigrationSourceObserver.RequirePostgreSqlStageSession(connection, transaction);
+        T result = await write(connection, transaction, scope.Token).ConfigureAwait(false);
+        await originalWrite.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        scope.Token.ThrowIfCancellationRequested();
+        return result;
+    }
+
     internal static Task<OfflineMigrationSourceObservation> ObserveAsync(
         string connectionString,
         Func<DbConnection, DbTransaction, CancellationToken, Task<OfflineMigrationSourceObservation>> observe,

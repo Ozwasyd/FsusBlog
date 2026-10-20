@@ -149,6 +149,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.CreatedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
         ValidateCreateRequest(request);
 
@@ -253,6 +254,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.CreatedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
         ValidateRevisionRequest(request);
 
@@ -432,6 +434,7 @@ public static class ArticleLifecycleTransitionWriter
             now,
             after.Status == ArticleStatus.Published && !after.IsDeleted ? now : null);
         await db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+        await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
         string contentDigest = await ComputeRevisionContentDigestAsync(db, revision.Id, cancellationToken)
             .ConfigureAwait(false);
         AuthoringSignedAuditWriter.ChainWrite audit = await WriteAuditAsync(
@@ -471,6 +474,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.DeletedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
         if (request.ArticleId <= 0 || request.ExpectedRevisionId <= 0 || string.IsNullOrWhiteSpace(request.SemanticRole))
         {
@@ -526,6 +530,7 @@ public static class ArticleLifecycleTransitionWriter
             now,
             now);
         await db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+        await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
         string contentDigest = await ComputeRevisionContentDigestAsync(db, request.ExpectedRevisionId, cancellationToken)
             .ConfigureAwait(false);
         AuthoringSignedAuditWriter.ChainWrite audit = await WriteAuditAsync(
@@ -562,6 +567,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.RestoredByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
         if (request.ArticleId <= 0 || request.ExpectedRevisionId <= 0 || string.IsNullOrWhiteSpace(request.SemanticRole))
         {
@@ -717,6 +723,7 @@ public static class ArticleLifecycleTransitionWriter
             now,
             now);
         await db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+        await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
         string contentDigest = await ComputeRevisionContentDigestAsync(db, revision.Id, cancellationToken)
             .ConfigureAwait(false);
         AuthoringSignedAuditWriter.ChainWrite audit = await WriteAuditAsync(
@@ -753,6 +760,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
         if (request.TargetRevisionId <= 0 || string.IsNullOrWhiteSpace(request.RollbackReason))
         {
             throw new ArgumentException("rollback target and reason are required", nameof(request));
@@ -887,6 +895,7 @@ public static class ArticleLifecycleTransitionWriter
             now,
             now);
         await db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+        await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
         string contentDigest = await ComputeRevisionContentDigestAsync(db, revision.Id, cancellationToken)
             .ConfigureAwait(false);
         AuthoringSignedAuditWriter.ChainWrite audit = await WriteAuditAsync(
@@ -926,6 +935,7 @@ public static class ArticleLifecycleTransitionWriter
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(request);
+        await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
         await RequireActiveAdminAsync(db, request.PublishedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
         if (request.ArticleId <= 0 || request.ExpectedRevisionId <= 0 || string.IsNullOrWhiteSpace(request.SemanticRole))
         {
@@ -992,6 +1002,7 @@ public static class ArticleLifecycleTransitionWriter
             now,
             now);
         await db.Insertable(outbox).ExecuteCommandAsync().ConfigureAwait(false);
+        await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
         string contentDigest = await ComputeRevisionContentDigestAsync(db, request.ExpectedRevisionId, cancellationToken)
             .ConfigureAwait(false);
         AuthoringSignedAuditWriter.ChainWrite audit = await WriteAuditAsync(

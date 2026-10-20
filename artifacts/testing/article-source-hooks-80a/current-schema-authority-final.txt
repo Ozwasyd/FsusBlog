@@ -1,0 +1,1 @@
+[current-schema-authority] ok canonical=1 adapters=3 verifier=1

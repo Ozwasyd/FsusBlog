@@ -52,6 +52,43 @@ function check(root)
     });
 }
 
+for (const [table, definition, migrationId, column] of [
+    ["taxonomy_mutation_receipt", "TaxonomyMutationReceiptMigrationDefinitions.cs", "20261018-post-taxonomy-mutation-receipt", "target_id"],
+    ["user_locale_mutation_receipt", "UserLocaleMutationReceiptMigrationDefinitions.cs", "20261018-post-user-locale-mutation-receipt", "account_id"]
+])
+{
+    test(`required ${table} migration ID drift is rejected`, (t) =>
+    {
+        const root = fixture(t);
+        mutate(root, `src/migration/Definitions/${definition}`, (source) =>
+        {
+            assert.equal(source.split(migrationId).length, 2);
+            return source.replace(migrationId, `${migrationId}-changed`);
+        });
+        const result = check(root);
+        assert.notEqual(result.status, 0);
+        assert.ok(result.stderr.includes(`"${table}" is not created by the PostCodeFirst rollup EnsureTable methods`));
+    });
+
+    test(`required ${table} original DDL drift is rejected`, (t) =>
+    {
+        const root = fixture(t);
+        mutate(root, "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs", (source) =>
+        {
+            const declaration = new RegExp(`(new\\(\\s*"${table}"\\s*,\\s*"""[\\s\\S]*?)"""`, "u");
+            assert.equal([...source.matchAll(new RegExp(declaration.source, "gu"))].length, 1);
+            return source.replace(declaration, (block) =>
+            {
+                assert.ok(block.includes(`${column} integer NOT NULL`));
+                return block.replace(`${column} integer NOT NULL`, `${column} bigint NOT NULL`);
+            });
+        });
+        const result = check(root);
+        assert.notEqual(result.status, 0);
+        assert.ok(result.stderr.includes(`CREATE TABLE SQL for "${table}" does not match the PostCodeFirst EnsureTable step`));
+    });
+}
+
 test("canonical allowed-extra-tables register is accepted", (t) =>
 {
     const root = fixture(t);

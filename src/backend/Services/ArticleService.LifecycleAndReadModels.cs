@@ -80,9 +80,10 @@ public partial class ArticleService
                         beforeScope with
                         {
                             Visibility = "deleted"
-                        });
+                        },
+                        ct);
                 }
-            });
+            }, ct);
             ct.ThrowIfCancellationRequested();
             mutationCommitted = result.IsSuccess && success;
             if (mutationCommitted && IsArticleVaultGroupTransaction)
@@ -135,6 +136,7 @@ public partial class ArticleService
         bool success = false;
         var result = await _db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(_db, ct).ConfigureAwait(false);
             int updated = await _db.Ado.ExecuteCommandAsync(
                 """
                 UPDATE article
@@ -169,7 +171,8 @@ public partial class ArticleService
                     beforeScope with
                     {
                         Visibility = "published"
-                    });
+                    },
+                    ct);
             }
         });
         ct.ThrowIfCancellationRequested();
@@ -207,6 +210,7 @@ public partial class ArticleService
 
         var result = await _db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(_db, ct).ConfigureAwait(false);
             bool locked = await LockDeletedArticleForMutationAsync(id, state.RowVersion);
             if (!locked)
             {
@@ -224,7 +228,8 @@ public partial class ArticleService
                     beforeScope with
                     {
                         Visibility = "absent"
-                    }),
+                    },
+                    ct),
                 ct).ConfigureAwait(false);
         });
 
@@ -254,6 +259,7 @@ public partial class ArticleService
         ct.ThrowIfCancellationRequested();
         var result = await _db.Ado.UseTranAsync(async () =>
         {
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(_db, ct).ConfigureAwait(false);
             List<TrashArticleRow> lockedTrashArticles = await LoadTrashArticlesForUpdateAsync(ct);
             if (lockedTrashArticles.Count == 0)
             {
@@ -279,7 +285,8 @@ public partial class ArticleService
                     scopes[articleId] with
                     {
                         Visibility = "absent"
-                    }),
+                    },
+                    ct),
                 ct).ConfigureAwait(false);
         });
 

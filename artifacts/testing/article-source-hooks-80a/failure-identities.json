@@ -1,0 +1,100 @@
+{
+  "source": "80a33e47d0d775aa6b445dfd994146a5c84fd745",
+  "testRunId": "f7f92c56-7e9e-46bb-a1cb-2da996f1aab8",
+  "times": {
+    "creation": "2026-10-20T10:26:09.9636420+00:00",
+    "queuing": "2026-10-20T10:26:09.9636420+00:00",
+    "start": "2026-10-20T10:25:53.7994850+00:00",
+    "finish": "2026-10-20T10:46:58.1479444+00:00"
+  },
+  "currentTrxUncompressedSha256": "d4cc2de0a1b1adea916d2d6f944874e837100318984ec3ef29ff977d167496b9",
+  "currentFailures": [
+    {
+      "executionId": "230f4984-5afe-4a8b-9232-3454143ae25b",
+      "testId": "99654f17-a3f4-0c04-1d59-fc9922e70c68",
+      "testName": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"family\")",
+      "computerName": "773f68bd78b2",
+      "duration": "00:00:06.4012070",
+      "startTime": "2026-10-20T10:40:34.3976621+00:00",
+      "endTime": "2026-10-20T10:40:40.8062749+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Failed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "230f4984-5afe-4a8b-9232-3454143ae25b",
+      "message": "Npgsql.PostgresException : 23514: new row for relation \"article_source_generation\" violates check constraint \"ck_article_source_generation_positive\"\n\nDETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.",
+      "stackTrace": "   at Npgsql.Internal.NpgsqlConnector.ReadMessageLong(Boolean async, DataRowLoadingMode dataRowLoadingMode, Boolean readingNotifications, Boolean isReadingPrependedMessage)\n   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteNonQuery(Boolean async, CancellationToken cancellationToken)\n   at SqlSugar.AdoProvider.ExecuteCommandAsync(String sql, SugarParameter[] parameters)\n   at FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(String counter) in /workspace/FsusBlog/tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs:line 393\n--- End of stack trace from previous location ---",
+      "outcomeAt46b": "Passed"
+    },
+    {
+      "executionId": "f2f867f1-3526-4303-9b5d-1ed4e48ccac7",
+      "testId": "84a0a360-589b-ff29-b626-d6f89bfe0580",
+      "testName": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"default-null\")",
+      "computerName": "773f68bd78b2",
+      "duration": "00:00:29.8211272",
+      "startTime": "2026-10-20T10:34:19.5951513+00:00",
+      "endTime": "2026-10-20T10:34:49.4405268+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Failed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "f2f867f1-3526-4303-9b5d-1ed4e48ccac7",
+      "message": "Assert.Throws() Failure: No exception was thrown\nExpected: typeof(FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException)",
+      "stackTrace": "   at FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(String drift) in /workspace/FsusBlog/tests/backend/Unit/CurrentSchemaRuntimeRollupTablesTests.cs:line 290\n   at FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(String drift) in /workspace/FsusBlog/tests/backend/Unit/CurrentSchemaRuntimeRollupTablesTests.cs:line 307\n--- End of stack trace from previous location ---",
+      "outcomeAt46b": "not selected in frozen619"
+    },
+    {
+      "executionId": "756d54ed-3866-45dc-96c4-c44f2a162f50",
+      "testId": "e05d76cc-7cd7-0e39-0b82-b182af063000",
+      "testName": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"sequence\")",
+      "computerName": "773f68bd78b2",
+      "duration": "00:00:06.8191759",
+      "startTime": "2026-10-20T10:40:40.8130664+00:00",
+      "endTime": "2026-10-20T10:40:47.6273989+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Failed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "756d54ed-3866-45dc-96c4-c44f2a162f50",
+      "message": "Npgsql.PostgresException : 23514: new row for relation \"article_source_sequence\" violates check constraint \"ck_article_source_sequence_positive\"\n\nDETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.",
+      "stackTrace": "   at Npgsql.Internal.NpgsqlConnector.ReadMessageLong(Boolean async, DataRowLoadingMode dataRowLoadingMode, Boolean readingNotifications, Boolean isReadingPrependedMessage)\n   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteNonQuery(Boolean async, CancellationToken cancellationToken)\n   at SqlSugar.AdoProvider.ExecuteCommandAsync(String sql, SugarParameter[] parameters)\n   at FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(String counter) in /workspace/FsusBlog/tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs:line 393\n--- End of stack trace from previous location ---",
+      "outcomeAt46b": "Passed"
+    },
+    {
+      "executionId": "fe3a5f27-e36a-4372-8dad-d6779f128358",
+      "testId": "6ba5d87d-18d6-a23a-3f79-72117aada9ff",
+      "testName": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"journal\")",
+      "computerName": "773f68bd78b2",
+      "duration": "00:00:05.5291838",
+      "startTime": "2026-10-20T10:40:47.6288431+00:00",
+      "endTime": "2026-10-20T10:40:53.1600209+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Failed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "fe3a5f27-e36a-4372-8dad-d6779f128358",
+      "message": "Npgsql.PostgresException : 23514: new row for relation \"article_source_mutation\" violates check constraint \"ck_article_source_mutation_generation\"\n\nDETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.",
+      "stackTrace": "   at Npgsql.Internal.NpgsqlConnector.ReadMessageLong(Boolean async, DataRowLoadingMode dataRowLoadingMode, Boolean readingNotifications, Boolean isReadingPrependedMessage)\n   at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1.StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult(Int16 token)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlDataReader.NextResult(Boolean async, Boolean isConsuming, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteReader(Boolean async, CommandBehavior behavior, CancellationToken cancellationToken)\n   at Npgsql.NpgsqlCommand.ExecuteNonQuery(Boolean async, CancellationToken cancellationToken)\n   at SqlSugar.AdoProvider.ExecuteCommandAsync(String sql, SugarParameter[] parameters)\n   at FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(String counter) in /workspace/FsusBlog/tests/backend/Integration/ArticleSourceGenerationAuthorityIntegrationTests.cs:line 393\n--- End of stack trace from previous location ---",
+      "outcomeAt46b": "Passed"
+    }
+  ],
+  "frozen46bOriginalFourFailuresNow": [
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"user_locale_mutation_receipt\", sqlState: \"55000\")",
+      "outcomeAt46b": "Failed",
+      "outcomeAt80a": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.OriginalAndCompiledReceipts_PreserveNativeFactsAndRejectGuardDrift(table: \"taxonomy_mutation_receipt\", sqlState: \"P0001\")",
+      "outcomeAt46b": "Failed",
+      "outcomeAt80a": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.ActualReceiptTableAndGuardMustBeRepresentedByTheOriginalCurrentSchemaOwner(table: \"user_locale_mutation_receipt\")",
+      "outcomeAt46b": "Failed",
+      "outcomeAt80a": "Passed"
+    },
+    {
+      "name": "FsusBlog.Server.Tests.Integration.SourceReceiptSchemaCoveragePostgresTests.ActualReceiptTableAndGuardMustBeRepresentedByTheOriginalCurrentSchemaOwner(table: \"taxonomy_mutation_receipt\")",
+      "outcomeAt46b": "Failed",
+      "outcomeAt80a": "Passed"
+    }
+  ],
+  "sameFailureSetAs46b": false
+}

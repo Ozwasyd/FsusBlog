@@ -41,18 +41,36 @@ public readonly record struct HistoricalMigrationFence : IComparable<HistoricalM
         IsClassificationValue = classificationValue;
     }
 
-    public string Value { get; }
+    public string Value
+    {
+        get;
+    }
 
-    public string SortKey { get; }
+    public string SortKey
+    {
+        get;
+    }
 
-    public bool IsLegacy { get; }
+    public bool IsLegacy
+    {
+        get;
+    }
 
-    internal bool IsClassificationValue { get; }
+    internal bool IsClassificationValue
+    {
+        get;
+    }
 
-    public static HistoricalMigrationFence Minimum { get; } =
+    public static HistoricalMigrationFence Minimum
+    {
+        get;
+    } =
         new(MinimumValue, MinimumValue, legacy: false, classificationValue: true);
 
-    public static HistoricalMigrationFence Maximum { get; } =
+    public static HistoricalMigrationFence Maximum
+    {
+        get;
+    } =
         new(MaximumValue, MaximumValue, legacy: false, classificationValue: true);
 
     /// <summary>Retains the original historical date/suffix normalization only.</summary>
@@ -1751,6 +1769,90 @@ public static class OfflineMigrationClassificationFacts
                     "article_property_definition_history_signed_audit_binding",
                     "article_property_definition_authenticated_forward_replay",
                     "article_property_definition_history_write_isolation"
+                ]));
+
+        result.Add(
+            "20261018-post-article-source-generation",
+            new OfflineMigrationClassificationFact(
+                "20261018-post-article-source-generation",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261018-article-source-generation"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write"
+                ]));
+
+        result.Add(
+            "20261018-post-taxonomy-mutation-receipt",
+            new OfflineMigrationClassificationFact(
+                "20261018-post-taxonomy-mutation-receipt",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261018-taxonomy-mutation-receipt"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write"
+                ]));
+
+        result.Add(
+            "20261018-post-user-locale-mutation-receipt",
+            new OfflineMigrationClassificationFact(
+                "20261018-post-user-locale-mutation-receipt",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261018-user-locale-mutation-receipt"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write"
+                ]));
+
+        result.Add(
+            "20261018-post-article-source-receipt-origins",
+            new OfflineMigrationClassificationFact(
+                "20261018-post-article-source-receipt-origins",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Medium,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261018-article-source-receipt-origins"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write"
                 ]));
 
         foreach (string id in result.Keys.ToArray())

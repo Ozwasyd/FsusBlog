@@ -131,6 +131,7 @@ public sealed class AuthoringContentTransferService(
 
     public async Task<ContentImportResponse> ImportArticleAsync(ContentImportRequest request, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ParsedFrontmatter parsed = ParseFrontmatter(request.MarkdownWithFrontmatter);
         ArticleStatus status = request.Publish
             ? ArticleStatus.Published
@@ -146,7 +147,7 @@ public sealed class AuthoringContentTransferService(
                 (int)status,
                 status == ArticleStatus.Scheduled ? parsed.ScheduledPublishAt : null,
                 Rights: null,
-                RightsMutation: FsusBlog.Core.Mapping.Models.ArticleRightsMutationMode.Preserve)));
+                RightsMutation: FsusBlog.Core.Mapping.Models.ArticleRightsMutationMode.Preserve)), cancellationToken);
         int articleId = createResult.IsSuccess ? createResult.Value : 0;
         int restoredRevisionCount = articleId > 0 && request.PreserveRevisions
             ? await RestoreImportedRevisionsAsync(articleId, parsed.Metadata, cancellationToken)
@@ -403,12 +404,18 @@ fsusMetadataJson: {encodedMetadata}
             return 0;
         }
 
+        if (metadata.Revisions.Any(static revision => revision.RevisionNo <= 0)
+            || metadata.Revisions.Select(static revision => revision.RevisionNo).Distinct().Count() != metadata.Revisions.Count)
+        {
+            throw new InvalidOperationException("Imported revision numbers must be positive and unique.");
+        }
+
         var revisions = metadata.Revisions
             .OrderBy(static revision => revision.RevisionNo)
             .Select(revision => new ArticleRevision
             {
                 ArticleId = articleId,
-                RevisionNo = Math.Max(1, revision.RevisionNo),
+                RevisionNo = revision.RevisionNo,
                 Title = AuthoringNormalization.Normalize(revision.Title, 256),
                 Summary = TextHelpers.NormalizeNullable(revision.Summary, 512),
                 CoverImageUrl = TextHelpers.NormalizeNullable(revision.CoverImageUrl, 512),
@@ -428,22 +435,37 @@ fsusMetadataJson: {encodedMetadata}
         var transaction = await db.Ado.UseTranAsync(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            using var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+            await ArticleSourceGenerationAuthority.AcquireMutationLockAsync(db, cancellationToken).ConfigureAwait(false);
+            using (var reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
                 """
                 SELECT 1
                 FROM article
                 WHERE id = @ArticleId
                 FOR UPDATE;
                 """,
-                new SugarParameter("@ArticleId", articleId));
-            if (!await reader.ReadAsync(cancellationToken))
+                new SugarParameter("@ArticleId", articleId)))
             {
-                throw new InvalidOperationException("Article must exist before restoring imported revisions.");
+                if (!await reader.ReadAsync(cancellationToken))
+                {
+                    throw new InvalidOperationException("Article must exist before restoring imported revisions.");
+                }
             }
 
-            await db.Deleteable<ArticleRevision>().Where(it => it.ArticleId == articleId).ExecuteCommandAsync(cancellationToken);
+            // The create transaction has already issued immutable current/publication
+            // coordinates. Import adds history; it cannot replace those referenced rows.
+            // Map an overlapping source number range after the existing destination range,
+            // retaining source order and gaps without promoting an imported row to current.
+            int lastRevisionNo = await db.Queryable<ArticleRevision>()
+                .Where(revision => revision.ArticleId == articleId)
+                .OrderByDescending(revision => revision.RevisionNo)
+                .Select(revision => revision.RevisionNo)
+                .FirstAsync(cancellationToken).ConfigureAwait(false);
+            int offset = revisions[0].RevisionNo <= lastRevisionNo
+                ? checked(lastRevisionNo + 1 - revisions[0].RevisionNo)
+                : 0;
             foreach (ArticleRevision revision in revisions)
             {
+                revision.RevisionNo = checked(revision.RevisionNo + offset);
                 revision.ContentBlockId = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
                     db,
                     revision.MarkdownContent,
@@ -452,6 +474,11 @@ fsusMetadataJson: {encodedMetadata}
                 revision.MarkdownContent = string.Empty;
             }
             await db.Insertable(revisions).ExecuteCommandAsync(cancellationToken);
+            ArticleMutationOutboxEvent outbox = await ArticleMutationOutboxProducer.CreateCurrentAsync(
+                db, articleId, ArticleMutationEventTypes.Updated, DateTime.UtcNow, cancellationToken)
+                .ConfigureAwait(false);
+            await db.Insertable(outbox).ExecuteCommandAsync(cancellationToken).ConfigureAwait(false);
+            await ArticleSourceGenerationAuthority.RecordMutationAsync(db, outbox.EventId, cancellationToken).ConfigureAwait(false);
         });
         if (!transaction.IsSuccess)
         {

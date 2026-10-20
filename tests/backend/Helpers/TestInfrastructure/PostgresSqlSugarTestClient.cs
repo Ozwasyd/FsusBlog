@@ -159,5 +159,41 @@ internal static class PostgresSqlSugarTestClient
     }
 
     public static void InitTables(SqlSugarClient db, params Type[] entityTypes)
-        => db.CodeFirst.InitTables(entityTypes);
+    {
+        db.CodeFirst.InitTables(entityTypes);
+        bool taxonomy = entityTypes.Contains(typeof(FsusBlog.Server.Entities.Category))
+            || entityTypes.Contains(typeof(FsusBlog.Server.Entities.Tag));
+        bool locale = entityTypes.Contains(typeof(FsusBlog.Server.Entities.UserLocalePreference));
+        if (taxonomy)
+            db.CodeFirst.InitTables(typeof(FsusBlog.Server.Entities.Article), typeof(FsusBlog.Server.Entities.ArticleTag));
+        if (taxonomy || locale || entityTypes.Contains(typeof(FsusBlog.Server.Entities.ArticleMutationOutboxEvent)))
+        {
+            db.CodeFirst.InitTables(
+                typeof(FsusBlog.Server.Entities.ArticleSourceGeneration),
+                typeof(FsusBlog.Server.Entities.ArticleSourceSequence),
+                typeof(FsusBlog.Server.Entities.ArticleSourceMutation),
+                typeof(FsusBlog.Server.Entities.ArticleSourceObservation));
+            // Preserve the original partial CodeFirst source fixtures, which
+            // exercise authority rejection of actually corrupted persisted rows.
+            // The complete current-owner fixture also installs the real source
+            // migration constraints; production DDL is tested independently.
+            var requestedTypes = entityTypes.ToHashSet();
+            if (new FsusBlog.Server.Infrastructure.SchemaMigration.SchemaModelInspector()
+                .GetManagedEntityTypes().All(requestedTypes.Contains))
+                foreach (var step in FsusBlog.Migration.Definitions.ArticleSourceGenerationMigrationDefinitions.BuildMigration().Steps)
+                    step.ExecuteAsync(db, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        if (taxonomy || locale)
+        {
+            var descriptors = new List<FsusBlog.Migration.ISchemaMigrationDescriptor>();
+            if (taxonomy)
+                descriptors.Add(FsusBlog.Migration.Definitions.TaxonomyMutationReceiptMigrationDefinitions.BuildMigration());
+            if (locale)
+                descriptors.Add(FsusBlog.Migration.Definitions.UserLocaleMutationReceiptMigrationDefinitions.BuildMigration());
+            descriptors.Add(FsusBlog.Migration.Definitions.ArticleSourceReceiptOriginsMigrationDefinitions.BuildMigration());
+            foreach (var descriptor in descriptors)
+                foreach (var step in descriptor.Steps)
+                    step.ExecuteAsync(db, CancellationToken.None).GetAwaiter().GetResult();
+        }
+    }
 }

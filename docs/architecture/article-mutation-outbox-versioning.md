@@ -11,6 +11,74 @@
 
 Create, update, delete, restore, permanent-delete, trash-clear, scheduled publish, category/tag rename, rights proof, and responsibility update all use `ArticleMutationOutboxProducer` or the same ArticleService factory path. A producer must not write a legacy payload containing only `articleId` and `eventType`.
 
+## Source generation enrollment
+
+`ArticleSourceGenerationAuthority` from [#4127](https://github.com/Ozwasyd/FsusBlog/pull/4127)
+is the sole numeric source counter owner. The original writer borrows its own live
+native Npgsql ReadCommitted transaction, acquires the source family advisory lock
+before any article/advisory/row lock or mutation, and calls `RecordMutationAsync`
+with each actual outbox `EventId` immediately after insertion and before commit.
+Scheduled batches and Vault groups enroll every event in that same transaction.
+The authority does not begin or commit a transaction. Its returned cursor remains
+transaction-local until the original owner successfully commits; rollback removes
+the original mutation, outbox event, counters and enrollment together.
+
+The hooks cover the shared create and lifecycle writers, ArticleService's central
+recorder and direct restore/trash transactions, Vault's outer group transaction,
+canonical publication/lifecycle fixture transactions, scheduled publication,
+authoring draft creation, taxonomy rename, responsibility save and rights-proof
+projection. Definition writes also acquire the same family lock before their
+original owner/definition advisory locks and enroll the actual persisted receipt
+and command journal before the original commit. Security policy activation and
+rollback enroll the original policy/version snapshot in their original transaction.
+These observations use the same original allocator and numeric family counter.
+`article_source_observation` provides cross-origin generation uniqueness and retains
+the actual article EventId projection alongside the original article event journal;
+non-article observations have no invented article ID or per-article sequence.
+
+The four source tables are registered by
+`20261018-post-article-source-generation`; the additive DDL also installs checks
+when CodeFirst created the tables first. This DDL is a code-compatible Expand;
+source baseline activation still requires the original rollout owner to drain
+unenrolled old writers. That activation has not been qualified. Empty tables remain
+uninitialized, and schema expansion does not backfill a clock from historical IDs,
+timestamps, hashes or `xmin`.
+
+Import history adds revisions without deleting or updating any previously issued
+immutable revision. Positive, unique source revision numbers retain their order
+and gaps; an overlapping range is shifted after the destination's existing range
+while holding the original article row lock. Imported history never replaces the
+current/publication pointers or invents origin rights, responsibility or actor
+facts. The original current-event factory supplies the actual retained coordinates;
+its event and enrollment commit with the imported rows. Failure rolls that restore
+transaction back. The preceding article create remains a separate original
+transaction; the original immutable content-block store independently retains
+unreachable blocks on rollback, so this is not a whole-import atomicity claim.
+
+Integration for [#2237](https://github.com/Ozwasyd/FsusBlog/issues/2237) and
+[#3735](https://github.com/Ozwasyd/FsusBlog/issues/3735) remains incomplete.
+Offline migration requires RepeatableRead/Serializable and emits no
+article outbox event, so it cannot borrow this ReadCommitted-only authority without
+an original-owner transaction/event design. Direct demo/public fixture seeding and
+cleanup also remain outside the enrolled lifecycle path.
+
+The closed property-snapshot enrollment port reads the actual original canonical
+value snapshot/factset and immutable coordinates; it does not supply the missing
+value persistence producer on this branch. Complete taxonomy mutation receipts,
+locale changes/compensation, principal/session permission mutations and their
+original transaction participants remain required. An article clock plus the
+currently enrolled definition/policy changes must not be advertised as Search's
+complete source generation while any such source or baseline coverage is unavailable.
+Read-only RepeatableRead source snapshots can consistently consume committed
+generation/facts while the original ReadCommitted writers atomically commit changes;
+this does not admit an existing RepeatableRead migration write transaction to the
+ReadCommitted-only mutation API.
+
+Persisted source counters do not establish a verified corpus baseline or an
+`IndexGeneration`. Graph, Query and Canvas have not consumed these cursors. Code
+rollback must make any dependent source baseline unavailable before old unenrolled
+writers resume; retained clock rows alone cannot prove freshness after rollback.
+
 ## Replay ordering and idempotency
 
 After claim, the dispatcher validates column/payload agreement and resolves the revision, release, rights, and responsibility coordinates from PostgreSQL. If the current article pointer references another release/revision, the event is terminal superseded. Every unfinished required edge and the notification/integrity optional edges are persisted as `skipped`; `last_error` contains the same `superseded-by-release:<id>` or `superseded-by-revision:<id>` reason. Both `completed` and `skipped` are terminal edge states.

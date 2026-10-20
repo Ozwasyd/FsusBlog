@@ -69,13 +69,12 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 if (index.Name != operation.Name || index.Keys.Count == 0 || index.AccessMethod != "btree"
                     || index.IncludedColumns.Count != 0 || index.NullsNotDistinct)
                     throw new InvalidOperationException("current_schema_bootstrap_recipe_index_capability_unavailable");
-                RequireColumns(tables[operation.Table!], index.Keys.Select(static key => key.Column).ToArray());
                 string[] keys = index.Keys.Select(key =>
                 {
                     if (key.OperatorClass != "default" || key.Collation != "default"
                         || key.Direction is not ("asc" or "desc") || key.NullPlacement is not ("first" or "last"))
                         throw new InvalidOperationException("current_schema_bootstrap_recipe_index_key_invalid");
-                    return $"{Identifier(key.Column)} {key.Direction.ToUpperInvariant()} NULLS {key.NullPlacement.ToUpperInvariant()}";
+                    return $"{IndexValue(key, tables[operation.Table!])} {key.Direction.ToUpperInvariant()} NULLS {key.NullPlacement.ToUpperInvariant()}";
                 }).ToArray();
                 string where = index.Predicate is null ? "" : $" WHERE {Expression(index.Predicate)}";
                 sql = $"CREATE {(index.IsUnique ? "UNIQUE " : "")}INDEX {name} ON {Table()} ({string.Join(", ", keys)}){where};";
@@ -90,8 +89,10 @@ internal static partial class CurrentSchemaBootstrapCompiler
             case CurrentSchemaRecipeOperationKind.DefineImmutableGuard:
                 string error = operation.ErrorCode ?? throw new InvalidOperationException("current_schema_bootstrap_recipe_guard_missing");
                 _ = Identifier(error);
-                sql = $"CREATE FUNCTION {name}() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION '{error}'; END; $$ LANGUAGE plpgsql;";
-                expected = new(operation.Kind, operation.Name, ErrorCode: error);
+                string? sqlState = CurrentSchemaImmutableEffects.RequireSqlState(operation.SqlState);
+                string exceptionState = sqlState is null ? "" : $" USING ERRCODE = '{sqlState}'";
+                sql = $"CREATE FUNCTION {name}() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION '{error}'{exceptionState}; END; $$ LANGUAGE plpgsql;";
+                expected = new(operation.Kind, operation.Name, ErrorCode: error, SqlState: sqlState);
                 break;
             case CurrentSchemaRecipeOperationKind.RemoveTrigger:
                 sql = $"DROP TRIGGER IF EXISTS {name} ON {Table()};";
@@ -99,8 +100,11 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 break;
             case CurrentSchemaRecipeOperationKind.CreateImmutableTrigger:
                 string function = Identifier(operation.Function ?? throw new InvalidOperationException("current_schema_bootstrap_recipe_trigger_function_missing"));
-                sql = $"CREATE TRIGGER {name} BEFORE UPDATE OR DELETE ON {Table()} FOR EACH ROW EXECUTE FUNCTION {function}();";
-                expected = new(operation.Kind, operation.Name, operation.Table, Function: operation.Function);
+                CurrentSchemaImmutableTriggerFacts trigger = CurrentSchemaImmutableEffects.RequireTrigger(operation.Trigger);
+                string events = trigger.Events.HasFlag(CurrentSchemaTriggerEvents.Truncate) ? "UPDATE OR DELETE OR TRUNCATE" : "UPDATE OR DELETE";
+                string level = trigger.Level == CurrentSchemaTriggerLevel.Statement ? "STATEMENT" : "ROW";
+                sql = $"CREATE TRIGGER {name} BEFORE {events} ON {Table()} FOR EACH {level} EXECUTE FUNCTION {function}();";
+                expected = new(operation.Kind, operation.Name, operation.Table, Function: operation.Function, Trigger: operation.Trigger);
                 break;
             case CurrentSchemaRecipeOperationKind.InsertIfAbsent:
                 _ = Table();
@@ -115,14 +119,16 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 break;
             case CurrentSchemaRecipeOperationKind.AddColumnIfAbsent:
                 SchemaColumnModel column = operation.Column ?? throw new InvalidOperationException("current_schema_bootstrap_recipe_added_column_missing");
-                if (operation.Name != column.Name) throw new InvalidOperationException("current_schema_bootstrap_recipe_added_column_name_invalid");
+                if (operation.Name != column.Name)
+                    throw new InvalidOperationException("current_schema_bootstrap_recipe_added_column_name_invalid");
                 sql = $"ALTER TABLE {Table()} ADD COLUMN IF NOT EXISTS {RecipeColumn(column)};";
                 expected = new(operation.Kind, operation.Name, operation.Table, Column: column);
                 break;
             case CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent:
                 _ = Table();
                 SchemaConstraintModel constraint = operation.Constraint ?? throw new InvalidOperationException("current_schema_bootstrap_recipe_added_constraint_missing");
-                if (constraint.Name != operation.Name) throw new InvalidOperationException("current_schema_bootstrap_recipe_added_constraint_name_invalid");
+                if (constraint.Name != operation.Name)
+                    throw new InvalidOperationException("current_schema_bootstrap_recipe_added_constraint_name_invalid");
                 // The empty bootstrap has no existing recipe constraint. Refuse a
                 // conflicting pre-existing target through the original apply preflight.
                 sql = $"ALTER TABLE {Table()} ADD {RecipeConstraint(constraint, tables[operation.Table!], tables)};";
@@ -131,16 +137,20 @@ internal static partial class CurrentSchemaBootstrapCompiler
             default:
                 throw new InvalidOperationException("current_schema_bootstrap_recipe_operation_capability_unavailable");
         }
-        if (expected != operation) throw new InvalidOperationException("current_schema_bootstrap_recipe_unused_fact_invalid");
+        if (expected != operation)
+            throw new InvalidOperationException("current_schema_bootstrap_recipe_unused_fact_invalid");
         return new(sql, IsDdl: ddl);
     }
 
     private static string RecipeColumn(SchemaColumnModel column)
     {
-        if (column.ComputedExpression is not null || column.Conversion is not null || column.OwnedSequence is not null
+        if (column.ComputedExpression is not null || column.Conversion is not (null or "none") || column.OwnedSequence is not null
             || column.Collation is not ("default" or "n/a"))
             throw new InvalidOperationException("current_schema_bootstrap_recipe_column_capability_unavailable");
-        string type = PhysicalType(column with { IsIdentity = false });
+        string type = PhysicalType(column with
+        {
+            IsIdentity = false
+        });
         string identity = column.IsIdentity && column.GenerationKind == "identity-by-default"
             ? " GENERATED BY DEFAULT AS IDENTITY" : !column.IsIdentity && column.GenerationKind == "none" ? ""
             : throw new InvalidOperationException("current_schema_bootstrap_recipe_identity_capability_unavailable");
@@ -155,7 +165,8 @@ internal static partial class CurrentSchemaBootstrapCompiler
     {
         if (!constraint.IsValidated || constraint.IsInitiallyDeferred && !constraint.IsDeferrable)
             throw new InvalidOperationException("current_schema_bootstrap_recipe_constraint_state_invalid");
-        if (constraint.Kind != "check") RequireColumns(table, constraint.Columns);
+        if (constraint.Kind != "check")
+            RequireColumns(table, constraint.Columns);
         string clause;
         if (constraint.Kind == "foreign-key")
         {
@@ -167,13 +178,14 @@ internal static partial class CurrentSchemaBootstrapCompiler
             RequireColumns(parent, constraint.ReferencedColumns);
             clause = $"FOREIGN KEY ({Columns(constraint.Columns)}) REFERENCES {Identifier(parent.Name)} ({Columns(constraint.ReferencedColumns)}) ON UPDATE {Action(constraint.ForeignKeyUpdateAction)} ON DELETE {Action(constraint.ForeignKeyDeleteAction)}";
         }
-        else clause = constraint.Kind switch
-        {
-            "primary-key" => $"PRIMARY KEY ({Columns(constraint.Columns)})",
-            "unique" => $"UNIQUE ({Columns(constraint.Columns)})",
-            "check" when constraint.Columns.Count == 0 && !constraint.IsDeferrable => $"CHECK ({Expression(constraint.Expression)})",
-            _ => throw new InvalidOperationException("current_schema_bootstrap_recipe_constraint_capability_unavailable")
-        };
+        else
+            clause = constraint.Kind switch
+            {
+                "primary-key" => $"PRIMARY KEY ({Columns(constraint.Columns)})",
+                "unique" => $"UNIQUE ({Columns(constraint.Columns)})",
+                "check" when constraint.Columns.Count == 0 && !constraint.IsDeferrable => $"CHECK ({Expression(constraint.Expression)})",
+                _ => throw new InvalidOperationException("current_schema_bootstrap_recipe_constraint_capability_unavailable")
+            };
         string state = constraint.IsDeferrable
             ? constraint.IsInitiallyDeferred ? " DEFERRABLE INITIALLY DEFERRED" : " DEFERRABLE INITIALLY IMMEDIATE" : "";
         return $"CONSTRAINT {Identifier(constraint.Name)} {clause}{state}";

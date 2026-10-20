@@ -1049,6 +1049,20 @@ public sealed class SchemaModelInspectorTests
     }
 
     [Fact]
+    public void Comparer_StillRejectsManagedConversionDriftBetweenSemanticOwners()
+    {
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
+        SchemaModelSnapshot changed = CurrentSchemaCanonicalAuthority.Generate(canonical).Schema;
+        var columns = (Dictionary<string, SchemaColumnModel>)changed.Tables["synthetic_table"].Columns;
+        columns["payload"] = columns["payload"] with
+        {
+            Conversion = "none"
+        };
+        Assert.Contains(SchemaModelComparer.Compare(canonical.SemanticSchema, changed),
+            static error => error.StartsWith("conversion mismatch synthetic_table.payload", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void PostgreSqlProviderProjection_BindsPhysicalTypesCollationAndOwnedSequence()
     {
         CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract(

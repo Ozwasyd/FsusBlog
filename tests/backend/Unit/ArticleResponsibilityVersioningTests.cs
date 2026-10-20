@@ -72,6 +72,9 @@ public sealed class ArticleResponsibilityVersioningTests(PostgresSchemaMigration
         Assert.Equal(snapshots[0].Id, events[0].ResponsibilitySnapshotId);
         Assert.Equal(snapshots[1].Id, events[1].ResponsibilitySnapshotId);
         Assert.Equal(currentPublication.Id, events[1].ArticlePublicationId);
+        Assert.Equal(2, (await db.Queryable<ArticleSourceGeneration>().SingleAsync()).SourceGeneration);
+        Assert.Equal(events.Select(item => item.EventId), await db.Queryable<ArticleSourceMutation>()
+            .OrderBy(item => item.SourceGeneration).Select(item => item.EventId).ToListAsync());
         using JsonDocument payload = JsonDocument.Parse(events[1].PayloadJson);
         Assert.Equal(2, payload.RootElement.GetProperty("responsibilityVersion").GetInt32());
         Assert.Equal(snapshots[1].Id, payload.RootElement.GetProperty("responsibilitySnapshotId").GetInt64());
@@ -118,6 +121,8 @@ public sealed class ArticleResponsibilityVersioningTests(PostgresSchemaMigration
         Assert.Contains("not saved atomically", error.Message, StringComparison.Ordinal);
         Assert.Equal(0, await db.Queryable<ArticleResponsibilitySnapshot>().CountAsync());
         Assert.Equal(0, await db.Queryable<ArticleMutationOutboxEvent>().CountAsync());
+        Assert.Equal(0, await db.Queryable<ArticleSourceGeneration>().CountAsync());
+        Assert.Equal(0, await db.Queryable<ArticleSourceMutation>().CountAsync());
         Assert.Equal(1, await db.Queryable<ArticlePublicationRecord>().CountAsync());
         Article current = Assert.IsType<Article>(await db.Queryable<Article>().InSingleAsync(articleId));
         Assert.Equal(initialPublicationId, current.CurrentPublicationId);
