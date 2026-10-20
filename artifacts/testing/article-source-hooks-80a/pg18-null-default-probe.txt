@@ -1,0 +1,11 @@
+BEGIN
+CREATE TABLE
+ALTER TABLE
+ALTER TABLE
+ attname | has_native_default |     native_default      
+---------+--------------------+-------------------------
+ digest  | t                  | NULL::character varying
+ payload | f                  | 
+(2 rows)
+
+ROLLBACK

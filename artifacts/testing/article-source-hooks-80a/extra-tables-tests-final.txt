@@ -1,0 +1,167 @@
+✔ required taxonomy_mutation_receipt migration ID drift is rejected (149.215781ms)
+✔ required taxonomy_mutation_receipt original DDL drift is rejected (122.127426ms)
+✔ required user_locale_mutation_receipt migration ID drift is rejected (132.361899ms)
+✔ required user_locale_mutation_receipt original DDL drift is rejected (175.286453ms)
+✖ canonical allowed-extra-tables register is accepted (204.344539ms)
+✖ a SugarTable entity listed as allowed extra is rejected (dead entry) (261.54763ms)
+✔ a migration-created table missing from the allowlist is rejected (drift) (158.221005ms)
+✖ a required rollup table listed as optional extra is rejected (95.700036ms)
+✔ required rollup CREATE TABLE SQL drift is rejected (102.760944ms)
+✔ a PostCodeFirst rollup table missing from the required catalog is rejected (198.363654ms)
+✖ complete PropertyDefinition history tables bind to their registered migration (92.338728ms)
+✔ PropertyDefinition history migration ID absence is rejected (80.920726ms)
+✔ PropertyDefinition history migration ID drift is rejected (85.675336ms)
+✔ required article_property_definition_history CREATE TABLE SQL drift is rejected (83.480725ms)
+✔ required article_property_definition_command CREATE TABLE SQL drift is rejected (110.719281ms)
+✔ recent article history migration ID absence is rejected (147.289313ms)
+✔ recent article history migration ID drift is rejected (103.877659ms)
+✔ required author_recent_history_collection CREATE TABLE SQL drift is rejected (106.113164ms)
+✔ required author_recent_history_entry CREATE TABLE SQL drift is rejected (123.839423ms)
+✔ required author_recent_history_receipt CREATE TABLE SQL drift is rejected (173.986328ms)
+✔ required author_recent_history_idempotency CREATE TABLE SQL drift is rejected (139.192249ms)
+✔ required author_recent_history_outbox CREATE TABLE SQL drift is rejected (112.460355ms)
+✔ required author_recent_history_audit CREATE TABLE SQL drift is rejected (110.719397ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 19
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3384.587061
+
+✖ failing tests:
+
+test at tests/tools/schema-allowed-extra-tables.test.mjs:92:1
+✖ canonical allowed-extra-tables register is accepted (204.344539ms)
+  AssertionError [ERR_ASSERTION]: [schema-allowed-extra-tables] SchemaMigrationRunner.cs: s_allowedExtraTables block not found
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_reference" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_cleanup_queue" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_article_ref" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_item" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_journal" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_history_state" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_receipt" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "sys_visit_log" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_view_projection_watermark" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/schema-allowed-extra-tables.test.mjs:96:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/tools/schema-allowed-extra-tables.test.mjs:100:1
+✖ a SugarTable entity listed as allowed extra is rejected (dead entry) (261.54763ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /comment_moderation_event.*must not be listed/. Input:
+  
+  '[schema-allowed-extra-tables] SchemaMigrationRunner.cs: s_allowedExtraTables block not found\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_reference" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_cleanup_queue" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_article_ref" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_item" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_journal" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_history_state" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_receipt" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "sys_visit_log" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_view_projection_watermark" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n'
+  
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/schema-allowed-extra-tables.test.mjs:114:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '[schema-allowed-extra-tables] SchemaMigrationRunner.cs: s_allowedExtraTables block not found\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_reference" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_cleanup_queue" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_article_ref" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_item" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_journal" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_history_state" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_receipt" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "sys_visit_log" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_view_projection_watermark" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n',
+    expected: /comment_moderation_event.*must not be listed/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests/tools/schema-allowed-extra-tables.test.mjs:135:1
+✖ a required rollup table listed as optional extra is rejected (95.700036ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /daily_read_stats.*must not remain in s_allowedExtraTables/. Input:
+  
+  '[schema-allowed-extra-tables] SchemaMigrationRunner.cs: s_allowedExtraTables block not found\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_reference" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_cleanup_queue" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_article_ref" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_item" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_journal" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_history_state" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_receipt" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "sys_visit_log" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n' +
+    '[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_view_projection_watermark" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n'
+  
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/schema-allowed-extra-tables.test.mjs:149:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '[schema-allowed-extra-tables] SchemaMigrationRunner.cs: s_allowedExtraTables block not found\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_reference" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_cleanup_queue" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_article_ref" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_item" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_journal" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_history_state" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_receipt" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "sys_visit_log" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n[schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_view_projection_watermark" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table\n',
+    expected: /daily_read_stats.*must not remain in s_allowedExtraTables/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests/tools/schema-allowed-extra-tables.test.mjs:195:1
+✖ complete PropertyDefinition history tables bind to their registered migration (92.338728ms)
+  AssertionError [ERR_ASSERTION]: [schema-allowed-extra-tables] SchemaMigrationRunner.cs: s_allowedExtraTables block not found
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_reference" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_asset_cleanup_queue" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_article_ref" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "asset_library_item" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_journal" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_command_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_history_state" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_fact" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "authoring_canvas_operation_receipt" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "sys_visit_log" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  [schema-allowed-extra-tables] src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs: migration-created table "article_view_projection_watermark" has no SugarTable entity and is not listed in s_allowedExtraTables or CurrentSchemaRuntimeRollupTables; the verifier would reject it as an extra table
+  
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/schema-allowed-extra-tables.test.mjs:213:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

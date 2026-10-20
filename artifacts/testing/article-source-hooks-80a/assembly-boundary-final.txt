@@ -1,0 +1,2 @@
+[migration-assembly-boundary] Migration providers contain a duplicate current-schema field mapping
+[migration-assembly-boundary] migration assembly receipt content or symbol inventory is stale
