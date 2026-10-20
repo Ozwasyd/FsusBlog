@@ -378,7 +378,7 @@ export function serializableBrowserPlan(plan)
 }
 
 /**
- * @param {{ plans: readonly CorrectnessBrowserPlan[]; frontendRoot: string; env?: Record<string, string | undefined>; }} [options]
+ * @param {{ plans: readonly SerializableBrowserPlan[]; frontendRoot: string; env?: Record<string, string | undefined>; }} [options]
  * @returns {Promise<CorrectnessBrowserActual[]>}
  */
 export async function verifyCorrectnessBrowserPlans({ plans, frontendRoot, env = process.env } = {})
@@ -506,7 +506,7 @@ export function bindBrowserRenderingObservation(plan, actual, observation)
 
 /**
  * @param {unknown} plan
- * @returns {CorrectnessBrowserPlan}
+ * @returns {SerializableBrowserPlan}
  */
 export function validateBrowserIdentityPlan(plan)
 {
