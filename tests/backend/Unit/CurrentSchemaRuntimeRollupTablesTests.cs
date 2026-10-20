@@ -290,7 +290,10 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             await Assert.ThrowsAsync<CurrentSchemaMismatchException>(() => observer.ReadAsync(CancellationToken.None));
             if (drift == "same-shape-standalone-index")
             {
-                Assert.Equal(3, await db.Ado.GetIntAsync($"SELECT count(*) FROM pg_constraint WHERE conrelid = 'public.{Journal}'::regclass;"));
+                Assert.Equal(3, await db.Ado.GetIntAsync($"SELECT count(*) FROM pg_constraint WHERE conrelid = 'public.{Journal}'::regclass AND contype IN ('p','u','f','c');"));
+                int serverVersion = await db.Ado.GetIntAsync("SELECT current_setting('server_version_num')::integer;");
+                Assert.Equal(serverVersion >= 180000 ? CurrentSchemaControlShape.DescribeApplyJournal().Columns.Count : 0,
+                    await db.Ado.GetIntAsync($"SELECT count(*) FROM pg_constraint WHERE conrelid = 'public.{Journal}'::regclass AND contype = 'n';"));
                 await Assert.ThrowsAsync<InvalidOperationException>(() => PgCurrentSchemaControlShape.ValidateApplyJournalAsync(
                     (System.Data.Common.DbConnection)db.Ado.Connection,
                     (System.Data.Common.DbTransaction)caller, CancellationToken.None));

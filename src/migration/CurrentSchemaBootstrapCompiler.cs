@@ -101,7 +101,13 @@ internal static partial class CurrentSchemaBootstrapCompiler
                     {
                         throw new InvalidOperationException("current_schema_bootstrap_identity_default_conflict");
                     }
-                    definition += $" DEFAULT {EntityDefaultValue(column)}";
+                    definition += $" DEFAULT {CodeFirstDefaultValue(column)}";
+                }
+                else if (column.IsNullable && column.DataType == "string")
+                {
+                    // The original PostgreSQL CodeFirst owner emits an explicit
+                    // typed NULL default for nullable strings.
+                    definition += " DEFAULT NULL";
                 }
                 definitions.Add(definition);
             }
@@ -132,7 +138,11 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 {
                     throw new InvalidOperationException("current_schema_bootstrap_constraint_state_capability_unavailable");
                 }
-                definitions.Add($"CONSTRAINT {Identifier(constraint.Name)} {clause}");
+                // The entity extractor/native decoder use a canonical PK role.
+                // Let PostgreSQL retain the original CodeFirst physical name;
+                // an explicitly named noncanonical constraint remains explicit.
+                definitions.Add(constraint.Kind == "primary-key" && constraint.Name == $"pk_{tableName}"
+                    ? clause : $"CONSTRAINT {Identifier(constraint.Name)} {clause}");
             }
             commands.Add(new SchemaMigrationCommand(
                 $"CREATE TABLE {Identifier(tableName)} ({string.Join(", ", definitions)});", IsDdl: true));
@@ -297,6 +307,19 @@ internal static partial class CurrentSchemaBootstrapCompiler
             && !value.Equals("NULL", StringComparison.OrdinalIgnoreCase))
             return "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
         return DefaultValue(value);
+    }
+
+    private static string CodeFirstDefaultValue(SchemaColumnModel column)
+    {
+        string value = column.DefaultValue!;
+        // SugarColumn numeric defaults are supplied as literal text. An unknown
+        // SQL string literal is assigned directly to the destination storage type
+        // by PostgreSQL, retaining the original typed bigint catalog constant.
+        // Keep the existing shared helper unchanged for its other original owners.
+        if (column.DataType is "int16" or "int32" or "int64" or "single" or "double" or "decimal"
+            && Regex.IsMatch(value, "^-?[0-9]+(?:\\.[0-9]+)?$", RegexOptions.CultureInvariant))
+            return "'" + value + "'";
+        return EntityDefaultValue(column);
     }
 
     private static string Expression(string? value)
