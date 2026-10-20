@@ -1,0 +1,38 @@
+[
+  {
+    "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"family\")",
+    "testIdAt80": "99654f17-a3f4-0c04-1d59-fc9922e70c68",
+    "testIdAt542": "99654f17-a3f4-0c04-1d59-fc9922e70c68",
+    "outcomeAt80": "Failed",
+    "fullMessageAt80": "Npgsql.PostgresException : 23514: new row for relation \"article_source_generation\" violates check constraint \"ck_article_source_generation_positive\"\n\nDETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.",
+    "outcomeAt542": "Passed",
+    "messageAt542": null
+  },
+  {
+    "name": "FsusBlog.Server.Tests.CurrentSchemaRuntimeRollupTablesDatabaseTests.CompleteRuntimeObserver_RequiresActualCurrentControlShapeButNeverParsesJournalPayload(drift: \"default-null\")",
+    "testIdAt80": "84a0a360-589b-ff29-b626-d6f89bfe0580",
+    "testIdAt542": "84a0a360-589b-ff29-b626-d6f89bfe0580",
+    "outcomeAt80": "Failed",
+    "fullMessageAt80": "Assert.Throws() Failure: No exception was thrown\nExpected: typeof(FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaMismatchException)",
+    "outcomeAt542": "Passed",
+    "messageAt542": null
+  },
+  {
+    "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"sequence\")",
+    "testIdAt80": "e05d76cc-7cd7-0e39-0b82-b182af063000",
+    "testIdAt542": "e05d76cc-7cd7-0e39-0b82-b182af063000",
+    "outcomeAt80": "Failed",
+    "fullMessageAt80": "Npgsql.PostgresException : 23514: new row for relation \"article_source_sequence\" violates check constraint \"ck_article_source_sequence_positive\"\n\nDETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.",
+    "outcomeAt542": "Passed",
+    "messageAt542": null
+  },
+  {
+    "name": "FsusBlog.Server.Tests.Integration.ArticleSourceGenerationAuthorityIntegrationTests.IllegalPersistedCounters_FailClosed(counter: \"journal\")",
+    "testIdAt80": "6ba5d87d-18d6-a23a-3f79-72117aada9ff",
+    "testIdAt542": "6ba5d87d-18d6-a23a-3f79-72117aada9ff",
+    "outcomeAt80": "Failed",
+    "fullMessageAt80": "Npgsql.PostgresException : 23514: new row for relation \"article_source_mutation\" violates check constraint \"ck_article_source_mutation_generation\"\n\nDETAIL: Detail redacted as it may contain sensitive data. Specify 'Include Error Detail' in the connection string to include this information.",
+    "outcomeAt542": "Passed",
+    "messageAt542": null
+  }
+]

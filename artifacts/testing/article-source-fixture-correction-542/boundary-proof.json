@@ -1,0 +1,35 @@
+{
+  "source": "542cf9309fef83696c3e6bcd9c2c073bde75495e",
+  "docPostimage": {
+    "CurrentSchemaModel.cs": {
+      "publishedDocBlocks": 24,
+      "missing": []
+    },
+    "CurrentSchemaCanonicalAuthority.cs": {
+      "publishedDocBlocks": 5,
+      "missing": []
+    }
+  },
+  "protectedUnchangedFrom46b": [
+    "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+    "src/migration/PgLegacyNonArticlePreparation.cs",
+    "src/migration/OfflineMigrationArtifactPublisher.cs",
+    "src/migration/OfflineMigrationShellBackupDrillOwnedInputs.cs",
+    "src/migration/OfflineMigrationShellBackupDrillProducer.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationAuthority.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationAuthority.Observations.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationPersistence.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationPersistence.Observations.cs"
+  ],
+  "schemaLeaseRelease": {
+    "publishedHead": "39f955b633534836035cd5b5a85d13cdc414eff8",
+    "released": [
+      "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
+      "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs"
+    ]
+  },
+  "releasedOwnerSharedDefaultHelperUnchanged": "f93ef31040ff48084d1cb95964f306497ff2b6708ac752c5cfa4db7857ab6623",
+  "allProductionConfigToolsDocsEqual80": true,
+  "frozen80EvidenceEqual7c1b": true,
+  "supplierTestFileSha256": "11a2fc88fcbf7015a6386cff843b68ac4f34ab17661435033fc089b688275e3d"
+}
