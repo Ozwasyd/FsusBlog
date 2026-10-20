@@ -287,6 +287,78 @@ public sealed class AuthoringExtensionExecutionResolverTests
     }
 
     [Fact]
+    public void Registry_CharacterValidationPreservesControlAndAsciiBounds()
+    {
+        TrustedAuthoringAdapterDescriptor descriptor = CreateDescriptor();
+        for (int value = char.MinValue; value <= char.MaxValue; value++)
+        {
+            char character = (char)value;
+            if (!char.IsControl(character))
+            {
+                continue;
+            }
+
+            Assert.Throws<AuthoringExtensionContractException>(() =>
+                new ClosedTrustedAuthoringAdapterRegistry(
+                    [descriptor with { SourcePath = descriptor.SourcePath + character }]));
+            Assert.Throws<AuthoringExtensionContractException>(() =>
+                new ClosedTrustedAuthoringAdapterRegistry(
+                    [descriptor with { ReviewOwner = descriptor.ReviewOwner + character }]));
+        }
+
+        foreach (char character in "_/界 é")
+        {
+            Assert.Throws<AuthoringExtensionContractException>(() =>
+                new ClosedTrustedAuthoringAdapterRegistry(
+                    [descriptor with { ModuleName = descriptor.ModuleName + character }]));
+        }
+
+        TrustedAuthoringAdapterDescriptor valid = descriptor with
+        {
+            SourcePath = "src/backend/界.cs",
+            ReviewOwner = "界-reviewers",
+            ModuleName = "AZaz09.-"
+        };
+        Assert.Same(valid, new ClosedTrustedAuthoringAdapterRegistry([valid]).Find(valid.AdapterId));
+    }
+
+    [Fact]
+    public void Registry_HashAndPlatformValidationRetainsClosedBounds()
+    {
+        TrustedAuthoringAdapterDescriptor descriptor = CreateDescriptor();
+        foreach (string digest in new[] { "", new string('a', 63), new string('a', 65),
+                     new string('A', 64), "g" + new string('a', 63) })
+        {
+            Assert.Throws<AuthoringExtensionContractException>(() =>
+                new ClosedTrustedAuthoringAdapterRegistry([descriptor with { SourceSha256 = digest }]));
+            Assert.Throws<AuthoringExtensionContractException>(() =>
+                new ClosedTrustedAuthoringAdapterRegistry([descriptor with { ModuleSha256 = digest }]));
+        }
+
+        ImmutableArray<AuthoringHostPlatform>[] invalidPlatforms =
+        [
+            default,
+            [],
+            [(AuthoringHostPlatform)int.MaxValue],
+            [AuthoringHostPlatform.ServerLinux, (AuthoringHostPlatform)(-1)],
+            [AuthoringHostPlatform.ServerLinux, AuthoringHostPlatform.ServerLinux]
+        ];
+        foreach (ImmutableArray<AuthoringHostPlatform> platforms in invalidPlatforms)
+        {
+            Assert.Throws<AuthoringExtensionContractException>(() =>
+                new ClosedTrustedAuthoringAdapterRegistry([descriptor with { SupportedPlatforms = platforms }]));
+        }
+
+        TrustedAuthoringAdapterDescriptor valid = descriptor with
+        {
+            SourceSha256 = string.Concat(Enumerable.Repeat("0123456789abcdef", 4)),
+            ModuleSha256 = string.Concat(Enumerable.Repeat("fedcba9876543210", 4)),
+            SupportedPlatforms = [.. Enum.GetValues<AuthoringHostPlatform>()]
+        };
+        Assert.Same(valid, new ClosedTrustedAuthoringAdapterRegistry([valid]).Find(valid.AdapterId));
+    }
+
+    [Fact]
     public void ResolverSource_HasNoDynamicOrPrivateHostLoadingSurface()
     {
         Type[] resolverTypes =
@@ -305,6 +377,41 @@ public sealed class AuthoringExtensionExecutionResolverTests
             typeof(AuthoringExecutionResolver)
         ];
         Assert.All(resolverTypes, AssertNoResolverSurface);
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsCompilerGeneratedMethodGroupCache()
+    {
+        Assert.True(MethodGroupCacheFixture.Read("\0"));
+        AssertCompilerGeneratedCacheRefusal(typeof(MethodGroupCacheFixture));
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsCompilerGeneratedLambdaCache()
+    {
+        Assert.True(LambdaCacheFixture.Read("\0"));
+        AssertCompilerGeneratedCacheRefusal(typeof(LambdaCacheFixture));
+    }
+
+    private static void AssertCompilerGeneratedCacheRefusal(Type root)
+    {
+        Type cache = Assert.Single(EnumerateResolverTypeTree(root), type =>
+            type.IsDefined(typeof(CompilerGeneratedAttribute), inherit: false));
+        Assert.Contains(cache.GetFields(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic),
+            field => field.FieldType == typeof(Func<char, bool>));
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertNoResolverSurface(root));
+        Assert.Contains("Func/Action", exception.Message, StringComparison.Ordinal);
+    }
+
+    private sealed class MethodGroupCacheFixture
+    {
+        public static bool Read(string value) => value.Any(char.IsControl);
+    }
+
+    private sealed class LambdaCacheFixture
+    {
+        public static bool Read(string value) => value.Any(static character => char.IsControl(character));
     }
 
     private static void AssertNoResolverSurface(Type rootType)
