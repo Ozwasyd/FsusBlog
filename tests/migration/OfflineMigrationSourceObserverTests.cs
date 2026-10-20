@@ -87,9 +87,15 @@ public sealed class OfflineMigrationSourceObserverTests
         OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(candidate);
         MySqlCatalogRow row = Assert.Single(candidate.Rows);
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(
-            candidate with { Rows = [row with { Cells = row.Cells.RemoveAt(0) }] }));
+            candidate with
+            {
+                Rows = [row with { Cells = row.Cells.RemoveAt(0) }]
+            }));
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(
-            candidate with { Rows = [] }));
+            candidate with
+            {
+                Rows = []
+            }));
     }
 
     [Theory]
@@ -109,7 +115,10 @@ public sealed class OfflineMigrationSourceObserverTests
         MySqlCatalogRow foreign = MySqlDomainRow(part, "ordinary_object");
         Assert.Equal(MySqlCurrentSchemaCatalogObserver.ObservedFieldNames(part), foreign.Cells.Select(cell => cell.Name));
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(
-            candidate with { Rows = candidate.Rows.Add(foreign) }));
+            candidate with
+            {
+                Rows = candidate.Rows.Add(foreign)
+            }));
     }
 
     [Fact]
@@ -117,14 +126,26 @@ public sealed class OfflineMigrationSourceObserverTests
     {
         MySqlCurrentSchemaCatalog candidate = MySqlDomainCandidate();
         MySqlCatalogRow rawNull = MySqlDomainRow(MySqlCatalogPart.Partitions, CurrentSchemaControlShape.ApplyJournalTableName);
-        candidate = candidate with { Rows = candidate.Rows.Add(rawNull) };
+        candidate = candidate with
+        {
+            Rows = candidate.Rows.Add(rawNull)
+        };
         Assert.All(rawNull.Cells.Where(cell => cell.Name != "TABLE_NAME"), cell => Assert.Null(cell.Value));
         OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(candidate);
         ImmutableArray<MySqlCatalogCell> changed = rawNull.Cells.Select(cell => cell.Name == "PARTITION_NAME"
-            ? cell with { Value = "p0" } : cell).ToImmutableArray();
+            ? cell with
+            {
+                Value = "p0"
+            } : cell).ToImmutableArray();
         Assert.Contains(changed, cell => cell.Name == "PARTITION_NAME" && cell.Value == "p0");
         Assert.Throws<InvalidOperationException>(() => OfflineMigrationSourceObserver.RequireMySqlControlledEmptyDomainCandidate(
-            candidate with { Rows = candidate.Rows.SetItem(1, rawNull with { Cells = changed }) }));
+            candidate with
+            {
+                Rows = candidate.Rows.SetItem(1, rawNull with
+                {
+                    Cells = changed
+                })
+            }));
     }
 
     [Fact]
@@ -167,8 +188,11 @@ public sealed class OfflineMigrationSourceObserverTests
     private static MySqlCatalogRow MySqlDomainRow(MySqlCatalogPart part, string table)
         => new(part, MySqlCurrentSchemaCatalogObserver.ObservedFieldNames(part).Select(name => new MySqlCatalogCell(name, name switch
         {
-            "TABLE_NAME" => table, "TABLE_TYPE" => "BASE TABLE", "ENGINE" => "InnoDB",
-            "CREATE_OPTIONS" or "TABLE_COMMENT" => "", _ => null
+            "TABLE_NAME" => table,
+            "TABLE_TYPE" => "BASE TABLE",
+            "ENGINE" => "InnoDB",
+            "CREATE_OPTIONS" or "TABLE_COMMENT" => "",
+            _ => null
         })).ToImmutableArray());
 
     private static ImmutableArray<ImmutableArray<string>> SqliteDomainCandidate()
@@ -208,9 +232,21 @@ public sealed class OfflineMigrationSourceObserverTests
         OfflineMigrationSourceObservation accepted = Observation(provider, true);
         int column = Array.FindIndex(accepted.Schema.ToArray(), fact => fact.Name == "column/article/title");
         Assert.True(column >= 0);
-        AssertUnknown(accepted with { Schema = accepted.Schema.SetItem(column, accepted.Schema[column] with { Value = "changed" }) });
-        AssertUnknown(accepted with { Schema = accepted.Schema.RemoveAt(column) });
-        AssertUnknown(accepted with { Schema = accepted.Schema.Add(new("column/article/unknown", "present")) });
+        AssertUnknown(accepted with
+        {
+            Schema = accepted.Schema.SetItem(column, accepted.Schema[column] with
+            {
+                Value = "changed"
+            })
+        });
+        AssertUnknown(accepted with
+        {
+            Schema = accepted.Schema.RemoveAt(column)
+        });
+        AssertUnknown(accepted with
+        {
+            Schema = accepted.Schema.Add(new("column/article/unknown", "present"))
+        });
         foreach (OfflineMigrationFact fact in accepted.BusinessShape.Where(fact => fact.Name != "business.profile"))
         {
             AssertUnknown(accepted with
@@ -269,7 +305,12 @@ public sealed class OfflineMigrationSourceObserverTests
                 }
                 Match column = Regex.Match(line, @"^([a-z_]+) (integer|bigint|varchar\([0-9]+\)|text|timestamp|boolean)(.*)$", RegexOptions.CultureInvariant);
                 Assert.True(column.Success, line);
-                string type = column.Groups[2].Value switch { "integer" => "int", "boolean" => "bool", var value => value };
+                string type = column.Groups[2].Value switch
+                {
+                    "integer" => "int",
+                    "boolean" => "bool",
+                    var value => value
+                };
                 string remainder = column.Groups[3].Value;
                 bool inlineKey = remainder.Contains("PRIMARY KEY", StringComparison.Ordinal);
                 if (inlineKey)
@@ -506,7 +547,9 @@ public sealed class OfflineMigrationSourceObserverTests
             // A real test-owned dialect realization, not a claimed historical production dump.
             await using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder
             {
-                DataSource = path, Mode = SqliteOpenMode.ReadWriteCreate, Pooling = false
+                DataSource = path,
+                Mode = SqliteOpenMode.ReadWriteCreate,
+                Pooling = false
             }.ToString()))
             {
                 await connection.OpenAsync(cancellation.Token);
@@ -532,7 +575,9 @@ public sealed class OfflineMigrationSourceObserverTests
         {
             await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
             {
-                DataSource = path, Mode = SqliteOpenMode.ReadOnly, Pooling = false
+                DataSource = path,
+                Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false
             }.ToString());
             await connection.OpenAsync(cancellation);
             await using (SqliteCommand configure = connection.CreateCommand())
@@ -572,7 +617,9 @@ public sealed class OfflineMigrationSourceObserverTests
             byte[] original = File.ReadAllBytes(path);
             await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
             {
-                DataSource = path, Mode = SqliteOpenMode.ReadOnly, Pooling = false
+                DataSource = path,
+                Mode = SqliteOpenMode.ReadOnly,
+                Pooling = false
             }.ToString());
             await connection.OpenAsync(cancellation);
             await using (SqliteCommand configure = connection.CreateCommand())
@@ -602,7 +649,9 @@ public sealed class OfflineMigrationSourceObserverTests
     {
         await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
-            DataSource = path, Mode = SqliteOpenMode.ReadWrite, Pooling = false
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadWrite,
+            Pooling = false
         }.ToString());
         await connection.OpenAsync(cancellationToken);
         await using SqliteCommand command = connection.CreateCommand();
@@ -618,7 +667,10 @@ public sealed class OfflineMigrationSourceObserverTests
     {
         await using var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
-            DataSource = path, Mode = SqliteOpenMode.ReadOnly, Cache = SqliteCacheMode.Private, Pooling = false
+            DataSource = path,
+            Mode = SqliteOpenMode.ReadOnly,
+            Cache = SqliteCacheMode.Private,
+            Pooling = false
         }.ToString());
         await connection.OpenAsync(cancellationToken);
         await using (SqliteCommand readOnly = connection.CreateCommand())

@@ -1,13 +1,17 @@
 using System.Data;
 using System.Data.Common;
 
-using Microsoft.Data.Sqlite;
-using MySqlConnector;
-using Npgsql;
-using NSubstitute;
-using Xunit;
-
 using FsusBlog.Contracts.Migration;
+
+using Microsoft.Data.Sqlite;
+
+using MySqlConnector;
+
+using Npgsql;
+
+using NSubstitute;
+
+using Xunit;
 
 namespace FsusBlog.Migration.Tests;
 
@@ -29,7 +33,11 @@ public sealed class OfflineMigrationOwnedWriterReadScopeTests
             ? IsolationLevel.Serializable : IsolationLevel.RepeatableRead);
         bool called = false;
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            native.WithOwnedReadScopeAsync(transaction, (_, _) => { called = true; return Task.CompletedTask; }, default));
+            native.WithOwnedReadScopeAsync(transaction, (_, _) =>
+            {
+                called = true;
+                return Task.CompletedTask;
+            }, default));
         Assert.Equal("offline_apply_original_transaction_required", failure.Message);
         Assert.False(called);
         Assert.Equal(ConnectionState.Closed, connection.State);
@@ -51,7 +59,11 @@ public sealed class OfflineMigrationOwnedWriterReadScopeTests
             await native.BeginOwnedReadAsync(borrower.Token));
         bool called = false;
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => native.WithOwnedReadScopeAsync(
-            Substitute.For<DbTransaction>(), (_, _) => { called = true; return Task.CompletedTask; }, borrower.Token));
+            Substitute.For<DbTransaction>(), (_, _) =>
+            {
+                called = true;
+                return Task.CompletedTask;
+            }, borrower.Token));
         Assert.False(called);
         Assert.False(borrower.IsCancellationRequested);
         Assert.Equal(ConnectionState.Closed, connection.State);

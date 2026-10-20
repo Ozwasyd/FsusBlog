@@ -1,0 +1,44 @@
+{
+    "schema": "fsusblog.migration-observer-identity-corrective-baseline.v1",
+    "frozenBase": "e5f0d2d21b21635232b37dc6175f1f744129c836",
+    "validImportRevision": "f7dd0d0344981b61cb7c8f0021dbe4ce170b0ff8",
+    "rejectedCheckpoint": {
+        "pullRequest": 4726,
+        "head": "cbb40272ecfba51bfddafe4ecc716c7694882f06",
+        "offendingCommit": "52a4d0c2f0937ac8cc3e173e7497af4656c3f768",
+        "reason": "Four unauthorized method renames changed ten test identities; mapped equality is not compliance."
+    },
+    "originalSourceSha256": {
+        "tests/migration/OfflineMigrationExpandSafetyTests.cs": "640441817ba38b00cd9f15357208d1343e5ef8fcfeeff50277f7a81ca5ae3d79",
+        "tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs": "83dbadea9f49410af61089af60bfa22beebedc0e86b821afac928767de871f21",
+        "tests/migration/OfflineMigrationOwnedWriterReadScopeTests.cs": "19d65cc8811351cc307e348733882ea3285c23844f117b5368da326caa235049",
+        "tests/migration/OfflineMigrationSourceFingerprintExceptionTests.cs": "6cba205e074d0fd4a99d8bcf775c84b8749231ea11ac8a43aec838c046dd6ff7",
+        "tests/migration/OfflineMigrationSourceObserverTests.cs": "cdf3c2c9d5377bf792a6a22abe0f0411533c3ca263cba6be7d92e3e516285bc5",
+        "tests/migration/OfflineMigrationSourceObserverValue4755Tests.cs": "2f09db3171f5b6e59334c3aeeec9479b4ad3098a85714d4b79e55ed3f05098ec",
+        "tests/migration/OfflineMigrationSourceObserverValue4805Tests.cs": "b8c63c3f5e2dc25f3ada25cb1aa793a8a4ee9ae45f517ff51f2d217f1ad6d79e",
+        "tests/migration/OfflineMigrationSourceObserverValue4850Tests.cs": "75178a27aeb772c7274e13a7d67d8270e4b5b1c21cdb9684748a0f0c45d2373c",
+        "tests/migration/OfflineMigrationSourceObserverValue5207Tests.cs": "0f170fd7ac10659f3b2b83eb48db885e4cf729f35772c02d3a5e8c2b703f4b68",
+        "tests/migration/OfflineMigrationSourceObserverValue5263Tests.cs": "18a17f6300bf65f5ee8cc6f235217066f2772b9535557cc3f3e67474b56f4aac",
+        "tests/migration/OfflineMigrationSourceObserverValue5323Tests.cs": "ed3581d3f59ab48705fa1d71945161f084133afed481319f3431275defa2cdac"
+    },
+    "frozenStrictObservation": {
+        "exit": 1,
+        "diagnostics": 1572,
+        "selectedIde0055": 250,
+        "rawLogSha256": "0054c785377a86d30cc14b0c87817e163a82d0045705c3afcf243651e5b4a4b5"
+    },
+    "originalCases": {
+        "total": 440,
+        "passed": 386,
+        "failed": 54,
+        "requiredComparison": "Exact original VSTest ID, test name, class, method, outcome and full failure-message multiplicity; no mapping."
+    },
+    "retainedStyleConflict": {
+        "rule": "method-name",
+        "checker": "tools/dotnet/check-csharp-style.mjs:1346",
+        "allowedTestSeparatorScope": "tests/**/*.cs",
+        "segmentedPascalCasePattern": "^[A-Z][A-Za-z0-9]*(?:_(?:[A-Z][A-Za-z0-9]*|[0-9]+))+$",
+        "reason": "The original test names contain lowercase underscore-separated segments. Preserve all four original declarations and report the failure."
+    },
+    "note": "Measurements/provenance only. No debt allowance, suppression, policy change or acceptance claim."
+}
