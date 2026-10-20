@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { RouterFactoryOptions } from '@/router'
+import type { PublicHomeHydrationPayload } from '@/public-renderers/types'
+import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
 
 const appUse = vi.fn()
 const appMount = vi.fn()
@@ -24,7 +27,7 @@ const fakeRouter = {
     meta: { routeState: 'public-shareable' }
   }))
 }
-const createAppRouter = vi.fn(() => fakeRouter)
+const createAppRouter = vi.fn((_options: RouterFactoryOptions) => fakeRouter)
 const prewarmPublicRoute = vi.fn()
 const beginLocaleRouteTransaction = vi.fn(async () => ({
   snapshot: { locale: 'zh-CN', domains: ['common'] },
@@ -42,7 +45,7 @@ const scheduleRuntimeActivation = vi.fn()
 const scheduleNonCriticalResources = vi.fn()
 const removeGlobalLoader = vi.fn()
 const activatePublicTakeover = vi.fn(async () => {})
-const getPublicHydrationTakeoverHandle = vi.fn(() => ({
+const publicHydrationTakeoverHandle = {
   app: fakeApp,
   pinia: fakePinia,
   payload: {
@@ -53,14 +56,29 @@ const getPublicHydrationTakeoverHandle = vi.fn(() => ({
     siteDescription: 'Test',
     featuredArticles: [],
     hotArticles: [],
-    view: {},
+    view: {
+      items: [],
+      pagination: {
+        previous: { label: '上一页', href: '/', disabled: true },
+        next: { label: '下一页', href: '/', disabled: true },
+        indicator: '1 / 1'
+      },
+      showPagination: false,
+      emptyState: { title: 'empty' },
+      searchKeyword: ''
+    },
     currentPage: 1,
     pageSize: 10,
     total: 0,
-    renderLocale: 'en-US'
-  },
+    renderLocale: 'en-US',
+    rendererVersion: 'test',
+    localeCatalogDigest: LOCALE_CATALOG_DIGEST
+  } satisfies PublicHomeHydrationPayload,
   activate: activatePublicTakeover
-}))
+}
+const getPublicHydrationTakeoverHandle = vi.fn<() => typeof publicHydrationTakeoverHandle | null>(
+  () => publicHydrationTakeoverHandle
+)
 const abortPublicShellLifetime = vi.fn()
 const markStartup = vi.fn()
 const measureStartup = vi.fn()
@@ -148,7 +166,7 @@ describe('full app bootstrap prepare/commit', () => {
       prewarmPublicRoute,
       shouldSuppressNavigationProgress: undefined
     })
-    await createAppRouter.mock.calls[0]?.[0].prepareLocaleDomains(
+    await createAppRouter.mock.calls[0]?.[0].prepareLocaleDomains!(
       ['common'],
       undefined
     )

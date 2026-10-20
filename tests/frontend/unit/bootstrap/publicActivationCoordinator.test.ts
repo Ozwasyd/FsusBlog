@@ -35,7 +35,7 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
   const prepareFullApp = vi.fn(async (intent: PublicActivationIntent): Promise<Prepared> => ({
     target: intent.target
   }))
-  const commit = vi.fn(async () => {})
+  const commit = vi.fn<PublicActivationPorts<Prepared>['fullAppPort']['commit']>(async () => {})
   const navigate = vi.fn(async () => {})
   const fallback = vi.fn()
   const markBusy = vi.fn()
@@ -58,11 +58,7 @@ function createHarness(overrides: Partial<PublicActivationPorts<Prepared>> = {})
   }
   const defaultFeedbackPort = { markBusy, show, hide }
   const ports: PublicActivationPorts<Prepared> = {
-    routePreparationPort: { prepare: prepareRoute },
-    fullAppPort: defaultFullAppPort,
-    feedbackPort: defaultFeedbackPort,
     fallbackPort: { navigate: fallback },
-    telemetryPort: defaultTelemetryPort,
     clock: {
       now: () => now,
       queueMicrotask: (callback) => queueMicrotask(callback),
@@ -135,7 +131,7 @@ const activation = (target: string, source = 'click'): PublicActivationIntent =>
 
 describe('PublicActivationCoordinator', () => {
   it('idle core warm does not prepare a route or commit FullApp', async () => {
-    const fetchSpy = vi.fn(async () => {
+    const fetchSpy = vi.fn<typeof fetch>(async () => {
       throw new Error('fetch must not run during idle core warm')
     })
     vi.stubGlobal('fetch', fetchSpy)
