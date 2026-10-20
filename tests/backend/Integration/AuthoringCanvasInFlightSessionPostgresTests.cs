@@ -7,6 +7,7 @@ using System.Text;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Distributed;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
@@ -709,6 +710,156 @@ public sealed class AuthoringCanvasInFlightSessionPostgresTests(PostgresSchemaMi
             await DrainAsync(pending);
             db.Aop.OnLogExecuted = null;
             db.Ado.Connection = nativeConnection;
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PublicReferenceWrappers_RejectInactivePrincipalWithLaggingLifetimeBeforePublication(bool warmCache)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        using SqlSugarClient writer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
+        await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
+        HttpContext context = new HttpContextAccessor().HttpContext!;
+        AdminAuthenticatedRequestLifetime registered = context.Features.Get<IAdminAuthenticatedRequestFeature>()!.Lifetime;
+        var accessor = new RequestContextAccessor { HttpContext = context };
+        var lifetime = new AuthoringCanvasRequestLifetime(db, accessor);
+        var store = new AuthoringCanvasDocumentStore(db, TimeProvider.System);
+        var source = new AuthoringCanvasReferenceFactSource(new PostgresAuthoringCanvasArticleReferenceReader(db),
+            new AuthoringCanvasCoordinateFactProvider([]), lifetime);
+        AuthoringCanvasReferenceResolutionRequest request = await CreateRequestAsync(db);
+        var cache = new AuthoringCanvasReferenceProjectionCache();
+        var resolver = new AuthoringCanvasReferenceResolver(store, source, cache, TimeProvider.System, lifetime);
+        AuthoringCanvasReferenceResolutionBatch candidate = await resolver.ResolveAsync(request);
+        // Frozen production coordinate algorithm: only the permission fingerprint binds the genuine session.
+        AuthoringCanvasArticleReadAuthority raw = await new PostgresAuthoringCanvasArticleReferenceReader(db)
+            .ReadAuthorityAsync(request.Owner, request.Permission);
+        using (AuthoringCanvasRequestLifetime.Borrow binding = lifetime.Acquire(request.Owner, CancellationToken.None))
+        {
+            var expectedCoordinate = new AuthoringCanvasReferenceAuthorityCoordinate(
+                Math.Max(1, Math.Max(raw.PrincipalGeneration, raw.ContentGeneration)),
+                AuthoringCanvasContract.ComputeCommandDigest(AuthoringCanvasReferenceContract.SchemaVersion,
+                    request.Owner.AdminPrincipalId, request.Owner.SiteScope, request.Permission, raw.PrincipalGeneration,
+                    raw.ContentGeneration, raw.ArticleCount, raw.RevisionCount, raw.PermissionFingerprint, raw.Authorized),
+                AuthoringCanvasContract.ComputeCommandDigest("canvas-reference-session-permission",
+                    raw.PermissionFingerprint, binding.BindingDigest));
+            Assert.Equal(expectedCoordinate, candidate.AuthorityCoordinate);
+        }
+        if (!warmCache)
+        {
+            cache = new AuthoringCanvasReferenceProjectionCache();
+            resolver = new AuthoringCanvasReferenceResolver(store, source, cache, TimeProvider.System, lifetime);
+        }
+        int previousEntries = cache.EntryCount;
+        Assert.Equal(1, await writer.Ado.ExecuteCommandAsync("UPDATE admin_principal SET status = 'disabled' WHERE id = 73;"));
+        Assert.True(registered.IsCurrent);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => resolver.ResolveAsync(request));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => resolver.VerifyAsync(request, candidate));
+        var verifier = new AuthoringCanvasReferenceVerifier(store, source, lifetime);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => verifier.VerifyAsync(request, candidate));
+        Assert.Equal(previousEntries, cache.EntryCount);
+
+        // Fact adapters retain their permission-filtered result semantics; whole-request publication is refused above.
+        AuthoringCanvasReferenceTarget[] targets = request.Nodes.Select(static node => new AuthoringCanvasReferenceTarget(
+            node.Id, node.Type, node.TargetArticleId!.Value, node.TargetHeadingIdentity, node.TargetBlockIdentity,
+            node.PinnedTargetRevision, node.DisplayProjectionReference)).ToArray();
+        IReadOnlyList<AuthoringCanvasReferenceFact> denied = await source.ReadBatchAsync(new AuthoringCanvasReferenceFactQuery(
+            request.CanvasId, request.CanvasRevision, request.CanvasContentDigest, request.Owner, request.Permission,
+            candidate.AuthorityCoordinate, targets));
+        Assert.All(denied, static fact =>
+        {
+            Assert.Equal(AuthoringCanvasArticleState.PermissionDeniedOrUnknown, fact.ArticleState);
+            Assert.Null(fact.Title);
+            Assert.Null(fact.ContextSnippet);
+            Assert.Null(fact.StableRoute);
+            Assert.Null(fact.DisplayProjectionReference);
+        });
+        Assert.True(registered.IsCurrent);
+    }
+
+    [Fact]
+    public async Task DomainPreparation_HasNoRuntimeCacheOrAdmissionAndVerifierReadsFreshDeniedFacts()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AuthoringCanvasReferenceResolutionRequest request = await CreateRequestAsync(db);
+        Assert.Null(new HttpContextAccessor().HttpContext!.Features.Get<IAdminAuthenticatedRequestFeature>());
+        var services = new ServiceCollection();
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<ISqlSugarClient>(_ => db);
+        services.AddFsusRuntimeDomainServices();
+        Assert.DoesNotContain(services, static service => service.ServiceType == typeof(AuthoringCanvasReferenceFactKernel)
+            || service.ServiceType == typeof(AuthoringCanvasReferenceResolutionKernel)
+            || service.ServiceType == typeof(AuthoringCanvasReferenceVerificationKernel));
+        using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope runtime = provider.CreateScope();
+        AuthoringCanvasReferenceProjectionCache runtimeCache = runtime.ServiceProvider
+            .GetRequiredService<AuthoringCanvasReferenceProjectionCache>();
+        var testCache = new AuthoringCanvasReferenceProjectionCache();
+        var store = new AuthoringCanvasDocumentStore(db, TimeProvider.System);
+        var facts = new AuthoringCanvasReferenceFactKernel(new PostgresAuthoringCanvasArticleReferenceReader(db),
+            new AuthoringCanvasCoordinateFactProvider([]));
+        var core = new AuthoringCanvasReferenceResolutionKernel(store, facts, TimeProvider.System);
+        var verifier = new AuthoringCanvasReferenceVerificationKernel(store, facts);
+        CancellationToken cancellationToken = CancellationToken.None;
+        AuthoringCanvasReferenceResolutionKernel.Prepared prepared = await core.PrepareAsync(request, useCache: true,
+            key => testCache.TryGet(key, out AuthoringCanvasReferenceFact? fact) ? fact : null, cancellationToken);
+        Assert.NotEmpty(prepared.Cacheable);
+        AuthoringCanvasReferenceResolutionBatch candidate = await core.CompleteAsync(request, prepared, cancellationToken);
+        Assert.Equal(0, testCache.EntryCount);
+        Assert.Equal(0, runtimeCache.EntryCount);
+
+        AuthoringCanvasReferenceResolver publicResolver = runtime.ServiceProvider.GetRequiredService<AuthoringCanvasReferenceResolver>();
+        AuthoringCanvasReferenceVerifier publicVerifier = runtime.ServiceProvider.GetRequiredService<AuthoringCanvasReferenceVerifier>();
+        IAuthoringCanvasReferenceFactSource publicFacts = runtime.ServiceProvider.GetRequiredService<IAuthoringCanvasReferenceFactSource>();
+        int reads = 0;
+        db.Aop.OnLogExecuting = (_, _) => reads++;
+        try
+        {
+            await Assert.ThrowsAsync<AuthoringCanvasAccessDeniedException>(() => publicResolver.ResolveAsync(request));
+            await Assert.ThrowsAsync<AuthoringCanvasAccessDeniedException>(() => publicResolver.VerifyAsync(request, candidate));
+            await Assert.ThrowsAsync<AuthoringCanvasAccessDeniedException>(() => publicVerifier.VerifyAsync(request, candidate));
+            await Assert.ThrowsAsync<AuthoringCanvasAccessDeniedException>(() => publicFacts.ReadAuthorityCoordinateAsync(
+                request.Owner, request.Permission));
+            await Assert.ThrowsAsync<AuthoringCanvasAccessDeniedException>(() => publicFacts.ReadBatchAsync(
+                new AuthoringCanvasReferenceFactQuery(request.CanvasId, request.CanvasRevision, request.CanvasContentDigest,
+                    request.Owner, request.Permission, candidate.AuthorityCoordinate, [])));
+            Assert.Equal(0, reads);
+        }
+        finally
+        {
+            db.Aop.OnLogExecuting = null;
+        }
+        testCache.PublishBatch(prepared.Cacheable, cancellationToken.ThrowIfCancellationRequested, cancellationToken);
+        Assert.Equal(1, testCache.EntryCount);
+        Assert.Equal(0, runtimeCache.EntryCount);
+        Assert.Equal(1, await db.Ado.ExecuteCommandAsync("UPDATE admin_principal SET status = 'disabled' WHERE id = 73;"));
+        AuthoringCanvasReferenceResolutionKernel.Prepared denied = await core.PrepareAsync(request, useCache: true,
+            key => testCache.TryGet(key, out AuthoringCanvasReferenceFact? fact) ? fact : null, cancellationToken);
+        AuthoringCanvasReferenceResolutionBatch deniedBatch = await core.CompleteAsync(request, denied, cancellationToken);
+        AuthoringCanvasReferenceProjection projection = Assert.Single(deniedBatch.Projections);
+        Assert.Equal(AuthoringCanvasReferenceProjectionStatus.PermissionDeniedOrUnknown, projection.Status);
+        Assert.Null(projection.Title);
+        Assert.Null(projection.ContextSnippet);
+        Assert.Null(projection.OpenIntent);
+        int authorityReads = 0;
+        db.Aop.OnLogExecuting = (sql, _) =>
+        {
+            if (sql.Contains("principal_generation", StringComparison.Ordinal))
+            {
+                authorityReads++;
+            }
+        };
+        try
+        {
+            Assert.True((await verifier.PrepareAsync(request, deniedBatch, cancellationToken)).Complete().Valid);
+            Assert.Equal(2, authorityReads);
+            Assert.Equal(1, testCache.EntryCount);
+            Assert.Equal(0, runtimeCache.EntryCount);
+        }
+        finally
+        {
+            db.Aop.OnLogExecuting = null;
         }
     }
 

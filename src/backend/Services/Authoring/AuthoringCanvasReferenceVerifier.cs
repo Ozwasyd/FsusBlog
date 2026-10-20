@@ -10,6 +10,7 @@ public sealed class AuthoringCanvasReferenceVerifier(
     AuthoringCanvasRequestLifetime? requestLifetime = null)
 {
     private readonly AuthoringCanvasRequestLifetime _requestLifetime = requestLifetime ?? new();
+    private readonly AuthoringCanvasReferenceVerificationKernel _kernel = new(canvasStore, factSource);
 
     public async Task<AuthoringCanvasReferenceVerificationResult> VerifyAsync(
         AuthoringCanvasReferenceResolutionRequest request,
@@ -20,6 +21,34 @@ public sealed class AuthoringCanvasReferenceVerifier(
         using AuthoringCanvasRequestLifetime.Borrow authorityScope = _requestLifetime.Acquire(request.Owner, cancellationToken);
         using IDisposable databaseCancellation = _requestLifetime.BindDatabaseCancellation(authorityScope);
         cancellationToken = authorityScope.Token;
+        AuthoringCanvasReferenceVerificationKernel.Prepared prepared = await _kernel.PrepareAsync(
+            request, candidate, cancellationToken).ConfigureAwait(false);
+        return await _requestLifetime.PublishAsync(authorityScope,
+            _ => Task.FromResult(prepared.Complete())).ConfigureAwait(false);
+    }
+}
+
+// This kernel always reads fresh facts; it has no resolver or projection-cache dependency.
+internal sealed class AuthoringCanvasReferenceVerificationKernel(
+    IAuthoringCanvasDocumentStore canvasStore,
+    IAuthoringCanvasReferenceFactSource factSource)
+{
+    internal sealed record Prepared(
+        Guid CanvasId,
+        long CanvasRevision,
+        int TargetCount,
+        string ExpectedBatchDigest,
+        List<string> Reasons)
+    {
+        internal AuthoringCanvasReferenceVerificationResult Complete()
+            => new(CanvasId, CanvasRevision, TargetCount, ExpectedBatchDigest, Reasons.Count == 0, Reasons);
+    }
+
+    internal async Task<Prepared> PrepareAsync(
+        AuthoringCanvasReferenceResolutionRequest request,
+        AuthoringCanvasReferenceResolutionBatch candidate,
+        CancellationToken cancellationToken)
+    {
         AuthoringCanvasReferenceContract.ValidateRequest(request);
         ArgumentNullException.ThrowIfNull(candidate);
         cancellationToken.ThrowIfCancellationRequested();
@@ -75,16 +104,7 @@ public sealed class AuthoringCanvasReferenceVerifier(
         }
         ValidateReceipt(request, coordinate, candidate, expected, reasons);
 
-        return await _requestLifetime.PublishAsync(authorityScope, _ =>
-        {
-            return Task.FromResult(new AuthoringCanvasReferenceVerificationResult(
-            request.CanvasId,
-            request.CanvasRevision,
-            expected.Length,
-            expectedBatchDigest,
-            reasons.Count == 0,
-            reasons));
-        }).ConfigureAwait(false);
+        return new Prepared(request.CanvasId, request.CanvasRevision, expected.Length, expectedBatchDigest, reasons);
     }
 
     private static Dictionary<Guid, AuthoringCanvasReferenceFact> ExactFacts(

@@ -392,7 +392,7 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         using SqlSugarClient writer = PostgresSqlSugarTestClient.Create(db.CurrentConnectionConfig.ConnectionString);
         AuthoringCanvasReferenceResolutionRequest request = await CreateRequestAsync(db, s_owner, [ReferenceNode()]);
         var cache = new AuthoringCanvasReferenceProjectionCache();
-        AuthoringCanvasReferenceResolver resolver = Resolver(db, cache);
+        var resolver = new DomainReferenceResolver(db, cache);
         if (warmCache)
         {
             Assert.Equal("Current block", Assert.Single((await resolver.ResolveAsync(request)).Projections).ContextSnippet);
@@ -1439,6 +1439,42 @@ public sealed class AuthoringCanvasReferenceFactSourceIntegrationTests(PostgresS
         }
         await AuthoringCanvasAuthenticatedTestScope.AttachAsync(db, s_owner.AdminPrincipalId);
         return db;
+    }
+
+    // The permission-drift theory targets domain consistency, independently of request admission.
+    // Its private cache and real PostgreSQL facts cannot be selected by runtime DI.
+    private sealed class DomainReferenceResolver
+    {
+        private readonly AuthoringCanvasReferenceResolutionKernel _resolver;
+        private readonly AuthoringCanvasReferenceVerificationKernel _verifier;
+        private readonly AuthoringCanvasReferenceProjectionCache _cache;
+
+        internal DomainReferenceResolver(SqlSugarClient db, AuthoringCanvasReferenceProjectionCache cache)
+        {
+            var store = new AuthoringCanvasDocumentStore(db, TimeProvider.System);
+            var facts = new AuthoringCanvasReferenceFactKernel(new PostgresAuthoringCanvasArticleReferenceReader(db),
+                new AuthoringCanvasCoordinateFactProvider([new PostgresAuthoringCanvasCoordinateAuthority(db)]));
+            _resolver = new AuthoringCanvasReferenceResolutionKernel(store, facts, TimeProvider.System);
+            _verifier = new AuthoringCanvasReferenceVerificationKernel(store, facts);
+            _cache = cache;
+        }
+
+        internal async Task<AuthoringCanvasReferenceResolutionBatch> ResolveAsync(AuthoringCanvasReferenceResolutionRequest request)
+        {
+            CancellationToken cancellationToken = CancellationToken.None;
+            AuthoringCanvasReferenceResolutionKernel.Prepared prepared = await _resolver.PrepareAsync(
+                request, useCache: true, ReadCachedFact, cancellationToken);
+            AuthoringCanvasReferenceResolutionBatch result = await _resolver.CompleteAsync(request, prepared, cancellationToken);
+            _cache.PublishBatch(prepared.Cacheable, cancellationToken.ThrowIfCancellationRequested, cancellationToken);
+            return result;
+        }
+
+        internal async Task<AuthoringCanvasReferenceVerificationResult> VerifyAsync(
+            AuthoringCanvasReferenceResolutionRequest request, AuthoringCanvasReferenceResolutionBatch candidate)
+            => (await _verifier.PrepareAsync(request, candidate, CancellationToken.None)).Complete();
+
+        private AuthoringCanvasReferenceFact? ReadCachedFact(AuthoringCanvasReferenceCacheKey key)
+            => _cache.TryGet(key, out AuthoringCanvasReferenceFact? fact) ? fact : null;
     }
 
     private static AuthoringCanvasReferenceResolver Resolver(SqlSugarClient db, AuthoringCanvasReferenceProjectionCache cache)
