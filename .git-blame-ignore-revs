@@ -51,3 +51,5 @@ f682e1afaa2c434be72afb1bd2cb80f31fcf750d
 fa8adfcfd3554b83a0d833d86e54ec547c48d5ad
 # Predicate assertion test whitespace for #4667.
 34c76dcd0ab44fffd3943ac5d1c43e96e9b424db
+# Article preservation Migration tests; pure whitespace, imports committed separately.
+cc9db368b3e701b63b5b58cbddfad4c69459dcd4
