@@ -145,7 +145,10 @@ public sealed class OfflineMigrationBackupAdmissionTests
     {
         using var fixture = new EvidenceFixture();
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ReadAsync(
-            fixture.Options with { BackupManifestPath = Path.Combine(fixture.Parent, "external.json") }));
+            fixture.Options with
+            {
+                BackupManifestPath = Path.Combine(fixture.Parent, "external.json")
+            }));
         Assert.Equal(0, fixture.Calls);
     }
 
@@ -165,7 +168,10 @@ public sealed class OfflineMigrationBackupAdmissionTests
         using var fixture = new EvidenceFixture();
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ReadAsync(fixture.Options with
         {
-            ExpectedDatabase = fixture.Options.ExpectedDatabase with { Provider = CurrentSchemaProviderKind.MySql }
+            ExpectedDatabase = fixture.Options.ExpectedDatabase with
+            {
+                Provider = CurrentSchemaProviderKind.MySql
+            }
         }));
         Assert.Equal(0, fixture.Calls);
     }
@@ -317,7 +323,10 @@ public sealed class OfflineMigrationBackupAdmissionTests
     {
         using var fixture = new EvidenceFixture();
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.ReadAsync(
-            fixture.Options with { OperationDeadline = null }));
+            fixture.Options with
+            {
+                OperationDeadline = null
+            }));
         Assert.Equal("offline_backup_owned_operation_deadline_required", error.Message);
         Assert.Equal(0, fixture.Calls);
     }
@@ -354,10 +363,22 @@ public sealed class OfflineMigrationBackupAdmissionTests
         public string Parent { get; } = Directory.CreateTempSubdirectory("fsusblog-owned-backup-consumer-").FullName;
         public string OutputRoot => Path.Combine(Parent, "new-invocation");
         public string Mutation { get; init; } = "";
-        public int Calls { get; private set; }
-        public Func<CancellationToken, Task>? BeforeTerminal { get; init; }
-        public bool TerminalObserved { get; private set; }
-        public OfflineMigrationPlanCommandOptions Options { get; }
+        public int Calls
+        {
+            get; private set;
+        }
+        public Func<CancellationToken, Task>? BeforeTerminal
+        {
+            get; init;
+        }
+        public bool TerminalObserved
+        {
+            get; private set;
+        }
+        public OfflineMigrationPlanCommandOptions Options
+        {
+            get;
+        }
 
         public EvidenceFixture()
         {
@@ -380,6 +401,10 @@ public sealed class OfflineMigrationBackupAdmissionTests
             string privateRoot, string invocation, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
+            if (!OperatingSystem.IsLinux())
+            {
+                throw new PlatformNotSupportedException("The original backup evidence fixture requires Linux.");
+            }
             Calls++;
             Directory.CreateDirectory(privateRoot, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             string digest = new('a', 64);
@@ -394,13 +419,17 @@ public sealed class OfflineMigrationBackupAdmissionTests
                 source.ExtractorId, source.ExtractorVersion, digest, 30);
             var binding = new Dictionary<string, object?>
             {
-                ["owner"] = "tools/operations/backup-site.sh", ["ownerVersion"] = "3",
-                ["capture"] = capture, ["databaseDumpSha256"] = digest
+                ["owner"] = "tools/operations/backup-site.sh",
+                ["ownerVersion"] = "3",
+                ["capture"] = capture,
+                ["databaseDumpSha256"] = digest
             };
             string[] labels = ["aotCache", "configRedacted", "dataProtectionKeyRing", "database", "searchIndex", "uploads"];
             var manifest = new Dictionary<string, object?>
             {
-                ["kind"] = "fsusblog-site-backup", ["version"] = 3, ["sourceBinding"] = binding,
+                ["kind"] = "fsusblog-site-backup",
+                ["version"] = 3,
+                ["sourceBinding"] = binding,
                 ["artifactDigests"] = labels.ToDictionary(label => label, _ => digest)
             };
             string[] checks = ["site-backup-package:authenticated-unpacked", "database-restored-source:verified",
@@ -409,22 +438,34 @@ public sealed class OfflineMigrationBackupAdmissionTests
                 "owned-postgres-container-removed:verified", "owned-pre-migration-resources-terminal:verified"];
             var report = new Dictionary<string, object?>
             {
-                ["status"] = "ok", ["mode"] = Mutation == "stage" ? "real" : "migration-recoverability",
-                ["scope"] = "pre-migration-backup", ["baseUrl"] = null, ["runId"] = invocation,
-                ["generatedAt"] = "2026-10-02T00:01:00Z", ["sourceCleanupVerified"] = true,
+                ["status"] = "ok",
+                ["mode"] = Mutation == "stage" ? "real" : "migration-recoverability",
+                ["scope"] = "pre-migration-backup",
+                ["baseUrl"] = null,
+                ["runId"] = invocation,
+                ["generatedAt"] = "2026-10-02T00:01:00Z",
+                ["sourceCleanupVerified"] = true,
                 ["packageSha256"] = Hash(File.ReadAllBytes(options.BackupPackagePath)),
-                ["sourceBinding"] = binding, ["restoredSource"] = restored,
-                ["restoredDatabaseDumpSha256"] = digest, ["checks"] = Mutation == "checks" ? Array.Empty<string>() : checks,
+                ["sourceBinding"] = binding,
+                ["restoredSource"] = restored,
+                ["restoredDatabaseDumpSha256"] = digest,
+                ["checks"] = Mutation == "checks" ? Array.Empty<string>() : checks,
                 ["blockers"] = Array.Empty<string>()
             };
             var output = new Dictionary<string, object?>
             {
-                ["version"] = 2, ["owner"] = "tools/operations/backup-restore-drill.sh", ["ownerVersion"] = "2",
-                ["operation"] = "migration-evidence", ["producerExitCode"] = 0,
+                ["version"] = 2,
+                ["owner"] = "tools/operations/backup-restore-drill.sh",
+                ["ownerVersion"] = "2",
+                ["operation"] = "migration-evidence",
+                ["producerExitCode"] = 0,
                 ["invocation"] = Mutation == "nonce" ? "another-invocation" : invocation,
                 ["privateRoot"] = Mutation == "root" ? Parent : privateRoot,
-                ["packageSha256"] = report["packageSha256"], ["manifest"] = manifest,
-                ["sourceBinding"] = binding, ["restoredSource"] = restored, ["restoredDatabaseDumpSha256"] = digest
+                ["packageSha256"] = report["packageSha256"],
+                ["manifest"] = manifest,
+                ["sourceBinding"] = binding,
+                ["restoredSource"] = restored,
+                ["restoredDatabaseDumpSha256"] = digest
             };
             WriteJson("manifest", "package-manifest.json", manifest);
             report["manifestSha256"] = output["manifestSha256"];
@@ -458,11 +499,17 @@ public sealed class OfflineMigrationBackupAdmissionTests
             }
             if (Mutation == "native")
             {
-                output["restoredSource"] = restored with { ContentDigest = new string('b', 64) };
+                output["restoredSource"] = restored with
+                {
+                    ContentDigest = new string('b', 64)
+                };
             }
             if (Mutation == "manifest")
             {
-                output["manifest"] = new { version = 2 };
+                output["manifest"] = new
+                {
+                    version = 2
+                };
             }
             if (Mutation == "symlink")
             {

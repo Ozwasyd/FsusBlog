@@ -31,7 +31,10 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
     public void CloningALocatorCannotChangeTheOriginalOwnedPlanningScope()
     {
         using var fixture = new InputsFixture();
-        var other = fixture.Inputs.InputScope with { BackupPackagePath = fixture.Scope.EnvironmentFilePath };
+        var other = fixture.Inputs.InputScope with
+        {
+            BackupPackagePath = fixture.Scope.EnvironmentFilePath
+        };
         Assert.NotEqual(other.BackupPackagePath, fixture.Inputs.InputScope.BackupPackagePath);
         Assert.Same(fixture.Scope, fixture.Inputs.InputScope);
         Assert.False(Directory.Exists(fixture.PrivateRoot));
@@ -72,7 +75,10 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
     {
         using var fixture = new InputsFixture();
         var inputs = new OfflineMigrationShellBackupDrillOwnedInputs(fixture.Configuration,
-            fixture.Tools with { Backup = fixture.Tools.Restore }, fixture.Scope);
+            fixture.Tools with
+            {
+                Backup = fixture.Tools.Restore
+            }, fixture.Scope);
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => inputs.CreateConfigurationAsync(default));
         Assert.Equal("offline_backup_tool_configuration_original_tool_identity_required", error.Message);
@@ -104,9 +110,18 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
         using var fixture = new InputsFixture();
         OfflineMigrationShellBackupDrillConfiguration configuration = await fixture.ResolveAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.VerifyAsync(configuration,
-            fixture.Options with { ExpectedDatabase = fixture.Scope.ExpectedDatabase with { InstanceId = "other-instance" } }));
+            fixture.Options with
+            {
+                ExpectedDatabase = fixture.Scope.ExpectedDatabase with
+                {
+                    InstanceId = "other-instance"
+                }
+            }));
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.VerifyAsync(configuration,
-            fixture.Options with { BackupPackagePath = fixture.Scope.EnvironmentFilePath }));
+            fixture.Options with
+            {
+                BackupPackagePath = fixture.Scope.EnvironmentFilePath
+            }));
     }
 
     [Fact]
@@ -115,11 +130,20 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
         using var fixture = new InputsFixture();
         OfflineMigrationShellBackupDrillConfiguration configuration = await fixture.ResolveAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.VerifyAsync(configuration,
-            fixture.Options with { EnvironmentFilePath = fixture.Scope.RestoreEnvironmentFilePath }));
+            fixture.Options with
+            {
+                EnvironmentFilePath = fixture.Scope.RestoreEnvironmentFilePath
+            }));
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.VerifyAsync(configuration,
-            fixture.Options with { RestoreEnvironmentFilePath = fixture.Scope.EnvironmentFilePath }));
+            fixture.Options with
+            {
+                RestoreEnvironmentFilePath = fixture.Scope.EnvironmentFilePath
+            }));
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.VerifyAsync(configuration,
-            fixture.Options with { PlanOutputPath = Path.Combine(fixture.Root, "other-plan.json") }));
+            fixture.Options with
+            {
+                PlanOutputPath = Path.Combine(fixture.Root, "other-plan.json")
+            }));
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Inputs.VerifyInvocationAsync(configuration,
             fixture.Options, Path.Combine(fixture.Root, "outside-output-parent"), default));
     }
@@ -131,7 +155,13 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
     {
         using var fixture = new InputsFixture();
         var inputs = new OfflineMigrationShellBackupDrillOwnedInputs(fixture.Configuration, fixture.Tools,
-            fixture.Scope with { ExpectedDatabase = fixture.Scope.ExpectedDatabase with { Provider = provider } });
+            fixture.Scope with
+            {
+                ExpectedDatabase = fixture.Scope.ExpectedDatabase with
+                {
+                    Provider = provider
+                }
+            });
         InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => inputs.CreateConfigurationAsync(default));
         Assert.Equal("offline_backup_tool_configuration_provider_capture_capability_missing", error.Message);
@@ -166,7 +196,10 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
         using var fixture = new InputsFixture();
         OfflineMigrationShellBackupDrillConfiguration configuration = await fixture.ResolveAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.VerifyAsync(configuration,
-            fixture.Options with { OperationDeadline = null }));
+            fixture.Options with
+            {
+                OperationDeadline = null
+            }));
         fixture.Clock.Seconds = 30;
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.VerifyAsync(configuration));
         using var cancellation = new CancellationTokenSource();
@@ -245,18 +278,40 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
     private sealed class InputsFixture : IDisposable
     {
         internal string Root { get; } = Path.Combine(Path.GetTempPath(), "fsusblog-owned-tools-" + Guid.NewGuid().ToString("N"));
-        internal string PrivateRoot { get; }
+        internal string PrivateRoot
+        {
+            get;
+        }
         internal Dictionary<string, string> Environment { get; } = new() { ["PATH"] = "/usr/bin:/bin" };
         internal Dictionary<string, string> ToolPaths { get; } = new(StringComparer.Ordinal);
-        internal OfflineMigrationShellBackupDrillConfiguration Configuration { get; }
-        internal OfflineMigrationShellBackupDrillTools Tools { get; }
-        internal OfflineMigrationShellBackupDrillInputScope Scope { get; }
-        internal OfflineMigrationShellBackupDrillOwnedInputs Inputs { get; }
-        internal OfflineMigrationPlanCommandOptions Options { get; }
+        internal OfflineMigrationShellBackupDrillConfiguration Configuration
+        {
+            get;
+        }
+        internal OfflineMigrationShellBackupDrillTools Tools
+        {
+            get;
+        }
+        internal OfflineMigrationShellBackupDrillInputScope Scope
+        {
+            get;
+        }
+        internal OfflineMigrationShellBackupDrillOwnedInputs Inputs
+        {
+            get;
+        }
+        internal OfflineMigrationPlanCommandOptions Options
+        {
+            get;
+        }
         internal FixtureClock Clock { get; } = new();
 
         internal InputsFixture(Action<string>? afterToolRead = null)
         {
+            if (!OperatingSystem.IsLinux())
+            {
+                throw new PlatformNotSupportedException("The original owned shell input fixture requires Linux.");
+            }
             Directory.CreateDirectory(Root);
             string repository = Path.Combine(Root, "repository");
             string operations = Path.Combine(repository, "tools", "operations");
@@ -320,7 +375,10 @@ public sealed class OfflineMigrationShellBackupDrillOwnedInputsTests
 
     private sealed class FixtureClock : TimeProvider
     {
-        internal long Seconds { get; set; }
+        internal long Seconds
+        {
+            get; set;
+        }
         public override long TimestampFrequency => 1;
         public override long GetTimestamp() => Seconds;
     }
