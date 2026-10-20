@@ -4,6 +4,10 @@ using System.Text.Json;
 
 namespace FsusBlog.Contracts.Schema;
 
+/// <summary>
+/// Seals current extractor facts with versioned digests and derives semantic and provider-specific schema projections.
+/// </summary>
+/// <remarks>Projection and identity verification do not observe a live database or grant permission to apply a migration.</remarks>
 public static class CurrentSchemaCanonicalAuthority
 {
     public const string ModelVersion = "fsusblog.current-schema.v4";
