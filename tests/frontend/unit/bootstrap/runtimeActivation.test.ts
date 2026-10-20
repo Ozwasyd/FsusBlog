@@ -93,7 +93,7 @@ describe('runtimeActivation policy', () => {
       scheduleRuntimeActivation
     } = await import('@/bootstrap/runtimeActivation')
 
-    const idleWindow = window as Window & {
+    const idleWindow = window as Omit<Window, 'requestIdleCallback'> & {
       requestIdleCallback?: typeof window.requestIdleCallback
     }
     const originalIdle = idleWindow.requestIdleCallback

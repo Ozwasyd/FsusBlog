@@ -1,4 +1,4 @@
-import type { LocationQuery, LocationQueryRaw, RouteLocationNormalizedLoaded, Router } from 'vue-router';
+import type { LocationQuery, LocationQueryRaw, RouteLocationNormalizedLoaded, RouteLocationResolved, Router } from 'vue-router';
 
 export type RouteStateClass =
   | 'public-shareable'
@@ -11,8 +11,21 @@ type PrivateRouteQueryPolicy = Readonly<Record<string, QueryValueNormalizer>>;
 
 function firstString(value: unknown): string | undefined
 {
-    const candidate = Array.isArray(value) ? value[0] : value;
+    const candidate: unknown = Array.isArray(value) ? value[0] : value;
     return typeof candidate === 'string' ? candidate : undefined;
+}
+
+function hasControlCharacters(value: string): boolean
+{
+    for (const character of value)
+    {
+        const code = character.charCodeAt(0);
+        if (code <= 0x1f || code === 0x7f)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 function enumValue(...allowed: readonly string[]): QueryValueNormalizer
@@ -60,7 +73,8 @@ function boundedSearchText(maximumLength = 80): QueryValueNormalizer
         const candidate = firstString(value)?.trim();
         return candidate
       && candidate.length <= maximumLength
-      && !/[\u0000-\u001f\u007f<>`\\]/u.test(candidate)
+      && !hasControlCharacters(candidate)
+      && !/[<>`\\]/u.test(candidate)
             ? candidate
             : undefined;
     };
@@ -181,7 +195,7 @@ export function privateQueryNeedsSanitizing(
 
 function resolveAllowlistedPrivateTarget(
     router: Router,
-    route: Pick<RouteLocationNormalizedLoaded, 'name' | 'path' | 'query' | 'meta'>,
+    route: Pick<RouteLocationResolved, 'name' | 'path' | 'query' | 'meta'>,
     fallback: string
 ): string
 {
@@ -214,7 +228,7 @@ export function resolveSafeRedirectTarget(router: Router, target: unknown, fallb
     || !target.startsWith('/')
     || target.startsWith('//')
     || target.includes('\\')
-    || /[\u0000-\u001f\u007f]/u.test(target))
+    || hasControlCharacters(target))
     {
         return fallback;
     }
@@ -252,7 +266,7 @@ export function guestQueryNeedsSanitizing(
 }
 
 export function buildPrivateLoginRedirect(
-    route: Pick<RouteLocationNormalizedLoaded, 'name' | 'path' | 'query' | 'meta'>,
+    route: Pick<RouteLocationResolved, 'name' | 'path' | 'query' | 'meta'>,
     router: Router
 ): string
 {
