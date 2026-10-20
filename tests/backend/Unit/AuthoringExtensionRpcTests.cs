@@ -707,16 +707,9 @@ public sealed class AuthoringExtensionRpcTests
         AssertRpcTypeHasNoLiveEditorOrDirectMutationAuthority(type);
     }
 
-    // Attribute strings and discovery serialization cannot preserve an unpaired surrogate.
-    // Materialize the original UTF-16 code units at execution: 61000a000000e90034d81edd00d8.
-    public static TheoryData<string, string> MutationPreviewLiteralVectors => new()
-    {
-        { "replacement", "f89348136d888080a251c21c08a688ffcf4605eea20d1c1cb04dbcfb6c658d1b" },
-        { "a\n\0é𝄞\ud800", "89f57d854aa2b871834c31342c1451edd26c031936a43cfd444f24187424f008" }
-    };
-
     [Theory]
-    [MemberData(nameof(MutationPreviewLiteralVectors), DisableDiscoveryEnumeration = true)]
+    [InlineData("replacement", "f89348136d888080a251c21c08a688ffcf4605eea20d1c1cb04dbcfb6c658d1b")]
+    [InlineData("a\n\0é𝄞\ud800", "89f57d854aa2b871834c31342c1451edd26c031936a43cfd444f24187424f008")]
     public async Task MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(string text, string digest)
     {
         RpcFixture fixture = await CreateFixtureAsync();
