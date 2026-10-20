@@ -855,7 +855,7 @@ public sealed class AuthoringCommandContributionTests
             plan.PlanId,
             true,
             "approval-1",
-            new string('d', 64));
+            AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest(envelope));
         return new TransactionFixture(rpc, envelope, approval, port);
     }
 
