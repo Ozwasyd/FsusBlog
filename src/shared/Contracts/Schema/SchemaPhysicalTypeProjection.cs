@@ -2,12 +2,15 @@ using System.Text.RegularExpressions;
 
 namespace FsusBlog.Contracts.Schema;
 
+/// <summary>Closed physical type mappings used by the original schema extractor and native compiler.</summary>
 public static class SchemaPhysicalTypeProjection
 {
+    /// <summary>Decodes an explicitly supported provider type; an unknown declaration refuses projection.</summary>
     public static string NormalizeDeclaredSemantic(string declaredType)
         => TryNormalizeDeclaredSemantic(declaredType)
             ?? throw new InvalidOperationException($"Unsupported provider type mapping: {declaredType.Trim().ToLowerInvariant()}.");
 
+    /// <summary>Returns the supported semantic type, including native int32 arrays, without guessing unknown types.</summary>
     public static string? TryNormalizeDeclaredSemantic(string declaredType)
     {
         string normalized = NormalizePhysical(declaredType);
@@ -35,6 +38,7 @@ public static class SchemaPhysicalTypeProjection
         };
     }
 
+    /// <summary>Normalizes only insignificant spelling and whitespace of a nonempty physical declaration.</summary>
     public static string NormalizePhysical(string physicalType)
     {
         if (string.IsNullOrWhiteSpace(physicalType))
@@ -48,6 +52,7 @@ public static class SchemaPhysicalTypeProjection
         return normalized;
     }
 
+    /// <summary>Projects supported storage facts for the requested provider; unavailable representations refuse.</summary>
     public static string ToPhysical(
         SchemaProviderKind provider,
         string semanticType,
@@ -106,6 +111,7 @@ public static class SchemaPhysicalTypeProjection
             _ => throw new InvalidOperationException($"Unsupported {provider} physical projection for {semanticType}.")
         };
 
+    /// <summary>Retains the provider's declared default string collation or the absence of string collation.</summary>
     public static string ToCollation(SchemaProviderKind provider, string semanticType)
         => provider == SchemaProviderKind.PostgreSql && semanticType == "string"
             ? "default"

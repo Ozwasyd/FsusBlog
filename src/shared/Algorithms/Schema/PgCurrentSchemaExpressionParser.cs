@@ -185,6 +185,8 @@ public sealed class PgCurrentSchemaExpressionParser
                 left = Node("operator", "<-all", left, array);
                 continue;
             }
+            if ((token is "<" or ">" or "<=" or ">=") && (Peek.Value is "any" or "all"))
+                throw Refused();
             if ((token is "=" or "<>") && (Peek.Value is "any" or "all"))
             {
                 string quantifier = Peek.Value;

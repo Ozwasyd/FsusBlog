@@ -153,7 +153,8 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 string suffix = constraint.IsDeferrable
                     ? constraint.IsInitiallyDeferred ? " DEFERRABLE INITIALLY DEFERRED" : " DEFERRABLE INITIALLY IMMEDIATE"
                     : constraint.IsInitiallyDeferred ? throw new InvalidOperationException("current_schema_bootstrap_constraint_state_invalid") : "";
-                if (!constraint.IsValidated) suffix += " NOT VALID";
+                if (!constraint.IsValidated)
+                    suffix += " NOT VALID";
                 string match = constraint.ForeignKeyMatchType is null or "simple" ? "SIMPLE"
                     : constraint.ForeignKeyMatchType == "full" ? "FULL"
                     : throw new InvalidOperationException("current_schema_bootstrap_foreign_key_match_unavailable");
