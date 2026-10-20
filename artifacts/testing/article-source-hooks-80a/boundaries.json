@@ -1,0 +1,32 @@
+{
+  "source": "80a33e47d0d775aa6b445dfd994146a5c84fd745",
+  "docPostimage": {
+    "CurrentSchemaModel.cs": {
+      "publishedDocBlocks": 24,
+      "missing": []
+    },
+    "CurrentSchemaCanonicalAuthority.cs": {
+      "publishedDocBlocks": 5,
+      "missing": []
+    }
+  },
+  "protectedUnchangedFrom46b": [
+    "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+    "src/migration/PgLegacyNonArticlePreparation.cs",
+    "src/migration/OfflineMigrationArtifactPublisher.cs",
+    "src/migration/OfflineMigrationShellBackupDrillOwnedInputs.cs",
+    "src/migration/OfflineMigrationShellBackupDrillProducer.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationAuthority.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationAuthority.Observations.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationPersistence.cs",
+    "src/backend/Services/Articles/ArticleSourceGenerationPersistence.Observations.cs"
+  ],
+  "schemaLeaseRelease": {
+    "publishedHead": "39f955b633534836035cd5b5a85d13cdc414eff8",
+    "released": [
+      "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
+      "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs"
+    ]
+  },
+  "releasedOwnerSharedDefaultHelperUnchanged": "f93ef31040ff48084d1cb95964f306497ff2b6708ac752c5cfa4db7857ab6623"
+}

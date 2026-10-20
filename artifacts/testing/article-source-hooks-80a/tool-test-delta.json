@@ -1,0 +1,16 @@
+{
+  "before": [
+    "a SugarTable entity listed as allowed extra is rejected",
+    "a required rollup table listed as optional extra is rejected",
+    "canonical allowed-extra-tables register is accepted",
+    "complete PropertyDefinition history tables bind to their registered migration"
+  ],
+  "after": [
+    "a SugarTable entity listed as allowed extra is rejected",
+    "a required rollup table listed as optional extra is rejected",
+    "canonical allowed-extra-tables register is accepted",
+    "complete PropertyDefinition history tables bind to their registered migration"
+  ],
+  "added": [],
+  "removed": []
+}

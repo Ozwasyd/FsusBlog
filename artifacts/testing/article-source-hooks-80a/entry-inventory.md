@@ -1,0 +1,31 @@
+# Actual original entry inventory
+
+Source implementation: `80a33e47d0d775aa6b445dfd994146a5c84fd745`. This inventory distinguishes actual enrolled original transactions from still-unclosed bypasses. The initial before-implementation inventory is retained separately as `inventory-before-implementation.txt`.
+
+| Actual original entry and owner transaction | Current enrollment |
+|---|---|
+| ArticleService.CreateMutationAsync → ExecuteArticleMutationTransactionAsync → ArticleCreateMutationAuthority.ExecuteAsync; canonical publication fixture original txn | Original family lock before article/advisory/row locks or DML; actual created event after insert, before original commit. |
+| ArticleService.UpdateAsync ordinary edit/archive/schedule/publish/revision rollback | Original transaction and central actual outbox insertion retained; every real EventId enrolled. |
+| ArticleService.DeleteAsync | Original owner txn, mutation fence and event retained; same-txn source enrollment. |
+| ArticleService.RestoreAsync/PermanentlyDeleteArticleAsync/ClearTrashAsync | Each original direct txn boundary hooked; physical removal retains immutable coordinates for event ownership. |
+| ArticleLifecycleTransitionWriter.Create/Update/Delete/Restore/Rollback/PublishScheduled | Original domain/actor/typed behavior retained; caller-owned txn and all actual outbox events enrolled. |
+| CanonicalArticleLifecycleFixturePort two outer txn entries | Family precedes original idempotency and scheduled/article row locks. |
+| ArticleService.ArticleVaultWriter.ExecuteGroupAsync | Family before group advisory/sorted article locks; all nested writers borrow original group; rollback covers entire source group. |
+| Background.ScheduledPublishWorker.ClaimDueArticlesAsync | Family before SKIP LOCKED; every actual original event in the105-event control enrolled before original commit. |
+| Authoring.PostgresArticleCreatePersistence.ExecuteAsync | Original blank/template independent create txn; actual created event; legitimate null publication/rights coordinates preserved. |
+| Taxonomy CreateCategory/CreateTag, both Update*AndEnqueueProjectionAsync, DeleteTagIfUnlinked and original category delete | Actual original capture + exact declared DML + actual receipt + same family observation; rename additionally enrolls every original article outbox event. Six helpers explicitly borrow an existing txn, otherwise retain original own txn. Original guards/normalization/URL alias/domain/delivery retained. |
+| ArticleResponsibilityService.SaveAsync | Original family first, immutable responsibility snapshot/current publication and real projection outbox transaction. |
+| IntegrityProofPipeline.ScheduleArticleRightsProofFromOutboxAsync | Original proof txn, family before proof upsert, actual original projection event. |
+| AuthoringContentTransferService.ImportArticleAsync → RestoreImportedRevisionsAsync | Create remains separate original committed txn. Restore now preserves every already-issued immutable row/coordinate, validates imported revision numbers, moves overlapping incoming range under original locks, emits original current Updated event and enrolls inside original restore txn. Original strict immutable-coordinate oracle unchanged. Full-graph content-block orphan obligation remains unqualified. |
+| Property definition original PostgresArticlePropertyDefinitionPersistence | Actual original persisted definition receipt/command/history facts synchronously enrolled by original txn. |
+| SecurityPolicySnapshotService actual activation/rollback | Actual persisted original policy snapshot facts synchronously enrolled; live authorization unchanged. |
+| UserLocalePreferenceService.UpdateCoreAsync and CompensateAsync | Family before preference/capture locks; native CAS result and genuine immutable receipt; compensation resolves exactly one persisted unconsumed original receipt by exact complete states across service instances; no latest/MAX/hash/revision clock. Borrowed original txn stays caller-owned and enrollment errors escape to rollback. |
+| Article property snapshot/values | One closed source observation API exists, but actual value/storage/reference authority + create/Vault/lifecycle/import participant closure is not consumed. NOT COVERED. |
+| Principal/session mutations and direct auth fixture/runtime evidence bypasses | #4663 component supplied; independent review BLOCKED by platform termination. No review redispatch, no receipt integration or schema admission yet. Original live auth owner retains projection/JWT/validation; receipt capture must never replace live expiry/permissions. NOT COVERED. |
+| OfflineMigrationArticlePreservationRoute/PgArticlePreservationOperation/StorageWriter native RR | Exact #4668 nine-file prerequisite consumed after independent component review: original pre-snapshot family session lock descriptor, same-native-RR borrowing, exact provided-event staging/readback and original journal facts. Original authority RC API still refuses RR. Canonical producer export, retained-batch recovery provenance and unique authority native interface absent; NOT ENROLLED. |
+| DemoFixtureSeeder/PublicContentFixtureSeeder direct graph seed/cleanup and generic DataScale materializer | Real bypasses identified, not claimed enrolled. Canonical business lifecycle ports above are separate. Native replica cleanup cannot be silently treated as user mutation coverage. |
+| Original legacy schema/backfill descriptors | Offline bootstrap/backfill is not an enabled source epoch/baseline. No invented events, xmin/MAX/hash cursors, or runtime repair DDL. |
+
+Excluded non-source writes: view deltas, drafts/CAS, comments/notifications, claim/retry/heartbeat/delivery state, relation/projection materialization. Passage of authorization expiry time is not a mutation; actual live checks remain mandatory.
+
+The typed GREATEST prerequisite now uses the original complete schema owner/compiler/native observation; final exact test outcomes are in `current-summary.json`. This does not issue source events for native migration or enable Graph/Query/Canvas consumers. The native row's missing canonical producer means genuine event issuance and retained-batch recovery, not the schema expression prerequisite.
