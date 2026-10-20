@@ -271,7 +271,9 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             string sql = drift switch
             {
                 "default" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT 'changed';",
-                "default-null" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT NULL;",
+                // PostgreSQL folds a TEXT NULL default away. Varchar retains a
+                // real typed pg_attrdef fact for the original rejection check.
+                "default-null" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_digest SET DEFAULT NULL;",
                 "collation" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload TYPE text COLLATE \"C\";",
                 "check" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_sequence_check; ALTER TABLE public.{Journal} ADD CONSTRAINT {Journal}_sequence_check CHECK (sequence >= 0);",
                 "index" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_entry_digest_key; CREATE UNIQUE INDEX {Journal}_entry_digest_key ON public.{Journal} (entry_digest DESC);",
@@ -287,6 +289,12 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
                 _ => throw new InvalidOperationException("Unknown native control drift.")
             };
             await db.Ado.ExecuteCommandAsync(sql);
+            if (drift == "default-null")
+                Assert.Equal("NULL::character varying", await db.Ado.GetStringAsync($"""
+                    SELECT pg_get_expr(d.adbin,d.adrelid)
+                    FROM pg_attrdef d JOIN pg_attribute a ON a.attrelid=d.adrelid AND a.attnum=d.adnum
+                    WHERE d.adrelid='public.{Journal}'::regclass AND a.attname='entry_digest';
+                    """));
             await Assert.ThrowsAsync<CurrentSchemaMismatchException>(() => observer.ReadAsync(CancellationToken.None));
             if (drift == "same-shape-standalone-index")
             {

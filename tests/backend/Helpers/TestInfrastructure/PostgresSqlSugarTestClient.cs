@@ -173,8 +173,15 @@ internal static class PostgresSqlSugarTestClient
                 typeof(FsusBlog.Server.Entities.ArticleSourceSequence),
                 typeof(FsusBlog.Server.Entities.ArticleSourceMutation),
                 typeof(FsusBlog.Server.Entities.ArticleSourceObservation));
-            foreach (var step in FsusBlog.Migration.Definitions.ArticleSourceGenerationMigrationDefinitions.BuildMigration().Steps)
-                step.ExecuteAsync(db, CancellationToken.None).GetAwaiter().GetResult();
+            // Preserve the original partial CodeFirst source fixtures, which
+            // exercise authority rejection of actually corrupted persisted rows.
+            // The complete current-owner fixture also installs the real source
+            // migration constraints; production DDL is tested independently.
+            var requestedTypes = entityTypes.ToHashSet();
+            if (new FsusBlog.Server.Infrastructure.SchemaMigration.SchemaModelInspector()
+                .GetManagedEntityTypes().All(requestedTypes.Contains))
+                foreach (var step in FsusBlog.Migration.Definitions.ArticleSourceGenerationMigrationDefinitions.BuildMigration().Steps)
+                    step.ExecuteAsync(db, CancellationToken.None).GetAwaiter().GetResult();
         }
         if (taxonomy || locale)
         {

@@ -1,17 +1,11 @@
 using System.Data;
 using System.Reflection;
 
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
-using NSubstitute;
-using Npgsql;
-using SqlSugar;
-
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Services.Abstractions;
 using FsusBlog.Core.Services.Articles;
-using FsusBlog.Migration.Definitions;
 using FsusBlog.Migration;
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -19,6 +13,15 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+
+using Npgsql;
+
+using NSubstitute;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Tests.Integration;
 
@@ -284,6 +287,38 @@ public sealed partial class ArticleSourceMutationHooksIntegrationTests(PostgresS
             PostgresException error = await Assert.ThrowsAsync<PostgresException>(() => db.Ado.ExecuteCommandAsync(sql));
             Assert.Equal(PostgresErrorCodes.UniqueViolation, error.SqlState);
         }
+    }
+
+    [Theory]
+    [InlineData("family")]
+    [InlineData("sequence")]
+    [InlineData("journal")]
+    public async Task OriginalProductionDdl_RejectsNegativeCounterUpdatesWithoutChangingOriginalClock(string counter)
+    {
+        using SqlSugarClient db = await DatabaseAsync();
+        await ApplySourceDdlAsync(db);
+        var seed = await db.Ado.UseTranAsync(async () => await CreateAsync(db));
+        Assert.True(seed.IsSuccess, seed.ErrorException?.ToString());
+        await AssertEveryEventEnrolledAsync(db, 1);
+        string sql = counter switch
+        {
+            "family" => "UPDATE article_source_generation SET source_generation = -1;",
+            "sequence" => "UPDATE article_source_sequence SET source_sequence = -1;",
+            "journal" => "UPDATE article_source_mutation SET source_generation = -1;",
+            _ => throw new ArgumentOutOfRangeException(nameof(counter))
+        };
+        PostgresException rejection = await Assert.ThrowsAsync<PostgresException>(() => db.Ado.ExecuteCommandAsync(sql));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, rejection.SqlState);
+        Assert.Equal(counter switch
+        {
+            "family" => "ck_article_source_generation_positive",
+            "sequence" => "ck_article_source_sequence_positive",
+            _ => "ck_article_source_mutation_generation"
+        }, rejection.ConstraintName);
+        Assert.Equal(1, await ArticleSourceGenerationAuthority.ReadGenerationAsync(db));
+        Assert.Equal(1L, await db.Ado.GetLongAsync("SELECT source_sequence FROM article_source_sequence;"));
+        Assert.Equal(1L, await db.Ado.GetLongAsync("SELECT source_generation FROM article_source_mutation;"));
+        await AssertEveryEventEnrolledAsync(db, 1);
     }
 
     [Fact]
