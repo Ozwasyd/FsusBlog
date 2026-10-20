@@ -16,6 +16,85 @@ namespace FsusBlog.Server.Tests.Integration;
 [Collection(nameof(SchemaMigrationPostgresCollectionA))]
 public sealed class SourceReceiptSchemaCoveragePostgresTests(PostgresSchemaMigrationFixture fixture)
 {
+    [Fact]
+    public async Task OriginalControlTable_PreservesNativeNotNullAndRefusesItsRemoval()
+    {
+        string database = await fixture.CreateDatabaseAsync();
+        await using var connection = new NpgsqlConnection(fixture.BuildDatabaseConnectionString(database));
+        await connection.OpenAsync();
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+        await PgCurrentSchemaControlShape.EnsureApplyJournalAsync(connection, transaction, default);
+        await PgCurrentSchemaControlShape.ValidateApplyJournalAsync(connection, transaction, default);
+        await using var change = new NpgsqlCommand($"ALTER TABLE {CurrentSchemaControlShape.ApplyJournalTableName} ALTER COLUMN entry_payload DROP NOT NULL;",
+            connection, transaction);
+        await change.ExecuteNonQueryAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            PgCurrentSchemaControlShape.ValidateApplyJournalAsync(connection, transaction, default));
+        await transaction.RollbackAsync();
+    }
+
+    [Theory]
+    [InlineData("taxonomy_mutation_receipt", "P0001")]
+    [InlineData("user_locale_mutation_receipt", "55000")]
+    public async Task OriginalReceiptRecipeComponent_PreservesNativeFactsAndRejectsGuardDrift(string table, string sqlState)
+    {
+        // This isolates the two actual leaf recipes. Its synthetic producer
+        // identity is not evidence that the still blocked full owner export works.
+        CurrentSchemaRuntimeRollupTable original = Assert.Single(CurrentSchemaRuntimeRollupTables.Tables,
+            recipe => recipe.TableName == table);
+        var owner = new CurrentSchemaProducerIdentity(new string('a', 40), CurrentSchemaOwnedProjectionExporter.ProducerId,
+            new string('b', 64), new string('c', 64));
+        CurrentSchemaProjection projection = CurrentSchemaCanonicalAuthority.Generate(CurrentSchemaCanonicalAuthority.Create(
+            new Dictionary<string, SchemaTableModel>(), new string('a', 64)));
+        var input = new CurrentSchemaBootstrapInput(projection, owner,
+            [new(table, SchemaProviderKind.PostgreSql, new string('a', 64), CurrentSchemaRecipeFactExtractor.Extract(original))]);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.Compile(input, owner,
+            SchemaProviderKind.PostgreSql, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input));
+        string originalDatabase = await fixture.CreateDatabaseAsync();
+        string compiledDatabase = await fixture.CreateDatabaseAsync();
+        string originalConnection = fixture.BuildDatabaseConnectionString(originalDatabase);
+        string compiledConnection = fixture.BuildDatabaseConnectionString(compiledDatabase);
+        await using (var connection = new NpgsqlConnection(originalConnection))
+        {
+            await connection.OpenAsync();
+            foreach (string sql in new[] { original.CreateSql }.Concat(original.AdditionalSql ?? []))
+            {
+                await using var command = new NpgsqlCommand(sql, connection);
+                await command.ExecuteNonQueryAsync();
+            }
+        }
+        await using (var connection = new NpgsqlConnection(compiledConnection))
+        {
+            await connection.OpenAsync();
+            await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync();
+            await CurrentSchemaBootstrapCompiler.ExecuteAsync(compiled, connection, transaction, default);
+            await transaction.CommitAsync();
+        }
+        CurrentSchemaRecipeOperation trigger = Assert.Single(input.RequiredRecipes[0].SemanticDescription!.AdditionalOperations,
+            operation => operation.Kind == CurrentSchemaRecipeOperationKind.CreateImmutableTrigger);
+        string column = table == "taxonomy_mutation_receipt" ? "target_id" : "account_id";
+        foreach (string connectionString in new[] { originalConnection, compiledConnection })
+        {
+            Assert.Empty(await CompareNativeAsync(connectionString, input));
+            await using var connection = new NpgsqlConnection(connectionString);
+            await connection.OpenAsync();
+            foreach (string sql in new[] { $"UPDATE {table} SET {column}={column};", $"DELETE FROM {table};", $"TRUNCATE {table};" })
+            {
+                await using var command = new NpgsqlCommand(sql, connection);
+                PostgresException error = await Assert.ThrowsAsync<PostgresException>(() => command.ExecuteNonQueryAsync());
+                Assert.Equal(sqlState, error.SqlState);
+            }
+            await using var weaken = new NpgsqlCommand($"""
+                DROP TRIGGER {trigger.Name} ON {table};
+                CREATE TRIGGER {trigger.Name} BEFORE UPDATE OR DELETE ON {table}
+                    FOR EACH ROW EXECUTE FUNCTION {trigger.Function}();
+                """, connection);
+            await weaken.ExecuteNonQueryAsync();
+            Assert.Contains(await CompareNativeAsync(connectionString, input),
+                error => error == "effect_changed:" + table + "." + trigger.Name);
+        }
+    }
+
     [Theory]
     [InlineData("taxonomy_mutation_receipt")]
     [InlineData("user_locale_mutation_receipt")]

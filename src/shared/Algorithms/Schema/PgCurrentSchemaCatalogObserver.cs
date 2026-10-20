@@ -349,6 +349,7 @@ public static class PgCurrentSchemaCatalogObserver
                 constraint_meta.condeferrable AS is_deferrable,
                 constraint_meta.condeferred AS is_initially_deferred,
                 constraint_meta.convalidated AS is_validated,
+                COALESCE((to_jsonb(constraint_meta)->>'conenforced')::boolean, true) AS is_enforced,
                 constraint_meta.connoinherit AS no_inherit,
                 constraint_meta.conislocal AS is_local,
                 constraint_meta.coninhcount AS inheritance_count,
@@ -373,6 +374,7 @@ public static class PgCurrentSchemaCatalogObserver
                 OR table_rel.relname = '{CurrentSchemaControlShape.ApplyJournalTableName}');
             """, cancellationToken, tableScope).ConfigureAwait(false);
 
+        var notNullColumns = new HashSet<string>(StringComparer.Ordinal);
         foreach (DataRow row in constraintRows.Rows)
         {
             string tableName = CurrentSchemaCanonicalAuthority.NormalizeIdentifier(Convert.ToString(row["table_name"])!);
@@ -394,6 +396,22 @@ public static class PgCurrentSchemaCatalogObserver
                     || !Convert.ToBoolean(row["is_local"])
                     || Convert.ToInt32(row["inheritance_count"]) != 0))
                 throw new InvalidOperationException("current_schema_control_constraint_inheritance_unavailable");
+            if (Convert.ToString(row["constraint_type"]) == "n")
+            {
+                // PG18 exposes the existing column NOT NULL fact as a native
+                // constraint too. Require that exact enforced local fact; its
+                // nullability is already represented by the measured column.
+                string[] notNull = ParseIdentifierList(Convert.ToString(row["columns"]));
+                if (tableName != CurrentSchemaControlShape.ApplyJournalTableName || notNull.Length != 1
+                    || !table.Columns.TryGetValue(notNull[0], out SchemaColumnModel? column) || column.IsNullable
+                    || !notNullColumns.Add(tableName + "." + notNull[0])
+                    || Convert.ToBoolean(row["is_deferrable"]) || Convert.ToBoolean(row["is_initially_deferred"])
+                    || !Convert.ToBoolean(row["is_validated"]) || !Convert.ToBoolean(row["is_enforced"])
+                    || row["backing_index_name"] is not DBNull || row["referenced_table"] is not DBNull
+                    || row["expression"] is not DBNull)
+                    throw new InvalidOperationException("current_schema_control_not_null_unavailable");
+                continue;
+            }
             string kind = Convert.ToString(row["constraint_type"]) switch
             {
                 "p" => "primary-key",

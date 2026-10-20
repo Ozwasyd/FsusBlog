@@ -57,7 +57,7 @@ internal static class CurrentSchemaRecipeFactExtractor
 
     private static (SchemaColumnModel, IReadOnlyList<SchemaConstraintModel>) Column(string source, string table)
     {
-        Match match = Match(source, $"(?<name>{Id}) (?<type>varchar\\([1-9][0-9]*\\)|double precision|timestamp(?: without time zone)?|smallint|integer(?:\\[\\])?|bigint|boolean|bytea|uuid|jsonb|date|text)\\s*(?<tail>.*)");
+        Match match = Match(source, $"(?<name>{Id}) (?<type>varchar\\([1-9][0-9]*\\)|double precision|timestamp(?: without time zone)?|smallint|integer(?:\\[\\])?|bigint|boolean|bytea|uuid|jsonb|date|text|numeric)\\s*(?<tail>.*)");
         string name = match.Groups["name"].Value;
         string type = match.Groups["type"].Value.ToLowerInvariant();
         string tail = match.Groups["tail"].Value.Trim();
@@ -199,7 +199,8 @@ internal static class CurrentSchemaRecipeFactExtractor
             return new(CurrentSchemaRecipeOperationKind.CreateImmutableTrigger, match.Groups["name"].Value,
                 match.Groups["table"].Value, Function: match.Groups["function"].Value, Trigger: facts);
         }
-        if (Starts(source, "DO $$"))
+        if (Starts(source, "DO $$") && Regex.IsMatch(source, @"\bFROM\s+pg_trigger\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
         {
             Match match = Match(source, $"DO \\$\\$ BEGIN IF NOT EXISTS \\(SELECT 1 FROM pg_trigger WHERE tgrelid = '(?<table>{Id})'::regclass AND tgname = '(?<name>{Id})'\\) THEN (?<trigger>CREATE TRIGGER .*?;) END IF; END;? \\$\\$;");
             CurrentSchemaRecipeOperation trigger = Additional(match.Groups["trigger"].Value);
