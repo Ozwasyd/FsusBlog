@@ -10,10 +10,10 @@ public sealed class PgCurrentSchemaCatalogObserverTests
     [Fact]
     public void NativeIndexObservation_PreservesCompleteOriginalPhysicalKeySemantics()
     {
-        const string json = """[{"column":"name","direction":"desc","nullPlacement":"first","operatorClass":"public.text_pattern_ops","collation":"public.c"}]""";
-        SchemaIndexKeyModel key = Assert.Single(PgCurrentSchemaCatalogObserver.ParsePostgresIndexKeys(json, hasExpressions: false));
+        const string Json = """[{"column":"name","direction":"desc","nullPlacement":"first","operatorClass":"public.text_pattern_ops","collation":"public.c"}]""";
+        SchemaIndexKeyModel key = Assert.Single(PgCurrentSchemaCatalogObserver.ParsePostgresIndexKeys(Json, hasExpressions: false));
         Assert.Equal(new SchemaIndexKeyModel("name", "desc", "first", "public.text_pattern_ops", "public.c"), key);
-        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.ParsePostgresIndexKeys(json, hasExpressions: true));
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.ParsePostgresIndexKeys(Json, hasExpressions: true));
         Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.ParsePostgresIndexKeys(
             """[{"column":"name","direction":"asc","nullPlacement":"last","operatorClass":"default","collation":"default","unknown":true}]""", false));
         Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.ParsePostgresIndexKeys("[]", false));

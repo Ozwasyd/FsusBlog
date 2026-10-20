@@ -15,6 +15,13 @@ namespace FsusBlog.Migration.Tests;
 // Test doubles do not bypass the public reader's exact native driver/session guard.
 public sealed class MySqlCurrentSchemaCatalogCleanupTests
 {
+    private static readonly MethodInfo s_executeDbDataReader = typeof(DbCommand).GetMethod(
+        "ExecuteDbDataReader", BindingFlags.Instance | BindingFlags.NonPublic,
+        binder: null, types: [typeof(CommandBehavior)], modifiers: null)!;
+    private static readonly MethodInfo s_executeDbDataReaderAsync = typeof(DbCommand).GetMethod(
+        "ExecuteDbDataReaderAsync", BindingFlags.Instance | BindingFlags.NonPublic,
+        binder: null, types: [typeof(CommandBehavior), typeof(CancellationToken)], modifiers: null)!;
+
     [Theory]
     [InlineData("execute")]
     [InlineData("read")]
@@ -179,7 +186,47 @@ public sealed class MySqlCurrentSchemaCatalogCleanupTests
         Exception actual = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ReadActualQueryAsync(fixture, cancellation.Token));
         AssertCleanupCodes(actual, false, true);
         AssertLifecycle(fixture, false);
-        Assert.Empty(fixture.Command.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(DbCommand.ExecuteReaderAsync)));
+        AssertNoReaderExecution(fixture.Command);
+    }
+
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(false, 2)]
+    [InlineData(true, 1)]
+    [InlineData(true, 2)]
+    public async Task NoReaderExecutionAssertionRejectsActualReaderExecution(bool asynchronous, int executions)
+    {
+        Fixture fixture = CreateFixture();
+        fixture.Command.ExecuteReader(CommandBehavior.SequentialAccess).Returns(fixture.Reader);
+        fixture.Command.ClearReceivedCalls();
+        fixture.Command.ExecuteNonQuery();
+        for (int index = 0; index < executions; index++)
+        {
+            DbDataReader reader = asynchronous
+                ? await fixture.Command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, default)
+                : fixture.Command.ExecuteReader(CommandBehavior.SequentialAccess);
+            Assert.Same(fixture.Reader, reader);
+        }
+        fixture.Command.ExecuteScalar();
+
+        MethodInfo expected = asynchronous ? s_executeDbDataReaderAsync : s_executeDbDataReader;
+        Assert.Equal(executions, fixture.Command.ReceivedCalls().Count(call => call.GetMethodInfo().GetBaseDefinition() == expected));
+        Assert.Throws<Xunit.Sdk.DoesNotContainException>(() => AssertNoReaderExecution(fixture.Command));
+    }
+
+    [Fact]
+    public async Task NoReaderExecutionAssertionAllowsUnrelatedCommandCalls()
+    {
+        Fixture fixture = CreateFixture();
+        fixture.Command.ClearReceivedCalls();
+        fixture.Command.ExecuteNonQuery();
+        fixture.Command.ExecuteScalar();
+        await fixture.Command.DisposeAsync();
+
+        Assert.Contains(fixture.Command.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(DbCommand.ExecuteNonQuery));
+        Assert.Contains(fixture.Command.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(DbCommand.ExecuteScalar));
+        Assert.Contains(fixture.Command.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(DbCommand.DisposeAsync));
+        AssertNoReaderExecution(fixture.Command);
     }
 
     [Fact]
@@ -221,6 +268,17 @@ public sealed class MySqlCurrentSchemaCatalogCleanupTests
             [fixture.Connection, fixture.Transaction, "SOURCE catalog lifecycle fixture only", new[] { "first", "second" }, fixture.Budget, token])!;
     }
 
+    private static void AssertNoReaderExecution(DbCommand command)
+    {
+        // Public ExecuteReader wrappers dispatch to these protected virtual methods.
+        // Match the recorded base identity, including synchronous reader creation.
+        Assert.DoesNotContain(command.ReceivedCalls(), call =>
+        {
+            MethodInfo original = call.GetMethodInfo().GetBaseDefinition();
+            return original == s_executeDbDataReader || original == s_executeDbDataReaderAsync;
+        });
+    }
+
     private static Fixture CreateFixture()
     {
         DbConnection connection = Substitute.For<DbConnection>();
@@ -257,7 +315,7 @@ public sealed class MySqlCurrentSchemaCatalogCleanupTests
     {
         Assert.Equal(readerCreated ? 1 : 0,
             fixture.Reader.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(DbDataReader.DisposeAsync)));
-        Assert.Single(fixture.Command.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(DbCommand.DisposeAsync)));
+        Assert.Single(fixture.Command.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(DbCommand.DisposeAsync));
         Assert.Empty(fixture.Transaction.ReceivedCalls());
         fixture.Connection.DidNotReceive().Open();
         fixture.Connection.DidNotReceive().Close();

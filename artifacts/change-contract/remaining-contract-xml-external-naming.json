@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaModel.cs"
+            ],
+            "reason": "The original trusted registry assigns these exact handwritten C# paths to its environment-variable surface. This declaration acknowledges that existing path ownership for XML-documentation-only edits. All original external spellings, identifiers, literals, members, layouts and authority behavior remain unchanged; it introduces no environment key, internal naming waiver or new exception boundary."
+        }
+    ]
+}

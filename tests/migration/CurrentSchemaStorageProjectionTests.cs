@@ -19,11 +19,20 @@ public sealed class CurrentSchemaStorageProjectionTests
         Assert.Equal("none", physical.Tables["probe"].Columns["payload"].Conversion);
         Assert.Equal("jsonb", physical.Tables["probe"].Columns["payload"].PhysicalType);
         Assert.Equal(logical.Owner, physical.Tables["probe"].Columns["payload"].Owner);
-        Assert.NotEqual(before.ContentDigest, Model(logical with { Conversion = "none" }).Identity.ContentDigest);
+        Assert.NotEqual(before.ContentDigest, Model(logical with
+        {
+            Conversion = "none"
+        }).Identity.ContentDigest);
 
-        SchemaColumnModel actualWrongType = physical.Tables["probe"].Columns["payload"] with { PhysicalType = "text" };
+        SchemaColumnModel actualWrongType = physical.Tables["probe"].Columns["payload"] with
+        {
+            PhysicalType = "text"
+        };
         Assert.NotEmpty(SchemaModelComparer.Compare(physical, Snapshot(actualWrongType)));
-        SchemaColumnModel inventedActualLogicalConversion = physical.Tables["probe"].Columns["payload"] with { Conversion = "json" };
+        SchemaColumnModel inventedActualLogicalConversion = physical.Tables["probe"].Columns["payload"] with
+        {
+            Conversion = "json"
+        };
         Assert.NotEmpty(SchemaModelComparer.Compare(physical, Snapshot(inventedActualLogicalConversion)));
     }
 
@@ -185,7 +194,10 @@ public sealed class CurrentSchemaStorageProjectionTests
         SchemaIndexModel? index = kind == "nullable-index"
             ? new("idx_counter", false, [new("counter", "asc", "last", "default", "default")], [], "btree", null, false) : null;
         SchemaConstraintModel? check = kind == "raw-check" ? new("raw_check", "check", ["counter"], Expression: "counter > 0") : null;
-        SchemaTableModel recipe = new("recipe", new(StringComparer.Ordinal) { [column.Name] = column }, index is null ? [] : [index.Name],
+        SchemaTableModel recipe = new("recipe", new(StringComparer.Ordinal)
+        {
+            [column.Name] = column
+        }, index is null ? [] : [index.Name],
             index is null ? null : new Dictionary<string, SchemaIndexModel> { [index.Name] = index },
             check is null ? null : new Dictionary<string, SchemaConstraintModel> { [check.Name] = check });
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
@@ -199,7 +211,10 @@ public sealed class CurrentSchemaStorageProjectionTests
     {
         var column = new SchemaColumnModel("counter", true, false, false, null, "int64");
         var index = new SchemaIndexModel("idx_counter", unique, [new("counter", "asc", "first", "default", "default")], [], "btree", null, false);
-        SchemaTableModel recipe = new("recipe", new(StringComparer.Ordinal) { [column.Name] = column }, [index.Name],
+        SchemaTableModel recipe = new("recipe", new(StringComparer.Ordinal)
+        {
+            [column.Name] = column
+        }, [index.Name],
             new Dictionary<string, SchemaIndexModel> { [index.Name] = index });
         CurrentSchemaRequiredRecipeReference[] references = [Reference(recipe)];
         CurrentSchemaIdentity original = CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references);
@@ -360,20 +375,20 @@ public sealed class CurrentSchemaStorageProjectionTests
     [Fact]
     public void MySqlOwnedNativeKeys_PreserveNonconflictingOriginalCaseAndTargetIdentity()
     {
-        const string name = "MiXeD_Key";
+        const string Name = "MiXeD_Key";
         SchemaTableModel original = PortableRecipe();
-        var index = new SchemaIndexModel(name, true, [new("counter", "asc", "first", "default", "default")], [], "btree", null, false);
-        SchemaTableModel recipe = new(original.Name, original.Columns, [name], new Dictionary<string, SchemaIndexModel> { [name] = index });
+        var index = new SchemaIndexModel(Name, true, [new("counter", "asc", "first", "default", "default")], [], "btree", null, false);
+        SchemaTableModel recipe = new(original.Name, original.Columns, [Name], new Dictionary<string, SchemaIndexModel> { [Name] = index });
         CurrentSchemaRequiredRecipeReference[] references = [Reference(recipe)];
         CurrentSchemaIdentity identity = CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references);
         CurrentSchemaCompletePhysicalProjection result = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
             PortableEntity(), references, SchemaProviderKind.MySql);
         SchemaTableModel native = result.Tables.Tables[recipe.Name];
-        Assert.Equal(name, Assert.Single(native.IndexDefinitions.Keys));
-        Assert.Equal(name, Assert.Single(native.IndexDefinitions.Values).Name);
-        Assert.Equal(name, Assert.Single(native.Constraints.Keys));
-        Assert.Equal(name, Assert.Single(native.Constraints.Values).Name);
-        Assert.Equal(name, Assert.Single(recipe.IndexDefinitions.Keys));
+        Assert.Equal(Name, Assert.Single(native.IndexDefinitions.Keys));
+        Assert.Equal(Name, Assert.Single(native.IndexDefinitions.Values).Name);
+        Assert.Equal(Name, Assert.Single(native.Constraints.Keys));
+        Assert.Equal(Name, Assert.Single(native.Constraints.Values).Name);
+        Assert.Equal(Name, Assert.Single(recipe.IndexDefinitions.Keys));
         Assert.Empty(recipe.Constraints);
         Assert.Equal(identity, result.Tables.Identity);
         Assert.Equal(identity, CurrentSchemaOwnedTargetProjection.Observe(PortableEntity(), references));
@@ -383,7 +398,10 @@ public sealed class CurrentSchemaStorageProjectionTests
         => CurrentSchemaCanonicalAuthority.Generate(Model(new("payload", false, false, false, null, "int64")));
 
     private static SchemaTableModel PortableRecipe()
-        => new("recipe", new(StringComparer.Ordinal) { ["counter"] = new("counter", false, false, false, null, "int64") }, []);
+        => new("recipe", new(StringComparer.Ordinal)
+        {
+            ["counter"] = new("counter", false, false, false, null, "int64")
+        }, []);
 
     private static CurrentSchemaRequiredRecipeReference Reference(SchemaTableModel table, params CurrentSchemaRecipeOperation[] effects)
         => new(table.Name, SchemaProviderKind.PostgreSql, new string('b', 64), new(table, effects));

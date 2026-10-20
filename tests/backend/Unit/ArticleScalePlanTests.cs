@@ -1,6 +1,6 @@
-using FsusBlog.Contracts.Articles;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Fixtures.DataScale;
