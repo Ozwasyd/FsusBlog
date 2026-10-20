@@ -120,7 +120,7 @@ public sealed class OfflineMigrationExpandSafetyTests
         IReadOnlyList<ISchemaMigrationDescriptor> descriptors = SchemaMigrationManifest.Current.Descriptors;
         IReadOnlyDictionary<string, OfflineMigrationClassification> classifications = OfflineMigrationCatalogEntries.Classifications;
         string[] contract = descriptors.Where(descriptor => classifications[descriptor.MigrationId] is
-                { Phase: OfflineMigrationPhase.Contract, LegacyBootstrapOnly: false })
+        { Phase: OfflineMigrationPhase.Contract, LegacyBootstrapOnly: false })
             .Select(descriptor => descriptor.MigrationId).ToArray();
         Assert.NotEmpty(contract);
         string[] applied = descriptors.Select(descriptor => descriptor.MigrationId).Except(contract).ToArray();
