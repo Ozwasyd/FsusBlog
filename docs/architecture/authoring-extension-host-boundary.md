@@ -732,6 +732,182 @@ native acceptance or full issue qualification. Rollback preserves decisions/even
 and exact state/receipt recovery facts; never reset the store to erase a claimed
 operation or restore revoked authority.
 
+## Production lifecycle preflight boundary
+
+`AuthoringExtensionProductionPreflight` resolves every declared target through
+the original execution resolver before acquiring the package store's asynchronous
+read exclusion scope. Resolving while holding that scope would reenter the same
+store gate. The subsequent held scope independently verifies the active signed
+archive and trust, and binds manifest, payload, target, host API and bounded
+resource policy. Fenced state and durable lifecycle receipts are read from their
+original owners. Required grants are queried by exact version, contribution,
+execution class and document, then checked for site, purpose, digest and expiry.
+Unbound scope parameters are diagnostic host observations, not authenticated actor
+identity or consent. `ForApprovedOperation` accepts only the original issuer's
+actual `ApprovedClaim`, derives the scope from its frozen migration destination
+or deletion scope, and exposes that same claim's `AuthoringExtensionOperationContext`.
+Every package/registry inspection rechecks Claimed status, context, exact expected
+receipt, target package and expiry through the original concrete issuer's SQL-backed
+`ReadAsync`. This includes real actor/session/permissions/xmin and protected-journal
+checks. The interface currently lacks a current-claim read port, so another
+interface implementation cannot substitute caller-supplied observations. This
+point-in-time read is not a held publication capability, and the consumer neither
+maps admin IDs to opaque state users nor encodes approval scope digests.
+
+The original server scope issuer persists Pending, observes the original state
+initializer's insertion witness, and activates the exact registration before the
+approval owner can consume it. It generates the opaque state user and currently
+issues site scopes with no document. A legacy user such as `7`, an existing state
+row or a caller-selected document cannot replace that provenance. The original
+Filter `ArticleQuery` grant catalog requires a document; site-only state ownership
+does not mint that binding. Preflight reports the missing document grant scope and
+returns permission refusal without querying the catalog with a null document or
+substituting a default document.
+
+The approval actor and the opaque state user are different identities. The exact
+user comes from the original Active provenance registration and its insertion
+witness; migration preserves that user across the original source and destination
+registrations. Even another genuinely issued scope owned by the same authenticated
+actor cannot replace the scope bound into a sealed claim.
+
+The current grant issuer is a host primitive: `AuthoringCapabilityGrantAuthority`
+accepts a bounded `ApprovalReceiptId` string but has no authenticated document or
+consent-receipt authority dependency. Its digest and protected storage do not prove
+that consent was issued. A production path still needs the original document/scope
+owner to authorize the exact actor, site, opaque state user and document, plus a
+server consent producer binding the actual target, runtime, capability, purpose
+and grant lifetime to a verified receipt. The state approval context supplies no
+document-enable consent or grant purpose. These missing owners cannot be replaced
+by a consumer relabeling a site scope or seeding a grant record. `ArticleQuery`
+also retains its existing contract requiring the full-read revision fields to be
+absent; `DocumentFullRead` cannot be substituted for it.
+
+Preflight supplies a five-second cooperative cancellation deadline. The original
+state owner binds it to ADO and a SQL timeout. The original receipt owner binds
+its caller token to ADO for advisory-lock, reader and insert commands, restores
+the previous ADO token, and awaits driver completion, reader disposal and owned
+transaction cleanup before returning. Its database command timeout is unchanged.
+Cancellation initiates settlement; cleanup is awaited, so this is not a hard
+five-second return-time guarantee or production deadline admission. The original
+owners retain transaction settlement. A valid
+static target or configured native provider
+does not prove physical startup. Enable must not require an incarnation before
+Starting: the original coordinator must prepare runtime startup, bounded handshake,
+actual owner lease and staged registrations within its own current generation.
+`AuthoringProductionRuntimeProviders` can be constructed only by this composition
+from the original Linux runtime options; missing providers and unsupported host
+platforms remain closed. Migration/deletion approval is not generic enable
+consent, and the current claim does not bind runtime grant purpose/publication.
+Launch capability admission and qualified joined approval remain unavailable.
+The original native snapshot acceptance port is consumed behind that guard;
+its presence does not qualify physical startup in this environment, so
+`VerifyAsync` cannot yet admit a production activation.
+
+`AuthoringExtensionHostResourceAuthority` owns original command and filter registry
+instances and performs signed-metadata preparation under the package lifetime.
+Each prepared generation uses private original registries. The original Resources
+owner activates those private registries before tracking real native owners; this
+hidden preparation is not public atomic activation. A single host publication
+gate validates combined registry collisions and rechecks the candidate before
+publishing the generation. Public production routing and observation are not
+installed by this composition. Revoke settles the reachable registry/grant owners,
+then refuses a complete report when original RPC, job or surface remaining-resource
+ports are unknown. Removed counts are never reported as remaining counts.
+
+`AuthoringExtensionProductionComposition` implements the original
+`IAuthoringFencedLifecycleResourceAuthorityV1` and returns the original
+`IAuthoringPreparedLifecycleGenerationV1`; it does not copy the lifecycle contracts.
+`PrepareAsync` freezes the actual fenced `ApplyAsync` return, validates its exact
+scope, package, revision, bounded bytes and canonical digest, and joins it to the
+original current Starting receipt and proposed next Running generation. It never
+performs an ordinary state read through the migration fence. Unqualified scope/result custody
+is refused before native effects. Behind that explicit qualification guard,
+the preparation code retains failed-start custody before the first native await,
+launches only original providers, observes their exact owner-bound physical leases
+and descriptors, and calls the original Resources.Track at the supplied generation.
+No static identity, caller-ready flag or arbitrary generation supplies custody.
+
+The preparation preflight also consumes the original opt-in
+`IAuthoringExtensionStateObservationStore.ObserveFencedAsync` for the Applied
+phase. Its original observation holds sorted state advisory keys and verifies on
+that same connection. The consumer checks exact acquired scopes, fences, phase,
+source revision and canonical target bytes against the retained actual `ApplyAsync`
+return. A reconstructed or changed snapshot cannot substitute for that return.
+This read-only observation is disposed before separate state effects; the current
+qualification guard still refuses native startup. It is not final execution-result
+custody. The canonical final result-source acquisition receives the original already
+actor-pinned approval `NpgsqlConnection`/`NpgsqlTransaction`. It must acquire state
+custody only after that pinning; a state scope held before actor pinning cannot be
+imported. At that phase the original `CompleteAndObserveAsync` runs once, and its
+actual returned scope remains held through SQL CAS. The result scope exposes that
+identical original object as `StateCustody` to provenance
+`AcquireWithStateCustodyAsync`; no copied snapshot, legacy fallback, second state
+query or replacement connection supplies it. A held Applied observation blocks independent completion, and an already
+completed retry refuses rather than reconstructing historical output. Commit/gap
+drift and effects-and-observe errors require recovery. The original
+`ObserveSettledMigrationAsync` is the read-only recovery acquisition for exactly
+Completed or RolledBack. It validates actual journal/state/fences/backups against
+the hash recorded by the original settlement transaction. After actor pinning,
+the canonical source may acquire this new original custody without repeating an
+effect or importing custody acquired before actor pinning. Missing historical
+hashes and later drift refuse; consumers never backfill or reconstruct an old
+Apply return. The hash-only companion must be installed by the original migration
+owner before activating the updated store. Read-only state recovery alone supplies
+neither native acceptance, old-resource settlement nor final authorization.
+The composition's settled-state acquisition receives the original approval
+transaction after its owner has pinned actor/session rows, and returns the original
+observation itself. Ordered provenance borrows that identical object. The consumer
+does not commit/dispose the supplied actor transaction, acquire another state key
+or copy a snapshot into an authorization scope. Original actor-pinned, real-issued
+scope tests can exercise this read-only combination even while native and old host
+custody prevent the final execution-result scope and CAS from succeeding.
+
+Prepared verification checks current native owners, service health, exact current
+grants, authenticated claim, package trust and the exact durable Starting or Running
+receipt. The original approval codec binds the actual applied snapshot, ordered
+old/new targets and proposed Running generation in an execution-result record;
+Running `ScopeDigest` must equal that record's content digest. Starting still
+uses the original claim digest. Payload digests remain manifest `PackageSha256`,
+while state snapshots keep compound `PackageIdentity`. A result record describes
+data and cannot replace the original held execution-result authority. After
+publication, observations reacquire the actual package scope. Publication
+repeats verification under the common registry gate. Original native readiness
+does not attest the applied state snapshot. After actual startup, lease observation
+and successful Resources.Track, the consumer calls the original owner-bound
+`AcceptStateSnapshotAsync` with the retained actual Apply return, exact target,
+receipt-derived generation and the original claim's `OperationSha256` (distinct
+from its approval digest). It retains the actual sealed acceptance and verifies
+it in place against that same owner and binding; the original native implementation
+reads stored state again without resending the expected bytes. Missing acceptance,
+revocation, changed state or unsupported snapshot ABI refuse. No document
+epoch/revision, acceptance object, schema identity or native success is fabricated.
+The accepted package must still be the one held by the original installed-package
+scope, and transport budgets must cover the actual encoded binding, including
+Unicode. A sealed handle alone does not qualify unreviewed native provenance or
+length handling; the production qualification guard remains closed.
+The composition consumes the original canonical result-source interface, validates
+the supplied approval transaction and exact owned claim/generation, and consults
+its actual retained prepared group. This acquisition never calls the unjoined
+issuer/receipt diagnostic reads, commits/disposes the caller transaction or
+manufactures a result scope. It revalidates actual retained native acceptances
+without those diagnostic reads, then refuses the missing joined old-settlement
+and original settled-state lifetimes. This is a closed integration path, not a
+completed joined authority or production registration.
+Old settlement must retain the exact original tracked roster and bind every
+approved old worker/service target to its actual descriptor and lease. An empty
+roster cannot stand in for those targets. Pending or failed host-scope release
+cannot authorize replacement activation, and a cached zero report cannot replace
+the original complete host-resource exclusion. Unqualified settlement producers
+remain separate WIP dependencies and confer no final result authority.
+Abort first hides the staged generation and releases original native acceptance
+lifetimes before Resources can dispose owners and wait on their transport locks.
+A failed release retains its reference and prevents settlement. It then uses original Resources/native and
+grant owners to settle known custody. Failed or unobservable startup remains
+retained and fails closed. Published global resources cannot be reported empty
+without their original remaining-resource authorities. This remains WIP with no
+production DI or HTTP activation route. The original coordinator's fenced legacy
+entry points remain refused; this consumer does not enable their positive path.
+
 ## Resource budgets, crash isolation, and telemetry
 
 Every runtime operation is admitted against the exact resource policy from its

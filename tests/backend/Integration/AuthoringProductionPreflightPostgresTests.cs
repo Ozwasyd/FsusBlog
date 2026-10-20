@@ -1,0 +1,508 @@
+using System.Diagnostics;
+
+using Npgsql;
+
+using SqlSugar;
+
+using Microsoft.AspNetCore.Http;
+
+using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+using FsusBlog.Server.Tests.TestInfrastructure;
+
+namespace FsusBlog.Server.Tests.Integration;
+
+[Trait("Category", "Integration")]
+[Trait("Dependency", "Docker")]
+[Collection(nameof(SchemaMigrationPostgresCollectionB))]
+public sealed class AuthoringProductionPreflightPostgresTests(PostgresSchemaMigrationFixture postgres)
+{
+    [Theory]
+    [InlineData("advisory", false)]
+    [InlineData("reader", false)]
+    [InlineData("advisory", true)]
+    [InlineData("reader", true)]
+    public async Task RealPreflight_ReceiptCancellationSettlesSqlAndPackageScopeBeforeReturning(
+        string stage, bool cancelCaller)
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        string application = "preflight-receipt-cancel-" + Guid.NewGuid().ToString("N");
+        using SqlSugarClient db = await DatabaseAsync(application);
+        await new PostgresAuthoringExtensionStateStore(db).InitializeAsync(fixture.Package, fixture.Scope, default);
+        var receipts = new PostgresAuthoringLifecycleReceiptStore(db);
+        AuthoringLifecycleReceipt receipt = Receipt(fixture.Package);
+        await receipts.AppendAsync(receipt, default);
+        AuthoringExtensionProductionComposition composition = fixture.Compose(db);
+        int commandTimeout = db.Ado.CommandTimeOut;
+        bool autoClose = db.CurrentConnectionConfig.IsAutoCloseConnection;
+        using var prior = new CancellationTokenSource();
+        db.Ado.CancellationToken = prior.Token;
+        using var caller = new CancellationTokenSource();
+        using var observationDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        var blockerConnection = new NpgsqlConnectionStringBuilder(db.CurrentConnectionConfig.ConnectionString)
+        {
+            ApplicationName = "preflight-receipt-holder-" + Guid.NewGuid().ToString("N")
+        };
+        await using var holder = new NpgsqlConnection(blockerConnection.ConnectionString);
+        await holder.OpenAsync(observationDeadline.Token);
+        await using NpgsqlTransaction held = await holder.BeginTransactionAsync(observationDeadline.Token);
+        await using (var blocker = holder.CreateCommand())
+        {
+            blocker.CommandText = stage == "advisory"
+                ? "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 0));"
+                : "LOCK TABLE authoring_lifecycle_receipt IN ACCESS EXCLUSIVE MODE;";
+            if (stage == "advisory")
+            {
+                blocker.Parameters.AddWithValue("Identity", "authoring-lifecycle-receipt:" + receipt.ExtensionId);
+            }
+            await blocker.ExecuteNonQueryAsync(observationDeadline.Token);
+        }
+        Task<AuthoringProductionPreflightObservation> inspecting = composition.Preflight.InspectAsync(
+            fixture.Package, fixture.Targets, caller.Token).AsTask();
+        try
+        {
+            int waiter = await WaitForReceiptWaitAsync(holder, application,
+                stage == "advisory" ? "SELECT pg_advisory_xact_lock" : "SELECT schema_version",
+                inspecting, observationDeadline.Token);
+            long started = Stopwatch.GetTimestamp();
+            if (cancelCaller)
+            {
+                caller.Cancel();
+            }
+            // The other cases exercise the real preflight's own five-second
+            // cancellation trigger. The assertion watchdog never detaches work:
+            // finally releases the original blocker and awaits the same task.
+            var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+                await inspecting.WaitAsync(TimeSpan.FromSeconds(12)));
+            Assert.True(error.CancellationToken.IsCancellationRequested);
+            Assert.Equal(PostgresErrorCodes.QueryCanceled, Assert.IsType<PostgresException>(error.InnerException).SqlState);
+            Assert.True(Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10));
+            Assert.Null(db.Ado.Transaction);
+            Assert.Equal(prior.Token, db.Ado.CancellationToken);
+            Assert.Equal(commandTimeout, db.Ado.CommandTimeOut);
+            Assert.Equal(autoClose, db.CurrentConnectionConfig.IsAutoCloseConnection);
+            Assert.Same(holder, held.Connection);
+            await using (var refresh = new NpgsqlCommand("SELECT pg_stat_clear_snapshot();", holder))
+            {
+                await refresh.ExecuteNonQueryAsync(observationDeadline.Token);
+            }
+            await using (var cleanup = holder.CreateCommand())
+            {
+                cleanup.CommandText = """
+                    SELECT NOT EXISTS (SELECT FROM pg_stat_activity WHERE pid=@Waiter
+                        AND (state <> 'idle' OR xact_start IS NOT NULL))
+                    AND NOT EXISTS (SELECT FROM pg_locks WHERE pid=@Waiter);
+                    """;
+                cleanup.Parameters.AddWithValue("Waiter", waiter);
+                Assert.True((bool)(await cleanup.ExecuteScalarAsync(observationDeadline.Token))!);
+            }
+            // Actual installed-package exclusion must be gone before the held
+            // SQL blocker is released; a cancelled facade cannot retain it.
+            using (IAuthoringInstalledPackageReadScope reacquired = await fixture.Packages.ExecutionResolver
+                .AcquireReadScopeAsync(fixture.Package, observationDeadline.Token))
+            {
+                Assert.Equal(fixture.Package.PackageIdentity, reacquired.ActivePackage.PackageIdentity);
+            }
+            Assert.Equal(0, composition.HostResources.PublishedGenerations);
+        }
+        finally
+        {
+            caller.Cancel();
+            await held.RollbackAsync();
+            _ = await Record.ExceptionAsync(async () => await inspecting);
+        }
+        Assert.Equal(receipt, await receipts.GetLatestAsync(receipt.ExtensionId, default));
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT count(*) FROM authoring_lifecycle_receipt;"));
+        AuthoringProductionPreflightObservation retry = await composition.Preflight.InspectAsync(fixture.Package, fixture.Targets);
+        Assert.Equal(receipt.ReceiptSha256, retry.LifecycleReceiptSha256);
+        Assert.Contains("production_approval_claim_missing", retry.Blockers);
+        Assert.Equal(new(0, 1), await composition.HostResources.InspectRegistrationsAsync(fixture.Package, fixture.Targets));
+        Assert.Equal(prior.Token, db.Ado.CancellationToken);
+        Assert.Equal(0, composition.HostResources.PublishedGenerations);
+    }
+
+    private static async Task<int> WaitForReceiptWaitAsync(NpgsqlConnection holder, string application,
+        string queryPrefix, Task operation, CancellationToken cancellationToken)
+    {
+        await using var observer = holder.CreateCommand();
+        observer.CommandText = """
+            SELECT pid FROM pg_stat_activity WHERE datname=current_database() AND application_name=@Application
+                AND state='active' AND wait_event_type='Lock' AND query LIKE @Query || '%'
+                AND @Holder=ANY(pg_blocking_pids(pid));
+            """;
+        observer.Parameters.AddWithValue("Application", application);
+        observer.Parameters.AddWithValue("Query", queryPrefix);
+        observer.Parameters.AddWithValue("Holder", holder.ProcessID);
+        long started = Stopwatch.GetTimestamp();
+        while (Stopwatch.GetElapsedTime(started) < TimeSpan.FromSeconds(10))
+        {
+            if (operation.IsCompleted)
+            {
+                await operation;
+                Assert.Fail("Preflight returned before reaching the original receipt SQL wait.");
+            }
+            await using (var refresh = new NpgsqlCommand("SELECT pg_stat_clear_snapshot();", holder))
+            {
+                await refresh.ExecuteNonQueryAsync(cancellationToken);
+            }
+            if (await observer.ExecuteScalarAsync(cancellationToken) is int waiter)
+            {
+                return waiter;
+            }
+            await Task.Delay(20, cancellationToken);
+        }
+        Assert.Fail("The original receipt SQL wait was not observed.");
+        return 0;
+    }
+
+    [Theory]
+    [InlineData("completed")]
+    [InlineData("rolledback")]
+    [InlineData("missing-history")]
+    [InlineData("later-drift")]
+    public async Task OriginalRecoveryObservation_IsReadOnly_AndRefusesMissingHistoryOrLaterDrift(string scenario)
+    {
+        using var source = await AuthoringProductionPreflightFixture.CreateAsync();
+        using var target = await AuthoringProductionPreflightFixture.CreateAsync(version: "2.0.0");
+        using SqlSugarClient db = await DatabaseAsync();
+        var state = new PostgresAuthoringExtensionStateStore(db);
+        await state.InitializeAsync(source.Package, source.Scope, default);
+        await state.InitializeAsync(target.Package, target.Scope, default);
+        await state.WriteAsync(source.Package, source.Scope, 0, new("old", [1, 2, 3]), default);
+        AuthoringStateSnapshot original = await state.ReadAsync(source.Package, source.Scope, default);
+        AuthoringFencedStateMigration plan = AuthoringStateProcessWorker.Plan(original, target.Scope);
+        await state.BackupAsync(source.Package, target.Package, plan, default);
+        AuthoringStateSnapshot actualApply = await state.ApplyAsync(source.Package, target.Package, plan, default);
+        AuthoringStateMigrationPhase phase = scenario == "rolledback"
+            ? AuthoringStateMigrationPhase.RolledBack : AuthoringStateMigrationPhase.Completed;
+        if (phase == AuthoringStateMigrationPhase.RolledBack)
+        {
+            await state.RollbackAsync(source.Package, target.Package, plan, default);
+        }
+        else
+        {
+            await state.CompleteAsync(source.Package, target.Package, plan, default);
+        }
+        if (scenario == "missing-history")
+        {
+            await db.Ado.ExecuteCommandAsync("DELETE FROM authoring_extension_state_settlement;");
+        }
+        if (scenario == "later-drift")
+        {
+            AuthoringStateSnapshot current = await state.ReadAsync(target.Package, target.Scope, default);
+            await state.WriteAsync(target.Package, target.Scope, current.Revision, new("later", [9]), default);
+        }
+        int journals = await db.Ado.GetIntAsync("SELECT count(*) FROM authoring_extension_state_settlement;");
+        AuthoringStateSnapshot before = await state.ReadAsync(target.Package, target.Scope, default);
+        AuthoringExtensionProductionComposition composition = target.Compose(db);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        if (scenario is "missing-history" or "later-drift")
+        {
+            var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await composition.Preflight.AcquireSettledStateObservationAsync(source.Package, target.Package, plan, phase, deadline.Token));
+            Assert.Equal(scenario == "missing-history" ? "state_settled_observation_not_recorded"
+                : "state_settled_observation_drift_requires_recovery", error.Message);
+        }
+        else
+        {
+            await using IAuthoringExtensionStateObservation held = await composition.Preflight.AcquireSettledStateObservationAsync(
+                source.Package, target.Package, plan, phase, deadline.Token);
+            await held.VerifyCurrentAsync(deadline.Token);
+            Assert.Equal(phase, held.State.Phase);
+            Assert.Equal(before.ContentSha256, held.State.To!.Snapshot.ContentSha256);
+            Assert.NotEqual(actualApply.Revision, held.State.To.Snapshot.Revision);
+        }
+        Assert.Equal(journals, await db.Ado.GetIntAsync("SELECT count(*) FROM authoring_extension_state_settlement;"));
+        Assert.Equal(before.ContentSha256, (await state.ReadAsync(target.Package, target.Scope, deadline.Token)).ContentSha256);
+        Assert.Equal((int)phase, await db.Ado.GetIntAsync("SELECT phase FROM authoring_extension_state_migration;"));
+        Assert.Equal(0, composition.HostResources.PublishedGenerations);
+    }
+
+    [Fact]
+    public async Task CanonicalOrderedScope_MissingOverrideRefusesWithoutLegacyFallbackOrTakingStateOwnership()
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        using SqlSugarClient db = await DatabaseAsync();
+        var state = new PostgresAuthoringExtensionStateStore(db);
+        await state.InitializeAsync(fixture.Package, fixture.Scope, default);
+        AuthoringStateMeasurement expected = await state.MeasureAsync(fixture.Package, fixture.Scope, default);
+        await using IAuthoringExtensionStateObservation held = await state.ObserveDeletionAsync(fixture.Package, expected, default);
+        var legacy = new DenyingLegacyScopeOwner();
+        IAuthoringExtensionApprovalScopeAuthority authority = legacy;
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await authority.AcquireWithStateCustodyAsync(new DefaultHttpContext(), AuthoringApprovalOperation.Deletion,
+                fixture.Scope, null, held, default));
+        Assert.Equal("approval_ordered_scope_authority_unavailable", error.Message);
+        Assert.Equal(0, legacy.Calls);
+        await held.VerifyCurrentAsync(default);
+        Assert.Equal(expected, held.State.From.Measurement);
+        AuthoringExtensionProductionComposition composition = fixture.Compose(db);
+        Assert.Same(composition, composition.ExecutionResults);
+        Assert.Equal(0, composition.HostResources.PublishedGenerations);
+    }
+
+    private sealed class DenyingLegacyScopeOwner : IAuthoringExtensionApprovalScopeAuthority
+    {
+        public int Calls
+        {
+            get; private set;
+        }
+
+        public ValueTask<IAuthoringExtensionApprovalScope> AcquireAsync(HttpContext context,
+            AuthoringApprovalOperation operation, AuthoringStateScope scope, AuthoringStateScope? destinationScope,
+            CancellationToken cancellationToken)
+        {
+            Calls++;
+            throw new InvalidOperationException("legacy_scope_must_not_be_called");
+        }
+    }
+
+    [Theory]
+    [InlineData("unchanged")]
+    [InlineData("content")]
+    [InlineData("revision")]
+    [InlineData("scope")]
+    [InlineData("completed")]
+    public async Task OriginalAppliedObservation_BindsActualApply_AndReleasesOriginalStateKeys(string mutation)
+    {
+        using var source = await AuthoringProductionPreflightFixture.CreateAsync();
+        using var target = await AuthoringProductionPreflightFixture.CreateAsync(version: "2.0.0");
+        using SqlSugarClient db = await DatabaseAsync();
+        var state = new PostgresAuthoringExtensionStateStore(db);
+        await state.InitializeAsync(source.Package, source.Scope, default);
+        await state.InitializeAsync(target.Package, target.Scope, default);
+        await state.WriteAsync(source.Package, source.Scope, 0, new("old", [1, 2, 3]), default);
+        AuthoringStateSnapshot original = await state.ReadAsync(source.Package, source.Scope, default);
+        AuthoringFencedStateMigration plan = AuthoringStateProcessWorker.Plan(original, target.Scope);
+        await state.BackupAsync(source.Package, target.Package, plan, default);
+        AuthoringStateSnapshot applied = await state.ApplyAsync(source.Package, target.Package, plan, default);
+        AuthoringStateSnapshot supplied = mutation switch
+        {
+            "content" => AuthoringExtensionStateContract.Snapshot(applied.Scope, applied.PackageIdentity, applied.Revision,
+                [new("different", [9])]),
+            "revision" => AuthoringExtensionStateContract.Snapshot(applied.Scope, applied.PackageIdentity, applied.Revision + 1, applied.Entries),
+            "scope" => AuthoringExtensionStateContract.Snapshot(applied.Scope with
+            {
+                DocumentId = "other-document"
+            },
+                applied.PackageIdentity, applied.Revision, applied.Entries),
+            _ => applied
+        };
+        if (mutation == "completed")
+        {
+            await state.CompleteAsync(source.Package, target.Package, plan, default);
+        }
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        AuthoringExtensionProductionComposition composition = target.Compose(db);
+        if (mutation == "unchanged")
+        {
+            await using IAuthoringExtensionStateObservation held = await composition.Preflight.AcquireAppliedStateObservationAsync(
+                source.Package, target.Package, plan, supplied, deadline.Token);
+            await held.VerifyCurrentAsync(deadline.Token);
+            Assert.Equal(applied.ContentSha256, held.State.To!.Snapshot.ContentSha256);
+            Assert.Equal(AuthoringStateMigrationPhase.Applied, held.State.Phase);
+            Assert.Equal(0, composition.HostResources.PublishedGenerations);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await composition.Preflight.AcquireAppliedStateObservationAsync(source.Package, target.Package, plan, supplied, deadline.Token));
+            Assert.Equal(mutation == "completed" ? "state_observation_phase_drifted" : "production_applied_state_observation_drift", error.Message);
+        }
+        if (mutation != "completed")
+        {
+            // Reacquisition occurs only after the tested scope is disposed; this
+            // is a release control, not the final-CAS VerifyCurrent callback.
+            await using (IAuthoringExtensionStateObservation reacquired = await state.ObserveFencedAsync(
+                source.Package, target.Package, plan, AuthoringStateMigrationPhase.Applied, deadline.Token))
+            {
+                await reacquired.VerifyCurrentAsync(deadline.Token);
+            }
+            await state.RollbackAsync(source.Package, target.Package, plan, deadline.Token);
+        }
+        else
+        {
+            Assert.Equal(applied.Revision + 1, (await state.ReadAsync(target.Package, target.Scope, deadline.Token)).Revision);
+        }
+    }
+
+    [Fact]
+    public async Task RealOwners_InspectExactStateGrantReceipt_WithoutEnableOrLiveIncarnation()
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        using SqlSugarClient db = await DatabaseAsync();
+        var state = new PostgresAuthoringExtensionStateStore(db);
+        await state.InitializeAsync(fixture.Package, fixture.Scope, default);
+        await state.WriteAsync(fixture.Package, fixture.Scope, 0, new("cursor", [1, 2, 3]), default);
+        var receipts = new PostgresAuthoringLifecycleReceiptStore(db);
+        AuthoringLifecycleReceipt receipt = Receipt(fixture.Package);
+        await receipts.AppendAsync(receipt, default);
+        await fixture.StoreGrantAsync();
+        AuthoringExtensionProductionComposition composition = fixture.Compose(db);
+
+        AuthoringProductionPreflightObservation observed = await composition.Preflight.InspectAsync(fixture.Package, fixture.Targets);
+        Assert.Equal(1, observed.StateRevision);
+        Assert.Equal(receipt.ReceiptSha256, observed.LifecycleReceiptSha256);
+        Assert.DoesNotContain("production_required_grant_missing", observed.Blockers);
+        Assert.Contains("production_approval_claim_missing", observed.Blockers);
+        Assert.Contains("production_worker_launch_provider_missing", observed.Blockers);
+        Assert.True(await composition.Preflight.HasRequiredPermissionsAsync(fixture.Package, fixture.Targets, default));
+        Assert.False(await composition.Preflight.VerifyAsync(fixture.Package, fixture.Targets, default));
+        Assert.Equal(new(0, 1), await composition.HostResources.InspectRegistrationsAsync(fixture.Package, fixture.Targets));
+        var failure = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await composition.HostResources.ActivateAtomicallyAsync(fixture.Package, fixture.Targets, default));
+        Assert.Equal("production_starting_publication_ports_unavailable", failure.Message);
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await composition.Coordinator.EnableAsync(fixture.Package, fixture.Targets));
+        Assert.Equal(receipt, await receipts.GetLatestAsync(fixture.Package.Contract.Manifest.Id, default));
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM authoring_lifecycle_receipt;"));
+    }
+
+    [Fact]
+    public async Task MissingGrants_OriginalCoordinatorRecordsOnlyPermissionPending()
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        using SqlSugarClient db = await DatabaseAsync();
+        AuthoringExtensionProductionComposition composition = fixture.Compose(db);
+        AuthoringLifecycleReceipt receipt = await composition.Coordinator.EnableAsync(fixture.Package, fixture.Targets);
+        Assert.Equal(AuthoringLifecycleState.PermissionPending, receipt.State);
+        Assert.Equal(1, receipt.Generation);
+        Assert.Equal(new(0, 1), await composition.HostResources.InspectRegistrationsAsync(fixture.Package, fixture.Targets));
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM authoring_lifecycle_receipt;"));
+    }
+
+    [Theory]
+    [InlineData("site")]
+    [InlineData("user")]
+    [InlineData("document")]
+    public async Task StateIsNotBorrowedAcrossHostObservationScopes(string field)
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        using SqlSugarClient db = await DatabaseAsync();
+        await new PostgresAuthoringExtensionStateStore(db).InitializeAsync(fixture.Package, fixture.Scope, default);
+        AuthoringStateScope other = field switch
+        {
+            "site" => fixture.Scope with { SiteId = "other-site" },
+            "user" => fixture.Scope with { UserId = "8" },
+            _ => fixture.Scope with { DocumentId = "other-document" }
+        };
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Compose(db, scope: other).Preflight.InspectAsync(fixture.Package, fixture.Targets));
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM authoring_extension_state_scope;"));
+    }
+
+    [Fact]
+    public async Task FencedState_IsRejectedByOriginalPersistentOwner()
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        using SqlSugarClient db = await DatabaseAsync();
+        await new PostgresAuthoringExtensionStateStore(db).InitializeAsync(fixture.Package, fixture.Scope, default);
+        await db.Ado.ExecuteCommandAsync("UPDATE authoring_extension_state_scope SET fence = @Fence;",
+            new SugarParameter("@Fence", new string('a', 64)));
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Compose(db).Preflight.InspectAsync(fixture.Package, fixture.Targets));
+        Assert.Equal("state_scope_fenced", error.Message);
+    }
+
+    [Fact]
+    public async Task StateAboveManifestBudget_IsRejectedWithoutChangingState()
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync(manifest => manifest with
+        {
+            Limits = manifest.Limits with
+            {
+                MaximumStateBytes = 1
+            }
+        });
+        using SqlSugarClient db = await DatabaseAsync();
+        var state = new PostgresAuthoringExtensionStateStore(db);
+        await state.InitializeAsync(fixture.Package, fixture.Scope, default);
+        await state.WriteAsync(fixture.Package, fixture.Scope, 0, new("value", [1, 2]), default);
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Compose(db).Preflight.InspectAsync(fixture.Package, fixture.Targets));
+        Assert.Equal("production_state_budget_or_revision_drift", error.Message);
+        Assert.Equal(1, (await state.ReadAsync(fixture.Package, fixture.Scope, default)).Revision);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task WrongOrTamperedReceipt_IsRejectedByDurableChain(bool tampered)
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        using SqlSugarClient db = await DatabaseAsync();
+        await new PostgresAuthoringExtensionStateStore(db).InitializeAsync(fixture.Package, fixture.Scope, default);
+        AuthoringLifecycleReceipt receipt = Receipt(fixture.Package);
+        if (!tampered)
+        {
+            receipt = Sign(receipt with
+            {
+                PackageSha256 = new string('e', 64)
+            });
+        }
+        await new PostgresAuthoringLifecycleReceiptStore(db).AppendAsync(receipt, default);
+        if (tampered)
+        {
+            await db.Ado.ExecuteCommandAsync("UPDATE authoring_lifecycle_receipt SET receipt_sha256 = @Digest;",
+                new SugarParameter("@Digest", new string('e', 64)));
+        }
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Compose(db).Preflight.InspectAsync(fixture.Package, fixture.Targets));
+    }
+
+    [Fact]
+    public async Task RevocationSettlesRealGrants_ThenRefusesUnknownRemainingResources()
+    {
+        using var fixture = await AuthoringProductionPreflightFixture.CreateAsync();
+        using SqlSugarClient db = await DatabaseAsync();
+        AuthoringCapabilityGrant grant = await fixture.StoreGrantAsync();
+        var error = await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Compose(db).HostResources.RevokeAllAsync(fixture.Package.Contract.Manifest.Id, default));
+        Assert.Equal("production_remaining_resource_ports_unavailable", error.Message);
+        Assert.Null(await fixture.Grants.FindAsync(grant.GrantId, default));
+        Assert.Equal(0, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM authoring_lifecycle_receipt;"));
+    }
+
+    private async Task<SqlSugarClient> DatabaseAsync(string? applicationName = null)
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(postgres);
+        if (applicationName is not null)
+        {
+            connectionString = new NpgsqlConnectionStringBuilder(connectionString) { ApplicationName = applicationName }.ConnectionString;
+        }
+        SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        try
+        {
+            await db.Ado.ExecuteCommandAsync(AuthoringExtensionStateStorageSchema.CreateTablesSql);
+            // Same test-only leaf table as the receipt producer tests. Production
+            // migrations and schema admission are not installed by this test.
+            await db.Ado.ExecuteCommandAsync("""
+                CREATE TABLE authoring_lifecycle_receipt (
+                    schema_version INTEGER NOT NULL, sequence BIGINT NOT NULL,
+                    extension_id VARCHAR(256) COLLATE "C" NOT NULL,
+                    package_sha256 VARCHAR(64) NOT NULL, version VARCHAR(256) NOT NULL,
+                    state_schema_version INTEGER NOT NULL, data_schema_version INTEGER NOT NULL,
+                    previous_state INTEGER NOT NULL, state INTEGER NOT NULL, generation BIGINT NOT NULL,
+                    scope_digest VARCHAR(64) NOT NULL, failure_code VARCHAR(128),
+                    previous_receipt_sha256 VARCHAR(64) NOT NULL, receipt_sha256 VARCHAR(64) NOT NULL,
+                    PRIMARY KEY (extension_id, sequence)
+                );
+                """);
+            return db;
+        }
+        catch
+        {
+            db.Dispose();
+            throw;
+        }
+    }
+
+    private static AuthoringLifecycleReceipt Receipt(VerifiedAuthoringPackage package) => Sign(new(
+        1, 1, package.Contract.Manifest.Id, package.Contract.Manifest.PackageSha256, package.Contract.Manifest.Version,
+        1, 1, AuthoringLifecycleState.Installed, AuthoringLifecycleState.Enabled, 1, package.PackageIdentity,
+        null, new string('0', 64), ""));
+
+    private static AuthoringLifecycleReceipt Sign(AuthoringLifecycleReceipt receipt) => receipt with
+    {
+        ReceiptSha256 = AuthoringExtensionLifecycleCoordinator.ComputeReceiptSha256(receipt)
+    };
+}

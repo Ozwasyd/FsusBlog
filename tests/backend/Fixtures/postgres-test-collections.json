@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 497,
+      "estimatedFacts": 526,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -196,12 +196,16 @@
         {
           "path": "Integration/AuthoringExtensionScopeProvenanceCustodyPostgresTests.cs",
           "class": "AuthoringExtensionScopeProvenanceCustodyPostgresTests"
+        },
+        {
+          "path": "Integration/AuthoringApprovedProductionCompositionTests.cs",
+          "class": "AuthoringApprovedProductionCompositionTests"
         }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 505,
+      "estimatedFacts": 529,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -547,6 +551,10 @@
         {
           "path": "Integration/AuthoringLifecycleReceiptPostgresTests.cs",
           "class": "AuthoringLifecycleReceiptPostgresTests"
+        },
+        {
+          "path": "Integration/AuthoringProductionPreflightPostgresTests.cs",
+          "class": "AuthoringProductionPreflightPostgresTests"
         }
       ]
     }

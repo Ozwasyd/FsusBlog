@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionHostResourceAuthority.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionProductionComposition.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionProductionPreflight.cs"
+            ],
+            "reason": "Preserve the registered .NET infrastructure naming boundary for only the three new production preflight consumers. No process environment, runtime producer or trust policy is changed by this candidate."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve existing external DOM, path and protocol spellings in the current architecture and security boundary while documenting original staged lifecycle ports and unqualified scope, snapshot and execution-result custody."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve the original PostgreSQL collection manifest schema and consumer keys, adding only declared producer tests and the isolated preflight collection member; this is naming evidence, not test qualification."
+        }
+    ]
+}
