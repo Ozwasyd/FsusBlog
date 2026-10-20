@@ -49,3 +49,5 @@ f682e1afaa2c434be72afb1bd2cb80f31fcf750d
 1d4d6fe3a958e46dc818d13a73a5b92ce92b48f4
 # Original SDK whitespace pass for clean Migration fixture successor (#4667).
 fa8adfcfd3554b83a0d833d86e54ec547c48d5ad
+# Predicate assertion test whitespace for #4667.
+34c76dcd0ab44fffd3943ac5d1c43e96e9b424db
