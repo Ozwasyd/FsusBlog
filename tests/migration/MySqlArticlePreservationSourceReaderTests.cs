@@ -100,7 +100,10 @@ public sealed class MySqlArticlePreservationSourceReaderTests
     {
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
             () => MySqlArticlePreservationSourceReader.ReadAsync("not-a-driver-connection-string",
-                missing == "origin" ? null! : missing == "digest" ? s_origin with { Sha256 = "missing" } : s_origin,
+                missing == "origin" ? null! : missing == "digest" ? s_origin with
+                {
+                    Sha256 = "missing"
+                } : s_origin,
                 missing == "base" ? new Uri("/article/1", UriKind.Relative) : s_documentBase,
                 s_limits, TimeSpan.FromSeconds(1), default));
         Assert.Equal("article_preservation_source_origin_required", failure.Message);
@@ -131,13 +134,13 @@ public sealed class MySqlArticlePreservationSourceReaderTests
     [Fact]
     public async Task InvalidDriverSettingsCannotEscapeAsCredentialOrDriverErrorPayload()
     {
-        const string secret = "source-reader-private-fixture";
+        const string Secret = "source-reader-private-fixture";
         InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
             () => MySqlArticlePreservationSourceReader.ReadAsync(
-                "Password=" + secret + ";UnsupportedNativeSessionFixtureOption=1", s_origin,
+                "Password=" + Secret + ";UnsupportedNativeSessionFixtureOption=1", s_origin,
                 s_documentBase, s_limits, TimeSpan.FromSeconds(1), default));
         Assert.Equal("offline_source_mysql_native_operation_failed", failure.Message);
-        Assert.DoesNotContain(secret, failure.Message);
+        Assert.DoesNotContain(Secret, failure.Message);
         Assert.Null(failure.InnerException);
     }
 
@@ -185,7 +188,10 @@ public sealed class MySqlArticlePreservationSourceReaderTests
 
     private sealed class LabelConnection(ConnectionState state = ConnectionState.Open) : DbConnection
     {
-        internal int CommandsCreated { get; private set; }
+        internal int CommandsCreated
+        {
+            get; private set;
+        }
         [System.Diagnostics.CodeAnalysis.AllowNull]
         public override string ConnectionString { get; set; } = string.Empty;
         public override string Database => "caller-label-not-authority";
@@ -193,7 +199,9 @@ public sealed class MySqlArticlePreservationSourceReaderTests
         public override string ServerVersion => "unit";
         public override ConnectionState State => state;
         public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
-        public override void Close() { }
+        public override void Close()
+        {
+        }
         public override void Open() => throw new NotSupportedException();
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => throw new NotSupportedException();
         protected override DbCommand CreateDbCommand()
@@ -205,10 +213,21 @@ public sealed class MySqlArticlePreservationSourceReaderTests
 
     private sealed class LabelTransaction(DbConnection connection, IsolationLevel isolation) : DbTransaction
     {
-        internal int Mutations { get; private set; }
+        internal int Mutations
+        {
+            get; private set;
+        }
         public override IsolationLevel IsolationLevel => isolation;
         protected override DbConnection DbConnection => connection;
-        public override void Commit() { Mutations++; throw new NotSupportedException(); }
-        public override void Rollback() { Mutations++; throw new NotSupportedException(); }
+        public override void Commit()
+        {
+            Mutations++;
+            throw new NotSupportedException();
+        }
+        public override void Rollback()
+        {
+            Mutations++;
+            throw new NotSupportedException();
+        }
     }
 }
