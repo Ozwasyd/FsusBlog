@@ -11,6 +11,12 @@ public static class ArticleRelationContractValidator
     public const int MaxRelationsPerSet = 100_000;
     public const int MaxCandidatesPerSource = 10_000;
 
+    /// <summary>
+    /// Returns a copy with the relation identity recomputed before the record digest, replacing both supplied values.
+    /// </summary>
+    /// <param name="record">The relation facts to seal; their contract validity is checked separately by <see cref="Validate(ArticleRelationRecord?)"/>.</param>
+    /// <returns>The supplied facts with recomputed identity and integrity digest.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="record"/> is null.</exception>
     public static ArticleRelationRecord Seal(ArticleRelationRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
@@ -301,6 +307,12 @@ public static class ArticleRelationContractValidator
         return Valid();
     }
 
+    /// <summary>
+    /// Checks relation facts, catalog eligibility, resolution, actor binding and both digests, including public-context restrictions.
+    /// </summary>
+    /// <param name="record">The sealed relation to check; null is rejected.</param>
+    /// <returns>The first contract failure reason, or a valid result after all checks pass.</returns>
+    /// <remarks>Unlinked mentions require candidate records. This check does not resolve targets or query current permissions.</remarks>
     public static ArticleRelationValidationResult Validate(ArticleRelationRecord? record)
     {
         if (record is null
