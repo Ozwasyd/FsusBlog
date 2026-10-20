@@ -1,12 +1,12 @@
 using System.Data.Common;
 
-using Outbox = FsusBlog.Contracts.Articles.Outbox;
-
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
 
 using SqlSugar;
+
+using Outbox = FsusBlog.Contracts.Articles.Outbox;
 
 namespace FsusBlog.Server.Services;
 

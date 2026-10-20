@@ -215,4 +215,3 @@ public static class ArticleMutationOutboxEnvelopeCodec
         return false;
     }
 }
-
