@@ -1,3 +1,5 @@
+using FsusBlog.Contracts.Schema;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Entities;
@@ -10,6 +12,10 @@ namespace FsusBlog.Server.Entities;
 [SugarIndex("ux_article_source_mutation_generation", nameof(SourceGeneration), OrderByType.Asc, true)]
 [SugarIndex("ux_article_source_mutation_sequence", nameof(ArticleId), OrderByType.Asc,
     nameof(SourceSequence), OrderByType.Asc, true)]
+[CurrentSchemaConstraint("ck_article_source_mutation_article", "check", nameof(ArticleId), Expression = "article_id > 0")]
+[CurrentSchemaConstraint("ck_article_source_mutation_generation", "check", nameof(SourceGeneration), Expression = "source_generation > 0")]
+[CurrentSchemaConstraint("ck_article_source_mutation_sequence", "check", nameof(SourceSequence), nameof(SourceGeneration),
+    Expression = "source_sequence > 0 AND source_sequence <= source_generation")]
 public sealed class ArticleSourceMutation
 {
     [SugarColumn(ColumnName = "event_id", Length = 36, IsPrimaryKey = true)]

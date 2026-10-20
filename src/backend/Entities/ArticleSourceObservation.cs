@@ -1,3 +1,5 @@
+using FsusBlog.Contracts.Schema;
+
 using SqlSugar;
 
 namespace FsusBlog.Server.Entities;
@@ -10,6 +12,10 @@ namespace FsusBlog.Server.Entities;
 [SugarIndex("ux_article_source_observation_generation", nameof(SourceGeneration), OrderByType.Asc, true)]
 [SugarIndex("ux_article_source_observation_sequence", nameof(ArticleId), OrderByType.Asc,
     nameof(SourceSequence), OrderByType.Asc, true)]
+[CurrentSchemaConstraint("ck_article_source_observation_origin", "check", nameof(OriginKind), nameof(OriginKey), nameof(OriginFacts),
+    Expression = "origin_kind IN ('article', 'property-definition', 'security-policy', 'property-value', 'taxonomy', 'display-locale') AND length(origin_key) > 0 AND length(origin_facts) > 0")]
+[CurrentSchemaConstraint("ck_article_source_observation_coordinates", "check", nameof(SourceGeneration), nameof(ArticleId), nameof(SourceSequence),
+    Expression = "source_generation > 0 AND ((article_id IS NULL AND source_sequence IS NULL) OR (article_id IS NOT NULL AND source_sequence IS NOT NULL AND article_id > 0 AND source_sequence > 0 AND source_sequence <= source_generation))")]
 public sealed class ArticleSourceObservation
 {
     [SugarColumn(ColumnName = "origin_kind", Length = 32, IsPrimaryKey = true)]

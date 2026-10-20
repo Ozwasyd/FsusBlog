@@ -90,8 +90,10 @@ internal static partial class CurrentSchemaBootstrapCompiler
             case CurrentSchemaRecipeOperationKind.DefineImmutableGuard:
                 string error = operation.ErrorCode ?? throw new InvalidOperationException("current_schema_bootstrap_recipe_guard_missing");
                 _ = Identifier(error);
-                sql = $"CREATE FUNCTION {name}() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION '{error}'; END; $$ LANGUAGE plpgsql;";
-                expected = new(operation.Kind, operation.Name, ErrorCode: error);
+                string? sqlState = CurrentSchemaImmutableEffects.RequireSqlState(operation.SqlState);
+                string exceptionState = sqlState is null ? "" : $" USING ERRCODE = '{sqlState}'";
+                sql = $"CREATE FUNCTION {name}() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION '{error}'{exceptionState}; END; $$ LANGUAGE plpgsql;";
+                expected = new(operation.Kind, operation.Name, ErrorCode: error, SqlState: sqlState);
                 break;
             case CurrentSchemaRecipeOperationKind.RemoveTrigger:
                 sql = $"DROP TRIGGER IF EXISTS {name} ON {Table()};";
@@ -99,8 +101,11 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 break;
             case CurrentSchemaRecipeOperationKind.CreateImmutableTrigger:
                 string function = Identifier(operation.Function ?? throw new InvalidOperationException("current_schema_bootstrap_recipe_trigger_function_missing"));
-                sql = $"CREATE TRIGGER {name} BEFORE UPDATE OR DELETE ON {Table()} FOR EACH ROW EXECUTE FUNCTION {function}();";
-                expected = new(operation.Kind, operation.Name, operation.Table, Function: operation.Function);
+                CurrentSchemaImmutableTriggerFacts trigger = CurrentSchemaImmutableEffects.RequireTrigger(operation.Trigger);
+                string events = trigger.Events.HasFlag(CurrentSchemaTriggerEvents.Truncate) ? "UPDATE OR DELETE OR TRUNCATE" : "UPDATE OR DELETE";
+                string level = trigger.Level == CurrentSchemaTriggerLevel.Statement ? "STATEMENT" : "ROW";
+                sql = $"CREATE TRIGGER {name} BEFORE {events} ON {Table()} FOR EACH {level} EXECUTE FUNCTION {function}();";
+                expected = new(operation.Kind, operation.Name, operation.Table, Function: operation.Function, Trigger: operation.Trigger);
                 break;
             case CurrentSchemaRecipeOperationKind.InsertIfAbsent:
                 _ = Table();

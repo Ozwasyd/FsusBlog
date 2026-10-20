@@ -270,7 +270,7 @@ internal static partial class CurrentSchemaBootstrapCompiler
         }
         string value = column.PhysicalType ?? throw new InvalidOperationException("current_schema_bootstrap_physical_type_missing");
         return Regex.IsMatch(value,
-            "^(?:smallint|integer|bigint|boolean|text|bytea|uuid|jsonb|real|double precision|numeric(?:\\([0-9]+(?:,[0-9]+)?\\))?|date|time(?:\\([0-9]+\\))?(?: without time zone)?|timestamp(?:\\([0-9]+\\))?(?: without time zone| with time zone)?|character varying\\([1-9][0-9]*\\))$",
+            "^(?:smallint|integer(?:\\[\\])?|bigint|boolean|text|bytea|uuid|jsonb|real|double precision|numeric(?:\\([0-9]+(?:,[0-9]+)?\\))?|date|time(?:\\([0-9]+\\))?(?: without time zone)?|timestamp(?:\\([0-9]+\\))?(?: without time zone| with time zone)?|character varying\\([1-9][0-9]*\\))$",
             RegexOptions.CultureInvariant) ? value : throw new InvalidOperationException($"current_schema_bootstrap_physical_type_unavailable:{value}");
     }
 

@@ -87,7 +87,8 @@ public static class PgCurrentSchemaEffectObserver
             """, cancellationToken, tableScope).ConfigureAwait(false);
         foreach (DataRow row in rows.Rows)
         {
-            if (tableScope is not null && Text(row, "table_name") != tableScope) continue;
+            if (tableScope is not null && Text(row, "table_name") != tableScope)
+                continue;
             expressions.Add(new(Text(row, "kind"), Text(row, "table_name"), Text(row, "name"), Text(row, "expression"),
                 Optional(row, "columns")?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? [],
                 Optional(row, "sequence_references")?.Split(',', StringSplitOptions.RemoveEmptyEntries) ?? []));
@@ -108,7 +109,8 @@ public static class PgCurrentSchemaEffectObserver
             """, cancellationToken).ConfigureAwait(false) : new DataTable();
         foreach (DataRow row in rows.Rows)
         {
-            if (tableScope is not null) continue;
+            if (tableScope is not null)
+                continue;
             sequences.Add(new(Text(row, "name"), Text(row, "data_type"), Convert.ToInt64(row["start"]), Convert.ToInt64(row["increment"]),
                 Convert.ToInt64(row["minimum"]), Convert.ToInt64(row["maximum"]), Convert.ToInt64(row["cache"]), Convert.ToBoolean(row["cyclic"])));
         }
@@ -131,7 +133,8 @@ public static class PgCurrentSchemaEffectObserver
             """, cancellationToken).ConfigureAwait(false) : new DataTable();
         foreach (DataRow row in rows.Rows)
         {
-            if (tableScope is not null) continue;
+            if (tableScope is not null)
+                continue;
             functions.Add(new(Text(row, "name"), Text(row, "language"), Text(row, "return_type"), Convert.ToInt32(row["argument_count"]), Text(row, "body"),
                 Text(row, "volatility"), Convert.ToBoolean(row["strict"]), Convert.ToBoolean(row["security_definer"]), Text(row, "parallel"),
                 Convert.ToBoolean(row["leakproof"]), Optional(row, "configuration"), Text(row, "kind"), Convert.ToBoolean(row["returns_set"]),
@@ -157,15 +160,18 @@ public static class PgCurrentSchemaEffectObserver
             """, cancellationToken, tableScope).ConfigureAwait(false);
         foreach (DataRow row in rows.Rows)
         {
-            if (tableScope is not null && Text(row, "table_name") != tableScope) continue;
-            if (Text(row, "function_schema") != "public") throw new InvalidOperationException("current_schema_pg_trigger_function_schema_unknown");
+            if (tableScope is not null && Text(row, "table_name") != tableScope)
+                continue;
+            if (Text(row, "function_schema") != "public")
+                throw new InvalidOperationException("current_schema_pg_trigger_function_schema_unknown");
             triggers.Add(new(Text(row, "table_name"), Text(row, "name"), Text(row, "function_name"), Convert.ToInt32(row["type"]), Text(row, "enabled"),
                 Optional(row, "condition"), Convert.ToInt32(row["argument_count"]), Text(row, "arguments_hex"), Convert.ToBoolean(row["is_constraint"]),
                 Convert.ToBoolean(row["deferrable"]), Convert.ToBoolean(row["initially_deferred"]), Optional(row, "old_table"), Optional(row, "new_table"),
                 Text(row, "column_numbers"), Convert.ToBoolean(row["is_clone"])));
         }
         rows = await QueryAsync(connection, transaction, "SELECT current_setting('standard_conforming_strings') AS value;", cancellationToken).ConfigureAwait(false);
-        if (rows.Rows.Count != 1 || Text(rows.Rows[0], "value") is not ("on" or "off")) throw new InvalidOperationException("current_schema_pg_string_semantics_unobserved");
+        if (rows.Rows.Count != 1 || Text(rows.Rows[0], "value") is not ("on" or "off"))
+            throw new InvalidOperationException("current_schema_pg_string_semantics_unobserved");
         return new(Text(rows.Rows[0], "value") == "on", expressions, sequences, functions, triggers);
     }
 
@@ -184,20 +190,28 @@ public static class PgCurrentSchemaEffectObserver
                     sequences[effect.Name] = new(effect.Name, "bigint", 1, 1, 1, long.MaxValue, 1, false);
                     break;
                 case CurrentSchemaRecipeOperationKind.DefineImmutableGuard:
-                    functions[effect.Name] = new(effect.Name, "plpgsql", "trigger", 0, effect.ErrorCode!, "v", false, false, "u", false, null);
+                    string? sqlState = CurrentSchemaImmutableEffects.RequireSqlState(effect.SqlState);
+                    if (effect != new CurrentSchemaRecipeOperation(effect.Kind, effect.Name, ErrorCode: effect.ErrorCode, SqlState: sqlState))
+                        throw new InvalidOperationException("current_schema_pg_guard_unused_fact");
+                    functions[effect.Name] = new(effect.Name, "plpgsql", "trigger", 0,
+                        GuardIdentity(effect.ErrorCode!, sqlState), "v", false, false, "u", false, null);
                     break;
                 case CurrentSchemaRecipeOperationKind.RemoveTrigger:
                     triggers.Remove(effect.Table + "." + effect.Name);
                     break;
                 case CurrentSchemaRecipeOperationKind.CreateImmutableTrigger:
-                    triggers.Add(effect.Table + "." + effect.Name, new(effect.Table!, effect.Name, effect.Function!, 27, "O", null, 0, "", false, false, false, null, null));
+                    CurrentSchemaImmutableTriggerFacts trigger = CurrentSchemaImmutableEffects.RequireTrigger(effect.Trigger);
+                    if (effect != new CurrentSchemaRecipeOperation(effect.Kind, effect.Name, effect.Table, Function: effect.Function, Trigger: effect.Trigger))
+                        throw new InvalidOperationException("current_schema_pg_trigger_unused_fact");
+                    int type = trigger.Level == CurrentSchemaTriggerLevel.Statement ? 58 : 27;
+                    triggers.Add(effect.Table + "." + effect.Name, new(effect.Table!, effect.Name, effect.Function!, type, "O", null, 0, "", false, false, false, null, null));
                     break;
                 default:
                     throw new InvalidOperationException("current_schema_pg_effect_kind_unknown");
             }
         }
         Compare(sequences, actual.Sequences, static value => value.Name, static value => value);
-        Compare(functions, actual.Functions, static value => value.Name, static value => value with { Body = ParseGuard(value.Body) });
+        Compare(functions, actual.Functions, static value => value.Name, static value => value with { Body = ParseReceiptGuard(value.Body) });
         Compare(triggers, actual.Triggers, static value => value.Table + "." + value.Name, static value => value);
         return errors;
 
@@ -212,9 +226,11 @@ public static class PgCurrentSchemaEffectObserver
                     errors.Add("extra_or_duplicate_effect:" + key);
                     continue;
                 }
-                if (!EqualityComparer<T>.Default.Equals(definition, normalize(value))) errors.Add("effect_changed:" + key);
+                if (!EqualityComparer<T>.Default.Equals(definition, normalize(value)))
+                    errors.Add("effect_changed:" + key);
             }
-            foreach (string key in wanted.Keys.Except(seen, StringComparer.Ordinal)) errors.Add("effect_missing:" + key);
+            foreach (string key in wanted.Keys.Except(seen, StringComparer.Ordinal))
+                errors.Add("effect_missing:" + key);
         }
     }
 
@@ -225,6 +241,20 @@ public static class PgCurrentSchemaEffectObserver
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
         return match.Success ? match.Groups["code"].Value : throw new InvalidOperationException("current_schema_pg_guard_body_unknown");
     }
+
+    private static string ParseReceiptGuard(string body)
+    {
+        Match match = Regex.Match(body,
+            "^\\s*BEGIN\\s+RAISE\\s+EXCEPTION\\s+'(?<code>[a-z_][a-z0-9_]*)'\\s*(?:USING\\s+ERRCODE\\s*=\\s*'(?<state>[0-9A-Z]{5})'\\s*)?;\\s*END\\s*;?\\s*$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+        if (!match.Success)
+            throw new InvalidOperationException("current_schema_pg_guard_body_unknown");
+        string? sqlState = match.Groups["state"].Success ? match.Groups["state"].Value : null;
+        return GuardIdentity(match.Groups["code"].Value, CurrentSchemaImmutableEffects.RequireSqlState(sqlState));
+    }
+
+    private static string GuardIdentity(string message, string? sqlState)
+        => sqlState is null ? message : message + ":sqlstate:" + sqlState;
 
     /// <summary>Requires the actual open PostgreSQL connection and its same RepeatableRead transaction.</summary>
     public static void RequireSnapshot(DbConnection connection, DbTransaction transaction)
@@ -251,7 +281,8 @@ public static class PgCurrentSchemaEffectObserver
         }
         await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         var table = new DataTable();
-        for (int index = 0; index < reader.FieldCount; index++) table.Columns.Add(reader.GetName(index), reader.GetFieldType(index));
+        for (int index = 0; index < reader.FieldCount; index++)
+            table.Columns.Add(reader.GetName(index), reader.GetFieldType(index));
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             var values = new object[reader.FieldCount];

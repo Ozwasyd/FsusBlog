@@ -17,6 +17,7 @@ public static class SchemaPhysicalTypeProjection
         {
             "varchar" or "character varying" or "text" or "longtext" => "string",
             "int" or "integer" => "int32",
+            "integer[]" => "int32-array",
             "bigint" => "int64",
             "smallint" => "int16",
             "bool" or "boolean" or "tinyint(1)" => "boolean",
@@ -63,6 +64,7 @@ public static class SchemaPhysicalTypeProjection
             (SchemaProviderKind.MySql, "int16") => "smallint",
             (SchemaProviderKind.Sqlite, "int16") => "INTEGER",
             (SchemaProviderKind.PostgreSql, "int32") => "integer",
+            (SchemaProviderKind.PostgreSql, "int32-array") => "integer[]",
             (SchemaProviderKind.MySql, "int32") => "int",
             (SchemaProviderKind.Sqlite, "int32") => "INTEGER",
             (SchemaProviderKind.PostgreSql, "int64") => "bigint",

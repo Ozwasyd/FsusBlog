@@ -38,7 +38,9 @@ public sealed class CurrentSchemaRuntimeRollupTablesTests
             ArticleCreateAuthorityMigrationDefinitions.BuildMigration(),
             AuthorRecentArticleHistoryMigrationDefinitions.BuildMigration(),
             ArticlePropertyDefinitionAuthorityMigrationDefinitions.BuildMigration(),
-            ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.BuildMigration()
+            ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.BuildMigration(),
+            TaxonomyMutationReceiptMigrationDefinitions.BuildMigration(),
+            UserLocaleMutationReceiptMigrationDefinitions.BuildMigration()
         ];
         var expectedTables = new Dictionary<string, string>(StringComparer.Ordinal);
         var tableMigration = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -199,7 +201,7 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         var inspector = new SchemaModelInspector();
-        db.CodeFirst.InitTables(inspector.GetManagedEntityTypes().ToArray());
+        PostgresSqlSugarTestClient.InitTables(db, inspector.GetManagedEntityTypes().ToArray());
         await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, CancellationToken.None);
         await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead);
         System.Data.IDbTransaction callerTransaction = db.Ado.Transaction;
@@ -251,7 +253,7 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         var inspector = new SchemaModelInspector();
-        db.CodeFirst.InitTables(inspector.GetManagedEntityTypes().ToArray());
+        PostgresSqlSugarTestClient.InitTables(db, inspector.GetManagedEntityTypes().ToArray());
         await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, CancellationToken.None);
         await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead);
         System.Data.IDbTransaction caller = db.Ado.Transaction;
@@ -332,7 +334,7 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         var inspector = new SchemaModelInspector();
-        db.CodeFirst.InitTables(inspector.GetManagedEntityTypes().ToArray());
+        PostgresSqlSugarTestClient.InitTables(db, inspector.GetManagedEntityTypes().ToArray());
         await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, CancellationToken.None);
         SchemaModelSnapshot original = await inspector.ReadActualModelAsync(db, CancellationToken.None);
         await using var connection = new NpgsqlConnection(db.CurrentConnectionConfig.ConnectionString);
@@ -413,10 +415,12 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
         IReadOnlyList<Type> entityTypes = inspector.GetManagedEntityTypes();
         using (var original = new SqlSugarClient(new ConnectionConfig
         {
-            ConnectionString = originalConnection, DbType = SqlSugar.DbType.PostgreSQL, IsAutoCloseConnection = true
+            ConnectionString = originalConnection,
+            DbType = SqlSugar.DbType.PostgreSQL,
+            IsAutoCloseConnection = true
         }))
         {
-            original.CodeFirst.InitTables(entityTypes.ToArray());
+            PostgresSqlSugarTestClient.InitTables(original, entityTypes.ToArray());
             await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(original, CancellationToken.None);
         }
         CurrentSchemaProjection projection = CurrentSchemaCanonicalAuthority.Generate(inspector.BuildCanonicalModel(entityTypes));
@@ -513,7 +517,10 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             await connection.OpenAsync();
             await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync();
             await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchemaBootstrapCompiler.ExecuteAsync(
-                compiled with { CommandDigest = new string('d', 64) }, connection, transaction, CancellationToken.None));
+                compiled with
+                {
+                    CommandDigest = new string('d', 64)
+                }, connection, transaction, CancellationToken.None));
             await transaction.RollbackAsync();
         }
         Assert.Equal(before, await fixture.CaptureSchemaSnapshotAsync(connectionString));
@@ -547,13 +554,22 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
     private sealed class CompiledBootstrapProbe
     {
         [SugarColumn(ColumnName = "id", IsPrimaryKey = true, IsIdentity = true)]
-        public long Id { get; set; }
+        public long Id
+        {
+            get; set;
+        }
 
         [SugarColumn(ColumnName = "name", Length = 64, IsNullable = true)]
-        public string? Name { get; set; }
+        public string? Name
+        {
+            get; set;
+        }
 
         [SugarColumn(ColumnName = "counter", DefaultValue = "0")]
-        public int Counter { get; set; }
+        public int Counter
+        {
+            get; set;
+        }
     }
 
     [Fact]
@@ -561,7 +577,7 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         var inspector = new SchemaModelInspector();
-        db.CodeFirst.InitTables(inspector.GetManagedEntityTypes().ToArray());
+        PostgresSqlSugarTestClient.InitTables(db, inspector.GetManagedEntityTypes().ToArray());
         await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, CancellationToken.None);
 
         DataTable stats = await db.Ado.GetDataTableAsync("""
