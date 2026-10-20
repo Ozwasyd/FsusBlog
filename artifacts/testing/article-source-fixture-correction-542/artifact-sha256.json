@@ -21,5 +21,6 @@
   "style-all.txt": "47beb1be2f5ba2e916ddef58704622fcc468eca91c7b4b412ad0b04243c53b6e",
   "style-final.txt": "58217e7675dae3f3a8a6e9003bc3fe122abf5b9d6cedb3f1d71d4e1c0777e941",
   "targeted-selector.txt": "a056f46dad1121f41ef0b3efef6afb20d0faa4123c2908ca77f48016c34c2eb3",
-  "verify-results.py": "bec44a747587585f9a41c61aeb50a676cac4c50bae58330b9a2d640da830a8e9"
+  "verification-run.json": "b8fb88089b3a7ad814541c8cd795077211b072079766cc608197549a55e145d0",
+  "verify-results.py": "63171e93d0c228313452c27a09c16744a240b32de1c208fc0a7a74b4dd298b39"
 }
