@@ -68,7 +68,8 @@ public static class CurrentSchemaCanonicalAuthority
                     },
                     StringComparer.Ordinal),
                 table.Value.Indexes,
-                table.Value.IndexDefinitions.ToDictionary(static index => index.Key, static index => index.Value, StringComparer.Ordinal),
+                table.Value.IndexDefinitions.ToDictionary(static index => index.Key,
+                    index => CopyIndexExpressions(index.Value, table.Value.Columns, provider), StringComparer.Ordinal),
                 table.Value.Constraints.ToDictionary(static constraint => constraint.Key, static constraint => constraint.Value, StringComparer.Ordinal),
                 table.Value.Owner)
             {
@@ -181,7 +182,8 @@ public static class CurrentSchemaCanonicalAuthority
             switch (operation.Kind)
             {
                 case CurrentSchemaRecipeOperationKind.CreateIndex:
-                    SchemaIndexModel index = operation.Index ?? throw new InvalidOperationException("current_schema_complete_target_effect_index_missing");
+                    SchemaIndexModel index = CopyIndexExpressions(operation.Index
+                        ?? throw new InvalidOperationException("current_schema_complete_target_effect_index_missing"), columns, provider);
                     if (index.Name != operation.Name || !indexes.TryAdd(index.Name, index))
                     {
                         throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");
@@ -540,6 +542,9 @@ public static class CurrentSchemaCanonicalAuthority
 
     public static string ComputeContentDigest(IReadOnlyDictionary<string, SchemaTableModel> tables)
     {
+        foreach (SchemaTableModel table in tables.Values)
+            foreach (SchemaIndexModel index in table.IndexDefinitions.Values)
+                _ = CopyIndexExpressions(index, table.Columns, SchemaProviderKind.Semantic);
         var canonical = tables
             .OrderBy(static table => table.Key, StringComparer.Ordinal)
             .Select(table => new
@@ -613,7 +618,8 @@ public static class CurrentSchemaCanonicalAuthority
                 table.Value.Name,
                 table.Value.Columns.ToDictionary(static column => column.Key, static column => column.Value, StringComparer.Ordinal),
                 table.Value.Indexes,
-                table.Value.IndexDefinitions.ToDictionary(static index => index.Key, static index => index.Value, StringComparer.Ordinal),
+                table.Value.IndexDefinitions.ToDictionary(static index => index.Key,
+                    index => CopyIndexExpressions(index.Value, table.Value.Columns, provider), StringComparer.Ordinal),
                 table.Value.Constraints.ToDictionary(static constraint => constraint.Key, static constraint => constraint.Value, StringComparer.Ordinal),
                 table.Value.Owner)
             {
@@ -627,6 +633,23 @@ public static class CurrentSchemaCanonicalAuthority
         => provider == SchemaProviderKind.PostgreSql && column.IsIdentity
             ? "owned-sequence-default"
             : "none";
+
+    private static SchemaIndexModel CopyIndexExpressions(SchemaIndexModel index,
+        IReadOnlyDictionary<string, SchemaColumnModel> columns, SchemaProviderKind provider)
+    {
+        if (!index.Keys.Any(static key => key.Expression is not null))
+            return index;
+        if (provider is not (SchemaProviderKind.Semantic or SchemaProviderKind.PostgreSql)
+            || index.IsUnique || index.AccessMethod != "btree")
+            throw new InvalidOperationException("current_schema_index_expression_provider_unavailable");
+        return index with
+        {
+            Keys = index.Keys.Select(key => key.Expression is null ? key : key with
+            {
+                Expression = SchemaIndexExpressions.Require(key, columns)
+            }).ToArray()
+        };
+    }
 
     private static SchemaMySqlTablePhysicalFacts? CopyMySqlTableFacts(SchemaMySqlTablePhysicalFacts? facts)
         => facts is null ? null : facts with

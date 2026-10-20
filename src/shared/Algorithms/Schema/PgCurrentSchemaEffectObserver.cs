@@ -8,6 +8,8 @@ namespace FsusBlog.Shared.Algorithms.Schema;
 
 /// <summary>Untruncated native expression and actual column/sequence dependencies.</summary>
 public sealed record PgCurrentRawExpression(string Kind, string Table, string Name, string Expression, string[] Columns, string[] SequenceReferences);
+/// <summary>One actual native index expression and its result representation; Columns measures the complete index's source dependencies.</summary>
+public sealed record PgCurrentIndexExpression(string Table, string Index, int Position, string Expression, string PhysicalType, string[] Columns);
 /// <summary>Native unowned sequence configuration, not its mutable current value.</summary>
 public sealed record PgCurrentSequence(string Name, string DataType, long Start, long Increment, long Minimum, long Maximum, long Cache, bool Cyclic);
 /// <summary>Native function body and full current-contract execution/security semantics.</summary>
@@ -22,7 +24,11 @@ public sealed record PgCurrentTrigger(string Table, string Name, string Function
 /// <summary>Actual current PostgreSQL expression/effect facts and their string interpretation context.</summary>
 public sealed record PgCurrentSchemaEffectObservation(bool StandardConformingStrings,
     IReadOnlyList<PgCurrentRawExpression> Expressions, IReadOnlyList<PgCurrentSequence> Sequences,
-    IReadOnlyList<PgCurrentFunction> Functions, IReadOnlyList<PgCurrentTrigger> Triggers);
+    IReadOnlyList<PgCurrentFunction> Functions, IReadOnlyList<PgCurrentTrigger> Triggers)
+{
+    /// <summary>Raw expression keys and actual dependencies, measured on the same caller-owned RR snapshot.</summary>
+    public IReadOnlyList<PgCurrentIndexExpression> IndexExpressions { get; init; } = [];
+}
 
 // Generic actual catalog measurement on the caller's sole native snapshot. Raw
 // expression/body bytes remain available; no truncated default substitutes for them.
@@ -169,10 +175,45 @@ public static class PgCurrentSchemaEffectObserver
                 Convert.ToBoolean(row["deferrable"]), Convert.ToBoolean(row["initially_deferred"]), Optional(row, "old_table"), Optional(row, "new_table"),
                 Text(row, "column_numbers"), Convert.ToBoolean(row["is_clone"])));
         }
+        var indexExpressions = new List<PgCurrentIndexExpression>();
+        rows = await QueryAsync(connection, transaction, """
+            SELECT relation.relname AS table_name, index_relation.relname AS name,
+                   position.number AS position,
+                   pg_get_indexdef(index_meta.indexrelid, position.number + 1, true) AS expression,
+                   format_type(index_column.atttypid, index_column.atttypmod) AS physical_type,
+                   COALESCE((SELECT string_agg(DISTINCT source_column.attname, ',' ORDER BY source_column.attname)
+                       FROM pg_depend dependency
+                       JOIN pg_attribute source_column ON source_column.attrelid = index_meta.indrelid
+                           AND source_column.attnum = dependency.refobjsubid
+                       WHERE dependency.classid = 'pg_class'::regclass AND dependency.objid = index_meta.indexrelid
+                           AND dependency.refclassid = 'pg_class'::regclass AND dependency.refobjid = index_meta.indrelid
+                           AND dependency.refobjsubid > 0), '') AS columns
+            FROM pg_index index_meta
+            JOIN pg_class relation ON relation.oid = index_meta.indrelid
+            JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+            JOIN pg_class index_relation ON index_relation.oid = index_meta.indexrelid
+            CROSS JOIN LATERAL generate_series(0, index_meta.indnkeyatts - 1) AS position(number)
+            JOIN pg_attribute index_column ON index_column.attrelid = index_meta.indexrelid
+                AND index_column.attnum = position.number + 1
+            WHERE namespace.nspname = 'public' AND relation.relkind = 'r'
+                AND index_meta.indexprs IS NOT NULL AND index_meta.indkey[position.number] = 0
+            ORDER BY table_name, name, position;
+            """, cancellationToken, tableScope).ConfigureAwait(false);
+        foreach (DataRow row in rows.Rows)
+        {
+            if (tableScope is not null && Text(row, "table_name") != tableScope)
+                continue;
+            indexExpressions.Add(new(Text(row, "table_name"), Text(row, "name"), Convert.ToInt32(row["position"]),
+                Text(row, "expression"), Text(row, "physical_type"),
+                Text(row, "columns").Split(',', StringSplitOptions.RemoveEmptyEntries)));
+        }
         rows = await QueryAsync(connection, transaction, "SELECT current_setting('standard_conforming_strings') AS value;", cancellationToken).ConfigureAwait(false);
         if (rows.Rows.Count != 1 || Text(rows.Rows[0], "value") is not ("on" or "off"))
             throw new InvalidOperationException("current_schema_pg_string_semantics_unobserved");
-        return new(Text(rows.Rows[0], "value") == "on", expressions, sequences, functions, triggers);
+        return new(Text(rows.Rows[0], "value") == "on", expressions, sequences, functions, triggers)
+        {
+            IndexExpressions = indexExpressions
+        };
     }
 
     /// <summary>Compares every expected nonrelational effect and rejects unknown, duplicate, missing or altered facts.</summary>

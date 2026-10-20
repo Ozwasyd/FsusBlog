@@ -253,12 +253,18 @@ public static class PgCurrentSchemaCatalogObserver
                                   OR index_meta.indcollation[key_position.position] = key_column.attcollation
                                 THEN 'default'
                                 ELSE collation_namespace.nspname || '.' || collation_meta.collname
-                            END)
+                            END)::jsonb || CASE WHEN index_meta.indkey[key_position.position] = 0 THEN
+                                jsonb_build_object('expression', pg_get_indexdef(index_meta.indexrelid, key_position.position + 1, true),
+                                    'expressionType', format_type(index_column.atttypid, index_column.atttypmod))
+                                ELSE '{}'::jsonb END
                         ORDER BY key_position.position)::text
                     FROM generate_series(0, index_meta.indnkeyatts - 1) AS key_position(position)
                     LEFT JOIN pg_attribute key_column
                       ON key_column.attrelid = table_rel.oid
                      AND key_column.attnum = index_meta.indkey[key_position.position]
+                    LEFT JOIN pg_attribute index_column
+                      ON index_column.attrelid = index_meta.indexrelid
+                     AND index_column.attnum = key_position.position + 1
                     LEFT JOIN pg_opclass operator_class
                       ON operator_class.oid = index_meta.indclass[key_position.position]
                     LEFT JOIN pg_namespace operator_namespace
@@ -304,7 +310,7 @@ public static class PgCurrentSchemaCatalogObserver
                 bool hasExpressions = Convert.ToBoolean(row["has_expressions"]);
                 IReadOnlyList<SchemaIndexKeyModel> keys = ParsePostgresIndexKeys(
                     Convert.ToString(row["keys"]),
-                    hasExpressions);
+                    hasExpressions, table.Columns);
                 string[] includedColumns = ParsePostgresIncludedColumns(Convert.ToString(row["included_columns"]));
                 table.Indexes.Add(indexName);
                 ((Dictionary<string, SchemaIndexModel>)table.IndexDefinitions).Add(
@@ -467,7 +473,7 @@ public static class PgCurrentSchemaCatalogObserver
             if (tableName == CurrentSchemaControlShape.ApplyJournalTableName)
                 continue;
             var constraints = (Dictionary<string, SchemaConstraintModel>)table.Constraints;
-            foreach (SchemaIndexModel index in table.IndexDefinitions.Values.Where(static index => index.IsUnique))
+            foreach (SchemaIndexModel index in table.IndexDefinitions.Values.Where(static index => index.IsUnique && index.Keys.All(static key => key.Expression is null)))
             {
                 if (primaryIndexes.Contains(tableName + "." + index.Name))
                     continue;
@@ -564,8 +570,17 @@ public static class PgCurrentSchemaCatalogObserver
     public static IReadOnlyList<SchemaIndexKeyModel> ParsePostgresIndexKeys(
         string? json,
         bool hasExpressions)
+        => ParseIndexKeys(json, hasExpressions, null);
+
+    /// <summary>Decodes expression keys only with their complete raw syntax, native result type and actual bound table columns.</summary>
+    public static IReadOnlyList<SchemaIndexKeyModel> ParsePostgresIndexKeys(string? json, bool hasExpressions,
+        IReadOnlyDictionary<string, SchemaColumnModel> columns)
+        => ParseIndexKeys(json, hasExpressions, columns);
+
+    private static IReadOnlyList<SchemaIndexKeyModel> ParseIndexKeys(string? json, bool hasExpressions,
+        IReadOnlyDictionary<string, SchemaColumnModel>? columns)
     {
-        if (hasExpressions)
+        if (hasExpressions && columns is null)
         {
             throw new InvalidOperationException("PostgreSQL current schema contains an unsupported expression index key.");
         }
@@ -578,20 +593,37 @@ public static class PgCurrentSchemaCatalogObserver
         }
 
         var keys = new List<SchemaIndexKeyModel>();
+        bool observedExpression = false;
         foreach (JsonElement element in document.RootElement.EnumerateArray())
         {
+            bool expression = element.ValueKind == JsonValueKind.Object && element.TryGetProperty("expression", out _);
+            string[] fields = expression
+                ? ["collation", "column", "direction", "expression", "expressionType", "nullPlacement", "operatorClass"]
+                : ["collation", "column", "direction", "nullPlacement", "operatorClass"];
             if (element.ValueKind != JsonValueKind.Object
                 || element.EnumerateObject().Select(static property => property.Name).Order(StringComparer.Ordinal)
                     .SequenceEqual(
-                        new[] { "collation", "column", "direction", "nullPlacement", "operatorClass" },
+                        fields,
                         StringComparer.Ordinal) == false)
             {
                 throw new InvalidOperationException("PostgreSQL current schema index key observation has an invalid shape.");
             }
 
-            string column = NormalizeRequiredPostgresIdentifier(
-                element.GetProperty("column").GetString(),
-                "index key column");
+            SchemaIndexExpression? parsedExpression = null;
+            string column;
+            if (expression)
+            {
+                if (!hasExpressions || columns is null || element.GetProperty("column").ValueKind != JsonValueKind.Null)
+                    throw new InvalidOperationException("current_schema_pg_index_expression_shape_unavailable");
+                parsedExpression = PgCurrentSchemaIndexExpression.Parse(element.GetProperty("expression").GetString()!, columns);
+                if (NormalizePostgresPhysicalType(element.GetProperty("expressionType").GetString()!)
+                    != PgCurrentSchemaIndexExpression.ResultType(parsedExpression))
+                    throw new InvalidOperationException("current_schema_pg_index_expression_type_changed");
+                column = string.Empty;
+                observedExpression = true;
+            }
+            else
+                column = NormalizeRequiredPostgresIdentifier(element.GetProperty("column").GetString(), "index key column");
             string direction = RequireExactValue(
                 element.GetProperty("direction").GetString(),
                 "index key direction",
@@ -613,8 +645,13 @@ public static class PgCurrentSchemaCatalogObserver
                 direction,
                 nullPlacement,
                 operatorClass,
-                collation));
+                collation)
+            {
+                Expression = parsedExpression
+            });
         }
+        if (observedExpression != hasExpressions)
+            throw new InvalidOperationException("current_schema_pg_index_expression_missing");
         return keys;
     }
 

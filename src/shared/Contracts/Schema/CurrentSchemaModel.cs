@@ -92,6 +92,13 @@ public sealed record SchemaIndexKeyModel(
     string OperatorClass,
     string Collation)
 {
+    /// <summary>A typed expression key uses an empty Column and retains its ordered bound operands; ordinary keys omit this field.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public SchemaIndexExpression? Expression
+    {
+        get; init;
+    }
+
     /// <summary>Required for physical MySQL comparison; null is unobserved, not a complete key.</summary>
     public SchemaMySqlIndexKeyPhysicalFacts? MySqlPhysical
     {

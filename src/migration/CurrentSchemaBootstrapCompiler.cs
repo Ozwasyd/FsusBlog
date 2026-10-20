@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using FsusBlog.Contracts.Schema;
+using FsusBlog.Shared.Algorithms.Schema;
 
 namespace FsusBlog.Migration;
 
@@ -172,7 +173,6 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 {
                     throw new InvalidOperationException("current_schema_bootstrap_index_method_unavailable");
                 }
-                RequireColumns(table, index.Keys.Select(static key => key.Column).ToArray());
                 RequireColumns(table, index.IncludedColumns, allowEmpty: true);
                 string[] keys = index.Keys.Select(key =>
                 {
@@ -182,7 +182,7 @@ internal static partial class CurrentSchemaBootstrapCompiler
                         : throw new InvalidOperationException("current_schema_bootstrap_index_nulls_invalid");
                     string collation = key.Collation == "default" ? "" : $" COLLATE {QualifiedIdentifier(key.Collation)}";
                     string opclass = key.OperatorClass == "default" ? "" : $" {QualifiedIdentifier(key.OperatorClass)}";
-                    return $"{Identifier(key.Column)}{collation}{opclass} {direction} NULLS {nulls}";
+                    return $"{IndexValue(key, table)}{collation}{opclass} {direction} NULLS {nulls}";
                 }).ToArray();
                 string include = index.IncludedColumns.Count == 0 ? "" : $" INCLUDE ({Columns(index.IncludedColumns)})";
                 string predicate = index.Predicate is null ? "" : $" WHERE {Expression(index.Predicate)}";
@@ -250,6 +250,14 @@ internal static partial class CurrentSchemaBootstrapCompiler
         {
             throw new InvalidOperationException("current_schema_bootstrap_constraint_columns_invalid");
         }
+    }
+
+    private static string IndexValue(SchemaIndexKeyModel key, SchemaTableModel table)
+    {
+        if (key.Expression is not null)
+            return "(" + PgCurrentSchemaIndexExpression.Compile(SchemaIndexExpressions.Require(key, table.Columns), table.Columns) + ")";
+        RequireColumns(table, [key.Column]);
+        return Identifier(key.Column);
     }
 
     private static string PhysicalType(SchemaColumnModel column)

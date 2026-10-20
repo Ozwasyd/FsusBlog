@@ -1,5 +1,6 @@
 namespace FsusBlog.Contracts.Schema;
 
+/// <summary>Compares complete declared and observed schema facts, including ordered typed index expressions, without granting migration admission.</summary>
 public static class SchemaModelComparer
 {
     public static IReadOnlyList<string> Compare(
@@ -119,7 +120,7 @@ public static class SchemaModelComparer
                 errors.Add($"mysql-physical unobserved index {expected.Name}.{indexName} owner={Describe(expected.Owner)}");
             if (expectedIndex.Name != actualIndex.Name
                 || expectedIndex.IsUnique != actualIndex.IsUnique
-                || !expectedIndex.Keys.SequenceEqual(actualIndex.Keys)
+                || !IndexKeysEqual(expectedIndex.Keys, actualIndex.Keys)
                 || !expectedIndex.IncludedColumns.SequenceEqual(actualIndex.IncludedColumns, StringComparer.Ordinal)
                 || expectedIndex.AccessMethod != actualIndex.AccessMethod
                 || expectedIndex.Predicate != actualIndex.Predicate
@@ -222,6 +223,17 @@ public static class SchemaModelComparer
             && facts.Partitions is not null && facts.Partitions.All(static partition => partition is not null)
             && (facts.TableType != "BASE TABLE" || (facts.Partitions.Count > 0 && !string.IsNullOrWhiteSpace(facts.Engine)
                 && !string.IsNullOrWhiteSpace(facts.RowFormat) && !string.IsNullOrWhiteSpace(facts.Collation)));
+
+    private static bool IndexKeysEqual(IReadOnlyList<SchemaIndexKeyModel> left, IReadOnlyList<SchemaIndexKeyModel> right)
+        => left.Count == right.Count && left.Zip(right).All(static pair =>
+            (pair.First with
+            {
+                Expression = null
+            }) == (pair.Second with
+            {
+                Expression = null
+            })
+            && SchemaIndexExpressions.Equal(pair.First.Expression, pair.Second.Expression));
 
     private static bool HasMySqlColumnFacts(SchemaMySqlColumnPhysicalFacts? facts)
         => facts is not null && facts.Extra is not null && facts.GenerationExpression is not null && facts.Comment is not null;
