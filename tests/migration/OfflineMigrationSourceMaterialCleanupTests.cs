@@ -4,7 +4,9 @@ using System.Data.Common;
 using System.Reflection;
 
 using MySqlConnector;
+
 using NSubstitute;
+
 using Xunit;
 
 namespace FsusBlog.Migration.Tests;
@@ -32,7 +34,8 @@ public sealed class OfflineMigrationSourceMaterialCleanupTests
         {
             fixture.Reader.ReadAsync(Arg.Any<CancellationToken>()).Returns(_ =>
             {
-                if (stage == "cancel") cancellation.Cancel();
+                if (stage == "cancel")
+                    cancellation.Cancel();
                 return Task.FromException<bool>(first);
             });
         }
@@ -68,8 +71,10 @@ public sealed class OfflineMigrationSourceMaterialCleanupTests
     public async Task SuccessfulBodyDoesNotReturnRowsWhenCleanupFails(bool readerFails, bool commandFails)
     {
         Fixture fixture = CreateFixture();
-        if (readerFails) fixture.Reader.DisposeAsync().Returns(ValueTask.FromException(fixture.ReaderCleanup));
-        if (commandFails) fixture.Command.DisposeAsync().Returns(ValueTask.FromException(fixture.CommandCleanup));
+        if (readerFails)
+            fixture.Reader.DisposeAsync().Returns(ValueTask.FromException(fixture.ReaderCleanup));
+        if (commandFails)
+            fixture.Command.DisposeAsync().Returns(ValueTask.FromException(fixture.CommandCleanup));
 
         Exception actual = await Assert.ThrowsAnyAsync<Exception>(() => ReadActualPrivateHelperAsync(fixture, default));
         Assert.Same(readerFails ? fixture.ReaderCleanup : fixture.CommandCleanup, actual);
@@ -83,7 +88,8 @@ public sealed class OfflineMigrationSourceMaterialCleanupTests
     public async Task MaterialHelperAwaitsReaderThenCommandBeforeReturningOrThrowing(bool bodyRefuses)
     {
         Fixture fixture = CreateFixture();
-        if (bodyRefuses) fixture.Reader.FieldCount.Returns(17);
+        if (bodyRefuses)
+            fixture.Reader.FieldCount.Returns(17);
         var readerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var readerTerminal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var commandEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -124,7 +130,10 @@ public sealed class OfflineMigrationSourceMaterialCleanupTests
         {
             readerTerminal.TrySetResult();
             commandTerminal.TrySetResult();
-            try { await actual; }
+            try
+            {
+                await actual;
+            }
             catch (InvalidOperationException failure) when (bodyRefuses && failure.Message == "offline_source_metadata_budget_exceeded") { }
         }
     }
@@ -191,8 +200,10 @@ public sealed class OfflineMigrationSourceMaterialCleanupTests
         ImmutableArray<string> actual = Assert.IsType<ImmutableArray<string>>(
             failure.Data[OfflineMigrationSourceObserver.SourceMaterialCleanupFailuresKey]);
         var expected = ImmutableArray.CreateBuilder<string>();
-        if (readerFailed) expected.Add("offline_source_material_reader_cleanup_failed");
-        if (commandFailed) expected.Add("offline_source_material_command_cleanup_failed");
+        if (readerFailed)
+            expected.Add("offline_source_material_reader_cleanup_failed");
+        if (commandFailed)
+            expected.Add("offline_source_material_command_cleanup_failed");
         Assert.Equal(expected.ToImmutable(), actual);
         Assert.DoesNotContain(actual, code => code.Contains("secret", StringComparison.Ordinal));
         Assert.All(failure.Data.Values.Cast<object>(), value => Assert.IsType<ImmutableArray<string>>(value));
@@ -202,7 +213,7 @@ public sealed class OfflineMigrationSourceMaterialCleanupTests
     {
         Assert.Equal(readerCreated ? 1 : 0,
             fixture.Reader.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(DbDataReader.DisposeAsync)));
-        Assert.Single(fixture.Command.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(DbCommand.DisposeAsync)));
+        Assert.Single(fixture.Command.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(DbCommand.DisposeAsync));
         Assert.Empty(fixture.Transaction.ReceivedCalls());
         fixture.Connection.DidNotReceive().Open();
     }

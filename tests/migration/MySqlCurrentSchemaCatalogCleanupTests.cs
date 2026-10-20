@@ -179,7 +179,7 @@ public sealed class MySqlCurrentSchemaCatalogCleanupTests
         Exception actual = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ReadActualQueryAsync(fixture, cancellation.Token));
         AssertCleanupCodes(actual, false, true);
         AssertLifecycle(fixture, false);
-        Assert.Empty(fixture.Command.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(DbCommand.ExecuteReaderAsync)));
+        Assert.DoesNotContain(fixture.Command.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(DbCommand.ExecuteReaderAsync));
     }
 
     [Fact]
@@ -257,7 +257,7 @@ public sealed class MySqlCurrentSchemaCatalogCleanupTests
     {
         Assert.Equal(readerCreated ? 1 : 0,
             fixture.Reader.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(DbDataReader.DisposeAsync)));
-        Assert.Single(fixture.Command.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(DbCommand.DisposeAsync)));
+        Assert.Single(fixture.Command.ReceivedCalls(), call => call.GetMethodInfo().Name == nameof(DbCommand.DisposeAsync));
         Assert.Empty(fixture.Transaction.ReceivedCalls());
         fixture.Connection.DidNotReceive().Open();
         fixture.Connection.DidNotReceive().Close();
