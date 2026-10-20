@@ -66,29 +66,40 @@ The local `rejection-forwarding.mjs` adapter invokes the locked original
 metadata, options and diagnostic identity. Its configuration keeps Error creation
 strict: empty rejection, arbitrary `any` and `unknown`, and type allowances remain
 disabled. It recognizes an existing external rejection value only at a proven
-native `Promise.reject` or an unchanged native Promise executor rejection parameter.
+native `Promise.reject` or an unchanged rejection parameter of a directly inlined,
+synchronous arrow executor of native `new Promise`.
 Every other original diagnostic is retained.
 
 The finite source proofs are an unchanged single parameter of an inline native
-Promise `then` rejection callback or `catch` callback, a proven native signal's direct
-`reason` property, or a direct local function call whose complete body is one return
-of its unchanged native-typed parameter's
-`reason ?? new DOMException(message, 'AbortError')`. The helper's message must be a
-string literal and its actual argument must have proven native signal origin.
-Reassignment anywhere in the callback or helper binding's scope, including nested
-closures and later writes, refuses the proof. Direct member assignment, update or
-deletion on the helper's parameter also refuses it.
+Promise `then` rejection callback or `catch` callback. Reassignment anywhere in the
+binding's scope, including nested closures and later writes, refuses the proof.
+Named executors can escape through their own binding and be invoked later with an
+arbitrary rejection function. The adapter therefore refuses all traditional function
+executors, including anonymous ones, and async executors; it does not infer unique
+invocation from their position inside `new Promise`.
+
+Static references cannot prove immutability in the presence of direct eval. Any
+potential direct eval call in the program, including TypeScript expression wrappers
+around the callee, refuses all forwarding exemptions in that program. An unknown
+parser visitor shape also refuses them. This conservative mutation boundary retains
+the original rule's enforcement; it does not suppress a diagnostic or disable a rule.
+Comments and string contents mentioning eval do not establish executable mutation.
+
+There is no AbortSignal-reason exemption. Native signal construction proves only
+the object, not that its reason forwards an original failure. For example,
+`AbortSignal.abort('created').reason` manufactures a reason, and factory arguments
+may contain arbitrary producers or transforms. Direct reason reads and nullish
+AbortError helpers retain all original diagnostics, including on fresh native signals.
 
 Receiver provenance is deliberately limited to direct fresh expressions: native
 `new Promise(...)`, `Promise.reject(...)` or zero-argument `Promise.resolve()` for
-Promise receivers, and native `AbortSignal.abort(...)` or
-`new AbortController().signal` for signals. `Promise.resolve(value)` is excluded:
+Promise receivers. `Promise.resolve(value)` is excluded:
 it can return a caller-owned Promise whose methods were replaced. There is no general
 helper inference, callback alias, receiver/value alias, cast, computed member,
 transformed value or recursive summary. Merely annotating a parameter as `Promise`
 or `AbortSignal` proves no object origin because those TypeScript types are structural.
-Forwarding from such parameters remains an original-rule failure, including through
-an otherwise valid abort helper; this adapter cannot resolve those consumer sites.
+Forwarding from such parameters remains an original-rule failure; this adapter cannot
+resolve those consumer sites.
 
 Native identity requires TypeScript's actual default-library declarations, including
 the finite Promise declaration merges in the locked compiler. Local structural

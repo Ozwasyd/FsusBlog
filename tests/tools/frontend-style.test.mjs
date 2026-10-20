@@ -170,9 +170,9 @@ function forward(signal: AbortSignal | undefined) {
             ['fresh native static sink', 'Promise.resolve().catch(error => Promise.reject(error));', 1, 0],
             ['fresh native constructor receiver', 'new Promise<void>(() => {}).catch(error => Promise.reject(error));', 1, 0],
             ['fresh native rejection receiver', 'Promise.reject(new Error("original")).catch(error => Promise.reject(error));', 1, 0],
-            ['fresh native signal factory', 'function f(reason: unknown) { return Promise.reject(AbortSignal.abort(reason).reason); }', 1, 0],
-            ['fresh native controller signal', 'Promise.reject(new AbortController().signal.reason);', 1, 0],
-            ['proven native signal helper argument', 'function reason(signal: AbortSignal): unknown { return signal.reason ?? new DOMException("aborted", "AbortError"); } function f(raw: unknown) { return Promise.reject(reason(AbortSignal.abort(raw))); }', 1, 0],
+            ['fresh native signal factory', 'function f(reason: unknown) { return Promise.reject(AbortSignal.abort(reason).reason); }', 1, 1],
+            ['fresh native controller signal', 'Promise.reject(new AbortController().signal.reason);', 1, 1],
+            ['proven native signal helper argument', 'function reason(signal: AbortSignal): unknown { return signal.reason ?? new DOMException("aborted", "AbortError"); } function f(raw: unknown) { return Promise.reject(reason(AbortSignal.abort(raw))); }', 1, 1],
             ['resolve argument may preserve overwritten methods', 'function f(task: Promise<void>) { return Promise.resolve(task).catch(error => Promise.reject(error)); }', 1, 1],
             ['native annotation on structural lookalike', 'function f(task: Promise<void>) { return task.catch(error => Promise.reject(error)); } f({ then: () => undefined, catch: callback => callback("created"), finally: () => undefined, [Symbol.toStringTag]: "Promise" } as Promise<void>);', 1, 1],
             ['Error creation', 'function f() { return Promise.reject(new Error("created")); }', 0, 0],
@@ -274,6 +274,170 @@ declare global {
         assert.deepEqual(lint().filter(message => message.ruleId === ruleId), original,
             'source declaration augmentations cannot impersonate default-library contracts');
     });
+});
+
+test('frontend rejection forwarding refuses manufactured reasons dynamic mutation and reusable executors', async () =>
+{
+    const ts = (await import(pathToFileURL(path.join(toolchain, 'node_modules/typescript/lib/typescript.js')).href)).default;
+    const changedReason = `export function rejectChangedReason(): Promise<never>
+{
+    return Promise.reject(new Error('original')).catch(error =>
+    {
+        eval("error = 'created';");
+        return Promise.reject(error);
+    });
+}
+`;
+    const capturedExecutor = `type Executor = (resolve: (value: void | PromiseLike<void>) => void, reject: (reason?: unknown) => void) => void;
+let captured: Executor | undefined;
+
+export function retainExecutor(): Promise<void>
+{
+    return new Promise<void>(function executor(resolve, reject)
+    {
+        captured = executor;
+        resolve();
+        void Promise.reject(new Error('source')).catch(error => reject(error));
+    });
+}
+
+export function callCapturedExecutor(reject: (reason?: unknown) => void): void
+{
+    captured?.(() => undefined, reject);
+}
+`;
+    const cases = [
+        ['manufactured', `export function rejectManufactured(reason: unknown): Promise<never>[]
+{
+    function produce(): unknown { return 'created'; }
+    return [
+        Promise.reject(AbortSignal.abort('created').reason),
+        Promise.reject(AbortSignal.abort(String(reason)).reason),
+        Promise.reject(AbortSignal.abort(produce()).reason)
+    ];
+}
+`, 3, 3],
+        ['direct-eval', changedReason, 1, 1],
+        ['asserted-eval', changedReason.replace('eval(', '(eval as typeof eval)('), 1, 1],
+        ['non-null-eval', changedReason.replace('eval(', 'eval!('), 1, 1],
+        ['nested-eval', changedReason.replace('eval("error = \'created\';");', 'const mutate = () => eval("error = \'created\';"); mutate();'), 1, 1],
+        ['later-eval', changedReason.replace('eval("error = \'created\';");\n        return Promise.reject(error);', 'const result = Promise.reject(error);\n        eval("error = \'created\';");\n        return result;'), 1, 1],
+        ['sink-eval', `export function rejectWithChangedSink(): Promise<void>
+{
+    return new Promise<void>((resolve, reject) =>
+    {
+        eval('reject = () => undefined;');
+        void Promise.reject(new Error('source')).catch(error => reject(error));
+    });
+}
+`, 1, 1],
+        ['captured-executor', capturedExecutor, 1, 1],
+        ['named-executor', `export function rejectNamed(): Promise<void>
+{
+    return new Promise<void>(function executor(resolve, reject)
+    {
+        void Promise.reject(new Error('source')).catch(error => reject(error));
+    });
+}
+`, 1, 1],
+        ['anonymous-function-executor', `export function rejectAnonymous(): Promise<void>
+{
+    return new Promise<void>(function (resolve, reject)
+    {
+        void Promise.reject(new Error('source')).catch(error => reject(error));
+    });
+}
+`, 1, 1],
+        ['async-executor', `export function rejectAsyncExecutor(): Promise<void>
+{
+    return new Promise<void>(async (resolve, reject) =>
+    {
+        await Promise.reject(new Error('source')).catch(error => reject(error));
+    });
+}
+`, 1, 1],
+        ['inert-eval-comment', changedReason.replace('eval("error = \'created\';");', '// eval("error = \'created\';");'), 1, 0],
+        ['inert-eval-string', changedReason.replace('eval("error = \'created\';");', 'const text = "eval"; void text;'), 1, 0],
+        ['ordinary-arrow-executor', `export function rejectFromOriginal(): Promise<void>
+{
+    return new Promise<void>((resolve, reject) =>
+    {
+        void Promise.reject(new Error('source')).catch(error => reject(error));
+    });
+}
+`, 1, 0]
+    ];
+    withFixture(fixtureRoot =>
+    {
+        const files = cases.map(([name, code]) =>
+        {
+            const file = `src/frontend/src/${name}.ts`;
+            writeFixture(fixtureRoot, file, code);
+            return file;
+        });
+        const lint = () =>
+        {
+            const result = spawnSync(process.execPath, [path.join(toolchain, 'node_modules/eslint/bin/eslint.js'),
+                '--config', path.join(fixtureRoot, 'eslint.config.mjs'), '--format', 'json', ...files], {
+                cwd: fixtureRoot,
+                env: { ...process.env, FSUSBLOG_STYLE_ROOT: fixtureRoot, FSUSBLOG_USE_LOCAL_FSUSUI: '0' },
+                encoding: 'utf8', timeout: 90_000
+            });
+            assert.ok([0, 1].includes(result.status), output(result));
+            const reports = JSON.parse(result.stdout);
+            assert.equal(reports.length, files.length);
+            assert.ok(reports.every(report => report.fatalErrorCount === 0), result.stdout);
+            return new Map(reports.map(report => [path.basename(report.filePath, '.ts'), report.messages]));
+        };
+        const candidate = lint();
+        writeFixture(fixtureRoot, 'eslint.config.mjs', `import configs from '${pathToFileURL(eslintConfig).href}';
+import tseslint from '${pathToFileURL(path.join(toolchain, 'node_modules/typescript-eslint/dist/index.js')).href}';
+export default configs.map(config => config.plugins?.['@typescript-eslint']
+    ? { ...config, plugins: { ...config.plugins, '@typescript-eslint': tseslint.plugin } } : config);
+`);
+        const original = lint();
+        const ruleId = '@typescript-eslint/prefer-promise-reject-errors';
+        for (const [name, , originalCount, candidateCount] of cases)
+        {
+            const selected = messages => messages.filter(message => message.ruleId === ruleId);
+            assert.equal(selected(original.get(name)).length, originalCount, `${name}: original control`);
+            assert.equal(selected(candidate.get(name)).length, candidateCount, `${name}: refusal boundary`);
+            assert.deepEqual(candidate.get(name).filter(message => message.ruleId !== ruleId),
+                original.get(name).filter(message => message.ruleId !== ruleId), `${name}: all other diagnostics`);
+            if (originalCount === candidateCount)
+            {
+                assert.deepEqual(candidate.get(name), original.get(name), `${name}: complete original diagnostic identity`);
+            }
+        }
+        const config = ts.getParsedCommandLineOfConfigFile(path.join(fixtureRoot, 'src/frontend/tsconfig.json'), {}, {
+            ...ts.sys, onUnRecoverableConfigFileDiagnostic: diagnostic => assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+        });
+        const program = ts.createProgram(files.map(file => path.join(fixtureRoot, file)), config.options);
+        assert.deepEqual(ts.getPreEmitDiagnostics(program), [], 'counterexamples remain valid TypeScript');
+        assert.deepEqual(candidate.get('direct-eval').map(({ line, column, endLine, endColumn, messageId, severity }) =>
+            ({ line, column, endLine, endColumn, messageId, severity })), [
+            { line: 6, column: 16, endLine: 6, endColumn: 37, messageId: 'rejectAnError', severity: 2 }
+        ]);
+        assert.deepEqual(candidate.get('captured-executor').map(({ line, column, endLine, endColumn, messageId, severity }) =>
+            ({ line, column, endLine, endColumn, messageId, severity })), [
+            { line: 10, column: 65, endLine: 10, endColumn: 78, messageId: 'rejectAnError', severity: 2 }
+        ]);
+    });
+    const execute = source => import(`data:text/javascript;base64,${Buffer.from(ts.transpileModule(source, {
+        compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext }
+    }).outputText).toString('base64')}`);
+    const changed = await execute(changedReason);
+    assert.equal(await changed.rejectChangedReason().catch(reason => reason), 'created');
+    const captured = await execute(capturedExecutor);
+    await captured.retainExecutor();
+    let calls = 0;
+    captured.callCapturedExecutor(reason =>
+    {
+        assert.ok(reason instanceof Error);
+        calls += 1;
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    assert.equal(calls, 1, 'captured executor accepts a caller-supplied rejection function');
 });
 
 test('frontend style governance accepts C#-mapped TypeScript JavaScript Vue and CSS fixtures', () =>
