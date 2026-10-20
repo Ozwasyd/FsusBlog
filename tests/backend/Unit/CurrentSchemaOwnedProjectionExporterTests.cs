@@ -264,6 +264,18 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
     }
 
     [Fact]
+    public void OwnedArtifactReader_DuplicatePrecedenceNeverPermitsMalformedInput()
+    {
+        var producer = new CurrentSchemaProducerIdentity(new string('a', 40), CurrentSchemaOwnedProjectionExporter.ProducerId,
+            new string('b', 64), new string('c', 64));
+        foreach (string json in new[] { "{\"SchemaVersion\":\"a\",\"SchemaVersion\":\"b\"}", "{\"SchemaVersion\":\"a\",\"SchemaVersion\":{},}" })
+            Assert.Contains("duplicate_property", Assert.Throws<InvalidOperationException>(() =>
+                FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(Encoding.UTF8.GetBytes(json), producer)).Message);
+        Assert.ThrowsAny<JsonException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
+            Encoding.UTF8.GetBytes("{\"SchemaVersion\":\"a\",}"), producer));
+    }
+
+    [Fact]
     public void OwnedArtifact_PreviousV2ProjectionIsNotReinterpretedAsCurrentControlTarget()
     {
         var inspector = new SchemaModelInspector();

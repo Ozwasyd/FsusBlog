@@ -182,8 +182,9 @@ public static class CurrentSchemaCanonicalAuthority
             switch (operation.Kind)
             {
                 case CurrentSchemaRecipeOperationKind.CreateIndex:
-                    SchemaIndexModel index = CopyIndexExpressions(operation.Index
-                        ?? throw new InvalidOperationException("current_schema_complete_target_effect_index_missing"), columns, provider);
+                    SchemaIndexModel index = operation.Index
+                        ?? throw new InvalidOperationException("current_schema_complete_target_effect_index_missing");
+                    _ = CopyIndexExpressions(index, columns, provider);
                     if (index.Name != operation.Name || !indexes.TryAdd(index.Name, index))
                     {
                         throw new InvalidOperationException("current_schema_complete_target_effect_index_conflict");

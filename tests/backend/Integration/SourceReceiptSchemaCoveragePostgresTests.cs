@@ -186,6 +186,8 @@ public sealed class SourceReceiptSchemaCoveragePostgresTests(PostgresSchemaMigra
         PgCurrentSchemaNativeObservation actual = await PgCurrentSchemaNativeObserver.ReadAsync(connection, transaction, default);
         CurrentSchemaCompletePhysicalProjection expected = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(input, SchemaProviderKind.PostgreSql);
         IReadOnlyList<string> errors = PgCurrentSchemaNativeObserver.Compare(expected, actual.Tables, actual.Effects);
+        if (errors.Count != 0)
+            Console.WriteLine("Complete native comparison differences:\n" + string.Join("\n", errors));
         await transaction.RollbackAsync();
         return errors;
     }
