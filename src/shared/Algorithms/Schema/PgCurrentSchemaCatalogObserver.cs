@@ -256,7 +256,7 @@ public static class PgCurrentSchemaCatalogObserver
                             END)::jsonb || CASE WHEN index_meta.indkey[key_position.position] = 0 THEN
                                 jsonb_build_object('expression', pg_get_indexdef(index_meta.indexrelid, key_position.position + 1, true),
                                     'expressionType', format_type(index_column.atttypid, index_column.atttypmod))
-                                ELSE '{}'::jsonb END
+                                ELSE jsonb_build_object() END
                         ORDER BY key_position.position)::text
                     FROM generate_series(0, index_meta.indnkeyatts - 1) AS key_position(position)
                     LEFT JOIN pg_attribute key_column
