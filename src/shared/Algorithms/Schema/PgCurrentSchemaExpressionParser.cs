@@ -51,6 +51,11 @@ public sealed class PgCurrentSchemaExpressionParser
     {
         if (IntegralRange(column.DataType) is not null && IntegralLiteral(value) is not null)
             return NormalizeIntegralStorageLiteral(value, column);
+        // A quoted SQL default is assigned to the independently compared jsonb
+        // storage type. Retain both its bytes and its cast; do not equate json,
+        // jsonb, arbitrary expressions, or differently represented JSON values.
+        if (column.DataType == "json" && column.PhysicalType == "jsonb" && value.Kind == "string")
+            return Node("cast", "jsonb", value);
         if (column.DataType is not ("single" or "double"))
             return value;
         string type = column.DataType == "single" ? "real" : "double precision";
@@ -402,10 +407,29 @@ public sealed class PgCurrentSchemaExpressionParser
     {
         SchemaExpressionNode column = arguments[columnIndex];
         SchemaExpressionNode literal = arguments[literalIndex];
+        if (column.Kind != "column")
+            return;
         if (column.Kind == "column" && IntegralLiteral(literal) is { } number
             && IntegralRange(_columns[column.Value].DataType) is { } range
             && number >= range.Minimum && number <= range.Maximum)
             arguments[literalIndex] = NormalizeIntegralStorageLiteral(literal, _columns[column.Value]);
+        // PostgreSQL coerces a numeric comparison literal to float8 beside a
+        // double column. Admit only literals, including proven integral casts;
+        // arithmetic and other casts preserve their original operator types.
+        // A real column uses mixed-type operators and is deliberately excluded.
+        if (_columns[column.Value].DataType != "double")
+            return;
+        if (literal.Kind == "cast" && literal.Value == "double precision" && literal.Arguments.Count == 1)
+            literal = literal.Arguments[0];
+        if (IntegralLiteral(literal) is { } integer)
+            literal = Node("number", integer.ToString(CultureInfo.InvariantCulture));
+        else if (literal.Kind == "cast" && literal.Value == "numeric" && literal.Arguments.Count == 1
+            && literal.Arguments[0].Kind == "number")
+            literal = literal.Arguments[0];
+        if (literal.Kind is "number" or "string"
+            || literal.Kind == "operator" && literal.Value == "negate" && literal.Arguments.Count == 1
+                && literal.Arguments[0].Kind == "number")
+            arguments[literalIndex] = NormalizeDefaultLiteral(literal, _columns[column.Value]);
     }
 
     /// <summary>Normalizes only supported literal assignment to the verified integral storage domain; arithmetic is not erased.</summary>

@@ -98,7 +98,7 @@ internal static class CurrentSchemaRecipeFactExtractor
         string physical = maxLength is not null ? $"character varying({maxLength})"
             : type == "timestamp" ? "timestamp without time zone" : type;
         var column = new SchemaColumnModel(name, nullable && !primary, primary, identity, maxLength, semantic,
-            DefaultValue: defaultValue, PhysicalType: physical,
+            DefaultValue: defaultValue, Conversion: "none", PhysicalType: physical,
             Collation: SchemaPhysicalTypeProjection.ToCollation(SchemaProviderKind.PostgreSql, semantic),
             GenerationKind: identity ? "identity-by-default" : "none");
         return (column, constraints);

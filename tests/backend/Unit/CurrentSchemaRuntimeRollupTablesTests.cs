@@ -436,8 +436,13 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             await CurrentSchemaBootstrapCompiler.ExecuteAsync(compiled, connection, transaction, CancellationToken.None);
             await transaction.CommitAsync();
         }
-        Assert.Equal(await fixture.CaptureSchemaSnapshotAsync(originalConnection),
-            await fixture.CaptureSchemaSnapshotAsync(compiledConnection));
+        IReadOnlyList<string> originalFacts = await fixture.CaptureSchemaSnapshotAsync(originalConnection);
+        IReadOnlyList<string> compiledFacts = await fixture.CaptureSchemaSnapshotAsync(compiledConnection);
+        foreach (string fact in originalFacts.Except(compiledFacts, StringComparer.Ordinal))
+            Console.WriteLine("Original schema fact missing from compiled: " + fact);
+        foreach (string fact in compiledFacts.Except(originalFacts, StringComparer.Ordinal))
+            Console.WriteLine("Compiled schema fact absent from original: " + fact);
+        Assert.Equal(originalFacts, compiledFacts);
         foreach (string connectionString in new[] { originalConnection, compiledConnection })
         {
             await using var connection = new NpgsqlConnection(connectionString);

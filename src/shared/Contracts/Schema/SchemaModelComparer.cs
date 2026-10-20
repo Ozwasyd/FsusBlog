@@ -25,6 +25,7 @@ public static class SchemaModelComparer
                 actualTable,
                 expected.Provider == SchemaProviderKind.PostgreSql,
                 expected.Provider == SchemaProviderKind.MySql,
+                expected.Provider == SchemaProviderKind.Semantic && actual.Provider == SchemaProviderKind.Semantic,
                 allowedExtraLinks,
                 errors);
         }
@@ -61,6 +62,7 @@ public static class SchemaModelComparer
         SchemaTableModel actual,
         bool requireExactPostgresPhysicalSemantics,
         bool requireExactMySqlPhysicalSemantics,
+        bool compareManagedConversion,
         IReadOnlySet<string>? allowedExtraLinks,
         List<string> errors)
     {
@@ -93,6 +95,7 @@ public static class SchemaModelComparer
                 actualColumn,
                 requireExactPostgresPhysicalSemantics,
                 requireExactMySqlPhysicalSemantics,
+                compareManagedConversion,
                 errors);
         }
         foreach (string columnName in actual.Columns.Keys.Except(expected.Columns.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal))
@@ -173,6 +176,7 @@ public static class SchemaModelComparer
         SchemaColumnModel actual,
         bool requireExactPostgresPhysicalSemantics,
         bool requireExactMySqlPhysicalSemantics,
+        bool compareManagedConversion,
         List<string> errors)
     {
         void Difference(string field, object? expectedValue, object? actualValue)
@@ -190,7 +194,9 @@ public static class SchemaModelComparer
             Difference("length", expected.MaxLength, actual.MaxLength);
         if (expected.DefaultValue != actual.DefaultValue)
             Difference("default", expected.DefaultValue, actual.DefaultValue);
-        if (expected.Conversion != actual.Conversion)
+        // CLR converters belong to semantic owners and cannot be observed in a
+        // database catalog. Physical storage facts remain compared independently.
+        if (compareManagedConversion && expected.Conversion != actual.Conversion)
             Difference("conversion", expected.Conversion, actual.Conversion);
         if (expected.ComputedExpression != actual.ComputedExpression)
             Difference("computed", expected.ComputedExpression, actual.ComputedExpression);
