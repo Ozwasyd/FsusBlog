@@ -39,7 +39,8 @@ internal static class OfflineMigrationExecutor
         VerifiedOfflineMigrationPlan verified, CurrentSchemaArtifactReference artifact,
         OfflineMigrationApplyRequest request, DbConnection connection,
         IOfflineMigrationPlanAdmission admission, IOfflineMigrationApplyOperationRegistry registry,
-        CancellationToken cancellationToken, OfflineMigrationPostgreSqlWriteLock? postgreSqlWriteLock = null)
+        CancellationToken cancellationToken, OfflineMigrationPostgreSqlWriteLock? postgreSqlWriteLock = null,
+        OfflineMigrationApplyHooks? hooks = null)
     {
         OfflineMigrationPlan plan = verified.Plan;
         OfflineMigrationApplyJournalVerifier progress;
@@ -113,7 +114,7 @@ internal static class OfflineMigrationExecutor
             return cleanupCancellation.Token;
         }
         var native = new OfflineMigrationApplyNativeSession(connection, plan.Source.Database.Provider,
-            cancellationToken, CleanupToken, postgreSqlWriteLock);
+            cancellationToken, CleanupToken, postgreSqlWriteLock, hooks);
 
         Task RevalidateAdmissionAsync(DbTransaction transaction)
             => native.SupportsOwnedReadContext
@@ -281,6 +282,7 @@ internal static class OfflineMigrationExecutor
                                         transaction, journal, token).ConfigureAwait(false);
                                     if (!mediaUnit.Complete)
                                         throw new InvalidOperationException("offline_apply_media_transaction_incomplete");
+                                    hooks?.RequireCompleted();
                                     mediaEvidence = journal.RequirePublished();
                                 }
                                 if (native.SupportsOwnedReadContext)
@@ -293,6 +295,7 @@ internal static class OfflineMigrationExecutor
                             else
                                 unit = await operation.ExecuteAsync(step, previousUnit,
                                     connection, transaction, cancellationToken).ConfigureAwait(false);
+                            hooks?.RequireCompleted();
                             string afterPredicate = unit.Complete ? step.TargetPostcondition : step.ResumePolicy.ReplayPostcondition;
                             OfflineMigrationPredicateObservation after = await operation.ObserveAsync(afterPredicate,
                                 connection, transaction, cancellationToken).ConfigureAwait(false);

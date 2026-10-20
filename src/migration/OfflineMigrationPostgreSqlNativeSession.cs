@@ -17,6 +17,20 @@ namespace FsusBlog.Migration;
 /// </summary>
 internal static class OfflineMigrationPostgreSqlNativeSession
 {
+    // Called only by the retained-batch owner after staging every real receipt,
+    // before journal completion. The closure retains root custody; this adapter
+    // borrows and revalidates the original write transaction without replacing it.
+    internal static async Task AfterOutboxStagedAsync(
+        OfflineMigrationApplyNativeSession.OwnedReadContext originalWrite,
+        CancellationToken cancellationToken)
+    {
+        _ = await WithOriginalWriteAsync(originalWrite, async (_, _, token) =>
+        {
+            await originalWrite.AfterOutboxStagedAsync(token).ConfigureAwait(false);
+            return 0;
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
     // Native write adapter for a compiled owner. The read-only SqlSugar factory
     // below cannot supply this capability. No connection/transaction is opened,
     // registered, committed, rolled back, detached or disposed by this borrower.

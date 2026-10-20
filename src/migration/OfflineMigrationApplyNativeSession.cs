@@ -16,7 +16,8 @@ namespace FsusBlog.Migration;
 // The executor alone owns the transactions it starts on this retained native session.
 internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection, CurrentSchemaProviderKind provider,
     CancellationToken creatorToken = default, Func<CancellationToken>? cleanupToken = null,
-    OfflineMigrationPostgreSqlWriteLock? postgreSqlWriteLock = null)
+    OfflineMigrationPostgreSqlWriteLock? postgreSqlWriteLock = null,
+    OfflineMigrationApplyHooks? hooks = null)
 {
     // The source owner supplies its canonical family namespace/key. This port only
     // holds that existing lock before the offline lock and before any RR snapshot.
@@ -42,6 +43,10 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
 
     internal bool SupportsOwnedReadContext => connection is NpgsqlConnection or MySqlConnection or SqliteConnection;
 
+    private Task InvokeAfterOutboxStagedAsync(CancellationToken token)
+        => (hooks ?? throw new InvalidOperationException("offline_apply_hooks_required"))
+            .AfterOutboxStagedAsync(token);
+
     internal static bool ConnectionMatches(DbConnection connection, CurrentSchemaProviderKind provider)
         => provider switch
         {
@@ -56,6 +61,12 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
         token.ThrowIfCancellationRequested();
         if (postgreSqlWriteLock is not null && provider != CurrentSchemaProviderKind.PostgreSql)
             throw new InvalidOperationException("offline_apply_original_postgresql_write_required");
+        if (hooks is not null)
+        {
+            if (provider != CurrentSchemaProviderKind.PostgreSql || postgreSqlWriteLock is null)
+                throw new InvalidOperationException("offline_apply_original_postgresql_write_required");
+            await hooks.BeforeLocksAsync(token).ConfigureAwait(false);
+        }
         if (provider == CurrentSchemaProviderKind.PostgreSql)
         {
             if (postgreSqlWriteLock is not null)
@@ -622,6 +633,11 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
                 RequireActive();
                 return _owner.NativeConnection;
             }
+        }
+        internal Task AfterOutboxStagedAsync(CancellationToken token)
+        {
+            RequireActive();
+            return _owner.InvokeAfterOutboxStagedAsync(token);
         }
         internal DbTransaction OriginalTransaction
         {
