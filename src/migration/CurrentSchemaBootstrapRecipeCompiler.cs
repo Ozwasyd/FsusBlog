@@ -144,7 +144,7 @@ internal static partial class CurrentSchemaBootstrapCompiler
 
     private static string RecipeColumn(SchemaColumnModel column)
     {
-        if (column.ComputedExpression is not null || column.Conversion is not null || column.OwnedSequence is not null
+        if (column.ComputedExpression is not null || column.Conversion is not (null or "none") || column.OwnedSequence is not null
             || column.Collation is not ("default" or "n/a"))
             throw new InvalidOperationException("current_schema_bootstrap_recipe_column_capability_unavailable");
         string type = PhysicalType(column with

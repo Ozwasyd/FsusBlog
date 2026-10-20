@@ -504,7 +504,7 @@ public static class CurrentSchemaCanonicalAuthority
         };
     }
 
-    private static string ProjectStorageConversion(SchemaColumnModel column)
+    internal static string ProjectStorageConversion(SchemaColumnModel column)
     {
         // Conversion is the compiled CLR/ORM converter, not a database catalog
         // property. Its original value remains in the semantic model, owner input
