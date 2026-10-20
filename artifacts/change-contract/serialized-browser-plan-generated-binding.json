@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/playwright-browser-identity.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tools/test/playwright-browser-identity.d.mts",
+            "sha256": "1f57428ca63a9368f339948ee3a6f9fdc277a2ae866683e9a943cb667253baa8"
+        },
+        {
+            "path": "artifacts/change-contract/canonical-test-declarations.json",
+            "sha256": "89833778e6a6b0e68bb66d2b53f69221e3986bbe4f8cca85c95d075c5fe4d3c7"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "28ff8036578c2b250455cb4769edbcd7f5239730db76df5cf3253e9f751ac58b"
+        }
+    ]
+}

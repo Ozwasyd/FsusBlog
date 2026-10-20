@@ -84,7 +84,7 @@
         },
         {
             "path": "tools/test/playwright-browser-identity.mjs",
-            "sha256": "7f906314225b50dc448a4f6901e1a690b6bf44512f6aa5fd96313da908796abe"
+            "sha256": "0e4eb5acb2afb46263d051d21ba9351b958fddc026a1750c02876b8296f54d65"
         },
         {
             "path": "tools/test/random-streams.mjs",
@@ -186,7 +186,7 @@
         },
         {
             "path": "tools/test/playwright-browser-identity.d.mts",
-            "sha256": "89a68669e9be5137edfb2bc40bdebb7e9ba1d0f276f6733cfb75368448b3720e"
+            "sha256": "1f57428ca63a9368f339948ee3a6f9fdc277a2ae866683e9a943cb667253baa8"
         },
         {
             "path": "tools/test/random-streams.d.mts",

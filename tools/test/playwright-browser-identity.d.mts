@@ -27,11 +27,11 @@ export function correctnessProjectUse(plan: CorrectnessBrowserPlan): {
  */
 export function serializableBrowserPlan(plan: CorrectnessBrowserPlan): SerializableBrowserPlan;
 /**
- * @param {{ plans: readonly CorrectnessBrowserPlan[]; frontendRoot: string; env?: Record<string, string | undefined>; }} [options]
+ * @param {{ plans: readonly SerializableBrowserPlan[]; frontendRoot: string; env?: Record<string, string | undefined>; }} [options]
  * @returns {Promise<CorrectnessBrowserActual[]>}
  */
 export function verifyCorrectnessBrowserPlans({ plans, frontendRoot, env }?: {
-    plans: readonly CorrectnessBrowserPlan[];
+    plans: readonly SerializableBrowserPlan[];
     frontendRoot: string;
     env?: Record<string, string | undefined>;
 }): Promise<CorrectnessBrowserActual[]>;
@@ -55,9 +55,9 @@ export function assertBrowserRenderingObservation(plan: CorrectnessBrowserPlan, 
 export function bindBrowserRenderingObservation(plan: CorrectnessBrowserPlan, actual: CorrectnessBrowserActual, observation: BrowserRenderingObservation): CorrectnessBrowserActual;
 /**
  * @param {unknown} plan
- * @returns {CorrectnessBrowserPlan}
+ * @returns {SerializableBrowserPlan}
  */
-export function validateBrowserIdentityPlan(plan: unknown): CorrectnessBrowserPlan;
+export function validateBrowserIdentityPlan(plan: unknown): SerializableBrowserPlan;
 /**
  * @param {{ plan: CorrectnessBrowserPlan; browser: Pick<import('@playwright/test').Browser, 'version'>; launchOptions?: CorrectnessBrowserPlan['launchOptions']; rendering?: BrowserRenderingIdentity; fileSystem?: typeof import('node:fs'); }} options
  * @returns {CorrectnessBrowserActual}

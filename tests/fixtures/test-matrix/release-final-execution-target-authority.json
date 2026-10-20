@@ -5300,8 +5300,8 @@
         },
         {
             "path": "tools/test/playwright-browser-identity.mjs",
-            "contentDigest": "sha256:7f906314225b50dc448a4f6901e1a690b6bf44512f6aa5fd96313da908796abe",
-            "indexDigest": "sha256:7f906314225b50dc448a4f6901e1a690b6bf44512f6aa5fd96313da908796abe"
+            "contentDigest": "sha256:0e4eb5acb2afb46263d051d21ba9351b958fddc026a1750c02876b8296f54d65",
+            "indexDigest": "sha256:0e4eb5acb2afb46263d051d21ba9351b958fddc026a1750c02876b8296f54d65"
         },
         {
             "path": "tools/test/probe-release-reliability-runtime-smoke.mjs",

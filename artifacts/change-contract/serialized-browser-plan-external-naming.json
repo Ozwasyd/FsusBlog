@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/playwright-browser-identity.mjs"
+            ],
+            "reason": "The existing tooling process environment and public browser identity interfaces retain their external names. Correct only annotated portable-plan contracts through the original declaration producer, without renaming environment variables."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "The original complete authority producer refreshes actual source and index digests while preserving the existing schema, external keys, targets, source index and closure roster."
+        }
+    ]
+}
