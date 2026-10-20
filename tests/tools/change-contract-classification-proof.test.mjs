@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import test from 'node:test';
 
 import { runClassificationProof } from './change-contract-classification-proof.mjs';
@@ -85,4 +85,71 @@ test('source comparison refuses mutable or incomplete revision context before co
         assert.throws(() => runClassificationProof({ repository: '.', base: revision, head: 'a'.repeat(40) }), /exact full/u);
     }
     assert.throws(() => runClassificationProof({ base: 'a'.repeat(40) }), /explicit repository/u);
+});
+
+test('source comparison refuses non-commit objects on both sides before extraction or helper execution', () =>
+{
+    const repository = mkdtempSync(join(tmpdir(), 'fsusblog-classification-object-types-'));
+    const saved = Object.fromEntries(['PATH', 'GIT_TRACE', 'FSUSBLOG_CLASSIFICATION_DOTNET_PROBE']
+        .map((key) => [key, process.env[key]]));
+    try
+    {
+        const git = (...args) => execFileSync('git', args, { cwd: repository, encoding: 'utf8' }).trim();
+        git('init', '-q');
+        git('config', 'user.name', 'Classification Fixture');
+        git('config', 'user.email', 'fixture@example.invalid');
+        mkdirSync(join(repository, 'src/shared'), { recursive: true });
+        // If extraction starts on the otherwise valid side, this source must
+        // fail before it can obscure the invalid opposite revision's type.
+        symlinkSync('missing.cs', join(repository, 'src/shared/Unsupported.cs'));
+        git('add', '.');
+        git('commit', '-qm', 'fixture commit');
+        const commit = git('rev-parse', 'HEAD');
+        const tree = git('rev-parse', `${commit}^{tree}`);
+        const blob = git('rev-parse', `${commit}:src/shared/Unsupported.cs`);
+        git('tag', '-a', 'commit-tag', commit, '-m', 'annotated commit tag');
+        git('tag', '-a', 'tree-tag', tree, '-m', 'annotated tree tag');
+        const objects = [
+            ['annotated commit tag', git('rev-parse', 'refs/tags/commit-tag'), 'tag'],
+            ['annotated tree tag', git('rev-parse', 'refs/tags/tree-tag'), 'tag'],
+            ['tree', tree, 'tree'],
+            ['blob', blob, 'blob'],
+            ['missing object', '0'.repeat(40), 'missing']
+        ];
+        const bin = join(repository, 'probe-bin');
+        const marker = join(repository, 'dotnet-executed');
+        mkdirSync(bin);
+        writeFileSync(join(bin, 'dotnet'), '#!/bin/sh\n: > "$FSUSBLOG_CLASSIFICATION_DOTNET_PROBE"\nexit 99\n', { mode: 0o755 });
+        process.env.PATH = `${bin}${delimiter}${saved.PATH ?? ''}`;
+        process.env.FSUSBLOG_CLASSIFICATION_DOTNET_PROBE = marker;
+        for (const side of ['base', 'head'])
+        {
+            for (const [label, revision, type] of objects)
+            {
+                const tracePath = join(repository, `trace-${side}-${type}-${revision}`);
+                process.env.GIT_TRACE = tracePath;
+                assert.throws(() => runClassificationProof({ repository, base: commit, head: commit, [side]: revision }),
+                    new RegExp(`source comparison ${side} must identify an exact Git commit object.*${type}`, 'u'),
+                    `${side}: ${label}`);
+                const trace = readFileSync(tracePath, 'utf8');
+                assert.doesNotMatch(trace, /\bls-tree\b|\bcat-file (?:blob|-s)\b/u, `${side}: ${label} extracted source`);
+                assert.equal(existsSync(marker), false, `${side}: ${label} executed dotnet`);
+            }
+        }
+    }
+    finally
+    {
+        for (const [key, value] of Object.entries(saved))
+        {
+            if (value === undefined)
+            {
+                delete process.env[key];
+            }
+            else
+            {
+                process.env[key] = value;
+            }
+        }
+        rmSync(repository, { recursive: true, force: true });
+    }
 });

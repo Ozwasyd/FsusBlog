@@ -20,6 +20,29 @@ export function runClassificationProof({ repository = null, base = null, head = 
     {
         throw new Error('source comparison requires an explicit repository');
     }
+    const gitOptions = { cwd: repository, env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } };
+    if (repository)
+    {
+        // Check the objects themselves; peeling with ^{commit} would also
+        // admit annotated tags. Both sides must pass before any extraction.
+        for (const [side, revision] of [['base', base], ['head', head]])
+        {
+            let type;
+            try
+            {
+                type = execFileSync('git', ['cat-file', '-t', revision],
+                    { ...gitOptions, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+            }
+            catch
+            {
+                throw new Error(`source comparison ${side} must identify an exact Git commit object: ${revision} (missing or unreadable object)`);
+            }
+            if (type !== 'commit')
+            {
+                throw new Error(`source comparison ${side} must identify an exact Git commit object: ${revision} (${type})`);
+            }
+        }
+    }
     const temporary = mkdtempSync(join(tmpdir(), 'fsusblog-classification-proof-'));
     const helper = resolve(fileURLToPath(new URL('../fixtures/governance/change-contract/classification-proof/Program.cs', import.meta.url)));
     const project = `<Project Sdk="Microsoft.NET.Sdk">
@@ -35,7 +58,6 @@ export function runClassificationProof({ repository = null, base = null, head = 
         writeFileSync(join(temporary, 'Proof.csproj'), project);
         writeFileSync(join(temporary, 'Program.cs'), readFileSync(helper));
         writeFileSync(join(temporary, 'NuGet.Config'), '<configuration><packageSources><clear /></packageSources></configuration>\n');
-        const gitOptions = { cwd: repository, env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } };
         const inputs = [];
         if (repository)
         {
