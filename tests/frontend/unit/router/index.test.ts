@@ -3,6 +3,8 @@ import { createPinia, defineStore, setActivePinia } from 'pinia'
 import { createMemoryHistory } from 'vue-router'
 import type { RouteRecordNormalized, RouteRecordRaw, Router } from 'vue-router'
 import { APP_ROUTE_RECORDS, createAppRouter } from '@/router'
+import type { PublicRoutePrewarmPort } from '@/router/publicRoutePreload'
+import type { LocaleRoutePreparationPort } from '@/locales/routeLocaleDomains'
 import {
   ACCOUNT_CONTENT_MODES,
   ACCOUNT_PAGE_KINDS,
@@ -251,7 +253,7 @@ describe('account router meta and guards', () => {
       // Assert the resolver is total and stable for every leaf kind; class tokens are owned by accountPageKind.ts.
       const resolved = resolveAccountPageKindClass(area, route.meta.accountPageKind)
       expect(resolved, String(route.name)).toEqual(expect.any(String))
-      if (area === 'self' && route.meta.accountPageKind !== 'overview') {
+      if (area === 'self' && String(route.meta.accountPageKind) !== 'overview') {
         expect(resolved, String(route.name)).toMatch(/^identity-page-shell/)
       }
       if (area === 'manage') {
@@ -341,9 +343,9 @@ describe('account router meta and guards', () => {
 
   it('uses the injected prewarm port when the SPA owns public navigation', async () => {
     publicRuntimeOwner = 'full-app'
-    const prewarmPublicRoute = vi.fn(async (target: string) => ({
+    const prewarmPublicRoute = vi.fn<PublicRoutePrewarmPort>(async (target) => ({
       status: 'ready' as const,
-      target,
+      target: String(target),
       reason: 'atomic-navigation' as const,
       routeKind: 'Archive' as const,
       routeComponentReady: true,
@@ -402,9 +404,9 @@ describe('account router meta and guards', () => {
 
   it('renders the initial SPA fallback without entering the atomic AOT prewarm path', async () => {
     document.body.innerHTML = '<div id="app"></div>'
-    const prewarmPublicRoute = vi.fn(async (target: string) => ({
+    const prewarmPublicRoute = vi.fn<PublicRoutePrewarmPort>(async (target) => ({
       status: 'timeout' as const,
-      target,
+      target: String(target),
       reason: 'atomic-navigation' as const,
       routeKind: 'Home' as const,
       routeComponentReady: true,
@@ -497,7 +499,7 @@ describe('account router meta and guards', () => {
       snapshot: { locale: 'en-US', domains: ['common', 'layout', 'auth'] },
       commit: vi.fn(),
       rollback: vi.fn()
-    }
+    } satisfies Awaited<ReturnType<LocaleRoutePreparationPort>>
     const router = createAppRouter({
       history: createMemoryHistory(),
       ssr: false,

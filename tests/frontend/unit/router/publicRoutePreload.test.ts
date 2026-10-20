@@ -51,11 +51,11 @@ function deferredMarker() {
   }
 }
 
-function snapshotBytes(envelope: PublicNavigationSnapshotEnvelope): Uint8Array {
+function snapshotBytes(envelope: PublicNavigationSnapshotEnvelope): Uint8Array<ArrayBuffer> {
   return base64UrlToBytes(encodePublicAotPayload(envelope))
 }
 
-function base64UrlToBytes(text: string): Uint8Array {
+function base64UrlToBytes(text: string): Uint8Array<ArrayBuffer> {
   const normalized = text.replace(/-/g, '+').replace(/_/g, '/')
   const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
   const binary = globalThis.atob(padded)
@@ -125,7 +125,7 @@ async function createArchiveEnvelope(
     digest: await computePublicSeoHeadDigest(unsignedHead)
   }
 
-  const envelope = {
+  const envelope: PublicNavigationSnapshotEnvelope = {
     kind: 'public-navigation-snapshot',
     pageKind: 'Archive',
     pageId: 4,
@@ -209,7 +209,7 @@ async function createHomeEnvelope(): Promise<PublicNavigationSnapshotEnvelope> {
     ...unsignedHead,
     digest: await computePublicSeoHeadDigest(unsignedHead)
   }
-  const envelope = {
+  const envelope: PublicNavigationSnapshotEnvelope = {
     kind: 'public-navigation-snapshot',
     pageKind: 'Home',
     pageId: 1,
@@ -247,6 +247,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -273,6 +274,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -299,6 +301,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -326,6 +329,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -349,7 +353,7 @@ describe('public route prewarm', () => {
   })
 
   it('rejects a tampered locale identity before committing a route seed', async () => {
-    const envelope = {
+    const envelope: PublicNavigationSnapshotEnvelope = {
       ...await createArchiveEnvelope(),
       renderLocale: 'ja-JP'
     }
@@ -357,6 +361,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -387,6 +392,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -405,7 +411,7 @@ describe('public route prewarm', () => {
   })
 
   it('rejects a tampered snapshot payload hash before committing a route seed', async () => {
-    const envelope = {
+    const envelope: PublicNavigationSnapshotEnvelope = {
       ...await createArchiveEnvelope(),
       payloadHash: '0'.repeat(64)
     }
@@ -413,6 +419,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -434,6 +441,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -459,6 +467,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: loadArchiveComponent,
         criticalStyleHrefs: ['/assets/archive.css']
@@ -504,6 +513,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: loadArchiveComponent
       }],
@@ -548,6 +558,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: loadArchiveComponent
       }],
@@ -587,6 +598,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: loadArchiveComponent
       }],
@@ -620,6 +632,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: loadArchiveComponent
       }],
@@ -677,6 +690,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -719,6 +733,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(() => {
           componentStarted.mark()
@@ -772,6 +787,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
@@ -809,6 +825,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: loadArchiveComponent
       }],
@@ -846,6 +863,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(() => {
           componentStarted.mark()
@@ -888,6 +906,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(() => {
           componentStarted.mark()
@@ -922,6 +941,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => {
           throw new Error('chunk-broken')
@@ -945,6 +965,7 @@ describe('public route prewarm', () => {
       routePreloads: [{
         kind: 'Archive',
         name: 'Archive',
+        path: '/archive',
         match: (url) => url.pathname === '/archive',
         preloadComponent: vi.fn(async () => ({ default: {} }))
       }],
