@@ -1,0 +1,14 @@
+{
+  "source": "46b864f22d067bf62d039d3ad91def1df53db20a",
+  "worktreeClean": true,
+  "runtimeMetadata": [
+    "FsusBlog.Server 46b864f22d067bf62d039d3ad91def1df53db20a",
+    "FsusBlog.Migration 46b864f22d067bf62d039d3ad91def1df53db20a"
+  ],
+  "sha256": {
+    "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll": "4dc673bd66e7fa615f51d008fe3d2468cd9abeb40f2baf108a57febbeaf65904",
+    "src/migration/bin/Debug/net10.0/FsusBlog.Migration.dll": "23e70ae80c1ba4adad664b1b67665d856ed2febe633e4ae43b2d980234f4a488",
+    "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll": "ace61065a258e3aa7c38166a752dd04c0e7bf160d39e661fdc0d10a4dca496a1",
+    "tests/migration/bin/Debug/net10.0/FsusBlog.Migration.Tests.dll": "3c4239c647402aa7f1cd663868d92327fd08d7f9fec356f749f00ac0cb87cf85"
+  }
+}
