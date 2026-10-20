@@ -32,6 +32,7 @@
             @on-draft-save="emit('draft-save')"
             @on-submit="emit('submit')"
             @on-upload-img="handleUploadImg"
+            @source-navigation-gesture="emit('source-navigation-gesture', $event)"
             @selection-change="emit('selection-change', $event)"
             @transaction="emit('transaction', $event)"
             @viewport-change="emit('viewport-change', $event)"
@@ -62,6 +63,9 @@ import type {
     MarkdownEditorRevealOptions,
     MarkdownEditorRevealResult,
     MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorSourceNavigationGesture,
+    MarkdownEditorSourceNavigationView,
+    MarkdownEditorSourceNavigationViewOptions,
     MarkdownEditorTransactionEvent
 } from '@ozwasyd/element-plus';
 
@@ -127,6 +131,7 @@ const emit = defineEmits<{
     (e: 'submit'): void;
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
     (e: 'attachment-capture', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined): void;
+    (e: 'source-navigation-gesture', event: MarkdownEditorSourceNavigationGesture): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
     (e: 'viewport-change', event: {
@@ -139,6 +144,8 @@ const emit = defineEmits<{
 
 const provider = computed(() => resolveMarkdownEditorProvider());
 const editorRef = ref<{
+    readSourceNavigationView?: (options: MarkdownEditorSourceNavigationViewOptions) => MarkdownEditorSourceNavigationView | null;
+    isCurrentSourceNavigationView?: (view: MarkdownEditorSourceNavigationView) => boolean;
     getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
     getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
@@ -223,7 +230,19 @@ function getAuthoringSessionPort(): ArticleEditorMountedSessionPort | null
     return editorRef.value?.getAuthoringSessionPort?.() ?? null;
 }
 
+function readSourceNavigationView(options: MarkdownEditorSourceNavigationViewOptions): MarkdownEditorSourceNavigationView | null
+{
+    return editorRef.value?.readSourceNavigationView?.(options) ?? null;
+}
+
+function isCurrentSourceNavigationView(view: MarkdownEditorSourceNavigationView): boolean
+{
+    return editorRef.value?.isCurrentSourceNavigationView?.(view) === true;
+}
+
 defineExpose({
+    readSourceNavigationView,
+    isCurrentSourceNavigationView,
     getAuthoringEditorPort,
     getAuthoringSessionPort,
     insertMarkdownAtCursor,

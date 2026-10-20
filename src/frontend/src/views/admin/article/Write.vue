@@ -208,6 +208,7 @@
                                                 @attachment-capture="consumeAcceptedAttachmentCapture"
                                                 @transaction="consumeAuthoringTransaction"
                                                 @selection-change="consumeAuthoringSelection"
+                                                @source-navigation-gesture="consumeSourceNavigationGesture"
                                                 @editor-focus="consumeAuthoringFocus"
                                             />
                                         </div>
@@ -847,6 +848,7 @@ import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/arti
 import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, authoringWorkspaceMountedAuthoritySourcesKey, authoringWorkspaceMountedAuthorityBeforeReadKey, type AuthoringWorkspaceMountedAuthorityReservation, type AuthoringWorkspaceRootMountedSeal, type AuthoringWorkspaceLayoutPort, type AuthoringWorkspaceOutletExpectation, type AuthoringWorkspacePrimaryMountPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
 import type { AuthoringWorkspaceNavigationHost } from '@/services/authoring/authoringWorkspaceNavigationHost';
 import { createAuthoringWorkspaceNavigationHost } from '@/services/authoring/authoringWorkspaceNavigationHost';
+import type { AuthoringWorkspaceNavigationViewPort } from '@/services/authoring/authoringWorkspaceNavigationView';
 import { authoringWorkspacePanelSlotId, createAuthoringWorkspacePanelHost, type AuthoringWorkspacePanelHost } from '@/services/authoring/authoringWorkspacePanelHost';
 import {
     calculateOpenArticleDocumentDigest,
@@ -856,6 +858,8 @@ import {
 } from '@/services/authoring/openArticleDocumentRegistry';
 import { useThemeRuntime } from '@/services/themeRuntime';
 import { showErrorToast } from '@/utils/errorPresentation';
+
+import type { MarkdownEditorSourceNavigationGesture } from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteView' });
 
@@ -1185,6 +1189,8 @@ const coverInputRef = ref<HTMLInputElement | null>(null);
 const articleEditorRef = ref<{
     getAuthoringEditorPort: () => ArticleEditorContinuityPort | null;
     getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
+    readSourceNavigationView: AuthoringWorkspaceNavigationViewPort['readSourceNavigationView'];
+    isCurrentSourceNavigationView: AuthoringWorkspaceNavigationViewPort['isCurrentSourceNavigationView'];
     insertMarkdownAtCursor?: (markdown: string) => boolean;
 } | null>(null);
 const authoringTheme = useThemeRuntime();
@@ -1677,10 +1683,10 @@ function refreshWorkspaceNavigationHost(): void
             authoringEditorRuntime.refreshDocumentIdentity();
             await nextTick();
         },
-        // No complete capture/viewport loan exists in the original wrapper.
-        // Its attachment after/0/0 values and manual-scroll interval are not
-        // navigation facts. Keep mounted navigation unavailable until its owner supplies one.
-        viewOwner: null
+        viewOwner: {
+            readSourceNavigationView: options => articleEditorRef.value?.readSourceNavigationView(options) ?? null,
+            isCurrentSourceNavigationView: view => articleEditorRef.value?.isCurrentSourceNavigationView(view) === true
+        }
     });
 }
 // Physical DOM observations revoke the original Root seal independently. A
@@ -1820,6 +1826,11 @@ async function consumeAcceptedAttachmentCapture(batch: MarkdownAttachmentBatchIn
             return;
         }
     }
+}
+
+function consumeSourceNavigationGesture(event: MarkdownEditorSourceNavigationGesture): void
+{
+    workspaceNavigationHost?.manual(event);
 }
 
 function consumeAuthoringTransaction(event: MarkdownEditorDispatchResult): void

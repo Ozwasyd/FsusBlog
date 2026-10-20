@@ -41,6 +41,7 @@
             @draft-save="$emit('draft-save')"
             @submit="$emit('submit')"
             @upload-img="handleUploadImg"
+            @source-navigation-gesture="emit('source-navigation-gesture', $event)"
             @selection-change="handleSelectionChange"
             @transaction="handleTransaction"
             @viewport-change="handleViewportChange"
@@ -111,6 +112,7 @@ import {
     createArticleEditorSurfacePreference, validateArticleEditorSurfacePreference,
     type ArticleEditorSurface, type ArticleEditorSurfacePreference
 } from '@/services/authoring/articleEditorSurface';
+import { createAuthoringWorkspaceNavigationViewOwner, type AuthoringNativeNavigationViewPort } from '@/services/authoring/authoringWorkspaceNavigationView';
 
 import type {
     MarkdownEditorOutlineItem,
@@ -118,6 +120,7 @@ import type {
     MarkdownEditorRevealOptions,
     MarkdownEditorRevealResult,
     MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorSourceNavigationGesture,
     MarkdownEditorTransactionEvent
 } from '@ozwasyd/element-plus';
 
@@ -167,6 +170,7 @@ const emit = defineEmits<{
     (e: 'submit'): void;
     (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
     (e: 'attachment-capture', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined, options: ArticleAnchorCaptureOptions): void;
+    (e: 'source-navigation-gesture', event: MarkdownEditorSourceNavigationGesture): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'editor-focus', event: 'focusin' | 'focusout'): void;
     (e: 'surface-request', surface: ArticleEditorSurface): void;
@@ -178,7 +182,7 @@ const content = computed({
     set: (value: string) => emit('update:modelValue', value)
 });
 
-const adapterRef = ref<{
+const adapterRef = ref<AuthoringNativeNavigationViewPort & {
     getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
     getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
@@ -413,7 +417,19 @@ function getAuthoringSessionPort(): ArticleEditorMountedSessionPort | null
     return adapterRef.value?.getAuthoringSessionPort?.() ?? null;
 }
 
+let navigationViewGeneration = 0;
+watch([adapterRef, activeSurface, sourceCompareOpen], () =>
+{
+    navigationViewGeneration += 1;
+}, { flush: 'sync' });
+const navigationViewOwner = createAuthoringWorkspaceNavigationViewOwner(() =>
+{
+    const native = adapterRef.value;
+    return native ? { native, surface: activeSurface.value, compare: sourceCompareOpen.value, generation: navigationViewGeneration } : null;
+});
+
 defineExpose({
+    ...navigationViewOwner,
     getAuthoringEditorPort,
     getAuthoringSessionPort,
     insertMarkdownAtCursor,

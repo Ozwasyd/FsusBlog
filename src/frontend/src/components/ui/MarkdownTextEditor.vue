@@ -38,11 +38,12 @@
             :show-save-action="showSaveAction"
             :show-submit-action="false"
             :status-density="statusDensity"
-            :surfaces="articleBodyCommandSurfaces"
+            :surfaces="commandSurfaces"
             :textarea-id="textareaId"
             :textarea-name="textareaName"
             toolbar-density="standard"
             :writing-placeholder="writingPlaceholder"
+            @source-navigation-gesture="emit('source-navigation-gesture', $event)"
             @selection-change="trackAuthoringSelection"
             @save="emitSave"
             @submit="emitSubmit"
@@ -89,6 +90,9 @@ import {
     type MarkdownEditorRevealOptions,
     type MarkdownEditorRevealResult,
     type MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    type MarkdownEditorSourceNavigationGesture,
+    type MarkdownEditorSourceNavigationView,
+    type MarkdownEditorSourceNavigationViewOptions,
     type MarkdownEditorTransactionEvent as FsusUiMarkdownEditorTransactionEvent
 } from '@ozwasyd/element-plus';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
@@ -128,6 +132,8 @@ import type {
 } from '@/ui-contracts/markdownEditor';
 
 type FsusUiMarkdownEditorExpose = MarkdownEditorSessionExpose & Readonly<{
+    readSourceNavigationView?: (options: MarkdownEditorSourceNavigationViewOptions) => MarkdownEditorSourceNavigationView | null;
+    isCurrentSourceNavigationView?: (view: MarkdownEditorSourceNavigationView) => boolean;
     dispatchTransaction: ArticleEditorContinuityPort['dispatchTransaction'];
     withAttachmentFile: NonNullable<ArticleEditorContinuityPort['withAttachmentFile']>;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
@@ -200,6 +206,7 @@ const emit = defineEmits<{
     (e: 'on-submit'): void;
     (e: 'on-upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
     (e: 'upload-image', batch: MarkdownAttachmentBatchIntent, capture: MarkdownAttachmentCaptureObservation | undefined): void;
+    (e: 'source-navigation-gesture', event: MarkdownEditorSourceNavigationGesture): void;
     (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
     (e: 'transaction', event: FsusUiMarkdownEditorTransactionEvent): void;
     (e: 'viewport-change', event: {
@@ -803,7 +810,19 @@ function getAuthoringSessionPort(): ArticleEditorMountedSessionPort | null
         ? editor : null;
 }
 
+function readSourceNavigationView(options: MarkdownEditorSourceNavigationViewOptions): MarkdownEditorSourceNavigationView | null
+{
+    return editorRef.value?.readSourceNavigationView?.(options) ?? null;
+}
+
+function isCurrentSourceNavigationView(view: MarkdownEditorSourceNavigationView): boolean
+{
+    return editorRef.value?.isCurrentSourceNavigationView?.(view) === true;
+}
+
 defineExpose({
+    readSourceNavigationView,
+    isCurrentSourceNavigationView,
     getAuthoringEditorPort,
     getAuthoringSessionPort,
     insertMarkdownAtCursor,
