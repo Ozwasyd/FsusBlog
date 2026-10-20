@@ -35,7 +35,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
-        SeedUser(setupDb, 19);
+        await SeedUserAsync(setupDb, 19);
         setupDb.Insertable(new UserSession
         {
             SessionId = "status-mode-session",
@@ -94,7 +94,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
-        SeedUser(setupDb, 7);
+        await SeedUserAsync(setupDb, 7);
         SeedArticle(setupDb, 42);
         SeedPublicPendingComment(setupDb, 100, 42, 7);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
@@ -140,7 +140,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
-        SeedUser(setupDb, 17);
+        await SeedUserAsync(setupDb, 17);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         var blacklist = new RecordingBanStateObligations();
         UserAdminModerationService service = CreateAdminService(serviceDb, blacklist);
@@ -182,7 +182,7 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
         CreateTables(setupDb);
-        SeedUser(setupDb, 18);
+        await SeedUserAsync(setupDb, 18);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
         var blacklist = new RecordingBanStateObligations();
         UserAdminModerationService service = CreateAdminService(serviceDb, blacklist);
@@ -218,6 +218,41 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
         Assert.Equal(8, user.RiskFlags);
     }
 
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, 0)]
+    public async Task AdminChangeStatusAsync_MissingIssuedSubjectRollsBack(int initialStatus, int requestedStatus)
+    {
+        string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
+        using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
+        CreateTables(setupDb);
+        await SeedUserAsync(setupDb, 19);
+        Assert.Equal(1, setupDb.Ado.ExecuteCommand(
+            "UPDATE sys_user SET account_subject_hash = NULL, status = @Status WHERE id = 19;",
+            new SugarParameter("@Status", initialStatus)));
+        long generation = setupDb.Queryable<User>().InSingle(19).BanStateGeneration;
+        using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
+        var obligations = Substitute.For<IBanStateProjectionObligationCoordinator>();
+        var cache = Substitute.For<IUserSessionValidationCache>();
+        UserAdminModerationService service = CreateAdminService(serviceDb, obligations, cache);
+
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.AdminChangeStatusAsync(new AdminChangeStatusDto
+            {
+                AccountId = 19,
+                Status = requestedStatus,
+                Reason = "policy"
+            }));
+
+        Assert.Equal("account status projection identity is missing", error.Message);
+        User user = setupDb.Queryable<User>().InSingle(19);
+        Assert.Equal(initialStatus, user.Status);
+        Assert.Equal(generation, user.BanStateGeneration);
+        Assert.Null(user.AccountSubjectHash);
+        Assert.Empty(obligations.ReceivedCalls());
+        Assert.Empty(cache.ReceivedCalls());
+    }
+
     private static void CreateTables(SqlSugarClient db)
         => PostgresSqlSugarTestClient.InitTables(
             db,
@@ -228,18 +263,8 @@ public sealed class AuthoringUserBanConcurrencyTests(PostgresSchemaMigrationFixt
             typeof(CommentRegionCompliance),
             typeof(CommentModerationEvent));
 
-    private static void SeedUser(SqlSugarClient db, int userId)
-        => db.Ado.ExecuteCommand(
-            """
-            INSERT INTO sys_user
-                (id, public_handle, status, identity_kind, passkey_enabled, recovery_enabled, privacy_initialized_at)
-            VALUES
-                (@Id, @PublicHandle, 0, @IdentityKind, false, false, @PrivacyInitializedAt);
-            """,
-            new SugarParameter("@Id", userId),
-            new SugarParameter("@PublicHandle", $"user-{userId}"),
-            new SugarParameter("@IdentityKind", AnonymousIdentityRuntime.AnonymousAccountKind),
-            new SugarParameter("@PrivacyInitializedAt", DateTime.UtcNow));
+    private static Task SeedUserAsync(SqlSugarClient db, int userId)
+        => AuthoringUserBanAccountFixture.SeedAsync(db, userId);
 
     private static void SeedArticle(SqlSugarClient db, int articleId)
         => db.Ado.ExecuteCommand(
