@@ -46,7 +46,9 @@ const rollupMigrationIds = [
     "20260908-post-article-create-authority",
     "20260915-post-article-property-definition-authority",
     "20260915-post-author-recent-history",
-    "20261002-post-article-property-definition-command-history"
+    "20261002-post-article-property-definition-command-history",
+    "20261018-post-taxonomy-mutation-receipt",
+    "20261018-post-user-locale-mutation-receipt"
 ];
 function fail(message)
 {

@@ -44,8 +44,8 @@ public sealed class SourceReceiptSchemaCoveragePostgresTests(PostgresSchemaMigra
             recipe => recipe.TableName == table);
         var owner = new CurrentSchemaProducerIdentity(new string('a', 40), CurrentSchemaOwnedProjectionExporter.ProducerId,
             new string('b', 64), new string('c', 64));
-        CurrentSchemaProjection projection = CurrentSchemaCanonicalAuthority.Generate(CurrentSchemaCanonicalAuthority.Create(
-            new Dictionary<string, SchemaTableModel>(), new string('a', 64)));
+        CurrentSchemaProjection projection = CurrentSchemaCanonicalAuthority.Generate(
+            new SchemaModelInspector().BuildCanonicalModel([typeof(Category)]));
         var input = new CurrentSchemaBootstrapInput(projection, owner,
             [new(table, SchemaProviderKind.PostgreSql, new string('a', 64), CurrentSchemaRecipeFactExtractor.Extract(original))]);
         CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.Compile(input, owner,
@@ -54,6 +54,10 @@ public sealed class SourceReceiptSchemaCoveragePostgresTests(PostgresSchemaMigra
         string compiledDatabase = await fixture.CreateDatabaseAsync();
         string originalConnection = fixture.BuildDatabaseConnectionString(originalDatabase);
         string compiledConnection = fixture.BuildDatabaseConnectionString(compiledDatabase);
+        using (SqlSugarClient db = PostgresSqlSugarTestClient.Create(originalConnection))
+        {
+            db.CodeFirst.InitTables<Category>();
+        }
         await using (var connection = new NpgsqlConnection(originalConnection))
         {
             await connection.OpenAsync();
