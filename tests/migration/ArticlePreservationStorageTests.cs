@@ -42,30 +42,52 @@ public sealed class ArticlePreservationStorageTests
                 columns.Remove("actual_owned_title");
                 break;
             case "extra-column":
-                columns.Add("future_field", title with { Name = "future_field" });
+                columns.Add("future_field", title with
+                {
+                    Name = "future_field"
+                });
                 break;
             case "unknown-owner":
-                columns[title.Name] = title with { Owner = new(Owner + ".FutureTitle", "unit") };
+                columns[title.Name] = title with
+                {
+                    Owner = new(Owner + ".FutureTitle", "unit")
+                };
                 break;
             case "duplicate-owner":
-                columns[title.Name] = title with { Owner = columns["actual_owned_id"].Owner };
+                columns[title.Name] = title with
+                {
+                    Owner = columns["actual_owned_id"].Owner
+                };
                 break;
             case "changed-type":
-                columns[title.Name] = title with { DataType = "int64" };
+                columns[title.Name] = title with
+                {
+                    DataType = "int64"
+                };
                 break;
             case "computed":
-                columns[title.Name] = title with { ComputedExpression = "actual-new-owner-expression" };
+                columns[title.Name] = title with
+                {
+                    ComputedExpression = "actual-new-owner-expression"
+                };
                 break;
             case "conversion":
-                columns[title.Name] = title with { Conversion = "json" };
+                columns[title.Name] = title with
+                {
+                    Conversion = "json"
+                };
                 break;
             case "column-name-drift":
-                columns[title.Name] = title with { Name = "another-name" };
+                columns[title.Name] = title with
+                {
+                    Name = "another-name"
+                };
                 break;
             case "table-owner-drift":
                 owner = new("FsusBlog.Server.Entities.OtherArticle", "unit");
                 break;
-            default: throw new ArgumentOutOfRangeException(nameof(changed));
+            default:
+                throw new ArgumentOutOfRangeException(nameof(changed));
         }
         SchemaTableModel modified = new(original.Name, columns, [], owner: owner);
         ArticlePreservationLogicalRow row = new(Owner, [new("Id", 7), new("Title", "raw title")]);

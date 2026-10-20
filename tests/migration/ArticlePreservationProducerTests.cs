@@ -87,7 +87,10 @@ public sealed class ArticlePreservationProducerTests
     [Fact]
     public void Deleted_Rows_Keep_The_Current_Default_Policy_Without_Forging_Historical_Administrator_Approval()
     {
-        ArticlePreservationCurrentPackage package = Assert.Single(Packages(Source(Row(4, "raw") with { IsDeleted = true })));
+        ArticlePreservationCurrentPackage package = Assert.Single(Packages(Source(Row(4, "raw") with
+        {
+            IsDeleted = true
+        })));
         Assert.Equal(ArticleStatusValues.Deleted, package.Data.Article.Status);
         Assert.Equal(ArticleCurrentPolicyDefaults.UnattributedCreatorId, package.Data.Coordinates.CreatedByAdminPrincipalId);
         Assert.False(package.Data.Responsibility.ResponsiblePersonConfirmed);

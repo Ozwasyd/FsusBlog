@@ -1,0 +1,46 @@
+{
+    "schema": "fsusblog.migration-test-format-baseline-observations.v1",
+    "baseRevision": "e5f0d2d21b21635232b37dc6175f1f744129c836",
+    "originalReviewedSourceRevision": "6ad83d04fa30905fadc2ff88f8102191fc3f923e",
+    "originalPr": "https://github.com/Ozwasyd/FsusBlog/pull/4706",
+    "strictExitCode": 1,
+    "strictUniqueDiagnosticCount": 1572,
+    "strictCodes": {
+        "CA1416": 6,
+        "IDE0055": 1547,
+        "IDE1006": 12,
+        "xUnit2029": 1,
+        "xUnit2031": 6
+    },
+    "testsExecuted": 148,
+    "testsPassed": 148,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "interpretation": "Observed frozen baseline only; no allowed-debt ceiling, waiver or admission.",
+    "externalEvidence": [
+        {
+            "path": "/workspace/migration-six-successor-evidence/baseline-strict.log",
+            "sha256": "77e5b6d030eb7a1a18e940883a15d48bf4776af00e87f1cfb8faa66e9caca6d5"
+        },
+        {
+            "path": "/workspace/migration-six-successor-evidence/baseline-strict.exit",
+            "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        {
+            "path": "/workspace/migration-six-successor-evidence/baseline-tests.log",
+            "sha256": "6bcdcbfedd235e7f05d3d5234b2e78de1e24dfba7a386c9437756eb30792fb2b"
+        },
+        {
+            "path": "/workspace/migration-six-successor-evidence/baseline-tests.exit",
+            "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        {
+            "path": "/workspace/migration-six-successor-evidence/baseline-results/baseline.trx",
+            "sha256": "b2f77b2d2b7b6f1bf110868833d6f9f38ffec82ec02b181ea04b38bebacf8622"
+        },
+        {
+            "path": "/workspace/migration-six-successor-evidence/frozen-original-evidence-before.json",
+            "sha256": "a9268168ecf84205b06c3b3901df9f1cb203ba2a518b59719df5e1082095b928"
+        }
+    ]
+}
