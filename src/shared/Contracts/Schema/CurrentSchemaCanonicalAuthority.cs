@@ -614,7 +614,7 @@ public static class CurrentSchemaCanonicalAuthority
     {
         var tables = source.ToDictionary(
             static table => table.Key,
-            static table => new SchemaTableModel(
+            table => new SchemaTableModel(
                 table.Value.Name,
                 table.Value.Columns.ToDictionary(static column => column.Key, static column => column.Value, StringComparer.Ordinal),
                 table.Value.Indexes,
