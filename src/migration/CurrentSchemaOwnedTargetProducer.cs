@@ -249,7 +249,7 @@ internal sealed class OwnedCurrentSchemaTarget
         Directory.CreateDirectory(evidence);
         await WriteNewJsonAsync(Path.Combine(evidence, "producer-before.json"), before, cancellationToken).ConfigureAwait(false);
         int exit = await InvokeArgumentsAsync(node, configuration.SourceRoot,
-            ["--experimental-vm-modules", "--input-type=module", "--eval", s_retainedCompiledReaderBootstrap, "--",
+            ["--experimental-vm-modules", "--input-type=module", "--eval", RetainedCompiledReaderBootstrap, "--",
                 configuration.SourceRoot, configuration.ArtifactRoot, configuration.SdkRoot, .. compiledSources],
             evidence, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CurrentSchemaProducerFile> after = await SnapshotRetainedReaderInputsAsync(inputs,
@@ -307,7 +307,7 @@ internal sealed class OwnedCurrentSchemaTarget
     // Only original compiled resource bytes execute. Identifiers preserve the
     // original import.meta/defaultRoot semantics but never authorize a disk read.
     // Keep this one fixed loader with the sole process owner, not a caller plugin.
-    private const string s_retainedCompiledReaderBootstrap = """
+    private const string RetainedCompiledReaderBootstrap = """
         import vm from 'node:vm';
         import path from 'node:path';
         import { pathToFileURL } from 'node:url';
