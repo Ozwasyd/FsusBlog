@@ -228,6 +228,7 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
     private async ValueTask<DbTransaction> BeginCoreAsync(CancellationToken token, bool mintReadProof)
     {
         token.ThrowIfCancellationRequested();
+        hooks?.RequireProductionWitness();
         if (SupportsOwnedReadContext && mintReadProof)
         {
             creatorToken.ThrowIfCancellationRequested();
@@ -604,6 +605,7 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
         // owner: serialize this port's IO, then join its terminal gate. This is
         // not another native lock, arbitrary callback-IO tracker or epoch proof.
         private readonly SemaphoreSlim _boundaryGate = new(1, 1);
+        private readonly OfflineMigrationApplyHooks.CallbackLifetime _stagingCallback = new();
         private int _active = 1;
 
         private OwnedReadContext(OfflineMigrationApplyNativeSession owner, DbTransaction transaction, NativeReadProof proof,
@@ -635,10 +637,19 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             }
         }
         internal Task AfterOutboxStagedAsync(CancellationToken token)
-        {
-            RequireActive();
-            return _owner.InvokeAfterOutboxStagedAsync(token);
-        }
+            => _stagingCallback.RunAsync(async () =>
+            {
+                using CancellationTokenSource scope = CreateReadScope(token);
+                _ = RequirePostgreSqlWriteLock();
+                await RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+                if (OriginalConnection is not NpgsqlConnection connection
+                    || OriginalTransaction is not NpgsqlTransaction transaction)
+                    throw new InvalidOperationException("offline_apply_original_postgresql_write_required");
+                OfflineMigrationSourceObserver.RequirePostgreSqlStageSession(connection, transaction);
+                await _owner.InvokeAfterOutboxStagedAsync(scope.Token).ConfigureAwait(false);
+                await RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+                scope.Token.ThrowIfCancellationRequested();
+            });
         internal DbTransaction OriginalTransaction
         {
             get
@@ -710,6 +721,7 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             // context custody or dispose its cancellation state while an
             // already-entered boundary still owns the original native handle.
             Interlocked.Exchange(ref _active, 0);
+            Task stagingTerminal = _stagingCallback.CloseAsync();
             Exception? first = null;
             try
             {
@@ -718,6 +730,16 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             catch (Exception cleanup)
             {
                 first = cleanup;
+            }
+            try
+            {
+                // A dropped borrower task cannot let rollback/disposal overtake
+                // the callback. Late failures also remain visible to the owner.
+                await stagingTerminal.ConfigureAwait(false);
+            }
+            catch (Exception cleanup)
+            {
+                RecordScopeCleanup(ref first, cleanup);
             }
             // Exactly the original b414 terminal-drain contract. None means an
             // actual join, not a tokenless rollback/query or a bounded-cleanup
