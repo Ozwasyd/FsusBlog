@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/ArticlePreservationRetainedOutboxArtifact.cs",
+                "src/migration/ArticlePreservationStorageWriter.cs"
+            ],
+            "reason": "The original trusted registry assigns src/**/*.cs to the process-environment naming surface. This WIP acknowledges that existing path-level ownership for the two retained-outbox sources. It preserves external environment names and original journal SQL identities; the new retained JSON/fact names are explicit Migration-owned integrity data. No environment key, source authority, allocator, canonical issuer or original isolation contract is changed or granted by this manifest."
+        }
+    ]
+}

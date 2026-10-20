@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 using MySqlConnector;
 
@@ -333,12 +334,111 @@ internal static class ArticlePreservationStorageWriter
         }, originalWrite, token).ConfigureAwait(false);
     }
 
-    internal static ImmutableArray<OfflineMigrationFact> OutboxJournalFacts(ArticlePreservationStorageStage stage)
-        => stage.Outbox.OrderBy(static receipt => receipt.ArticleId).SelectMany(static receipt => new OfflineMigrationFact[]
+    internal static ImmutableArray<OfflineMigrationFact> OutboxJournalFacts(ArticlePreservationStorageStage stage,
+        CurrentSchemaArtifactReference? retainedReceipt = null)
+    {
+        if (stage.Outbox.IsDefault)
+            throw new InvalidOperationException("article_preservation_outbox_complete_batch_required");
+        if (stage.Outbox.Length > ArticlePreservationRetainedOutboxArtifact.MaximumInlineEvents)
+        {
+            if (retainedReceipt is null)
+                throw new InvalidOperationException("article_preservation_outbox_retained_receipt_required");
+            return ArticlePreservationRetainedOutboxArtifact.ReceiptFacts(retainedReceipt);
+        }
+        if (retainedReceipt is not null)
+            throw new InvalidOperationException("article_preservation_outbox_inline_receipt_expected");
+        return stage.Outbox.OrderBy(static receipt => receipt.ArticleId).SelectMany(static receipt => new OfflineMigrationFact[]
         {
             new($"outbox.article/{receipt.ArticleId}/event_id", receipt.EventId),
             new($"outbox.article/{receipt.ArticleId}/row_id", receipt.OutboxId.ToString(CultureInfo.InvariantCulture))
         }).ToImmutableArray();
+    }
+
+    // Recover the original unit's source observation even when StepVerified replaced
+    // Before with the target observation. Traverse only the verified exact parent
+    // chain, never MAX(sequence), latest, an invocation scan or a replacement store.
+    // Returned entries are data; only the operation's original verified progress
+    // supplies authority to select this checkpoint and bind retained events.
+    internal static async Task<OfflineMigrationApplyJournalEntry> ReadOriginalOutboxUnitAsync(
+        OfflineMigrationApplyJournalEntry verifiedStep, string stepId,
+        OfflineMigrationProviderOperation operation, int maximumParentEntries,
+        DbConnection connection, DbTransaction transaction,
+        ArticlePreservationWriteLimits limits, CancellationToken token)
+    {
+        RequireSession(connection, transaction);
+        RequireLimits(limits);
+        if (connection is not NpgsqlConnection || maximumParentEntries <= 0
+            || operation.Provider != CurrentSchemaProviderKind.PostgreSql || operation.Mode != OfflineMigrationExecutionMode.Transaction
+            || verifiedStep.State is not (OfflineMigrationApplyJournalState.StepVerified or OfflineMigrationApplyJournalState.TransactionCommitted)
+            || verifiedStep.StepId != stepId || verifiedStep.OperationReference != operation.OperationReference
+            || verifiedStep.Mode != operation.Mode || !verifiedStep.UnitComplete
+            || verifiedStep.ContentDigest != OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(verifiedStep))
+            throw new InvalidOperationException("article_preservation_outbox_original_checkpoint_required");
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(limits.OperationBudget);
+        token = deadline.Token;
+        var current = verifiedStep;
+        for (int count = 0; ; count++)
+        {
+            token.ThrowIfCancellationRequested();
+            if (current.State == OfflineMigrationApplyJournalState.TransactionCommitted && current.StepId == stepId)
+            {
+                if (current.OperationReference != operation.OperationReference || current.Mode != operation.Mode
+                    || !current.UnitComplete || current.Before is null || current.After is null
+                    || current.After.OperationSourceDigest != operation.OperationSourceDigest
+                    || current.After.SemanticDigest != operation.SemanticDigest)
+                    throw new InvalidOperationException("article_preservation_outbox_original_unit_changed");
+                return current;
+            }
+            if (count == maximumParentEntries)
+                throw new InvalidOperationException("article_preservation_outbox_original_parent_budget_exceeded");
+            if (current.Sequence <= 1 || current.PreviousDigest == OfflineMigrationApplyJournalVerifier.GenesisDigest)
+                throw new InvalidOperationException("article_preservation_outbox_original_unit_missing");
+            string expectedDigest = current.PreviousDigest;
+            long expectedSequence = current.Sequence - 1;
+            current = await CommandAsync(connection, transaction, limits, async command =>
+            {
+                long maximumBytes = Math.Min(limits.MaximumArtifactBytes, 1_048_576); // Original journal entry byte cap.
+                command.CommandText = $"""
+                    SELECT CASE WHEN octet_length(entry_payload)<=@maximumBytes THEN entry_payload ELSE NULL END, parent_digest
+                    FROM public."{OfflineMigrationStateStore.ApplyJournalTableName}"
+                    WHERE plan_digest=@plan AND database_digest=@database AND invocation_id=@invocation
+                        AND sequence=@sequence AND entry_digest=@digest
+                    """;
+                OfflineMigrationStateStore.Parameter(command, "@maximumBytes", maximumBytes);
+                OfflineMigrationStateStore.Parameter(command, "@plan", verifiedStep.PlanContentDigest);
+                OfflineMigrationStateStore.Parameter(command, "@database", OfflineMigrationPlanValidation.Digest(verifiedStep.Database));
+                OfflineMigrationStateStore.Parameter(command, "@invocation", verifiedStep.InvocationId);
+                OfflineMigrationStateStore.Parameter(command, "@sequence", expectedSequence);
+                OfflineMigrationStateStore.Parameter(command, "@digest", expectedDigest);
+                return await ReaderAsync(command, token, async reader =>
+                {
+                    if (!await reader.ReadAsync(token).ConfigureAwait(false) || reader.IsDBNull(0))
+                        throw new InvalidOperationException("article_preservation_outbox_exact_parent_missing_or_oversized");
+                    string payload = reader.GetString(0);
+                    string actualParentDigest = reader.GetString(1);
+                    OfflineMigrationApplyJournalEntry parent;
+                    try
+                    {
+                        parent = JsonSerializer.Deserialize<OfflineMigrationApplyJournalEntry>(payload)
+                            ?? throw new InvalidOperationException("article_preservation_outbox_exact_parent_invalid");
+                    }
+                    catch (JsonException)
+                    {
+                        throw new InvalidOperationException("article_preservation_outbox_exact_parent_invalid");
+                    }
+                    if (await reader.ReadAsync(token).ConfigureAwait(false) || parent.Plan != verifiedStep.Plan
+                        || parent.PlanContentDigest != verifiedStep.PlanContentDigest || parent.Database != verifiedStep.Database
+                        || parent.InvocationId != verifiedStep.InvocationId || parent.Sequence != expectedSequence
+                        || parent.ContentDigest != expectedDigest
+                        || parent.PreviousDigest != actualParentDigest
+                        || parent.ContentDigest != OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(parent))
+                        throw new InvalidOperationException("article_preservation_outbox_exact_parent_changed");
+                    return parent;
+                }).ConfigureAwait(false);
+            }).ConfigureAwait(false);
+        }
+    }
 
     internal static void RequireLimits(ArticlePreservationWriteLimits limits)
     {
