@@ -261,7 +261,10 @@ internal static class OfflineMigrationApplyJournalDialect
             {
                 await read(reader).ConfigureAwait(false);
             }
-            catch (Exception failure) { first = failure; }
+            catch (Exception failure)
+            {
+                first = failure;
+            }
             try
             {
                 await reader.DisposeAsync().ConfigureAwait(false);
@@ -289,7 +292,10 @@ internal static class OfflineMigrationApplyJournalDialect
                 OfflineMigrationStateStore.Parameter(command, parameterName, parameterValue);
             result = await execute(command).ConfigureAwait(false);
         }
-        catch (Exception failure) { first = failure; }
+        catch (Exception failure)
+        {
+            first = failure;
+        }
         try
         {
             await command.DisposeAsync().ConfigureAwait(false);

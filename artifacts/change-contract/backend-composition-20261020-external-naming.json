@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/SystemService.cs",
+                "src/migration/OfflineMigrationApplyJournalDialect.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaModel.cs"
+            ],
+            "reason": "Preserve the unchanged registered process-environment surface across the frozen component composition. Original component reasons retained: Preserve existing registered process-environment spellings in src/backend/Services/SystemService.cs and their existing adapters. This candidate reorders import directives, which changes C# token order, while retaining every imported namespace, the PublicSiteAuthorPolicy using-static target, and all namespace/type/method bodies byte-for-byte. It introduces or renames no external name and adds no naming exception, runtime permission, acceptance authority or suppression. The ordinary path-level environment-variable declaration is required by the unchanged trusted registry even when only the import header changes. Preserve existing registered external process spelling; this change only applies official whitespace formatting and keeps all tokens and literals unchanged. The existing trusted registry assigns these eight C# paths to its process-environment surface. This candidate acknowledges that path-level ownership while preserving every original external process/environment spelling and its existing adapters. The renamed managed fields and constants still obey internal C# naming; this declaration introduces no environment key and grants no naming exception to those internal identifiers. Native FieldOffset/StructLayout and libc EntryPoint attributes, SQL/JSON/wire literals and retained-reader bootstrap bytes remain unchanged. The existing environment-variable registry governs these handwritten src/**/*.cs paths. Preserve original process environment spellings, migration tool bindings and refusal codes while exposing existing analyzer guards and formatting only; no external names are added or renamed, and this declaration grants no runtime or acceptance authority. The original trusted registry assigns these exact handwritten C# paths to its environment-variable surface. This declaration acknowledges that existing path ownership for XML-documentation-only edits. All original external spellings, identifiers, literals, members, layouts and authority behavior remain unchanged; it introduces no environment key, internal naming waiver or new exception boundary."
+        }
+    ]
+}

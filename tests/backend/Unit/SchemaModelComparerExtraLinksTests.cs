@@ -1,6 +1,5 @@
-using FsusBlog.Server.Infrastructure.SchemaMigration;
-
 using FsusBlog.Contracts.Schema;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 
 using Xunit;
 

@@ -45,16 +45,16 @@ public sealed class OfflineMigrationStateStoreOwnedReadTests
     {
         Type context = typeof(OfflineMigrationMySqlNativeSession.OwnedReadContext);
         MethodInfo[] methods = typeof(OfflineMigrationStateStore).GetMethods(BindingFlags.Static | BindingFlags.NonPublic);
-        MethodInfo read = Assert.Single(methods.Where(method => method.Name == "ReadApplyJournalAsync"
-            && method.GetParameters()[0].ParameterType == context));
+        MethodInfo read = Assert.Single(methods, method => method.Name == "ReadApplyJournalAsync"
+            && method.GetParameters()[0].ParameterType == context);
         Assert.Equal(new[]
         {
             context, typeof(string), typeof(CurrentSchemaDatabaseIdentity), typeof(OfflineMigrationApplyRequest),
             typeof(OfflineMigrationApplyJournalVerifier), typeof(CancellationToken)
         }, read.GetParameters().Select(parameter => parameter.ParameterType));
         Assert.Equal(typeof(Task), read.ReturnType);
-        MethodInfo validate = Assert.Single(methods.Where(method => method.Name == "ValidateApplyJournalAsync"
-            && method.GetParameters()[0].ParameterType == context));
+        MethodInfo validate = Assert.Single(methods, method => method.Name == "ValidateApplyJournalAsync"
+            && method.GetParameters()[0].ParameterType == context);
         Assert.Equal(new[] { context, typeof(CancellationToken) },
             validate.GetParameters().Select(parameter => parameter.ParameterType));
         Assert.Equal(typeof(Task), validate.ReturnType);
@@ -72,7 +72,7 @@ public sealed class OfflineMigrationStateStoreOwnedReadTests
             Assert.All(original, method => Assert.DoesNotContain(method.GetParameters(),
                 parameter => parameter.ParameterType == context));
         }
-        Assert.True(Assert.Single(methods.Where(method => method.Name == "ReadApplyJournalRowsAsync")).IsPrivate);
+        Assert.True(Assert.Single(methods, method => method.Name == "ReadApplyJournalRowsAsync").IsPrivate);
     }
 
     [Theory]
