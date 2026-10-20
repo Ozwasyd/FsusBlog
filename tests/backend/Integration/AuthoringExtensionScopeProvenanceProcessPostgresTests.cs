@@ -42,15 +42,17 @@ public sealed class AuthoringExtensionScopeProvenanceProcessPostgresTests
             string ready = Path.Combine(directory, "committed");
             string requestPath = Path.Combine(directory, "request.json");
             await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(new WorkerRequest(host.ConnectionString, registration, ready)));
-            string project = Path.GetFullPath("../../../../../tests/backend/FsusBlog.Server.Tests.csproj", AppContext.BaseDirectory);
             var start = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false
             };
-            foreach (string argument in new[] { "test", project, "--no-build", "--no-restore", "--filter",
-                $"FullyQualifiedName={GetType().FullName}.{nameof(ProcessDeathAfterOriginalCommit_ResumesOnlyTheSameDurablePendingRecord)}", "-v:q" })
+            // Run exactly this built assembly; a project launch defaults to Debug even
+            // when this parent was built in Release or uses a relocated output root.
+            foreach (string argument in new[] { "vstest", GetType().Assembly.Location,
+                $"/TestCaseFilter:FullyQualifiedName={GetType().FullName}.{nameof(ProcessDeathAfterOriginalCommit_ResumesOnlyTheSameDurablePendingRecord)}",
+                "/logger:console;verbosity=quiet" })
             {
                 start.ArgumentList.Add(argument);
             }
