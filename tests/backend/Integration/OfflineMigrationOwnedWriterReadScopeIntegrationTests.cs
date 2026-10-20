@@ -47,7 +47,10 @@ public sealed class OfflineMigrationOwnedWriterReadScopeIntegrationTests(Postgre
             Assert.Equal("offline_apply_owned_read_scope_expired", expired.Message);
             await transaction.RollbackAsync(cleanup.Token);
         }
-        finally { Assert.True(await native.ReleaseAsync(cleanup.Token)); }
+        finally
+        {
+            Assert.True(await native.ReleaseAsync(cleanup.Token));
+        }
         Assert.Equal(ConnectionState.Open, connection.State);
     }
 
@@ -76,7 +79,10 @@ public sealed class OfflineMigrationOwnedWriterReadScopeIntegrationTests(Postgre
             Assert.True(actualBoundaryReached);
             Assert.Equal("offline_apply_original_transaction_required", failure.Message);
         }
-        finally { Assert.True(await native.ReleaseAsync(cleanup.Token)); }
+        finally
+        {
+            Assert.True(await native.ReleaseAsync(cleanup.Token));
+        }
         Assert.Equal(ConnectionState.Open, connection.State);
     }
 
@@ -112,7 +118,10 @@ public sealed class OfflineMigrationOwnedWriterReadScopeIntegrationTests(Postgre
             Assert.True(callbackReached);
             await transaction.RollbackAsync(cleanup.Token);
         }
-        finally { Assert.True(await native.ReleaseAsync(cleanup.Token)); }
+        finally
+        {
+            Assert.True(await native.ReleaseAsync(cleanup.Token));
+        }
         Assert.Equal(ConnectionState.Open, connection.State);
     }
 
@@ -184,7 +193,10 @@ public sealed class OfflineMigrationOwnedWriterReadScopeIntegrationTests(Postgre
             }, creator.Token);
             await transaction.RollbackAsync(cleanup.Token);
         }
-        finally { Assert.True(await native.ReleaseAsync(cleanup.Token)); }
+        finally
+        {
+            Assert.True(await native.ReleaseAsync(cleanup.Token));
+        }
         Assert.Equal(ConnectionState.Open, connection.State);
     }
 
@@ -221,14 +233,21 @@ public sealed class OfflineMigrationOwnedWriterReadScopeIntegrationTests(Postgre
             {
                 await actualBoundary;
             }
-            catch (OperationCanceledException) { }
-            catch (InvalidOperationException failure) when (failure.Message == "offline_apply_owned_read_scope_expired") { }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (InvalidOperationException failure) when (failure.Message == "offline_apply_owned_read_scope_expired")
+            {
+            }
             var closed = Assert.IsType<OfflineMigrationApplyNativeSession.OwnedReadContext>(retained);
             InvalidOperationException expired = Assert.Throws<InvalidOperationException>(() => closed.CreateReadScope(default));
             Assert.Equal("offline_apply_owned_read_scope_expired", expired.Message);
             await transaction.RollbackAsync(cleanup.Token);
         }
-        finally { Assert.True(await native.ReleaseAsync(cleanup.Token)); }
+        finally
+        {
+            Assert.True(await native.ReleaseAsync(cleanup.Token));
+        }
         Assert.Equal(ConnectionState.Open, connection.State);
     }
 }
