@@ -335,7 +335,7 @@ static_assert(offsetof(ThemeActivationHistoryPod, ActivatedBy) == 116);
 
 #pragma pack(pop)
 
-// Borrowed slices only: no allocation or ownership of the caller's payload.
+/// Records, Children and Blob borrow the caller-owned payload; keep its storage alive, at a stable address and unchanged while using this view or pointers derived from it. Copying the view does not extend that lifetime. ParsePayload writes the view only on success; failure leaves the output unchanged.
 struct PayloadView
 {
     const std::uint8_t* Records;
