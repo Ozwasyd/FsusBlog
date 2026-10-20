@@ -45,6 +45,12 @@ public sealed class AuthoringCanvasReferenceResolver(
 
     private AuthoringCanvasReferenceFact? ReadCachedFact(AuthoringCanvasReferenceCacheKey key)
         => cache.TryGet(key, out AuthoringCanvasReferenceFact? fact) ? fact : null;
+
+    private static AuthoringCanvasReferenceCacheKey CacheKey(
+        AuthoringCanvasReferenceResolutionRequest request,
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate,
+        AuthoringCanvasReferenceTarget target)
+        => AuthoringCanvasReferenceResolutionKernel.CacheKey(request, coordinate, target);
 }
 
 // Domain computation has no request authority or cache publication capability.
@@ -343,7 +349,7 @@ internal sealed class AuthoringCanvasReferenceResolutionKernel(
             null,
             null);
 
-    private static AuthoringCanvasReferenceCacheKey CacheKey(
+    internal static AuthoringCanvasReferenceCacheKey CacheKey(
         AuthoringCanvasReferenceResolutionRequest request,
         AuthoringCanvasReferenceAuthorityCoordinate coordinate,
         AuthoringCanvasReferenceTarget target)
