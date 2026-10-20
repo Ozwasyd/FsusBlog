@@ -1,0 +1,250 @@
+{
+    "kind": "provenance-owned document-binding supplier investigation and proposed portable contract",
+    "status": "WIP: no original held document/site authority established",
+    "use": "Source findings and proposed integration requirements only; never a runtime credential, approval, consent, grant, receipt, schema admission or qualification input.",
+    "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+    "consumer": {
+        "pr": 4592,
+        "commit": "c0a07a8e7bdf0239332198ff1b4224b4d30be221",
+        "evidence": [
+            {
+                "path": "docs/architecture/authoring-extension-host-boundary.md",
+                "blob": "d20d14a66653b5f5420bc2adfc984fe460c69ce8"
+            },
+            {
+                "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionProductionPreflight.cs",
+                "blob": "60bf111ad5b9a57ae0d9f3a613c9a416aa0548c8"
+            }
+        ],
+        "finding": "A genuinely claimed site-only registration may be inspected, but HasGrantsAsync refuses null DocumentId. ArticleQuery needs an actual document and a separate original authenticated consent/grant producer. DocumentFullRead revision fields cannot substitute for ArticleQuery."
+    },
+    "sourceEvidence": [
+        {
+            "path": "src/backend/Entities/Article.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "46ff5bf70ab67351ff0eb7fc0f5b63a692693309",
+            "finding": "ArticleDraft has owner_admin_principal_id, draft_key, server_revision and status; ArticleRevision has article_id and created_by_admin_principal_id. These are real rows, not a document lease or site mapping."
+        },
+        {
+            "path": "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "6f36ed2600b5170ac30a3e4f40468bf2c62b0ec3",
+            "finding": "SaveDraftWithCasAsync/DiscardDraftAsync use real owner/key/revision CAS. GetDraftAsync/GetRevisionAsync return DTOs and retain no held connection or revocation exclusion."
+        },
+        {
+            "path": "src/backend/Services/Authoring/AuthoringUseCasePorts.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "4949260cd3e0bc30778dc542a1776c1860531c03",
+            "finding": "IAuthoringDraftLifecycle exposes Task DTO/mutation results, not an IAsyncDisposable document authority lifetime."
+        },
+        {
+            "path": "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "deec2571dbfee789af874061aaae1cdff317dfe3",
+            "finding": "Draft context provider accepts only its primary site token and seals snapshots after rereads; it is not a held witness source."
+        },
+        {
+            "path": "src/backend/Services/Authoring/AuthoringCanvasReferenceFactSource.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "ed45b3afccd9db33174c254858444402300e9aa7",
+            "finding": "Original article reader checks primary-site, persisted principal permissions and article_revision attribution. ReadAuthorityAsync/ReadBatchAsync return snapshots, not a held document source."
+        },
+        {
+            "path": "src/backend/Services/Authoring/SqlAuthorArticlePinPermissionAuthority.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "f08576f0b7c0e3f5651ee4ded2917281dafa9f17",
+            "finding": "Site scope is configured SITE_BASEURL/default URL. Permission snapshots do not supply the provenance document lifetime."
+        },
+        {
+            "path": "src/backend/Services/Articles/ArticleDeletionKernel.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "c9981a598f1a916b976b5a2aee72884e6329abce",
+            "finding": "Caller first locks soft-deleted article rows; kernel deletes linked drafts before article. A future lease must honor article -> draft writer order."
+        },
+        {
+            "path": "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "a21abf8359512862dac05f620944edca56c0d709",
+            "finding": "Revision append takes the article_revision advisory key and locks the live article row before inserting an immutable revision."
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionStateScopeIssuer.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "823a63b6e1574b94493e89ffc5868615550877a4",
+            "finding": "Issuer currently registers null DocumentId only. Existing insertion witness/Pending/Active and activation currentness are preserved."
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionScopeProvenanceAuthority.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "508b0234ef347dd192e6cd3d6b9439f51d571b01",
+            "finding": "Canonical borrowed-StateCustody acquisition still refuses document scopes."
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringExtensionScopeProvenanceStore.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "a6ea6faa3dc8b6da9930c94d3fec1cb633690bc7",
+            "finding": "Active owner relation is null-document only; state custody is borrowed, same object, never disposed or reacquired by provenance."
+        },
+        {
+            "path": "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionWorkerSandbox.cs",
+            "sourceCommit": "a69fce9a599a482e2ddf378e6296ca05e99c9d39",
+            "blob": "11b57b726f7b984a5fd034f8609ba07b600dbbf1",
+            "finding": "IAuthoringDocumentRevisionGate has only IsCurrentAsync(string, epoch, revision); it is not a document binding/owner/site lease."
+        }
+    ],
+    "siteMismatch": {
+        "draftRow": "No persisted site column on ArticleDraft/ArticleRevision.",
+        "compareProvider": "primary",
+        "canvasArticleReader": "primary-site",
+        "articlePinPermissions": "SITE_BASEURL or default URL",
+        "provenance": "Explicit AuthoringExtensions:SiteId, no implicit alias.",
+        "required": "Original source owner must supply the canonical known-site identity and its lifetime. None of these spellings is automatically equivalent to another or to arbitrary configuration."
+    },
+    "supplierSeparation": {
+        "documentOwner": "Own real draft/article/revision identity, permission/site authority and held source-row lifetime. Source locators are requests, never proof.",
+        "provenanceOwner": "After a real source exists, issue a new durable server document relation and new exact document state registration. Preserve original insertion witness, Pending refusal, exact original creation verification and Active CAS; never mutate a site registration into document state.",
+        "consentOwner": "Independently authenticate consent for exact target/runtime/capability/purpose/site/document/grant lifetime and issue its original verifiable receipt. No scope or document witness mints consent.",
+        "approvalOwner": "Sole owner of shared approval contracts, actor/session pinning, decision/receipt/currentness and final CAS. No edits to its sources in this WIP.",
+        "consumer": "Use only original issued user/document relation and original consent. Do not manufacture a document, grant or receipt to satisfy preflight."
+    },
+    "proposedPortableBoundary": {
+        "status": "Requirements only, not an exported/implemented interface.",
+        "request": [
+            "Authenticated original HttpContext/actor context, not an admin DTO copied into an authority.",
+            "Typed stable saved-draft owner/key or authorized article/revision locator, never a UI counter or parsed document:article:id as proof.",
+            "Original canonical site-authority identity; missing/foreign/unknown site refuses.",
+            "The SAME IAuthoringExtensionStateObservation supplied by the approval/result owner after its genuine state acquisition. Initial issuance requires a separate original-owner-reviewed ordering design because its state row does not exist yet."
+        ],
+        "heldResult": [
+            "Live original owner/source connection and transaction custody, no detached DTO authority.",
+            "Exact source stable identity/incarnation, original owner/admin and canonical site, document source kind, exact row revision/status/version, and original permission/site revocation versions.",
+            "VerifyCurrentAsync on already-held original source connection; do not open another state reader or reacquire state keys.",
+            "Explicit lifetime ownership: provenance never disposes borrowed StateCustody, approval transaction or borrowed original document owner. Its own relation/source scopes release only their owned resources."
+        ],
+        "futureDurableRelation": [
+            "Server-generated opaque document binding identity, original issued opaque state user and actual principal/site.",
+            "Exact source key/incarnation and identity/version/status witnesses, policy version and monotonic binding revision/status.",
+            "Both migration scopes must reference the same real document relation and exact original user; new package registration still follows original Pending/INSERT-witness/Active protocol.",
+            "Any missing/deleted/revoked/foreign source, stale revision/status/site/permission, collision or uncertain crash boundary refuses; no adoption of an unknown existing document state."
+        ],
+        "ordering": [
+            "Approval principal/session pin -> released independent receipt precheck -> original ordinal state custody -> owner-agreed document/provenance relation acquisition -> decision/operation uniqueness -> receipt/latest row -> final CAS.",
+            "Release provenance/document owned scopes -> original state/result -> approval. Preserve same StateCustody object for native/result and provenance.",
+            "Document/provenance sub-order is not certified by this WIP. Review original article -> linked draft deletion, draft -> asset-reference writes, revision append locks, all relevant FK checks/cascades, revokes, row deletes and TRUNCATE before enabling a source.",
+            "No independent same-actor connection locks, no original-state query on the provenance connection while held, no reverse guard/no-op trigger, no positive production composition."
+        ],
+        "acceptance": [
+            "Genuine positive binding from an original held, saved and authorized source; no fixture DTO is qualification.",
+            "Same owner/site/user/document/source identity and both migration scopes; missing/foreign/unsaved/unknown-site inputs refuse.",
+            "Actual blocked update/delete/revoke/TRUNCATE, currentness drift, cancellation, connection failure and cleanup controls through final CAS.",
+            "Registration collision/crash retry and witness trigger coverage; wrong/extra/missing/reordered keys and released borrowed custody refuse.",
+            "ArticleQuery grant schema unchanged: full-read revision fields absent, genuine consent and grant lifetime separately verified."
+        ]
+    },
+    "completedInThisWip": [
+        "Exact consumer commit read without modifying it.",
+        "Original provenance, draft/article writer and read-port source inspection.",
+        "Focused real PostgreSQL supplier-gap controls added; no production document binding enabled."
+    ],
+    "remainingBlockers": [
+        "No original exported held document authority source at the inspected heads.",
+        "Canonical source-to-site identity and its revocation lifetime unresolved.",
+        "No durable server-created user/site/document relation and owner-reviewed initial issuance ordering.",
+        "Original enable-consent producer remains a separate supplier gap; this WIP does not implement it."
+    ],
+    "execution": {
+        "status": "Executed: 11 passed, 0 failed, 0 skipped. Negative supplier-gap and original-row-lock controls only; no positive document-binding or production qualification.",
+        "branch": "wip/authoring-document-binding-supplier-intake",
+        "command": "source /workspace/.setup/activate.sh && FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE=postgres:17-alpine dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter 'FullyQualifiedName~AuthoringExtensionDocumentBindingSupplierPostgresTests' -v:minimal -p:RunAnalyzers=false --logger 'trx;LogFileName=document-binding-supplier.trx' --results-directory /tmp/document-binding-supplier-results",
+        "dotnetSdk": "10.0.401",
+        "testSource": {
+            "path": "tests/backend/Integration/AuthoringExtensionDocumentBindingSupplierPostgresTests.cs",
+            "blob": "baff648958c87f58da2d107e77fd0715575aa995",
+            "sha256": "b411ff13095daee009f0aecd7cff7b5ad38196080cd533a085d461f346961a20"
+        },
+        "rawTrx": {
+            "localPath": "/tmp/document-binding-supplier-results/document-binding-supplier.trx",
+            "sha256": "8168c3ec029b964b89579787172cf93bdc0a2b932d0bd087ccd7a14cd6d1056c"
+        },
+        "counters": {
+            "total": "11",
+            "executed": "11",
+            "passed": "11",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+        },
+        "cases": [
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.RealSavedDraft_DoesNotRelabelAnIssuedSiteScopeOrAuthorizeDocumentState(configuredSite: \"configured-site\", draftOwner: 2)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.RealSavedDraft_DoesNotRelabelAnIssuedSiteScopeOrAuthorizeDocumentState(configuredSite: \"configured-site\", draftOwner: 1)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.SqlRowShare_BlocksRealSaveAndDiscardButIsNotARegisteredDocumentAuthority(discard: True)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.MissingOrUiDocumentCoordinates_DoNotEnterTheOriginalIssuer(document: \"unsaved-draft\")",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.SqlRowShare_BlocksRealSaveAndDiscardButIsNotARegisteredDocumentAuthority(discard: False)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.RealSavedDraft_DoesNotRelabelAnIssuedSiteScopeOrAuthorizeDocumentState(configuredSite: \"primary-site\", draftOwner: 1)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.MissingOrUiDocumentCoordinates_DoNotEnterTheOriginalIssuer(document: \"canvas:00000000-0000-0000-0000-000000000042\")",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.MissingOrUiDocumentCoordinates_DoNotEnterTheOriginalIssuer(document: \"document:article:42\")",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.RealSavedDraft_DoesNotRelabelAnIssuedSiteScopeOrAuthorizeDocumentState(configuredSite: \"https://source.invalid\", draftOwner: 1)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.RealSavedDraft_DoesNotRelabelAnIssuedSiteScopeOrAuthorizeDocumentState(configuredSite: \"primary\", draftOwner: 1)",
+                "outcome": "Passed"
+            },
+            {
+                "name": "FsusBlog.Server.Tests.Integration.AuthoringExtensionDocumentBindingSupplierPostgresTests.OriginalDraftReadAndStateCustody_LeaveRealDocumentWritersUnheld",
+                "outcome": "Passed"
+            }
+        ],
+        "checks": [
+            "targeted dotnet format whitespace completed; workspace-load warnings retained",
+            "git diff --check passed",
+            "All production src files byte-identical to a69fce9a599a482e2ddf378e6296ca05e99c9d39; no shared contract, CAS, DI, schema, trigger or registration changes."
+        ],
+        "limitations": [
+            "No held document/site source implemented or enabled.",
+            "Existing repository NuGet/compiler warnings are outside this test-only WIP.",
+            "No publication action attempted; prior access/publication denials remain. Personal-context history lookup was unavailable, so no extra publication permission was inferred."
+        ],
+        "actions": [
+            "Read exact requested consumer commit through one successful git fetch.",
+            "Create separate local successor branch.",
+            "Run only new bounded source/refusal controls; do not repeat completed activation/custody qualification.",
+            "Save via local Git commit; no push, Draft PR, public comment, merge or release."
+        ]
+    }
+}
