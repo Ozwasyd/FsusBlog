@@ -1,6 +1,6 @@
 using FsusBlog.Contracts.Articles;
 using System.Data.Common;
-using System.Text.Json;
+using Outbox = FsusBlog.Contracts.Articles.Outbox;
 
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
@@ -57,8 +57,6 @@ public readonly record struct ArticlePublicationTransitionPlan(
 
 public static class ArticlePublicationTransitionWriter
 {
-    private static readonly JsonSerializerOptions s_outboxJsonOptions = new(JsonSerializerDefaults.Web);
-
     public static async Task<ArticleVersionCoordinates> ApplyAsync(
         ISqlSugarClient db,
         ArticlePublicationTransitionRequest request,
@@ -213,23 +211,17 @@ public static class ArticlePublicationTransitionWriter
         ArticleMutationScopeSnapshot? after = null,
         DateTime? occurredAt = null,
         DateTime? publicUpdatedAt = null)
-        => JsonSerializer.Serialize(new
-        {
-            schemaVersion = ArticleMutationOutboxEnvelopeCodec.CurrentSchemaVersion,
-            articleId,
-            eventType,
-            articleRevisionId = version.RevisionId,
-            revisionNo = version.RevisionNo,
-            rightsSnapshotId = version.RightsSnapshotId,
-            responsibilitySnapshotId = version.ResponsibilitySnapshotId,
-            responsibilityVersion = version.ResponsibilityVersion,
-            releaseId = version.PublicationId,
-            releaseNo = version.PublicationNo,
-            publicUpdatedAt = publicUpdatedAt ?? occurredAt,
-            occurredAt,
-            before,
-            after
-        }, s_outboxJsonOptions);
+        => Outbox.ArticleMutationOutboxValueFactory.BuildOutboxPayload(
+            articleId, eventType, ToOutboxValue(version), ToOutboxValue(before), ToOutboxValue(after),
+            occurredAt, publicUpdatedAt);
+
+    internal static Outbox.ArticleVersionCoordinates ToOutboxValue(ArticleVersionCoordinates version)
+        => new(version.RevisionId, version.RevisionNo, version.RightsSnapshotId,
+            version.ResponsibilitySnapshotId, version.PublicationId, version.PublicationNo,
+            version.ResponsibilityVersion);
+
+    internal static Outbox.ArticleMutationScopeSnapshot? ToOutboxValue(ArticleMutationScopeSnapshot? scope)
+        => scope is null ? null : new(scope.CategoryId, scope.TagIds, scope.Visibility);
 
     private static async Task<ArticleVersionCoordinates> InsertPublicationAsync(
         ISqlSugarClient db,

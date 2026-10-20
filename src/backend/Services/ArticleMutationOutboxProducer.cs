@@ -1,5 +1,7 @@
 using System.Data.Common;
 
+using Outbox = FsusBlog.Contracts.Articles.Outbox;
+
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Helpers;
@@ -10,7 +12,7 @@ namespace FsusBlog.Server.Services;
 
 public static class ArticleMutationOutboxProducer
 {
-    public const string FactoryId = "fsusblog.article-mutation-outbox-producer.v1";
+    public const string FactoryId = Outbox.ArticleMutationOutboxValueFactory.FactoryId;
 
     public static async Task<ArticleMutationOutboxEvent> CreateForVersionAsync(
         ISqlSugarClient db,
@@ -154,32 +156,31 @@ public static class ArticleMutationOutboxProducer
         ArticleMutationScopeSnapshot? after,
         DateTime occurredAt,
         DateTime? publicUpdatedAt = null)
-        => new()
-        {
-            EventId = Guid.NewGuid().ToString("N"),
-            AggregateId = articleId,
-            SchemaVersion = ArticleMutationOutboxEnvelopeCodec.CurrentSchemaVersion,
-            ArticleRevisionId = version.RevisionId,
-            RevisionNo = version.RevisionNo,
-            RightsSnapshotId = version.RightsSnapshotId,
-            ResponsibilitySnapshotId = version.ResponsibilitySnapshotId,
-            ResponsibilityVersion = version.ResponsibilityVersion,
-            ArticlePublicationId = version.PublicationId,
-            PublicationNo = version.PublicationNo,
-            EventType = eventType,
-            PayloadJson = ArticlePublicationTransitionWriter.BuildOutboxPayload(
-                articleId,
-                eventType,
-                version,
-                before,
-                after,
-                occurredAt,
-                publicUpdatedAt),
-            Status = "pending",
-            RetryCount = 0,
-            NextRetryAt = occurredAt,
-            CreatedAt = occurredAt
-        };
+    {
+        var item = new ArticleMutationOutboxEvent();
+        Outbox.ArticleMutationOutboxValue value = Outbox.ArticleMutationOutboxValueFactory.Create(
+            item.EventId, articleId, eventType,
+            ArticlePublicationTransitionWriter.ToOutboxValue(version),
+            ArticlePublicationTransitionWriter.ToOutboxValue(before),
+            ArticlePublicationTransitionWriter.ToOutboxValue(after), occurredAt, publicUpdatedAt);
+        item.EventId = value.EventId;
+        item.AggregateId = value.AggregateId;
+        item.SchemaVersion = value.SchemaVersion;
+        item.ArticleRevisionId = value.ArticleRevisionId;
+        item.RevisionNo = value.RevisionNo;
+        item.RightsSnapshotId = value.RightsSnapshotId;
+        item.ResponsibilitySnapshotId = value.ResponsibilitySnapshotId;
+        item.ResponsibilityVersion = value.ResponsibilityVersion;
+        item.ArticlePublicationId = value.ArticlePublicationId;
+        item.PublicationNo = value.PublicationNo;
+        item.EventType = value.EventType;
+        item.PayloadJson = value.PayloadJson;
+        item.Status = "pending";
+        item.RetryCount = 0;
+        item.NextRetryAt = value.CreatedAt;
+        item.CreatedAt = value.CreatedAt;
+        return item;
+    }
 
     private static int[] ParseTagIds(string tagIds)
         => tagIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
