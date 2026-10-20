@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract.mjs"
+            ],
+            "reason": "The historical-receipt correction preserves the existing GIT_NO_REPLACE_OBJECTS environment-variable spelling and its value while applying the same trusted Git options to related history and diff reads. This exact registered checker-path declaration preserves external tool identities; it neither exempts policy replacement nor promotes this candidate or any downstream application evidence."
+        }
+    ]
+}
