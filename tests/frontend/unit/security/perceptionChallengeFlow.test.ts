@@ -99,6 +99,7 @@ describe('perception v2 business challenge flow', () => {
       dispose: vi.fn()
     }
     const runtime = createPerceptionChallengeRuntime({
+      envelopeId: assignment.challengeId,
       assignment,
       providerPayload,
       workerClient,
@@ -107,6 +108,11 @@ describe('perception v2 business challenge flow', () => {
         verifyRequests.push(request)
         return {
           verified: true,
+          envelopeId: request.envelopeId,
+          completedCount: 1,
+          memberCount: 1,
+          envelopeCompleted: true,
+          expiresAtUnixMs: assignment.expiresAtUnixMs,
           challengeId: request.challengeId,
           kind: request.kind,
           policyVersion: 'risk-v1',
@@ -150,12 +156,17 @@ describe('perception v2 business challenge flow', () => {
         y: '99'
       })
     })
-    expect(Number(verifyRequests[0].providerPayload.solveDurationMs)).toBeGreaterThanOrEqual(750)
+    expect(Number(verifyRequests[0].providerPayload!.solveDurationMs)).toBeGreaterThanOrEqual(750)
   })
 
   it('does not expose detailed perception failure reasons to the host', () => {
     expect(mapPerceptionVerifyResult({
       verified: false,
+      envelopeId: assignment.challengeId,
+      completedCount: 0,
+      memberCount: 1,
+      envelopeCompleted: false,
+      expiresAtUnixMs: 0,
       challengeId: assignment.challengeId,
       kind: assignment.kind,
       policyVersion: 'risk-v1',

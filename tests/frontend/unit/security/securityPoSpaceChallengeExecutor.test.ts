@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import {
   SecurityChallengeKind,
   type SecurityChallengeAssignment,
@@ -85,6 +85,10 @@ const solved: PoSpaceWorkerSolveResult = {
 function verifiedResult(challengeId: string): SecurityChallengeVerifyResult {
   const response: SecurityChallengeVerifyResponse = {
     verified: true,
+    envelopeId: challengeId,
+    completedCount: 1,
+    memberCount: 1,
+    envelopeCompleted: true,
     challengeId,
     kind: SecurityChallengeKind.Argon2IdPoSpaceV1,
     policyVersion,
@@ -107,6 +111,7 @@ function verifiedResult(challengeId: string): SecurityChallengeVerifyResult {
     status: 'verified',
     response,
     proof,
+    next: null,
     reason: null,
     retryAfterMs: 0
   }
@@ -126,10 +131,8 @@ function fakeClient(
   }
 }
 
-type FakeWorker = PoSpaceWorkerClient & {
-  capability: ReturnType<typeof vi.fn>
-  solve: ReturnType<typeof vi.fn>
-  dispose: ReturnType<typeof vi.fn>
+type FakeWorker = {
+  [Key in keyof PoSpaceWorkerClient]: Mock<PoSpaceWorkerClient[Key]>
 }
 
 function fakeWorker(options: {
@@ -137,7 +140,7 @@ function fakeWorker(options: {
   solveImplementation?: PoSpaceWorkerClient['solve']
 } = {}): FakeWorker {
   return {
-    capability: vi.fn().mockResolvedValue(options.capabilityResult ?? capability()),
+    capability: vi.fn<PoSpaceWorkerClient['capability']>().mockResolvedValue(options.capabilityResult ?? capability()),
     solve: vi.fn(options.solveImplementation ?? (async () => solved)),
     dispose: vi.fn()
   }
@@ -237,6 +240,7 @@ describe('security PoSpace challenge executor', () => {
       status: 'failed',
       response: null,
       proof: null,
+      next: null,
       reason: 'pospace_proof_invalid',
       retryAfterMs: 0
     }))
