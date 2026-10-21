@@ -143,6 +143,7 @@
 
                     <ArticleWriteTitleField
                         v-model="articleForm.title"
+                        data-article-form-property="title"
                         :disabled="submitting"
                     />
 
@@ -156,7 +157,10 @@
                         class="write-editor-panel"
                         data-editor-panel="true"
                     >
-                        <ElFormItem prop="content">
+                        <ElFormItem
+                            prop="content"
+                            data-article-form-property="content"
+                        >
                             <ArticleWriteEditor
                                 ref="articleEditorRef"
                                 v-model="articleForm.content"
@@ -225,6 +229,7 @@
 
                                 <ElFormItem
                                     prop="rights.enabled"
+                                    data-article-form-property="rights.enabled"
                                     label="启用策略"
                                 >
                                     <ElSwitch
@@ -236,6 +241,7 @@
 
                                 <ElFormItem
                                     prop="rights.licenseType"
+                                    data-article-form-property="rights.licenseType"
                                     label="许可类型"
                                 >
                                     <ElSelect
@@ -255,6 +261,7 @@
 
                                 <ElFormItem
                                     prop="rights.copyrightHolder"
+                                    data-article-form-property="rights.copyrightHolder"
                                     label="权利人"
                                 >
                                     <ElInput
@@ -269,6 +276,7 @@
 
                                 <ElFormItem
                                     prop="rights.copyrightYear"
+                                    data-article-form-property="rights.copyrightYear"
                                     label="版权年份"
                                 >
                                     <ElInputNumber
@@ -286,6 +294,7 @@
 
                                 <ElFormItem
                                     prop="rights.rightsStatement"
+                                    data-article-form-property="rights.rightsStatement"
                                     label="权利声明"
                                 >
                                     <ElInput
@@ -303,6 +312,7 @@
 
                                 <ElFormItem
                                     prop="rights.attributionTemplate"
+                                    data-article-form-property="rights.attributionTemplate"
                                     label="署名模板"
                                 >
                                     <ElInput
@@ -320,6 +330,7 @@
 
                                 <ElFormItem
                                     prop="rights.copyPolicy"
+                                    data-article-form-property="rights.copyPolicy"
                                     label="复制策略"
                                 >
                                     <ElSelect
@@ -339,6 +350,7 @@
 
                                 <ElFormItem
                                     prop="rights.maxExcerptChars"
+                                    data-article-form-property="rights.maxExcerptChars"
                                     label="摘录长度"
                                 >
                                     <ElInputNumber
@@ -771,12 +783,12 @@ import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
 import {
     articleWorkspaceTabRouter,
-    createArticleWorkspaceOpenInput,
-    type ArticleWorkspaceStatusSummary
+    createArticleWorkspaceOpenInput
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import type {
     ArticleDocumentContextRef,
-    ArticleDocumentIdentity
+    ArticleDocumentIdentity,
+    ArticleWorkspaceStatusSummary
 } from '@/services/authoring/openArticleDocumentRegistry';
 import { showErrorToast } from '@/utils/errorPresentation';
 
@@ -847,6 +859,7 @@ const {
     articleRightsCopyPolicyOptions,
     articleRightsExcerptMax,
     rules,
+    firstInvalidFormProperty,
     validateBeforeSubmit,
     formRef,
     saveDraftNow,
@@ -1192,8 +1205,14 @@ const requestSubmit = async (): Promise<void> =>
     }
 
     await nextTick();
-    const firstErrorField = formRef.value?.fields.find((field) => field.validateState === 'error');
-    focusFirstArticleValidationError(firstErrorField?.$el);
+    const invalidProperty = firstInvalidFormProperty.value;
+    if (invalidProperty !== null)
+    {
+        formRef.value?.scrollToField(invalidProperty);
+    }
+    const invalidFieldRoot = invalidProperty === null ? null
+        : document.querySelector<HTMLElement>(`[data-article-form-property="${CSS.escape(invalidProperty)}"]`);
+    focusFirstArticleValidationError(invalidFieldRoot);
 };
 
 const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void =>

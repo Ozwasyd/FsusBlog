@@ -1,4 +1,3 @@
-import { type FormInstance } from '@ozwasyd/element-plus';
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -75,6 +74,8 @@ import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegis
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
+
+import type { FormItemProp, FormValidateCallback, FormValidationResult } from '@ozwasyd/element-plus';
 
 interface ArticleParams {
     title: string;
@@ -469,7 +470,10 @@ export function useAdminArticleWrite()
     const router = useRouter();
     const powProvider = usePow();
     const adminStore = useAdminStore();
-    const formRef = useTemplateRef<FormInstance>('formRef');
+    const formRef = useTemplateRef<{
+        validate: (callback?: FormValidateCallback) => FormValidationResult;
+        scrollToField: (prop: FormItemProp) => void;
+    }>('formRef');
     const articleId = computed(() =>
     {
         const raw = route.params.id ?? route.query.id;
@@ -789,8 +793,8 @@ export function useAdminArticleWrite()
     const taskFeedback = useAdminTaskFeedback();
     const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal });
 
-    let draftSaveTimer: ReturnType<typeof window.setTimeout> | null = null;
-    let serverDraftRetryTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let draftSaveTimer: number | null = null;
+    let serverDraftRetryTimer: number | null = null;
     let suppressDraftSave = true;
     let serverDraftSaveToken = 0;
     let draftSaveInFlightIdentity: string | null = null;
@@ -1385,7 +1389,10 @@ export function useAdminArticleWrite()
             return;
         }
         const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:recovery-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): void =>
+        {
+            task.cancel('parent-task-aborted');
+        };
         parentSignal?.addEventListener('abort', abortParent, { once: true });
         const token = ++articleRecoveryRefreshToken;
         try
@@ -1820,7 +1827,10 @@ export function useAdminArticleWrite()
     const refreshAssetLibrary = async (signal?: AbortSignal): Promise<void> =>
     {
         const task = articleDocumentContextAdapter.beginTask('attachment', 'article-write:asset-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): void =>
+        {
+            task.cancel('parent-task-aborted');
+        };
         signal?.addEventListener('abort', abortParent, { once: true });
         assetLibraryLoading.value = true;
         try
@@ -2516,14 +2526,20 @@ export function useAdminArticleWrite()
         return true;
     };
 
+    const firstInvalidFormProperty = ref<string | null>(null);
     const validateBeforeSubmit = async (): Promise<boolean> =>
     {
+        firstInvalidFormProperty.value = null;
         if (!formRef.value || submitting.value)
         {
             return false;
         }
 
-        const validation = await formRef.value.validate();
+        const captureInvalidProperty: FormValidateCallback = (valid, fields): void =>
+        {
+            firstInvalidFormProperty.value = valid ? null : Object.keys(fields ?? {})[0] ?? null;
+        };
+        const validation = await formRef.value.validate(captureInvalidProperty);
         if (!isFsusUiOk(validation))
         {
             return false;
@@ -3124,6 +3140,7 @@ export function useAdminArticleWrite()
         articleRightsCopyPolicyOptions,
         articleRightsExcerptMax: ARTICLE_RIGHTS_EXCERPT_MAX,
         rules,
+        firstInvalidFormProperty,
         validateBeforeSubmit,
         saveDraftNow,
         compareSelectedArticleRecovery,
