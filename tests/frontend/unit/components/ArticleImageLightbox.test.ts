@@ -33,7 +33,7 @@ const images = [
 
 const mountLightbox = (props: {
   open?: boolean
-  images?: ReadonlyArray<{ src: string; alt: string }>
+  images?: Array<{ src: string; alt: string }>
   activeIndex?: number
 } = {}) => mount(ArticleImageLightbox, {
   props: {

@@ -48,7 +48,8 @@ describe('useArticleImageLightbox focus and media workflow (#1788)', () => {
     await nextTick()
     await nextTick()
 
-    const images = wrapper.element.querySelectorAll<HTMLImageElement>('img')
+    const root: Element = wrapper.element
+    const images = root.querySelectorAll<HTMLImageElement>('img')
     expect(images).toHaveLength(2)
 
     images[0]!.focus()
@@ -92,7 +93,8 @@ describe('useArticleImageLightbox focus and media workflow (#1788)', () => {
     await nextTick()
     await nextTick()
 
-    const images = wrapper.element.querySelectorAll<HTMLImageElement>('img')
+    const root: Element = wrapper.element
+    const images = root.querySelectorAll<HTMLImageElement>('img')
     images[1]!.focus()
     images[1]!.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }))
     await nextTick()
