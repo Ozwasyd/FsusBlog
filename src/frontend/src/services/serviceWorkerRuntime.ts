@@ -8,7 +8,6 @@ import { toTrustedServiceWorkerScriptUrl } from '@/security/trustedTypesRuntime'
 import type { CacheControlPayload, SearchIndexUpdatePayload } from '@/services/notificationStreamTypes';
 import {
     clearRegisteredPrivateState,
-    type PrivateStateCleanupTrigger,
     type PrivateStorageCleanupItemResult,
     type PrivateStorageCleanupResult
 } from '@/services/privateStorageRegistry';
@@ -167,33 +166,30 @@ async function unregisterDevServiceWorkers(): Promise<void>
         return;
     }
 
-    if (!unregisterPromise)
+    unregisterPromise ??= (async () =>
     {
-        unregisterPromise = (async () =>
+        try
         {
-            try
-            {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(registrations.map((registration) => registration.unregister()));
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
 
-                if (typeof caches !== 'undefined')
-                {
-                    const keys = await caches.keys();
-                    await Promise.all(
-                        keys
-                            .filter((key) => key.startsWith('fsus-'))
-                            .map((key) => caches.delete(key))
-                    );
-                }
-            }
-            catch (error)
+            if (typeof caches !== 'undefined')
             {
-                emitTelemetry('service_worker_unregister_failed', {
-                    error: error instanceof Error ? error.message : String(error)
-                }, 'warn');
+                const keys = await caches.keys();
+                await Promise.all(
+                    keys
+                        .filter((key) => key.startsWith('fsus-'))
+                        .map((key) => caches.delete(key))
+                );
             }
-        })();
-    }
+        }
+        catch (error)
+        {
+            emitTelemetry('service_worker_unregister_failed', {
+                error: error instanceof Error ? error.message : String(error)
+            }, 'warn');
+        }
+    })();
 
     await unregisterPromise;
 }

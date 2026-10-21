@@ -13,12 +13,14 @@ interface BrowserSchedulerCapability {
     yield: () => Promise<void>;
 }
 
+type BrowserTaskTimer<HostTimer = ReturnType<typeof globalThis.setTimeout>> = HostTimer | number;
+
 interface BrowserTaskSchedulerEnvironment {
     scheduler: BrowserSchedulerCapability | null;
     now: () => number;
     visibility: () => BrowserTaskVisibility;
-    setTimer: (callback: () => void) => number;
-    clearTimer: (timer: number) => void;
+    setTimer: (callback: () => void) => BrowserTaskTimer;
+    clearTimer: (timer: BrowserTaskTimer) => void;
 }
 
 export interface BrowserTaskSchedulerOptions {
@@ -114,7 +116,7 @@ function fallbackYield(environment: BrowserTaskSchedulerEnvironment, signal: Abo
 
     return new Promise<void>((resolve, reject) =>
     {
-        let timer = 0;
+        let timer: BrowserTaskTimer = 0;
         const onAbort = () =>
         {
             environment.clearTimer(timer);
@@ -171,7 +173,7 @@ export function createBrowserTaskScheduler(options: BrowserTaskSchedulerOptions 
                     await waitWithAbort(environment.scheduler.yield(), signal);
                     path = 'native';
                 }
-                catch (error)
+                catch
                 {
                     throwIfAborted(signal);
                     nativeFailure = 'rejected';
