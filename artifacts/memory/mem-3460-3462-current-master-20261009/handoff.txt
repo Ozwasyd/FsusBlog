@@ -1,0 +1,32 @@
+Ordinary GPU integration source on actual master, 2026-10-09
+Source checkpoint: 9a05680f376106f38c1749674988ad605a27659c
+Branch: codex/mem-3460-3462-current-master-20261009
+Actual fetched master: be7c53d99b64342925ca63d061bacde34d22ba4c
+Complete source scope: 59 paths (52 immutable providers/tests plus seven composed classifier/policy/document/naming paths); see complete-source-scope.tsv and complete-source.diff.patch.
+
+Preserved source and independent provenance:
+22 GPU paths (16 production + six tests), unchanged from reviewed b8b855fc7c95085899f91435f9daff650d6c48f2 and 82731645f2ee2c61cb5d022cc333b06b00660f90.
+30 common-owner provider paths (29 production + one test), unchanged from published 3bf5fbf9f9a4502b9df262b993f0af836be35d2c.
+Access e6a273473b275dee0c4c2993ebd54e17a882ba33 remains an independent unpromoted source: exact policy, baseline and source rebind logic; no claim of merge.
+Delegate source ba706b74c4d027b83c54a138ebf114e55fab992d, independently reviewed with no must-fix according to root and portable proof 5b7b07d9116f46f4128f8492c014eada34e1e66e.
+The current checker is byte-exact to the e6 checker with only the original c1c6-to-ba delegate checker patch applied. Original delegate controls are appended unchanged to the full e6 test source; documentation retains both owner additions. No new classifier implementation, ABI rename, delegate exemption or allocator/capability authority is invented. Original b8/827316 branches remain intact.
+
+Predeclared actual ordinary checks:
+positive-check-scope.json was written before any tests: exactly16 anchored original ordinary Node names,52 exact CSharp paths and the permitted command roster. No broad module is run and filtered afterward.
+PASS:16/16 Node controls, zero failure/skips, current installed Node24.19.0.
+PASS: changed CSharp gate against be7c53d99b64342925ca63d061bacde34d22ba4c,52 files,zero violations/new findings. The original45 delegate false positives are resolved; preserved invalid-identifier controls pass.
+PASS: real backend locked restore from existing /workspace/.setup/nuget only; SDK10.0.401.
+PASS: actual backend build --no-restore -p:PublishClientAssets=false,0 errors/323 warnings. No source or policy gate weakening; this is not a separately executed master baseline.
+PASS: source commit-range and diff whitespace checks; exact52 provider byte equality and exact original checker-patch composition verified.
+FAIL: unchanged canonical producer node tools/test-matrix/generate-release-final-execution-authority.mjs: independent release-final Node parser identity drifted. Installed Node is24.19.0; original independent index requires24.16.0. Existing alternate executables observed24.21.0 and22.16.0; no24.16 binary found under existing tool/cache locations. No SDK/dependency/toolchain was installed.
+The producer refused before output. Current authority remains byte-identical to master. Two upstream generated-binding manifests were omitted because their old digests do not bind this composition. binding-disposition.json records the omission and dependency; no digest/index/producer/authority hand edit occurred.
+
+Reuse without relabeling:
+The exact52 provider/test blobs preserve historical142 controls at4148ae735ca386a97ca5dff33d4b7663fea32b2f (132 GPU + ten actual frozen-input policy cases). Portable previous evidence remains published at82731645f2ee2c61cb5d022cc333b06b00660f90:artifacts/memory/mem-3460-3462-current-master. Those unchanged-source controls were not rerun here and are not counted as a fresh142-case run on this new master, matrix evidence or native qualification. The old four-control evidence and delegate owner's15/4 compatibility/68 SDK syntax/45 refusal evidence retain their original identities; this task's fresh16 controls and52-path gate are separately recorded.
+
+Real remaining gaps:
+Execution/toolchain owner must provide the original indexed Node24.16.0 with matching built-in parser identities, then run the unchanged canonical producer and derive the current binding manifests from its actual output. Do not change the independent index or spoof process/parser identity. Canonical binding is blocked, not passed; this complete source candidate remains WIP for integration.
+Root retains full-scope independent review, content APIs, PR/merge and justified issue closure. Access promotion is separate and not claimed.
+Original common owner supplies actual finite production physical-capacity bounds, identities/revisions/expiry/topology/enforced caps and governor/Auto integration; explicit unit fixture limits never become production defaults.
+Native GPU/peer/BAR hardware, permissions, topology and runtime/performance qualification remain NotVerified. No GPU native probe, driver/security change, external DMA consumer support claim, held audit, full SOURCE/matrix/final acceptance, deployment or package publication occurred.
+All available nonconflicting ordinary integration source in this frozen reviewed partition is assembled and checked. Artifact-only follow-ups do not alter the59 source paths. This handoff is ordinary source support, not a registered acceptance/runtime receipt.

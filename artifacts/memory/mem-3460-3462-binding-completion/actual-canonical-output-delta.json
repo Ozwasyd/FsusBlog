@@ -1,0 +1,19 @@
+{
+    "kind": "actual-unchanged-canonical-producer-output-comparison",
+    "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+    "actualNode": "v24.16.0",
+    "changedFields": [
+        {
+            "path": "$.closureFiles[612].contentDigest",
+            "before": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+            "after": "sha256:3553cb3a396a781c6ec2bf60f3e0ce57541de3955cce51391c48318e7020afb7"
+        },
+        {
+            "path": "$.closureFiles[612].indexDigest",
+            "before": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+            "after": "sha256:3553cb3a396a781c6ec2bf60f3e0ce57541de3955cce51391c48318e7020afb7"
+        }
+    ],
+    "allOtherFieldsUnchanged": true,
+    "manifestAlgorithm": "Restore each original manifest structure, derive only output SHA256 via hashlib.sha256 from actual current output files; no manually entered hash values, source index or output authority edits."
+}

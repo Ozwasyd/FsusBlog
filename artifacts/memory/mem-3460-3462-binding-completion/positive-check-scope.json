@@ -1,0 +1,148 @@
+{
+    "kind": "positive-ordinary-binding-completion-scope-before-execution",
+    "tool": "/workspace/task-tools/mem-gpu-node24.16/node-v24.16.0-linux-x64/bin/node",
+    "expectedNodeCases": 16,
+    "allowedNames": [
+        "C# style governance accepts Roslyn expression braces and multiline verbatim content",
+        "C# style governance aggregates tabs braces indentation using naming and line-ending failures",
+        "parameter attributes keep framework enum arguments separate from multiline parameter names",
+        "C# source lexer preserves the three character-class regex match contracts",
+        "C# source lexer retains real array and generic naming and declaration refusals",
+        "contextual record expressions do not exempt lowercase types named with",
+        "singular Miss enums and plural flags retain both naming refusal controls",
+        "array-valued attributes retain genuine contextual record expressions",
+        "delegate declarations check the actual name across native and C# return-type syntax",
+        "delegate declarations retain naming refusals for each return-type syntax",
+        "parameter attributes still reject an uppercase first multiline parameter",
+        "parameter attributes still reject an uppercase continuation parameter",
+        "parameter attributes still reject an uppercase named attribute argument",
+        "parameter attributes still reject an uppercase multiple attributes",
+        "parameter attributes still reject an uppercase ordinary parameter",
+        "singular Access retains the eight ordinary and flags controls"
+    ],
+    "expectedCSharpPaths": 52,
+    "allowedCSharpPaths": [
+        "src/backend/Infrastructure/Memory/Accounting/FrozenDiskPhysicalAllocationPolicy.cs",
+        "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
+        "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityControlPolicy.cs",
+        "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityGpuAllocationPolicy.cs",
+        "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityPolicy.cs",
+        "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+        "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+        "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+        "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
+        "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
+        "src/backend/Infrastructure/Memory/Control/MemoryGovernorPolicy.cs",
+        "src/backend/Infrastructure/Memory/Disk/DiskBudgetAdmission.cs",
+        "src/backend/Infrastructure/Memory/Disk/DiskFileFootprint.cs",
+        "src/backend/Infrastructure/Memory/Disk/DiskFileSystemException.cs",
+        "src/backend/Infrastructure/Memory/Disk/DiskPhysicalAllocationPolicy.cs",
+        "src/backend/Infrastructure/Memory/Disk/DiskSegmentFormat.cs",
+        "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
+        "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs",
+        "src/backend/Infrastructure/Memory/Disk/DiskSpillEligibility.cs",
+        "src/backend/Infrastructure/Memory/Disk/DiskSpillInventoryObservation.cs",
+        "src/backend/Infrastructure/Memory/Disk/OwnedSpillRoot.cs",
+        "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+        "src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs",
+        "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+        "src/backend/Infrastructure/Memory/Host/NativeMemoryArena.cs",
+        "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaPolicy.cs",
+        "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+        "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+        "src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs",
+        "tests/backend/Unit/MemoryCapabilityGpuAllocationPolicyTests.cs",
+        "src/backend/Infrastructure/Memory/Devices/GpuAllocation.cs",
+        "src/backend/Infrastructure/Memory/Devices/GpuDriver.cs",
+        "src/backend/Infrastructure/Memory/Devices/GpuMemoryDevice.cs",
+        "src/backend/Infrastructure/Memory/Devices/GpuPeerCapabilities.cs",
+        "src/backend/Infrastructure/Memory/Devices/GpuPeerDeviceOperation.cs",
+        "src/backend/Infrastructure/Memory/Devices/GpuPeerMapping.cs",
+        "src/backend/Infrastructure/Memory/Devices/GpuPeerTransfer.cs",
+        "src/backend/Infrastructure/Memory/Devices/GpuTransferOperation.cs",
+        "src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs",
+        "src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs",
+        "src/backend/Infrastructure/Memory/Platform/GpuMetalAllocationObservation.cs",
+        "src/backend/Infrastructure/Memory/Platform/GpuMetalDiscovery.cs",
+        "src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs",
+        "src/backend/Infrastructure/Memory/Platform/GpuMetalSession.cs",
+        "src/backend/Infrastructure/Memory/Platform/GpuNativeDiscovery.cs",
+        "src/backend/Infrastructure/Memory/Platform/GpuNativeSession.cs",
+        "tests/backend/Unit/GpuMemoryDeviceTests.cs",
+        "tests/backend/Unit/GpuMetalTests.cs",
+        "tests/backend/Unit/GpuNativeTests.cs",
+        "tests/backend/Unit/GpuPeerCapabilitiesTests.cs",
+        "tests/backend/Unit/GpuPeerMappingTests.cs",
+        "tests/backend/Unit/GpuPeerTransferTests.cs"
+    ],
+    "expectedCanonicalProducerRuns": 1,
+    "allowedNodeInvocations": [
+        [
+            "tools/test-matrix/generate-release-final-execution-authority.mjs"
+        ],
+        [
+            "--test",
+            "16 anchored names only",
+            "tests/tools/csharp-style.test.mjs"
+        ],
+        [
+            "tools/dotnet/check-csharp-style.mjs",
+            "--mode",
+            "changed",
+            "--base",
+            "be7c53d99b64342925ca63d061bacde34d22ba4c"
+        ],
+        [
+            "tools/frontend/check-frontend-style.mjs",
+            "--mode",
+            "changed",
+            "--file",
+            "tools/dotnet/check-csharp-style.mjs",
+            "--file",
+            "tests/tools/csharp-style.test.mjs"
+        ],
+        [
+            "tools/style/check-native-tooling-style.mjs",
+            "--mode",
+            "changed",
+            "--file",
+            "docs/development/csharp-style-enforcement.md"
+        ],
+        [
+            "tools/docs/generate-document-lifecycle.mjs",
+            "--check"
+        ],
+        [
+            "tools/run-test-matrix.mjs",
+            "plan",
+            "static-governance"
+        ],
+        [
+            "tools/governance/check-change-contract.mjs",
+            "--range",
+            "be7c53d99b64342925ca63d061bacde34d22ba4c..HEAD"
+        ]
+    ],
+    "planOnlyTier": "static-governance",
+    "expectedProductionGPUChanges": 0,
+    "excluded": "GPU/native/held audits; baseline/rebind/history/cohort/receipt/Git-replacement controls; full SOURCE/global suites; content APIs",
+    "historical142": "not rerun or relabeled as current/native evidence",
+    "additionalAffectedMetadataInvocations": [
+        [
+            "original be7 checker",
+            "--root",
+            "current checkout",
+            "--github-event",
+            "prepared prospective event number0"
+        ],
+        [
+            "original be7 runner",
+            "plan",
+            "static-governance"
+        ]
+    ],
+    "expectedProspectiveEvents": 1,
+    "prospectiveIsNotAnApiEvent": true,
+    "baselinePlanOnlyReason": "Distinguish current plan inventory failure from actual master baseline; no test execution or registry edits",
+    "expectedPlanOnlyRuns": 2
+}

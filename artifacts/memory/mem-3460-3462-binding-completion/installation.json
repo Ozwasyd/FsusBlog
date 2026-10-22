@@ -1,0 +1,18 @@
+{
+    "kind": "actual-official-task-tool-installation",
+    "platform": "linux-x64",
+    "archiveUrl": "https://nodejs.org/download/release/v24.16.0/node-v24.16.0-linux-x64.tar.xz",
+    "signedChecksumsUrl": "https://nodejs.org/download/release/v24.16.0/SHASUMS256.txt.asc",
+    "releaseKeyringUrl": "https://raw.githubusercontent.com/nodejs/release-keys/main/gpg/pubring.kbx",
+    "instructionsUrl": "https://github.com/nodejs/node/blob/v24.16.0/README.md#verifying-binaries",
+    "archiveSha256": "d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9",
+    "signatureFingerprint": "5BE8A3F6C8A5C01D106C0AD820B1A390B168D356",
+    "documentedPrimaryFingerprint": "5BE8A3F6C8A5C01D106C0AD820B1A390B168D356",
+    "actualNodeVersion": "v24.16.0",
+    "installedExecutable": "/workspace/task-tools/mem-gpu-node24.16/node-v24.16.0-linux-x64/bin/node",
+    "executableSha256": "b2959781cc5a74c357ffa02367efa8a0330cbb1c9cb347732fdfaaaca381cbcd",
+    "globalConfigurationChanged": false,
+    "sealedIndexChanged": false,
+    "restrictedRootAccessed": false,
+    "retainedFailedAttempts": "Official GitHub redirect keyring URL HTTP504 with one bounded retry; gpgv absent. Same official release-keys repository raw bytes fetched and verified using installed GnuPG2.4.7 isolated keyring."
+}
