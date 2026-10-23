@@ -150,10 +150,30 @@ adapterTest('trusted executable rejects same-byte inode replacement between fres
         const stat = original(file, ...args);
         if (file === '/usr/bin/bwrap')
         {
-            stat.ino += 1;
+            stat.ino += 1n;
         }
         return stat;
     });
+    assert.throws(() => repository.replay({ revision: base, producer, attempt: 1 }), /trusted runtime identity drifted/u);
+});
+
+adapterTest('trusted executable rejects adjacent large inode identities with the same Number projection', (t) =>
+{
+    const { repository, producer, base } = fixture(t);
+    const original = fs.lstatSync;
+    let inode = 2n ** 63n;
+    t.mock.method(fs, 'lstatSync', (file, ...args) =>
+    {
+        const stat = original(file, ...args);
+        if (file === '/usr/bin/bwrap')
+        {
+            stat.ino = args[0]?.bigint ? inode : Number(inode);
+        }
+        return stat;
+    });
+    repository.replay({ revision: base, producer, attempt: 0 });
+    assert.equal(Number(inode), Number(inode + 1n));
+    inode += 1n;
     assert.throws(() => repository.replay({ revision: base, producer, attempt: 1 }), /trusted runtime identity drifted/u);
 });
 

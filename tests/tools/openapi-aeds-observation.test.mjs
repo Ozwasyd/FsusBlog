@@ -10,7 +10,7 @@ const { digestCatalog, loadCatalog } = await import(new URL("../../tools/contrac
 const { digestValue } = await import(new URL("../../tools/fact-extractors/lib/canonicalize.mjs", import.meta.url));
 const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
 const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
-const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
+const { extract: extractOpenApiRaw } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
 const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
 const { buildIdentitySchema, digestPath, resolveContainedPath, sealSourceIdentity, validateBuildIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
 const { validateMinimalContractBuildReceipt } = await import(new URL('../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
@@ -20,6 +20,16 @@ const { createRuntimeRoleMinimalV3Fixture } = await import(new URL('./support/ru
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json';
 const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
 const buildReceiptRelative = '.tmp/contracts/openapi/build-receipt.json';
+
+// Standalone fixtures use the real runner capability; explicit missing capabilities stay missing.
+function extractOpenApi(context)
+{
+    return extractOpenApiRaw({
+        ...context,
+        minimalBuildServices: Object.hasOwn(context, 'minimalBuildServices')
+            ? context.minimalBuildServices : { resolveContainedPath }
+    });
+}
 
 function sha256(buffer)
 {
@@ -291,6 +301,92 @@ test('OpenAPI requires the runner canonical digest and seals its exact provider 
         assert.deepEqual(changed.observations, {});
         writeFileSync(path.join(directory, relative), original);
     }
+});
+
+test('standalone OpenAPI requires runner-owned contained-path validation before reading authority', (t) =>
+{
+    const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-standalone-capability-')));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const produced = writeObservation(directory, sampleObservation());
+    const context = { repositoryRoot: directory, buildIdentity: produced.buildIdentity, canonicalDigest: digestValue };
+    for (const minimalBuildServices of [undefined, null, {}, { resolveContainedPath: true }])
+    {
+        const result = extractOpenApiRaw({ ...context, minimalBuildServices });
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /runner-owned contained-path validation/u);
+        assert.deepEqual(result.observations, {});
+    }
+    assert.equal(extractOpenApiRaw({ ...context, minimalBuildServices: { resolveContainedPath } }).status, 'ok');
+});
+
+test('standalone OpenAPI refuses same-byte authority aliases and accepts restored canonical files', async (t) =>
+{
+    for (const [relative, kind] of [
+        [buildReceiptRelative, 'file'],
+        [observationRelative, 'file'],
+        [observedOpenApiRelative, 'file'],
+        ['src/shared/Contracts/Validation/aeds-protocol.json', 'file'],
+        ['tools/contracts/lib/openapi-observation.mjs', 'file'],
+        ['.tmp/contracts/openapi', 'directory'],
+        ['src/shared/Contracts/Validation', 'directory']
+    ])
+    {
+        await t.test(relative, () =>
+        {
+            const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-standalone-alias-')));
+            const foreign = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-standalone-foreign-')));
+            t.after(() => rmSync(directory, { recursive: true, force: true }));
+            t.after(() => rmSync(foreign, { recursive: true, force: true }));
+            const produced = writeObservation(directory, sampleObservation());
+            const context = { repositoryRoot: directory, buildIdentity: produced.buildIdentity, canonicalDigest: digestValue };
+            assert.equal(extractOpenApi(context).status, 'ok');
+            const absolute = path.join(directory, relative);
+            const outside = path.join(foreign, 'authority');
+            cpSync(absolute, outside, { recursive: kind === 'directory' });
+            rmSync(absolute, { recursive: kind === 'directory' });
+            symlinkSync(outside, absolute, kind === 'directory' ? 'dir' : 'file');
+            const result = extractOpenApi(context);
+            assert.equal(result.status, 'failed', relative);
+            assert.match(result.failureReasons.join('\n'), /symbolic link|canonical|contained/u);
+            assert.deepEqual(result.observations, {});
+            rmSync(absolute);
+            cpSync(outside, absolute, { recursive: kind === 'directory' });
+            const restored = extractOpenApi(context);
+            assert.equal(restored.status, 'ok', restored.failureReasons.join('\n'));
+            assert.deepEqual(restored.observations, extractOpenApi(context).observations);
+        });
+    }
+});
+
+test('standalone OpenAPI runner supplies the contained-path capability and refuses aliased observations', async (t) =>
+{
+    const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-standalone-runner-')));
+    const foreign = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-standalone-runner-foreign-')));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    t.after(() => rmSync(foreign, { recursive: true, force: true }));
+    const { context, legacy } = writeCanonicalObservation(directory, sampleObservation());
+    writeFileSync(path.join(directory, buildReceiptRelative), `${JSON.stringify(legacy.receipt)}\n`);
+    const registry = structuredClone(loadRegistry());
+    registry.extractors = registry.extractors.filter((extractor) => extractor.id === 'openapi-aeds-fact-extractor');
+    registry.extractors[0].consumedInputs = context.buildIdentity.sourceDigests.map((source) => source.path);
+    const options = {
+        extractorId: 'openapi-aeds-fact-extractor',
+        repositoryRoot: directory,
+        registry,
+        buildIdentity: legacy.buildIdentity,
+        useCache: false
+    };
+    const { receipt } = await runExtractor(options);
+    assert.equal(receipt.status, 'ok', JSON.stringify(receipt));
+    assert.equal(receipt.observations.operationCount, 2);
+    const outside = path.join(foreign, 'observation.json');
+    cpSync(path.join(directory, observationRelative), outside);
+    rmSync(path.join(directory, observationRelative));
+    symlinkSync(outside, path.join(directory, observationRelative));
+    const changed = await runExtractor(options);
+    assert.equal(changed.receipt.status, 'failed');
+    assert.match(changed.receipt.failureReasons.join('\n'), /symbolic link|canonical|contained/u);
+    assert.deepEqual(changed.receipt.observations, {});
 });
 
 test('canonical OpenAPI refuses missing validation capabilities and runner cache before extraction', async (t) =>

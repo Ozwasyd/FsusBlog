@@ -2,9 +2,9 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
-  chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync,
-  cpSync, existsSync
-} from 'node:fs'
+    chmodSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync,
+    cpSync, existsSync, readdirSync
+} from 'node:fs';
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -420,6 +420,115 @@ test('test-matrix-fact-extractor is registered for browserless-production-correc
   }
   assert.equal(TEST_MATRIX_REQUIRED_FACT_KEYS.length, 18)
 })
+
+test('runtime-role replay ignores external TMPDIR and cleans repeated compiled observations', () =>
+{
+    const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-replay-external-'));
+    const previous = process.env.TMPDIR;
+    const owner = path.join(root, '.tmp/contracts/runtime-role');
+    try
+    {
+        assert.ok(!external.startsWith(`${root}${path.sep}`));
+        process.env.TMPDIR = external;
+        for (let attempt = 0; attempt < 2; attempt += 1)
+        {
+            const result = extractTestMatrix({
+                repositoryRoot: root,
+                extractor: registryExtractor(),
+                sourceCommit: sourceIdentity.sourceCommit,
+                worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+                buildIdentity: runtimeRoleBuild.buildIdentity,
+                buildReceiptPath: runtimeRoleBuild.buildReceiptPath
+            });
+            assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
+            // SDK verification may create NuGet scratch here; replay output must stay in its canonical owner.
+            assert.ok(!readdirSync(external).some((name) =>
+                name.startsWith('runtime-role-replay-')
+                || name.startsWith('replay-')
+                || name === 'runtime-role-observation.json'));
+            assert.ok(!readdirSync(owner).some((name) => name.startsWith('replay-')));
+        }
+    }
+    finally
+    {
+        if (previous === undefined)
+        {
+            delete process.env.TMPDIR;
+        }
+        else
+        {
+            process.env.TMPDIR = previous;
+        }
+        rmSync(external, { recursive: true, force: true });
+    }
+});
+
+test('compiled runtime-role producer still refuses external and symlinked replay output', () =>
+{
+    const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-output-external-'));
+    const refusalDirectory = mkdtempSync(path.join(root, '.tmp/contracts/runtime-role/refusal-'));
+    try
+    {
+        assert.ok(!external.startsWith(`${root}${path.sep}`));
+        const { binding } = loadRuntimeBuildBinding(root);
+        const output = path.join(external, 'rejected.json');
+        const result = spawnSync('dotnet', [
+            path.join(root, binding.assemblyPath),
+            '--deployment-observation', path.join(root, binding.deploymentArtifactPath),
+            '--output', output
+        ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
+        assert.notEqual(result.status, 0);
+        assert.match(`${result.stdout}\n${result.stderr}`, /runtime_role_output_path_not_canonical:output/u);
+        assert.equal(existsSync(output), false);
+        const alias = path.join(refusalDirectory, 'outside');
+        symlinkSync(external, alias, 'dir');
+        const symlinkedOutput = path.join(alias, 'rejected.json');
+        const symlinkedResult = spawnSync('dotnet', [
+            path.join(root, binding.assemblyPath),
+            '--deployment-observation', path.join(root, binding.deploymentArtifactPath),
+            '--output', symlinkedOutput
+        ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
+        assert.notEqual(symlinkedResult.status, 0);
+        assert.match(`${symlinkedResult.stdout}\n${symlinkedResult.stderr}`, /runtime_role_output_path_symlink:output/u);
+        assert.equal(existsSync(output), false);
+        assert.deepEqual(readdirSync(external), []);
+    }
+    finally
+    {
+        rmSync(refusalDirectory, { recursive: true, force: true });
+        rmSync(external, { recursive: true, force: true });
+    }
+});
+
+test('runtime-role replay refuses a symlinked canonical owner before writing outside', () =>
+{
+    const directory = fixtureRepository();
+    const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-owner-external-'));
+    try
+    {
+        const build = bindFixtureBuild(directory);
+        const owner = path.join(directory, '.tmp/contracts/runtime-role');
+        mkdirSync(path.dirname(owner), { recursive: true });
+        assert.equal(existsSync(owner), false);
+        symlinkSync(external, owner, 'dir');
+        const result = extractTestMatrix({
+            repositoryRoot: directory,
+            extractor: registryExtractor(),
+            sourceCommit: sourceIdentity.sourceCommit,
+            worktreeFingerprint: sourceIdentity.worktreeFingerprint,
+            buildIdentity: build.buildIdentity,
+            buildReceiptPath: build.buildReceiptPath
+        });
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('\n'), /symbolic link/u);
+        assert.deepEqual(readdirSync(external), []);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+        rmSync(external, { recursive: true, force: true });
+    }
+});
 
 test('live matrix projects typed topology / release-final / production-fresh facts', async () =>
 {
@@ -978,6 +1087,8 @@ test('runtime-role deployment source roster, live digests, and policy authority 
       const result = extractMutatedRuntimeObservation(directory, mutate)
       assert.equal(result.status, 'failed', label)
       assert.match(result.failureReasons.join('\n'), /compiled producer replay mismatch/iu, label)
+            const replayOwner = path.join(directory, '.tmp/contracts/runtime-role');
+            assert.ok(!readdirSync(replayOwner).some((name) => name.startsWith('replay-')), label);
     }
     finally
     {
