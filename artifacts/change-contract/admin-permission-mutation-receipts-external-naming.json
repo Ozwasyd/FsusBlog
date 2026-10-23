@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Security/AdminPermissionMutationReceiptPersistence.cs",
+                "src/migration/Definitions/AdminPermissionMutationReceiptMigrationDefinitions.cs"
+            ],
+            "reason": "These two C# files are covered by the registered src/**/*.cs boundary. They introduce no process environment keys or environment adapters and preserve existing external environment spellings. Internal C# identifiers follow the repository mother standard; the SQL adapter explicitly preserves the existing PostgreSQL admin principal/session column names while adding the receipt schema."
+        }
+    ]
+}
