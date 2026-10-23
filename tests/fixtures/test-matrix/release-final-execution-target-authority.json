@@ -5165,13 +5165,18 @@
         },
         {
             "path": "tools/test/lanes/runtime-evidence-probe.mjs",
-            "contentDigest": "sha256:56ba5d37290b54a90f65b5b381304a0367d59ee074e8af5a9e1de5e62ecbf0d9",
-            "indexDigest": "sha256:56ba5d37290b54a90f65b5b381304a0367d59ee074e8af5a9e1de5e62ecbf0d9"
+            "contentDigest": "sha256:69460d2d6330fece415343c9255e502742a9d32663eea05de2f433ccf22a1528",
+            "indexDigest": "sha256:69460d2d6330fece415343c9255e502742a9d32663eea05de2f433ccf22a1528"
         },
         {
             "path": "tools/test/lanes/runtime-http-route-contract.mjs",
             "contentDigest": "sha256:a6feef8b084640e0385d09ecdceefab05277130ef610d5a78c09ba8049427275",
             "indexDigest": "sha256:a6feef8b084640e0385d09ecdceefab05277130ef610d5a78c09ba8049427275"
+        },
+        {
+            "path": "tools/test/lanes/soak-cache-churn.mjs",
+            "contentDigest": "sha256:b1066fdcc3e8132e23a91a84d4f9323743d4247f2f4d647682234a6714806309",
+            "indexDigest": "sha256:b1066fdcc3e8132e23a91a84d4f9323743d4247f2f4d647682234a6714806309"
         },
         {
             "path": "tools/test/legacy-real-dump-contract.mjs",
@@ -23145,6 +23150,7 @@
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/lanes/runtime-evidence-probe.mjs",
                 "tools/test/lanes/runtime-http-route-contract.mjs",
+                "tools/test/lanes/soak-cache-churn.mjs",
                 "tools/test/measurement-noise-envelope.mjs",
                 "tools/test/mysql-fixture-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
@@ -24769,6 +24775,7 @@
                 "tools/test/lanes/release-public-hydration.sh",
                 "tools/test/lanes/runtime-evidence-probe.mjs",
                 "tools/test/lanes/runtime-http-route-contract.mjs",
+                "tools/test/lanes/soak-cache-churn.mjs",
                 "tools/test/legacy-real-dump-contract.mjs",
                 "tools/test/measurement-noise-envelope.mjs",
                 "tools/test/measurement-product-conclusion.mjs",
@@ -39860,6 +39867,7 @@
                 "tools/test/execution-replay-contract.mjs",
                 "tools/test/lanes/runtime-evidence-probe.mjs",
                 "tools/test/lanes/runtime-http-route-contract.mjs",
+                "tools/test/lanes/soak-cache-churn.mjs",
                 "tools/test/measurement-noise-envelope.mjs",
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/mysql-fixture-admission.mjs",
