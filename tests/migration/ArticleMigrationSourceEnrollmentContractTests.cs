@@ -342,7 +342,10 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     public async Task Existing_Row_And_Event_Tampering_Remain_Fail_Closed_Under_Original_Readback_Oracles()
     {
         await using var fixture = await NativeFixture.CreateAsync();
-        await fixture.WithWriteAsync(async (context, transaction, token) => { await fixture.StageAsync(context, token); }, commit: true);
+        await fixture.WithWriteAsync(async (context, transaction, token) =>
+        {
+            await fixture.StageAsync(context, token);
+        }, commit: true);
         await fixture.WithWriteAsync(async (context, transaction, token) =>
         {
             var payload = fixture.Outbox[0].Columns.Single(column => column.PropertyOwner.EndsWith(".PayloadJson", StringComparison.Ordinal));
@@ -511,7 +514,10 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
         private OfflineMigrationPlan _journalPlan = null!;
         private OfflineMigrationApplyJournalEntry? _last;
         internal string ConnectionString => new NpgsqlConnectionStringBuilder(Admin) { Database = _database }.ConnectionString;
-        internal string ConnectionStringForPort(int port) => new NpgsqlConnectionStringBuilder(ConnectionString) { Port = port }.ConnectionString;
+        internal string ConnectionStringForPort(int port) => new NpgsqlConnectionStringBuilder(ConnectionString)
+        {
+            Port = port
+        }.ConnectionString;
         internal CancellationToken Token => _deadline.Token;
         internal DbConnection? ActiveConnection
         {
@@ -857,7 +863,9 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
             {
                 await Task.WhenAll(down, up);
             }
-            catch (Exception failure) when (failure is IOException or OperationCanceledException or ObjectDisposedException or SocketException) { }
+            catch (Exception failure) when (failure is IOException or OperationCanceledException or ObjectDisposedException or SocketException)
+            {
+            }
         }
 
         public async ValueTask DisposeAsync()
@@ -870,7 +878,9 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
             {
                 await _run;
             }
-            catch (Exception failure) when (failure is OperationCanceledException or ObjectDisposedException or SocketException) { }
+            catch (Exception failure) when (failure is OperationCanceledException or ObjectDisposedException or SocketException)
+            {
+            }
             _stop.Dispose();
         }
     }
