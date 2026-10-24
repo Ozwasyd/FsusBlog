@@ -178,7 +178,7 @@ function renderEnumSet(value, options = {})
 {
     if (isEmptyValue(value))
     {
-        return applyEmptyPolicy('enum-set', options.emptyPolicy, '_empty set_');
+        return applyEmptyPolicy('enum-set', options.emptyPolicy, 'Empty set.');
     }
     const items = asScalarList(value, 'enum-set');
     // Unordered sets always sort by ordinal regardless of observation/FS order.
@@ -190,7 +190,7 @@ function renderOrderedSet(value, options = {})
 {
     if (isEmptyValue(value))
     {
-        return applyEmptyPolicy('ordered-set', options.emptyPolicy, '_empty set_');
+        return applyEmptyPolicy('ordered-set', options.emptyPolicy, 'Empty set.');
     }
     const items = asScalarList(value, 'ordered-set');
     // Preserve observation order exactly.
