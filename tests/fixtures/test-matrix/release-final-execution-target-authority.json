@@ -90,13 +90,13 @@
         },
         {
             "path": "src/frontend/package-lock.json",
-            "contentDigest": "sha256:a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
-            "indexDigest": "sha256:a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+            "contentDigest": "sha256:ddb81f9d626a63eb7ac75367dd2e654cf7eb5dec50de937782dd7f9f233a55c0",
+            "indexDigest": "sha256:ddb81f9d626a63eb7ac75367dd2e654cf7eb5dec50de937782dd7f9f233a55c0"
         },
         {
             "path": "src/frontend/package.json",
-            "contentDigest": "sha256:a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
-            "indexDigest": "sha256:a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731"
+            "contentDigest": "sha256:2b3d12cecf28f3b4d2d53cac0624b742cc8f5dc36d117906a87fabe819d1a257",
+            "indexDigest": "sha256:2b3d12cecf28f3b4d2d53cac0624b742cc8f5dc36d117906a87fabe819d1a257"
         },
         {
             "path": "src/frontend/scripts/fsusui-root.mjs",
@@ -110,8 +110,8 @@
         },
         {
             "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
-            "contentDigest": "sha256:a400a42e583620395a9fa07f52b2fb0388c3929154845df73d154d4707a65a37",
-            "indexDigest": "sha256:a400a42e583620395a9fa07f52b2fb0388c3929154845df73d154d4707a65a37"
+            "contentDigest": "sha256:eda5fe8246d843954d5314762b22385f4238d2cf9828bcd273e6db01a578fb07",
+            "indexDigest": "sha256:eda5fe8246d843954d5314762b22385f4238d2cf9828bcd273e6db01a578fb07"
         },
         {
             "path": "src/frontend/scripts/vite-watch-policy.mjs",
@@ -767,6 +767,11 @@
             "path": "src/frontend/tsconfig.node.json",
             "contentDigest": "sha256:db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2",
             "indexDigest": "sha256:db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2"
+        },
+        {
+            "path": "src/frontend/tsconfig.playwright.json",
+            "contentDigest": "sha256:62ee834bc44c80532981b94cd7ea05f5211a9d8d12a54760eb805f2d68b727f9",
+            "indexDigest": "sha256:62ee834bc44c80532981b94cd7ea05f5211a9d8d12a54760eb805f2d68b727f9"
         },
         {
             "path": "src/frontend/wasm/build.sh",
@@ -4425,8 +4430,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:ec8bd021189c2bc2be3de09c446cac8699a3c5a4b09ba5717154b1d4d6b44153",
-            "indexDigest": "sha256:ec8bd021189c2bc2be3de09c446cac8699a3c5a4b09ba5717154b1d4d6b44153"
+            "contentDigest": "sha256:f6d6f520a74b8793583df5702fbf9475e0c3167ef87eed59bb5938f6c3016c73",
+            "indexDigest": "sha256:f6d6f520a74b8793583df5702fbf9475e0c3167ef87eed59bb5938f6c3016c73"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -6994,6 +6999,7 @@
                 "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
                 "src/frontend/stylelint.config.mjs",
                 "src/frontend/tsconfig.node.json",
+                "src/frontend/tsconfig.playwright.json",
                 "stylelint.config.mjs",
                 "tests/tools/native-tooling-style.test.mjs",
                 "tests/tools/package.json",
