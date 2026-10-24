@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+    cpSync,
     existsSync,
     mkdirSync,
     mkdtempSync,
@@ -29,7 +30,6 @@ const { validateJsonSchema } = await import(
 const checker = path.join(root, 'tools/frontend/check-frontend-style.mjs');
 const toolchain = path.join(root, 'tools/frontend/style-toolchain');
 const eslintConfig = path.join(toolchain, 'eslint.config.mjs');
-const stylelintConfig = path.join(toolchain, 'stylelint.config.mjs');
 const sourcePolicy = JSON.parse(readFileSync(path.join(root, 'config/development/frontend-style-policy.json'), 'utf8'));
 
 function writeFixture(fixtureRoot, relativePath, content)
@@ -46,12 +46,12 @@ function createFixture()
     writeFixture(
         fixtureRoot,
         'eslint.config.mjs',
-        `export { default } from '${pathToFileURL(eslintConfig).href}';\n`
+        "export { default } from './tools/frontend/style-toolchain/eslint.config.mjs';\n"
     );
     writeFixture(
         fixtureRoot,
         'stylelint.config.mjs',
-        `export { default } from '${pathToFileURL(stylelintConfig).href}';\n`
+        "export { default } from './tools/frontend/style-toolchain/stylelint.config.mjs';\n"
     );
     writeFixture(
         fixtureRoot,
@@ -90,14 +90,27 @@ function createFixture()
     );
     const linkedToolchain = path.join(fixtureRoot, 'tools/frontend/style-toolchain');
     mkdirSync(path.dirname(linkedToolchain), { recursive: true });
-    symlinkSync(toolchain, linkedToolchain, 'dir');
+    cpSync(toolchain, linkedToolchain, { recursive: true, verbatimSymlinks: true });
+    for (const relative of [
+        'config/development/canonical-digest-edge.json',
+        'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
+        'tools/frontend/check-frontend-style.mjs',
+        'tools/frontend/source-unit-style-diff.mjs',
+        'tools/frontend/reviewed-residual-classification.mjs',
+        'src/frontend/scripts/run-local-fsusui-typecheck.mjs',
+        'src/frontend/scripts/fsusui-root.mjs',
+        'src/frontend/tsconfig.node.json'
+    ])
+    {
+        writeFixture(fixtureRoot, relative, readFileSync(path.join(root, relative), 'utf8'));
+    }
     return fixtureRoot;
 }
 
 function runChecker(fixtureRoot, args, env = {})
 {
     return spawnSync(process.execPath, [
-        checker,
+        path.join(fixtureRoot, 'tools/frontend/check-frontend-style.mjs'),
         '--root', fixtureRoot,
         '--policy', path.join(fixtureRoot, 'config/development/frontend-style-policy.json'),
         ...args
@@ -250,12 +263,12 @@ test('pure receipt parent import exception is limited to one file and one depend
         {
             withFixture((fixtureRoot) =>
             {
-                writeFixture(fixtureRoot, 'tools/fact-extractors/lib/canonicalize.mjs',
-                    'export const digestValue = (value) => value;\n');
-                writeFixture(fixtureRoot, 'tools/fact-extractors/identity.mjs',
-                    'export const digestValue = (value) => value;\n');
+                const canonicalSource = readFileSync(path.join(root, 'tools/fact-extractors/lib/canonicalize.mjs'), 'utf8');
+                const callerSource = readFileSync(path.join(root, pureFile), 'utf8');
+                writeFixture(fixtureRoot, 'tools/fact-extractors/lib/canonicalize.mjs', canonicalSource);
+                writeFixture(fixtureRoot, 'tools/fact-extractors/identity.mjs', canonicalSource);
                 writeFixture(fixtureRoot, vector.file,
-                    `import { digestValue } from ${JSON.stringify(vector.literal)};\n\nexport const digest = digestValue;\n`);
+                    callerSource.replace('../fact-extractors/lib/canonicalize.mjs', vector.literal));
                 const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', vector.file]);
                 if (vector.accepted)
                 {
