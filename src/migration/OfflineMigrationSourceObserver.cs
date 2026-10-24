@@ -386,7 +386,8 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
         {
             if (validatedJournal && row[0] == OfflineMigrationStateStore.ApplyJournalTableName)
             {
-                if (row[1] != "r") throw new InvalidOperationException("legacy_target_prepare_journal_relation_unowned");
+                if (row[1] != "r")
+                    throw new InvalidOperationException("legacy_target_prepare_journal_relation_unowned");
                 continue;
             }
             facts.Add(new($"table/{row[0]}", row[1] == "r" ? "base" : row[1]));
@@ -404,7 +405,13 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
                 continue;
             }
             string type = row[3] == "timestamp without time zone" ? "timestamp" : row[3];
-            string identity = row[6] switch { "d" => "by-default", "a" => "always", "" => "none", _ => row[6] };
+            string identity = row[6] switch
+            {
+                "d" => "by-default",
+                "a" => "always",
+                "" => "none",
+                _ => row[6]
+            };
             facts.Add(OfflineMigrationSourceFingerprints.ColumnFact(row[0], row[1], int.Parse(row[2], CultureInfo.InvariantCulture),
                 type, row[4] == "1", Default(row[5]), identity, int.Parse(row[7], CultureInfo.InvariantCulture)));
         }
@@ -431,11 +438,11 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
             "SELECT COUNT(*) FROM public.category WHERE LENGTH(name)>128", budget, cancellationToken).ConfigureAwait(false);
         long tag = await ScalarAsync(connection, transaction,
             "SELECT COUNT(*) FROM public.tag WHERE LENGTH(name)>128", budget, cancellationToken).ConfigureAwait(false);
-        const string nonPage = "\"key\" NOT LIKE 'Page_%' AND \"key\" NOT LIKE 'sys:page:%'";
+        const string NonPage = "\"key\" NOT LIKE 'Page_%' AND \"key\" NOT LIKE 'sys:page:%'";
         long configKey = await ScalarAsync(connection, transaction,
-            $"SELECT COUNT(*) FROM public.sys_systemconfig WHERE {nonPage} AND LENGTH(\"key\")>64", budget, cancellationToken).ConfigureAwait(false);
+            $"SELECT COUNT(*) FROM public.sys_systemconfig WHERE {NonPage} AND LENGTH(\"key\")>64", budget, cancellationToken).ConfigureAwait(false);
         long configValue = await ScalarAsync(connection, transaction,
-            $"SELECT COUNT(*) FROM public.sys_systemconfig WHERE {nonPage} AND LENGTH(value)>512", budget, cancellationToken).ConfigureAwait(false);
+            $"SELECT COUNT(*) FROM public.sys_systemconfig WHERE {NonPage} AND LENGTH(value)>512", budget, cancellationToken).ConfigureAwait(false);
         return OfflineMigrationSourceFingerprints.Business(true, category, tag, configKey, configValue);
     }
 
@@ -464,7 +471,7 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
         var rows = ImmutableArray.CreateBuilder<ImmutableArray<string>>();
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            if (++budget.Rows > MaximumMetadataRows || reader.FieldCount > 16)
+            if (++budget._rows > MaximumMetadataRows || reader.FieldCount > 16)
             {
                 throw new InvalidOperationException("offline_source_metadata_budget_exceeded");
             }
@@ -491,7 +498,7 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
                             break;
                         }
                         filled += read;
-                        if (filled > MaximumCellCharacters || filled > MaximumMetadataCharacters - budget.Characters)
+                        if (filled > MaximumCellCharacters || filled > MaximumMetadataCharacters - budget._characters)
                         {
                             throw new InvalidOperationException("offline_source_metadata_budget_exceeded");
                         }
@@ -502,8 +509,8 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
                 {
                     text = Convert.ToString(reader.GetValue(index), CultureInfo.InvariantCulture) ?? string.Empty;
                 }
-                budget.Characters += text.Length;
-                if (text.Length > MaximumCellCharacters || budget.Characters > MaximumMetadataCharacters)
+                budget._characters += text.Length;
+                if (text.Length > MaximumCellCharacters || budget._characters > MaximumMetadataCharacters)
                 {
                     throw new InvalidOperationException("offline_source_metadata_budget_exceeded");
                 }
@@ -516,8 +523,8 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
 
     private sealed class ObservationBudget
     {
-        internal int Rows;
-        internal long Characters;
+        internal int _rows;
+        internal long _characters;
     }
 
     private const string PostgreSqlColumns = """

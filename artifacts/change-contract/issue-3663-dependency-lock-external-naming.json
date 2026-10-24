@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/cache-coordination-probe/packages.lock.json",
+                "tests/migration/packages.lock.json"
+            ],
+            "reason": "Preserve NuGet lock schema keys and external package and project identifiers while recording the actual central MessagePack 2.5.307 declaration, Migration's direct SQLitePCLRaw.lib.e_sqlite3 reference to the existing central 3.53.3 pin, and their regenerated consumer dependency paths. Internal naming cannot replace these package-manager-defined identities; package versions, graph entries and content hashes remain the unchanged official NuGet restore output."
+        }
+    ]
+}
