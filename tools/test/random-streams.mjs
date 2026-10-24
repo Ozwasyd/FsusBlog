@@ -252,9 +252,11 @@ export function createRandomExecutionRecorder({ canonicalTestId, streamId, envir
 }
 
 /**
- * @param {unknown} document
+ * Direct validation preserves the input type; digest tests can coerce element values.
+ * @template T
+ * @param {T} document
  * @param {RandomExecutionContext} context
- * @returns {RandomExecutionObservation}
+ * @returns {T}
  */
 export function validateRandomExecutionObservation(document, { consumer, stream, runId, attemptId, planDigest })
 {
@@ -284,7 +286,7 @@ export function validateRandomExecutionObservation(document, { consumer, stream,
 
 /**
  * @param {RandomExecutionContext & { binding: { streamId: string; ref: string; digest: string; }; directory: string; }} options
- * @returns {RandomExecutionObservation}
+ * @returns {Omit<RandomExecutionObservation, 'caseIdentities' | 'transitionIdentities'> & { caseIdentities: unknown[]; transitionIdentities: unknown[]; }}
  */
 export function readRandomExecutionObservation({ binding, directory, consumer, stream, runId, attemptId, planDigest })
 {
@@ -349,9 +351,11 @@ export function createRandomStreamReceipt({
 }
 
 /**
- * @param {unknown} receipt
+ * Validation preserves the caller's type without proving every nested receipt field.
+ * @template T
+ * @param {T} receipt
  * @param {{ consumer: RandomConsumer; stream: RandomConsumerStream; }} context
- * @returns {RandomStreamReceipt}
+ * @returns {T}
  */
 export function validateRandomStreamReceipt(receipt, { consumer, stream })
 {

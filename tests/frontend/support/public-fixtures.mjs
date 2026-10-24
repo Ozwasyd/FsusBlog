@@ -3,12 +3,10 @@
  * @typedef {{ requireCurrent?: boolean; env?: Record<string, string | undefined>; repoRoot?: string; }} PublicFixtureOptions
  * @typedef {{ articleId: number; categoryId: number; tagId: number; }} PublicFixtureIds
  * @typedef {{ kind: string; id: number | string; handle?: string; }} PublicFixtureEntity
- * @typedef {PublicFixtureIds & {
+ * Projection metadata passes through without a complete metadata shape check.
+ * @typedef {PublicFixtureIds & Record<string, unknown> & {
  *   articleTitle: string; searchKeyword: string;
- *   schema?: string; notAuthoritative?: boolean; authority?: string; evidenceUse?: string;
- *   sourcePrepareStateDigest?: string; namespace?: string; catalogDigest?: string; projectionDigest?: string;
- *   sourceIdentity?: { commit?: string; worktreeFingerprint?: string; };
- *   idsByKind?: Record<string, (number | string)[]>; entities?: PublicFixtureEntity[];
+ *   schema?: string; notAuthoritative?: true; projectionDigest?: string;
  * }} PublicFixtures
  */
 

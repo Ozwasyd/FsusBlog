@@ -123,8 +123,10 @@ function safeRelativeFiles(values)
 }
 
 /**
- * @param {unknown} policy
- * @returns {PlaywrightBrowserIdentityPolicy}
+ * Validation preserves the caller's type; it does not prove every policy member.
+ * @template T
+ * @param {T} policy
+ * @returns {T}
  */
 export function validatePlaywrightBrowserIdentityPolicy(policy)
 {
@@ -505,8 +507,10 @@ export function bindBrowserRenderingObservation(plan, actual, observation)
 }
 
 /**
- * @param {unknown} plan
- * @returns {SerializableBrowserPlan}
+ * Identity and digest checks do not prove a complete serialized or live plan.
+ * @template T
+ * @param {T} plan
+ * @returns {T}
  */
 export function validateBrowserIdentityPlan(plan)
 {

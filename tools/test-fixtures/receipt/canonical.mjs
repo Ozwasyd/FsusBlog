@@ -91,9 +91,9 @@ export function assertDigest(value, label = 'digest')
 }
 
 /**
- * @template T
- * @param {T} value
- * @returns {Readonly<T>}
+ * Objects are projected through their own enumerable keys, so instance members are not preserved.
+ * @param {unknown} value
+ * @returns {unknown}
  */
 export function freezeDeep(value)
 {
