@@ -3989,7 +3989,8 @@ test('format-only PR accepts later blame metadata but rejects any other semantic
     );
 });
 
-function historicalFormatFixture({ evidenceFooter = 'artifacts/style/idempotence.json', mutateFormat = () => {} } = {})
+function historicalFormatFixture({ evidenceFooter = 'artifacts/style/idempotence.json', mutateFormat = () =>
+{} } = {})
 {
     const repository = mkdtempSync(join(tmpdir(), 'fsusblog-historical-format-'));
     execFileSync('git', ['init', '-q'], { cwd: repository });
@@ -4048,31 +4049,82 @@ test('historical format receipts survive later docs, refactor, behavior, restore
 });
 
 for (const [label, mutate, expected] of [
-    ['second-pass digest', (evidence) => { evidence.secondPassTreeSha256 = '0'.repeat(64); }, /first\/second pass digests/u],
-    ['wrong revision', (evidence, context) => { evidence.revision = context.base; }, /revision must match/u],
-    ['mutable revision', (evidence) => { evidence.revision = 'HEAD'; }, /revision must match/u],
-    ['unknown revision', (evidence) => { evidence.revision = '0'.repeat(40); }, /revision must match/u],
-    ['wrong formatter', (evidence) => { evidence.formatter.identity = 'untrusted'; }, /declared formatter/u],
-    ['wrong version', (evidence) => { evidence.formatter.version = '0.0.0'; }, /declared formatter/u],
-    ['wrong command', (evidence) => { evidence.formatter.command = 'true'; }, /declared formatter/u],
-    ['wrong schema', (evidence) => { evidence.schema = 'unknown'; }, /schema must be/u],
-    ['false idempotence', (evidence) => { evidence.idempotent = false; }, /idempotent: true/u],
-    ['missing path', (evidence, { repository }) => {
+    ['second-pass digest', (evidence) =>
+    {
+        evidence.secondPassTreeSha256 = '0'.repeat(64);
+    }, /first\/second pass digests/u],
+    ['wrong revision', (evidence, context) =>
+    {
+        evidence.revision = context.base;
+    }, /revision must match/u],
+    ['mutable revision', (evidence) =>
+    {
+        evidence.revision = 'HEAD';
+    }, /revision must match/u],
+    ['unknown revision', (evidence) =>
+    {
+        evidence.revision = '0'.repeat(40);
+    }, /revision must match/u],
+    ['wrong formatter', (evidence) =>
+    {
+        evidence.formatter.identity = 'untrusted';
+    }, /declared formatter/u],
+    ['wrong version', (evidence) =>
+    {
+        evidence.formatter.version = '0.0.0';
+    }, /declared formatter/u],
+    ['wrong command', (evidence) =>
+    {
+        evidence.formatter.command = 'true';
+    }, /declared formatter/u],
+    ['wrong schema', (evidence) =>
+    {
+        evidence.schema = 'unknown';
+    }, /schema must be/u],
+    ['false idempotence', (evidence) =>
+    {
+        evidence.idempotent = false;
+    }, /idempotent: true/u],
+    ['missing path', (evidence, { repository }) =>
+    {
         evidence.paths.pop();
         evidence.firstPassTreeSha256 = evidence.secondPassTreeSha256 = contentTreeDigest(repository, evidence.paths);
     }, /include every format commit changed path/u],
-    ['unknown input', (evidence, { repository }) => {
+    ['unknown input', (evidence, { repository }) =>
+    {
         evidence.paths.push('unknown.cs');
         evidence.firstPassTreeSha256 = evidence.secondPassTreeSha256 = contentTreeDigest(repository, evidence.paths);
     }, /paths must all be changed in this PR/u],
-    ['duplicate path', (evidence) => { evidence.paths.push(evidence.paths[0]); }, /paths must be unique/u],
-    ['absolute path', (evidence) => { evidence.paths[0] = '/tmp/source.cs'; }, /repository-relative paths/u],
-    ['traversal path', (evidence) => { evidence.paths[0] = '../source.cs'; }, /repository-relative paths/u],
-    ['pathspec wildcard', (evidence) => { evidence.paths[0] = '*.cs'; }, /repository-relative paths/u],
-    ['pathspec magic', (evidence) => { evidence.paths[0] = ':(glob)**'; }, /repository-relative paths/u],
-    ['non-string path', (evidence) => { evidence.paths[0] = null; }, /repository-relative paths/u],
-    ['missing historical path', (evidence) => { evidence.paths[0] = 'absent.cs'; }, /include every|cannot be read/u],
-    ['later source rehash', (evidence, { repository }) => {
+    ['duplicate path', (evidence) =>
+    {
+        evidence.paths.push(evidence.paths[0]);
+    }, /paths must be unique/u],
+    ['absolute path', (evidence) =>
+    {
+        evidence.paths[0] = '/tmp/source.cs';
+    }, /repository-relative paths/u],
+    ['traversal path', (evidence) =>
+    {
+        evidence.paths[0] = '../source.cs';
+    }, /repository-relative paths/u],
+    ['pathspec wildcard', (evidence) =>
+    {
+        evidence.paths[0] = '*.cs';
+    }, /repository-relative paths/u],
+    ['pathspec magic', (evidence) =>
+    {
+        evidence.paths[0] = ':(glob)**';
+    }, /repository-relative paths/u],
+    ['non-string path', (evidence) =>
+    {
+        evidence.paths[0] = null;
+    }, /repository-relative paths/u],
+    ['missing historical path', (evidence) =>
+    {
+        evidence.paths[0] = 'absent.cs';
+    }, /include every|cannot be read/u],
+    ['later source rehash', (evidence, { repository }) =>
+    {
         writeRepositoryFile(repository, 'source.cs', 'class Changed { int Read() => 2; }\n');
         evidence.firstPassTreeSha256 = evidence.secondPassTreeSha256 = contentTreeDigest(repository, evidence.paths);
         evidence.formatCommit = 'HEAD';
@@ -4172,12 +4224,19 @@ test('historical format receipt rejects symlink evidence and candidate worktree 
 });
 
 for (const [label, mutateFormat] of [
-    ['source symlink', (repository) => {
+    ['source symlink', (repository) =>
+    {
         unlinkSync(join(repository, 'source.cs'));
         symlinkSync('other.cs', join(repository, 'source.cs'));
     }],
-    ['executable mode', (repository) => { chmodSync(join(repository, 'source.cs'), 0o755); }],
-    ['semantic tokens', (repository) => { writeRepositoryFile(repository, 'source.cs', 'class Changed { }\n'); }]
+    ['executable mode', (repository) =>
+    {
+        chmodSync(join(repository, 'source.cs'), 0o755);
+    }],
+    ['semantic tokens', (repository) =>
+    {
+        writeRepositoryFile(repository, 'source.cs', 'class Changed { }\n');
+    }]
 ])
 {
     test(`historical format receipt cannot certify ${label}`, () =>
