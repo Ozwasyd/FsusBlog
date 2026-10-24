@@ -3,6 +3,8 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { msbuildSourceFiles } from './msbuild-source-inspector.mjs';
+
 const eligiblePrTier = tier => tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
     && !['nightly', 'release-manual'].includes(tier.cadence);
 
@@ -424,16 +426,17 @@ export function isScriptDeclarationSource(file)
 
 export function sourceStageInspectionFiles(presentFiles, changedFiles)
 {
-    return [...new Set([...presentFiles, ...changedFiles.filter(isScriptDeclarationSource)])];
+    return [...new Set([...presentFiles, ...changedFiles.filter(file => isScriptDeclarationSource(file) || msbuildSourceFiles.includes(file))])];
 }
 
-export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], checkedBlame = [], checkedDeclarations = [])
+export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], checkedBlame = [], checkedDeclarations = [], checkedMsbuild = [])
 {
     return files.filter(file => !/\.(?:mjs|js|cjs|ts|tsx|vue|css|scss|cs|md|sh|json|yaml|yml)$/u.test(file)
         && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !(file.endsWith('.py') && checkedPython.includes(file))
         && !(file === '.git-blame-ignore-revs' && checkedBlame.includes(file))
         && !(isScriptDeclarationSource(file) && checkedDeclarations.includes(file))
+        && !(msbuildSourceFiles.includes(file) && checkedMsbuild.includes(file))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
 
@@ -460,7 +463,8 @@ export const sourceGovernanceDataInputs = Object.freeze([
     'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
     'tools/frontend/style-toolchain/eslint.config.mjs',
     'tools/frontend/style-toolchain/stylelint.config.mjs',
-    'src/frontend/tsconfig.node.json'
+    'src/frontend/tsconfig.node.json',
+    'src/frontend/tsconfig.playwright.json'
 ]);
 
 export function assertSourceShellSyntaxInspection(input)

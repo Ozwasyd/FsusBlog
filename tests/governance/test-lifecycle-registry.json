@@ -6783,21 +6783,6 @@
             }
         },
         {
-            "file": "tests/tools/canonical-article-lifecycle-authority.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text"
-            ],
-            "staticGovernance": {
-                "id": "canonical-article-lifecycle-authority",
-                "category": "real-subprocess-lifecycle",
-                "physicalOwner": "process:lifecycle"
-            }
-        },
-        {
             "file": "tests/tools/canonical-article-publication-authority.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -7638,6 +7623,22 @@
             ],
             "staticGovernance": {
                 "id": "ssr-runtime-closure",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
+            "file": "tests/tools/msbuild-source.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "msbuild-source",
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
             }

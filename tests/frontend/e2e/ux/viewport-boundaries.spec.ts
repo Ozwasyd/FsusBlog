@@ -3,11 +3,12 @@ import path from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import type { Browser, Locator, Page, StorageState, TestInfo } from '@playwright/test'
+import type { Browser, Locator, Page, TestInfo } from '@playwright/test'
 import {
   UX_CONTENT_BOUNDARY_CORPUS,
   UX_VIEWPORT_MATRIX,
   type AuditedPageSession,
+  type StorageState,
   type ThemeMode,
   type UxSafeAreaProfile,
   type UxViewport,
