@@ -19,6 +19,7 @@ instead of the aggregate implementation.
 Routes, cursors, SQL ordering, region visibility, display fallbacks, cache keys,
 and AEDS contracts remain unchanged. Rollback requires no schema or cache
 migration.
+
 ## Current thread depth boundary
 
 <!-- fsus-doc-claim
@@ -32,7 +33,7 @@ render: key-value-table
 <!-- FSUSBLOG-GENERATED:BEGIN content.comment.max-depth -->
 | Key | Value |
 | --- | --- |
-| compare | parent.depth + 1 <= maxDepth |
+| compare | parent.depth + 1 &lt;= maxDepth |
 | configurationKey | CommentThreads:MaxDepth |
 | default | 32 levels |
 | enforcement | reject-new-write |

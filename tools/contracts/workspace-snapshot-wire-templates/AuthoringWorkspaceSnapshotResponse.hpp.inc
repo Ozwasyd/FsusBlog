@@ -1,4 +1,0 @@
-const auto& r=value.receipt;bool present=value.status=="current"||value.status=="applied";
-    if(value.status!=r.status||value.revision!=r.revisionAfter||present!=value.snapshot.has_value()||(!present&&(r.snapshotDigest||r.tabCount!=0||r.byteCount!=0))||(value.status=="missing"&&(r.action!="read"||value.revision!=0))||(value.status=="current"&&(r.action!="read"||r.revisionBefore!=value.revision))||(value.status=="applied"&&(r.action=="read"||value.revision!=r.revisionBefore+1)))return false;
-    if(value.snapshot){const auto& s=*value.snapshot;if(s.revision!=value.revision||s.scope.userId!=r.scope.userId||s.scope.siteId!=r.scope.siteId||s.sourceDigest!=r.sourceDigest||s.workspaceId!=r.workspaceId||!r.snapshotDigest||s.contentDigest!=*r.snapshotDigest||s.layout.tabs.size()!=static_cast<std::size_t>(r.tabCount)||r.byteCount==0)return false;}
-    return true;

@@ -38,10 +38,7 @@ public sealed class CurrentSchemaRuntimeRollupTablesTests
             ArticleCreateAuthorityMigrationDefinitions.BuildMigration(),
             AuthorRecentArticleHistoryMigrationDefinitions.BuildMigration(),
             ArticlePropertyDefinitionAuthorityMigrationDefinitions.BuildMigration(),
-            ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.BuildMigration(),
-            ArticleCanvasLinkMigrationDefinitions.BuildMigration(),
-            ArticlePropertyValueMigrationDefinitions.BuildMigration(),
-            AuthoringWorkspaceSnapshotMigrationDefinitions.BuildMigration()
+            ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.BuildMigration()
         ];
         var expectedTables = new Dictionary<string, string>(StringComparer.Ordinal);
         var tableMigration = new Dictionary<string, string>(StringComparer.Ordinal);

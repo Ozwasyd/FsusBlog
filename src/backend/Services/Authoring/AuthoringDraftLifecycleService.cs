@@ -40,7 +40,6 @@ public sealed class AuthoringDraftLifecycleService(
     private static readonly JsonSerializerOptions s_draftRightsJsonOptions = new(JsonSerializerDefaults.Web);
     public async Task<ServerDraftResponse> SaveDraftAsync(long ownerAdminPrincipalId, ServerDraftSaveRequest request, CancellationToken cancellationToken = default)
     {
-        string source = ArticleMarkdownSourceAdmission.Require(request.Content, cancellationToken);
         string draftKey = NormalizeDraftKey(request.DraftKey, request.ArticleId);
         string tagIds = string.Join(',', AuthoringNormalization.NormalizeTagIds(request.TagIds));
         ArticleRightsRequest rights = NormalizeDraftRights(request.Rights);
@@ -56,7 +55,7 @@ public sealed class AuthoringDraftLifecycleService(
             CoverImageUrl = TextHelpers.NormalizeNullable(request.CoverImageUrl, 512),
             CategoryId = Math.Max(0, request.CategoryId),
             TagIds = tagIds,
-            MarkdownContent = source,
+            MarkdownContent = AuthoringNormalization.Normalize(request.Content, 200_000),
             Status = NormalizeArticleStatus(request.Status),
             RightsJson = SerializeDraftRights(rights),
             ClientRevision = TextHelpers.NormalizeNullable(request.ClientRevision, 64),

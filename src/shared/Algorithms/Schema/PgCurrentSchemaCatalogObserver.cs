@@ -235,9 +235,6 @@ public static class PgCurrentSchemaCatalogObserver
                     SELECT json_agg(
                         json_build_object(
                             'column', key_column.attname,
-                            'expression', CASE WHEN index_meta.indkey[key_position.position] = 0
-                                THEN pg_catalog.pg_get_indexdef(index_meta.indexrelid, key_position.position + 1, true)
-                                ELSE NULL END,
                             'direction', CASE
                                 WHEN (index_meta.indoption[key_position.position] & 1) = 1 THEN 'desc'
                                 ELSE 'asc'
@@ -305,7 +302,7 @@ public static class PgCurrentSchemaCatalogObserver
                 bool hasExpressions = Convert.ToBoolean(row["has_expressions"]);
                 IReadOnlyList<SchemaIndexKeyModel> keys = ParsePostgresIndexKeys(
                     Convert.ToString(row["keys"]),
-                    hasExpressions, table.Columns);
+                    hasExpressions);
                 string[] includedColumns = ParsePostgresIncludedColumns(Convert.ToString(row["included_columns"]));
                 table.Indexes.Add(indexName);
                 ((Dictionary<string, SchemaIndexModel>)table.IndexDefinitions).Add(
@@ -542,9 +539,13 @@ public static class PgCurrentSchemaCatalogObserver
     /// <summary>Decodes complete native index-key metadata; expression keys outside the current contract refuse.</summary>
     public static IReadOnlyList<SchemaIndexKeyModel> ParsePostgresIndexKeys(
         string? json,
-        bool hasExpressions,
-        IReadOnlyDictionary<string, SchemaColumnModel>? columns = null)
+        bool hasExpressions)
     {
+        if (hasExpressions)
+        {
+            throw new InvalidOperationException("PostgreSQL current schema contains an unsupported expression index key.");
+        }
+
         using JsonDocument document = JsonDocument.Parse(json ?? "null");
         if (document.RootElement.ValueKind != JsonValueKind.Array
             || document.RootElement.GetArrayLength() == 0)
@@ -558,26 +559,15 @@ public static class PgCurrentSchemaCatalogObserver
             if (element.ValueKind != JsonValueKind.Object
                 || element.EnumerateObject().Select(static property => property.Name).Order(StringComparer.Ordinal)
                     .SequenceEqual(
-                        new[] { "collation", "column", "direction", "expression", "nullPlacement", "operatorClass" },
+                        new[] { "collation", "column", "direction", "nullPlacement", "operatorClass" },
                         StringComparer.Ordinal) == false)
             {
                 throw new InvalidOperationException("PostgreSQL current schema index key observation has an invalid shape.");
             }
 
-            JsonElement rawExpression = element.GetProperty("expression");
-            bool expressionKey = rawExpression.ValueKind != JsonValueKind.Null;
-            string column = expressionKey ? string.Empty : NormalizeRequiredPostgresIdentifier(
-                element.GetProperty("column").GetString(), "index key column");
-            SchemaExpressionNode? expression = null;
-            if (expressionKey)
-            {
-                if (!hasExpressions || columns is null || rawExpression.ValueKind != JsonValueKind.String
-                    || element.GetProperty("column").ValueKind != JsonValueKind.Null)
-                {
-                    throw new InvalidOperationException("current_schema_native_index_expression_unobserved_or_unbound");
-                }
-                expression = PgCurrentSchemaExpressionParser.Parse(rawExpression.GetString()!, columns);
-            }
+            string column = NormalizeRequiredPostgresIdentifier(
+                element.GetProperty("column").GetString(),
+                "index key column");
             string direction = RequireExactValue(
                 element.GetProperty("direction").GetString(),
                 "index key direction",
@@ -594,24 +584,12 @@ public static class PgCurrentSchemaCatalogObserver
             string collation = NormalizePostgresIndexIdentity(
                 element.GetProperty("collation").GetString(),
                 "index collation");
-            var key = new SchemaIndexKeyModel(
+            keys.Add(new SchemaIndexKeyModel(
                 column,
                 direction,
                 nullPlacement,
                 operatorClass,
-                collation)
-            {
-                Expression = expression
-            };
-            if (expression is not null)
-            {
-                _ = SchemaIndexExpressionSemantics.RequireColumns(key, columns!);
-            }
-            keys.Add(key);
-        }
-        if (hasExpressions != keys.Any(static key => key.Expression is not null))
-        {
-            throw new InvalidOperationException("current_schema_native_index_expression_roster_mismatch");
+                collation));
         }
         return keys;
     }

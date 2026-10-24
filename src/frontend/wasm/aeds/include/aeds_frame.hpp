@@ -284,35 +284,6 @@ enum class FrameType : std::uint16_t
     ThemeActivation = 250,
     ApiError = 251,
     ThemeActivationHistory = 252,
-    AuthoringCanvasCreateRequest = 253,
-    AuthoringCanvasDocumentHeader = 254,
-    AuthoringCanvasListResponse = 255,
-    AuthoringCanvasNodesResponse = 256,
-    AuthoringCanvasEdgesResponse = 257,
-    AuthoringCanvasApplyRequest = 258,
-    AuthoringCanvasOperationReceipt = 259,
-    AuthoringCanvasUndoRedoRequest = 260,
-    AuthoringCanvasHistoryResponse = 261,
-    AuthoringCanvasDeleteRequest = 262,
-    AuthoringCanvasWriteReceipt = 263,
-    AuthoringCanvasResolveRequest = 264,
-    AuthoringCanvasReferenceResolutionBatch = 265,
-    ArticleCanvasLinkRequest = 266,
-    ArticleCanvasLinkReceipt = 267,
-    ArticleCanvasLinkHistoryResponse = 268,
-    ArticlePropertyValueReadResponse = 269,
-    AuthoringWorkspaceSnapshotRequest = 270,
-    AuthoringWorkspaceSnapshotResponse = 271,
-    WritingAidPreferenceSnapshotResponse = 272,
-    WritingAidPreferenceUpdateRequest = 273,
-    WritingAidPreferenceReceiptResponse = 274,
-    UploadAssetPreview = 275,
-    AuthorArticleSelectionRevalidateRequest = 276,
-    AuthorArticleSelectionRevalidateResponse = 277,
-    DocumentExportRequest = 278,
-    DocumentExportTaskRequest = 279,
-    DocumentExportJobResponse = 280,
-    DocumentExportPageResponse = 281,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -582,35 +553,6 @@ enum class FrameType : std::uint16_t
         case FrameType::ThemeActivation:
         case FrameType::ApiError:
         case FrameType::ThemeActivationHistory:
-        case FrameType::AuthoringCanvasCreateRequest:
-        case FrameType::AuthoringCanvasDocumentHeader:
-        case FrameType::AuthoringCanvasListResponse:
-        case FrameType::AuthoringCanvasNodesResponse:
-        case FrameType::AuthoringCanvasEdgesResponse:
-        case FrameType::AuthoringCanvasApplyRequest:
-        case FrameType::AuthoringCanvasOperationReceipt:
-        case FrameType::AuthoringCanvasUndoRedoRequest:
-        case FrameType::AuthoringCanvasHistoryResponse:
-        case FrameType::AuthoringCanvasDeleteRequest:
-        case FrameType::AuthoringCanvasWriteReceipt:
-        case FrameType::AuthoringCanvasResolveRequest:
-        case FrameType::AuthoringCanvasReferenceResolutionBatch:
-        case FrameType::ArticleCanvasLinkRequest:
-        case FrameType::ArticleCanvasLinkReceipt:
-        case FrameType::ArticleCanvasLinkHistoryResponse:
-        case FrameType::ArticlePropertyValueReadResponse:
-        case FrameType::AuthoringWorkspaceSnapshotRequest:
-        case FrameType::AuthoringWorkspaceSnapshotResponse:
-        case FrameType::WritingAidPreferenceSnapshotResponse:
-        case FrameType::WritingAidPreferenceUpdateRequest:
-        case FrameType::WritingAidPreferenceReceiptResponse:
-        case FrameType::UploadAssetPreview:
-        case FrameType::AuthorArticleSelectionRevalidateRequest:
-        case FrameType::AuthorArticleSelectionRevalidateResponse:
-        case FrameType::DocumentExportRequest:
-        case FrameType::DocumentExportTaskRequest:
-        case FrameType::DocumentExportJobResponse:
-        case FrameType::DocumentExportPageResponse:
             return true;
         default:
             return false;

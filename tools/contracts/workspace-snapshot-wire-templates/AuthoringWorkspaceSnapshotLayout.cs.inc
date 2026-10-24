@@ -1,1 +1,0 @@
-AuthoringWorkspaceSnapshotContract.ValidateLayout(value);

@@ -20,12 +20,17 @@ const server = await createServer({
     optimizeDeps: { noDiscovery: true, include: [] },
     plugins: [{
         name: 'graph-layout-fixture-page',
-        configureServer(vite) {
-            vite.middlewares.use((request, response, next) => {
-                if (request.url === '/graph-layout-harness') {
+        configureServer(vite)
+        {
+            vite.middlewares.use((request, response, next) =>
+            {
+                if (request.url === '/graph-layout-harness')
+                {
                     response.setHeader('Content-Type', 'text/html');
                     response.end('<!doctype html><html><head><title>Graph layout pressure fixture</title></head><body></body></html>');
-                } else {
+                }
+                else
+                {
                     next();
                 }
             });
@@ -35,7 +40,8 @@ const server = await createServer({
     logLevel: 'error'
 });
 let browser;
-try {
+try
+{
     await server.listen();
     const address = server.httpServer.address();
     assert(address && typeof address === 'object');
@@ -48,41 +54,60 @@ try {
     await page.goto(`http://127.0.0.1:${address.port}/graph-layout-harness`);
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-    const measured = await page.evaluate(async () => {
+    const measured = await page.evaluate(async () =>
+    {
         const { runArticleGraphLayoutTask, layoutArticleGraph, articleGraphLayoutBudget } = await import('/src/frontend/src/services/authoring/articleGraphLayout.ts');
         const { ArticleGraphSession } = await import('/src/frontend/src/services/authoring/articleGraphSession.ts');
         const { graphRequest, graphIdentity, graphResult } = await import('/tests/frontend/unit/authoring/articleGraphFixtures.ts');
-        const check = (condition, message) => { if (!condition) throw new Error(message); };
+        const check = (condition, message) =>
+        {
+            if (!condition)
+            {
+                throw new Error(message);
+            }
+        };
         const native = MessageChannel;
         const active = new Set();
         let allocations = 0;
         let posts = 0;
         let closes = 0;
         let onPost;
-        globalThis.MessageChannel = class {
-            constructor() {
+        globalThis.MessageChannel = class
+        {
+            constructor()
+            {
                 allocations++;
                 const channel = new native();
                 this.port1 = channel.port1;
                 this.port2 = channel.port2;
-                for (const port of [this.port1, this.port2]) {
+                for (const port of [this.port1, this.port2])
+                {
                     active.add(port);
                     const close = port.close.bind(port);
-                    port.close = () => {
+                    port.close = () =>
+                    {
                         check(active.delete(port), 'port closed twice');
                         closes++;
                         close();
                     };
                 }
                 const post = this.port2.postMessage.bind(this.port2);
-                this.port2.postMessage = message => { posts++; post(message); onPost?.(); };
+                this.port2.postMessage = message =>
+                {
+                    posts++;
+                    post(message);
+                    onPost?.();
+                };
             }
         };
         const measurements = [];
-        try {
-            for (const count of [100, 1000]) {
+        try
+        {
+            for (const count of [100, 1000])
+            {
                 const result = graphResult(graphRequest, count);
-                if (count === 1000) {
+                if (count === 1000)
+                {
                     // Exercise the admitted 2000-edge ceiling using source records from the existing fixture only.
                     result.edges = Array.from({ length: 2000 }, (_, index) => ({ ...result.edges[index % result.edges.length], relationIdentity: `pressure-${String(index).padStart(5, '0')}` }));
                 }
@@ -91,12 +116,16 @@ try {
                 let maxGap = 0;
                 let previous = performance.now();
                 let stopped = false;
-                heartbeat.port1.onmessage = () => {
+                heartbeat.port1.onmessage = () =>
+                {
                     const now = performance.now();
                     maxGap = Math.max(maxGap, now - previous);
                     previous = now;
                     beats++;
-                    if (!stopped) heartbeat.port2.postMessage(null);
+                    if (!stopped)
+                    {
+                        heartbeat.port2.postMessage(null);
+                    }
                 };
                 heartbeat.port2.postMessage(null);
                 const outcome = await runArticleGraphLayoutTask(result, new AbortController().signal);
@@ -116,7 +145,13 @@ try {
             check(oversize.reason === 'node-budget' && !oversize.layout && allocations === beforeOversize, '10000-node allocation/refusal failed');
             const controller = new AbortController();
             let cancelPosts = 0;
-            onPost = () => { if (++cancelPosts === 2) controller.abort(); };
+            onPost = () =>
+            {
+                if (++cancelPosts === 2)
+                {
+                    controller.abort();
+                }
+            };
             const cancelled = await runArticleGraphLayoutTask(graphResult(graphRequest, 1000), controller.signal);
             onPost = undefined;
             check(cancelled.status === 'cancelled' && cancelled.usage.slices > 0 && active.size === 0, 'active cancellation failed');
@@ -141,19 +176,25 @@ try {
             await new Promise(resolve => setTimeout(resolve, 100));
             check(posts === terminalPosts && closes === terminalCloses && active.size === 0, 'continuing task after terminal stop');
             return { fixtureOnly: true, cpuThrottlingRate: 4, measurements, oversize: { status: oversize.status, reason: oversize.reason, usage: oversize.usage }, cancellation: cancelled.usage, terminal: { allocations, closes, livePorts: active.size, continuingPosts: posts - terminalPosts } };
-        } finally {
+        }
+        finally
+        {
             globalThis.MessageChannel = native;
         }
     });
-    const motionLayout = async () => {
+    const motionLayout = async () =>
+    {
         const { ArticleGraphSession } = await import('/src/frontend/src/services/authoring/articleGraphSession.ts');
         const { graphIdentity, graphResult } = await import('/tests/frontend/unit/authoring/articleGraphFixtures.ts');
         const session = new ArticleGraphSession({ query: async request => graphResult(request, 1000) });
         await session.open(graphIdentity, 'motion');
-        if (!session.state.layout) throw new Error(`motion-layout: ${session.state.layoutOutcome?.reason}`);
+        if (!session.state.layout)
+        {
+            throw new Error(`motion-layout: ${session.state.layoutOutcome?.reason}`);
+        }
         const positions = JSON.stringify(session.state.layout.positions);
         session.close();
-        return { reduced: matchMedia('(prefers-reduced-motion: reduce)').matches, positions };
+        return { reduced: globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches, positions };
     };
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     const normal = await page.evaluate(motionLayout);
@@ -166,7 +207,9 @@ try {
     const receipt = { browser: browser.version(), sourceOnly: true, productionQueryAcceptance: false, reducedMotionParity: true, ...measured };
     writeFileSync(resolve(evidenceRoot, 'layout-browser-pressure.json'), `${JSON.stringify(receipt, null, 2)}\n`);
     console.log(JSON.stringify(receipt, null, 2));
-} finally {
+}
+finally
+{
     await browser?.close();
     await server.close();
 }

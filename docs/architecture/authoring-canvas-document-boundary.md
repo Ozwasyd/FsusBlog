@@ -143,48 +143,6 @@ fails when a second canvas store, browser-local authority, executable/arbitrary
 payload field, graph-position reuse or article/relation/property/graph write is
 introduced.
 
-This boundary does not inline-edit or copy referenced content. Its private
-transport is described below; UI composition and canonical article-link
-integration have separate implementation and acceptance scopes. Collaboration,
-plug-in nodes and public canvases remain outside this boundary.
-
-## Typed private transport
-
-`AuthoringCanvasTransport` projects the existing document, operation and reference
-owners through the authenticated authoring endpoint group. Owner and actor derive
-from its administrator session and primary-site scope. The shared contracts live
-in `src/shared/Contracts/AuthoringCanvas`; Server retains persistence and HTTP
-semantics. Node/edge reads recheck the document coordinate after loading a page;
-history also binds the actual history/content coordinate. Prepare validates the
-original planner and reference facts without committing. Apply repeats validation
-and uses the original transactional CAS and idempotency semantics.
-
-The schema `authoring-canvas-wire.json` binds thirteen closed frame roots 253–265
-to domain constructors, enums and limits. Its canonical producer is
-`tools/contracts/generate-authoring-canvas-wire.mjs`; `--check` verifies C#, C++
-and TypeScript outputs. The current protocol producer also maintains the golden
-catalog metadata. Production C++ validates Canvas payloads alongside the existing
-FontTheme payload checks. Frozen vectors cover all thirteen roots and malformed
-inputs. Codec, source, PostgreSQL, HTTP/session and rendered UX evidence remain
-separate acceptance stages.
-
-## Authorized current-source stage
-
-`IAuthoringArticleCurrentSourceReader` composes the existing article-reference
-reader and immutable revision-package reader for a numeric current article. It
-observes the actual permission/lifecycle/head before and after the sealed package
-read, compares every authority field and the exact current revision/display,
-preserves raw Markdown bytes and separates the revision ID from its ordinal.
-Cancellation stops at each asynchronous observation; an unavailable, revoked,
-archived, deleted, malformed or drifting source returns no package. The scalar
-article read uses the same PostgreSQL query as the batch reader, and empty pin
-collections are frozen before later awaits. The source byte budget is checked
-before hashing. Both concrete permission readers admit an active root principal
-under the existing administrator policy.
-
-The two existing primary-domain tokens (`primary-site` for Canvas and `primary`
-for revision packages) are mapped explicitly inside this server composition.
-They do not create a portable site identity. This source-stage port does not
-produce a portable article UUID, workspace document/draft identity, FsusUI
-projection or dependency receipt. It does not expose another HTTP route or
-qualify a runtime, database, public preview or relation query.
+This boundary does not inline-edit or copy referenced content and does not
+implement a runtime route, UI, edge-to-link conversion, package exchange,
+collaboration, plug-in nodes or public canvases.

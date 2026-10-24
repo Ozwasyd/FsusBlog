@@ -22,6 +22,30 @@ semantics. Both `ICommentEndpointService` and the core bridge's
 `ICommentCommandService` resolve to the same scoped command implementation.
 Rollback can independently disable anonymous policy or automatic moderation
 while public create/delete commands remain available.
+
+## Production-shared pure policy inputs
+
+Compiled callers can evaluate existing policy without constructing database services:
+`AnonymousCommentPolicyService.EvaluateAuthorMode(policy, requestedAuthorMode, publicSendExplicitlySelected)`,
+`ArticleCommentPolicyService.Compose(articleId, site, article, thread)`, and
+`ArticleCommentPolicyService.EvaluateWrite(policy, authorMode, utcNow)` are public static
+entry points used by the production services. Author-mode admission must precede the
+article write-policy decision; the latter does not authenticate an actor or reject
+every unsupported author mode. `utcNow` is an explicit business-time input, while
+the article ID and policy snapshots come from the caller's authoritative article-role
+mapping. These functions allocate no comment, revision, outbox or security facts.
+
+`CommentModerationService.ResolveInitialState(actor, regionDecision, modelEnabled,
+modelProviderAvailable)` shares the production initial-state decision with explicit
+model settings. Production region rejection precedes this decision, which preserves
+the ordering of hidden-region, manual-region, actor-review and model-review rules.
+`CommentModerationTransitions.IsAllowed` owns later transition legality and
+`CommentCommandService.ResolveReplyRecipientId(targetAuthorAccountId,
+replyingActorAccountId)` owns target-derived recipient/self-reply suppression.
+`AnonymousCommentScopePolicy` owns versioned top/thread scopes and credential quotas.
+These source APIs do not verify proofs, reserve nullifiers, validate persisted thread
+visibility, sign fixture receipts or substitute for canonical command transactions.
+
 ## Current thread invariants
 
 <!-- fsus-doc-claim
@@ -54,7 +78,7 @@ render: key-value-table
 | Key | Value |
 | --- | --- |
 | boundary | exclusive-upper-on-count |
-| compare | childCount < maxChildren |
+| compare | childCount &lt; maxChildren |
 | configurationKey | CommentThreads:MaxChildrenPerNode |
 | default | 500 children |
 | enforcement | reject-new-write |

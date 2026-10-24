@@ -14,19 +14,6 @@ public sealed class BackendGoldenCatalogTests
     private const int RetainedFrameCount = 236;
     private const string RetainedFrameOracleSha256 = "14186d7a265c139b9e45a3f631d2761654c73952de0c576507167940b8d87407";
 
-    [Theory]
-    [InlineData("AuthorArticleSelectionRevalidateRequest", 276, 267)]
-    [InlineData("AuthorArticleSelectionRevalidateResponse", 277, 268)]
-    public void SelectionFrames_RetainIndependentNumericFamilyAndOrder(string name, int number, int order)
-    {
-        JsonArray frames = ReadGoldenCatalog()["frames"]!.AsArray();
-        JsonObject entry = frames[order]!.AsObject();
-        Assert.Equal(name, entry["name"]!.GetValue<string>());
-        Assert.Equal(number, entry["value"]!.GetValue<int>());
-        Assert.Equal(number, (int)Enum.Parse<AedsFrameType>(name));
-        Assert.Equal("author-article-selection", entry["family"]!.GetValue<string>());
-    }
-
     [Fact]
     public void AedsGoldenCatalog_RetainsIndependentNumericFamilyAndOrderOracle()
     {

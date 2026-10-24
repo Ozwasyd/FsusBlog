@@ -599,8 +599,7 @@
                                         </ElFormItem>
                                         <ElFormItem label="版权起始年份">
                                             <ElInputNumber
-                                                :model-value="complianceForm.copyrightStartYear ?? undefined"
-                                                @update:model-value="updateCopyrightStartYear"
+                                                v-model="complianceForm.copyrightStartYear"
                                                 :min="1990"
                                                 :max="new Date().getFullYear()"
                                                 :disabled="complianceFormDisabled"
@@ -918,12 +917,6 @@ const {
 const {
     isHighlighted: isTaskHighlighted
 } = taskFeedback;
-
-// InputNumber's clear payload is absence, not a replacement copyright year.
-const updateCopyrightStartYear = (value: number | null | undefined): void =>
-{
-    complianceForm.copyrightStartYear = value ?? null;
-};
 
 const ogImageUploadState = computed(() =>
 {

@@ -1,5 +1,3 @@
-using FsusBlog.Shared.Contracts.AuthoringCanvas;
-
 namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
@@ -36,25 +34,6 @@ public sealed class AuthoringCanvasOperationEngine(
                 request.Commands.Select(static command => command.Kind).ToArray());
             return replay;
         }
-        AuthoringCanvasOperationPlan plan = await PlanAsync(request, transactionDigest, cancellationToken).ConfigureAwait(false);
-        return await CommitWithRecoveryAsync(plan, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>Validates prepared intentions through the same planner without committing or issuing a receipt.</summary>
-    public async Task ValidatePreparationAsync(
-        AuthoringCanvasOperationRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        AuthoringCanvasOperationContract.ValidateRequest(request);
-        await PlanAsync(request, AuthoringCanvasOperationContract.ComputeTransactionDigest(request),
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<AuthoringCanvasOperationPlan> PlanAsync(
-        AuthoringCanvasOperationRequest request,
-        string transactionDigest,
-        CancellationToken cancellationToken)
-    {
         AuthoringCanvasOperationSnapshot snapshot = await ReadSnapshotAsync(
             request.Owner,
             request.CanvasId,
@@ -128,7 +107,7 @@ public sealed class AuthoringCanvasOperationEngine(
             state.EdgeCount,
             transactionDigest,
             referenceValidationDigest);
-        return plan;
+        return await CommitWithRecoveryAsync(plan, cancellationToken).ConfigureAwait(false);
     }
 
     public Task<AuthoringCanvasOperationReceipt> UndoAsync(
@@ -299,36 +278,34 @@ public sealed class AuthoringCanvasOperationEngine(
         AuthoringCanvasOperationRequest request,
         CancellationToken cancellationToken)
     {
-        var validationDigests = new List<string>();
-        foreach (AuthoringCanvasClosedCommand command in request.Commands)
-        {
-            if (command.Kind is not (AuthoringCanvasOperationKind.CreateReference
+        AuthoringCanvasNode[] references = request.Commands
+            .Where(static command => command.Kind is AuthoringCanvasOperationKind.CreateReference
                 or AuthoringCanvasOperationKind.PinTargetRevision
-                or AuthoringCanvasOperationKind.UnpinTargetRevision))
+                or AuthoringCanvasOperationKind.UnpinTargetRevision)
+            .SelectMany(static command => command.After)
+            .Where(static fact => fact is
             {
-                continue;
-            }
-            AuthoringCanvasNode[] references = command.After
-                .Where(static fact => fact is { Kind: AuthoringCanvasOperationFactKind.Node, Exists: true, Node: not null })
-                .Select(static fact => fact.Node!)
-                .ToArray();
-            if (references.Length == 0)
-                continue;
-            // Each closed command is validated separately: a later fact for the same node cannot
-            // replace an earlier create/pin/unpin fact in the sealed journal's authority evidence.
-            validationDigests.Add(await referenceValidator.ValidateAsync(
-                new AuthoringCanvasOperationReferenceValidationRequest(request.RequestId, request.CanvasId,
-                    request.ExpectedRevision, request.ExpectedContentDigest, request.Owner, references),
-                cancellationToken).ConfigureAwait(false));
-        }
-        return validationDigests.Count switch
+                Kind: AuthoringCanvasOperationFactKind.Node,
+                Exists: true,
+                Node: not null
+            })
+            .Select(static fact => fact.Node!)
+            .GroupBy(static node => node.Id)
+            .Select(static group => group.Last())
+            .ToArray();
+        if (references.Length == 0)
         {
-            0 => AuthoringCanvasContract.ComputeCommandDigest("canvas-operation-reference-validation-none"),
-            1 => validationDigests[0],
-            _ => AuthoringCanvasContract.ComputeCommandDigest("canvas-operation-reference-validation-ordered",
-                request.CanvasId, request.ExpectedRevision, request.ExpectedContentDigest,
-                string.Join(',', validationDigests))
-        };
+            return AuthoringCanvasContract.ComputeCommandDigest("canvas-operation-reference-validation-none");
+        }
+        return await referenceValidator.ValidateAsync(
+            new AuthoringCanvasOperationReferenceValidationRequest(
+                request.RequestId,
+                request.CanvasId,
+                request.ExpectedRevision,
+                request.ExpectedContentDigest,
+                request.Owner,
+                references),
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<AuthoringCanvasOperationSnapshot> ReadSnapshotAsync(

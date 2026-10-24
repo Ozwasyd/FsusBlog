@@ -212,7 +212,7 @@ export function createCommentPrivacyCredentialProvider(
                 {
                     return null;
                 }
-                if (!matchesMetadata(issuerResponse, metadata) || issuerResponse.expiresAtUnixMs <= now())
+                if (!matchesMetadata(issuerResponse, metadata) || issuerResponse.rootExpiresAtUnixMs <= now())
                 {
                     return failClosed(signal);
                 }
@@ -299,7 +299,7 @@ export function createCommentPrivacyCredentialProvider(
                     entryHashes: cloneBytes(workerResult.entryHashes)
                 });
 
-                const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.expiresAtUnixMs);
+                const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.rootExpiresAtUnixMs);
                 if (expiresAtUnixMs <= now())
                 {
                     return failClosed(signal);

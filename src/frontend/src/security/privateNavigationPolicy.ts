@@ -1,4 +1,4 @@
-import type { LocationQuery, LocationQueryRaw, RouteLocationNormalizedLoaded, RouteLocationResolved, Router } from 'vue-router';
+import type { LocationQuery, LocationQueryRaw, RouteLocationNormalizedLoaded, Router } from 'vue-router';
 
 export type RouteStateClass =
   | 'public-shareable'
@@ -181,7 +181,7 @@ export function privateQueryNeedsSanitizing(
 
 function resolveAllowlistedPrivateTarget(
     router: Router,
-    route: Pick<RouteLocationResolved, 'name' | 'path' | 'query' | 'meta'>,
+    route: Pick<RouteLocationNormalizedLoaded, 'name' | 'path' | 'query' | 'meta'>,
     fallback: string
 ): string
 {

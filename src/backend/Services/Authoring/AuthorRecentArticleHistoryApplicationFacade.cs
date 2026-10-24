@@ -4,19 +4,12 @@ using FsusBlog.Server.Infrastructure.Helpers;
 namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>
-/// Owner-derived application port for authoring consumers. The caller supplies only the
+/// Owner-derived application port for future authoring consumers. The caller supplies only the
 /// durable article id, server revision and request CAS token; administrator and site scope always
 /// come from the authenticated server request. Client/UI/search behavior is intentionally absent.
 /// </summary>
 public interface IAuthorRecentArticleHistoryApplicationFacade
 {
-    Task<AuthorArticleQuerySelectionRevalidationResult> RevalidateSelectionAsync(
-        int articleId,
-        long serverRevision,
-        string permissionToken,
-        Guid requestId,
-        CancellationToken cancellationToken = default);
-
     Task<AuthorRecentArticleHistoryReceipt> OpenAsync(
         int articleId,
         long serverRevision,
@@ -56,19 +49,8 @@ public sealed class AuthorRecentArticleHistoryApplicationFacade(
     IAuthorRecentArticleHistoryStore store,
     IAuthorRecentArticleHistoryProjectionService projection,
     IHttpContextAccessor httpContextAccessor,
-    IConfiguration configuration,
-    IAuthorRecentArticleHistoryPermissionProjectionProvider permission,
-    IAuthorArticleQuerySourceReader articleSource) : IAuthorRecentArticleHistoryApplicationFacade
+    IConfiguration configuration) : IAuthorRecentArticleHistoryApplicationFacade
 {
-    public Task<AuthorArticleQuerySelectionRevalidationResult> RevalidateSelectionAsync(
-        int articleId,
-        long serverRevision,
-        string permissionToken,
-        Guid requestId,
-        CancellationToken cancellationToken = default)
-        => new AuthorArticleQuerySelectionRevalidator(permission, articleSource).RevalidateAsync(
-            ResolveOwner(), articleId, serverRevision, permissionToken, requestId, cancellationToken);
-
     public Task<AuthorRecentArticleHistoryReceipt> OpenAsync(
         int articleId,
         long serverRevision,

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-inventory/ts-ast-adapter/index.mjs"
+            ],
+            "reason": "Preserve the adapter's existing process-facing external spellings while removing only unused internal parameters and corresponding arguments. No external naming contract changes."
+        }
+    ]
+}

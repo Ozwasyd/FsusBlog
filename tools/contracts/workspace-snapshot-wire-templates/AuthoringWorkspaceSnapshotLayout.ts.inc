@@ -1,6 +1,0 @@
-if(!Array.isArray(value.tabs)||value.tabs.length>100||!Array.isArray(value.groups)||value.groups.length<1||value.groups.length>2)invalid();
-const tabs=new Map<string,AuthoringWorkspaceSnapshotTab>();const drafts=new Set<string>();const documents=new Set<string>();const articles=new Set<number>();
-for(const tab of value.tabs){if(!tab||!tab.identity||tabs.has(tab.tabId)||drafts.has(tab.identity.draftId)||documents.has(tab.identity.documentId)||tab.isPreview===tab.isPinned||(tab.identity.articleId!==null&&articles.has(tab.identity.articleId)))invalid();tabs.set(tab.tabId,tab);drafts.add(tab.identity.draftId);documents.add(tab.identity.documentId);if(tab.identity.articleId!==null)articles.add(tab.identity.articleId);}
-const groups=new Set<string>();const owned=new Set<string>();
-for(const group of value.groups){if(!group||groups.has(group.groupId)||!Array.isArray(group.tabIds)||(group.tabIds.length===0?group.activeTabId!==null:group.activeTabId===null||!group.tabIds.includes(group.activeTabId)))invalid();groups.add(group.groupId);let previews=0;for(const tabId of group.tabIds){const tab=tabs.get(tabId);if(!tab||owned.has(tabId))invalid();owned.add(tabId);if(tab.isPreview)previews++;}if(previews>1)invalid();}
-if(owned.size!==tabs.size||!groups.has(value.activeGroupId))invalid();

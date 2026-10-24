@@ -2426,7 +2426,7 @@ function loadEvidence({ root, head, path, changedFiles, schema, label, errors })
     }
 }
 
-function validateFormatEvidence(parsedBody, { root, head, changedFiles }, errors)
+function validateFormatEvidence(parsedBody, { root, head, changedFiles, formatCommit = null }, errors)
 {
     const evidence = loadEvidence({
         root,
@@ -2442,7 +2442,7 @@ function validateFormatEvidence(parsedBody, { root, head, changedFiles }, errors
         return;
     }
     const paths = Array.isArray(evidence.paths) ? evidence.paths : [];
-    if (paths.length === 0 || !paths.every((path) => repositoryPathPattern.test(path)))
+    if (paths.length === 0 || !paths.every((path) => typeof path === 'string' && repositoryPathPattern.test(path)))
     {
         errors.push('Formatter idempotence evidence requires repository-relative paths');
         return;
@@ -2451,9 +2451,18 @@ function validateFormatEvidence(parsedBody, { root, head, changedFiles }, errors
     {
         errors.push('Formatter idempotence evidence paths must be unique');
     }
-    if (!paths.every((path) => changedFiles.includes(path)))
+    const formatChangedFiles = formatCommit ? changedFilesBetween(root, `${formatCommit}^`, formatCommit) : [];
+    if (!paths.every((path) => changedFiles.includes(path) || formatChangedFiles.includes(path)))
     {
         errors.push('Formatter idempotence evidence paths must all be changed in this PR');
+    }
+    // Only the range enumerator supplies this commit. A receipt's revision or
+    // extra fields must never select the tree whose content is verified.
+    // A formatter can check already-formatted files changed elsewhere in the
+    // range, but cannot omit any file actually modified by its own commit.
+    if (formatCommit && !formatChangedFiles.every((path) => paths.includes(path)))
+    {
+        errors.push('Formatter idempotence evidence paths must include every format commit changed path');
     }
     if (
         evidence.formatter?.identity !== parsedBody.formatterIdentity
@@ -2473,15 +2482,15 @@ function validateFormatEvidence(parsedBody, { root, head, changedFiles }, errors
     }
     try
     {
-        const digest = treeDigest(root, head, paths);
+        const digest = treeDigest(root, formatCommit ?? head, paths);
         if (evidence.firstPassTreeSha256 !== digest || evidence.secondPassTreeSha256 !== digest)
         {
-            errors.push('Formatter idempotence first/second pass digests must both match candidate head content');
+            errors.push(`Formatter idempotence first/second pass digests must both match ${formatCommit ? 'format commit' : 'candidate head'} content`);
         }
     }
     catch (error)
     {
-        errors.push(`Formatter idempotence paths cannot be read from candidate head: ${error instanceof Error ? error.message : String(error)}`);
+        errors.push(`Formatter idempotence paths cannot be read from ${formatCommit ? 'format commit' : 'candidate head'}: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
 
@@ -2504,7 +2513,7 @@ function validateFormatCommitEvidence(root, head, revision, message, changedFile
         formatterCommand: formatter.command,
         formatterIdempotence: footerValue(message, 'Idempotence-Evidence'),
         blameIgnoreRevision: revision
-    }, { root, head, changedFiles }, errors);
+    }, { root, head, changedFiles, formatCommit: revision }, errors);
 }
 
 function validatePerformanceCommitEvidence(root, head, revision, message, changedFiles, errors)
@@ -3994,7 +4003,7 @@ function validateTrustedPolicyFiles({ root, head, authorityRoot, changedFiles },
     {
         return;
     }
-    const policyChanges = [...changeContract.trustedPolicyFiles, ...changeContract.generatedOutputHistoryRepairPolicyFiles]
+    const policyChanges = changeContract.effectiveTrustedPolicyFiles
         .filter((path) => changedFiles.includes(path));
     for (const path of policyChanges)
     {
@@ -4363,14 +4372,14 @@ export function inspectGitRevision(root, revision)
 {
     try
     {
-        const subject = execFileSync('git', ['show', '-s', '--format=%s', revision], { cwd: root, encoding: 'utf8' }).trim();
-        const message = execFileSync('git', ['show', '-s', '--format=%B', revision], { cwd: root, encoding: 'utf8' }).trim();
-        const parentsLine = execFileSync('git', ['show', '-s', '--format=%P', revision], { cwd: root, encoding: 'utf8' }).trim();
+        const subject = execFileSync('git', ['show', '-s', '--format=%s', revision], exactRevisionGitOptions(root, { encoding: 'utf8' })).trim();
+        const message = execFileSync('git', ['show', '-s', '--format=%B', revision], exactRevisionGitOptions(root, { encoding: 'utf8' })).trim();
+        const parentsLine = execFileSync('git', ['show', '-s', '--format=%P', revision], exactRevisionGitOptions(root, { encoding: 'utf8' })).trim();
         const parents = parentsLine === '' ? [] : parentsLine.split(/\s+/u);
         let reachable = true;
         try
         {
-            execFileSync('git', ['merge-base', '--is-ancestor', revision, 'HEAD'], { cwd: root, stdio: 'ignore' });
+            execFileSync('git', ['merge-base', '--is-ancestor', revision, 'HEAD'], exactRevisionGitOptions(root, { stdio: 'ignore' }));
         }
         catch
         {
@@ -4476,7 +4485,7 @@ export function validateFormatOnlyDiff(root, base, head, { ignoredPaths = [] } =
         const structuralChanges = execFileSync(
             'git',
             ['diff', '--name-only', '-z', '--diff-filter=ACDRT', base, head, '--'],
-            { cwd: root }
+            exactRevisionGitOptions(root)
         ).toString('utf8').split('\x00').filter((path) => path !== '' && !ignored.has(path));
         if (structuralChanges.length > 0)
         {
@@ -4486,11 +4495,16 @@ export function validateFormatOnlyDiff(root, base, head, { ignoredPaths = [] } =
         const modifiedFiles = execFileSync(
             'git',
             ['diff', '--name-only', '-z', '--diff-filter=M', base, head, '--'],
-            { cwd: root }
+            exactRevisionGitOptions(root)
         ).toString('utf8').split('\x00').filter((path) => path !== '' && !ignored.has(path));
         const changedTokens = [];
         for (const path of modifiedFiles)
         {
+            if (resolveRevisionBlob(root, base, path).mode !== resolveRevisionBlob(root, head, path).mode)
+            {
+                changedTokens.push(path);
+                continue;
+            }
             const before = readFileAtRevision(root, base, path);
             const after = readFileAtRevision(root, head, path);
             if (before.includes(0) || after.includes(0))
@@ -4685,7 +4699,7 @@ export function commitsInRange(root, range)
     const output = execFileSync(
         'git',
         ['log', '--reverse', '--format=%H%x00%B%x00%x1e', range],
-        { cwd: root, encoding: 'utf8' }
+        exactRevisionGitOptions(root, { encoding: 'utf8' })
     );
     return output
         .split('\x1e')
@@ -4852,8 +4866,7 @@ export function validateRepositorySources(root)
 {
     const errors = [];
     const requiredFiles = [...new Set([
-        ...changeContract.trustedPolicyFiles,
-        ...changeContract.generatedOutputHistoryRepairPolicyFiles,
+        ...changeContract.effectiveTrustedPolicyFiles,
         '.git-blame-ignore-revs',
         'config/development/authoritative-development-docs.json',
         'config/schemas/external-naming-exceptions.schema.json',
@@ -4914,8 +4927,7 @@ export function validateRepositorySources(root)
         ...changeContract.commitScopes,
         ...changeContract.releaseNoteCategories.map((entry) => entry.label),
         ...changeContract.reviewedLegacyFormatRevisions,
-        ...changeContract.trustedPolicyFiles,
-        ...changeContract.generatedOutputHistoryRepairPolicyFiles,
+        ...changeContract.effectiveTrustedPolicyFiles,
         ...Object.values(changeContract.evidenceSchemas),
         ...changeContract.generatedOutputRepairProducers.flatMap((entry) => [
             entry.id,

@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/configuration/check-solution-source.mjs",
+                "tools/configuration/solution-source.test.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve the existing external Node and Git process environment spellings, including GIT_* bindings and refusal controls, while internal option and function names retain repository conventions. Renaming these external keys would change process and source-binding behavior."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/release-final-execution-authority-index.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing canonical JSON schema, tracked-input identity and execution-authority field spellings consumed by the original producer and validator. This change declares the exact existing load and refreshed source digests without renaming external contract keys."
+        }
+    ]
+}

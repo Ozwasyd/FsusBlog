@@ -19,7 +19,7 @@
 
             <FsusUiDataList
                 class="moderation-regions-mobile-list"
-                :rows="regionMobileRows"
+                :rows="displayRegions"
                 :columns="regionMobileColumns"
                 row-key="regionCode"
                 :active-key="selectedRegionCode"
@@ -37,7 +37,7 @@
                         class="moderation-regions-mobile-summary"
                         :class="{
                             'moderation-regions-mobile-summary--child': isChildRegion(
-                                requireRegionDefinition(row),
+                                row as ModerationRegionDefinition,
                             ),
                         }"
                     >
@@ -52,9 +52,9 @@
                         </span>
                         <span
                             class="moderation-regions-mobile-cell moderation-regions-mobile-meta"
-                            :title="formatRegionListMeta(requireRegionDefinition(row))"
+                            :title="formatRegionListMeta(row as ModerationRegionDefinition)"
                         >
-                            {{ formatRegionListMeta(requireRegionDefinition(row)) }}
+                            {{ formatRegionListMeta(row as ModerationRegionDefinition) }}
                         </span>
                     </span>
                     <span
@@ -430,15 +430,7 @@ const formatChecksum = (checksum?: string | null): string =>
 
 const getRegionParentCode = (
     region: ModerationRegionDefinition
-): string | null =>
-{
-    const parent = region.parentRegion?.trim();
-    if (!parent)
-    {
-        return null;
-    }
-    return parent;
-};
+): string | null => region.parentRegion?.trim() || null;
 
 const isChildRegion = (region: ModerationRegionDefinition): boolean =>
     getRegionParentCode(region) !== null;
@@ -484,11 +476,6 @@ const displayRegions = computed(() =>
             [])
     ]);
 });
-
-// Only the canonical product key enters the generic list; the original rows own all business fields.
-const regionMobileRows = computed<FsusUiDataListRow[]>(() =>
-    displayRegions.value.map((region) => ({ regionCode: region.regionCode }))
-);
 
 const formatRegionScope = (region: ModerationRegionDefinition): string =>
 {
@@ -579,34 +566,18 @@ const regionPreviewHref = (regionCode: string): string =>
     }).href;
 };
 
-const requireRegionDefinition = (row: FsusUiDataListRow): ModerationRegionDefinition =>
-{
-    const code = row.regionCode;
-    const region = typeof code === "string"
-        ? regions.value.find((candidate) => candidate.regionCode === code) : undefined;
-    if (!region)
-    {
-        throw new Error("moderation-region-row-unavailable");
-    }
-    return region;
-};
 const getRegionCode = (row: FsusUiDataListRow): string =>
-    requireRegionDefinition(row).regionCode;
+    String(row.regionCode ?? "");
 const regionPreviewHrefForRow = (row: FsusUiDataListRow): string =>
     regionPreviewHref(getRegionCode(row));
 const handleMobileRegionClick = (
-    row: FsusUiDataListRow,
+    _row: FsusUiDataListRow,
     key: FsusUiDataListRowKey,
     event: MouseEvent
 ): void =>
 {
-    const region = requireRegionDefinition(row);
-    if (key !== region.regionCode)
-    {
-        throw new Error("moderation-region-row-key-mismatch");
-    }
     event.preventDefault();
-    void previewRegion(region.regionCode);
+    void previewRegion(String(key));
 };
 
 const shouldLoadPreview = (regionCode: string): boolean =>

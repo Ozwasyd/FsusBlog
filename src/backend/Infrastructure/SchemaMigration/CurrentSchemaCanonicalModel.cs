@@ -13,6 +13,8 @@ namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 
 public static class CurrentSchemaEntityExtractor
 {
+    private static readonly NullabilityInfoContext s_nullabilityContext = new();
+
     public static CurrentSchemaCanonicalModel Extract(IReadOnlyList<Type> entityTypes)
     {
         ArgumentNullException.ThrowIfNull(entityTypes);
@@ -31,9 +33,6 @@ public static class CurrentSchemaEntityExtractor
 
         var tables = new Dictionary<string, SchemaTableModel>(StringComparer.Ordinal);
         var sourceParts = new List<string>();
-        // NullabilityInfoContext caches mutable reflection state and is not
-        // shared between concurrent original-owner extractions.
-        var nullabilityContext = new NullabilityInfoContext();
         foreach (Type entityType in orderedTypes)
         {
             SugarTable tableAttribute = entityType.GetCustomAttribute<SugarTable>(inherit: false)
@@ -79,7 +78,7 @@ public static class CurrentSchemaEntityExtractor
                     throw new InvalidOperationException($"Duplicate current schema column owner: {tableName}.{columnName}.");
                 }
 
-                SchemaColumnModel column = BuildColumnModel(property, columnAttribute, columnName, nullabilityContext);
+                SchemaColumnModel column = BuildColumnModel(property, columnAttribute, columnName);
                 columns.Add(columnName, column);
                 propertyColumns[property.Name] = columnName;
                 sourceParts.Add(SourceIdentity(entityType, property, columnAttribute, column));
@@ -112,14 +111,13 @@ public static class CurrentSchemaEntityExtractor
         return CurrentSchemaCanonicalAuthority.Create(tables, sourceDigest);
     }
 
-    private static SchemaColumnModel BuildColumnModel(PropertyInfo property, SugarColumn? attribute, string columnName,
-        NullabilityInfoContext nullabilityContext)
+    private static SchemaColumnModel BuildColumnModel(PropertyInfo property, SugarColumn? attribute, string columnName)
     {
         string conversion = ResolveConversion(attribute);
         string dataType = ResolveSemanticType(property.PropertyType, attribute, conversion);
         return new SchemaColumnModel(
             columnName,
-            DetermineNullability(property, attribute, nullabilityContext),
+            DetermineNullability(property, attribute),
             attribute?.IsPrimaryKey == true,
             attribute?.IsIdentity == true,
             attribute?.Length > 0 ? attribute.Length : null,
@@ -136,7 +134,7 @@ public static class CurrentSchemaEntityExtractor
             ? null
             : SchemaPhysicalTypeProjection.NormalizePhysical(attribute.ColumnDataType);
 
-    private static bool DetermineNullability(PropertyInfo property, SugarColumn? attribute, NullabilityInfoContext nullabilityContext)
+    private static bool DetermineNullability(PropertyInfo property, SugarColumn? attribute)
     {
         if (attribute?.IsNullable == true)
         {
@@ -149,7 +147,7 @@ public static class CurrentSchemaEntityExtractor
             return Nullable.GetUnderlyingType(propertyType) is not null;
         }
 
-        NullabilityInfo info = nullabilityContext.Create(property);
+        NullabilityInfo info = s_nullabilityContext.Create(property);
         return info.WriteState != NullabilityState.NotNull;
     }
 

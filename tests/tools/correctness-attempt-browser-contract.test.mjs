@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import test from 'node:test';
 const { finalizeBrowserContractReceipt } = await import(new URL('../browser-contract/contract.mjs', import.meta.url));
 
 const { inventoryByDomain } = await import(new URL('../../tools/test/correctness-attempt-producers.mjs', import.meta.url));
+const { defaultTimeoutPolicyDigest, qualificationTemporalContext } = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+const { applyBrowserTemporalClock, observeBrowserTemporalContext } = await import(new URL('../../tools/test/temporal-producer-bindings.mjs', import.meta.url));
+const { parse } = createRequire(new URL('../../tools/frontend/style-toolchain/package.json', import.meta.url))('espree');
 const root = path.resolve(import.meta.dirname, '../..');
 const inventory = JSON.parse(fs.readFileSync(
     path.join(root, 'config/testing/correctness-attempt-producers.json'),
@@ -43,22 +47,71 @@ test('Playwright correctness settings cannot enable retries', () =>
 test('the production scenario loop stops on first product failure and seals failed-no-retry', async () =>
 {
     const source = fs.readFileSync(path.join(root, 'tests/browser-contract/run.mjs'), 'utf8');
-    const loop = source.slice(source.indexOf('        for (const scenario of selectedScenarios)'),
-        source.indexOf('        const publicPreviewStaging'));
+    const program = parse(source, { ecmaVersion: 'latest', sourceType: 'module' });
+    const main = program.body.find((node) => node.type === 'FunctionDeclaration' && node.id.name === 'main');
+    const loops = [];
+    const collect = (node) =>
+    {
+        if (node?.type === 'ForOfStatement' && node.right.type === 'Identifier'
+            && node.right.name === 'selectedScenarios' && node.left.type === 'VariableDeclaration'
+            && node.left.declarations.length === 1 && node.left.declarations[0].id.name === 'scenario')
+        {
+            loops.push(node);
+        }
+        for (const value of Object.values(node ?? {}))
+        {
+            if (Array.isArray(value))
+            {
+                value.filter((child) => child?.type).forEach(collect);
+            }
+            else if (value?.type)
+            {
+                collect(value);
+            }
+        }
+    };
+    assert.ok(main, 'the original runner must retain its main function');
+    collect(main.body);
+    assert.equal(loops.length, 1, 'the first-stop control must execute the one original scenario loop');
+    const loop = source.slice(loops[0].start, loops[0].end);
     assert.ok(loop.includes('throw error;'));
+    assert.doesNotMatch(loop, /await runPublicShellLocaleScenes/u);
     const execute = async (body) =>
     {
         let laterCalls = 0;
         let closed = 0;
+        let clockApplications = 0;
+        let observedBusinessEpochUtc = null;
+        const temporalContext = qualificationTemporalContext({
+            sourceCommit: 'a'.repeat(40), sourceFingerprint: `sha256:${'b'.repeat(64)}`,
+            producerId: 'browser-contract', schedulerRunId: 'first-stop-model',
+            businessEpochUtc: '2024-02-29T23:59:59.000Z', locale: 'en-US', uiLocale: 'en-US',
+            timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+        });
         const failure = new Error('first product failure');
         const receipt = { scenarios: ['first', 'later'].map((id) => ({ id, status: 'pending', artifacts: [] })),
             topology: { contextCount: 0 } };
         const page = { setDefaultTimeout()
         {}, setDefaultNavigationTimeout()
-        {}, isClosed: () => true };
+        {}, isClosed: () => true,
+        clock: { setFixedTime: async (businessEpochUtc) =>
+        {
+            assert.equal(businessEpochUtc, temporalContext.businessEpochUtc);
+            observedBusinessEpochUtc = businessEpochUtc;
+            clockApplications++;
+        } },
+        evaluate: async () => ({ locale: temporalContext.locale, timezoneId: temporalContext.timezone,
+            browserBusinessEpochUtc: observedBusinessEpochUtc }) };
         const bindings = {
             selectedScenarios: receipt.scenarios.map(({ id }) => ({ id, role: 'authenticated' })),
             receivedSignal: null, browserDisconnected: false, browserTemporalObservation: {},
+            applyBrowserTemporalClock, observeBrowserTemporalContext, temporalContext,
+            preparedFixture: { lifecycle: { runtime: { temporalObservation: {
+                backendCulture: temporalContext.backendCulture, postgresTimezone: temporalContext.postgresTimezone,
+                businessEpochUtc: temporalContext.businessEpochUtc
+            } } } },
+            process: { env: { TZ: temporalContext.nodeTimezone } },
+            localeRootBinding: { artifact: 'first-stop-model-locale-root', digest: 'c'.repeat(64) },
             browserContractScenarioRunners: { first: async () =>
             {
                 throw failure;
@@ -94,6 +147,7 @@ test('the production scenario loop stops on first product failure and seals fail
         assert.equal(receipt.cleanFirstAttempt, false);
         assert.equal(receipt.scenarios[0].classification, 'product');
         assert.equal(closed, laterCalls + 1);
+        assert.equal(clockApplications, closed, 'the real temporal adapter must run before every model scenario');
         return { laterCalls, receipt };
     };
     const actual = await execute(loop);

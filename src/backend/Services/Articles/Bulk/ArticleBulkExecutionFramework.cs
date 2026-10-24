@@ -32,8 +32,7 @@ internal enum ArticleBulkJournalEventKind
     ReceiptChunkRecorded,
     RetryRequested,
     ExecutionTerminal,
-    RecoveryRequired,
-    GroupReconciled
+    RecoveryRequired
 }
 
 internal enum ArticleBulkItemStatus
@@ -78,13 +77,6 @@ internal interface IArticleBulkExecutionAuthority
         ArticleBulkPlan plan,
         CancellationToken cancellationToken);
 
-    Task<ArticleBulkGroupRecoveryEvidence?> ReadGroupRecoveryAsync(
-        ArticleBulkExecutionRequest request,
-        ArticleBulkPlan plan,
-        ArticleBulkJournalHead checkpoint,
-        CancellationToken cancellationToken)
-        => Task.FromResult<ArticleBulkGroupRecoveryEvidence?>(null);
-
     Task ValidateGroupOutcomeAsync(
         ArticleBulkPlan plan,
         ArticleBulkGroupCommitOutcome outcome,
@@ -92,28 +84,6 @@ internal interface IArticleBulkExecutionAuthority
         string? zeroWriteProofDigest,
         CancellationToken cancellationToken);
 }
-
-/// <summary>
-/// Read-only canonical reconciliation of the original transaction identity. Known outcomes and
-/// every business receipt must come from the owner; the framework never reruns a command or
-/// derives preparation release, rollback, side effects or successful writes from journal absence.
-/// </summary>
-internal sealed record ArticleBulkGroupRecoveryEvidence(
-    string ExecutionIdentityDigest,
-    string PlanDigest,
-    ArticleBulkGroupCommitOutcome Outcome,
-    string? GroupReceiptDigest,
-    string? ZeroWriteProofDigest,
-    IAsyncEnumerable<ArticleBulkItemReceipt> ItemReceipts);
-
-
-/// <summary>A separate append-only observation journal; the original unknown receipts are never replaced.</summary>
-internal sealed record ArticleBulkReconciliationResult(
-    string OriginalRequestDigest,
-    string OriginalTerminalReceiptDigest,
-    ArticleBulkExecutionRequest Request,
-    ArticleBulkJournalHead Head,
-    ArticleBulkAggregateReceipt? Receipt);
 
 internal sealed record ArticleBulkExecutionRequest(
     string AttemptId,
@@ -292,10 +262,7 @@ internal sealed record ArticleBulkAdmission(
     ArticleBulkJournalHead Head,
     ArticleBulkJournalAppendReceipt? AppendReceipt,
     ArticleBulkAggregateReceipt? ExistingTerminalReceipt,
-    bool IsExisting)
-{
-    internal ImmutableArray<ArticleBulkItemExecutionDecision> ItemDecisions { get; init; } = [];
-}
+    bool IsExisting);
 
 internal sealed record ArticleBulkRetryRequest(
     string PreviousAttemptId,
@@ -318,10 +285,6 @@ internal sealed class ArticleBulkExecutionFramework(
     internal const int JournalReadBatchSize = 128;
     internal const int ReceiptChunkSize = 250;
     private const int MaximumActiveItems = 256;
-    private const string ReconciliationPrefix = "canonical-reconciliation:";
-
-    internal static bool IsGroupTerminalKind(ArticleBulkJournalEventKind kind) =>
-        kind is ArticleBulkJournalEventKind.GroupCommitTerminal or ArticleBulkJournalEventKind.GroupReconciled;
     private readonly ConditionalWeakTable<ArticleBulkPlan, ArticleBulkPlanBinding> _planBindings = new();
 
     internal async Task<ArticleBulkAdmission> AdmitAsync(
@@ -338,8 +301,7 @@ internal sealed class ArticleBulkExecutionFramework(
     {
         if (!IsBoundedOpaqueValue(planReference, 1_024)
             || !IsBoundedOpaqueValue(attemptId, 256)
-            || !IsBoundedOpaqueValue(idempotencyKey, 256)
-            || idempotencyKey.StartsWith(ReconciliationPrefix, StringComparison.Ordinal))
+            || !IsBoundedOpaqueValue(idempotencyKey, 256))
         {
             throw new ArticleBulkContractException("article-bulk.execution-request-invalid");
         }
@@ -408,16 +370,7 @@ internal sealed class ArticleBulkExecutionFramework(
         ArticleBulkExecutionAuthoritySnapshot authoritySnapshot = await executionAuthority
             .ReadCurrentAsync(plan, cancellationToken).ConfigureAwait(false);
         ValidateExecutionAuthoritySnapshot(plan, authoritySnapshot);
-        ImmutableArray<ArticleBulkItemExecutionDecision> itemDecisions = [];
-        if (plan.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated)
-        {
-            itemDecisions = await planAuthority.ReadCurrentItemExecutionDecisionsAsync(plan, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        else
-        {
-            await planAuthority.ValidateCurrentArticlesForExecutionAsync(plan, cancellationToken).ConfigureAwait(false);
-        }
+        await planAuthority.ValidateCurrentArticlesForExecutionAsync(plan, cancellationToken).ConfigureAwait(false);
         // Authority I/O can cross the expiry boundary after its initial clock check.
         planAuthority.ValidateForExecution(plan);
         request = request with
@@ -530,10 +483,7 @@ internal sealed class ArticleBulkExecutionFramework(
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             immediateTerminalReceipt = blockedReceipt;
         }
-        return new ArticleBulkAdmission(request, head, appendReceipt, immediateTerminalReceipt, false)
-        {
-            ItemDecisions = itemDecisions
-        };
+        return new ArticleBulkAdmission(request, head, appendReceipt, immediateTerminalReceipt, false);
     }
 
     private async Task<ArticleBulkAdmission> BindExistingAdmissionAsync(
@@ -595,26 +545,9 @@ internal sealed class ArticleBulkExecutionFramework(
         string? retryRequestDigest = null,
         ArticleBulkItemStatus? expectedItemStatus = null,
         ArticleBulkItemStatus? nextItemStatus = null,
-        CancellationToken cancellationToken = default,
-        ArticleBulkExecutionRequest? reconciliationRequest = null)
+        CancellationToken cancellationToken = default)
     {
         ArticleBulkPlanBinding planBinding = GetPlanBinding(plan);
-        if (kind == ArticleBulkJournalEventKind.GroupReconciled)
-        {
-            if (reconciliationRequest is null)
-            {
-                throw new ArticleBulkContractException("article-bulk.reconciliation-scope-unbound");
-            }
-            ValidateReconciliationRequestShape(reconciliationRequest);
-            ArticleBulkIdempotencyResolution scope = await journalAuthority.ResolveIdempotencyAsync(
-                reconciliationRequest.IdempotencyKey, reconciliationRequest.ExecutionIdentityDigest, cancellationToken)
-                .ConfigureAwait(false);
-            ValidateReconciliationBinding(reconciliationRequest, scope);
-            if (scope.Head!.ContentDigest != current.ContentDigest)
-            {
-                throw new ArticleBulkContractException("article-bulk.reconciliation-scope-unbound");
-            }
-        }
         if (current.PlanDigest != plan.ContentDigest || current.Strategy != plan.Strategy)
         {
             throw new ArticleBulkContractException("article-bulk.journal-plan-unbound");
@@ -673,7 +606,7 @@ internal sealed class ArticleBulkExecutionFramework(
             groupReceiptDigest,
             zeroWriteProofDigest,
             aggregateReceipt);
-        if (IsGroupTerminalKind(kind))
+        if (kind == ArticleBulkJournalEventKind.GroupCommitTerminal)
         {
             await executionAuthority.ValidateGroupOutcomeAsync(
                 plan,
@@ -727,8 +660,8 @@ internal sealed class ArticleBulkExecutionFramework(
             CancelledCount = current.CancelledCount + itemReceipts.Count(
                 static receipt => receipt.ExecutionStatus == ArticleBulkItemStatus.Cancelled),
             GroupCommitStarted = current.GroupCommitStarted || kind == ArticleBulkJournalEventKind.GroupCommitStarted,
-            GroupCommitTerminal = current.GroupCommitTerminal || IsGroupTerminalKind(kind),
-            GroupCommitOutcome = IsGroupTerminalKind(kind)
+            GroupCommitTerminal = current.GroupCommitTerminal || kind == ArticleBulkJournalEventKind.GroupCommitTerminal,
+            GroupCommitOutcome = kind == ArticleBulkJournalEventKind.GroupCommitTerminal
                 ? groupOutcome
                 : current.GroupCommitOutcome,
             ContentDigest = string.Empty
@@ -865,19 +798,6 @@ internal sealed class ArticleBulkExecutionFramework(
             throw new ArticleBulkContractException("article-bulk.execution-request-tampered");
         }
         await VerifyJournalAsync(sealedHead, cancellationToken).ConfigureAwait(false);
-        await foreach (IReadOnlyList<ArticleBulkJournalEvent> batch in journalAuthority
-            .ReadEventBatchesAsync(sealedHead, JournalReadBatchSize, cancellationToken)
-            .WithCancellation(cancellationToken).ConfigureAwait(false))
-        {
-            if (batch.Any(static entry => entry.Kind == ArticleBulkJournalEventKind.GroupReconciled))
-            {
-                ValidateReconciliationRequestShape(request);
-                if (sealedHead.GroupCommitStarted)
-                {
-                    throw new ArticleBulkContractException("article-bulk.reconciliation-scope-unbound");
-                }
-            }
-        }
         ImmutableArray<(int Count, string Digest)> receiptBindings = await ReadReceiptBindingsAsync(
             sealedHead,
             cancellationToken).ConfigureAwait(false);
@@ -981,9 +901,6 @@ internal sealed class ArticleBulkExecutionFramework(
             || (plan.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated
                 && (sealedHead.AdmittedCount > itemArticleIds.Count
                     || sealedHead.AdmittedCount < succeeded + failed))
-            || plan.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated
-                && aggregate.RetryEligible != (aggregate.TerminalState != ArticleBulkExecutionState.RecoveryRequired
-                    && (failed > 0 || cancelled > sealedHead.AdmittedCount - succeeded - failed))
             || aggregate.TerminalState != sealedHead.State
             || aggregate.SucceededCount + aggregate.FailedCount + aggregate.CancelledCount
                 != aggregate.EligibleCount)
@@ -991,10 +908,6 @@ internal sealed class ArticleBulkExecutionFramework(
             throw new ArticleBulkContractException("article-bulk.aggregate-receipt-inexact");
         }
         ValidateStrategyOutcome(aggregate);
-        if (plan.Strategy == ArticleBulkExecutionStrategy.AllOrNothing)
-        {
-            await VerifyAtomicOutcomeAsync(plan, sealedHead, aggregate, cancellationToken).ConfigureAwait(false);
-        }
     }
 
     private async Task<ImmutableArray<(int Count, string Digest)>> ReadReceiptBindingsAsync(
@@ -1056,37 +969,18 @@ internal sealed class ArticleBulkExecutionFramework(
         if (resolution.Kind == ArticleBulkIdempotencyKind.Terminal)
         {
             await VerifyExecutionAsync(request, plan, sealedHead, cancellationToken).ConfigureAwait(false);
-            if (plan.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
-                && resolution.TerminalReceipt?.GroupCommitOutcome == ArticleBulkGroupCommitOutcome.UnknownRecovery)
-            {
-                await ReconcileUnknownAsync(request, plan, sealedHead, resolution.TerminalReceipt, cancellationToken)
-                    .ConfigureAwait(false);
-            }
             return sealedHead;
         }
         if (resolution.Kind != ArticleBulkIdempotencyKind.InProgress)
         {
             throw new ArticleBulkContractException("article-bulk.resume-attempt-missing");
         }
-        if (plan.Strategy == ArticleBulkExecutionStrategy.AllOrNothing)
-        {
-            ArticleBulkJournalHead resumed = await ResumeAtomicAsync(request, plan, sealedHead, cancellationToken)
-                .ConfigureAwait(false);
-            ArticleBulkIdempotencyResolution finalized = await journalAuthority.ResolveIdempotencyAsync(
-                request.IdempotencyKey, request.ExecutionIdentityDigest, cancellationToken).ConfigureAwait(false);
-            if (finalized.TerminalReceipt?.GroupCommitOutcome == ArticleBulkGroupCommitOutcome.UnknownRecovery)
-            {
-                await ReconcileUnknownAsync(request, plan, resumed, finalized.TerminalReceipt, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            return resumed;
-        }
         bool activeOutcomeUnknown = sealedHead.ActiveArticleIds.Length > 0;
+        bool groupOutcomeUnknown = sealedHead.GroupCommitStarted && !sealedHead.GroupCommitTerminal;
         bool cancellationPending = sealedHead.State == ArticleBulkExecutionState.Cancelling
             && !sealedHead.GroupCommitStarted;
         bool recoveryFinalizationPending = sealedHead.State == ArticleBulkExecutionState.RecoveryRequired;
-        bool executionFinalizationPending = sealedHead.State == ArticleBulkExecutionState.Executing;
-        if (!activeOutcomeUnknown && !cancellationPending && !recoveryFinalizationPending && !executionFinalizationPending)
+        if (!activeOutcomeUnknown && !groupOutcomeUnknown && !cancellationPending && !recoveryFinalizationPending)
         {
             return sealedHead;
         }
@@ -1131,7 +1025,7 @@ internal sealed class ArticleBulkExecutionFramework(
                     {
                         plan.ContentDigest,
                         articleId,
-                        RequiresCanonicalReconciliation = true
+                        Retry = true
                     }),
                     string.Empty));
                 (recoveryHead, _) = await AppendAsync(
@@ -1149,13 +1043,24 @@ internal sealed class ArticleBulkExecutionFramework(
                     cancellationToken: cancellationToken).ConfigureAwait(false);
             }
         }
+        else if (groupOutcomeUnknown)
+        {
+            (recoveryHead, _) = await AppendAsync(
+                recoveryHead,
+                plan,
+                ArticleBulkJournalEventKind.GroupCommitTerminal,
+                recoveryHead.State,
+                commandOwner: operation.CommandOwner,
+                groupOutcome: ArticleBulkGroupCommitOutcome.UnknownRecovery,
+                reasonCode: "group-command-outcome-unknown",
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
 
         var existingArticleIds = new HashSet<string>(StringComparer.Ordinal);
         var receiptDigests = ImmutableArray.CreateBuilder<string>();
         int succeeded = 0;
         int failed = 0;
         int cancelled = 0;
-        bool unresolved = false;
         await foreach (ArticleBulkItemReceipt receipt in journalAuthority
             .ReadItemReceiptsAsync(recoveryHead, cancellationToken)
             .WithCancellation(cancellationToken).ConfigureAwait(false))
@@ -1167,8 +1072,14 @@ internal sealed class ArticleBulkExecutionFramework(
             Accumulate(receipt);
         }
 
-        ArticleBulkItemStatus missingStatus = ArticleBulkItemStatus.Cancelled;
-        const string MissingReason = "not-admitted-before-attempt-stop";
+        bool groupRecoveryRequired = groupOutcomeUnknown
+            || recoveryHead.GroupCommitOutcome == ArticleBulkGroupCommitOutcome.UnknownRecovery;
+        ArticleBulkItemStatus missingStatus = groupRecoveryRequired
+            ? ArticleBulkItemStatus.RecoveryRequired
+            : ArticleBulkItemStatus.Cancelled;
+        string missingReason = groupRecoveryRequired
+            ? "group-command-outcome-unknown"
+            : "not-admitted-before-attempt-stop";
         var missingChunk = new List<ArticleBulkItemReceipt>(ReceiptChunkSize);
         foreach (ArticleBulkPlanItem item in plan.Items)
         {
@@ -1182,7 +1093,7 @@ internal sealed class ArticleBulkExecutionFramework(
                 operation,
                 item,
                 missingStatus,
-                MissingReason));
+                missingReason));
             if (missingChunk.Count == ReceiptChunkSize)
             {
                 await FlushMissingChunkAsync().ConfigureAwait(false);
@@ -1190,12 +1101,18 @@ internal sealed class ArticleBulkExecutionFramework(
         }
         await FlushMissingChunkAsync().ConfigureAwait(false);
 
-        ArticleBulkExecutionState terminalState = unresolved
+        ArticleBulkExecutionState terminalState = failed > 0
             ? ArticleBulkExecutionState.RecoveryRequired
-            : succeeded > 0
-                ? failed + cancelled > 0 ? ArticleBulkExecutionState.Partial : ArticleBulkExecutionState.Completed
-                : failed > 0 ? ArticleBulkExecutionState.Failed : ArticleBulkExecutionState.Cancelled;
+            : ArticleBulkExecutionState.Cancelled;
         ImmutableArray<ArticleBulkReceiptChunk> chunks = ChunkReceiptDigests(receiptDigests.ToImmutable());
+        string? cancelZeroWriteProof = terminalState == ArticleBulkExecutionState.Cancelled
+            && plan.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
+            ? ArticleBulkDigest.Of(new
+            {
+                plan.ContentDigest,
+                CancelledBeforeCommit = true
+            })
+            : null;
         ArticleBulkAggregateReceipt aggregate = SealAggregateReceipt(new ArticleBulkAggregateReceipt(
             recoveryHead.AttemptId,
             request.ContentDigest,
@@ -1210,11 +1127,16 @@ internal sealed class ArticleBulkExecutionFramework(
             failed,
             cancelled,
             terminalState,
+            plan.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
+                ? groupRecoveryRequired
+                    ? ArticleBulkGroupCommitOutcome.UnknownRecovery
+                    : ArticleBulkGroupCommitOutcome.RejectedZeroWrite
+                : null,
             null,
-            null,
-            null,
+            cancelZeroWriteProof,
             succeeded > 0 && failed + cancelled > 0,
-            terminalState != ArticleBulkExecutionState.RecoveryRequired && failed + cancelled > 0,
+            plan.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated
+                && failed > 0,
             chunks,
             string.Empty));
         (recoveryHead, _) = await AppendAsync(
@@ -1223,6 +1145,7 @@ internal sealed class ArticleBulkExecutionFramework(
             ArticleBulkJournalEventKind.ExecutionTerminal,
             terminalState,
             groupOutcome: aggregate.GroupCommitOutcome,
+            zeroWriteProofDigest: cancelZeroWriteProof,
             aggregateReceipt: aggregate,
             reasonCode: terminalState == ArticleBulkExecutionState.RecoveryRequired
                 ? "recovery-required"
@@ -1233,7 +1156,6 @@ internal sealed class ArticleBulkExecutionFramework(
         void Accumulate(ArticleBulkItemReceipt receipt)
         {
             receiptDigests.Add(receipt.ContentDigest);
-            unresolved |= receipt.ExecutionStatus == ArticleBulkItemStatus.RecoveryRequired;
             succeeded += receipt.ExecutionStatus == ArticleBulkItemStatus.Succeeded ? 1 : 0;
             failed += receipt.ExecutionStatus is ArticleBulkItemStatus.Failed
                 or ArticleBulkItemStatus.RecoveryRequired ? 1 : 0;
@@ -1253,7 +1175,7 @@ internal sealed class ArticleBulkExecutionFramework(
                 ArticleBulkJournalEventKind.ReceiptChunkRecorded,
                 recoveryHead.State,
                 receiptChunk: sealedChunk,
-                reasonCode: MissingReason,
+                reasonCode: missingReason,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             foreach (ArticleBulkItemReceipt receipt in sealedChunk)
             {
@@ -1275,7 +1197,7 @@ internal sealed class ArticleBulkExecutionFramework(
         if (plan.Strategy != ArticleBulkExecutionStrategy.PerItemIsolated
             || terminalHead.State is not (ArticleBulkExecutionState.Partial
                 or ArticleBulkExecutionState.Failed
-                or ArticleBulkExecutionState.Cancelled)
+                or ArticleBulkExecutionState.RecoveryRequired)
             || !IsBoundedOpaqueValue(newAttemptId, 256)
             || newAttemptId == terminalHead.AttemptId
             || newExpectedRevisions.Count is < 1 or > 10_000
@@ -1285,22 +1207,19 @@ internal sealed class ArticleBulkExecutionFramework(
             throw new ArticleBulkContractException("article-bulk.retry-not-eligible");
         }
         await VerifyExecutionAsync(request, plan, terminalHead, cancellationToken).ConfigureAwait(false);
-        HashSet<string> admittedArticleIds = await ReadAdmittedArticleIdsAsync(terminalHead, cancellationToken)
-            .ConfigureAwait(false);
         var failed = ImmutableArray.CreateBuilder<(string, string)>();
         await foreach (ArticleBulkItemReceipt receipt in journalAuthority
             .ReadItemReceiptsAsync(terminalHead, cancellationToken)
             .WithCancellation(cancellationToken).ConfigureAwait(false))
         {
-            if (receipt.ExecutionStatus != ArticleBulkItemStatus.Failed
-                && !(receipt.ExecutionStatus == ArticleBulkItemStatus.Cancelled
-                    && !admittedArticleIds.Contains(receipt.ArticleId)))
+            if (receipt.ExecutionStatus is not (ArticleBulkItemStatus.Failed or ArticleBulkItemStatus.RecoveryRequired))
             {
                 continue;
             }
-            if (!newExpectedRevisions.TryGetValue(receipt.ArticleId, out string? newRevision))
+            if (!newExpectedRevisions.TryGetValue(receipt.ArticleId, out string? newRevision)
+                || string.IsNullOrWhiteSpace(newRevision))
             {
-                continue;
+                throw new ArticleBulkContractException("article-bulk.retry-revision-required");
             }
             failed.Add((receipt.ArticleId, newRevision));
         }
@@ -1328,7 +1247,7 @@ internal sealed class ArticleBulkExecutionFramework(
             ArticleBulkJournalEventKind.RetryRequested,
             terminalHead.State,
             retryRequestDigest: retryRequest.ContentDigest,
-            reasonCode: "proved-failure-or-not-started-explicit-revision",
+            reasonCode: "failed-items-explicit-revision",
             cancellationToken: cancellationToken).ConfigureAwait(false);
         return new ArticleBulkRetryAdmission(retryRequest, retryHead, appendReceipt);
     }
@@ -1381,7 +1300,7 @@ internal sealed class ArticleBulkExecutionFramework(
             ArticleBulkJournalEventKind.ItemStarted or ArticleBulkJournalEventKind.GroupCommitStarted =>
                 commandOwner == operation.CommandOwner && commandReceiptDigest is null,
             ArticleBulkJournalEventKind.ItemTerminal => commandOwner == operation.CommandOwner,
-            ArticleBulkJournalEventKind.GroupCommitTerminal or ArticleBulkJournalEventKind.GroupReconciled => commandOwner == operation.CommandOwner
+            ArticleBulkJournalEventKind.GroupCommitTerminal => commandOwner == operation.CommandOwner
                 && commandReceiptDigest == groupReceiptDigest,
             _ => commandOwner is null && commandReceiptDigest is null
         };
@@ -1426,7 +1345,7 @@ internal sealed class ArticleBulkExecutionFramework(
             : articleId is null;
         bool terminalPayloadValid = kind switch
         {
-            ArticleBulkJournalEventKind.GroupCommitTerminal or ArticleBulkJournalEventKind.GroupReconciled => groupOutcome is not null
+            ArticleBulkJournalEventKind.GroupCommitTerminal => groupOutcome is not null
                 && aggregateReceipt is null && retryRequestDigest is null,
             ArticleBulkJournalEventKind.ExecutionTerminal => aggregateReceipt is not null
                 && retryRequestDigest is null,
@@ -1564,16 +1483,14 @@ internal sealed class ArticleBulkExecutionFramework(
                 plan.ContentDigest,
                 item.ArticleId,
                 Status = status,
-                NoCanonicalCommandWasAdmitted = status == ArticleBulkItemStatus.Cancelled
-                    && plan.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated,
-                RequiresCanonicalReconciliation = status == ArticleBulkItemStatus.RecoveryRequired
+                NoCanonicalCommandWasAdmitted = true
             }),
             [],
             ArticleBulkDigest.Of(new
             {
                 plan.ContentDigest,
                 item.ArticleId,
-                NotStarted = status == ArticleBulkItemStatus.Cancelled
+                Retry = status == ArticleBulkItemStatus.RecoveryRequired
             }),
             string.Empty));
     }
@@ -1638,11 +1555,7 @@ internal sealed class ArticleBulkExecutionFramework(
                     : receipt.ZeroWriteProofDigest is null
                         && receipt.Partial == (receipt.SucceededCount > 0
                             && receipt.FailedCount + receipt.CancelledCount > 0)
-                        && (receipt.TerminalState == ArticleBulkExecutionState.RecoveryRequired
-                            ? !receipt.RetryEligible
-                            : receipt.RetryEligible
-                                ? receipt.FailedCount + receipt.CancelledCount > 0
-                                : receipt.FailedCount == 0)
+                        && receipt.RetryEligible == (receipt.FailedCount > 0)
                         && receipt.TerminalState switch
                         {
                             ArticleBulkExecutionState.Completed => receipt.SucceededCount == receipt.EligibleCount,
@@ -1705,21 +1618,16 @@ internal sealed class ArticleBulkExecutionFramework(
                     && (next is ArticleBulkExecutionState.Completed or ArticleBulkExecutionState.Partial
                         or ArticleBulkExecutionState.Failed or ArticleBulkExecutionState.Cancelled)
                 || current.State == ArticleBulkExecutionState.RecoveryRequired
-                    && next is ArticleBulkExecutionState.RecoveryRequired or ArticleBulkExecutionState.Cancelled
-                        or ArticleBulkExecutionState.Completed or ArticleBulkExecutionState.Partial or ArticleBulkExecutionState.Failed,
+                    && next is ArticleBulkExecutionState.RecoveryRequired or ArticleBulkExecutionState.Cancelled,
             ArticleBulkExecutionStrategy.AllOrNothing =>
                 current.State == ArticleBulkExecutionState.Planned && next == ArticleBulkExecutionState.Blocked
                 || current.State == ArticleBulkExecutionState.Cancelling
                     && next == ArticleBulkExecutionState.Cancelled && !current.GroupCommitStarted
                 || current.State == ArticleBulkExecutionState.Executing
-                    && (next is ArticleBulkExecutionState.Completed or ArticleBulkExecutionState.Failed
-                        || next == ArticleBulkExecutionState.Cancelled && !current.GroupCommitStarted)
+                    && (next is ArticleBulkExecutionState.Completed or ArticleBulkExecutionState.Failed)
                     && current.GroupCommitTerminal
                 || current.State == ArticleBulkExecutionState.RecoveryRequired
-                    && (next == ArticleBulkExecutionState.RecoveryRequired
-                        || current.GroupCommitTerminal
-                            && (next is ArticleBulkExecutionState.Completed or ArticleBulkExecutionState.Failed
-                                or ArticleBulkExecutionState.Cancelled)),
+                    && next is ArticleBulkExecutionState.RecoveryRequired or ArticleBulkExecutionState.Cancelled,
             _ => false
         };
         bool legal = kind switch
@@ -1740,18 +1648,9 @@ internal sealed class ArticleBulkExecutionFramework(
                 && !current.GroupCommitStarted && next == ArticleBulkExecutionState.Cancelling,
             ArticleBulkJournalEventKind.GroupCommitStarted => current.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
                 && current.State == ArticleBulkExecutionState.Executing && !current.GroupCommitStarted && next == current.State,
-            ArticleBulkJournalEventKind.GroupCommitTerminal or ArticleBulkJournalEventKind.GroupReconciled => current.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
+            ArticleBulkJournalEventKind.GroupCommitTerminal => current.Strategy == ArticleBulkExecutionStrategy.AllOrNothing
                 && current.State is ArticleBulkExecutionState.Executing or ArticleBulkExecutionState.RecoveryRequired
-                && (kind == ArticleBulkJournalEventKind.GroupReconciled
-                        && current.State == ArticleBulkExecutionState.RecoveryRequired && !current.GroupCommitStarted
-                    || kind == ArticleBulkJournalEventKind.GroupCommitTerminal && (current.GroupCommitStarted
-                    || groupOutcome is ArticleBulkGroupCommitOutcome.RejectedZeroWrite
-                        or ArticleBulkGroupCommitOutcome.FailedZeroWrite
-                    || current.State == ArticleBulkExecutionState.RecoveryRequired
-                        && groupOutcome == ArticleBulkGroupCommitOutcome.UnknownRecovery))
-                && (kind != ArticleBulkJournalEventKind.GroupReconciled
-                    || groupOutcome != ArticleBulkGroupCommitOutcome.UnknownRecovery)
-                && !current.GroupCommitTerminal
+                && current.GroupCommitStarted && !current.GroupCommitTerminal
                 && next == current.State && groupOutcome is not null
                 && (groupOutcome switch
                 {
@@ -1778,7 +1677,7 @@ internal sealed class ArticleBulkExecutionFramework(
                         receipt.ExecutionStatus == ArticleBulkItemStatus.Cancelled)),
             ArticleBulkJournalEventKind.RetryRequested => current.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated
                 && (current.State is ArticleBulkExecutionState.Partial or ArticleBulkExecutionState.Failed
-                    or ArticleBulkExecutionState.Cancelled)
+                    or ArticleBulkExecutionState.RecoveryRequired)
                 && next == current.State,
             ArticleBulkJournalEventKind.ExecutionTerminal => (next is ArticleBulkExecutionState.Completed
                 or ArticleBulkExecutionState.Partial or ArticleBulkExecutionState.Failed
@@ -1941,8 +1840,8 @@ internal sealed class ArticleBulkExecutionFramework(
             GroupCommitStarted = current.GroupCommitStarted
                 || journalEvent.Kind == ArticleBulkJournalEventKind.GroupCommitStarted,
             GroupCommitTerminal = current.GroupCommitTerminal
-                || IsGroupTerminalKind(journalEvent.Kind),
-            GroupCommitOutcome = IsGroupTerminalKind(journalEvent.Kind)
+                || journalEvent.Kind == ArticleBulkJournalEventKind.GroupCommitTerminal,
+            GroupCommitOutcome = journalEvent.Kind == ArticleBulkJournalEventKind.GroupCommitTerminal
                 ? journalEvent.GroupCommitOutcome
                 : current.GroupCommitOutcome,
             ContentDigest = string.Empty
@@ -2053,442 +1952,4 @@ internal sealed class ArticleBulkExecutionFramework(
     private sealed record ArticleBulkPlanBinding(
         ArticleBulkOperation Operation,
         FrozenDictionary<string, ArticleBulkPlanItem> EligibleItems);
-    internal async Task<ArticleBulkReconciliationResult?> ReadReconciliationAsync(
-        ArticleBulkExecutionRequest originalRequest,
-        ArticleBulkPlan plan,
-        ArticleBulkJournalHead originalHead,
-        CancellationToken cancellationToken = default)
-    {
-        await VerifyExecutionAsync(originalRequest, plan, originalHead, cancellationToken).ConfigureAwait(false);
-        ArticleBulkIdempotencyResolution original = await journalAuthority.ResolveIdempotencyAsync(
-            originalRequest.IdempotencyKey, originalRequest.ExecutionIdentityDigest, cancellationToken).ConfigureAwait(false);
-        if (plan.Strategy != ArticleBulkExecutionStrategy.AllOrNothing
-            || original.TerminalReceipt?.GroupCommitOutcome != ArticleBulkGroupCommitOutcome.UnknownRecovery)
-        {
-            return null;
-        }
-        ArticleBulkExecutionRequest request = ReconciliationRequest(originalRequest, original.TerminalReceipt);
-        ArticleBulkIdempotencyResolution resolution = await journalAuthority.ResolveIdempotencyAsync(
-            request.IdempotencyKey, request.ExecutionIdentityDigest, cancellationToken).ConfigureAwait(false);
-        if (resolution.Kind == ArticleBulkIdempotencyKind.Missing)
-        {
-            return null;
-        }
-        ValidateReconciliationBinding(request, resolution);
-        if (resolution.Kind == ArticleBulkIdempotencyKind.Terminal)
-        {
-            await VerifyExecutionAsync(request, plan, resolution.Head!, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            await VerifyJournalAsync(resolution.Head!, cancellationToken).ConfigureAwait(false);
-        }
-        return new ArticleBulkReconciliationResult(originalRequest.ContentDigest, original.TerminalReceipt.ContentDigest,
-            request, resolution.Head!, resolution.TerminalReceipt);
-    }
-
-    private async Task ReconcileUnknownAsync(
-        ArticleBulkExecutionRequest originalRequest,
-        ArticleBulkPlan plan,
-        ArticleBulkJournalHead originalHead,
-        ArticleBulkAggregateReceipt originalTerminal,
-        CancellationToken cancellationToken)
-    {
-        // Always read using the original identity/checkpoint, even after a sealed unknown terminal or restart.
-        // This interface cannot prepare, commit, retry, query selection, or manufacture a zero-write conclusion.
-        ArticleBulkGroupRecoveryEvidence? evidence = await executionAuthority.ReadGroupRecoveryAsync(
-            originalRequest, plan, originalHead, cancellationToken).ConfigureAwait(false);
-        if (evidence is null)
-        {
-            return;
-        }
-        bool proofShapeValid = evidence.Outcome switch
-        {
-            ArticleBulkGroupCommitOutcome.Committed => IsContentDigest(evidence.GroupReceiptDigest)
-                && evidence.ZeroWriteProofDigest is null,
-            ArticleBulkGroupCommitOutcome.RejectedZeroWrite or ArticleBulkGroupCommitOutcome.FailedZeroWrite =>
-                evidence.GroupReceiptDigest is null && IsContentDigest(evidence.ZeroWriteProofDigest),
-            ArticleBulkGroupCommitOutcome.UnknownRecovery => evidence.GroupReceiptDigest is null
-                && evidence.ZeroWriteProofDigest is null,
-            _ => false
-        };
-        if (evidence.ExecutionIdentityDigest != originalRequest.ExecutionIdentityDigest
-            || evidence.PlanDigest != plan.ContentDigest || !proofShapeValid)
-        {
-            throw new ArticleBulkContractException("article-bulk.group-recovery-unbound");
-        }
-        if (evidence.Outcome == ArticleBulkGroupCommitOutcome.UnknownRecovery)
-        {
-            return;
-        }
-        await executionAuthority.ValidateGroupOutcomeAsync(plan, evidence.Outcome, evidence.GroupReceiptDigest,
-            evidence.ZeroWriteProofDigest, cancellationToken).ConfigureAwait(false);
-        ArticleBulkExecutionRequest request = ReconciliationRequest(originalRequest, originalTerminal);
-        ArticleBulkIdempotencyResolution resolution = await journalAuthority.ResolveIdempotencyAsync(
-            request.IdempotencyKey, request.ExecutionIdentityDigest, cancellationToken).ConfigureAwait(false);
-        if (resolution.Kind == ArticleBulkIdempotencyKind.Missing)
-        {
-            ArticleBulkJournalEvent first = SealEvent(new ArticleBulkJournalEvent(request.AttemptId, 0,
-                ArticleBulkJournalEventKind.Planned, ArticleBulkExecutionState.Planned, request.RequestedAtUtc,
-                string.Empty, null, null, null, null, 0, 0, 0, 0, "canonical-reconciliation-observation",
-                null, null, null, null, null, string.Empty));
-            ArticleBulkJournalHead initial = SealHead(originalHead with
-            {
-                IdempotencyKeyDigest = ArticleBulkDigest.Of(request.IdempotencyKey),
-                State = ArticleBulkExecutionState.Planned,
-                EventCount = 1,
-                LastEventDigest = first.ContentDigest,
-                ActiveArticleIds = [],
-                AdmittedCount = 0,
-                SucceededCount = 0,
-                FailedCount = 0,
-                CancelledCount = 0,
-                GroupCommitStarted = false,
-                GroupCommitTerminal = false,
-                GroupCommitOutcome = null,
-                ContentDigest = string.Empty
-            });
-            try
-            {
-                ArticleBulkJournalAppendReceipt created = await journalAuthority.CreateAsync(request.IdempotencyKey,
-                    request, first, initial, cancellationToken).ConfigureAwait(false);
-                ValidateAppendReceipt(created, first, initial);
-            }
-            catch (ArticleBulkContractException exception) when (exception.Code == "article-bulk.idempotency-conflict")
-            {
-                // Concurrent observers share the same deterministic journal, never a fresh business attempt.
-            }
-            resolution = await journalAuthority.ResolveIdempotencyAsync(request.IdempotencyKey,
-                request.ExecutionIdentityDigest, cancellationToken).ConfigureAwait(false);
-        }
-        ValidateReconciliationBinding(request, resolution);
-        ArticleBulkJournalHead head = resolution.Head!;
-        await VerifyJournalAsync(head, cancellationToken).ConfigureAwait(false);
-        ArticleBulkJournalEvent? prior = await ReadGroupTerminalAsync(head, cancellationToken).ConfigureAwait(false);
-        if (prior is not null && (prior.GroupCommitOutcome != evidence.Outcome
-            || prior.GroupReceiptDigest != evidence.GroupReceiptDigest
-            || prior.ZeroWriteProofDigest != evidence.ZeroWriteProofDigest))
-        {
-            throw new ArticleBulkContractException("article-bulk.group-recovery-unbound");
-        }
-        if (resolution.Kind == ArticleBulkIdempotencyKind.Terminal)
-        {
-            await VerifyExecutionAsync(request, plan, head, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-        if (head.State == ArticleBulkExecutionState.Planned)
-        {
-            (head, _) = await AppendAsync(head, plan, ArticleBulkJournalEventKind.Admitted,
-                ArticleBulkExecutionState.Admitted, reasonCode: "read-only-canonical-observation",
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-        if (head.State == ArticleBulkExecutionState.Admitted)
-        {
-            (head, _) = await AppendAsync(head, plan, ArticleBulkJournalEventKind.ExecutionStarted,
-                ArticleBulkExecutionState.Executing, reasonCode: "read-only-canonical-observation",
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-        await ResumeAtomicAsync(request, plan, head, cancellationToken, evidence, reconciliation: true).ConfigureAwait(false);
-    }
-
-    private static ArticleBulkExecutionRequest ReconciliationRequest(
-        ArticleBulkExecutionRequest original,
-        ArticleBulkAggregateReceipt terminal)
-    {
-        // Preserve the canonical transaction/attempt identity so owner receipts stay byte-for-byte unchanged.
-        // The storage key and immutable request purpose distinguish this observation from business execution.
-        string reference = ReconciliationPrefix + original.ContentDigest + "|" + terminal.ContentDigest;
-        ArticleBulkExecutionRequest request = original with
-        {
-            IdempotencyKey = ReconciliationPrefix + ArticleBulkDigest.Of(reference),
-            PlanReference = reference,
-            ContentDigest = string.Empty
-        };
-        return request with
-        {
-            ContentDigest = ArticleBulkDigest.Of(request)
-        };
-    }
-
-    internal static void ValidateReconciliationRequestShape(ArticleBulkExecutionRequest request)
-    {
-        string[] components = request.PlanReference.StartsWith(ReconciliationPrefix, StringComparison.Ordinal)
-            ? request.PlanReference[ReconciliationPrefix.Length..].Split('|') : [];
-        if (components.Length != 2 || !IsContentDigest(components[0]) || !IsContentDigest(components[1])
-            || request.IdempotencyKey != ReconciliationPrefix + ArticleBulkDigest.Of(request.PlanReference)
-            || request.ContentDigest != ArticleBulkDigest.Of(request with
-            {
-                ContentDigest = string.Empty
-            }))
-        {
-            throw new ArticleBulkContractException("article-bulk.reconciliation-scope-unbound");
-        }
-    }
-
-    private static void ValidateReconciliationBinding(
-        ArticleBulkExecutionRequest expected,
-        ArticleBulkIdempotencyResolution resolution)
-    {
-        if (resolution.Kind is not (ArticleBulkIdempotencyKind.InProgress or ArticleBulkIdempotencyKind.Terminal)
-            || resolution.ExistingRequest?.ContentDigest != expected.ContentDigest
-            || resolution.Head is null || resolution.Head.AttemptId != expected.AttemptId
-            || resolution.Head.ExecutionIdentityDigest != expected.ExecutionIdentityDigest
-            || resolution.Head.IdempotencyKeyDigest != ArticleBulkDigest.Of(expected.IdempotencyKey)
-            || resolution.Head.GroupCommitStarted)
-        {
-            throw new ArticleBulkContractException("article-bulk.reconciliation-scope-unbound");
-        }
-    }
-
-    private async Task<ArticleBulkJournalHead> ResumeAtomicAsync(
-        ArticleBulkExecutionRequest request,
-        ArticleBulkPlan plan,
-        ArticleBulkJournalHead head,
-        CancellationToken cancellationToken,
-        ArticleBulkGroupRecoveryEvidence? suppliedEvidence = null,
-        bool reconciliation = false)
-    {
-        if (head.State is ArticleBulkExecutionState.Planned or ArticleBulkExecutionState.Admitted)
-        {
-            return head;
-        }
-        ArticleBulkJournalEvent? group = await ReadGroupTerminalAsync(head, cancellationToken).ConfigureAwait(false);
-        if (head.State != ArticleBulkExecutionState.RecoveryRequired)
-        {
-            (head, _) = await AppendAsync(head, plan, ArticleBulkJournalEventKind.RecoveryRequired,
-                ArticleBulkExecutionState.RecoveryRequired, reasonCode: "atomic-evidence-finalization-pending",
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-        }
-
-        var existing = new Dictionary<string, ArticleBulkItemReceipt>(StringComparer.Ordinal);
-        var digests = new List<string>(plan.Impact.EligibleCount);
-        await foreach (ArticleBulkItemReceipt receipt in journalAuthority.ReadItemReceiptsAsync(head, cancellationToken)
-            .WithCancellation(cancellationToken).ConfigureAwait(false))
-        {
-            if (existing.Count == 10_000 || !existing.TryAdd(receipt.ArticleId, receipt))
-            {
-                throw new ArticleBulkContractException("article-bulk.receipts-unbounded");
-            }
-            digests.Add(receipt.ContentDigest);
-        }
-
-        ArticleBulkGroupRecoveryEvidence? evidence = suppliedEvidence;
-        if (group is null || existing.Count < plan.Impact.EligibleCount)
-        {
-            // Absence of an adapter is unresolved evidence, never permission to execute again.
-            evidence ??= await executionAuthority.ReadGroupRecoveryAsync(request, plan, head, cancellationToken)
-                .ConfigureAwait(false);
-            if (evidence is not null && (evidence.ExecutionIdentityDigest != request.ExecutionIdentityDigest
-                    || evidence.PlanDigest != plan.ContentDigest
-                    || group is not null && group.GroupCommitOutcome != ArticleBulkGroupCommitOutcome.UnknownRecovery
-                        && (evidence.Outcome != group.GroupCommitOutcome
-                        || evidence.GroupReceiptDigest != group.GroupReceiptDigest
-                        || evidence.ZeroWriteProofDigest != group.ZeroWriteProofDigest)))
-            {
-                throw new ArticleBulkContractException("article-bulk.group-recovery-unbound");
-            }
-            // A sealed unknown marker is historical. Later known evidence belongs to a new observation journal.
-            if (group?.GroupCommitOutcome == ArticleBulkGroupCommitOutcome.UnknownRecovery)
-            {
-                evidence = null;
-            }
-        }
-        if (group is null)
-        {
-            ArticleBulkGroupCommitOutcome outcome = evidence?.Outcome ?? ArticleBulkGroupCommitOutcome.UnknownRecovery;
-            (head, _) = await AppendAsync(head, plan, reconciliation
-                    ? ArticleBulkJournalEventKind.GroupReconciled : ArticleBulkJournalEventKind.GroupCommitTerminal,
-                head.State, commandOwner: ArticleBulkOperationRegistry.Get(plan.OperationId).CommandOwner,
-                commandReceiptDigest: evidence?.GroupReceiptDigest, groupOutcome: outcome,
-                groupReceiptDigest: evidence?.GroupReceiptDigest, zeroWriteProofDigest: evidence?.ZeroWriteProofDigest,
-                reasonCode: outcome == ArticleBulkGroupCommitOutcome.UnknownRecovery
-                    ? "preparation-or-command-conclusion-unproved" : "canonical-group-reconciled",
-                cancellationToken: cancellationToken, reconciliationRequest: reconciliation ? request : null)
-                .ConfigureAwait(false);
-            group = await ReadGroupTerminalAsync(head, cancellationToken).ConfigureAwait(false)
-                ?? throw new ArticleBulkContractException("article-bulk.group-recovery-unbound");
-        }
-
-        var chunk = new List<ArticleBulkItemReceipt>(ReceiptChunkSize);
-        if (group.GroupCommitOutcome == ArticleBulkGroupCommitOutcome.UnknownRecovery)
-        {
-            foreach (ArticleBulkPlanItem item in plan.Items)
-            {
-                if (item.Status != ArticleBulkPlanItemStatus.Eligible || existing.ContainsKey(item.ArticleId))
-                {
-                    continue;
-                }
-                chunk.Add(CreateDecisionReceipt(request, plan, ArticleBulkOperationRegistry.Get(plan.OperationId),
-                    item, ArticleBulkItemStatus.RecoveryRequired, "group-release-or-command-outcome-unknown"));
-                if (chunk.Count == ReceiptChunkSize)
-                {
-                    await FlushAsync().ConfigureAwait(false);
-                }
-            }
-        }
-        else if (existing.Count < plan.Impact.EligibleCount)
-        {
-            if (evidence is null)
-            {
-                return head;
-            }
-            using IEnumerator<ArticleBulkPlanItem> expected = plan.Items
-                .Where(static item => item.Status == ArticleBulkPlanItemStatus.Eligible).GetEnumerator();
-            await foreach (ArticleBulkItemReceipt receipt in evidence.ItemReceipts
-                .WithCancellation(cancellationToken).ConfigureAwait(false))
-            {
-                if (!expected.MoveNext() || expected.Current.ArticleId != receipt.ArticleId)
-                {
-                    throw new ArticleBulkContractException("article-bulk.group-recovery-items-inexact");
-                }
-                ValidateRecoveryItem(receipt, expected.Current);
-                if (existing.TryGetValue(receipt.ArticleId, out ArticleBulkItemReceipt? prior))
-                {
-                    if (prior.ContentDigest != receipt.ContentDigest)
-                    {
-                        throw new ArticleBulkContractException("article-bulk.group-recovery-item-conflict");
-                    }
-                    continue;
-                }
-                chunk.Add(receipt);
-                if (chunk.Count == ReceiptChunkSize)
-                {
-                    await FlushAsync().ConfigureAwait(false);
-                }
-            }
-            if (expected.MoveNext())
-            {
-                throw new ArticleBulkContractException("article-bulk.group-recovery-items-incomplete");
-            }
-        }
-        await FlushAsync().ConfigureAwait(false);
-        foreach (ArticleBulkPlanItem item in plan.Items.Where(static item => item.Status == ArticleBulkPlanItemStatus.Eligible))
-        {
-            if (!existing.TryGetValue(item.ArticleId, out ArticleBulkItemReceipt? receipt))
-            {
-                throw new ArticleBulkContractException("article-bulk.group-recovery-items-incomplete");
-            }
-            ValidateRecoveryItem(receipt, item);
-        }
-
-        ArticleBulkExecutionState state = group.GroupCommitOutcome == ArticleBulkGroupCommitOutcome.UnknownRecovery
-            ? ArticleBulkExecutionState.RecoveryRequired
-            : group.GroupCommitOutcome == ArticleBulkGroupCommitOutcome.Committed
-                ? ArticleBulkExecutionState.Completed
-                : head.CancelledCount == plan.Impact.EligibleCount
-                    ? ArticleBulkExecutionState.Cancelled : ArticleBulkExecutionState.Failed;
-        ArticleBulkAggregateReceipt aggregate = ArticleBulkExecutorProtocol.Aggregate(request, plan, head,
-            digests, state, group.GroupCommitOutcome, group.GroupReceiptDigest, group.ZeroWriteProofDigest);
-        (head, _) = await AppendAsync(head, plan, ArticleBulkJournalEventKind.ExecutionTerminal, state,
-            groupOutcome: group.GroupCommitOutcome, groupReceiptDigest: group.GroupReceiptDigest,
-            zeroWriteProofDigest: group.ZeroWriteProofDigest, aggregateReceipt: aggregate,
-            reasonCode: "sealed-group-evidence-finalized", cancellationToken: cancellationToken).ConfigureAwait(false);
-        await VerifyExecutionAsync(request, plan, head, cancellationToken).ConfigureAwait(false);
-        return head;
-
-        void ValidateRecoveryItem(ArticleBulkItemReceipt receipt, ArticleBulkPlanItem item)
-        {
-            ValidateItemReceiptShape(receipt);
-            bool outcomeMatches = group.GroupCommitOutcome switch
-            {
-                ArticleBulkGroupCommitOutcome.Committed => receipt.ExecutionStatus == ArticleBulkItemStatus.Succeeded,
-                ArticleBulkGroupCommitOutcome.UnknownRecovery => receipt.ExecutionStatus == ArticleBulkItemStatus.RecoveryRequired,
-                _ => receipt.ExecutionStatus is ArticleBulkItemStatus.Failed or ArticleBulkItemStatus.Cancelled
-                    && receipt.SideEffects.IsEmpty
-            };
-            if (!outcomeMatches || receipt.AttemptId != request.AttemptId || receipt.PlanDigest != plan.ContentDigest
-                || receipt.RegistryDigest != plan.RegistryDigest || receipt.OperationId != plan.OperationId
-                || receipt.ExpectedRevision != item.ExpectedRevision
-                || receipt.ContentDigest != ArticleBulkDigest.Of(receipt with
-                {
-                    ContentDigest = string.Empty
-                }))
-            {
-                throw new ArticleBulkContractException("article-bulk.group-recovery-item-conflict");
-            }
-        }
-
-        async Task FlushAsync()
-        {
-            if (chunk.Count == 0)
-            {
-                return;
-            }
-            (head, _) = await AppendAsync(head, plan, ArticleBulkJournalEventKind.ReceiptChunkRecorded, head.State,
-                receiptChunk: chunk, reasonCode: "atomic-recovery-item-evidence",
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-            foreach (ArticleBulkItemReceipt receipt in chunk)
-            {
-                existing.Add(receipt.ArticleId, receipt);
-                digests.Add(receipt.ContentDigest);
-            }
-            chunk.Clear();
-        }
-    }
-
-    private async Task<ArticleBulkJournalEvent?> ReadGroupTerminalAsync(
-        ArticleBulkJournalHead head,
-        CancellationToken cancellationToken)
-    {
-        ArticleBulkJournalEvent? result = null;
-        await foreach (IReadOnlyList<ArticleBulkJournalEvent> batch in journalAuthority
-            .ReadEventBatchesAsync(head, JournalReadBatchSize, cancellationToken)
-            .WithCancellation(cancellationToken).ConfigureAwait(false))
-        {
-            foreach (ArticleBulkJournalEvent journalEvent in batch)
-            {
-                if (!IsGroupTerminalKind(journalEvent.Kind))
-                {
-                    continue;
-                }
-                if (result is not null)
-                {
-                    throw new ArticleBulkContractException("article-bulk.group-recovery-unbound");
-                }
-                result = journalEvent;
-            }
-        }
-        return result;
-    }
-
-    private async Task VerifyAtomicOutcomeAsync(
-        ArticleBulkPlan plan,
-        ArticleBulkJournalHead head,
-        ArticleBulkAggregateReceipt aggregate,
-        CancellationToken cancellationToken)
-    {
-        ArticleBulkJournalEvent? group = await ReadGroupTerminalAsync(head, cancellationToken).ConfigureAwait(false);
-        if (aggregate.TerminalState != ArticleBulkExecutionState.Blocked
-            && (group is null || aggregate.GroupCommitOutcome != group.GroupCommitOutcome
-                || aggregate.GroupReceiptDigest != group.GroupReceiptDigest
-                || aggregate.ZeroWriteProofDigest != group.ZeroWriteProofDigest))
-        {
-            throw new ArticleBulkContractException("article-bulk.group-recovery-unbound");
-        }
-        await executionAuthority.ValidateGroupOutcomeAsync(plan, aggregate.GroupCommitOutcome!.Value,
-            aggregate.GroupReceiptDigest, aggregate.ZeroWriteProofDigest, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<HashSet<string>> ReadAdmittedArticleIdsAsync(
-        ArticleBulkJournalHead head,
-        CancellationToken cancellationToken)
-    {
-        var result = new HashSet<string>(StringComparer.Ordinal);
-        await foreach (IReadOnlyList<ArticleBulkJournalEvent> batch in journalAuthority
-            .ReadEventBatchesAsync(head, JournalReadBatchSize, cancellationToken)
-            .WithCancellation(cancellationToken).ConfigureAwait(false))
-        {
-            foreach (ArticleBulkJournalEvent journalEvent in batch)
-            {
-                if (journalEvent.Kind == ArticleBulkJournalEventKind.ItemAdmitted)
-                {
-                    if (result.Count == 10_000 || !result.Add(journalEvent.ArticleId!))
-                    {
-                        throw new ArticleBulkContractException("article-bulk.admitted-items-inexact");
-                    }
-                }
-            }
-        }
-        return result;
-    }
 }

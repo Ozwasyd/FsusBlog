@@ -12,8 +12,6 @@
     { "name": "article", "policy": "delete", "reason": "soft-deleted aggregate root" },
     { "name": "article_body", "policy": "delete", "reason": "current mutable body" },
     { "name": "article_draft", "policy": "delete", "reason": "mutable authoring workspace linked to the deleted article" },
-    { "name": "article_canvas_link_history", "policy": "delete", "reason": "mutable article-owned Canvas link undo and redo heads" },
-    { "name": "article_canvas_link_journal", "policy": "preserve", "reason": "append-only link conversion receipts retain scalar article and immutable revision identities" },
     { "name": "article_tag", "policy": "delete", "reason": "current taxonomy join" },
     { "name": "content_asset", "policy": "async_cleanup", "reason": "zero-reference metadata remains until the AssetId cleanup worker rechecks the ledger and completes physical deletion" },
     { "name": "content_asset_reference:article", "policy": "delete", "reason": "current article asset source" },

@@ -1,5 +1,5 @@
 import { computed, nextTick, onMounted, ref, watch, onUnmounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute, useRouter, type LocationQuery } from 'vue-router';
 
 import { toPublicArticleListCardProjection, type PublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader';
 import { getFeaturedArticles, getHotArticles, getPublicArticleCardProjections, type FeaturedArticleItem, type PopularArticleSummaryResponse } from '@/api/article';
@@ -28,7 +28,7 @@ const HOME_SECONDARY_LIST_FALLBACK_DELAY_MS = 2500;
 const HOME_ARTICLE_BATCH_REFRESH_DELAY_MS = 100;
 const HOME_SECONDARY_REFRESH_DELAY_MS = 500;
 
-const parsePageQuery = (value: unknown): number =>
+const parsePageQuery = (value: LocationQuery[string] | undefined): number =>
 {
     const raw = Array.isArray(value) ? value[0] : value;
     const parsed = Number.parseInt(String(raw ?? ''), 10);
@@ -48,7 +48,7 @@ export function useHomeView()
     const notificationStreamStore = useNotificationStreamStore();
     const { bootstrap: initialBootstrap, hydration: initialHydrationPayload } = consumePublicPageSeed('Home', { fullPath: route?.fullPath });
     const initialHydrationView = initialHydrationPayload?.view ?? null;
-    const hasInitialRouteSeed = Boolean(initialBootstrap || initialHydrationView);
+    const hasInitialRouteSeed = Boolean(initialBootstrap) || Boolean(initialHydrationView);
     const seedRenderTimeOptions = createPublicSeedRenderTimeOptions(initialHydrationPayload, initialBootstrap);
     const useSeedRenderTime = ref(Boolean(seedRenderTimeOptions));
     const initialFeaturedArticles = firstArrayOf(

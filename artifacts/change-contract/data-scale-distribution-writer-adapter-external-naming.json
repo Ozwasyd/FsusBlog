@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/data-scale/distribution-writer-adapter.mjs"
+            ],
+            "reason": "The trusted registry assigns tools MJS sources to the existing environment naming scope. Preserve the canonical fixture serializer and published writer source names while using camelCase internally; this adapter adds no environment settings or writer authority."
+        }
+    ]
+}

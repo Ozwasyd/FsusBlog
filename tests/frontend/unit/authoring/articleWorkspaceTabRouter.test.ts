@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
     AuthoringSessionHost,
@@ -56,111 +56,6 @@ const input = (articleId: number, overrides: Partial<ArticleWorkspaceOpenInput> 
 });
 
 describe('ArticleWorkspaceTabRouter contract (#2295)', () => {
-    it('seals only actual composition admission and retires exact private custody without borrowed reads', async () => {
-        vi.resetModules();
-        const composition = await import('@/services/authoring/articleWorkspaceEditorSessionComposition');
-        let reads = 0;
-        const host = composition.installArticleWorkspaceEditorSessions(() => { reads += 1; return null; });
-        const first = composition.sealArticleWorkspaceEditorSessionComposition(host);
-        expect(first.scope).toBe('composition-admission');
-        expect(Object.isFrozen(first)).toBe(true);
-        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody({ ...first })).toBe(false);
-        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(first)).toBe(true);
-        const second = composition.sealArticleWorkspaceEditorSessionComposition(host);
-        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(first)).toBe(false);
-        expect(composition.cancelArticleWorkspaceEditorSessionCompositionSeal(first)).toBe(false);
-        expect(composition.cancelArticleWorkspaceEditorSessionCompositionSeal(second)).toBe(true);
-        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(second)).toBe(false);
-        const retired = composition.sealArticleWorkspaceEditorSessionComposition(host);
-        composition.retireArticleWorkspaceEditorSessions(host);
-        expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(retired)).toBe(false);
-        expect(composition.cancelArticleWorkspaceEditorSessionCompositionSeal(retired)).toBe(false);
-        expect(() => composition.sealArticleWorkspaceEditorSessionComposition(host)).toThrow('article-workspace-session-composition-retired');
-        expect(() => composition.installArticleWorkspaceEditorSessions(() => null)).toThrow('article-workspace-session-composition-already-installed');
-        expect(reads).toBe(0);
-    });
-
-    it('refuses real composition retirement reentry during seal allocation before issuing custody', async () => {
-        vi.resetModules();
-        const composition = await import('@/services/authoring/articleWorkspaceEditorSessionComposition');
-        const host = composition.installArticleWorkspaceEditorSessions(() => null);
-        const previous = composition.sealArticleWorkspaceEditorSessionComposition(host);
-        const freeze = Object.freeze;
-        const allocation = vi.spyOn(Object, 'freeze').mockImplementation((value) => {
-            if ((value as { scope?: string }).scope === 'composition-admission')
-            {
-                expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(previous)).toBe(false);
-                expect(() => composition.sealArticleWorkspaceEditorSessionComposition(host)).toThrow('article-workspace-session-composition-seal-unavailable');
-                composition.retireArticleWorkspaceEditorSessions(host);
-            }
-            return freeze(value);
-        });
-        try
-        {
-            expect(() => composition.sealArticleWorkspaceEditorSessionComposition(host)).toThrow('article-workspace-session-composition-retired');
-            expect(composition.hasArticleWorkspaceEditorSessionCompositionCustody(previous)).toBe(false);
-        }
-        finally
-        {
-            allocation.mockRestore();
-        }
-    });
-
-    it.each([false, true])('awaits original physical mount work and refuses completion without native custody (retired=%s)', async (retired) => {
-        vi.resetModules();
-        const composition = await import('@/services/authoring/articleWorkspaceEditorSessionComposition');
-        const { articleWorkspaceTabRouter: originalRouter } = await import('@/services/authoring/articleWorkspaceTabRouter');
-        let finish!: () => void;
-        let began!: (entry: Readonly<OpenArticleDocumentEntry>) => void;
-        const started = new Promise<Readonly<OpenArticleDocumentEntry>>((resolve) => { began = resolve; });
-        const work = new Promise<void>((resolve) => { finish = resolve; });
-        let reads = 0;
-        const host = composition.installArticleWorkspaceEditorSessions(() => { reads += 1; return null; }, async (entry) => {
-            began(entry);
-            await work;
-        });
-        const opening = originalRouter.openOrActivate(input(982, { tabKind: 'pinned', entrypoint: 'recent-restore' }));
-        const target = await started;
-        expect(target).not.toBeNull();
-        expect(Object.isFrozen(target)).toBe(true);
-        const reference = target.editorSessionRef;
-        expect(reads).toBe(0);
-        expect(host.getSession(reference)).toBeNull();
-        if (retired)
-        {
-            composition.retireArticleWorkspaceEditorSessions(host);
-        }
-        finish();
-        const receipt = await opening;
-        expect(receipt.sessionState).toBe('blocked');
-        expect(receipt.reason).toBe(retired ? 'article-workspace-session-composition-retired' : 'public-editor-mounted-owner-unavailable');
-        expect(host.getSession(reference)).toBeNull();
-        expect(reads).toBe(retired ? 0 : 1);
-    });
-
-    it.each([
-        { permission: 'denied', lifecycle: 'current', reason: 'permission-blocked' },
-        { permission: 'revoked', lifecycle: 'current', reason: 'permission-blocked' },
-        { permission: 'allowed', lifecycle: 'deleted', reason: 'lifecycle-blocked' },
-        { permission: 'allowed', lifecycle: 'archived', reason: 'lifecycle-blocked' },
-        { permission: 'allowed', lifecycle: 'draft-replaced', reason: 'lifecycle-blocked' },
-        { permission: 'allowed', lifecycle: 'blocked', reason: 'lifecycle-blocked' }
-    ] as const)('rejects reopening an existing $permission/$lifecycle tab without changing authority', async ({ permission, lifecycle, reason }) => {
-        const router = new ArticleWorkspaceTabRouter();
-        const first = await router.openOrActivate(input(1, { tabKind: 'pinned' }));
-        await router.openOrActivate(input(2, { tabKind: 'pinned' }));
-        router.markStatus(first.tabId!, status({ permission, lifecycle, statusRef: 'status:invalidated' }));
-        const before = router.getRegistry().exportState();
-        const tabsBefore = router.listTabs();
-        const reopened = await router.openOrActivate(input(1, { tabKind: 'pinned', entrypoint: 'recent-restore' }));
-        expect(reopened.resultStatus).toBe('rejected-state');
-        expect(reopened.reason).toBe(reason);
-        expect(reopened.sessionState).toBe('blocked');
-        expect(router.getRegistry().exportState()).toEqual(before);
-        expect(router.listTabs()).toEqual(tabsBefore);
-        expect(router.getActiveTab()?.articleId).toBe(2);
-    });
-
     it('keeps one registry entry per article across the bounded tab cardinalities', async () => {
         for (const count of [0, 1, 20, 100])
         {

@@ -1,4 +1,0 @@
-src/frontend/src/services/authoring/articleWorkspaceNativeDocumentAuthority.ts: AST 0 diagnostics
-src/frontend/src/services/authoring/fsusUiEditorSessionFactory.ts: AST 0 diagnostics
-src/frontend/src/services/authoring/articleWorkspaceEditorSessionComposition.ts: AST 0 diagnostics
-tests/frontend/unit/authoring/articleWorkspaceNativeDocumentAuthority.test.ts: AST 0 diagnostics

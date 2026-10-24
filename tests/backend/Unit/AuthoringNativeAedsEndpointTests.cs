@@ -116,19 +116,6 @@ public sealed class AuthoringNativeAedsEndpointTests
     }
 
     [Fact]
-    public void TryResolveRoute_SelectedArticleUsesClosedPostContract()
-    {
-        Assert.True(AuthoringEndpoints.TryResolveRoute(HttpMethods.Post,
-            new PathString("/articles/revalidate-selection"), out var route));
-        Assert.Equal(AedsFrameType.AuthorArticleSelectionRevalidateRequest, route.RequestFrame);
-        Assert.Equal(AedsFrameType.AuthorArticleSelectionRevalidateResponse, route.ResponseFrame);
-        Assert.False(AuthoringEndpoints.TryResolveRoute(HttpMethods.Get,
-            new PathString("/articles/revalidate-selection"), out _));
-        Assert.False(AuthoringEndpoints.TryResolveRoute(HttpMethods.Post,
-            new PathString("/articles/revalidate-selection/42"), out _));
-    }
-
-    [Fact]
     public void TryResolveRoute_KnowsModerationAndAuditAuthoringRoutes()
     {
         Assert.True(AuthoringEndpoints.TryResolveRoute(

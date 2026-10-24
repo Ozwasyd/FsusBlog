@@ -46,10 +46,7 @@ const rollupMigrationIds = [
     "20260908-post-article-create-authority",
     "20260915-post-article-property-definition-authority",
     "20260915-post-author-recent-history",
-    "20261002-post-article-property-definition-command-history",
-    "20261006-post-article-canvas-link-history",
-    "20261008-post-article-property-value-snapshots",
-    "20261008-post-authoring-workspace-snapshot"
+    "20261002-post-article-property-definition-command-history"
 ];
 function fail(message)
 {
@@ -122,10 +119,6 @@ function extractNamedRawSql(source)
         /(?:new\s+EnsureTableStep|new)\(\s*"([a-z_0-9]+)"\s*,\s*"""(.*?)"""/gsu;
     for (const match of source.matchAll(pattern))
     {
-        if (tables.has(match[1]))
-        {
-            fail(`duplicate required runtime table "${match[1]}"`);
-        }
         tables.set(match[1], normalizeSql(match[2]));
     }
     return tables;
@@ -286,46 +279,6 @@ const rollupSrc = existsSync(rollupPath)
     ? readFileSync(rollupPath, "utf8")
     : "";
 const requiredSql = extractNamedRawSql(rollupSrc);
-const runtimeModules = new Map([
-    ["ArticlePropertyValueRuntimeTables", "ArticlePropertyValueRuntimeTables.Generated.cs"],
-    ["AuthoringWorkspaceSnapshotRuntimeTables", "AuthoringWorkspaceSnapshotRuntimeTables.Generated.cs"]
-]);
-const referredModules = new Set();
-for (const match of rollupSrc.matchAll(/\.\.\s*(\w+)\.Tables\b/gu))
-{
-    const name = match[1];
-    if (referredModules.has(name))
-    {
-        fail(`duplicate required runtime module "${name}"`);
-        continue;
-    }
-    referredModules.add(name);
-    const fileName = runtimeModules.get(name);
-    if (!fileName)
-    {
-        fail(`unknown required runtime module "${name}"`);
-        continue;
-    }
-    const modulePath = join(root, "src/backend/Infrastructure/SchemaMigration", fileName);
-    if (!existsSync(modulePath))
-    {
-        fail(`missing required runtime module "${name}"`);
-        continue;
-    }
-    const moduleTables = extractNamedRawSql(readFileSync(modulePath, "utf8"));
-    if (moduleTables.size === 0)
-    {
-        fail(`empty required runtime module "${name}"`);
-    }
-    for (const [table, sql] of moduleTables)
-    {
-        if (requiredSql.has(table))
-        {
-            fail(`duplicate required runtime table "${table}"`);
-        }
-        requiredSql.set(table, sql);
-    }
-}
 const requiredTables = new Set(requiredSql.keys());
 
 const migrationRollupSql = new Map();

@@ -92,8 +92,6 @@ public static class AuditRetentionCatalog
         "anonymous.identity.rejected",
         "article.publish",
         "article.write",
-        "article-property-values-snapshot",
-        "article-property-values-write",
         "auth.login",
         "auth.passkey.begin",
         "auth.passkey.complete",

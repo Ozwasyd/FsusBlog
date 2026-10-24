@@ -65,8 +65,6 @@ invariants and links back to those authorities rather than restating them.
 
 HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。该 OpenAPI snapshot 描述 method/path/status/content-type/security 与 `x-fsus-*` AEDS metadata；AEDS frame 名称、header magic/version/size 仍以 `src/shared/Contracts/Validation/aeds-protocol.json` 为唯一权威来源。`tools/frontend/generate-aeds-protocol.mjs` 从该 manifest 同时生成 Core `AedsFrameType`、Shared `AedsFrameHeader`/`AedsFrameType`、TypeScript frame constants 和 C++ `aeds_frame.hpp`；这些生成文件不得手写修改。Core 不再维护第二份 `AedsFrameHeader`，编码器、后端和测试统一引用 Shared 的 packed header。cross-stack matrix、前端 route constants、runtime contract smoke 与 release evidence 通过 `tools/contracts/*` 从这两个源校验或生成。
 
-`reservedFrameValues` 在同一协议 manifest 记录待准入的唯一 ID/name/ownerIssue/reason；producer 拒绝与 active、retired 或另一 reservation 相撞。Reservation 不生成 active enum、known-frame 分支、golden family、codec 或 route，也不是 wire/runtime acceptance。唯一 registry owner 在明确的源交接中移除对应 reservation 并添加完整 active frame 元数据；这为独立 consumer 的精确重生成提供编号，不授予 codec、HTTP 或 runtime 资格。各栈仍必须按真实候选完成 codec 和负控验证，未接入的 decoder 保持拒绝。`272–274` 的 writing-aid source codec 接入后分别分配为 `WritingAidPreferenceSnapshotResponse`、`WritingAidPreferenceUpdateRequest`、`WritingAidPreferenceReceiptResponse`；`275` 的 `UploadAssetPreview` 源注册使用 `upload-response` family 和 goldenOrder `266`，接入 #1975 精确 `75fd628033cdbaee97fc89e3d60e585daf106092` 的 DTO、760B POD 与独立 managed codec。完整 frame 上限 `8,388,608B`，payload 上限 `8,388,592B`，原图上限 `8,387,832B`；超限拒绝，原 upload/commit 的 20MiB 限制不变。当前 native error `16` 保留；原 owner 仍须按 frame `275` 重生成实际 TS/native/endpoint consumer 并返回精确源证据，源注册本身不是 endpoint 或全栈准入。旧 UploadAssetPreview 候选 `253` 与 Canvas 已分配协议源冲突，必须按 `275` 重生成并重新验证，不能消费旧 ID。
-
 Compiled request 治理观察使用 closed `fsusblog.api-aeds-observation.v5`：容器的 `item` 递归保留元素/字典值的 nullable、primitive format/enum/bounds 和 CLR schema ref，与容器自身 nullable 分开；原 `itemType`/`itemSchemaRef` 必须与该元素一致。唯一 compiled observer 从实际声明的 `NullabilityInfo` tree 和原类型边界规则取值，未知 reference annotation 或不可精确解析的元素 annotation 拒绝，不推定 nullable。消费者拒绝缺少元素信息的旧 v4；观察及 build receipt、OpenAPI 和 fact projection 须由原 producer 重新生成，不能通过重密封旧输出代替。这只升级治理元数据，不改变 endpoint、AEDS v2 wire、runtime request reader 或 public error 合同。
 
 同一协议生成器也拥有 `tests/backend/Fixtures/aeds-golden-catalog.json`。编号和退休值只来自协议 manifest；`goldenCatalog.defaultEvidence` 与每个 frame 的 `goldenFamily`、`goldenOrder` 显式保存原测试元数据和排列顺序，不能从名称猜测 payload、POD 或 ABI。所有注册 frame 必须具有完整、唯一的 golden 元数据；生成与 `--check` 都覆盖五个输出，不从旧 catalog 反推源。catalog 的生成一致性不替代真实 codec、跨栈探针或完整 matrix 验收。
@@ -949,8 +947,6 @@ actor/site/permission context 相等；`QueryActor` 仍是独立查询身份，�
 authority；本 slice 不实现 Markdown parser、relation producer/rebuild、index/query、prepublish/inspector
 或 UI 行为。后续实现必须消费这些 closed contracts，并在上游 source/editor 与 relation lifecycle
 依赖完成且取得对应真实运行时证据后分别验收。
-
-`Seal` 在摘要计算前对 relation set、candidate targets 与 receipt 的 digest collections 做有界脱离复制：先读取一次 Count 并检查现有 100,000 / 10,000 上限，再以有界枚举确认实际数量；越界或数量漂移拒绝，枚举器始终释放。封存后的只读集合不再引用调用方可变 list。合法输入顺序和原摘要编码保持一致；此步骤不是 semantic acceptance，unknown state、actor mismatch、unknown lifecycle bits 等仍可重新 seal 后由 `Validate` 拒绝。
 
 ### `ArticleListItemResponse`
 
@@ -2366,12 +2362,6 @@ caller-facing verifier 只有在当前权限快照有效且所有 history entry 
 terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则保留原 status/reason，
 但使用 canonical empty projection，不返回 collection facts 或无权摘要。正常读取仍按服务端权限过滤可见 entry。
 
-### Author article selection revalidation transport boundary
-
-`src/shared/Contracts/AuthoringNavigation/AuthorArticleSelectionRevalidationContracts.cs` owns the intrinsic request/response shape for the existing Server selection revalidation. The request contains schema version, positive article ID, positive Int64 server revision, nonempty request UUID and a 64-character lowercase hexadecimal permission token. It cannot carry an owner. The response retains those correlation fields and carries the owner derived by the authenticated Server facade; an observation with `Current=false` must omit its permission token. Shape validation and request correlation do not grant permission or establish source freshness.
-
-The existing Server owner keeps permission checks, repeated source reads and cancellation. This DTO does not add query metadata, ranking, slug, document epoch or an admission receipt. A frontend binding must retain server revision and admin principal Int64 values as canonical decimal strings, without JavaScript number coercion. The protocol manifest reserves request `276` and response `277` for #2233; neither reservation is an active frame, codec, decoder registration or HTTP route. Actual transport binding awaits the supplied canonical selection revalidator and its source-reader closure, followed by bounded POD, managed/native/TypeScript parity and authenticated transport verification.
-
 ### Admin Author Workbench
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
@@ -2901,113 +2891,3 @@ render: key-value-table
 | UserCommentCursorVersion | {"class":"blog","domain":"blog","id":"UserCommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-version","securityCritical":false} |
 | VisitLock | {"class":"security-critical","domain":"sec","id":"VisitLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"visit-lock","securityCritical":true} |
 <!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->
-
-## Private authoring canvas contracts
-
-`GET /api/binary/author/workspace/default` reads the single authenticated
-administrator's reference-only workspace using `AuthoringWorkspaceSnapshotResponse`
-(271). The matching POST accepts `AuthoringWorkspaceSnapshotRequest` (270),
-requires `ArticleWrite`, the existing admin session and PoW, and preserves
-private/no-store and unified `ApiError` behavior. Payloads never select user/site:
-the current single-site Server binds the authenticated administrator to its
-existing `primary-site` namespace. The request source digest must match the
-actual compiled Server/Shared artifacts before CAS writes. There is no JSON
-transport or local authority. Current snapshot defaults conflict with #1805's
-collapsed outline policy; reset fails with `default_layout_unqualified` until
-the original owner provides a consistent default. Real permission/draft/session
-restore, legacy preference retirement and authenticated HTTP acceptance remain
-separate gates, described in `docs/architecture/authoring-workspace-snapshot-boundary.md`.
-
-The AEDS-only `/api/binary/author/canvases` routes use the existing
-`IAuthoringCanvasDocumentStore`, operation engine and reference resolver.
-The shared contract owner is `src/shared/Contracts/AuthoringCanvas`.
-The administrator session supplies the owner and actor; request payloads carry
-neither. Every route requires `ArticleWrite`; mutation and resolution POSTs
-retain PoW. Responses use private/no-store caching and the unified `ApiError`.
-
-Frames 253–265 use the closed generated POD/C++/TypeScript payload codecs from
-`src/shared/Contracts/Validation/authoring-canvas-wire.json`. Reads include list,
-header, node/edge pages and history. Writes include create, prepare, operations,
-undo/redo and delete. Resolution accepts persisted node IDs under the current
-owner and revision. The prepare POST returns the typed intention in frame 258;
-it does not commit or issue an operation receipt. Apply revalidates references,
-seals facts and checks document/content/history CAS through the sole engine.
-
-The binary binder caps the complete request frame at 8 MiB. Pages hold at most
-256 records; int64 values remain decimal strings in TypeScript. The client uses
-the existing administrator request lease, binary transport and decoder. No JSON
-fallback, browser document authority or public Canvas route is introduced. See the [document boundary](../architecture/authoring-canvas-document-boundary.md).
-Source and codec verification do not establish HTTP/PostgreSQL or rendered UX acceptance.
-
-## Canvas edge conversion through the article owner
-
-`POST /api/binary/author/articles/{articleId:int}/canvas-links` consumes typed
-`ArticleCanvasLinkRequest` (266) and returns `ArticleCanvasLinkReceipt` (267).
-`GET /api/binary/author/articles/{articleId:int}/canvas-links/history` returns
-`ArticleCanvasLinkHistoryResponse` (268). Both routes retain the authenticated
-administrator, primary-site `ArticleWrite`, private/no-store response policy and
-unified `ApiError`; the mutation retains PoW. The server rechecks the active
-principal, source and target access, article revision and Canvas header/content
-CAS, and persisted edge/node/coordinate facts. Link text and public route/anchor
-are derived by the server.
-
-`IArticleCanvasLinkWriter` resolves to the existing scoped `ArticleService`.
-Conversion enters its canonical transaction and invokes `UpdateAsync`, preserving
-publication, assets, rights, outbox and public mutation fences. Article revisions,
-the append-only receipt journal and bounded undo/redo head commit together.
-Undo/redo creates a new canonical revision from the original revision source;
-a later unrelated article edit invalidates the old undo branch. Exact request
-replay recovers the committed receipt without a second write, even after the
-historical Canvas/target disappears. Source access remains required. Permanent
-article deletion removes the mutable history head and retains scalar audit
-receipts and immutable revisions.
-
-The frontend provider binds the administrator generation and owner, validates
-request/receipt/history digests and int64 strings, and retains the exact UUID and
-bytes after an uncertain result. Retrying a pending write cannot invent a new
-request or acknowledge a stale private response. Typed payloads are bounded at
-128 KiB and use the same closed scalar substrate as Canvas. Source and codec
-checks do not certify real HTTP, PostgreSQL transaction or rendered interaction
-acceptance.
-
-## Selected-article freshness through the existing Server facade
-
-`POST /api/binary/author/articles/revalidate-selection` consumes the typed
-`AuthorArticleSelectionRevalidateRequest` (276) and returns
-`AuthorArticleSelectionRevalidateResponse` (277). The Shared owner is
-`AuthorArticleSelectionRevalidationContracts.cs`, with its wire specification in
-`author-article-selection-wire.json`. The request contains schema version, selected
-article ID, positive Int64 server revision, nonempty request Guid and the existing
-64-character lowercase permission token. Owner, title, slug, ranking and query text
-are absent. The authenticated `IAuthorRecentArticleHistoryApplicationFacade`
-derives the administrator and configured site; its source reader resolves to the
-existing `ArticleService`. Selection revalidation retains its three permission
-observations and two live coordinate reads, including lifecycle and row-version
-checks. A noncurrent result carries no permission token.
-
-The complete request frame is exactly 116 bytes (100-byte payload plus the AEDS2
-16-byte header); the response is bounded to 642 bytes (626-byte payload). Int64
-values remain canonical decimal strings in TypeScript. Payloads use little-endian
-integers, network-order Guid16, strict UTF-8 with Int32 byte lengths, and closed
-boolean/presence bytes. Site scope retains the actual 128 UTF16-unit Shared
-boundary; malformed scalars, control characters, noncanonical trims, versions,
-lengths and trailing bytes fail closed. The sole native dispatcher uses error 17,
-`author_article_selection_payload_invalid`. C#, TypeScript and native products
-come from `generate-author-article-selection-wire.mjs`.
-
-The route retains ArticleWrite authorization, the actual admin session boundary,
-private/no-store results, the existing request binder, unified errors and PoW.
-The frontend consumer uses the existing private-request lease, preserves abort
-and administrator identity changes, and checks article/revision/request/token
-correlation against an immutable request. This provides a freshness API; the
-actual Quick Switcher owner still owns ordering, stale-result refresh and unique
-workspace intent. It adds no query ranking, slug producer, history generation,
-browser authority or Markdown parser. Compiler and wire/unit controls do not
-certify real HTTP/session/permission lifecycle, complete frontend types or
-rendered UX acceptance.
-
-## Typed writing-aid preference payloads
-
-`writing-aid-preference-wire.json` binds frames 272–274 to the exact existing Shared preference contracts and Snapshot/Update POD codecs. Snapshot retains the 96-byte fixed record plus a bounded UTF-8 scope blob; Update remains exactly 80 bytes. Receipt payload v1 carries a nonempty canonical UUID, exact `device:` scope, closed update/initialize action, committed status, two original snapshot payloads and the existing receipt digest, bounded to 1,434 bytes. Initialize preserves the canonical previous-revision-zero and committed-defaults rule. C#, TypeScript and native validators recompute the same closed Shared digest arrays; malformed UTF-8, padding, lengths, scope, revisions, actions, defaults or digests fail closed. JSON is used only in the existing internal domain digest algorithm, never as a wire payload or text fallback.
-
-`tools/contracts/generate-writing-aid-preference-wire.mjs` verifies exact source-owner hashes and generates the family codecs; its golden producer preserves the original Snapshot digest witness and adds independent positive and malformed cases. The single native `DecodeFrame` dispatcher rejects family payload errors with error 15. The frontend decoder registry registers the two response roots and the common encoder exports the typed Update request. The existing generic Guid command remains the initialize input; no independent initialize DTO or frame is added. This integration provides no HTTP endpoint, authenticated site/device producer, persisted preference acceptance, migration acceptance or rendered UI receipt. Those require the original domain/service owners and their current evidence.

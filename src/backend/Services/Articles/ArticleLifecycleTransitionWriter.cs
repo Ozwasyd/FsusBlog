@@ -256,8 +256,6 @@ public static class ArticleLifecycleTransitionWriter
         await RequireActiveAdminAsync(db, request.CreatedByAdminPrincipalId, cancellationToken).ConfigureAwait(false);
         ValidateRevisionRequest(request);
 
-        string content = ArticleMarkdownSourceAdmission.Require(request.Content, cancellationToken);
-
         DateTime now = EnsureUtc(request.TransitionedAt);
         ArticleLifecycleCoordinates before = await LoadCoordinatesAsync(
             db,
@@ -281,6 +279,9 @@ public static class ArticleLifecycleTransitionWriter
         string title = ArticleProductionNormalizers.NormalizeText(
             request.Title,
             ArticleProductionNormalizers.MaxTitleLength);
+        string content = ArticleProductionNormalizers.NormalizeText(
+            request.Content,
+            ArticleProductionNormalizers.MaxContentLength);
         string summary = ArticleProductionNormalizers.NormalizeText(
             request.Summary,
             ArticleProductionNormalizers.MaxSummaryLength);

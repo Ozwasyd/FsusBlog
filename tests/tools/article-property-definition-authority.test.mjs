@@ -23,8 +23,7 @@ const owned = [
     "src/migration/Catalogs/SchemaMigrationCatalog20260915ArticlePropertyDefinitions.cs",
     "src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs",
     "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs",
-    "src/backend/Services/Authoring/AuthoringSignedAuditWriter.cs",
-    "src/backend/Services/Authoring/PostgresArticlePropertyDefinitionValueImpactAuthority.cs"
+    "src/backend/Services/Authoring/AuthoringSignedAuditWriter.cs"
 ];
 
 function fixture()
@@ -87,22 +86,4 @@ test("governance rejects foreign persistence writes and missing durable elements
     const other = fixture();
     mutate(other, owned[7], (source) => source.replaceAll("article_property_definition_obligation", "removed_obligation"));
     assert.ok(checkArticlePropertyDefinitionAuthority(other).some((error) => error.includes("missing durable definition element article_property_definition_obligation")));
-});
-
-test("governance rejects an unavailable or duplicate value impact receiver and unscoped impact", () =>
-{
-    const missing = fixture();
-    mutate(missing, owned[9], source => source.replace(
-        "AddScoped<IArticlePropertyDefinitionImpactAuthority, PostgresArticlePropertyDefinitionValueImpactAuthority>",
-        "AddScoped<IArticlePropertyDefinitionImpactAuthority, UnavailableArticlePropertyDefinitionImpactAuthority>"));
-    assert.ok(checkArticlePropertyDefinitionAuthority(missing).some(error => error.includes("exactly one runtime registration")));
-
-    const duplicate = fixture();
-    mutate(duplicate, owned[9], source => source.concat(
-        "\n// AddScoped<IArticlePropertyDefinitionImpactAuthority, UnavailableArticlePropertyDefinitionImpactAuthority>"));
-    assert.ok(checkArticlePropertyDefinitionAuthority(duplicate).some(error => error.includes("exactly one canonical receiver")));
-
-    const foreign = fixture();
-    mutate(foreign, owned[12], source => source.replace("owner_user_key = @Owner", "owner_user_key >= 0"));
-    assert.ok(checkArticlePropertyDefinitionAuthority(foreign).some(error => error.includes("current-value impact lost")));
 });

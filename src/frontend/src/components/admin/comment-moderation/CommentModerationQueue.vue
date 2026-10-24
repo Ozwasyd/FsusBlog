@@ -9,8 +9,8 @@
 
         <ElResponsiveCollection
             v-loading="loading"
-            :items="collectionItems"
-            row-key="id"
+            :items="items"
+            :row-key="getRowKey"
             compact-query="(max-width: 767px)"
             aria-label="评论审核列表"
         >
@@ -192,8 +192,8 @@
                 <div class="blog-scroll-x-safe comment-moderation-table-scroll">
                     <ElTable
                         class="comment-moderation-table"
-                        :data="collectionItems"
-                        row-key="id"
+                        :data="items"
+                        :row-key="getRowKey"
                         :row-class-name="rowClassName"
                     >
                         <ElTableColumn
@@ -420,8 +420,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-
 import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring';
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue';
 import SemanticTime from '@/components/ui/SemanticTime.vue';
@@ -450,8 +448,7 @@ const emit = defineEmits<{
     'revoke-anonymous-credential': [item: CommentModerationViewItem];
 }>();
 
-// Public collection controls own a mutable array; moderation rows remain the supplied models.
-const collectionItems = computed<CommentModerationViewItem[]>(() => [...props.items]);
+const getRowKey = (row: CommentModerationViewItem): string => row.id;
 
 const isSelected = (item: CommentModerationViewItem): boolean => props.selectedIds.includes(item.id);
 const isHighlighted = (item: CommentModerationViewItem): boolean => (props.highlightedIds ?? []).includes(item.id);

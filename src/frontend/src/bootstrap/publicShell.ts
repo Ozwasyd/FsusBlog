@@ -609,7 +609,7 @@ function schedulePublicCoreIdleWarm(): void
         {
             return;
         }
-        void warmPublicFullAppCore('idle')
+        void warmPublicFullAppCore()
             .catch((e: unknown) =>
             {
                 if (import.meta.env.DEV)

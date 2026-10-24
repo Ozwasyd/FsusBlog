@@ -1,4 +1,3 @@
-using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Server.Services.Authoring;
 
 namespace FsusBlog.Server.Tests.Unit;

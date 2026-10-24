@@ -7,14 +7,10 @@ import type {
     BinaryDecodeResult,
     BinaryDecodeSuccess,
     BinaryFramePayloadDecoder,
-    BinaryTransportLocalFailure,
-    BinaryTransportOperation,
     BinaryTransportRequest,
-    BinaryTransportResources,
-    BinaryTransportTerminal,
-    BinaryWorkerResponse,
     CancelWorkerRequest,
     DecodeWorkerRequest,
+    DecodeWorkerResponse,
     PrivateRequestScope,
     TransportFailure,
     TransportFailureKind
@@ -127,7 +123,6 @@ export class BinaryTransportError extends AppError
 }
 
 let workerSingleton: Worker | null = null;
-let retiredWorkerCleanup: { worker: Worker; owners: LocalTransportOwner[]; cause: unknown; } | null = null;
 let requestSeq = 0;
 const DECODE_WORKER_TIMEOUT_MS = 15000;
 const WORKER_IDLE_TTL_MS = 30000;
@@ -136,7 +131,7 @@ interface PendingDecodeRequest {
     resolve: (value: unknown) => void;
     reject: (reason?: unknown) => void;
     timeoutId: ReturnType<typeof setTimeout> | null;
-    task: OwnedDecode;
+    abortCleanup: (() => void) | null;
 }
 
 const pendingRequests = new Map<number, PendingDecodeRequest>();
@@ -153,182 +148,16 @@ interface QueuedDecodeRequest {
     signal?: AbortSignal;
     resolve: (value: unknown) => void;
     reject: (reason?: unknown) => void;
-    task: OwnedDecode;
+    abortCleanup: (() => void) | null;
 }
 
 const queuedRequests: QueuedDecodeRequest[] = [];
 let workerIdleTimer: ReturnType<typeof setTimeout> | null = null;
 let lastAedsDiagnosticsSignature = '';
 
-interface OwnedDecode {
-    owner: LocalTransportOwner;
-    requestId: number;
-    posted: boolean;
-    abortCleanup: (() => void) | null;
-    abortCleanupInProgress: boolean;
-    abortCleanupFailure: unknown;
-    state: 'queued' | 'pending' | 'observed' | 'unknown';
-    terminal: Promise<void>;
-    finish: (state: 'observed' | 'unknown') => void;
-}
-
-class LocalTransportOwner
+function wait(ms: number): Promise<void>
 {
-    execution: BinaryTransportResources['execution'] = 'running';
-    lease: BinaryTransportResources['lease'] = 'not-opened';
-    callerAbortListener = false;
-    cancellationRequested = false;
-    readonly decodes: OwnedDecode[] = [];
-    readonly abortRaceTimers = new Set<ReturnType<typeof setTimeout>>();
-    // A failed original release is not converted into a receipt by calling its retired no-op again.
-    retainedLease: ReturnType<typeof privateRequestRuntime.open> | undefined;
-    retainedAbortCleanup: (() => void) | undefined;
-    callerCleanupFailure: unknown;
-    private callerCleanupInProgress = false;
-    private readonly failures = new Map<BinaryTransportLocalFailure['stage'], Readonly<BinaryTransportLocalFailure>>();
-
-    record(stage: BinaryTransportLocalFailure['stage'], cause: unknown): void
-    {
-        const prior = this.failures.get(stage);
-        this.failures.set(stage, Object.freeze({
-            stage,
-            firstCause: prior ? prior.firstCause : cause,
-            cause,
-            occurrences: (prior?.occurrences ?? 0) + 1
-        }));
-    }
-
-    inspectFailures(): readonly Readonly<BinaryTransportLocalFailure>[]
-    {
-        return Object.freeze(Array.from(this.failures.values()));
-    }
-
-    releaseCallerListener(): boolean
-    {
-        if (this.callerCleanupInProgress)
-        {
-            return false;
-        }
-        const cleanup = this.retainedAbortCleanup;
-        if (!cleanup)
-        {
-            return true;
-        }
-        this.callerCleanupInProgress = true;
-        try
-        {
-            cleanup();
-            if (this.retainedAbortCleanup === cleanup)
-            {
-                this.retainedAbortCleanup = undefined;
-                this.callerAbortListener = false;
-            }
-            return this.retainedAbortCleanup === undefined;
-        }
-        catch (error)
-        {
-            this.callerCleanupFailure = error;
-            this.record('cleanup', error);
-            return false;
-        }
-        finally
-        {
-            this.callerCleanupInProgress = false;
-        }
-    }
-
-    observeCallerOnceDispatch(): void
-    {
-        if (!this.callerCleanupInProgress)
-        {
-            this.callerAbortListener = false;
-        }
-    }
-
-    createDecode(requestId: number): OwnedDecode
-    {
-        let resolveTerminal!: () => void;
-        const terminal = new Promise<void>((resolve) =>
-        {
-            resolveTerminal = resolve;
-        });
-        const task: OwnedDecode = {
-            owner: this,
-            requestId,
-            posted: false,
-            abortCleanup: null,
-            abortCleanupInProgress: false,
-            abortCleanupFailure: undefined,
-            state: 'queued',
-            terminal,
-            finish: (state) =>
-            {
-                if (task.state === 'observed' || task.state === 'unknown')
-                {
-                    return;
-                }
-                task.state = state;
-                resolveTerminal();
-            }
-        };
-        this.decodes.push(task);
-        return task;
-    }
-
-    inspectResources(): Readonly<BinaryTransportResources>
-    {
-        const pending = Array.from(pendingRequests.values()).filter((entry) => entry.task.owner === this);
-        const queuedDecodes = queuedRequests.filter((entry) => entry.task.owner === this).length;
-        const postedDecodes = this.decodes.filter((task) => task.posted);
-        const workerTerminal = postedDecodes.some((task) => task.state === 'unknown')
-            ? 'unknown'
-            : postedDecodes.some((task) => task.state === 'pending')
-                ? 'pending'
-                : postedDecodes.length > 0 ? 'observed' : 'not-used';
-        return Object.freeze({
-            execution: this.execution,
-            lease: this.lease,
-            callerAbortListener: this.callerAbortListener || this.retainedAbortCleanup !== undefined,
-            cancellationRequested: this.cancellationRequested,
-            queuedDecodes,
-            pendingDecodes: pending.length,
-            decodeTimeouts: pending.filter((entry) => entry.timeoutId !== null).length,
-            decodeAbortListeners: this.decodes.filter((task) => task.abortCleanup !== null).length,
-            abortRaceTimers: this.abortRaceTimers.size,
-            workerTerminal,
-            sharedWorker: workerSingleton !== null,
-            sharedWorkerIdleTimer: workerIdleTimer !== null,
-            sharedWorkerCleanupPending: retiredWorkerCleanup !== null,
-            networkTerminal: 'unavailable',
-            sharedWasmInitialization: 'unavailable'
-        });
-    }
-
-    async observeTerminal(): Promise<Readonly<BinaryTransportTerminal>>
-    {
-        await Promise.all(this.decodes.map((task) => task.terminal));
-        const resources = this.inspectResources();
-        return Object.freeze({
-            local: resources.workerTerminal === 'unknown' || resources.lease === 'cleanup-failed'
-                || resources.callerAbortListener || resources.pendingDecodes > 0
-                || resources.queuedDecodes > 0 || resources.decodeAbortListeners > 0 ? 'unknown' : 'observed',
-            resources,
-            failures: this.inspectFailures()
-        });
-    }
-}
-
-function wait(ms: number, owner?: LocalTransportOwner): Promise<void>
-{
-    return new Promise((resolve) =>
-    {
-        const timer = globalThis.setTimeout(() =>
-        {
-            owner?.abortRaceTimers.delete(timer);
-            resolve();
-        }, ms);
-        owner?.abortRaceTimers.add(timer);
-    });
+    return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 }
 
 function clearPendingRequest(requestId: number, pumpQueue = true): PendingDecodeRequest | undefined
@@ -339,23 +168,14 @@ function clearPendingRequest(requestId: number, pumpQueue = true): PendingDecode
         return undefined;
     }
 
-    if (pending.timeoutId !== null)
+    pendingRequests.delete(requestId);
+    if (pending.timeoutId)
     {
-        try
-        {
-            clearTimeout(pending.timeoutId);
-            pending.timeoutId = null;
-        }
-        catch (error)
-        {
-            pending.task.owner.record('cleanup', error);
-        }
+        clearTimeout(pending.timeoutId);
+        pending.timeoutId = null;
     }
-    releaseDecodeListener(pending.task);
-    if (pending.timeoutId === null && pending.task.abortCleanup === null)
-    {
-        pendingRequests.delete(requestId);
-    }
+    pending.abortCleanup?.();
+    pending.abortCleanup = null;
     if (pumpQueue)
     {
         pumpDecodeQueue();
@@ -368,40 +188,22 @@ function clearPendingRequest(requestId: number, pumpQueue = true): PendingDecode
 function resetWorker(error: unknown): void
 {
     clearWorkerIdleTimer();
-    const lostWorker = workerSingleton;
-    workerSingleton = null;
-    const affected = Array.from(pendingRequests.values()).filter((entry) => entry.task.state === 'pending');
-    const pending = affected.map((entry) => entry.task.requestId);
-    for (let i = 0; i < pending.length; i += 1)
+    const pending = Array.from(pendingRequests.keys());
+    for (const requestId of pending)
     {
-        const request = clearPendingRequest(pending[i], false);
+        const request = clearPendingRequest(requestId, false);
         request?.reject(error);
-        request?.task.owner.record('worker', error);
-        request?.task.finish('unknown');
     }
 
-    for (const queued of [...queuedRequests])
+    while (queuedRequests.length > 0)
     {
-        rejectQueuedRequest(queued.requestId, error);
-        queued.task.owner.record('worker', error);
+        const queued = queuedRequests.shift()!;
+        queued.abortCleanup?.();
+        queued.reject(error);
     }
 
-    if (lostWorker)
-    {
-        try
-        {
-            lostWorker.terminate();
-        }
-        catch (cleanupError)
-        {
-            const owners = Array.from(new Set(affected.map((entry) => entry.task.owner)));
-            retiredWorkerCleanup = { worker: lostWorker, owners, cause: cleanupError };
-            for (const owner of owners)
-            {
-                owner.record('cleanup', cleanupError);
-            }
-        }
-    }
+    workerSingleton?.terminate();
+    workerSingleton = null;
 }
 
 function clearWorkerIdleTimer(): void
@@ -457,81 +259,15 @@ function rejectQueuedRequest(requestId: number, reason: unknown): boolean
         return false;
     }
 
-    const queued = queuedRequests[index];
-    if (releaseQueuedListener(queued))
-    {
-        queuedRequests.splice(index, 1);
-    }
+    const [queued] = queuedRequests.splice(index, 1);
+    queued.abortCleanup?.();
     queued.reject(reason);
-    queued.task.finish('observed');
     return true;
 }
 
-function releaseQueuedListener(queued: QueuedDecodeRequest): boolean
-{
-    return releaseDecodeListener(queued.task);
-}
-
-function releaseDecodeListener(task: OwnedDecode): boolean
-{
-    if (task.abortCleanupInProgress)
-    {
-        return false;
-    }
-    const cleanup = task.abortCleanup;
-    if (!cleanup)
-    {
-        return true;
-    }
-    task.abortCleanupInProgress = true;
-    try
-    {
-        cleanup();
-        if (task.abortCleanup === cleanup)
-        {
-            task.abortCleanup = null;
-        }
-        return task.abortCleanup === null;
-    }
-    catch (error)
-    {
-        task.abortCleanupFailure = error;
-        task.owner.record('cleanup', error);
-        return false;
-    }
-    finally
-    {
-        task.abortCleanupInProgress = false;
-    }
-}
-
-function handleWorkerMessage(event: MessageEvent<BinaryWorkerResponse>): void
+function handleWorkerMessage(event: MessageEvent<DecodeWorkerResponse>): void
 {
     const payload = event.data;
-    if (event.currentTarget !== workerSingleton || payload.v !== binaryDecodeWorkerProtocolVersion)
-    {
-        return;
-    }
-    if ('type' in payload)
-    {
-        const pending = clearPendingRequest(payload.requestId, false);
-        if (!pending)
-        {
-            return;
-        }
-        if (payload.error)
-        {
-            pending.task.owner.record('worker', createAppError(workerErrorToCode(payload.errorCode), payload.error, {
-                details: payload.errorCode
-            }));
-        }
-        // A canceled producer may have suppressed its public response.
-        pending.reject(createAbortLikeError('binary_decode_aborted'));
-        pending.task.finish('observed');
-        pumpDecodeQueue();
-        scheduleWorkerIdleTerminate();
-        return;
-    }
     if (payload.diagnostics)
     {
         const signature = `${payload.diagnostics.selectedTier}:${payload.diagnostics.fallbackCount}:${payload.diagnostics.fallbackReason ?? ''}`;
@@ -557,7 +293,7 @@ function handleWorkerMessage(event: MessageEvent<BinaryWorkerResponse>): void
             durationMs: payload.workerTransferMs
         });
     }
-    const pending = pendingRequests.get(payload.requestId);
+    const pending = clearPendingRequest(payload.requestId);
     if (!pending)
     {
         return;
@@ -586,26 +322,6 @@ function handleWorkerFatalError(reason: unknown): void
 function getWorker(): Worker
 {
     clearWorkerIdleTimer();
-    // Shared acquisition retries the original broken worker's cleanup before any replacement.
-    // A request's cancel method never receives this shared termination authority.
-    if (retiredWorkerCleanup)
-    {
-        const cleanup = retiredWorkerCleanup;
-        try
-        {
-            cleanup.worker.terminate();
-            retiredWorkerCleanup = null;
-        }
-        catch (error)
-        {
-            cleanup.cause = error;
-            for (const owner of cleanup.owners)
-            {
-                owner.record('cleanup', error);
-            }
-            throw error;
-        }
-    }
     if (!workerSingleton)
     {
         workerSingleton = new Worker(toTrustedApplicationWorkerScriptUrl(
@@ -615,20 +331,13 @@ function getWorker(): Worker
             value: 1
         });
         workerSingleton.addEventListener('message', handleWorkerMessage);
-        const originalWorker = workerSingleton;
         workerSingleton.addEventListener('error', (event) =>
         {
-            if (workerSingleton === originalWorker)
-            {
-                handleWorkerFatalError(event.error ?? new Error(event.message || 'binary_decode_worker_failed'));
-            }
+            handleWorkerFatalError(event.error ?? new Error(event.message || 'binary_decode_worker_failed'));
         });
         workerSingleton.addEventListener('messageerror', () =>
         {
-            if (workerSingleton === originalWorker)
-            {
-                handleWorkerFatalError(createAppError(AppErrorCode.ProtocolFailure, 'binary_decode_worker_message_error'));
-            }
+            handleWorkerFatalError(createAppError(AppErrorCode.ProtocolFailure, 'binary_decode_worker_message_error'));
         });
     }
 
@@ -640,27 +349,13 @@ function pumpDecodeQueue(): void
     clearWorkerIdleTimer();
     while (pendingRequests.size < DECODE_WORKER_ACTIVE_LIMIT && queuedRequests.length > 0)
     {
-        const queued = queuedRequests[0];
-        if (queued.task.abortCleanupInProgress)
-        {
-            break;
-        }
-        if (!releaseQueuedListener(queued))
-        {
-            queued.reject(queued.task.abortCleanupFailure);
-            queued.task.finish('observed');
-            break;
-        }
-        queuedRequests.shift();
-        if (queued.task.state === 'observed')
-        {
-            continue;
-        }
+        const queued = queuedRequests.shift()!;
+        queued.abortCleanup?.();
+        queued.abortCleanup = null;
 
         if (queued.signal?.aborted)
         {
             queued.reject(createAbortLikeError('binary_decode_aborted'));
-            queued.task.finish('observed');
             continue;
         }
 
@@ -737,104 +432,51 @@ function createAbortLikeError(message: string): Error
 
 function startWorkerDecode(queued: QueuedDecodeRequest): void
 {
-    let worker: Worker;
-    try
-    {
-        worker = getWorker();
-    }
-    catch (error)
-    {
-        queued.reject(error);
-        queued.task.owner.record('worker', error);
-        queued.task.finish('observed');
-        return;
-    }
-    const { requestId, signal, task } = queued;
-    // Worker acquisition emits synchronous telemetry before this request owns any listener.
-    if (signal?.aborted)
-    {
-        task.owner.cancellationRequested = true;
-        queued.reject(createAbortLikeError('binary_decode_aborted'));
-        task.finish('observed');
-        scheduleWorkerIdleTerminate();
-        return;
-    }
+    const worker = getWorker();
+    const { requestId, signal } = queued;
 
-    const pending: PendingDecodeRequest = {
-        resolve: queued.resolve,
-        reject: queued.reject,
-        timeoutId: null,
-        task
-    };
-    pendingRequests.set(requestId, pending);
-    task.state = 'pending';
-    const abortHandler = (event?: Event): void =>
+    const abortHandler = () =>
     {
-        if (pendingRequests.get(requestId) !== pending)
+        const pending = clearPendingRequest(requestId);
+        if (!pending)
         {
             return;
         }
+
         pending.reject(createAbortLikeError('binary_decode_aborted'));
-        task.owner.cancellationRequested = true;
-        if (event && event.currentTarget === signal && event.type === 'abort')
-        {
-            // Only a real once-listener dispatch proves automatic listener removal.
-            if (!task.abortCleanupInProgress)
-            {
-                task.abortCleanup = null;
-            }
-        }
-        else
-        {
-            releaseDecodeListener(task);
-        }
-        if (task.posted)
-        {
-            requestDecodeCancellation(pending);
-        }
-    };
-    const finishUnposted = (reason: unknown): void =>
-    {
-        clearPendingRequest(requestId, false);
-        pending.reject(reason);
-        task.finish('observed');
-        pumpDecodeQueue();
+        postWorkerCancel(requestId);
         scheduleWorkerIdleTerminate();
     };
 
+    const timeoutId = setTimeout(() =>
+    {
+        const pending = clearPendingRequest(requestId);
+        if (!pending)
+        {
+            return;
+        }
+
+        const timeoutError = createAppError(AppErrorCode.InfraFailure, 'binary_decode_timeout');
+        pending.reject(timeoutError);
+        resetWorker(timeoutError);
+    }, DECODE_WORKER_TIMEOUT_MS);
+
+    let abortCleanup: (() => void) | null = null;
+    if (signal)
+    {
+        signal.addEventListener('abort', abortHandler, { once: true });
+        abortCleanup = () => signal.removeEventListener('abort', abortHandler);
+    }
+
+    pendingRequests.set(requestId, {
+        resolve: (value) => queued.resolve(value),
+        reject: queued.reject,
+        timeoutId,
+        abortCleanup
+    });
+
     try
     {
-        if (signal)
-        {
-            // Capture original removal custody before registration can throw or reenter.
-            task.abortCleanup = () => signal.removeEventListener('abort', abortHandler);
-            signal.addEventListener('abort', abortHandler, { once: true });
-        }
-        if (signal?.aborted)
-        {
-            abortHandler();
-            finishUnposted(createAbortLikeError('binary_decode_aborted'));
-            return;
-        }
-        pending.timeoutId = setTimeout(() =>
-        {
-            if (pendingRequests.get(requestId) !== pending)
-            {
-                return;
-            }
-            const timeoutError = createAppError(AppErrorCode.InfraFailure, 'binary_decode_timeout');
-            pending.timeoutId = null;
-            task.owner.record('decode', timeoutError);
-            pending.reject(timeoutError);
-            // Keep this slot until producer terminal/channel loss; never terminate the shared worker.
-            requestDecodeCancellation(pending);
-        }, DECODE_WORKER_TIMEOUT_MS);
-        if (signal?.aborted)
-        {
-            abortHandler();
-            finishUnposted(createAbortLikeError('binary_decode_aborted'));
-            return;
-        }
         const request: DecodeWorkerRequest = {
             v: binaryDecodeWorkerProtocolVersion,
             type: 'decode',
@@ -845,48 +487,19 @@ function startWorkerDecode(queued: QueuedDecodeRequest): void
             accessProfile: queued.accessProfile
         };
         worker.postMessage(request, [queued.buffer]);
-        task.posted = true;
     }
     catch (error)
     {
-        task.owner.record('decode', error);
-        finishUnposted(error);
-        return;
+        const pending = clearPendingRequest(requestId);
+        pending?.reject(error);
     }
-    if (signal?.aborted)
-    {
-        abortHandler();
-    }
-}
-
-function requestDecodeCancellation(pending: PendingDecodeRequest): void
-{
-    if (!pending.task.posted)
-    {
-        return;
-    }
-    try
-    {
-        postWorkerCancel(pending.task.requestId);
-    }
-    catch (error)
-    {
-        pending.task.owner.record('cancel', error);
-    }
-}
-
-function hasDecodeEnded(task: OwnedDecode): boolean
-{
-    // Read live state after listener callbacks/removal may have synchronously reentered.
-    return task.state === 'observed' || task.state === 'unknown';
 }
 
 function decodeInWorker<T>(
     buffer: ArrayBuffer,
     expectedFrameType: FrameType,
     accessProfile?: AedsAccessProfileId,
-    signal?: AbortSignal,
-    owner?: LocalTransportOwner
+    signal?: AbortSignal
 ): Promise<T>
 {
     if (signal?.aborted)
@@ -896,9 +509,20 @@ function decodeInWorker<T>(
 
     requestSeq += 1;
     const requestId = requestSeq;
-    const task = (owner ?? new LocalTransportOwner()).createDecode(requestId);
+
     return new Promise<T>((resolve, reject) =>
     {
+        let abortCleanup: (() => void) | null = null;
+        if (signal)
+        {
+            const abortHandler = () =>
+            {
+                rejectQueuedRequest(requestId, createAbortLikeError('binary_decode_aborted'));
+            };
+            signal.addEventListener('abort', abortHandler, { once: true });
+            abortCleanup = () => signal.removeEventListener('abort', abortHandler);
+        }
+
         const queued: QueuedDecodeRequest = {
             requestId,
             buffer,
@@ -907,78 +531,25 @@ function decodeInWorker<T>(
             signal,
             resolve: (value) => resolve(value as T),
             reject,
-            task
+            abortCleanup
         };
-        try
+
+        if (pendingRequests.size >= DECODE_WORKER_ACTIVE_LIMIT)
         {
-            if (signal)
+            if (queuedRequests.length >= DECODE_WORKER_QUEUE_LIMIT)
             {
-                const abortHandler = (event?: Event): void =>
-                {
-                    task.owner.cancellationRequested = true;
-                    if (event?.currentTarget === signal && event.type === 'abort')
-                    {
-                        if (!task.abortCleanupInProgress)
-                        {
-                            task.abortCleanup = null;
-                        }
-                    }
-                    else
-                    {
-                        releaseDecodeListener(task);
-                    }
-                    const reason = createAbortLikeError('binary_decode_aborted');
-                    if (!rejectQueuedRequest(requestId, reason))
-                    {
-                        reject(reason);
-                        task.finish('observed');
-                    }
-                };
-                task.abortCleanup = () => signal.removeEventListener('abort', abortHandler);
-                signal.addEventListener('abort', abortHandler, { once: true });
-            }
-            if (signal?.aborted || hasDecodeEnded(task))
-            {
-                releaseDecodeListener(task);
-                reject(createAbortLikeError('binary_decode_aborted'));
-                task.finish('observed');
+                abortCleanup?.();
+                reject(createAppError(AppErrorCode.InfraFailure, 'binary_decode_backpressure'));
                 return;
             }
-            if (pendingRequests.size >= DECODE_WORKER_ACTIVE_LIMIT)
-            {
-                if (queuedRequests.length >= DECODE_WORKER_QUEUE_LIMIT)
-                {
-                    const released = releaseDecodeListener(task);
-                    reject(released
-                        ? createAppError(AppErrorCode.InfraFailure, 'binary_decode_backpressure')
-                        : task.abortCleanupFailure);
-                    task.finish('observed');
-                    return;
-                }
-                queuedRequests.push(queued);
-                return;
-            }
-            if (!releaseDecodeListener(task))
-            {
-                reject(task.abortCleanupFailure);
-                task.finish('observed');
-                return;
-            }
-            if (signal?.aborted || hasDecodeEnded(task))
-            {
-                reject(createAbortLikeError('binary_decode_aborted'));
-                task.finish('observed');
-                return;
-            }
-            startWorkerDecode(queued);
+
+            queuedRequests.push(queued);
+            return;
         }
-        catch (error)
-        {
-            task.owner.record('decode', error);
-            releaseDecodeListener(task);
-            reject(error);
-            task.finish('observed');
-        }
+
+        abortCleanup?.();
+        queued.abortCleanup = null;
+        startWorkerDecode(queued);
     });
 }
 
@@ -993,8 +564,7 @@ async function loadBinaryAndDecode<T>(
     frameType: FrameType,
     accessProfile?: AedsAccessProfileId,
     requestOptions?: BinaryRequestOptions,
-    signal?: AbortSignal,
-    owner?: LocalTransportOwner
+    signal?: AbortSignal
 ): Promise<T>
 {
     if (!isBinaryEnabled())
@@ -1047,7 +617,7 @@ async function loadBinaryAndDecode<T>(
     }
 
     const workerDecodeStartedAt = typeof performance !== 'undefined' ? performance.now() : 0;
-    const value = await decodeInWorker<T>(buffer, frameType, accessProfile, signal, owner);
+    const value = await decodeInWorker<T>(buffer, frameType, accessProfile, signal);
     if (workerDecodeStartedAt > 0)
     {
         const durationMs = Math.round(performance.now() - workerDecodeStartedAt);
@@ -1066,18 +636,16 @@ async function loadBinaryAndDecodeSafe<T>(
     frameType: FrameType,
     accessProfile?: AedsAccessProfileId,
     requestOptions?: BinaryRequestOptions,
-    signal?: AbortSignal,
-    owner?: LocalTransportOwner
+    signal?: AbortSignal
 ): Promise<BinaryDecodeResult<T>>
 {
-    return loadBinaryAndDecode<T>(decodeFramePayload, url, frameType, accessProfile, requestOptions, signal, owner)
+    return loadBinaryAndDecode<T>(decodeFramePayload, url, frameType, accessProfile, requestOptions, signal)
         .then((value): BinaryDecodeSuccess<T> => ({ ok: true, value }))
         .catch(async (error: unknown) =>
         {
-            owner?.record('request', error);
             if (!signal?.aborted && error instanceof TypeError && error.message === 'Failed to fetch')
             {
-                await wait(ABORT_RACE_SETTLE_MS, owner);
+                await wait(ABORT_RACE_SETTLE_MS);
             }
 
             if (isAbortError(error) || signal?.aborted)
@@ -1092,7 +660,6 @@ async function loadBinaryAndDecodeSafe<T>(
                 };
             }
 
-            let binaryErrorMessage = '';
             if (error instanceof BinaryRequestError)
             {
                 const apiError = decodeApiErrorFrame(error.buffer);
@@ -1106,7 +673,6 @@ async function loadBinaryAndDecodeSafe<T>(
                 const riskControlDecision = riskControlDecisionFromResponse(error.headers);
                 if (apiError)
                 {
-                    binaryErrorMessage = apiError.message;
                     return {
                         ok: false,
                         failure: {
@@ -1127,7 +693,7 @@ async function loadBinaryAndDecodeSafe<T>(
             }
 
             const normalizedError = toAppError(error, 'binary_transport_failed');
-            const message = binaryErrorMessage || normalizedError.message || 'binary_transport_failed';
+            const message = normalizedError.message || 'binary_transport_failed';
             const appCode = isAppError(error) ? error.code : normalizedError.code;
             const kind: TransportFailureKind = normalizedError.details === 'binary_disabled'
                 ? 'binary_disabled'
@@ -1199,143 +765,34 @@ function decodeApiErrorPayload(payloadView: Uint8Array): {
     };
 }
 
-function startBinaryOnlyWithDecoder<T>(
+async function requestBinaryOnlyWithDecoder<T>(
     decodeFramePayload: BinaryFramePayloadDecoder,
     options: BinaryTransportRequest
-): BinaryTransportOperation<T>
+): Promise<T>
 {
-    const owner = new LocalTransportOwner();
-    const controller = new AbortController();
-    const result = (async (): Promise<T> =>
-    {
-        let lease: ReturnType<typeof privateRequestRuntime.open> | undefined;
-        let callerSignal: AbortSignal | undefined;
-        const forwardAbort = (event?: Event): void =>
-        {
-            if (event && event.currentTarget === callerSignal && event.type === 'abort')
-            {
-                owner.observeCallerOnceDispatch();
-            }
-            owner.cancellationRequested = true;
-            controller.abort(callerSignal?.reason);
-        };
-        let outcome: { ok: true; value: T; } | { ok: false; cause: unknown; };
-        let cleanupError: unknown;
-        let cleanupFailed = false;
-        try
-        {
-            const resolved = resolveBinaryRequest(options);
-            callerSignal = options.signal ?? resolved.requestOptions?.signal ?? undefined;
-            if (callerSignal?.aborted)
-            {
-                forwardAbort();
-            }
-            else if (callerSignal)
-            {
-                owner.callerAbortListener = true;
-                callerSignal.addEventListener('abort', forwardAbort, { once: true });
-                if (callerSignal.aborted)
-                {
-                    forwardAbort();
-                }
-            }
-            lease = privateRequestRuntime.open(resolved.privateScope, controller.signal, {
-                abortOnGenerationChange: resolved.abortOnGenerationChange
-            });
-            owner.lease = 'held';
-            const value = await executeBinaryRequest<T>(decodeFramePayload, options, resolved, lease.signal, owner);
-            lease.assertCurrent();
-            outcome = { ok: true, value };
-        }
-        catch (error)
-        {
-            owner.record('request', error);
-            outcome = { ok: false, cause: error };
-        }
-        finally
-        {
-            try
-            {
-                lease?.release();
-                if (lease)
-                {
-                    owner.lease = 'released';
-                }
-            }
-            catch (error)
-            {
-                owner.lease = 'cleanup-failed';
-                owner.retainedLease = lease;
-                owner.record('cleanup', error);
-                cleanupError = error;
-                cleanupFailed = true;
-            }
-            owner.retainedAbortCleanup = () => callerSignal?.removeEventListener('abort', forwardAbort);
-            if (!owner.releaseCallerListener())
-            {
-                cleanupError = owner.callerCleanupFailure;
-                cleanupFailed = true;
-            }
-            owner.execution = 'ended';
-        }
-        // Select the original primary outcome only after all original cleanup attempts.
-        if (!outcome.ok)
-        {
-            throw outcome.cause;
-        }
-        if (cleanupFailed)
-        {
-            throw cleanupError;
-        }
-        return outcome.value;
-    })();
-    const terminal = result.then(() => owner.observeTerminal(), () => owner.observeTerminal());
-    return Object.freeze({
-        result,
-        terminal,
-        cancel: (reason?: unknown): void =>
-        {
-            owner.cancellationRequested = true;
-            controller.abort(reason);
-            // Reentry retries a failed cancel send against the same original pending request.
-            for (const task of owner.decodes)
-            {
-                if (task.state === 'observed')
-                {
-                    releaseDecodeListener(task);
-                    rejectQueuedRequest(task.requestId, createAbortLikeError('binary_decode_aborted'));
-                }
-                const pending = pendingRequests.get(task.requestId);
-                if (pending)
-                {
-                    if (task.state === 'pending')
-                    {
-                        if (task.posted)
-                        {
-                            requestDecodeCancellation(pending);
-                        }
-                    }
-                    else
-                    {
-                        clearPendingRequest(task.requestId);
-                    }
-                }
-            }
-            owner.releaseCallerListener();
-            pumpDecodeQueue();
-            scheduleWorkerIdleTerminate();
-        },
-        inspectResources: () => owner.inspectResources(),
-        inspectFailures: () => owner.inspectFailures()
+    const resolved = resolveBinaryRequest(options);
+    const { requestOptions } = resolved;
+    const requestSignal = options.signal ?? requestOptions?.signal ?? undefined;
+    const lease = privateRequestRuntime.open(resolved.privateScope, requestSignal, {
+        abortOnGenerationChange: resolved.abortOnGenerationChange
     });
+    try
+    {
+        const value = await executeBinaryRequest<T>(decodeFramePayload, options, resolved, lease.signal);
+        lease.assertCurrent();
+        return value;
+    }
+    finally
+    {
+        lease.release();
+    }
 }
 
 async function executeBinaryRequest<T>(
     decodeFramePayload: BinaryFramePayloadDecoder,
     options: BinaryTransportRequest,
     resolved: ReturnType<typeof resolveBinaryRequest>,
-    requestSignal?: AbortSignal,
-    owner?: LocalTransportOwner
+    requestSignal?: AbortSignal
 ): Promise<T>
 {
     const { binaryUrl, requestOptions } = resolved;
@@ -1345,8 +802,7 @@ async function executeBinaryRequest<T>(
         options.frameType,
         options.accessProfile,
         requestOptions,
-        requestSignal,
-        owner
+        requestSignal
     );
     if (shouldRetryPublicReadWithPow(binaryResult, resolved))
     {
@@ -1360,8 +816,7 @@ async function executeBinaryRequest<T>(
                 requiresPow: true,
                 powScope: requestOptions?.powScope ?? `public-read:${binaryUrl}`
             },
-            requestSignal,
-            owner
+            requestSignal
         );
     }
     if (binaryResult.ok)
@@ -1501,15 +956,12 @@ function riskChallengeHandoffFromResponse(status: number, headers: Headers): Ris
 }
 
 export function createBinaryTransport(decodeFramePayload: BinaryFramePayloadDecoder): {
-    requestBinaryOnly<T>(this: void, options: BinaryTransportRequest): Promise<T>;
-    startBinaryOnly<T>(this: void, options: BinaryTransportRequest): BinaryTransportOperation<T>;
+    requestBinaryOnly<T>(options: BinaryTransportRequest): Promise<T>;
 }
 {
     return {
         requestBinaryOnly: async <T>(options: BinaryTransportRequest): Promise<T> =>
-            await startBinaryOnlyWithDecoder<T>(decodeFramePayload, options).result,
-        startBinaryOnly: <T>(options: BinaryTransportRequest): BinaryTransportOperation<T> =>
-            startBinaryOnlyWithDecoder<T>(decodeFramePayload, options)
+            await requestBinaryOnlyWithDecoder<T>(decodeFramePayload, options)
     };
 }
 
@@ -1544,7 +996,12 @@ function resolveBinaryRequest(options: {
       && descriptor.rateLimitPolicy === 'public_read'
       && descriptor.method === 'GET'
       && !descriptor.requiresPow;
-        const { routeClass, privateScope, abortOnGenerationChange } = binaryRoutePolicy(descriptor.auth);
+        const privateScope: PrivateRequestScope = descriptor.auth === 'admin'
+            ? 'admin'
+            : descriptor.auth === 'user' || descriptor.auth === 'optional'
+        ? 'account'
+        : 'public';
+        const abortOnGenerationChange = descriptor.auth !== 'optional';
         if (options.requestOptions?.credentials !== undefined || descriptor.credentialPolicy === 'include')
         {
             return {
@@ -1552,7 +1009,7 @@ function resolveBinaryRequest(options: {
                 requestOptions: options.requestOptions,
                 retryPublicReadWithPow,
                 operationId: options.binaryRoute.operationId,
-                routeClass,
+                routeClass: binaryRouteClass(descriptor.auth),
                 privateScope,
                 abortOnGenerationChange
             };
@@ -1565,7 +1022,7 @@ function resolveBinaryRequest(options: {
                 credentials: descriptor.credentialPolicy
             },
             operationId: options.binaryRoute.operationId,
-            routeClass,
+            routeClass: binaryRouteClass(descriptor.auth),
             privateScope,
             abortOnGenerationChange
         };
@@ -1585,20 +1042,6 @@ function resolveBinaryRequest(options: {
     throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_missing');
 }
 
-function binaryRoutePolicy(auth: string): {
-    routeClass: BinaryFailureRouteClass;
-    privateScope: PrivateRequestScope;
-    abortOnGenerationChange: boolean;
-}
-{
-    const routeClass = binaryRouteClass(auth);
-    return {
-        routeClass,
-        privateScope: routeClass === 'admin' ? 'admin' : routeClass === 'account' ? 'account' : 'public',
-        abortOnGenerationChange: auth !== 'optional'
-    };
-}
-
 function binaryRouteClass(auth: string): BinaryFailureRouteClass
 {
     if (auth === 'admin')
@@ -1609,11 +1052,7 @@ function binaryRouteClass(auth: string): BinaryFailureRouteClass
     {
         return 'account';
     }
-    if (auth === 'anonymous')
-    {
-        return 'public';
-    }
-    throw createAppError(AppErrorCode.ProtocolFailure, 'binary_route_descriptor_invalid');
+    return 'public';
 }
 
 function shouldRetryPublicReadWithPow<T>(

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/browser-contract/fixture-lifecycle.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "347d273b6cd1c92db096dc9021c3e2bfe972a5ca0fc20a127b5e33021946a41c"
+        }
+    ]
+}

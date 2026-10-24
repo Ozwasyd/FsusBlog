@@ -85,19 +85,16 @@ public sealed class CurrentSchemaReceiptTests
             bytes, Convert.ToHexStringLower(SHA256.HashData(bytes)), actual));
     }
 
-    [Theory]
-    [InlineData("v2")]
-    [InlineData("v3")]
-    [InlineData("v4")]
-    public void CurrentOnlyAdmission_ControlTargetV3RejectsPreviouslyValidV2ReceiptWithoutRewritingIt(string previousVersion)
+    [Fact]
+    public void CurrentOnlyAdmission_ControlTargetV3RejectsPreviouslyValidV2ReceiptWithoutRewritingIt()
     {
         CurrentSchemaReceipt old = CreateReceipt() with
         {
             Target = CreateReceipt().Target with
             {
-                ModelVersion = "fsusblog.current-schema." + previousVersion,
+                ModelVersion = "fsusblog.current-schema.v2",
                 ExtractorVersion = "fsusblog.current-schema-reflection.v2",
-                GeneratorVersion = "fsusblog.current-schema-projection." + previousVersion
+                GeneratorVersion = "fsusblog.current-schema-projection.v2"
             }
         };
         old = old with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(old) };
@@ -111,8 +108,7 @@ public sealed class CurrentSchemaReceiptTests
         {
             Target = new(target.ModelVersion, target.ExtractorVersion, target.GeneratorVersion, target.SourceDigest, target.ContentDigest)
         };
-        Assert.Equal("fsusblog.current-schema.v5", target.ModelVersion);
-        Assert.Equal("fsusblog.current-schema-projection.v5", target.GeneratorVersion);
+        Assert.Equal("fsusblog.current-schema.v3", target.ModelVersion);
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaReceiptAdmission.Validate(original, originalDigest, currentObservation));
         Assert.Equal(originalDigest, Convert.ToHexStringLower(SHA256.HashData(original)));
     }

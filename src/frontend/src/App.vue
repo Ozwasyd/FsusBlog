@@ -1,5 +1,8 @@
 <template>
-    <ElConfigProvider :config-producer="configProducer">
+    <ElConfigProvider
+        :theme-mode="mode"
+        :render-pipeline="FSUSBLOG_RENDER_PIPELINE_CONFIG"
+    >
         <RouterView
             v-if="isPublicShellRoute"
             v-slot="{ Component }"
@@ -57,7 +60,6 @@
 </template>
 
 <script setup lang="ts">
-import { createGlobalConfigSnapshot } from '@ozwasyd/element-plus';
 import {
     FsuTransition,
     runMotion,
@@ -65,7 +67,7 @@ import {
     type MotionPhase
 } from '@ozwasyd/element-plus/motion';
 import { useHead } from '@unhead/vue';
-import { computed, onMounted, onScopeDispose, onUnmounted, watch } from 'vue';
+import { computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 import { ADMIN_LOGOUT_EVENT, createAdminLogoutNavigationHandler } from '@/bootstrap/adminLogoutBridge';
@@ -79,32 +81,13 @@ import { fsusBlogMotionPresets } from '@/fsusui/blogMotion';
 import { FSUSBLOG_RENDER_PIPELINE_CONFIG } from '@/fsusui/renderPipeline';
 import { isPublicShellRouteName } from '@/public-renderers/publicPageModel';
 import { privateSurfaceRuntime, type PrivateSurfaceTransition } from '@/services/privateSurfaceRuntime';
-import { bindThemeConfigProducer, useThemeRuntime } from '@/services/themeRuntime';
+import { useThemeRuntime } from '@/services/themeRuntime';
 
 
 const router = useRouter();
 const route = useRoute();
 const { userStore, siteStore, syncAuthPhase, syncDocumentTitle } = useSessionBootstrap();
 const { mode } = useThemeRuntime();
-const configProducer = createGlobalConfigSnapshot({
-    a11y: true,
-    keyboardNavigation: true,
-    namespace: 'el',
-    themeMode: mode.value,
-    renderPipeline: FSUSBLOG_RENDER_PIPELINE_CONFIG
-});
-const unbindThemeConfig = bindThemeConfigProducer(configProducer);
-onScopeDispose(() =>
-{
-    try
-    {
-        unbindThemeConfig();
-    }
-    finally
-    {
-        configProducer.release();
-    }
-});
 const routeCleanup = useMotionRouteCleanup();
 const securityChallengeCoordinator = getRiskChallengeCoordinator();
 const cleanupByElement = new WeakMap<HTMLElement, () => boolean>();

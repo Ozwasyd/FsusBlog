@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const authorityFile = 'src/backend/Services/Authoring/AuthoringCanvasDocumentStore.cs';
-const contractFile = 'src/shared/Contracts/AuthoringCanvas/AuthoringCanvasDocumentContracts.cs';
+const contractFile = 'src/backend/Services/Authoring/AuthoringCanvasDocumentContracts.cs';
 const migrationFile = 'src/migration/Definitions/AuthoringCanvasDocumentMigrationDefinitions.cs';
 
 function walk(directory)

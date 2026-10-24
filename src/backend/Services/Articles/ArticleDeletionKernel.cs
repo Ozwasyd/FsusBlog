@@ -42,9 +42,6 @@ internal sealed class ArticleDeletionKernel(ISqlSugarClient db)
             DELETE FROM article_draft
             WHERE article_id IN ({idPlaceholders});
 
-            DELETE FROM article_canvas_link_history
-            WHERE source_article_id IN ({idPlaceholders});
-
             DELETE FROM article_tag
             WHERE articleid IN ({idPlaceholders});
 

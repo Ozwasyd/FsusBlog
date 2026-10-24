@@ -8,6 +8,7 @@ import { toTrustedServiceWorkerScriptUrl } from '@/security/trustedTypesRuntime'
 import type { CacheControlPayload, SearchIndexUpdatePayload } from '@/services/notificationStreamTypes';
 import {
     clearRegisteredPrivateState,
+    type PrivateStateCleanupTrigger,
     type PrivateStorageCleanupItemResult,
     type PrivateStorageCleanupResult
 } from '@/services/privateStorageRegistry';

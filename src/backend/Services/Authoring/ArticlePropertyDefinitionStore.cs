@@ -146,36 +146,6 @@ public sealed class ArticlePropertyDefinitionStore(
         return definition.Status == ArticlePropertyDefinitionStatus.Deleted ? null : definition;
     }
 
-    public async Task<IReadOnlyList<ArticlePropertyDefinition>> GetManyAsync(
-        ArticlePropertyDefinitionActor actor,
-        ArticlePropertyDefinitionOwner owner,
-        IReadOnlyList<Guid> definitionIds,
-        CancellationToken cancellationToken = default)
-    {
-        permissionAuthority.EnsureAllowed(actor, owner, manage: false);
-        Guid[] ids = ArticlePropertyDefinitionBatchRead.HoldIds(definitionIds);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (ids.Length == 0)
-        {
-            return Array.Empty<ArticlePropertyDefinition>();
-        }
-        IReadOnlyList<ArticlePropertyDefinition> definitions = await persistence.GetManyAsync(owner, ids, cancellationToken)
-            .ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        var requested = ids.ToHashSet();
-        var observed = new HashSet<Guid>();
-        foreach (ArticlePropertyDefinition definition in definitions)
-        {
-            ArticlePropertyDefinitionContract.ValidateDefinition(definition);
-            if (definition.Owner != owner || !requested.Contains(definition.DefinitionId)
-                || !observed.Add(definition.DefinitionId))
-            {
-                throw new ArticlePropertyDefinitionIntegrityException("article_property_definition_batch_mismatch");
-            }
-        }
-        return Array.AsReadOnly(definitions.OrderBy(static definition => definition.DefinitionId).ToArray());
-    }
-
     public async Task<ArticlePropertyDefinitionPage> ListAsync(
         ArticlePropertyDefinitionActor actor,
         ArticlePropertyDefinitionOwner owner,

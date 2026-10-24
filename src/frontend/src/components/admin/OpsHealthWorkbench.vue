@@ -13,14 +13,15 @@
                     <h2 id="ops-status-title">当前运维状态</h2>
                     <p>{{ statusSummary }}</p>
                 </div>
-                <button
+                <FsusUiButton
                     class="ops-refresh"
-                    type="button"
+                    native-type="button"
+                    text
                     :disabled="loading"
                     @click="$emit('refresh')"
                 >
                     {{ loading ? '正在刷新' : '刷新状态' }}
-                </button>
+                </FsusUiButton>
             </div>
             <dl class="ops-status-strip__values">
                 <div>
@@ -90,24 +91,26 @@
                                 : compactPath(incident.evidence.path) }}</code>
 
                             <div class="ops-evidence__actions">
-                                <button
+                                <FsusUiButton
                                     class="ops-evidence__copy"
-                                    type="button"
+                                    native-type="button"
+                                    text
                                     aria-label="复制证据"
                                     @click="copyEvidence(incident)"
                                 >
                                     复制
-                                </button>
-                                <button
+                                </FsusUiButton>
+                                <FsusUiButton
                                     class="ops-evidence__disclosure"
-                                    type="button"
+                                    native-type="button"
+                                    text
                                     data-ops-evidence-disclosure
                                     :aria-expanded="expandedEvidence.has(incident.key)"
                                     :aria-controls="`ops-evidence-${incident.key}`"
                                     @click="toggleEvidence(incident.key)"
                                 >
                                     {{ expandedEvidence.has(incident.key) ? '收起详情' : '展开详情' }}
-                                </button>
+                                </FsusUiButton>
                             </div>
 
                             <pre
@@ -187,6 +190,7 @@ import type {
     BackupArtifactResponse,
     OpsHealthResponse
 } from '@/api/authoring';
+import { FsusUiButton } from '@/fsusui/button';
 import {
     adminStatusLabel,
     adminStatusTone,
@@ -544,37 +548,6 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     line-height: 1.5;
 }
 
-.ops-refresh,
-.ops-evidence__copy,
-.ops-evidence__disclosure
- {
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsus-radius-control);
-    background: transparent;
-    color: var(--fsusblog-text-secondary);
-    cursor: pointer;
-    font: inherit;
-}
-
-.ops-refresh
- {
-    min-height: 40px;
-    padding: 0 var(--fsus-space-4);
-    font-size: 14px;
-    font-weight: 500;
-}
-
-.ops-refresh:hover,
-.ops-evidence__copy:hover,
-.ops-evidence__disclosure:hover
- {
-    border-color: var(--fsusblog-color-primary);
-    color: var(--fsusblog-color-primary);
-}
-
-.ops-refresh:focus-visible,
-.ops-evidence__copy:focus-visible,
-.ops-evidence__disclosure:focus-visible,
 .ops-quiet summary:focus-visible
  {
     box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
@@ -727,18 +700,9 @@ async function copyEvidence(incident: OpsIncident): Promise<void>
     gap: var(--fsus-space-1);
 }
 
-.ops-evidence__copy,
-.ops-evidence__disclosure
+.ops-evidence__actions > .ops-evidence__disclosure
  {
-    min-height: 40px;
-    padding: 0 var(--fsus-space-3);
-    font-size: 12px;
-    line-height: 1;
-}
-
-.ops-evidence__copy
- {
-    min-width: 40px;
+    margin: 0;
 }
 
 .ops-evidence__detail

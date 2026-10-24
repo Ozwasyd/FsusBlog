@@ -2,8 +2,6 @@ using System.Data.Common;
 
 using SqlSugar;
 
-using FsusBlog.Shared.Contracts.AuthoringCanvas;
-
 namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>

@@ -3,8 +3,7 @@ import {
     binaryDecodeWorkerProtocolVersion,
     type BinaryWorkerRequest,
     type DecodeErrorCode,
-    type DecodeWorkerResponse,
-    type DecodeWorkerTerminal
+    type DecodeWorkerResponse
 } from '@/contracts/binaryTransport';
 import { AppErrorCode, isAppError } from '@/utils/appError';
 
@@ -13,7 +12,6 @@ import { decode, getAedsRuntimeDiagnostics, initWasm } from '@wasm/aeds';
 export const DECODE_WORKER_PROTOCOL_VERSION = binaryDecodeWorkerProtocolVersion;
 
 const canceledRequests = new Set<number>();
-const activeRequests = new Map<number, DecodeWorkerResponse | null>();
 let wasmReadyPromise: Promise<boolean> | null = null;
 
 const exactDecodeErrorMap: Record<string, DecodeErrorCode> = {
@@ -101,26 +99,16 @@ function isRequestCanceled(requestId: number): boolean
 
 function postDecodeResponse(response: DecodeWorkerResponse): void
 {
-    activeRequests.set(response.requestId, response.ok ? null : response);
     if (!isRequestCanceled(response.requestId))
     {
         self.postMessage(response);
     }
+    canceledRequests.delete(response.requestId);
 }
 
 self.onmessage = async (event: MessageEvent<BinaryWorkerRequest>) =>
 {
     const { v, requestId } = event.data;
-    if (event.data.type === 'cancel')
-    {
-        // A late cancel must not leave an unbounded tombstone after the decode ended.
-        if (v === DECODE_WORKER_PROTOCOL_VERSION && activeRequests.has(requestId))
-        {
-            canceledRequests.add(requestId);
-        }
-        return;
-    }
-    activeRequests.set(requestId, null);
     try
     {
         if (v !== DECODE_WORKER_PROTOCOL_VERSION)
@@ -136,12 +124,19 @@ self.onmessage = async (event: MessageEvent<BinaryWorkerRequest>) =>
             return;
         }
 
+        if (event.data.type === 'cancel')
+        {
+            canceledRequests.add(requestId);
+            return;
+        }
+
         const { buffer, expectedFrameType, sentAtUnixMs, accessProfile } = event.data;
         const workerTransferMs = typeof sentAtUnixMs === 'number' && Number.isFinite(sentAtUnixMs)
             ? Math.max(0, Date.now() - sentAtUnixMs)
             : undefined;
         if (isRequestCanceled(requestId))
         {
+            canceledRequests.delete(requestId);
             return;
         }
 
@@ -152,12 +147,14 @@ self.onmessage = async (event: MessageEvent<BinaryWorkerRequest>) =>
         await ensureWasmReady();
         if (isRequestCanceled(requestId))
         {
+            canceledRequests.delete(requestId);
             return;
         }
 
         const frame = decode(buffer);
         if (isRequestCanceled(requestId))
         {
+            canceledRequests.delete(requestId);
             return;
         }
 
@@ -196,6 +193,7 @@ self.onmessage = async (event: MessageEvent<BinaryWorkerRequest>) =>
         const data = decodeBinaryFramePayload(frame.frameType, frame.payloadView, accessProfile);
         if (isRequestCanceled(requestId))
         {
+            canceledRequests.delete(requestId);
             return;
         }
 
@@ -222,22 +220,6 @@ self.onmessage = async (event: MessageEvent<BinaryWorkerRequest>) =>
             error: message
         };
         postDecodeResponse(response);
-    }
-    finally
-    {
-        const failure = activeRequests.get(requestId);
-        const canceled = canceledRequests.delete(requestId);
-        activeRequests.delete(requestId);
-        // No frame, decoded data, token or access profile crosses the cancellation terminal.
-        const terminal: DecodeWorkerTerminal = {
-            v: DECODE_WORKER_PROTOCOL_VERSION,
-            type: 'terminal',
-            requestId,
-            outcome: failure ? 'failed' : canceled ? 'canceled' : 'completed',
-            errorCode: failure?.errorCode,
-            error: failure?.error
-        };
-        self.postMessage(terminal);
     }
 };
 
