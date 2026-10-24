@@ -1759,6 +1759,14 @@ to the original local-install producer's finite lock-derived mappings. Both
 source manifests, the original lock, installed dependency manifests, and each
 logical-to-physical mapping are bound and independently reopened. Unknown,
 retargeted, and escaping aliases remain refusals.
+The locked TypeScript 6.0.3 peer resolver can derive a directory outside the
+repositories from a source package without `node_modules` in its path. Only an
+exact `directoryExists` miss derived from peer keys in a Git-bound source
+manifest actually read by that compiler receives a missing-directory proof.
+The proof uses `lstat` for every path component, refuses links and any existing
+final entry, and binds the absence and ancestor identities before and after
+emission and independent reopening. It grants no file read, file-existence,
+realpath, enumeration, positive directory, or unknown-path capability.
 A separately reconstructed original emission and reopened input closure must
 match the complete nonqualifying receipt before an output receives SOURCE
 coverage. Changed, deleted, substituted, linked, drifting, or unregistered

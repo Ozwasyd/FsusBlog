@@ -214,6 +214,50 @@ function assertScratchNamespace(root)
     }
 }
 
+/** Prove a missing directory without following links or accepting an existing final entry. */
+export function inspectCanonicalPeerDirectoryAbsence(directory)
+{
+    if (typeof directory !== 'string' || !path.isAbsolute(directory) || path.resolve(directory) !== directory
+        || directory.includes('\0'))
+    {
+        throw new Error('canonical peer directory absence requires one exact absolute path');
+    }
+    const parsed = path.parse(directory);
+    const parts = directory.slice(parsed.root.length).split(path.sep).filter(Boolean);
+    let current = parsed.root;
+    const ancestors = [];
+    for (let index = -1; index < parts.length; index += 1)
+    {
+        if (index >= 0)
+        {
+            current = path.join(current, parts[index]);
+        }
+        let stat;
+        try
+        {
+            stat = fs.lstatSync(current, { bigint: true });
+        }
+        catch (error)
+        {
+            if (error.code === 'ENOENT')
+            {
+                return { directory, missing: current, ancestors };
+            }
+            throw error;
+        }
+        if (stat.isSymbolicLink())
+        {
+            throw new Error('canonical peer directory absence refuses a linked component: ' + current);
+        }
+        if (current === directory || !stat.isDirectory())
+        {
+            throw new Error('canonical peer directory absence refuses an existing entry: ' + current);
+        }
+        ancestors.push({ directory: current, epoch: epoch(stat) });
+    }
+    throw new Error('canonical peer directory absence could not establish a missing component');
+}
+
 function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialBytes)
 {
     const original = { ...ts.sys };
@@ -222,6 +266,8 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
     const contents = new Map();
     const virtualConfigurations = new Map();
     const probes = new Map();
+    const peerDirectoryDerivations = new Map();
+    const missingPeerDirectories = new Map();
     const ancestors = new Map();
     let total = initialBytes;
     // TypeScript catches some host read errors; a refused capability must still fail admission.
@@ -412,6 +458,59 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
         }
         return contents.get(physical);
     };
+    const registerCompilerPeerDirectories = (file, content) =>
+    {
+        const absolute = path.resolve(file);
+        const input = reads.get(absolute);
+        if (ts.version !== '6.0.3' || input?.kind !== 'git-source' || input.repository !== ui.root
+            || !input.path.startsWith('vue/packages/') || path.basename(absolute) !== 'package.json')
+        {
+            return;
+        }
+        let manifest;
+        try
+        {
+            manifest = JSON.parse(content);
+        }
+        catch
+        {
+            return;
+        }
+        if (!manifest?.peerDependencies || typeof manifest.peerDependencies !== 'object'
+            || Array.isArray(manifest.peerDependencies))
+        {
+            return;
+        }
+        const packageDirectory = path.dirname(absolute);
+        // Exact locked TypeScript 6.0.3 readPackageJsonPeerDependencies algorithm.
+        // Source aliases can lack node_modules; only its actual missing directory probe is admitted.
+        const prefix = packageDirectory.substring(0,
+            packageDirectory.lastIndexOf('node_modules') + 'node_modules'.length) + path.sep;
+        for (const peer of Object.keys(manifest.peerDependencies))
+        {
+            if (peer.length > 214 || !/^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/u.test(peer))
+            {
+                continue;
+            }
+            const directory = path.resolve(prefix + peer);
+            if (metadataLookup(directory))
+            {
+                continue;
+            }
+            const derivations = peerDirectoryDerivations.get(directory) ?? [];
+            const value = { manifest: absolute, blob: input.blob, sha256: input.sha256, peer,
+                algorithm: 'typescript-6.0.3/readPackageJsonPeerDependencies' };
+            if (!derivations.some(existing => isDeepStrictEqual(existing, value)))
+            {
+                if (peerDirectoryDerivations.size >= canonicalDeclarationSourceLimits.probes)
+                {
+                    throw new Error('canonical compiler peer directory derivations exceed the probe limit');
+                }
+                derivations.push(value);
+                peerDirectoryDerivations.set(directory, derivations);
+            }
+        }
+    };
     function record(kind, args, result)
     {
         const key = kind + ':' + JSON.stringify(args);
@@ -478,6 +577,18 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
     {
         if (!metadataLookup(path.resolve(args[0])))
         {
+            const derivations = peerDirectoryDerivations.get(args[0]);
+            if (kind === 'directoryExists' && derivations?.length)
+            {
+                const absence = inspectCanonicalPeerDirectoryAbsence(args[0]);
+                const previous = missingPeerDirectories.get(args[0]);
+                if (previous && !isDeepStrictEqual(previous.absence, absence))
+                {
+                    throw new Error('canonical compiler peer directory absence changed during inspection');
+                }
+                missingPeerDirectories.set(args[0], { directory: args[0], derivations: [...derivations], absence });
+                return false;
+            }
             throw new Error('canonical declaration metadata lookup escapes its closed source resolution roots: ' + args[0]);
         }
         if (kind === 'directoryEntries')
@@ -523,7 +634,9 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
     {
         try
         {
-            return read(...args);
+            const content = read(...args);
+            registerCompilerPeerDirectories(args[0], content);
+            return content;
         }
         catch (error)
         {
@@ -631,6 +744,8 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
             return {
                 virtualConfigurations: [...virtualConfigurations.values()].map(({ file, sha256, bytes }) => ({ file, sha256, bytes })),
                 publicDependencyAliases: publicAliases ?? [],
+                missingPeerDirectories: [...missingPeerDirectories.values()]
+                    .sort((left, right) => left.directory.localeCompare(right.directory)),
                 logicalReads: [...logicalReads].map(([requested, physical]) => ({ requested, physical }))
                     .sort((left, right) => left.requested.localeCompare(right.requested)),
                 reads: [...reads.values()].sort((left, right) => left.physical.localeCompare(right.physical)),

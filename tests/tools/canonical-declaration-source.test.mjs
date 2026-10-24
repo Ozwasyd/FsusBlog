@@ -7,7 +7,7 @@ import path from 'node:path';
 import test, { mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const { inspectCanonicalDeclarationSource, validateCanonicalDeclarationSourceReceipt } = await import(
+const { inspectCanonicalDeclarationSource, validateCanonicalDeclarationSourceReceipt, inspectCanonicalPeerDirectoryAbsence } = await import(
     new URL('../../tools/configuration/check-canonical-declaration-source.mjs', import.meta.url)
 );
 const {
@@ -126,8 +126,157 @@ function regenerate(f)
     {
         commit(f.localRoot);
     }
-    f.head = commit(f.root);
+    f.head = git(f.root, 'status', '--porcelain') ? commit(f.root) : git(f.root, 'rev-parse', 'HEAD');
 }
+
+function peerFixture(f)
+{
+    const configuration = JSON.parse(fs.readFileSync(path.join(f.root, 'src/frontend/tsconfig.playwright.json')));
+    configuration.compilerOptions.module = 'ESNext';
+    configuration.compilerOptions.moduleResolution = 'Bundler';
+    write(f.root, 'src/frontend/tsconfig.playwright.json', JSON.stringify(configuration));
+    const manifest = path.join(f.localRoot, 'vue/packages/peer-fixture/package.json');
+    const source = path.join(f.localRoot, 'vue/packages/peer-fixture/index.ts');
+    write(f.localRoot, 'vue/packages/peer-fixture/package.json', JSON.stringify({
+        name: '@element-plus/peer-fixture', version: '1.0.0', peerDependencies: { vue: '*' }
+    }));
+    write(f.localRoot, 'vue/packages/peer-fixture/index.ts', 'export const value = 7;\n');
+    write(f.root, 'src/frontend/fixture.ts', 'import { value } from "@element-plus/peer-fixture";\nexport const fixture = value;\n');
+    regenerate(f);
+    const packageDirectory = path.dirname(manifest);
+    const prefix = packageDirectory.substring(0, packageDirectory.lastIndexOf('node_modules') + 'node_modules'.length) + path.sep;
+    return { manifest, source, directory: path.resolve(prefix + 'vue') };
+}
+
+test('only compiler-consumed Git source peers derive exact missing directory proofs and independent reopening', context =>
+{
+    const f = fixture(context);
+    const peer = peerFixture(f);
+    const receipt = f.inspect();
+    assert.equal(receipt.consumed.missingPeerDirectories.length, 1);
+    const proof = receipt.consumed.missingPeerDirectories[0];
+    assert.equal(proof.directory, peer.directory);
+    assert.ok(proof.derivations.some(value => value.manifest === peer.manifest && value.peer === 'vue'
+        && value.algorithm === 'typescript-6.0.3/readPackageJsonPeerDependencies'));
+    assert.ok(receipt.consumed.reads.some(value => value.physical === peer.manifest && value.kind === 'git-source'));
+    assert.ok(receipt.consumed.probes.some(value => value.kind === 'directoryExists'
+        && value.args[0] === peer.directory && value.result === false));
+    assert.equal(validateCanonicalDeclarationSourceReceipt({ repositoryRoot: f.root, localRoot: f.localRoot,
+        files: [...canonicalTestDeclarationOutputs], expectedHead: f.head, receipt }), receipt);
+    const forged = structuredClone(receipt);
+    forged.consumed.missingPeerDirectories[0].derivations[0].peer = 'unregistered';
+    assert.throws(() => validateCanonicalDeclarationSourceReceipt({ repositoryRoot: f.root, localRoot: f.localRoot,
+        files: [...canonicalTestDeclarationOutputs], expectedHead: f.head, receipt: forged }), /independent original regeneration/u);
+    write(f.localRoot, 'vue/packages/peer-fixture/package.json', JSON.stringify({
+        name: '@element-plus/peer-fixture', version: '1.0.0', peerDependencies: { different: '*' }
+    }));
+    assert.throws(() => f.inspect(), /HEAD\/index\/physical/u);
+    commit(f.localRoot);
+    assert.throws(() => validateCanonicalDeclarationSourceReceipt({ repositoryRoot: f.root, localRoot: f.localRoot,
+        files: [...canonicalTestDeclarationOutputs], expectedHead: f.head, receipt }), /independent original regeneration/u);
+});
+
+test('the absence binder refuses existing files directories and leaf or intermediate linked sentinels', context =>
+{
+    const directory = fs.mkdtempSync(path.join(tmpdir(), 'canonical-peer-absence-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const missing = path.join(directory, 'missing/peer');
+    const proof = inspectCanonicalPeerDirectoryAbsence(missing);
+    assert.equal(proof.missing, path.join(directory, 'missing'));
+    assert.equal(proof.ancestors.at(-1).directory, directory);
+    const sentinel = path.join(directory, 'sentinel');
+    const content = Buffer.from('owned absence-control sentinel\n');
+    fs.writeFileSync(sentinel, content);
+    const existing = path.join(directory, 'existing');
+    fs.mkdirSync(existing);
+    const leaf = path.join(directory, 'leaf');
+    fs.symlinkSync(sentinel, leaf);
+    const dangling = path.join(directory, 'dangling');
+    fs.symlinkSync(path.join(directory, 'uncreated'), dangling);
+    const intermediate = path.join(directory, 'intermediate');
+    fs.symlinkSync(existing, intermediate);
+    for (const value of [existing, sentinel, leaf, dangling, path.join(intermediate, 'peer'), path.join(sentinel, 'peer')])
+    {
+        assert.throws(() => inspectCanonicalPeerDirectoryAbsence(value), /linked component|existing entry/u, value);
+    }
+    assert.deepEqual(fs.readFileSync(sentinel), content);
+    fs.mkdirSync(path.join(directory, 'missing'));
+    assert.notDeepEqual(inspectCanonicalPeerDirectoryAbsence(missing), proof);
+});
+
+test('a derived missing peer never grants file reads realpath enumeration or an unknown directory capability', context =>
+{
+    const f = fixture(context);
+    const peer = peerFixture(f);
+    const identity = fs.statSync(peer.source, { bigint: true }).ino;
+    for (const operation of ['readFile', 'fileExists', 'realpath', 'getDirectories', 'readDirectory', 'unknown-directory'])
+    {
+        const originalRead = fs.readSync;
+        let attempted = false;
+        const hook = mock.method(fs, 'readSync', (descriptor, ...args) =>
+        {
+            const result = originalRead(descriptor, ...args);
+            if (!attempted && fs.fstatSync(descriptor, { bigint: true }).ino === identity)
+            {
+                attempted = true;
+                if (operation === 'unknown-directory')
+                {
+                    ts.sys.directoryExists(path.join(path.dirname(peer.directory), 'unregistered'));
+                }
+                else
+                {
+                    ts.sys[operation](peer.directory);
+                }
+            }
+            return result;
+        });
+        try
+        {
+            assert.throws(() => f.inspect(), /escapes its closed/u, operation);
+            assert.equal(attempted, true, operation);
+        }
+        finally
+        {
+            hook.mock.restore();
+            hook.mock.resetCalls();
+        }
+    }
+});
+
+test('a manifest read only by the original install API cannot register compiler peer lookup authority', context =>
+{
+    const f = fixture(context);
+    publicAliases(f);
+    const manifest = path.join(f.localRoot, 'vue/packages/icons-vue/package.json');
+    fs.writeFileSync(manifest, JSON.stringify({ name: '@element-plus/icons-vue', peerDependencies: { vue: '*' } }));
+    commit(f.localRoot);
+    const packageDirectory = path.dirname(manifest);
+    const directory = path.resolve(packageDirectory.substring(0,
+        packageDirectory.lastIndexOf('node_modules') + 'node_modules'.length) + path.sep + 'vue');
+    const identity = fs.statSync(path.join(f.root, 'src/frontend/fixture.ts'), { bigint: true }).ino;
+    const originalRead = fs.readSync;
+    let attempted = false;
+    const hook = mock.method(fs, 'readSync', (descriptor, ...args) =>
+    {
+        const result = originalRead(descriptor, ...args);
+        if (!attempted && fs.fstatSync(descriptor, { bigint: true }).ino === identity)
+        {
+            attempted = true;
+            ts.sys.directoryExists(directory);
+        }
+        return result;
+    });
+    try
+    {
+        assert.throws(() => f.inspect(), /metadata lookup escapes its closed/u);
+        assert.equal(attempted, true);
+    }
+    finally
+    {
+        hook.mock.restore();
+        hook.mock.resetCalls();
+    }
+});
 
 function publicAliases(f)
 {
