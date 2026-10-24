@@ -11,7 +11,6 @@
         "tools/configuration/check-opaque-fixture-source.mjs",
         "tools/configuration/check-solution-source.mjs",
         "tools/configuration/opaque-fixture-source.test.mjs",
-        "tools/dotnet/check-csharp-style.mjs",
         "tools/frontend/check-frontend-style-source-base.test.mjs",
         "tools/frontend/check-frontend-style.mjs",
         "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
@@ -39,7 +38,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "15daed380b03d187e2dc1dfd6511a88ef2d38077a62492a746c9c33705a48c7d"
+            "sha256": "7e9dbcbd274e42e5dbbf1ce953911a4601a6bd8fb0bd8d9b1fe8053ac0bb6bc5"
         },
         {
             "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionBudgets.cs"
+            ],
+            "reason": "Record the existing trusted registry's src/**/*.cs naming surface for this budget supervisor change. Preserve all existing measurement, telemetry and containment identifiers; this candidate introduces or renames no process environment key and grants no new naming or runtime authority."
+        }
+    ]
+}

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
+import { inspectMsbuildSource, msbuildSourceFiles, validateMsbuildSourceReceipt } from './msbuild-source-inspector.mjs';
 import { assertOpaqueFixtureSourceOwner, isOpaqueFrontendFixture, opaqueFixtureSourcePath, selectOpaqueFixtureSourceRegressions } from './opaque-fixture-source-ownership.mjs';
 import { parseMatrix } from './parse-matrix.mjs';
 import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding, prImpactCallerContext, sourceGovernanceChildEntries, effectivePrExecutionStage, sourceRegressionArguments, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, isScriptDeclarationSource, sourceStageInspectionFiles } from './pr-impact-plan.mjs';
@@ -123,8 +124,31 @@ const checkedSolutions = [];
 const checkedPython = [];
 const checkedBlame = [];
 const checkedDeclarations = [];
+const checkedMsbuild = [];
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
+    // The original SOURCE owner calls a read-only declaration parser directly;
+    // no new executable child port or SDK/restore authority is introduced.
+    const msbuildFiles = evidence.changedFiles.filter(file => msbuildSourceFiles.includes(file));
+    if (msbuildFiles.length)
+    {
+        let receipt = null;
+        let bindingError = null;
+        try
+        {
+            receipt = inspectMsbuildSource({ repositoryRoot: root, files: msbuildFiles });
+            validateMsbuildSourceReceipt({ repositoryRoot: root, files: msbuildFiles,
+                expectedHead: evidence.headCommit, receipt });
+            checkedMsbuild.push(...msbuildFiles);
+        }
+        catch (error)
+        {
+            bindingError = error.message;
+            process.exitCode = 1;
+        }
+        results.push({ checker: 'tools/test-matrix/msbuild-source-inspector.mjs', files: msbuildFiles,
+            status: bindingError ? 'failure' : 'success', qualificationEligible: false, receipt, bindingError });
+    }
     const solutions = files.filter(file => file.endsWith('.slnx'));
     if (solutions.length)
     {
@@ -305,7 +329,7 @@ for (const [checker, options, applicable] of groups)
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
     const inspectedFiles = sourceStageInspectionFiles(files, evidence.changedFiles);
-    const unsupported = unsupportedSourceStageFiles(inspectedFiles, checkedSolutions, checkedPython, checkedBlame, checkedDeclarations);
+    const unsupported = unsupportedSourceStageFiles(inspectedFiles, checkedSolutions, checkedPython, checkedBlame, checkedDeclarations, checkedMsbuild);
     if (unsupported.length)
     {
         results.push({ checker: 'unsupported-source-stage-language', files: unsupported,
