@@ -20,8 +20,7 @@
         "tools/test-matrix/opaque-fixture-source-ownership.mjs",
         "tools/test-matrix/opaque-fixture-source-ownership.test.mjs",
         "tools/test-matrix/pr-impact-plan.mjs",
-        "tools/test-matrix/source-governance.mjs",
-        "tools/test/correctness-attempt-migration.mjs"
+        "tools/test-matrix/source-governance.mjs"
     ],
     "outputs": [
         {
@@ -38,7 +37,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "236a2796c590aad4ea12bf038c59d61dcdc7487b5c121a9e794b68d7d9cb4de7"
+            "sha256": "547c7911a636af9a2060dc2038c12576dd90e9ea910829df8c9ebccc1c88c4f9"
         },
         {
             "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",

@@ -1111,12 +1111,17 @@ retry policy. Registration and source-order checks are not actual compiler/SQL
 qualification; successful native scheduler MySQL allocation and canonical locked dependencies
 remain prerequisites.
 
-Correctness attempt migration validates the complete current producer inventory
-against its canonical matrix, physical and reliability authorities before checking
-execution-envelope ownership. Its cardinality follows that exact roster rather
-than a historical fixed count. Missing, extra, duplicate or crossed-authority
-entries remain failures even when their enclosing digest is recomputed. A freshly
-generated inventory refresh is source evidence, not a qualification receipt.
+Correctness migration compares the complete producer ID roster derived from the
+matrix, physical bundle inventory and reliability catalog. Its size follows those
+canonical owners rather than a historical constant. Missing, extra, duplicate, substituted or crossed-authority
+identities refuse even when the candidate inventory has a freshly sealed digest;
+zero retries, first-failure blocking and external authority bindings still apply
+to every producer.
+
+The Browser Contract first-stop regression extracts the original scenario loop
+from its syntax tree and executes the real temporal adapter against its Node
+page-clock model. Its continue-after-failure mutation remains required. This
+fixture emits checker-selftest evidence and grants no browser qualification.
 
 Before local physical scheduling, the existing runner projects each non-resident
 bundle's service requirements from its exact logical members. Duplicate or

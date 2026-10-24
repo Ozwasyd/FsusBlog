@@ -51,8 +51,7 @@
                 "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/opaque-fixture-source-ownership.test.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
-                "tools/test-matrix/source-governance.mjs",
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test-matrix/source-governance.mjs"
             ],
             "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         }

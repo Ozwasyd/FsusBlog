@@ -2505,8 +2505,8 @@
         },
         {
             "path": "tools/configuration/check-opaque-fixture-source.mjs",
-            "contentDigest": "sha256:fa7014a83243cb00d99a3d27c1a0380a0ec93a48c46c9310fec00862a7de848f",
-            "indexDigest": "sha256:fa7014a83243cb00d99a3d27c1a0380a0ec93a48c46c9310fec00862a7de848f"
+            "contentDigest": "sha256:21deb9df76b55024404b2e65e74136d73e6105ff41d51168f68ca50fb20ae670",
+            "indexDigest": "sha256:21deb9df76b55024404b2e65e74136d73e6105ff41d51168f68ca50fb20ae670"
         },
         {
             "path": "tools/configuration/check-solution-source.mjs",
@@ -2515,8 +2515,8 @@
         },
         {
             "path": "tools/configuration/opaque-fixture-source.test.mjs",
-            "contentDigest": "sha256:0b8a8ec5f38a7b6682406592202c7f2c6e5aa5f3e38ca8554009cd195bbd311e",
-            "indexDigest": "sha256:0b8a8ec5f38a7b6682406592202c7f2c6e5aa5f3e38ca8554009cd195bbd311e"
+            "contentDigest": "sha256:e696d94716a3c39077b8a6f95f136a2c47a99e49970e581cb8e03faf2ccb18b9",
+            "indexDigest": "sha256:e696d94716a3c39077b8a6f95f136a2c47a99e49970e581cb8e03faf2ccb18b9"
         },
         {
             "path": "tools/configuration/solution-source.test.mjs",
@@ -3400,8 +3400,8 @@
         },
         {
             "path": "tools/governance/change-contract.mjs",
-            "contentDigest": "sha256:8a975c4fdd3df89b9ad2f8cb213a0bd35efd7af75b14d11106172f5aac19b0ee",
-            "indexDigest": "sha256:8a975c4fdd3df89b9ad2f8cb213a0bd35efd7af75b14d11106172f5aac19b0ee"
+            "contentDigest": "sha256:9cda3e6688618eb782799db105df91408da0f96be161208320ae40b5fe0f64de",
+            "indexDigest": "sha256:9cda3e6688618eb782799db105df91408da0f96be161208320ae40b5fe0f64de"
         },
         {
             "path": "tools/governance/check-article-bulk-authorities.mjs",
@@ -4995,13 +4995,13 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2",
-            "indexDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2"
+            "contentDigest": "sha256:eabfd91247d4da755f4ad89d7c047506e7b97257007b7f96a44719be9b59e608",
+            "indexDigest": "sha256:eabfd91247d4da755f4ad89d7c047506e7b97257007b7f96a44719be9b59e608"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",
-            "contentDigest": "sha256:05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e",
-            "indexDigest": "sha256:05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e"
+            "contentDigest": "sha256:cc34343a8f04c466b88f6a9e88ab1630008a64345e009120d201515a27e8ad4a",
+            "indexDigest": "sha256:cc34343a8f04c466b88f6a9e88ab1630008a64345e009120d201515a27e8ad4a"
         },
         {
             "path": "tools/test/cross-stack-receipts.mjs",
