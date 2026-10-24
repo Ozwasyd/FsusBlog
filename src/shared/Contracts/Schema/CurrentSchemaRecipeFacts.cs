@@ -34,7 +34,10 @@ public sealed record CurrentSchemaIndependentSequenceFacts(
     bool IsIndependent)
 {
     /// <summary>Defaults of the original closed CREATE SEQUENCE AS bigint source grammar.</summary>
-    public static CurrentSchemaIndependentSequenceFacts PostgreSqlBigIntDefaults { get; } =
+    public static CurrentSchemaIndependentSequenceFacts PostgreSqlBigIntDefaults
+    {
+        get;
+    } =
         new("bigint", 1, 1, 1, long.MaxValue, 1, false, true);
 }
 
@@ -101,7 +104,7 @@ public static class CurrentSchemaControlShape
     /// <returns>The sole current semantic control shape.</returns>
     public static SchemaTableModel DescribeApplyJournal()
     {
-        const string table = ApplyJournalTableName;
+        const string Table = ApplyJournalTableName;
         var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal)
         {
             ["plan_digest"] = new("plan_digest", false, true, false, 64, "string", Conversion: "none"),
@@ -116,13 +119,13 @@ public static class CurrentSchemaControlShape
         // an unoccupied namespace. Collisions are not accepted as another shape.
         SchemaConstraintModel[] definitions =
         [
-            new(table + "_pkey", "primary-key", ["plan_digest", "database_digest", "invocation_id", "sequence"]),
+            new(Table + "_pkey", "primary-key", ["plan_digest", "database_digest", "invocation_id", "sequence"]),
             new("__fsus_schema_offline_apply_j_plan_digest_database_digest_i_key", "unique",
                 ["plan_digest", "database_digest", "invocation_id", "parent_digest"]),
-            new(table + "_entry_digest_key", "unique", ["entry_digest"]),
-            new(table + "_sequence_check", "check", ["sequence"], Expression: "sequence > 0")
+            new(Table + "_entry_digest_key", "unique", ["entry_digest"]),
+            new(Table + "_sequence_check", "check", ["sequence"], Expression: "sequence > 0")
         ];
-        return new(table, columns, [], constraints: definitions.ToDictionary(static value => value.Name,
+        return new(Table, columns, [], constraints: definitions.ToDictionary(static value => value.Name,
             StringComparer.Ordinal), owner: new SchemaOwnerModel("current-control", Version));
     }
 
@@ -145,7 +148,10 @@ public static class CurrentSchemaControlShape
             Owner = new SchemaOwnerModel("postgresql", "public." + semantic.Name + "." + entry.Key)
         }, StringComparer.Ordinal);
         var constraints = semantic.Constraints.Values.Select(value => value.Kind == "primary-key"
-            ? value with { Name = "pk_" + semantic.Name } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
+            ? value with
+            {
+                Name = "pk_" + semantic.Name
+            } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
         var indexes = constraints.Values.Where(static value => value.Kind == "unique").ToDictionary(static value => value.Name,
             static value => new SchemaIndexModel(value.Name, true,
                 value.Columns.Select(static name => new SchemaIndexKeyModel(name, "asc", "last", "default", "default")).ToArray(),
@@ -174,7 +180,10 @@ public static class CurrentSchemaControlShape
             Owner = new SchemaOwnerModel(owner, location + "." + entry.Key)
         }, StringComparer.Ordinal);
         var constraints = semantic.Constraints.Values.Select(value => !sqlite && value.Kind == "primary-key"
-            ? value with { Name = "PRIMARY" } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
+            ? value with
+            {
+                Name = "PRIMARY"
+            } : value).ToDictionary(static value => value.Name, StringComparer.Ordinal);
         var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
         int ordinal = 0;
         // The sole declared primary key has four columns, so it is not SQLite's

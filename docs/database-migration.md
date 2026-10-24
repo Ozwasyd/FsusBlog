@@ -302,7 +302,13 @@ nullability/types/lengths, collation, generation/owned sequences and attached
 triggers are measured and compared. A same-name malformed table, additional historical
 table, undeclared raw default (including DEFAULT NULL), inheritance, RLS or rule
 effects, unavailable backing index or changed control constraint
-is not a name-based exemption. Server observes
+is not a name-based exemption. PostgreSQL 18's additional native `NOT NULL`
+constraint rows are folded into the already measured column nullability only
+when each local, enforced, validated, nondeferred row binds exactly one nonnullable
+control column without an index, reference, expression or inherited parent. The
+complete seven-column roster must match; a missing, duplicate, malformed or unknown
+constraint still refuses. This preserves the original four semantic constraints
+and does not grant another control-table shape. Server observes
 schema facts only; journal JSON, history, sequence/parent seals, media states and
 resume remain the original Migration owners' responsibility.
 

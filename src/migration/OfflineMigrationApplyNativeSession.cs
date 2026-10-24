@@ -3,7 +3,9 @@ using System.Data.Common;
 using System.Runtime.ExceptionServices;
 
 using Microsoft.Data.Sqlite;
+
 using MySqlConnector;
+
 using Npgsql;
 
 using FsusBlog.Contracts.Migration;
@@ -13,8 +15,14 @@ namespace FsusBlog.Migration;
 // One borrowed connection, never a pool, replacement connection or caller transaction.
 // The executor alone owns the transactions it starts on this retained native session.
 internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection, CurrentSchemaProviderKind provider,
-    CancellationToken creatorToken = default, Func<CancellationToken>? cleanupToken = null)
+    CancellationToken creatorToken = default, Func<CancellationToken>? cleanupToken = null,
+    OfflineMigrationPostgreSqlWriteLock? postgreSqlWriteLock = null)
 {
+    // The source owner supplies its canonical family namespace/key. This port only
+    // holds that existing lock before the offline lock and before any RR snapshot.
+    private bool _postgresWriteLockAcquired;
+    private bool _postgresWriteLockCleanupRequired;
+    private bool _postgresOfflineLockAttempted;
     private bool _sqliteModeChanged;
     private ulong? _mysqlConnectionId;
     private bool _mysqlLockAttempted;
@@ -26,6 +34,7 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
     private CurrentSchemaDatabaseIdentity? _originalDatabase;
     private OwnedReadContext? _activeReadContext;
     private int _readScopeActive;
+    private OfflineMigrationPostgreSqlWriteLock? PostgreSqlWriteLock => postgreSqlWriteLock;
     private DbConnection NativeConnection => connection;
     private CancellationToken CreatorCancellation => creatorToken;
     internal const string OwnedScopeCleanupFailuresKey = "FsusBlog.Migration.OwnedScopeCleanupFailures";
@@ -44,7 +53,34 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
 
     internal async Task<bool> AcquireAsync(CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+        if (postgreSqlWriteLock is not null && provider != CurrentSchemaProviderKind.PostgreSql)
+            throw new InvalidOperationException("offline_apply_original_postgresql_write_required");
         if (provider == CurrentSchemaProviderKind.PostgreSql)
+        {
+            if (postgreSqlWriteLock is not null)
+            {
+                if (connection is not NpgsqlConnection native || _postgresOfflineLockAttempted
+                    || _postgresWriteLockCleanupRequired || _originalTransaction is not null)
+                    throw new InvalidOperationException("offline_apply_write_lock_order_required");
+                _postgresProcessId = native.ProcessID;
+                _postgresWriteLockCleanupRequired = true; // Submission may acquire it despite an unobserved response.
+                bool acquired = await UseCommandAsync(
+                    "SELECT pg_try_advisory_lock(@familyNamespace, @familyKey)", async command =>
+                    {
+                        Parameter(command, "@familyNamespace", postgreSqlWriteLock.Namespace);
+                        Parameter(command, "@familyKey", postgreSqlWriteLock.Key);
+                        object? actual = await command.ExecuteScalarAsync(token).ConfigureAwait(false);
+                        if (actual is not bool value)
+                            throw new InvalidOperationException("offline_apply_write_lock_unobserved");
+                        _postgresWriteLockAcquired = value;
+                        _postgresWriteLockCleanupRequired = value;
+                        return value;
+                    }).ConfigureAwait(false);
+                if (!acquired)
+                    return false;
+            }
+            _postgresOfflineLockAttempted = true;
             return await UseCommandAsync("SELECT pg_try_advisory_lock(hashtext(@name))", async command =>
             {
                 // Custody begins before submission, not after command disposal or the
@@ -55,9 +91,11 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
                     throw new InvalidOperationException("offline_apply_postgresql_lock_unobserved");
                 _postgresLockAcquired = acquired;
                 _postgresLockCleanupRequired = acquired;
-                if (acquired && connection is NpgsqlConnection postgres) _postgresProcessId = postgres.ProcessID;
+                if (acquired && connection is NpgsqlConnection postgres)
+                    _postgresProcessId = postgres.ProcessID;
                 return acquired;
             }).ConfigureAwait(false);
+        }
         if (provider == CurrentSchemaProviderKind.MySql)
         {
             // The driver object and isolation label alone do not prove that no bare SQL
@@ -73,10 +111,12 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
                     throw new InvalidOperationException("offline_apply_mysql_lock_unobserved");
                 ulong connectionId = reader.GetFieldValue<ulong>(0);
                 bool acquired = Convert.ToInt64(reader.GetValue(1)) == 1;
-                if (acquired) _mysqlConnectionId = connectionId;
+                if (acquired)
+                    _mysqlConnectionId = connectionId;
                 if (await reader.ReadAsync(token).ConfigureAwait(false))
                     throw new InvalidOperationException("offline_apply_mysql_lock_unobserved");
-                if (!acquired) _mysqlLockAttempted = false;
+                if (!acquired)
+                    _mysqlLockAttempted = false;
                 return acquired;
             }).ConfigureAwait(false);
         }
@@ -90,10 +130,13 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             while (await reader.ReadAsync(token).ConfigureAwait(false))
             {
                 string name = reader.GetString(1);
-                if (name == "main" && !main && !string.IsNullOrEmpty(reader.GetString(2))) main = true;
-                else if (name != "temp") throw new InvalidOperationException("offline_apply_sqlite_main_file_required");
+                if (name == "main" && !main && !string.IsNullOrEmpty(reader.GetString(2)))
+                    main = true;
+                else if (name != "temp")
+                    throw new InvalidOperationException("offline_apply_sqlite_main_file_required");
             }
-            if (!main) throw new InvalidOperationException("offline_apply_sqlite_main_file_required");
+            if (!main)
+                throw new InvalidOperationException("offline_apply_sqlite_main_file_required");
             return true;
         }).ConfigureAwait(false);
         if (await ScalarStringAsync("PRAGMA main.locking_mode", token).ConfigureAwait(false) != "normal")
@@ -134,7 +177,8 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
     internal async ValueTask<DbTransaction> BeginCleanupAsync(CancellationToken token)
     {
         DbTransaction transaction = await BeginCoreAsync(token, mintReadProof: false).ConfigureAwait(false);
-        if (!SupportsOwnedReadContext || _originalDatabase is null) return transaction;
+        if (!SupportsOwnedReadContext || _originalDatabase is null)
+            return transaction;
         Exception? first = null;
         try
         {
@@ -144,11 +188,26 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             token.ThrowIfCancellationRequested();
             return transaction;
         }
-        catch (Exception failure) { first = failure; }
-        try { await transaction.RollbackAsync(token).ConfigureAwait(false); }
-        catch (Exception cleanup) { RecordScopeCleanup(ref first, cleanup); }
-        try { await transaction.DisposeAsync().ConfigureAwait(false); }
-        catch (Exception cleanup) { RecordScopeCleanup(ref first, cleanup); }
+        catch (Exception failure)
+        {
+            first = failure;
+        }
+        try
+        {
+            await transaction.RollbackAsync(token).ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            RecordScopeCleanup(ref first, cleanup);
+        }
+        try
+        {
+            await transaction.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            RecordScopeCleanup(ref first, cleanup);
+        }
         _originalTransaction = null;
         _originalTransactionProof = null;
         ExceptionDispatchInfo.Capture(first!).Throw();
@@ -187,18 +246,21 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             // Non-deferred SERIALIZABLE starts an immediate writer on the already held file.
             transaction = ((SqliteConnection)connection).BeginTransaction(IsolationLevel.Serializable, deferred: false);
         }
-        else transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, token).ConfigureAwait(false);
+        else
+            transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, token).ConfigureAwait(false);
 
         // The original executor owns this actual Begin result. A matching tuple supplied
         // later cannot mint a context, nor can a caller register a driver object as proof.
         _originalTransaction = transaction;
         _originalTransactionProof = null;
-        if (!SupportsOwnedReadContext || !mintReadProof) return transaction; // Never a native read capability.
+        if (!SupportsOwnedReadContext || !mintReadProof)
+            return transaction; // Never a native read capability.
         Exception? first = null;
         try
         {
             using CancellationTokenSource scope = CreateCreatorReadScope(token);
-            if (cleanupToken is null) throw new InvalidOperationException("offline_apply_owned_cleanup_required");
+            if (cleanupToken is null)
+                throw new InvalidOperationException("offline_apply_owned_cleanup_required");
             _originalTransactionProof = await ReadNativeReadProofAsync(transaction, scope.Token).ConfigureAwait(false);
             if (_originalDatabase is not null && _originalDatabase != _originalTransactionProof.Database)
                 throw new InvalidOperationException("offline_apply_original_database_changed");
@@ -206,11 +268,26 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             scope.Token.ThrowIfCancellationRequested();
             return transaction;
         }
-        catch (Exception failure) { first = failure; }
-        try { await transaction.RollbackAsync(cleanupToken!()).ConfigureAwait(false); }
-        catch (Exception cleanup) { RecordScopeCleanup(ref first, cleanup); }
-        try { await transaction.DisposeAsync().ConfigureAwait(false); }
-        catch (Exception cleanup) { RecordScopeCleanup(ref first, cleanup); }
+        catch (Exception failure)
+        {
+            first = failure;
+        }
+        try
+        {
+            await transaction.RollbackAsync(cleanupToken!()).ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            RecordScopeCleanup(ref first, cleanup);
+        }
+        try
+        {
+            await transaction.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            RecordScopeCleanup(ref first, cleanup);
+        }
         _originalTransaction = null;
         _originalTransactionProof = null;
         ExceptionDispatchInfo.Capture(first!).Throw();
@@ -228,22 +305,50 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             if (connection is NpgsqlConnection postgres
                 && (connection.State != ConnectionState.Open || postgres.ProcessID != _postgresProcessId))
                 throw new InvalidOperationException("offline_apply_original_session_required");
-            // A submitted but unobserved result does not prove ownership of one
-            // acquired increment. Do not decrement a caller's pre-existing lock.
-            if (!_postgresLockAcquired)
+            // Release in reverse order. Unobserved ownership is never guessed, and
+            // failure to release the inner lock keeps the outer lock in custody.
+            if (_postgresLockCleanupRequired && !_postgresLockAcquired)
                 throw new InvalidOperationException("offline_apply_postgresql_lock_ownership_unobserved");
-            return await UseCommandAsync("SELECT pg_advisory_unlock(hashtext(@name))", async command =>
+            if (_postgresLockAcquired)
             {
-                object? actual = await command.ExecuteScalarAsync(token).ConfigureAwait(false);
-                if (actual is not bool released)
-                    throw new InvalidOperationException("offline_apply_postgresql_unlock_unobserved");
-                if (released)
+                bool released = await UseCommandAsync("SELECT pg_advisory_unlock(hashtext(@name))", async command =>
                 {
-                    _postgresLockAcquired = false;
-                    _postgresLockCleanupRequired = false;
-                }
-                return released;
-            }).ConfigureAwait(false);
+                    object? actual = await command.ExecuteScalarAsync(token).ConfigureAwait(false);
+                    if (actual is not bool value)
+                        throw new InvalidOperationException("offline_apply_postgresql_unlock_unobserved");
+                    if (value)
+                    {
+                        _postgresLockAcquired = false;
+                        _postgresLockCleanupRequired = false;
+                    }
+                    return value;
+                }).ConfigureAwait(false);
+                if (!released)
+                    return false;
+            }
+            if (_postgresWriteLockCleanupRequired && !_postgresWriteLockAcquired)
+                throw new InvalidOperationException("offline_apply_write_lock_ownership_unobserved");
+            if (_postgresWriteLockAcquired)
+            {
+                bool released = await UseCommandAsync(
+                    "SELECT pg_advisory_unlock(@familyNamespace, @familyKey)", async command =>
+                    {
+                        Parameter(command, "@familyNamespace", postgreSqlWriteLock!.Namespace);
+                        Parameter(command, "@familyKey", postgreSqlWriteLock.Key);
+                        object? actual = await command.ExecuteScalarAsync(token).ConfigureAwait(false);
+                        if (actual is not bool value)
+                            throw new InvalidOperationException("offline_apply_write_unlock_unobserved");
+                        if (value)
+                        {
+                            _postgresWriteLockAcquired = false;
+                            _postgresWriteLockCleanupRequired = false;
+                        }
+                        return value;
+                    }).ConfigureAwait(false);
+                if (!released)
+                    return false;
+            }
+            return true;
         }
         if (provider == CurrentSchemaProviderKind.MySql)
         {
@@ -256,7 +361,8 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             }
             return released;
         }
-        if (!_sqliteModeChanged) return true;
+        if (!_sqliteModeChanged)
+            return true;
         var sqlite = (SqliteConnection)connection;
         if (SQLitePCL.raw.sqlite3_get_autocommit(sqlite.Handle) != 1)
             throw new InvalidOperationException("offline_apply_sqlite_transaction_terminal_unknown");
@@ -268,7 +374,7 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
         return true;
     }
 
-    internal bool CleanupRequired => _postgresLockCleanupRequired || _sqliteModeChanged || _mysqlLockAttempted || _mysqlConnectionId is not null;
+    internal bool CleanupRequired => _postgresWriteLockCleanupRequired || _postgresLockCleanupRequired || _sqliteModeChanged || _mysqlLockAttempted || _mysqlConnectionId is not null;
 
     internal async Task WithOwnedReadScopeAsync(DbTransaction transaction,
         Func<OwnedReadContext, CancellationToken, Task> read, CancellationToken borrowerToken)
@@ -297,26 +403,43 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
             scope.Token.ThrowIfCancellationRequested();
         }
-        catch (Exception failure) { first = failure; }
+        catch (Exception failure)
+        {
+            first = failure;
+        }
         if (first is not null && cleanupToken is not null)
         {
             // Begin the original single independent cleanup budget at this
             // failure boundary, not a fresh timeout after terminal draining.
             // Its expiry cannot stand in for completion of entered native IO.
-            try { _ = cleanupToken(); }
-            catch (Exception cleanup) { RecordScopeCleanup(ref first, cleanup); }
+            try
+            {
+                _ = cleanupToken();
+            }
+            catch (Exception cleanup)
+            {
+                RecordScopeCleanup(ref first, cleanup);
+            }
         }
         // Close admission and await the original entered-boundary gate before
         // clearing this context, releasing the callback gate or letting the
         // executor roll back/dispose. Cancellation alone is not IO terminal.
-        try { if (context is not null) await context.InvalidateAsync().ConfigureAwait(false); }
-        catch (Exception cleanup) { RecordScopeCleanup(ref first, cleanup); }
+        try
+        {
+            if (context is not null)
+                await context.InvalidateAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            RecordScopeCleanup(ref first, cleanup);
+        }
         finally
         {
             _activeReadContext = null;
             Volatile.Write(ref _readScopeActive, 0);
         }
-        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+        if (first is not null)
+            ExceptionDispatchInfo.Capture(first).Throw();
     }
 
     private CancellationTokenSource CreateCreatorReadScope(CancellationToken borrowerToken)
@@ -330,8 +453,17 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
 
     private void RequireOriginalTransaction(DbTransaction transaction)
     {
+        DbConnection? transactionConnection;
+        try
+        {
+            transactionConnection = transaction.Connection;
+        }
+        catch (InvalidOperationException)
+        {
+            throw new InvalidOperationException("offline_apply_original_transaction_required");
+        }
         if (!SupportsOwnedReadContext || !ReferenceEquals(transaction, _originalTransaction)
-            || connection.State != ConnectionState.Open || transaction.Connection != connection
+            || connection.State != ConnectionState.Open || transactionConnection != connection
             || (provider == CurrentSchemaProviderKind.PostgreSql && (connection.GetType() != typeof(NpgsqlConnection)
                 || transaction.GetType() != typeof(NpgsqlTransaction) || !_postgresLockAcquired
                 || ((NpgsqlConnection)connection).ProcessID != _postgresProcessId))
@@ -348,6 +480,7 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
         RequireOriginalTransaction(transaction);
         if (provider == CurrentSchemaProviderKind.PostgreSql)
         {
+            await RequirePostgreSqlWriteLockAsync(transaction, token).ConfigureAwait(false);
             // The existing issuer alone owns the native database identity SQL.
             CurrentSchemaDatabaseIdentity database = await OfflineMigrationCurrentSchemaIssuer.ReadNativeIdentityAsync(
                 connection, transaction, token).ConfigureAwait(false);
@@ -414,6 +547,27 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
         throw new InvalidOperationException("offline_apply_sqlite_transaction_epoch_unavailable");
     }
 
+    private async Task RequirePostgreSqlWriteLockAsync(DbTransaction transaction, CancellationToken token)
+    {
+        if (postgreSqlWriteLock is null)
+            return;
+        if (!_postgresWriteLockAcquired)
+            throw new InvalidOperationException("offline_apply_write_lock_required");
+        bool held = await UseCommandAsync("""
+            SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_locks
+                WHERE locktype='advisory' AND pid=pg_backend_pid() AND granted AND mode='ExclusiveLock'
+                  AND database=(SELECT oid FROM pg_catalog.pg_database WHERE datname=current_database())
+                  AND classid=@familyNamespace::oid AND objid=@familyKey::oid AND objsubid=2)
+            """, async command =>
+        {
+            Parameter(command, "@familyNamespace", postgreSqlWriteLock.Namespace);
+            Parameter(command, "@familyKey", postgreSqlWriteLock.Key);
+            return (bool)(await command.ExecuteScalarAsync(token).ConfigureAwait(false))!;
+        }, transaction).ConfigureAwait(false);
+        if (!held)
+            throw new InvalidOperationException("offline_apply_write_lock_lost");
+    }
+
     private sealed record NativeReadProof(CurrentSchemaDatabaseIdentity Database, string TransactionEpoch);
 
     private static void RecordScopeCleanup(ref Exception? first, Exception cleanup)
@@ -461,10 +615,42 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             return new(owner, transaction, proof, callbackToken);
         }
 
-        internal DbConnection OriginalConnection { get { RequireActive(); return _owner.NativeConnection; } }
-        internal DbTransaction OriginalTransaction { get { RequireActive(); return _transaction; } }
-        internal CurrentSchemaDatabaseIdentity Database { get { RequireActive(); return _proof.Database; } }
+        internal DbConnection OriginalConnection
+        {
+            get
+            {
+                RequireActive();
+                return _owner.NativeConnection;
+            }
+        }
+        internal DbTransaction OriginalTransaction
+        {
+            get
+            {
+                RequireActive();
+                return _transaction;
+            }
+        }
+        internal CurrentSchemaDatabaseIdentity Database
+        {
+            get
+            {
+                RequireActive();
+                return _proof.Database;
+            }
+        }
         internal CurrentSchemaProviderKind Provider => Database.Provider;
+
+        // Borrow the real original RW transaction; never open a SqlSugar read session.
+        // The supplied key is a measured handoff, not authority to allocate counters.
+        internal OfflineMigrationPostgreSqlWriteLock RequirePostgreSqlWriteLock()
+        {
+            RequireActive();
+            if (Provider != CurrentSchemaProviderKind.PostgreSql || !_owner._postgresWriteLockAcquired
+                || _owner.PostgreSqlWriteLock is null)
+                throw new InvalidOperationException("offline_apply_write_lock_required");
+            return _owner.PostgreSqlWriteLock;
+        }
 
         internal CancellationTokenSource CreateReadScope(CancellationToken borrowerToken)
         {
@@ -488,7 +674,10 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
                 if (actual != _proof || actual != _owner._originalTransactionProof)
                     throw new InvalidOperationException("offline_apply_original_transaction_changed");
             }
-            finally { _boundaryGate.Release(); } // All this port's native IO/disposers already returned.
+            finally
+            {
+                _boundaryGate.Release();
+            } // All this port's native IO/disposers already returned.
         }
 
         private void RequireActive()
@@ -506,17 +695,30 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             // already-entered boundary still owns the original native handle.
             Interlocked.Exchange(ref _active, 0);
             Exception? first = null;
-            try { _lifetime.Cancel(throwOnFirstException: false); }
-            catch (Exception cleanup) { first = cleanup; }
+            try
+            {
+                _lifetime.Cancel(throwOnFirstException: false);
+            }
+            catch (Exception cleanup)
+            {
+                first = cleanup;
+            }
             // Exactly the original b414 terminal-drain contract. None means an
             // actual join, not a tokenless rollback/query or a bounded-cleanup
             // claim. If native IO does not terminate, no scope/handle release is
             // declared; the original physical deadline remains a prerequisite.
             await _boundaryGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
             _boundaryGate.Release();
-            try { _lifetime.Dispose(); }
-            catch (Exception cleanup) { RecordScopeCleanup(ref first, cleanup); }
-            if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+            try
+            {
+                _lifetime.Dispose();
+            }
+            catch (Exception cleanup)
+            {
+                RecordScopeCleanup(ref first, cleanup);
+            }
+            if (first is not null)
+                ExceptionDispatchInfo.Capture(first).Throw();
         }
     }
 
@@ -583,15 +785,25 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
             DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false);
             Exception? first = null;
             T result = default!;
-            try { result = await read(reader).ConfigureAwait(false); }
-            catch (Exception failure) { first = failure; }
-            try { await reader.DisposeAsync().ConfigureAwait(false); }
+            try
+            {
+                result = await read(reader).ConfigureAwait(false);
+            }
+            catch (Exception failure)
+            {
+                first = failure;
+            }
+            try
+            {
+                await reader.DisposeAsync().ConfigureAwait(false);
+            }
             catch (Exception cleanup)
             {
                 first ??= cleanup;
                 first.Data[OfflineMigrationStateStore.JournalCleanupFailuresKey] = "offline_apply_journal_command_disposal_failed";
             }
-            if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+            if (first is not null)
+                ExceptionDispatchInfo.Capture(first).Throw();
             return result;
         }, transaction);
 
@@ -603,17 +815,30 @@ internal sealed class OfflineMigrationApplyNativeSession(DbConnection connection
         T result = default!;
         try
         {
-            if (sql.Contains("@name", StringComparison.Ordinal)) Parameter(command, "@name", OfflineMigrationHost.StateLockConstant);
+            if (sql.Contains("@name", StringComparison.Ordinal))
+                Parameter(command, "@name", OfflineMigrationHost.StateLockConstant);
             result = await execute(command).ConfigureAwait(false);
         }
-        catch (Exception failure) { first = failure; }
-        try { await command.DisposeAsync().ConfigureAwait(false); }
+        catch (Exception failure)
+        {
+            first = failure;
+        }
+        try
+        {
+            await command.DisposeAsync().ConfigureAwait(false);
+        }
         catch (Exception cleanup)
         {
             first ??= cleanup;
             first.Data[OfflineMigrationStateStore.JournalCleanupFailuresKey] = "offline_apply_journal_command_disposal_failed";
         }
-        if (first is not null) ExceptionDispatchInfo.Capture(first).Throw();
+        if (first is not null)
+            ExceptionDispatchInfo.Capture(first).Throw();
         return result;
     }
 }
+
+// Descriptor exported by the sole source owner; no allocator, generation value or
+// hardcoded duplicate namespace lives in Migration. This lock spans all original
+// offline transactions so the first RR snapshot follows the previous family writer.
+internal sealed record OfflineMigrationPostgreSqlWriteLock(int Namespace, int Key);
