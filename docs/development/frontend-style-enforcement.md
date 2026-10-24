@@ -6,6 +6,8 @@
 
 The authoritative frontend formatter is the AST-aware pair in `tools/frontend/style-toolchain/`: ESLint 10 with typescript-eslint Project Service and eslint-plugin-vue, plus Stylelint 17 with Vue/SCSS custom syntaxes. Prettier is intentionally not an authority because it cannot preserve the repository's Allman brace contract. The toolchain has an independent lockfile so linting never needs GitHub Packages or a published FsusUI build.
 
+Application project options resolve only when ESLint selects a typed TypeScript or Vue source. Untyped Node tooling, including exact-base SOURCE scratch lint, does not construct an unrelated application typecheck project. Typed selection retains the original frontend-root TypeScript resolution and local FsusUI alias checks: missing dependencies still fail, and the application uses the TypeScript version from the original frontend lock rather than a global resolver or alternate package root. No typed rules, project scope or qualification gates are removed.
+
 The covered source sets are:
 
 - `src/frontend/src/**` for TypeScript, JavaScript, Vue, CSS and SCSS;
