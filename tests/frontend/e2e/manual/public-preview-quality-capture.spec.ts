@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type StorageState } from '@playwright/test'
+import { expect, test, type Browser } from '@playwright/test'
 import type { RouteRecordRaw } from 'vue-router'
 
 import { APP_ROUTE_RECORDS } from '../../../../src/frontend/src/router/appRouteRecords'
@@ -16,6 +16,7 @@ import {
   waitForAppReady,
   waitForPublicHydration,
   waitForScreenshotPaintStability,
+  type StorageState,
   type ThemeMode
 } from '../../support/playwright/acceptance-shared'
 import { loadAuditFixtures, type PlaywrightAuditFixtures } from '../../support/playwright/routeAuditFixtures'

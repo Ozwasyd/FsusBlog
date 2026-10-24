@@ -15,10 +15,18 @@ const frontendRoot = path.join(repositoryRoot, 'src/frontend');
 const { resolveLocalFsusUiApplicationProject } = await import(
     new URL('../../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
 );
-const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot });
-const applicationProjectOptions = localApplicationProject
-    ? { projectService: false, project: [localApplicationProject], extraFileExtensions: ['.vue'] }
-    : { projectService: true };
+let applicationProjectOptions;
+function resolveApplicationProjectOptions()
+{
+    if (applicationProjectOptions === undefined)
+    {
+        const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot });
+        applicationProjectOptions = localApplicationProject
+            ? { projectService: false, project: [localApplicationProject], extraFileExtensions: ['.vue'] }
+            : { projectService: true };
+    }
+    return applicationProjectOptions;
+}
 
 const typedFiles = [
     'src/frontend/src/**/*.{ts,tsx}',
@@ -241,11 +249,14 @@ export default [
         files: typedFiles,
         languageOptions: {
             parser: tseslint.parser,
-            parserOptions: {
-                ecmaVersion: 'latest',
-                ...applicationProjectOptions,
-                sourceType: 'module',
-                tsconfigRootDir: frontendRoot
+            get parserOptions()
+            {
+                return {
+                    ecmaVersion: 'latest',
+                    ...resolveApplicationProjectOptions(),
+                    sourceType: 'module',
+                    tsconfigRootDir: frontendRoot
+                };
             },
             globals: {
                 ...globals.browser,
@@ -261,13 +272,16 @@ export default [
         name: 'fsusblog/vue-sfc',
         files: vueFiles,
         languageOptions: {
-            parserOptions: {
-                ecmaVersion: 'latest',
-                extraFileExtensions: ['.vue'],
-                parser: tseslint.parser,
-                ...applicationProjectOptions,
-                sourceType: 'module',
-                tsconfigRootDir: frontendRoot
+            get parserOptions()
+            {
+                return {
+                    ecmaVersion: 'latest',
+                    extraFileExtensions: ['.vue'],
+                    parser: tseslint.parser,
+                    ...resolveApplicationProjectOptions(),
+                    sourceType: 'module',
+                    tsconfigRootDir: frontendRoot
+                };
             },
             globals: globals.browser
         },
