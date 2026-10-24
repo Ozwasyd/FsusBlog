@@ -7628,6 +7628,22 @@
             }
         },
         {
+            "file": "tests/tools/msbuild-source.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "msbuild-source",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
             "file": "tests/tools/change-contract-classification-proof.test.mjs",
             "owner": "manual-diagnostic:tests/tools/change-contract-classification-proof.test.mjs",
             "executionCategory": "manual-diagnostic",
