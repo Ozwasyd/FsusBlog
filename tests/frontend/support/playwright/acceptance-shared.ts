@@ -5,7 +5,7 @@ import path from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { expect } from '@playwright/test'
-import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page, ScreenshotOptions, StorageState } from '@playwright/test'
+import type { Browser, BrowserContext, BrowserContextOptions, Locator, Page } from '@playwright/test'
 import { AEDS_BINARY_MEDIA_TYPE, FSUS_HEADERS } from '../../../../src/frontend/src/api/contracts'
 import { encodeAedsFrame } from '../../../../src/frontend/src/api/binaryFrame'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '../../../../src/frontend/wasm/web/protocol/frame'
@@ -19,6 +19,10 @@ import {
 } from './readiness.mjs'
 // @ts-ignore The retry helper is a pure module covered by node:test.
 import { navigateThroughRetryablePublicAot } from './publicAotNavigationRetry.mjs'
+
+export type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>
+
+type StableScreenshotOptions = NonNullable<Parameters<ReturnType<typeof expect<Locator>>['toHaveScreenshot']>[0]>
 
 export type RuntimeAudit = {
   checkpoint: () => number
@@ -809,7 +813,8 @@ function normalizeFixtureStorageState(storageState: StorageState): StorageState 
       cookies.push({
         name: cookie.name,
         value: cookie.value,
-        url: baseUrl.origin,
+        domain: baseUrl.hostname,
+        path: '/',
         expires: cookie.expires ?? -1,
         httpOnly: Boolean(cookie.httpOnly),
         secure: true,
@@ -2931,7 +2936,7 @@ export async function expectStableScreenshot(
   page: Page,
   locator: Locator,
   name: string,
-  options?: Omit<ScreenshotOptions, 'mask'>
+  options?: Omit<StableScreenshotOptions, 'mask'>
 ): Promise<void> {
   await expect(locator, `${name} screenshot target should be visible`).toBeVisible({ timeout: 10_000 })
   await locator.scrollIntoViewIfNeeded().catch(() => {})
