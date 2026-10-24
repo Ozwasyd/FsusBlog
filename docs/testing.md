@@ -1111,6 +1111,18 @@ retry policy. Registration and source-order checks are not actual compiler/SQL
 qualification; successful native scheduler MySQL allocation and canonical locked dependencies
 remain prerequisites.
 
+Correctness migration compares the complete producer ID roster derived from the
+matrix, physical bundle inventory and reliability catalog. Its size follows those
+canonical owners rather than a historical constant. Missing, extra or substituted
+identities refuse even when the candidate inventory has a freshly sealed digest;
+zero retries, first-failure blocking and external authority bindings still apply
+to every producer.
+
+The Browser Contract first-stop regression extracts the original scenario loop
+from its syntax tree and executes the real temporal adapter against its Node
+page-clock model. Its continue-after-failure mutation remains required. This
+fixture emits checker-selftest evidence and grants no browser qualification.
+
 Before local physical scheduling, the existing runner projects each non-resident
 bundle's service requirements from its exact logical members. Duplicate or
 missing logical identities, foreign service declarations and MySQL on a resident
