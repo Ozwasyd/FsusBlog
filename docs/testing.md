@@ -1759,6 +1759,19 @@ to the original local-install producer's finite lock-derived mappings. Both
 source manifests, the original lock, installed dependency manifests, and each
 logical-to-physical mapping are bound and independently reopened. Unknown,
 retargeted, and escaping aliases remain refusals.
+The original `pnpm@10.33.0` declaration, workspace selectors, and root/member manifests are joined to
+the complete lock importer table before compiler execution. Every declared
+workspace link must resolve to its exact Git member, name, declared version
+(or explicitly absent private version), and relative pnpm symlink. The port
+supports positive single-level workspace selectors, `workspace:*`, and the
+literal caret triplet when its source version equals that triplet; unknown
+selector or range forms fail closed. All projected root and member links and
+their namespaces are checked before emission and independently reopened;
+undeclared source aliases and secondary linked paths receive no source access.
+Full workspace YAML is parsed with the executing style toolchain's original
+locked `js-yaml` and `FAILSAFE_SCHEMA`. Its package, implementation files,
+actual loaded module closure, and directory identities are bound and reopened;
+candidate or local UI parser packages do not execute.
 The locked TypeScript 6.0.3 peer resolver can derive a directory outside the
 repositories from a source package without `node_modules` in its path. Only an
 exact `directoryExists` miss derived from peer keys in a Git-bound source

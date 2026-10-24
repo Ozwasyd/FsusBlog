@@ -747,6 +747,7 @@ test('canonical declaration changes retain the complete original source regressi
     ]);
     for (const input of [
         'tools/configuration/check-canonical-declaration-source.mjs',
+        'tools/configuration/canonical-workspace-source.mjs',
         'tools/frontend/generate-canonical-test-declarations.mjs',
         'tools/frontend/canonical-test-declaration-inputs.mjs',
         'src/frontend/scripts/prepare-local-fsusui-install.mjs',

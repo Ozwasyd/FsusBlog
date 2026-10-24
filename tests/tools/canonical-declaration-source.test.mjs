@@ -7,8 +7,12 @@ import path from 'node:path';
 import test, { mock } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const { inspectCanonicalDeclarationSource, validateCanonicalDeclarationSourceReceipt, inspectCanonicalPeerDirectoryAbsence } = await import(
+const { inspectCanonicalDeclarationSource, validateCanonicalDeclarationSourceReceipt, inspectCanonicalPeerDirectoryAbsence,
+    inspectCanonicalWorkspaceSourceAlias, inspectCanonicalWorkspaceParser } = await import(
     new URL('../../tools/configuration/check-canonical-declaration-source.mjs', import.meta.url)
+);
+const { projectCanonicalWorkspaceSourceAliases } = await import(
+    new URL('../../tools/configuration/canonical-workspace-source.mjs', import.meta.url)
 );
 const {
     canonicalTestDeclarationProducer, canonicalTestDeclarationModules, canonicalTestDeclarationOutputs,
@@ -147,6 +151,267 @@ function peerFixture(f)
     const prefix = packageDirectory.substring(0, packageDirectory.lastIndexOf('node_modules') + 'node_modules'.length) + path.sep;
     return { manifest, source, directory: path.resolve(prefix + 'vue') };
 }
+
+function workspaceProjectionFixture()
+{
+    const root = path.resolve(tmpdir(), 'canonical-workspace-projection');
+    const manifests = new Map([
+        ['package.json', { packageManager: 'pnpm@10.33.0', workspaces: ['vue/packages/*', 'vue/internal/*'],
+            dependencies: { '@fixture/one': 'workspace:*' } }],
+        ['vue/packages/one/package.json', { name: '@fixture/one', private: true,
+            devDependencies: { '@fixture/two': 'workspace:^0.0.1' } }],
+        ['vue/internal/two/package.json', { name: '@fixture/two', version: '0.0.1' }]
+    ]);
+    const workspace = { packages: ['vue/packages/*', 'vue/internal/*'] };
+    const lock = { lockfileVersion: '9.0', importers: {
+        '.': { dependencies: { '@fixture/one': { specifier: 'workspace:*', version: 'link:vue/packages/one' } } },
+        'vue/packages/one': { devDependencies: { '@fixture/two': {
+            specifier: 'workspace:^0.0.1', version: 'link:../../internal/two' } } },
+        'vue/internal/two': {}
+    } };
+    const inputs = new Map([...manifests].map(([file, value]) => [file, value]));
+    inputs.set('pnpm-workspace.yaml', workspace);
+    inputs.set('pnpm-lock.yaml', lock);
+    const project = () => projectCanonicalWorkspaceSourceAliases({ root,
+        index: new Map([...inputs.keys()].map(file => [file, { mode: '100644' }])),
+        read: file => JSON.stringify(inputs.get(path.relative(root, file).split(path.sep).join('/'))), parse: JSON.parse });
+    return { root, manifests, workspace, lock, inputs, project };
+}
+
+test('workspace source projection derives all root and member importers with explicit absent versions', () =>
+{
+    const f = workspaceProjectionFixture();
+    const projection = f.project();
+    assert.equal(projection.members.length, 2);
+    assert.equal(projection.aliases.length, 2);
+    assert.equal(projection.aliases[0].versionPresent, false);
+    assert.equal(Object.hasOwn(projection.aliases[0], 'version'), false);
+    assert.equal(projection.aliases[1].target, path.join(f.root, 'vue/internal/two'));
+    assert.equal(projection.aliases[1].version, '0.0.1');
+    assert.equal(projection.aliases[1].importer, 'vue/packages/one');
+    const empty = projectCanonicalWorkspaceSourceAliases({ root: f.root, index: new Map(),
+        read: () => assert.fail('an unconfigured fixture must grant zero capability without reads'), parse: JSON.parse });
+    assert.equal(empty.configured, false);
+    assert.deepEqual(empty.aliases, []);
+});
+
+test('workspace source projection refuses unknown selectors imports versions names and lock links', async context =>
+{
+    const mutations = [
+        f =>
+        {
+            delete f.manifests.get('package.json').packageManager;
+        },
+        f =>
+        {
+            f.manifests.get('package.json').packageManager = 'yarn@10.33.0';
+        },
+        f =>
+        {
+            f.manifests.get('package.json').packageManager = 'pnpm@9.0.0';
+        },
+        f => f.workspace.packages.push('!vue/packages/one'),
+        f => f.workspace.packages.push('../outside/*'),
+        f => f.workspace.packages.push('vue/**'),
+        f => f.manifests.get('package.json').workspaces.push('vue/other/*'),
+        f =>
+        {
+            f.lock.importers['unexpected'] = {};
+        },
+        f =>
+        {
+            delete f.lock.importers['vue/internal/two'];
+        },
+        f =>
+        {
+            f.lock.importers['.'].dependencies['@fixture/one'].specifier = 'workspace:^1.0.0';
+        },
+        f =>
+        {
+            f.lock.importers['.'].dependencies['@fixture/one'].version = 'link:../outside';
+        },
+        f =>
+        {
+            f.manifests.get('vue/packages/one/package.json').name = '@fixture/other';
+        },
+        f =>
+        {
+            f.manifests.get('vue/packages/one/package.json').private = false;
+        },
+        f =>
+        {
+            f.manifests.get('vue/internal/two/package.json').version = '0.0.2';
+        },
+        f =>
+        {
+            f.lock.importers['.'].dependencies['@fixture/unknown'] = { specifier: 'workspace:*', version: 'link:vue/packages/one' };
+        },
+        f =>
+        {
+            f.manifests.get('package.json').devDependencies = { '@fixture/one': '1.0.0' };
+            f.lock.importers['.'].devDependencies = { '@fixture/one': { specifier: '1.0.0', version: '1.0.0' } };
+        }
+    ];
+    for (const [index, mutate] of mutations.entries())
+    {
+        await context.test('refusal ' + index, () =>
+        {
+            const f = workspaceProjectionFixture();
+            mutate(f);
+            assert.throws(f.project, /workspace source projection refuses/u);
+        });
+    }
+});
+
+test('workspace source physical links bind relative targets epochs and refuse retargeting and secondary links', context =>
+{
+    const directory = fs.mkdtempSync(path.join(tmpdir(), 'canonical-workspace-links-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const logical = path.join(directory, 'node_modules/@fixture/one');
+    const target = path.join(directory, 'vue/packages/one');
+    fs.mkdirSync(path.dirname(logical), { recursive: true });
+    fs.mkdirSync(target, { recursive: true });
+    fs.symlinkSync(path.relative(path.dirname(logical), target), logical);
+    const proof = inspectCanonicalWorkspaceSourceAlias({ logical, target });
+    assert.deepEqual(inspectCanonicalWorkspaceSourceAlias(proof), proof);
+    fs.unlinkSync(logical);
+    fs.symlinkSync(target, logical);
+    assert.throws(() => inspectCanonicalWorkspaceSourceAlias(proof), /locked target/u);
+    fs.unlinkSync(logical);
+    fs.symlinkSync(path.relative(path.dirname(logical), target), logical);
+    assert.throws(() => inspectCanonicalWorkspaceSourceAlias(proof), /locked target/u);
+    const indirect = path.join(directory, 'indirect');
+    fs.symlinkSync(target, indirect);
+    fs.unlinkSync(logical);
+    fs.symlinkSync(path.relative(path.dirname(logical), indirect), logical);
+    assert.throws(() => inspectCanonicalWorkspaceSourceAlias({ logical, target: indirect }), /locked target/u);
+});
+
+test('workspace source parser charges remaining bytes before reads and bounds recursive implementation directories', () =>
+{
+    const lock = JSON.parse(fs.readFileSync(path.join(authorityRoot, 'tools/frontend/style-toolchain/package-lock.json')));
+    assert.throws(() => inspectCanonicalWorkspaceParser(lock, 0), /bounded regular single-link/u);
+    const directory = path.join(authorityRoot, 'tools/frontend/style-toolchain/node_modules/js-yaml/lib');
+    const stat = fs.lstatSync(directory, { bigint: true });
+    const originalStat = fs.lstatSync;
+    const originalRealpath = fs.realpathSync;
+    const originalEntries = fs.opendirSync;
+    const hooks = [
+        mock.method(fs, 'lstatSync', (file, ...args) => typeof file === 'string' && file.startsWith(directory + '/nested')
+            ? stat : originalStat(file, ...args)),
+        mock.method(fs, 'realpathSync', (file, ...args) => typeof file === 'string' && file.startsWith(directory + '/nested')
+            ? file : originalRealpath(file, ...args)),
+        mock.method(fs, 'opendirSync', (file, ...args) =>
+        {
+            if (file !== directory && !String(file).startsWith(directory + '/nested'))
+            {
+                return originalEntries(file, ...args);
+            }
+            let read = false;
+            return { readSync()
+            {
+                const entry = read ? null : { name: 'nested', isDirectory: () => true };
+                read = true;
+                return entry;
+            }, closeSync()
+            {} };
+        })
+    ];
+    try
+    {
+        assert.throws(() => inspectCanonicalWorkspaceParser(lock), /directory depth or count exceeds/u);
+    }
+    finally
+    {
+        hooks.forEach(hook => hook.mock.restore());
+    }
+});
+
+test('workspace source parser rejects a replaced package root even when all leaf bytes and inodes remain', context =>
+{
+    const lock = JSON.parse(fs.readFileSync(path.join(authorityRoot, 'tools/frontend/style-toolchain/package-lock.json')));
+    const parser = inspectCanonicalWorkspaceParser(lock);
+    const root = path.join(authorityRoot, 'tools/frontend/style-toolchain/node_modules/js-yaml');
+    assert.equal(fs.realpathSync(root), root);
+    const backup = fs.mkdtempSync(path.join(path.dirname(root), '.canonical-js-yaml-control-'));
+    fs.rmdirSync(backup);
+    const restore = () =>
+    {
+        if (fs.existsSync(backup))
+        {
+            if (fs.lstatSync(root).isSymbolicLink())
+            {
+                fs.unlinkSync(root);
+            }
+            fs.renameSync(backup, root);
+        }
+    };
+    context.after(restore);
+    fs.renameSync(root, backup);
+    try
+    {
+        fs.symlinkSync(backup, root);
+        assert.throws(parser.verify, /implementation changed|implementation directory changed/u);
+    }
+    finally
+    {
+        restore();
+    }
+    assert.equal(fs.realpathSync(root), root);
+});
+
+test('workspace source original emission and independent receipt bind source aliases and the authority parser closure', context =>
+{
+    const f = fixture(context);
+    const projection = workspaceProjectionFixture();
+    const existingMembers = ['vue/packages/element-plus', 'vue/packages/icons-vue'];
+    for (const directory of existingMembers)
+    {
+        projection.inputs.set(directory + '/package.json', { name: directory.endsWith('element-plus') ? 'element-plus' : '@element-plus/icons-vue',
+            version: '1.0.0' });
+        projection.lock.importers[directory] = {};
+    }
+    for (const [file, value] of projection.inputs)
+    {
+        write(f.localRoot, file, JSON.stringify(value));
+    }
+    write(f.localRoot, '.gitignore', '**/node_modules/\n');
+    write(f.localRoot, 'vue/packages/one/index.ts', 'export const value = 7;\n');
+    const projected = projectCanonicalWorkspaceSourceAliases({ root: f.localRoot,
+        index: new Map([...projection.inputs.keys()].map(file => [file, { mode: '100644' }])),
+        read: file => fs.readFileSync(file, 'utf8'), parse: JSON.parse });
+    for (const value of projected.aliases)
+    {
+        fs.mkdirSync(path.dirname(value.logical), { recursive: true });
+        fs.symlinkSync(path.relative(path.dirname(value.logical), value.target), value.logical);
+    }
+    const logical = path.join(f.localRoot, 'node_modules/@fixture/one/index.js');
+    write(f.root, 'src/frontend/fixture.ts', 'import { value } from ' + JSON.stringify(logical) + ';\nexport const fixture = value;\n');
+    const marker = path.join(f.localRoot, 'candidate-parser-ran');
+    write(f.localRoot, 'node_modules/js-yaml/package.json', '{"main":"index.js"}\n');
+    write(f.localRoot, 'node_modules/js-yaml/index.js', 'require("node:fs").writeFileSync(' + JSON.stringify(marker) + ', "ran");\n');
+    regenerate(f);
+    const receipt = f.inspect();
+    assert.equal(receipt.consumed.workspaceSources.aliases.length, 2);
+    assert.equal(receipt.workspaceParser.lock.version, '4.3.2');
+    assert.ok(receipt.workspaceParser.executed.length >= 25);
+    assert.ok(receipt.workspaceParser.executed.every(file => file.startsWith(authorityRoot + 'tools/frontend/style-toolchain/node_modules/js-yaml/')));
+    assert.ok(receipt.consumed.logicalReads.some(value => value.requested.includes('node_modules/@fixture/one/')));
+    assert.equal(fs.existsSync(marker), false);
+    assert.equal(validateCanonicalDeclarationSourceReceipt({ repositoryRoot: f.root, localRoot: f.localRoot,
+        files: [...canonicalTestDeclarationOutputs], expectedHead: f.head, receipt }), receipt);
+    const forged = structuredClone(receipt);
+    forged.consumed.workspaceSources.aliases[0].versionPresent = true;
+    assert.throws(() => validateCanonicalDeclarationSourceReceipt({ repositoryRoot: f.root, localRoot: f.localRoot,
+        files: [...canonicalTestDeclarationOutputs], expectedHead: f.head, receipt: forged }), /independent original regeneration/u);
+    const extra = path.join(f.localRoot, 'node_modules/@fixture/undeclared');
+    fs.symlinkSync(path.relative(path.dirname(extra), path.join(f.localRoot, 'vue/packages/one')), extra);
+    assert.throws(() => f.inspect(), /undeclared source alias/u);
+    fs.unlinkSync(extra);
+    const nested = path.join(f.localRoot, 'node_modules/@fixture/@nested');
+    fs.mkdirSync(nested);
+    assert.throws(() => f.inspect(), /nested npm scopes/u);
+});
 
 test('only compiler-consumed Git source peers derive exact missing directory proofs and independent reopening', context =>
 {

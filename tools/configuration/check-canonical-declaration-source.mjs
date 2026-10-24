@@ -19,6 +19,7 @@ const { generateCanonicalTestDeclarations } = await import(
     new URL('../frontend/generate-canonical-test-declarations.mjs', import.meta.url)
 );
 
+import { projectCanonicalWorkspaceSourceAliases } from './canonical-workspace-source.mjs';
 import { bindSourceFile, verifySourceFileBinding } from './check-solution-source.mjs';
 
 const { resolveLocalFsusUiRepositoryRoot } = await import(
@@ -186,6 +187,158 @@ function decode(bytes)
     return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
+function boundedDirectoryEntries(directory, maximum)
+{
+    const handle = fs.opendirSync(directory);
+    const entries = [];
+    try
+    {
+        for (let entry = handle.readSync(); entry; entry = handle.readSync())
+        {
+            if (entries.length >= maximum)
+            {
+                throw new Error('canonical declaration directory inventory exceeds its remaining entry bound');
+            }
+            entries.push(entry);
+        }
+        return entries.sort((left, right) => left.name.localeCompare(right.name));
+    }
+    finally
+    {
+        handle.closeSync();
+    }
+}
+
+export function inspectCanonicalWorkspaceParser(lock, remainingBytes = canonicalDeclarationSourceLimits.batchBytes)
+{
+    const locked = lock.packages?.['node_modules/js-yaml'];
+    if (locked?.version !== '4.3.2' || !/^https:\/\/registry\.npmjs\.org\/js-yaml\/-\/js-yaml-/u.test(locked.resolved ?? '')
+        || !/^sha512-/u.test(locked.integrity ?? ''))
+    {
+        throw new Error('canonical workspace parser requires its original executing authority lock');
+    }
+    const root = path.join(authorityRoot, 'tools/frontend/style-toolchain/node_modules/js-yaml');
+    const inputs = new Map();
+    const directories = new Map();
+    const budget = Math.min(canonicalDeclarationSourceLimits.batchBytes, remainingBytes);
+    let bytes = 0;
+    let entryCount = 0;
+    const rootStat = fs.lstatSync(root, { bigint: true });
+    const rootEntries = boundedDirectoryEntries(root, 64).map(value => value.name).sort();
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink() || fs.realpathSync(root) !== root || rootEntries.length > 64)
+    {
+        throw new Error('canonical workspace parser requires one bounded exact authority package directory');
+    }
+    directories.set(root, { directory: root, epoch: epoch(rootStat), entries: rootEntries });
+    const hold = file =>
+    {
+        if (inputs.size >= 64 || fs.realpathSync(file) !== file)
+        {
+            throw new Error('canonical workspace parser refuses an oversized or linked implementation closure');
+        }
+        const input = rawRead(file, Math.min(canonicalDeclarationSourceLimits.fileBytes, budget - bytes));
+        bytes += input.bytes.length;
+        inputs.set(file, { file, sha256: digest(input.bytes), epoch: input.epoch, bytes: input.bytes.length });
+        return input.bytes;
+    };
+    const walk = (directory, depth = 0) =>
+    {
+        if (directories.size >= canonicalDeclarationSourceLimits.files || depth >= 64)
+        {
+            throw new Error('canonical workspace parser implementation directory depth or count exceeds its bound');
+        }
+        const stat = fs.lstatSync(directory, { bigint: true });
+        if (!stat.isDirectory() || stat.isSymbolicLink() || fs.realpathSync(directory) !== directory)
+        {
+            throw new Error('canonical workspace parser refuses a linked implementation directory');
+        }
+        const entries = boundedDirectoryEntries(directory, canonicalDeclarationSourceLimits.directoryEntries - entryCount);
+        entryCount += entries.length;
+        if (entryCount > canonicalDeclarationSourceLimits.directoryEntries)
+        {
+            throw new Error('canonical workspace parser implementation directory exceeds its bound');
+        }
+        directories.set(directory, { directory, epoch: epoch(stat), entries: entries.map(value => value.name).sort() });
+        for (const entry of entries)
+        {
+            const file = path.join(directory, entry.name);
+            if (entry.isDirectory())
+            {
+                walk(file, depth + 1);
+            }
+            else if (entry.isFile())
+            {
+                hold(file);
+            }
+            else
+            {
+                throw new Error('canonical workspace parser refuses an unknown implementation entry');
+            }
+        }
+    };
+    const installed = JSON.parse(hold(path.join(root, 'package.json')));
+    hold(path.join(root, 'index.js'));
+    walk(path.join(root, 'lib'));
+    if (installed.name !== 'js-yaml' || installed.version !== locked.version
+        || compilerRequire.resolve('js-yaml') !== path.join(root, 'index.js'))
+    {
+        throw new Error('canonical workspace parser installed identity differs from its authority lock');
+    }
+    // Reusing a previously cached export would not prove which bytes created it.
+    // Load only this already bound authority package afresh, then recheck its actual execution closure.
+    for (const file of Object.keys(compilerRequire.cache))
+    {
+        if (contained(root, file))
+        {
+            delete compilerRequire.cache[file];
+        }
+    }
+    const parser = compilerRequire('js-yaml');
+    const closure = new Set();
+    const visit = module =>
+    {
+        if (!module || closure.has(module.filename))
+        {
+            return;
+        }
+        if (!inputs.has(module.filename))
+        {
+            throw new Error('canonical workspace parser executed a module outside its held implementation closure');
+        }
+        closure.add(module.filename);
+        module.children.forEach(visit);
+    };
+    visit(compilerRequire.cache[compilerRequire.resolve('js-yaml')]);
+    const verify = () =>
+    {
+        for (const value of inputs.values())
+        {
+            const actual = rawRead(value.file, canonicalDeclarationSourceLimits.fileBytes);
+            if (fs.realpathSync(value.file) !== value.file
+                || digest(actual.bytes) !== value.sha256 || !isDeepStrictEqual(actual.epoch, value.epoch))
+            {
+                throw new Error('canonical workspace parser implementation changed during inspection');
+            }
+        }
+        for (const value of directories.values())
+        {
+            if (fs.realpathSync(value.directory) !== value.directory
+                || !isDeepStrictEqual(epoch(fs.lstatSync(value.directory, { bigint: true })), value.epoch)
+                || !isDeepStrictEqual(boundedDirectoryEntries(value.directory, value.entries.length)
+                    .map(entry => entry.name).sort(), value.entries))
+            {
+                throw new Error('canonical workspace parser implementation directory changed during inspection');
+            }
+        }
+        return { lock: Object.fromEntries(['version', 'resolved', 'integrity'].map(key => [key, locked[key]])),
+            schema: 'FAILSAFE_SCHEMA', inputs: [...inputs.values()], directories: [...directories.values()],
+            executed: [...closure].sort() };
+    };
+    verify();
+    return { parse: text => parser.load(text, { schema: parser.FAILSAFE_SCHEMA }), verify,
+        bytes };
+}
+
 function assertScratchNamespace(root)
 {
     const parts = generatedProject.split('/');
@@ -258,7 +411,26 @@ export function inspectCanonicalPeerDirectoryAbsence(directory)
     throw new Error('canonical peer directory absence could not establish a missing component');
 }
 
-function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialBytes)
+/** Bind the one pnpm link itself; descendants remain exact Git paths under its canonical source target. */
+export function inspectCanonicalWorkspaceSourceAlias(value)
+{
+    const stat = fs.lstatSync(value.logical, { bigint: true });
+    if (!stat.isSymbolicLink())
+    {
+        throw new Error('canonical declaration workspace source requires its original pnpm symlink');
+    }
+    const link = fs.readlinkSync(value.logical);
+    if (path.isAbsolute(link) || path.resolve(path.dirname(value.logical), link) !== value.target
+        || fs.realpathSync(value.logical) !== value.target || fs.realpathSync(value.target) !== value.target
+        || (value.epoch && !isDeepStrictEqual(value.epoch, epoch(stat)))
+        || (value.link !== undefined && value.link !== link))
+    {
+        throw new Error('canonical declaration workspace source alias differs from its original locked target: ' + value.logical);
+    }
+    return { ...value, link, epoch: epoch(stat) };
+}
+
+function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialBytes, parser)
 {
     const original = { ...ts.sys };
     const reads = new Map();
@@ -273,6 +445,9 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
     // TypeScript catches some host read errors; a refused capability must still fail admission.
     let refused = null;
     let publicAliases = null;
+    let workspaceSources = { configured: false, selectors: [], members: [], aliases: [] };
+    const workspaceNamespaces = new Map();
+    let workspaceNamespaceEntries = 0;
     const ancestorsForLookup = new Set();
     for (const repo of repositories)
     {
@@ -332,6 +507,50 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
         }
         return publicAliases;
     };
+    const validateWorkspaceAlias = value =>
+    {
+        const binding = inspectCanonicalWorkspaceSourceAlias(value);
+        observeAncestors(ui, value.logical);
+        observeAncestors(ui, path.join(value.target, 'package.json'));
+        return binding;
+    };
+    const workspaceAliasFor = requested => workspaceSources.aliases.find(value => contained(value.logical, requested));
+    const validateWorkspaceRequest = requested =>
+    {
+        const alias = workspaceAliasFor(requested);
+        if (!alias)
+        {
+            return;
+        }
+        validateWorkspaceAlias(alias);
+        const relative = path.relative(alias.logical, requested);
+        let current = alias.target;
+        for (const part of relative.split(path.sep).filter(Boolean))
+        {
+            current = path.join(current, part);
+            let stat;
+            try
+            {
+                stat = fs.lstatSync(current, { bigint: true });
+            }
+            catch (error)
+            {
+                if (error.code === 'ENOENT')
+                {
+                    return;
+                }
+                throw error;
+            }
+            if (stat.isSymbolicLink())
+            {
+                throw new Error('canonical declaration workspace source alias refuses a secondary linked target: ' + requested);
+            }
+            if (stat.isDirectory() && !ancestors.has(current))
+            {
+                ancestors.set(current, epoch(stat));
+            }
+        }
+    };
     const validateMapping = (requested, physical) =>
     {
         const logicalRepo = repositories.filter(value => contained(value.root, requested))
@@ -370,7 +589,16 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
             }
             validatePublicAlias(alias);
         }
-        return { logicalRepo, physicalRepo };
+        const workspaceAlias = logicalRepo === ui && physicalRepo === ui ? workspaceAliasFor(requested) : null;
+        if (workspaceAlias)
+        {
+            validateWorkspaceAlias(workspaceAlias);
+            if (physical !== path.join(workspaceAlias.target, path.relative(workspaceAlias.logical, requested)))
+            {
+                throw new Error('canonical declaration workspace source alias refuses a secondary linked target: ' + requested);
+            }
+        }
+        return { logicalRepo, physicalRepo, workspaceAlias };
     };
     const observeAncestors = (repo, absolute) =>
     {
@@ -406,13 +634,14 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
         {
             throw new Error('canonical declaration compiler read escapes its closed repositories: ' + requested);
         }
+        validateWorkspaceRequest(requested);
         if (!fs.existsSync(requested))
         {
             record('missing-read', [requested], false);
             return undefined;
         }
         const physical = fs.realpathSync(requested);
-        const { logicalRepo, physicalRepo: repo } = validateMapping(requested, physical);
+        const { logicalRepo, physicalRepo: repo, workspaceAlias: boundWorkspaceAlias } = validateMapping(requested, physical);
         const relative = path.relative(repo.root, physical).split(path.sep).join('/');
         const logicalRelative = path.relative(logicalRepo.root, requested).split(path.sep).join('/');
         const tracked = repo.index.get(relative);
@@ -422,7 +651,7 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
         {
             throw new Error('canonical declaration compiler read is not a bound source or locked dependency: ' + requested);
         }
-        if (tracked && (!['100644', '100755'].includes(tracked.mode) || physical !== requested))
+        if (tracked && (!['100644', '100755'].includes(tracked.mode) || (physical !== requested && !boundWorkspaceAlias)))
         {
             throw new Error('canonical declaration compiler source requires a regular exact Git path: ' + requested);
         }
@@ -460,7 +689,8 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
     };
     const registerCompilerPeerDirectories = (file, content) =>
     {
-        const absolute = path.resolve(file);
+        const requested = path.resolve(file);
+        const absolute = logicalReads.get(requested) ?? requested;
         const input = reads.get(absolute);
         if (ts.version !== '6.0.3' || input?.kind !== 'git-source' || input.repository !== ui.root
             || !input.path.startsWith('vue/packages/') || path.basename(absolute) !== 'package.json')
@@ -618,6 +848,7 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
     const probe = (kind, args) =>
     {
         const absolute = path.resolve(args[0]);
+        validateWorkspaceRequest(absolute);
         if (['getDirectories', 'readDirectory'].includes(kind)
             && !repositories.some(value => contained(value.root, absolute)))
         {
@@ -629,6 +860,69 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
     if (fs.existsSync(path.join(ui.root, 'vue/packages/node_modules')))
     {
         resolvePublicAliases();
+    }
+    workspaceSources = projectCanonicalWorkspaceSourceAliases({ root: ui.root, index: ui.index, read, parse: parser.parse });
+    workspaceSources.aliases = workspaceSources.aliases.map(validateWorkspaceAlias);
+    const inventoryWorkspaceNamespace = (directory, scoped = false) =>
+    {
+        if (workspaceNamespaces.size >= canonicalDeclarationSourceLimits.probes)
+        {
+            throw new Error('canonical declaration workspace namespace inventory exceeds its probe bound');
+        }
+        let stat;
+        try
+        {
+            stat = fs.lstatSync(directory, { bigint: true });
+        }
+        catch (error)
+        {
+            if (error.code === 'ENOENT')
+            {
+                workspaceNamespaces.set(directory, { directory, absent: true });
+                return;
+            }
+            throw error;
+        }
+        if (!stat.isDirectory() || stat.isSymbolicLink() || fs.realpathSync(directory) !== directory)
+        {
+            throw new Error('canonical declaration workspace namespace requires one exact real directory');
+        }
+        observeAncestors(ui, path.join(directory, 'entry'));
+        const entries = boundedDirectoryEntries(directory, canonicalDeclarationSourceLimits.directoryEntries - workspaceNamespaceEntries);
+        workspaceNamespaceEntries += entries.length;
+        if (workspaceNamespaceEntries > canonicalDeclarationSourceLimits.directoryEntries)
+        {
+            throw new Error('canonical declaration workspace namespace exceeds its entry bound');
+        }
+        workspaceNamespaces.set(directory, { directory, epoch: epoch(stat), entries: entries.map(value => value.name).sort() });
+        for (const entry of entries)
+        {
+            const logical = path.join(directory, entry.name);
+            if (entry.name.startsWith('@') && entry.isDirectory())
+            {
+                if (scoped)
+                {
+                    throw new Error('canonical declaration workspace namespace refuses nested npm scopes');
+                }
+                inventoryWorkspaceNamespace(logical, true);
+            }
+            else if (entry.isSymbolicLink())
+            {
+                const physical = fs.realpathSync(logical);
+                if (contained(ui.root, physical) && !path.relative(ui.root, physical).split(path.sep).includes('node_modules')
+                    && !workspaceSources.aliases.some(value => value.logical === logical && value.target === physical))
+                {
+                    throw new Error('canonical declaration workspace namespace has an undeclared source alias: ' + logical);
+                }
+            }
+        }
+    };
+    if (workspaceSources.configured)
+    {
+        for (const directory of ['.', ...workspaceSources.members.map(value => value.directory)])
+        {
+            inventoryWorkspaceNamespace(path.join(ui.root, directory, 'node_modules'));
+        }
     }
     ts.sys.readFile = (...args) =>
     {
@@ -720,6 +1014,32 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
             {
                 validatePublicAlias(value);
             }
+            workspaceSources.aliases.forEach(validateWorkspaceAlias);
+            for (const value of workspaceNamespaces.values())
+            {
+                if (value.absent)
+                {
+                    try
+                    {
+                        fs.lstatSync(value.directory);
+                    }
+                    catch (error)
+                    {
+                        if (error.code === 'ENOENT')
+                        {
+                            continue;
+                        }
+                        throw error;
+                    }
+                    throw new Error('canonical declaration workspace namespace appeared during inspection');
+                }
+                if (!isDeepStrictEqual(epoch(fs.lstatSync(value.directory, { bigint: true })), value.epoch)
+                    || !isDeepStrictEqual(boundedDirectoryEntries(value.directory, value.entries.length)
+                        .map(entry => entry.name).sort(), value.entries))
+                {
+                    throw new Error('canonical declaration workspace namespace changed during inspection');
+                }
+            }
             for (const value of probes.values())
             {
                 if (value.kind === 'virtual-read')
@@ -744,6 +1064,8 @@ function captureCompilerReads(ts, repositories, main, ui, publicInputs, initialB
             return {
                 virtualConfigurations: [...virtualConfigurations.values()].map(({ file, sha256, bytes }) => ({ file, sha256, bytes })),
                 publicDependencyAliases: publicAliases ?? [],
+                workspaceSources,
+                workspaceNamespaces: [...workspaceNamespaces.values()],
                 missingPeerDirectories: [...missingPeerDirectories.values()]
                     .sort((left, right) => left.directory.localeCompare(right.directory)),
                 logicalReads: [...logicalReads].map(([requested, physical]) => ({ requested, physical }))
@@ -851,6 +1173,8 @@ export function inspectCanonicalDeclarationSource({ repositoryRoot, files, local
         const compilerSource = rawRead(compilerPath, canonicalDeclarationSourceLimits.compilerBytes);
         const packagePath = path.resolve(path.dirname(compilerPath), '../package.json');
         const compilerPackage = rawRead(packagePath, canonicalDeclarationSourceLimits.fileBytes);
+        const parser = inspectCanonicalWorkspaceParser(actualLock, canonicalDeclarationSourceLimits.batchBytes
+            - heldBytes - compilerSource.bytes.length - compilerPackage.bytes.length);
         const ts = compilerRequire('typescript');
         if (ts.version !== expectedCompiler.version || JSON.parse(compilerPackage.bytes).version !== ts.version)
         {
@@ -859,7 +1183,7 @@ export function inspectCanonicalDeclarationSource({ repositoryRoot, files, local
         process.chdir(main.root);
         recorder = captureCompilerReads(ts, repositories, main, ui, {
             manifest: JSON.parse(publicManifest.bytes), lockfile: candidateLock, sourceManifest: JSON.parse(uiManifest.bytes)
-        }, heldBytes + compilerSource.bytes.length + compilerPackage.bytes.length);
+        }, heldBytes + compilerSource.bytes.length + compilerPackage.bytes.length + parser.bytes, parser);
         const generated = generateCanonicalTestDeclarations({ repositoryRoot: main.root, typescript: ts, localRoot: ui.root,
             inMemoryConfiguration: true, onConfiguration: recorder.configuration,
             readProvenanceInput(file)
@@ -916,6 +1240,7 @@ export function inspectCanonicalDeclarationSource({ repositoryRoot, files, local
             compiler: { ...expectedCompiler, file: compilerPath, sha256: digest(compilerSource.bytes),
                 package: packagePath, packageSha256: digest(compilerPackage.bytes) },
             limits: canonicalDeclarationSourceLimits, witnesses, uiWitnesses, publicDependencyWitnesses, consumed,
+            workspaceParser: parser.verify(),
             outputs: expectedOutputs.map(file => ({ file, sha256: digest(Buffer.from(generated.get(file))) }))
         };
     }
