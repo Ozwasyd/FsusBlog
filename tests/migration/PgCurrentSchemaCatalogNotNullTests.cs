@@ -4,6 +4,7 @@ using Npgsql;
 
 using Xunit;
 
+using FsusBlog.Contracts.Schema;
 using FsusBlog.Shared.Algorithms.Schema;
 
 namespace FsusBlog.Migration.Tests;
@@ -26,7 +27,7 @@ public sealed class PgCurrentSchemaCatalogNotNullTests
         Assert.Equal(7, observed.Tables[CurrentSchemaControlShape.ApplyJournalTableName].Columns.Count);
         Assert.Equal(4, observed.Tables[CurrentSchemaControlShape.ApplyJournalTableName].Constraints.Count);
         Assert.Equal(3, observed.Tables[CurrentSchemaControlShape.ApplyJournalTableName].IndexDefinitions.Count);
-        Assert.Empty(CurrentSchemaControlShape.CompareApplyJournal(observed, effects));
+        Assert.Empty(PgCurrentSchemaControlShape.CompareApplyJournal(observed, effects));
     }
 
     [Theory]
@@ -91,7 +92,7 @@ public sealed class PgCurrentSchemaCatalogNotNullTests
                 await connection.OpenAsync(fixture.Token);
                 Assert.True(connection.PostgreSqlVersion.Major >= 18, "This native control requires original PostgreSQL 18 NOT NULL catalog facts.");
                 await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, fixture.Token);
-                await CurrentSchemaControlShape.EnsureApplyJournalAsync(connection, transaction, fixture.Token);
+                await PgCurrentSchemaControlShape.EnsureApplyJournalAsync(connection, transaction, fixture.Token);
                 await transaction.CommitAsync(fixture.Token);
                 return fixture;
             }
