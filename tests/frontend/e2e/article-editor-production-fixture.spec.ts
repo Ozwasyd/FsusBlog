@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type TestInfo } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 
 import contract from '../fixtures/article-editor-production-contract.json' with { type: 'json' }
@@ -1187,4 +1187,581 @@ test.describe('article editor production fixture inspector responsive host', () 
     await expect(page.locator('[data-inspector-view]')).toHaveCount(contract.inspectorViews.length)
     await expect(page.locator('[data-inspector-view][aria-hidden="false"]')).toHaveCount(1)
   })
+})
+
+
+test.describe('article editor production outline acceptance', () => {
+  async function settleOutlineFrames(page: Page): Promise<void> {
+    await page.evaluate(async () => {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+    })
+  }
+
+  test.describe('compact touch close routes', () => {
+    test.use({ hasTouch: true })
+
+    for (const theme of ['light', 'dark'] as const) {
+      for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+        test(`compact public close routes preserve the native opener in ${theme}/${reducedMotion}`, async ({ page }, testInfo) => {
+          const pageErrors: string[] = []
+          page.on('pageerror', (error) => pageErrors.push(error.message))
+          await page.emulateMedia({ reducedMotion })
+          await page.addInitScript(() => {
+            window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1')
+          })
+          for (const viewport of contract.viewports.filter(({ width }) => width <= contract.outline.drawerBreakpoint)) {
+            await page.setViewportSize({ width: viewport.width, height: viewport.height })
+            await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+            const launcher = page.getByRole('button', { name: '打开文章大纲', exact: true })
+            const opener = await launcher.elementHandle()
+            if (!opener) throw new Error('outline_native_opener_missing')
+            for (const closeRoute of ['builtin', 'custom', 'mask', 'escape'] as const) {
+              await launcher.tap()
+              const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+              await expect(dialog).toBeVisible()
+              await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+              await expect(dialog).toHaveAttribute('aria-modal', 'true')
+              await expect(dialog.getByRole('treeitem')).toHaveCount(10)
+              await expect(launcher).toBeVisible()
+              expect(await launcher.evaluate((current, original) => current === original, opener)).toBe(true)
+              expect(await opener.evaluate((element) => element.isConnected)).toBe(true)
+              const tabbableIndices = await dialog.evaluate((element) => Array.from(element.querySelectorAll('button'))
+                .flatMap((button, index) => button.tabIndex >= 0 && !button.disabled && button.getClientRects().length > 0 ? [index] : []))
+              expect(tabbableIndices.length).toBeGreaterThanOrEqual(3)
+              for (const key of ['Tab', 'Shift+Tab']) {
+                const visited = new Set<number>()
+                for (let index = 0; index <= tabbableIndices.length; index += 1) {
+                  await page.keyboard.press(key)
+                  expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+                  visited.add(await dialog.evaluate((element) => Array.from(element.querySelectorAll('button'))
+                    .findIndex((button) => button === document.activeElement)))
+                }
+                for (const index of tabbableIndices) expect(visited.has(index)).toBe(true)
+              }
+              if (closeRoute === 'builtin') {
+                await page.screenshot({ path: testInfo.outputPath(`outline-open-${viewport.width}-${theme}-${reducedMotion}.png`), fullPage: true })
+                await dialog.getByRole('button', { name: 'Close this dialog', exact: true }).tap()
+              } else if (closeRoute === 'custom') {
+                await dialog.getByRole('button', { name: '关闭文章大纲', exact: true }).tap()
+              } else if (closeRoute === 'mask') {
+                const box = await dialog.boundingBox()
+                if (!box) throw new Error('outline_dialog_geometry_missing')
+                const maskX = viewport.width - 2
+                expect(maskX).toBeGreaterThan(box.x + box.width)
+                await page.touchscreen.tap(maskX, Math.min(viewport.height - 2, box.y + 40))
+              } else {
+                await dialog.getByRole('treeitem').first().focus()
+                await page.keyboard.press('Escape')
+              }
+              await expect(dialog).toBeHidden()
+              await expect(launcher).toBeFocused()
+              expect(await launcher.evaluate((current, original) => current === original, opener)).toBe(true)
+              const save = page.getByRole('button', { name: '保存草稿', exact: true })
+              await save.focus()
+              await settleOutlineFrames(page)
+              await expect(save).toBeFocused()
+            }
+            await opener.dispose()
+          }
+          expect(pageErrors).toEqual([])
+        })
+      }
+    }
+  })
+
+  test('desktop keyboard navigation exposes one tree tab stop and sibling ARIA without implicit source activation', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+    for (const theme of ['light', 'dark'] as const) {
+      await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+      await page.getByRole('button', { name: '打开文章大纲', exact: true }).click()
+      const tree = page.getByRole('tree')
+      const items = tree.getByRole('treeitem')
+      const tabStop = tree.locator('[role="treeitem"][tabindex="0"]')
+      await expect(items).toHaveCount(10)
+      await expect(tabStop).toHaveCount(1)
+      await expect(items.first()).toHaveAttribute('aria-level', '1')
+      await expect(items.first()).toHaveAttribute('aria-posinset', '1')
+      await expect(items.first()).toHaveAttribute('aria-setsize', '3')
+      await expect(items.nth(1)).toHaveAttribute('aria-level', '2')
+      await expect(items.nth(1)).toHaveAttribute('aria-setsize', '1')
+      await expect(items.nth(4)).toHaveAttribute('aria-posinset', '2')
+      const editor = page.locator('#article-content')
+      const selection = await editor.evaluate((element) => ({ start: (element as HTMLTextAreaElement).selectionStart, end: (element as HTMLTextAreaElement).selectionEnd }))
+      await items.first().focus()
+      await page.keyboard.press('ArrowDown')
+      await expect(items.nth(1)).toBeFocused()
+      await page.keyboard.press('ArrowRight')
+      await expect(items.nth(2)).toBeFocused()
+      await page.keyboard.press('ArrowLeft')
+      await expect(items.nth(2)).toBeFocused()
+      await page.keyboard.press('ArrowLeft')
+      await expect(items.nth(1)).toBeFocused()
+      await page.keyboard.press('ArrowRight')
+      await expect(items.nth(2)).toBeFocused()
+      await page.keyboard.press('ArrowRight')
+      await expect(items).toHaveCount(10)
+      await page.keyboard.press('Home')
+      await expect(items.first()).toBeFocused()
+      await page.keyboard.press('ArrowLeft')
+      await expect(items).toHaveCount(7)
+      await expect(tabStop).toHaveCount(1)
+      await expect(items.first()).toBeFocused()
+      await page.keyboard.press('ArrowRight')
+      await expect(items).toHaveCount(10)
+      await page.keyboard.press('End')
+      await expect(items.last()).toBeFocused()
+      await page.keyboard.press('ArrowUp')
+      await expect(items.nth(8)).toBeFocused()
+      expect(await editor.evaluate((element) => ({ start: (element as HTMLTextAreaElement).selectionStart, end: (element as HTMLTextAreaElement).selectionEnd }))).toEqual(selection)
+      await page.keyboard.press('Enter')
+      await expect(editor).toBeFocused()
+      await expect.poll(() => editor.evaluate((element) => (element as HTMLTextAreaElement).selectionStart)).toBeGreaterThan(0)
+      await page.getByRole('button', { name: '关闭文章大纲', exact: true }).click()
+      await expect(page.getByRole('button', { name: '打开文章大纲', exact: true })).toBeFocused()
+    }
+    expect(pageErrors).toEqual([])
+  })
+
+  test('breakpoint replacement and close/reopen preserve current article ownership without a deferred focus steal', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+    await page.setViewportSize({ width: 1023, height: 768 })
+    await openFixture(page, 'short', 'light', 'outline', 'success', undefined, 'ready', 10, 'a')
+    const launcher = page.getByRole('button', { name: '打开文章大纲', exact: true })
+    await launcher.click()
+    const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+    await expect(dialog).toBeVisible()
+    await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+    await page.setViewportSize({ width: 1024, height: 768 })
+    await expect(dialog).toHaveCount(0)
+    await expect(page.locator('[data-article-outline-panel="true"]')).toHaveCount(1)
+    await expect(page.getByRole('treeitem')).toHaveCount(10)
+    const editor = page.locator('#article-content')
+    await editor.focus()
+    await settleOutlineFrames(page)
+    await expect(editor).toBeFocused()
+    await page.setViewportSize({ width: 1023, height: 768 })
+    await expect(dialog).toBeVisible()
+    await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+    await dialog.getByRole('treeitem').first().focus()
+    const oldNode = await dialog.getByRole('treeitem').first().elementHandle()
+    if (!oldNode) throw new Error('outline_old_article_node_missing')
+    const ids = await dialog.getByRole('treeitem').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-outline-node-id')))
+    await page.evaluate(() => (
+      window as Window & { __articleEditorFixtureSwitchOutlineArticle?: (article: 'a' | 'b') => void }
+    ).__articleEditorFixtureSwitchOutlineArticle?.('b'))
+    await expect.poll(() => dialog.getByRole('treeitem').evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-outline-node-id')))).not.toEqual(ids)
+    expect(await oldNode.evaluate((element) => element.isConnected)).toBe(false)
+    await oldNode.dispose()
+    await dialog.getByRole('treeitem').first().focus()
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await launcher.focus()
+    await page.keyboard.press('Enter')
+    await expect(dialog).toBeVisible()
+    await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+    await expect(dialog.getByRole('treeitem')).toHaveCount(10)
+    await settleOutlineFrames(page)
+    expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(launcher).toBeFocused()
+    await editor.focus()
+    await settleOutlineFrames(page)
+    await expect(editor).toBeFocused()
+    expect(pageErrors).toEqual([])
+  })
+
+  test('a pending native Drawer leave transition can reopen before its close settles', async ({ page }, testInfo) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    await page.setViewportSize({ width: 375, height: 812 })
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+    for (const theme of ['light', 'dark'] as const) {
+      await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+      const launcher = page.getByRole('button', { name: '打开文章大纲', exact: true })
+      await launcher.click()
+      const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+      await expect(dialog).toBeVisible()
+      await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+      await expect.poll(() => dialog.evaluate((element) => element.getAnimations({ subtree: true })
+        .every((animation) => animation.playState !== 'running'))).toBe(true)
+      const opener = await launcher.elementHandle()
+      const close = await dialog.getByRole('button', { name: '关闭文章大纲', exact: true }).elementHandle()
+      if (!opener || !close) throw new Error('outline_native_transition_controls_missing')
+      // This is native DOM activation under real motion, not a physical pointer hit
+      // through the modal overlay. Physical keyboard interaction is checked below.
+      const pending = await dialog.evaluate(async (element, controls) => {
+        if (!(controls.opener instanceof HTMLButtonElement) || !(controls.close instanceof HTMLButtonElement)) {
+          throw new Error('outline_native_transition_controls_invalid')
+        }
+        controls.close.click()
+        for (let frame = 0; frame < 60; frame += 1) {
+          await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()))
+          const transition = element.getAnimations({ subtree: true }).find((animation) => animation instanceof CSSTransition
+            && animation.transitionProperty === 'transform' && animation.playState === 'running'
+            && (animation.effect?.getComputedTiming().progress ?? 0) > 0
+            && (animation.effect?.getComputedTiming().progress ?? 1) < 1)
+          if (transition) {
+            const timing = transition.effect?.getComputedTiming()
+            const observed = { frame, currentTime: transition.currentTime, progress: timing?.progress, duration: timing?.duration }
+            controls.opener.click()
+            return observed
+          }
+        }
+        throw new Error('outline_pending_native_leave_transition_not_observed')
+      }, { opener, close })
+      expect(pending.progress).toBeGreaterThan(0)
+      expect(pending.progress).toBeLessThan(1)
+      await testInfo.attach(`pending-native-close-${theme}`, { body: JSON.stringify(pending), contentType: 'application/json' })
+      await expect(dialog).toBeVisible()
+      await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+      // Let the interrupted close and reopened entry settle before actively closing
+      // the new session, so a stale close event cannot be hidden by that action.
+      await expect.poll(() => dialog.evaluate((element) => element.getAnimations({ subtree: true })
+        .every((animation) => !animation.pending && animation.playState !== 'running'))).toBe(true)
+      await settleOutlineFrames(page)
+      await expect(dialog).toBeVisible()
+      await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+      expect(await opener.evaluate((element) => element.isConnected)).toBe(true)
+      expect(await launcher.evaluate((current, original) => current === original, opener)).toBe(true)
+      await dialog.getByRole('treeitem').first().focus()
+      await page.keyboard.press('ArrowDown')
+      await expect(dialog.getByRole('treeitem').nth(1)).toBeFocused()
+      await page.keyboard.press('Escape')
+      await expect(dialog).toBeHidden()
+      await expect(launcher).toBeFocused()
+      await page.locator('#article-content').focus()
+      await settleOutlineFrames(page)
+      await expect(page.locator('#article-content')).toBeFocused()
+      await opener.dispose()
+      await close.dispose()
+    }
+    expect(pageErrors).toEqual([])
+  })
+
+  test('closing and actually unmounting the editor releases focus to the fixture owner', async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (error) => pageErrors.push(error.message))
+    await page.addInitScript(() => {
+      if (window.location.pathname === '/__article-editor-production-fixture') {
+        const url = new URL(window.location.href)
+        url.searchParams.set('outlineLifecycle', 'unmount')
+        window.history.replaceState(null, '', url)
+        window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1')
+      }
+    })
+    for (const width of [375, 1440]) {
+      for (const theme of ['light', 'dark'] as const) {
+        await page.setViewportSize({ width, height: 900 })
+        await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+        await page.getByRole('button', { name: '打开文章大纲', exact: true }).click()
+        if (width <= contract.outline.drawerBreakpoint) {
+          const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+          await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+        }
+        const editor = await page.locator('#article-content').elementHandle()
+        const panel = await page.locator('[data-article-outline-panel="true"]').elementHandle()
+        const firstNode = await page.getByRole('treeitem').first().elementHandle()
+        const opener = width <= contract.outline.drawerBreakpoint
+          ? await page.getByRole('button', { name: '打开文章大纲', exact: true }).elementHandle()
+          : null
+        // Desktop removes its opener while open; the compact modal retains it.
+        if (!editor || !panel || !firstNode || (width <= contract.outline.drawerBreakpoint && !opener)) {
+          throw new Error('outline_owned_nodes_before_unmount_missing')
+        }
+        const navigationIdentity = await page.evaluate(() => ({ origin: performance.timeOrigin, href: window.location.href }))
+        // The fixture owner activates the real native close button, then removes
+        // the actual component in the same host call stack (not a page reload).
+        await page.getByRole('button', { name: '关闭文章大纲', exact: true }).evaluate(async (button) => {
+          if (!(button instanceof HTMLButtonElement)) throw new Error('outline_native_close_button_required')
+          const closeAndUnmount = (window as Window & {
+            __articleEditorFixtureCloseAndUnmount?: (closeButton: HTMLButtonElement) => Promise<void>
+          }).__articleEditorFixtureCloseAndUnmount
+          if (!closeAndUnmount) throw new Error('outline_fixture_lifecycle_control_missing')
+          await closeAndUnmount(button)
+        })
+        await expect(page.locator('#article-content')).toHaveCount(0)
+        for (const node of [editor, panel, firstNode, ...(opener ? [opener] : [])]) {
+          await expect.poll(() => node.evaluate((element) => element.isConnected)).toBe(false)
+        }
+        await expect(page.getByRole('dialog', { name: '文章大纲', exact: true })).toHaveCount(0)
+        await expect(page.getByRole('button', { name: '打开文章大纲', exact: true })).toHaveCount(0)
+        expect(await page.evaluate(() => ({ origin: performance.timeOrigin, href: window.location.href }))).toEqual(navigationIdentity)
+        const target = page.locator('[data-outline-fixture-focus-target="true"]')
+        await expect(target).toBeFocused()
+        await settleOutlineFrames(page)
+        await expect(target).toBeFocused()
+        for (const node of [editor, panel, firstNode, ...(opener ? [opener] : [])]) await node.dispose()
+      }
+    }
+    expect(pageErrors).toEqual([])
+  })
+
+  test('Chrome AX exposes the actual outline hierarchy and keyboard-selected state', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+    const session = await page.context().newCDPSession(page)
+    try {
+      await session.send('Accessibility.enable')
+      for (const theme of ['light', 'dark'] as const) {
+        await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+        await page.getByRole('button', { name: '打开文章大纲', exact: true }).click()
+        const items = page.getByRole('treeitem')
+        await expect(items).toHaveCount(10)
+        await items.first().focus()
+        await page.keyboard.press('ArrowDown')
+        await expect(items.nth(1)).toBeFocused()
+        await page.keyboard.press('Enter')
+        await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true')
+        await expect.poll(async () => {
+          const current = await session.send('Accessibility.getFullAXTree')
+          return current.nodes.find((node) => !node.ignored && node.role?.value === 'treeitem'
+            && node.name?.value === '一个可访问且足够长的标题，用于验证完整 accessible name 与稳定换行行为')
+            ?.properties?.find((property) => property.name === 'selected')?.value.value
+        }).toBe(true)
+        const full = await session.send('Accessibility.getFullAXTree')
+        const exposed = full.nodes.filter((node) => !node.ignored)
+        expect(exposed.some((node) => node.role?.value === 'tree')).toBe(true)
+        const first = exposed.find((node) => node.role?.value === 'treeitem' && node.name?.value === '文章大纲与当前章节导航')
+        const second = exposed.find((node) => node.role?.value === 'treeitem'
+          && node.name?.value === '一个可访问且足够长的标题，用于验证完整 accessible name 与稳定换行行为')
+        expect(first).toBeDefined()
+        expect(second).toBeDefined()
+        expect(first?.properties?.find((property) => property.name === 'level')?.value.value).toBe(1)
+        expect(first?.properties?.find((property) => property.name === 'expanded')?.value.value).toBe(true)
+        expect(second?.properties?.find((property) => property.name === 'level')?.value.value).toBe(2)
+        expect(second?.properties?.find((property) => property.name === 'selected')?.value.value).toBe(true)
+        await testInfo.attach(`actual-chrome-outline-ax-${theme}`, { body: JSON.stringify(full), contentType: 'application/json' })
+        await items.first().focus()
+        await page.keyboard.press('ArrowLeft')
+        await expect(items).toHaveCount(7)
+        await expect.poll(async () => {
+          const current = await session.send('Accessibility.getFullAXTree')
+          return current.nodes.find((node) => !node.ignored && node.role?.value === 'treeitem'
+            && node.name?.value === '文章大纲与当前章节导航')?.properties?.find((property) => property.name === 'expanded')?.value.value
+        }).toBe(false)
+        const collapsed = await session.send('Accessibility.getFullAXTree')
+        expect(collapsed.nodes.find((node) => !node.ignored && node.role?.value === 'treeitem'
+          && node.name?.value === '文章大纲与当前章节导航')?.properties?.find((property) => property.name === 'expanded')?.value.value).toBe(false)
+        await page.keyboard.press('ArrowRight')
+        await expect(items).toHaveCount(10)
+      }
+    } finally {
+      await session.detach()
+    }
+  })
+
+  for (const theme of ['light', 'dark'] as const) {
+    for (const scale of contract.zoom) {
+      test(`original viewport geometry stays stable at CSS scale ${scale} in ${theme}`, async ({ page }, testInfo) => {
+        await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+        for (const viewport of contract.viewports) {
+          await page.setViewportSize({ width: viewport.width, height: viewport.height })
+          await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+          await page.evaluate((value) => { document.documentElement.style.zoom = String(value) }, scale)
+          const editor = page.locator('#article-content')
+          const closed = await editor.boundingBox()
+          await page.getByRole('button', { name: '打开文章大纲', exact: true }).click()
+          const panel = page.locator('[data-article-outline-panel="true"]')
+          await expect(panel).toBeVisible()
+          if (viewport.width <= contract.outline.drawerBreakpoint) {
+            const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+            await expect.poll(() => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true)
+          }
+          for (const visiblePart of [panel, panel.locator('header'), panel.getByRole('button', { name: '关闭文章大纲', exact: true })]) {
+            await expect(visiblePart).toBeVisible()
+            await expect.poll(() => visiblePart.evaluate((element) => {
+              const box = element.getBoundingClientRect()
+              return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0
+                && box.right <= window.innerWidth && box.bottom <= window.innerHeight
+            })).toBe(true)
+          }
+          await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth
+            && document.body.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+          await expect(panel.getByRole('treeitem')).toHaveCount(10)
+          const opened = await editor.boundingBox()
+          if (!closed || !opened) throw new Error('outline_document_geometry_missing')
+          expect(Math.abs(opened.width - closed.width)).toBeLessThanOrEqual(contract.geometry.maximumDocumentWidthDelta)
+          await expect.poll(() => panel.getByRole('treeitem').nth(1).evaluate((element) => {
+            const box = element.getBoundingClientRect()
+            return box.width > 0 && box.height > 0 && element.scrollWidth <= element.clientWidth
+          })).toBe(true)
+          await page.screenshot({ path: testInfo.outputPath(`outline-${viewport.id}-${theme}-css-scale-${scale}.png`), fullPage: true })
+          await panel.getByRole('button', { name: '关闭文章大纲', exact: true }).click()
+          await expect(page.getByRole('button', { name: '打开文章大纲', exact: true })).toBeFocused()
+        }
+      })
+    }
+  }
+})
+
+// Inline render functions have no SFC-generated scope attributes on descendants.
+// Inspect actual layout and keyboard focus instead of relying on source markers.
+test.describe('article editor production outline content styles', () => {
+  for (const theme of ['light', 'dark'] as const) {
+    test(`inline content keeps layout and keyboard focus styles in ${theme}`, async ({ page }: { page: Page }, testInfo: TestInfo) => {
+      const pageErrors: string[] = []
+      page.on('pageerror', (error: Error) => pageErrors.push(error.message))
+      await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+      for (const width of [375, 1440]) {
+        await page.setViewportSize({ width, height: 900 })
+        await openFixture(page, 'short', theme, 'outline', 'success', undefined, 'ready', 10, 'a')
+        await page.getByRole('button', { name: '打开文章大纲', exact: true }).click()
+        const panel = page.locator('[data-article-outline-panel="true"]')
+        const content = panel.locator('.article-write-outline-content')
+        const header = panel.locator('header')
+        const item = panel.getByRole('treeitem').nth(1)
+        await expect(panel).toBeVisible()
+        await page.keyboard.press('Tab')
+        await item.focus()
+        await expect(item).toBeFocused()
+        for (const scale of contract.zoom) {
+          await page.evaluate((value: number) => { document.documentElement.style.zoom = String(value) }, scale)
+          const treeWrap = panel.locator('.article-write-outline-tree-wrap')
+          await expect.poll(() => treeWrap.evaluate((element: HTMLElement) => element.scrollWidth <= element.clientWidth)).toBe(true)
+          await expect.poll(() => item.evaluate((element: HTMLElement) => {
+            const box = element.getBoundingClientRect()
+            const parent = element.closest('.article-write-outline-tree-wrap')!.getBoundingClientRect()
+            return box.left >= parent.left && box.right <= parent.right
+          })).toBe(true)
+          expect(await item.getAttribute('aria-label')).toBe('一个可访问且足够长的标题，用于验证完整 accessible name 与稳定换行行为')
+          await page.screenshot({ path: testInfo.outputPath(`outline-content-${width}-${theme}-css-scale-${scale}.png`), fullPage: true })
+        }
+        expect(await content.evaluate((element: HTMLElement) => getComputedStyle(element).display)).toBe('grid')
+        expect(await header.evaluate((element: HTMLElement) => getComputedStyle(element).display)).toBe('flex')
+        expect(await item.evaluate((element: HTMLElement) => getComputedStyle(element).display)).toBe('flex')
+        expect(await item.evaluate((element: HTMLElement) => ({
+          style: getComputedStyle(element).outlineStyle,
+          width: getComputedStyle(element).outlineWidth,
+          offset: getComputedStyle(element).outlineOffset,
+          visible: element.matches(':focus-visible')
+        }))).toEqual({ style: 'solid', width: '2px', offset: '-2px', visible: true })
+        const text = item.locator('.article-write-outline-item-text')
+        expect(await text.evaluate((element: HTMLElement) => ({
+          overflow: getComputedStyle(element).overflow,
+          ellipsis: getComputedStyle(element).textOverflow,
+          whiteSpace: getComputedStyle(element).whiteSpace
+        }))).toEqual({ overflow: 'hidden', ellipsis: 'ellipsis', whiteSpace: 'nowrap' })
+        expect(await item.evaluate((element: HTMLElement) => element.scrollWidth <= element.clientWidth)).toBe(true)
+        await panel.getByRole('button', { name: '关闭文章大纲', exact: true }).click()
+        await expect(page.getByRole('button', { name: '打开文章大纲', exact: true })).toBeFocused()
+      }
+      expect(pageErrors).toEqual([])
+    })
+  }
+})
+
+test.describe('article editor production command bar narrow zoom', () => {
+  for (const theme of ['light', 'dark'] as const) {
+    for (const width of [320, 375]) {
+      test(`${width}px ${theme} preserves command targets and keyboard order at every scale`, async ({ page }: { page: Page }, testInfo: TestInfo) => {
+        const errors: string[] = []
+        page.on('pageerror', (error: Error) => errors.push(error.message))
+        await page.setViewportSize({ width, height: 812 })
+        await page.addInitScript(() => window.localStorage.removeItem('fsusblog.article-outline.rail-open.v1'))
+        for (const surface of ['outline', 'command'] as const) {
+          for (const scale of contract.zoom) {
+            await openFixture(page, 'short', theme, surface, 'success', undefined, 'ready', 10, 'a')
+            await page.evaluate((value: number) => { document.documentElement.style.zoom = String(value) }, scale)
+            const bar = page.locator('.article-write-command-bar')
+            const verifyCommands = async (critical: boolean): Promise<void> => {
+              await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth
+                && document.body.scrollWidth <= document.documentElement.clientWidth)).toBe(true)
+              const names = critical ? ['返回', '保存冲突需处理', '保存草稿', '更新文章'] : ['返回', '保存草稿', '更新文章']
+              const buttons = bar.getByRole('button')
+              await expect(buttons).toHaveCount(names.length)
+              for (let index = 0; index < names.length; index += 1) {
+                const button = buttons.nth(index)
+                await expect(button).toHaveAccessibleName(names[index]!)
+                await expect(button).toBeVisible()
+                const box = await button.boundingBox()
+                if (!box) throw new Error('command_target_geometry_missing')
+                const target = await button.evaluate((element: Element) => {
+                  const style = getComputedStyle(element)
+                  return { width: Number.parseFloat(style.width), height: Number.parseFloat(style.height), dpr: devicePixelRatio }
+                })
+                expect(target.width).toBeGreaterThanOrEqual(40)
+                expect(target.height).toBeGreaterThanOrEqual(44)
+                // CSS dimensions retain the strict target contract; compare the
+                // zoomed rectangle in device pixels without inverse-zoom cancellation.
+                expect(Math.round(box.width * target.dpr)).toBeGreaterThanOrEqual(Math.ceil(40 * scale * target.dpr))
+                expect(Math.round(box.height * target.dpr)).toBeGreaterThanOrEqual(Math.ceil(44 * scale * target.dpr))
+                expect(box.x).toBeGreaterThanOrEqual(0)
+                expect(box.x + box.width).toBeLessThanOrEqual(width)
+                if (index === 0) await button.focus()
+                else await page.keyboard.press('Tab')
+                await expect(button).toBeFocused()
+                expect(await button.evaluate((element: Element) => {
+                  const box = element.getBoundingClientRect()
+                  return element.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2))
+                })).toBe(true)
+              }
+              expect(await bar.locator('.article-write-command-bar__actions').evaluate((element: Element) => {
+                const container = element.getBoundingClientRect()
+                return Array.from(element.querySelectorAll('button')).every((button) => {
+                  const box = button.getBoundingClientRect()
+                  return box.left >= container.left && box.right <= container.right
+                    && box.top >= container.top && box.bottom <= container.bottom
+                })
+              })).toBe(true)
+              const boxes = await buttons.evaluateAll((elements: Element[]) => elements.map((element) => {
+                const box = element.getBoundingClientRect()
+                return { left: box.left, right: box.right, top: box.top, bottom: box.bottom }
+              }))
+              for (let index = 0; index < boxes.length; index += 1) {
+                for (const other of boxes.slice(index + 1)) {
+                  const box = boxes[index]!
+                  expect(box.right <= other.left || other.right <= box.left || box.bottom <= other.top || other.bottom <= box.top).toBe(true)
+                }
+              }
+            }
+            await verifyCommands(false)
+            if (surface === 'outline') {
+              const launcher = page.getByRole('button', { name: '打开文章大纲', exact: true })
+              await launcher.click()
+              const dialog = page.getByRole('dialog', { name: '文章大纲', exact: true })
+              await expect(dialog).toBeVisible()
+              const panel = page.locator('[data-article-outline-panel="true"]')
+              for (const part of [panel, panel.locator('header'), panel.getByRole('button', { name: '关闭文章大纲', exact: true })]) {
+                await expect.poll(() => part.evaluate((element: Element) => {
+                  const box = element.getBoundingClientRect()
+                  return box.width > 0 && box.height > 0 && box.left >= 0 && box.top >= 0
+                    && box.right <= innerWidth && box.bottom <= innerHeight
+                })).toBe(true)
+              }
+              for (const key of ['Tab', 'Shift+Tab']) {
+                for (let index = 0; index < 4; index += 1) {
+                  await page.keyboard.press(key)
+                  expect(await dialog.evaluate((element: Element) => element.contains(document.activeElement))).toBe(true)
+                }
+              }
+              await page.keyboard.press('Escape')
+              await expect(dialog).toBeHidden()
+              await expect(launcher).toBeFocused()
+              await verifyCommands(false)
+            }
+            if (surface === 'command') {
+              await page.evaluate(() => {
+                (window as Window & { __articleEditorFixtureSetState?: (state: 'failed') => void }).__articleEditorFixtureSetState?.('failed')
+              })
+              await verifyCommands(true)
+              const barBox = await bar.boundingBox()
+              const inputBox = await page.getByLabel('缺失标题').boundingBox()
+              if (!barBox || !inputBox) throw new Error('command_validation_geometry_missing')
+              expect(inputBox.y).toBeGreaterThanOrEqual(barBox.y + barBox.height)
+            }
+            await page.screenshot({ path: testInfo.outputPath(`command-${surface}-${width}-${theme}-scale-${scale}.png`), fullPage: true })
+          }
+        }
+        expect(errors).toEqual([])
+      })
+    }
+  }
 })
