@@ -1467,7 +1467,11 @@ for (const owner of [
     'src/migration/ArticlePreservationStorageWriter.cs',
     'src/migration/OfflineMigrationApplyNativeSession.cs',
     'src/migration/OfflineMigrationExecutor.cs',
-    'tests/migration/PgCurrentSchemaCatalogNotNullTests.cs'
+    'tests/migration/PgCurrentSchemaCatalogNotNullTests.cs',
+    'src/migration/OfflineMigrationBackupAdmission.cs',
+    'src/migration/OfflineMigrationSourceObserver.cs',
+    'src/migration/OfflineMigrationSourceObserver.Providers.cs',
+    'src/migration/PgLegacyNonArticlePreparation.cs'
 ])
 {
     test(`native migration import owner accepts and normalizes the current mother-standard order for ${owner}`, () =>
