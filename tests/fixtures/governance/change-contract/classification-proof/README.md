@@ -1,22 +1,25 @@
-Classification proof experiments — no active policy or qualification
+# Classification proof experiments
 
 The helper compiles synthetic positive and adversarial C# examples using the
 installed .NET 10 SDK's Roslyn assemblies. It never participates in the checker
 and always returns qualification=false. Original checker and original test
 identities, assertions, timeouts and outcomes are unchanged.
 
-Run the independently invoked synthetic controls from the repository root:
+Run the independently invoked synthetic controls from the repository root with the .NET 10 SDK available:
 
-  source /workspace/.setup/activate.sh
-  node --test tests/tools/change-contract-classification-proof.test.mjs
+```sh
+node --test tests/tools/change-contract-classification-proof.test.mjs
+```
 
 The source comparison is optional and requires exact explicit Git revisions:
 
-  node tests/tools/change-contract-classification-proof.mjs \
+```sh
+node tests/tools/change-contract-classification-proof.mjs \
     --repository /workspace/FsusBlog \
     --base e5f0d2d21b21635232b37dc6175f1f744129c836 \
     --head 39f955b633534836035cd5b5a85d13cdc414eff8 \
     --out /tmp/classification-proof.json
+```
 
 Git objects are read with replacement refs disabled, through the existing
 regular-blob reader. C# bytes are materialized into an isolated temporary tree.
@@ -25,6 +28,7 @@ are executed. Only hardcoded synthetic fixtures execute. The separate manual
 shared-source compilation emits assemblies in memory and inspects bytes.
 
 Observed exact input:
+
 - Three XML-comment source additions: 4421, 4662 and 1093 ordered tokens equal;
   all bytes outside complete XML comment lines are identical.
 - Under this manual model, 118 tracked Shared source files plus one synthesized
