@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { digestCanonical } from './attempt-provenance.mjs';
 import {
     correctnessAttemptProducerFile,
+    correctnessAttemptProducerIds,
     validateCorrectnessAttemptProducerInventory
 } from './correctness-attempt-producers.mjs';
 
@@ -37,9 +38,11 @@ export function validateCorrectnessAttemptMigration(root = defaultRoot)
     const replay = validateReplayAuthority(readJson(root, replayInventoryFile));
     const envelope = readJson(root, envelopeCatalogFile);
     const envelopeIds = new Set((envelope.producers ?? []).map((producer) => producer.producerId));
-    if (inventory.entries.length !== 225)
+    const expectedProducerIds = correctnessAttemptProducerIds(root);
+    if (inventory.entries.length !== expectedProducerIds.length
+        || inventory.entries.some((entry, index) => entry.producerId !== expectedProducerIds[index]))
     {
-        throw new Error(`correctness attempt migration must cover exactly 225 producers, got ${inventory.entries.length}`);
+        throw new Error('correctness attempt migration must cover the exact canonical producer roster');
     }
     for (const entry of inventory.entries)
     {
