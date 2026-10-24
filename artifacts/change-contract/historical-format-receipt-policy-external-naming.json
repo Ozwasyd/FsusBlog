@@ -14,6 +14,13 @@
                 "docs/development/change-contract.md"
             ],
             "reason": "Preserve the existing Format-only classification and formatter evidence field spellings while documenting the distinct historical mechanical-revision and current aggregate validation boundaries. No external contract name or policy promotion authority is renamed."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the original execution-authority schema, target identities and field names while its canonical producer binds the changed historical formatter checker source bytes."
         }
     ]
 }

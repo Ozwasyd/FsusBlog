@@ -3370,8 +3370,8 @@
         },
         {
             "path": "tools/governance/change-contract.mjs",
-            "contentDigest": "sha256:fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463",
-            "indexDigest": "sha256:fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463"
+            "contentDigest": "sha256:28aeecc90032daae49011bbc4139adf3079d3645fa1e3d2af9ab9e55c95c731e",
+            "indexDigest": "sha256:28aeecc90032daae49011bbc4139adf3079d3645fa1e3d2af9ab9e55c95c731e"
         },
         {
             "path": "tools/governance/check-article-bulk-authorities.mjs",
