@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-matrix/msbuild-source-inspector.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs",
+        "tests/tools/msbuild-source.test.mjs",
+        "tests/governance/test-lifecycle-registry.json"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "c8ccdb990d53a10fd26d3b622e8eab19058082ba6cbeb1c9aeeba0ce5529fef1"
+        }
+    ]
+}
