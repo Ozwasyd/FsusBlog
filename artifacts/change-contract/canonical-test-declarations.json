@@ -105,7 +105,7 @@
         },
         {
             "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
-            "sha256": "eb05522db576103d4f60b32e0c058632919d30937e056b38cb979170d7882623"
+            "sha256": "67e98661fb710227661fe1384e209dbdf50bd1ef60374b3bee7d3c8bf9d6a257"
         },
         {
             "path": "src/frontend/tsconfig.playwright.json",
