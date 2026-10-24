@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "tools/docs/generated-fact-sections/renderers.mjs",
+                "docs/security.md"
+            ],
+            "reason": "Preserve the existing renderer identities, sealed security fact names and original Markdown markers while the canonical producer changes only the permitted empty-set paragraph representation."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/development/doc-claim-protocol.md"
+            ],
+            "reason": "Preserve the current DocClaim protocol, external renderer/empty-policy names and receipt authority while documenting the compatible ordinary Markdown empty-set representation."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the canonical execution-target schema and complete target/index fields while its original producer refreshes the exact changed renderer/test closure digests."
+        }
+    ]
+}
