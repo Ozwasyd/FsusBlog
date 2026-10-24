@@ -297,7 +297,8 @@ public sealed class AuthoringLifecycleReleaseCustodyTests
     private sealed class HostResources : IAuthoringLifecycleHostResourceAuthority
     {
         public ValueTask ActivateAtomicallyAsync(VerifiedAuthoringPackage package,
-            ImmutableArray<AuthoringExecutionTarget> targets, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+            ImmutableArray<AuthoringExecutionTarget> targets, CancellationToken cancellationToken) =>
+            ValueTask.CompletedTask;
 
         public ValueTask<AuthoringLifecycleHostResourceReport> RevokeAllAsync(string extensionId, CancellationToken cancellationToken) =>
             ValueTask.FromResult(new AuthoringLifecycleHostResourceReport(0, 0, 0, 0, 0));
