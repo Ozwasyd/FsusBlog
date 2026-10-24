@@ -72,6 +72,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Configuration Ownership and Canonical Paths](configuration-layout.md)
 - [Appsettings and production input authority](configuration/appsettings-authority.md)
 - [Database Migration Runbook](database-migration.md)
+- [System installation identity](development/system-site-identity.md)
 - [Admin Integrity Console](integrity/admin-console.md)
 - [Article Canonical Hash](integrity/article-canonical-hash.md)
 - [Article responsibility, sources, and revision disclosure](integrity/article-responsibility.md)

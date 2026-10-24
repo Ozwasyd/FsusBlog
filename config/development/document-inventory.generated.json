@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:3c5418c9c684ad1404f5be6ed4528a034b7fab57df767a91e47992a1a3e753e0",
+    "policyDigest": "sha256:ed45e4ac717fe503ca6dc51691b495ccea338f598779221cd2a3047dfb5e1726",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -1385,6 +1385,23 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/development/system-site-identity.md",
+            "title": "System installation identity",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                3735,
+                2406,
+                2418,
+                2474
+            ],
             "producer": null
         },
         {

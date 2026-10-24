@@ -6,7 +6,7 @@
             "paths": [
                 "tests/backend/Fixtures/postgres-test-collections.json"
             ],
-            "reason": "preserve the caller-visible PostgreSQL collection IDs and manifest JSON keys while registering the #3214 fixture-backed classes and source-derived case totals"
+            "reason": "preserve caller-visible PostgreSQL collection IDs and manifest JSON keys while registering the actual SiteIdentity B class and the eight reviewed canonical fixture classes for #3657 on the exact current consumer, with original-source case estimates"
         }
     ]
 }
