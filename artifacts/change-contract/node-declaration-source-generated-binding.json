@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/frontend-style-policy.json",
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tools/frontend/check-frontend-style.mjs",
+        "tools/frontend/style-toolchain/eslint.config.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "16dc98a9a1675bc55e45d938312e43e5fb507f01fa8867d574d88a0d469c0eb1"
+        }
+    ]
+}

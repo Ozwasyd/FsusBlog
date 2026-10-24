@@ -4,8 +4,7 @@ import {
     createWebHistory,
     type Router,
     type RouterHistory,
-    type RouteLocationNormalized,
-    type RouteRecordRaw
+    type RouteLocationNormalized
 } from 'vue-router';
 
 import { hasServerAotShell } from '@/bootstrap/publicShellPrimitives';
@@ -19,9 +18,7 @@ import { isPublicSearchRouteName, isPublicSeoRouteName, isPublicShellRouteName }
 import { PUBLIC_SEARCH_ROUTE_NAME } from '@/public-renderers/publicRouteRegistry';
 import { normalizePublicSearchQuery } from '@/public-renderers/publicSearchRoutePolicy';
 import {
-    assertAccountLeafRouteMeta,
-    type ManageMetaOptions,
-    type SelfMetaOptions
+    assertAccountLeafRouteMeta
 } from '@/router/accountRouteMeta';
 import { APP_ROUTE_RECORDS } from '@/router/appRouteRecords';
 import type { PublicRoutePrewarmPort } from '@/router/publicRoutePreload';

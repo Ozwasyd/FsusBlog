@@ -174,7 +174,7 @@ FsusBlog uses a machine-readable test DAG. `tests/matrix.yml` is the only test t
 
 `config/testing/fsusui-baseline.json` is the only commit authority for local and CI test consumption of FsusUI source/theme. Quality Gate, Browser Diagnostics, local identity verification, and screenshot evidence must all be bound to the same complete SHA of the file; the workflow can only export the SHA by `tools/test/fsusui-baseline.mjs` after checkout FsusBlog, and must not retain the workflow-local pin, environment default pin, or package-only test fallback. Each frontend lane parses the local source through Git common directory before execution, and reuses the same identity verifier to check clean worktree, complete commit and generated theme dist.
 
-`validate-declarations` checks the global matrix schema, dependency topology and sealed argv declarations without inspecting or executing unrelated target closures. The current merge-base Git diff, including deletions and both sides of renames, then binds `plan-pr-risk`. Its `source-governance` leaf runs the existing applicable source style/document checks and records every real failure; its result is never compiled, native, runtime or release qualification. `behavior-doc-static-admission` remains the unique admission node before selected candidate tests, builds, services, containers, and browsers. The source-only declaration/plan/governance leaves cannot acquire SDK, bootstrap, service or browser capabilities. The two new source leaves use the existing nonqualifying diagnostic evidence class; their real nonzero exit remains a failed, selected source check and is never ignored. This classification does not repair or waive the complete correctness-attempt inventory migration gate. The complete matrix-governance host and canonical xUnit inventory producer really build their projects and therefore run after this admission, not as a pure planning prerequisite. It uses `executionClass: static-governance`, `fixtureProfile: none` and does not start a database, runtime, Vitest or Playwright; nodes in turn reuse existing authorities for BehaviorCatalog, DocClaim schema/parser, ImplementationOwner, current extractor registry, generated section checker, prose verifier and staleness mutation fixtures. The four compiled-assembly extractors only consume the exact receipt of this round of content-addressed minimal contract build, and are prohibited from reading ambient `bin/obj`. Concurrent access to the same source/worktree/toolchain selects the only publisher through atomic owner lock, and publishes it atomically after the per-run staging is fully constructed; subsequent runs can only be reused after receipt, source closure, project and observation digest are all re-verified. Damaged or legacy caches must be rebuilt. Any missing, duplicate, stale, warning, partial or source/build identity drift will fail directly.
+`validate-declarations` checks the global matrix schema, dependency topology and sealed argv declarations without inspecting or executing unrelated target closures. The current merge-base Git diff, including deletions and both sides of renames, then binds `plan-pr-risk`. Its `source-governance` leaf runs the existing applicable source style/document checks and records every real failure; its result is never compiled, native, runtime or release qualification. `behavior-doc-static-admission` remains the unique admission node before selected candidate tests, builds, services, containers, and browsers. The source-only declaration/plan/governance leaves cannot acquire SDK, bootstrap, service or browser capabilities. Canonical `.git-blame-ignore-revs` changes use the existing source checker port and unchanged Change Contract blame-history/format-equivalence validator. A successful source receipt must bind the actual regular Git HEAD/index/physical input and is independently reopened before that exact path leaves unsupported-source refusal; aliases and other unchecked input kinds remain unsupported. The blame mode refuses active Git replacement refs, inherited replacement/graft overrides and repository `info/grafts` before and after validation; its physical/Git binding reads disable replacements and grafts. These checks do not claim atomic isolation from concurrent Git-reference mutation. Deletion or invalid history fails. This source receipt does not replace the trusted-base Change Contract range/PR gate, including its later format-revision registration and idempotence requirements. The two new source leaves use the existing nonqualifying diagnostic evidence class; their real nonzero exit remains a failed, selected source check and is never ignored. This classification does not repair or waive the complete correctness-attempt inventory migration gate. The complete matrix-governance host and canonical xUnit inventory producer really build their projects and therefore run after this admission, not as a pure planning prerequisite. It uses `executionClass: static-governance`, `fixtureProfile: none` and does not start a database, runtime, Vitest or Playwright; nodes in turn reuse existing authorities for BehaviorCatalog, DocClaim schema/parser, ImplementationOwner, current extractor registry, generated section checker, prose verifier and staleness mutation fixtures. The four compiled-assembly extractors only consume the exact receipt of this round of content-addressed minimal contract build, and are prohibited from reading ambient `bin/obj`. Concurrent access to the same source/worktree/toolchain selects the only publisher through atomic owner lock, and publishes it atomically after the per-run staging is fully constructed; subsequent runs can only be reused after receipt, source closure, project and observation digest are all re-verified. Damaged or legacy caches must be rebuilt. Any missing, duplicate, stale, warning, partial or source/build identity drift will fail directly.
 
 The OpenAPI extractor consumes the runner's explicit run-relative minimal-build receipt and canonical six-field build identity. Its existing per-artifact `buildReceipt` seals `openapiPath`, `openapiArtifactPath` and `openapiDigest` for the compiled host's cached and published sibling projection; both byte digests must match. Observation content is recomputed independently of its byte seal, and endpoint, error and protocol authority remain checked against their current source contracts. Canonical failures never fall back to the standalone producer's fixed receipt. Focused Node fixtures exercise these reader and tamper boundaries but do not establish successful candidate admission, backend lane completion or physical mutation qualification.
 
@@ -265,7 +265,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-264
+266
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
@@ -1111,6 +1111,18 @@ retry policy. Registration and source-order checks are not actual compiler/SQL
 qualification; successful native scheduler MySQL allocation and canonical locked dependencies
 remain prerequisites.
 
+Correctness migration compares the complete producer ID roster derived from the
+matrix, physical bundle inventory and reliability catalog. Its size follows those
+canonical owners rather than a historical constant. Missing, extra, duplicate, substituted or crossed-authority
+identities refuse even when the candidate inventory has a freshly sealed digest;
+zero retries, first-failure blocking and external authority bindings still apply
+to every producer.
+
+The Browser Contract first-stop regression extracts the original scenario loop
+from its syntax tree and executes the real temporal adapter against its Node
+page-clock model. Its continue-after-failure mutation remains required. This
+fixture emits checker-selftest evidence and grants no browser qualification.
+
 Before local physical scheduling, the existing runner projects each non-resident
 bundle's service requirements from its exact logical members. Duplicate or
 missing logical identities, foreign service declarations and MySQL on a resident
@@ -1679,6 +1691,7 @@ render: enum-set
 - `soak-long-evidence-import`
 - `soak-long-scheduled`
 - `soak-short-runtime`
+- `source-governance`
 - `static-governance`
 - `test-inventory`
 - `test-quality-lint`
@@ -1686,6 +1699,7 @@ render: enum-set
 - `ux-viewport-plan-progress`
 - `ux-viewport-smoke`
 - `ux-viewport-visual`
+- `validate-declarations`
 - `validate-matrix`
 - `visual`
 - `visual-console`
@@ -1717,6 +1731,30 @@ The collector retains at most 2048 events in memory and writes only task-private
 `RedisStore_RetiresAllV3NamespacesAndEnvelopeIdempotently` is executed exactly once by the same canonical LocalRedis producer; ordinary discovery excludes it with `Fixture!=LocalRedis`. It binds the current run, Redis endpoint, source identity and `cutover` prefix, then records real Redis evidence for state/active-identity/device/IP/old-generation retirement, active-generation retention, envelope revocation, the exact database revoke, repeated receipt/mutation idempotency and zero pool leases. Missing Redis, manifest identity, fresh evidence, exact planned/executed/outcome binding, stale or cross-run evidence, observed pool leasing, and cleanup failures fail closed.
 
 Source integration and WIP handoff do not grant product acceptance. Applicable source CI must pass or remain explicitly failed/unrun; an unselected compiled/native/runtime lane stays OPEN and unqualified, never a synthetic pass. Original assertions, numeric thresholds, immutable build consumption and full release gates are unchanged. An explicit caller stage `source-integration` performs global declarations, actual Git-bound impact planning, mandatory source checks and applicable declared source-only regressions. It preserves the affected product qualification roster as deferred and the complete qualification roster as OPEN; it issues no product acceptance. The stage is bound independently by the caller and the sealed plan, not by a WIP label or candidate metadata. The local command is `node tools/run-test-matrix.mjs ci-pr-smart --stage source-integration --base-ref <actual-base>`; pull-request Quality Gate declares this stage only through maintainer-controlled `vars.FSUSBLOG_CI_STAGE=source-integration`; an unset repository variable retains qualification. Default qualification, explicit full, push, dispatch and release execution retain the original complete applicable admission/build/runtime path. Unknown executable/dependency authority remains fail-closed before any source checker or regression spawn. The initial source-stage checker supports the existing frontend/C# lexical/documentation ports and declared pure regression ports. The SOURCE shell subset uses `bash -n` without executing the script and the existing portable script lint. Missing shellcheck/shfmt are recorded UNRUN/deferred, without claiming full shell style qualification. Flat `.slnx` solution inputs receive a fixed SOURCE XML check: one `Solution` root containing only `Project Path` elements, with DTD/entities, unknown structures, duplicate or escaping project paths, missing files and linked aliases refused. The checker holds the actual solution and repository-relative project files, binds their HEAD/index/physical bytes before and after isolated standard-library XML parsing, and reports no SDK evaluation, restore, compilation or runtime qualification. The caller independently reopens the actual solution/project sources and requires the complete closed receipt to match that projection and the independent candidate HEAD. A solution is supported only after that selected checker succeeds; the checker and its adjacent pure refusal tests are fixed source-governance execution ports. C/C++ source and other unregistered source-language checks explicitly return unsupported/failure; their absence is not a pass or native qualification. Selection-policy changes receive the same mandatory source-stage gates and independent owner review; they do not need to claim complete product qualification to deliver the reviewed policy source. Full qualification and release assertions remain unchanged and OPEN until actually run.
+
+The same source stage inspects exactly `Directory.Packages.props` and `src/migration/FsusBlog.Migration.csproj` through the bounded readonly [MSBuild declaration inspector](../tools/test-matrix/msbuild-source-inspector.mjs). It compares the finite original package/project declarations and approved dependency edits as literal data. The held regular inputs and referenced witnesses bind actual Git HEAD, index and physical bytes; the caller independently reopens and reparses the complete receipt before counting either path as checked. Only XML 1.0 boundary whitespace is stripped. DTD/entities, unknown structures or paths, arbitrary properties, SDK/import/task evaluation, changed witnesses and forged or stale receipts fail closed. This port executes no restore, compiler, native provider or runtime qualification. The [original refusal controls](../tests/tools/msbuild-source.test.mjs) retain those boundaries, including non-XML Unicode whitespace.
+
+### Registered opaque fixture data in SOURCE integration
+
+`config/development/opaque-source-fixture-policy.json` registers only the frozen
+canonical digest caller fixture as text data. Its source and complete original
+consumer are byte-bound to the reviewed policy. The source owner runs all 46
+consumer cases through the actual Node test runner and a bound native event
+reporter, with no filtering, failure, skip, todo or cancellation. Consumer stdout
+cannot substitute assertion events. Node, reporter, policy, matrix, fixture,
+consumer, HEAD, index and regular held inputs are rechecked before and after
+collection and independently reopened for receipt verification.
+The collector must echo a fresh caller-created attempt token; a prior collected
+receipt cannot substitute for the source caller's actual current invocation.
+
+The SOURCE caller parses those exact bound matrix bytes and requires the unique
+original `frontend-style-fixtures` owner, complete command and declared data
+input. It retains the complete Git-changed source scope check before removing
+only the verified registered fixture from executable frontend style groups.
+Missing or failed collection, altered consumer scope, unknown fixtures, stale
+receipts and Node/Git execution overrides fail closed. This one fixture data port
+does not admit other excluded paths or produce compiled, runtime or release
+qualification. Its policy and dispatch require independent owner promotion.
 
 ### Python AST checks in SOURCE integration
 

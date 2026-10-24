@@ -3,6 +3,9 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { msbuildSourceFiles } from './msbuild-source-inspector.mjs';
+import { opaqueFixtureSourceChecker, opaqueFixtureSourceConsumer, opaqueFixtureSourceRegressions, selectOpaqueFixtureSourceRegressions } from './opaque-fixture-source-ownership.mjs';
+
 const eligiblePrTier = tier => tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
     && !['nightly', 'release-manual'].includes(tier.cadence);
 
@@ -355,7 +358,8 @@ export const sourceGovernanceChildEntries = Object.freeze({
     csharp: 'tools/dotnet/check-csharp-style.mjs',
     solution: 'tools/configuration/check-solution-source.mjs',
     docs: 'tools/style/check-native-tooling-style.mjs',
-    lifecycle: 'tools/docs/generate-document-lifecycle.mjs'
+    lifecycle: 'tools/docs/generate-document-lifecycle.mjs',
+    opaqueFixture: opaqueFixtureSourceChecker
 });
 
 
@@ -385,24 +389,27 @@ export const sourceRegressionEntries = Object.freeze([
 
 export function selectSourceRegressionTargets(changedFiles)
 {
-    return changedFiles.some(file => sharedPaths.some(pattern => matchesImpactPath(file, pattern))
+    const original = changedFiles.some(file => sharedPaths.some(pattern => matchesImpactPath(file, pattern))
         || sourceRegressionEntries.includes(file)
         || matchesImpactPath(file, 'tools/frontend/check-frontend-style.mjs')
         || matchesImpactPath(file, 'tools/frontend/source-unit-style-diff.mjs')
         || matchesImpactPath(file, 'tools/style/check-native-tooling-style.mjs')
         || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')) ? [...sourceRegressionEntries]
-        : changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')) ? ['tools/configuration/solution-source.test.mjs'] : [];
+        : changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')
+            || file === '.git-blame-ignore-revs') ? ['tools/configuration/solution-source.test.mjs'] : [];
+    return [...new Set([...original, ...selectOpaqueFixtureSourceRegressions(changedFiles)])];
 }
 
 export function sourceGovernanceExecutableEntries()
 {
-    return [...Object.values(sourceGovernanceChildEntries), ...sourceRegressionEntries];
+    return [...Object.values(sourceGovernanceChildEntries), ...sourceRegressionEntries,
+        ...opaqueFixtureSourceRegressions, opaqueFixtureSourceConsumer];
 }
 
 
 export function sourceRegressionArguments(entry)
 {
-    if (!sourceRegressionEntries.includes(entry))
+    if (![...sourceRegressionEntries, ...opaqueFixtureSourceRegressions].includes(entry))
     {
         throw new Error(`unknown source regression entry: ${entry}`);
     }
@@ -414,11 +421,26 @@ export function sourceRegressionArguments(entry)
 
 // Known structured data receives the declaration/closed-input source checks;
 // it never grants executable authority. Every other unchecked surface is explicit.
-export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [])
+export function isScriptDeclarationSource(file)
+{
+    return typeof file === 'string' && file.startsWith('src/frontend/scripts/')
+        && /\.d\.(?:mts|cts)$/u.test(file) && !/[\\\0\r\n]/u.test(file)
+        && file.split('/').every(part => part && part !== '.' && part !== '..');
+}
+
+export function sourceStageInspectionFiles(presentFiles, changedFiles)
+{
+    return [...new Set([...presentFiles, ...changedFiles.filter(file => isScriptDeclarationSource(file) || msbuildSourceFiles.includes(file))])];
+}
+
+export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], checkedBlame = [], checkedDeclarations = [], checkedMsbuild = [])
 {
     return files.filter(file => !/\.(?:mjs|js|cjs|ts|tsx|vue|css|scss|cs|md|sh|json|yaml|yml)$/u.test(file)
         && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !(file.endsWith('.py') && checkedPython.includes(file))
+        && !(file === '.git-blame-ignore-revs' && checkedBlame.includes(file))
+        && !(isScriptDeclarationSource(file) && checkedDeclarations.includes(file))
+        && !(msbuildSourceFiles.includes(file) && checkedMsbuild.includes(file))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
 
@@ -436,7 +458,7 @@ export function sourceShellSyntaxArguments(file)
 
 // Fixed repository inputs of the reviewed frontend SOURCE checker/parser contract.
 // These are data/configuration witnesses, never executable child ports.
-export const sourceGovernanceDataInputs = Object.freeze([
+export const sourceFrontendDataInputs = Object.freeze([
     'config/development/frontend-style-policy.json',
     'config/development/frontend-style-rule-registry.json',
     'tools/frontend/style-toolchain/package.json',
@@ -444,7 +466,15 @@ export const sourceGovernanceDataInputs = Object.freeze([
     '.editorconfig', 'eslint.config.mjs', 'stylelint.config.mjs',
     'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
     'tools/frontend/style-toolchain/eslint.config.mjs',
-    'tools/frontend/style-toolchain/stylelint.config.mjs'
+    'tools/frontend/style-toolchain/stylelint.config.mjs',
+    'src/frontend/tsconfig.node.json',
+    'src/frontend/tsconfig.playwright.json'
+]);
+
+export const sourceGovernanceDataInputs = Object.freeze([
+    ...sourceFrontendDataInputs,
+    'config/development/canonical-digest-edge.json',
+    'config/development/opaque-source-fixture-policy.json'
 ]);
 
 export function assertSourceShellSyntaxInspection(input)
@@ -503,7 +533,7 @@ export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
         {
             throw new Error('SOURCE frontend configuration requires the complete policy input set');
         }
-        return new Set([...sourceGovernanceDataInputs, ...policy.configurationSources,
+        return new Set([...sourceFrontendDataInputs, ...policy.configurationSources,
             policy.ruleRegistry, policy.toolchain?.package, policy.toolchain?.lock,
             policy.eslintConfig, policy.stylelintConfig]);
     }
@@ -521,7 +551,8 @@ export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
 
 export function sourceFrontendCheckGroups(files, stage, baseCommit, repositoryRoot)
 {
-    const applicable = files.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file));
+    const applicable = files.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file)
+        || isScriptDeclarationSource(file));
     if (stage !== 'source-integration')
     {
         return [{ options: ['--mode', 'strict-full'], files: applicable }];
@@ -541,6 +572,6 @@ export function sourceFrontendCheckGroups(files, stage, baseCommit, repositoryRo
         { options: ['--mode', 'source-diff', '--base', baseCommit],
             files: applicable.filter(file => /\.(?:mjs|js|cjs)$/u.test(file)) },
         { options: ['--mode', 'strict-full'],
-            files: applicable.filter(file => /\.(?:ts|tsx|vue|css|scss)$/u.test(file)) }
+            files: applicable.filter(file => /\.(?:ts|tsx|vue|css|scss)$/u.test(file) || isScriptDeclarationSource(file)) }
     ];
 }

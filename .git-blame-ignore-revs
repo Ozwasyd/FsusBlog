@@ -27,3 +27,13 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Original ESLint layout pass for local operational preservation controls.
+9fe86c28d3b2cfd4008b0575111ddcfcf94f598f
+
+# Reviewed migration guard mechanical formatting for #3663.
+9a23051edcbd5cbb1b6d5209e2508c7fa58ae986
+a9371f2e5de722bf271aa5e41c73b9186433be90
+
+# Closed adapter read-scope getter format, Refs #2139
+859963532668efeec9b29e7836449b7199f7fd0b

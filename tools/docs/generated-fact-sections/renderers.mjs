@@ -112,7 +112,12 @@ function formatDurationLike(value, unitHint)
 
 function escapeTableCell(value)
 {
-    return normalizeScalarText(value).replace(/\|/gu, '\\|').replace(/\r?\n/gu, ' ');
+    return normalizeScalarText(value)
+        .replace(/&/gu, '&amp;')
+        .replace(/</gu, '&lt;')
+        .replace(/>/gu, '&gt;')
+        .replace(/\|/gu, '\\|')
+        .replace(/\r?\n/gu, ' ');
 }
 
 function markdownTable(headers, rows)
@@ -173,7 +178,7 @@ function renderEnumSet(value, options = {})
 {
     if (isEmptyValue(value))
     {
-        return applyEmptyPolicy('enum-set', options.emptyPolicy, '_empty set_');
+        return applyEmptyPolicy('enum-set', options.emptyPolicy, 'Empty set.');
     }
     const items = asScalarList(value, 'enum-set');
     // Unordered sets always sort by ordinal regardless of observation/FS order.
@@ -185,7 +190,7 @@ function renderOrderedSet(value, options = {})
 {
     if (isEmptyValue(value))
     {
-        return applyEmptyPolicy('ordered-set', options.emptyPolicy, '_empty set_');
+        return applyEmptyPolicy('ordered-set', options.emptyPolicy, 'Empty set.');
     }
     const items = asScalarList(value, 'ordered-set');
     // Preserve observation order exactly.
@@ -261,7 +266,7 @@ function parseTransition(entry)
         failShape('transition-table', 'transition must be string or object');
     }
     // Supports "Action:From->To" and "From->To[:guard]" forms.
-    const withAction = entry.match(/^(?:([^:]+):)?([^:>\-]+)->([^:]+)(?::(.+))?$/u);
+    const withAction = entry.match(/^(?:([^:]+):)?([^:>-]+)->([^:]+)(?::(.+))?$/u);
     if (!withAction)
     {
         failShape('transition-table', `unparseable transition ${entry}`);

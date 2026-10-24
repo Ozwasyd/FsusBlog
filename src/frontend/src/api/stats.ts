@@ -1,11 +1,8 @@
 import { requestBinaryOnly } from '@/composition/binaryTransport';
 import type {
-    AdminStatsOverview,
     AdminStatsQuery,
     RecentCommentStatItem,
-    RegionStatItem,
-    StatsSummary,
-    TrashClearResponse
+    RegionStatItem
 } from '@/contracts/binaryApi';
 
 import { FrameType } from '@wasm/protocol/frame';

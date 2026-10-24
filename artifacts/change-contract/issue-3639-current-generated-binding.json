@@ -1,0 +1,47 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/canonical-digest-edge.json",
+        "config/development/frontend-style-policy.json",
+        "config/development/opaque-source-fixture-policy.json",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "tests/matrix.yml",
+        "tests/tools/canonical-digest-edge.test.mjs",
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tools/configuration/check-opaque-fixture-source.mjs",
+        "tools/configuration/check-solution-source.mjs",
+        "tools/configuration/opaque-fixture-source.test.mjs",
+        "tools/frontend/check-frontend-style-source-base.test.mjs",
+        "tools/frontend/check-frontend-style.mjs",
+        "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
+        "tools/frontend/style-toolchain/eslint.config.mjs",
+        "tools/governance/change-contract-registry.mjs",
+        "tools/governance/change-contract.mjs",
+        "tools/test-matrix/opaque-fixture-source-ownership.mjs",
+        "tools/test-matrix/opaque-fixture-source-ownership.test.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb7cc87bedca9aff8ee8313e208c314642cb47729066d368a3667855eb4d6332"
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+            "sha256": "82f10f6c2300da42ff6d0bf006e2b8657f5f30395b931fc392f7e4ebdf8ebe73"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "0cfab691fea5b3837863fe778bf62af2fedfc6cb2a02e11e3e3f0c8fd1435c22"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "547c7911a636af9a2060dc2038c12576dd90e9ea910829df8c9ebccc1c88c4f9"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        }
+    ]
+}

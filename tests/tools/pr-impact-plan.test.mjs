@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceFrontendDataInputs, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration, sourceStageInspectionFiles } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
 
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });
@@ -274,7 +274,9 @@ test('explicit source integration executes source gates and real declared regres
     const value = matrix();
     const result = selectAffectedPrTiers(value, ['tools/test-matrix/pr-impact-plan.mjs'], { stage: 'source-integration' });
     assert.deepEqual(result.selectedTierIds, ['pr-smart-gate-plan', 'source-governance', 'validate-declarations']);
-    assert.deepEqual(result.sourceRegressionTargets, [...sourceRegressionEntries]);
+    assert.deepEqual(result.sourceRegressionTargets, [...sourceRegressionEntries,
+        'tools/configuration/opaque-fixture-source.test.mjs',
+        'tools/test-matrix/opaque-fixture-source-ownership.test.mjs']);
     assert.ok(result.deferredQualificationTierIds.includes('backend-build'));
     assert.deepEqual(result.fullQualificationTierIds, value.tiers.map(tier => tier.id).sort());
     assert.equal(result.fullMode, false);
@@ -366,12 +368,25 @@ test('source integration explicitly refuses every unregistered source surface ra
     assert.deepEqual(unsupportedSourceStageFiles(['tools/contracts/Unknown.slnx'], ['tools/contracts/Unknown.slnx']), []);
 });
 
+test('only independently checked canonical blame metadata leaves unsupported source inputs', async () =>
+{
+    const { sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
+        await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+    const canonical = '.git-blame-ignore-revs';
+    const other = ['nested/.git-blame-ignore-revs', 'source.d.mts', 'unregistered.input'];
+    assert.deepEqual(unsupportedSourceStageFiles([canonical, ...other]), [canonical, ...other]);
+    assert.deepEqual(unsupportedSourceStageFiles([canonical], [], [], ['nested/' + canonical]), [canonical]);
+    assert.deepEqual(unsupportedSourceStageFiles([canonical, ...other], [], [], [canonical, ...other]), other);
+    assert.equal(sourceGovernanceExecutableEntries().length, 14);
+    assert.deepEqual(selectSourceRegressionTargets([canonical]), ['tools/configuration/solution-source.test.mjs']);
+});
+
 test('flat solution checker and its refusal controls are explicit source execution ports', async () =>
 {
     const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
         await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
     assert.equal(sourceGovernanceChildEntries.solution, 'tools/configuration/check-solution-source.mjs');
-    assert.equal(sourceGovernanceExecutableEntries().length, 10);
+    assert.equal(sourceGovernanceExecutableEntries().length, 14);
     assert.ok(sourceGovernanceExecutableEntries().includes('tools/configuration/solution-source.test.mjs'));
     assert.deepEqual(selectSourceRegressionTargets(['tools/contracts/Example.slnx']), ['tools/configuration/solution-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.solution]).includes('tools/configuration/solution-source.test.mjs'));
@@ -455,7 +470,7 @@ function frontendRoutingFixture(t)
         ruleRegistry: sourceGovernanceDataInputs[1],
         toolchain: { package: sourceGovernanceDataInputs[2], lock: sourceGovernanceDataInputs[3] },
         eslintConfig: 'eslint.config.mjs', stylelintConfig: 'stylelint.config.mjs' };
-    for (const file of [...sourceGovernanceDataInputs, ...policy.configurationSources])
+    for (const file of [...sourceFrontendDataInputs, ...policy.configurationSources])
     {
         write(file, '{}\n');
     }
@@ -486,6 +501,53 @@ test('SOURCE frontend routing retains source-diff only with complete unchanged a
     assert.deepEqual(groups[1], { options: ['--mode', 'strict-full'], files: files.slice(3) });
     assert.deepEqual(sourceFrontendCheckGroups(files, 'qualification', base),
         [{ options: ['--mode', 'strict-full'], files }]);
+});
+
+test('script declaration owner admits only actual checked declarations and preserves unknown source refusal', () =>
+{
+    const declarations = ['src/frontend/scripts/watch.d.mts', 'src/frontend/scripts/nested/watch.d.cts'];
+    const unsupported = ['src/frontend/scripts/watch.mts', 'src/frontend/scripts/watch.cts',
+        'src/frontend/scripts/watch.d.mtsx', 'tools/watch.d.mts', 'tests/watch.d.cts'];
+    assert.deepEqual(unsupportedSourceStageFiles(declarations), declarations);
+    assert.deepEqual(unsupportedSourceStageFiles(declarations, [], [], [], ['other.d.mts']), declarations);
+    assert.deepEqual(unsupportedSourceStageFiles([...declarations, ...unsupported], [], [], [],
+        [...declarations, ...unsupported]), unsupported);
+});
+
+test('script declaration owner uses strict frontend checks and binds the original Node configuration', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    const declaration = 'src/frontend/scripts/watch.d.mts';
+    fixture.write(declaration, 'export declare const patterns: readonly string[];\n');
+    fixture.commit();
+    const files = fixture.actual();
+    const groups = sourceFrontendCheckGroups(files, 'source-integration', fixture.base, fixture.root);
+    assert.ok(groups.find(group => group.options[1] === 'strict-full').files.includes(declaration));
+    assert.equal(groups.find(group => group.options[1] === 'source-diff').files.includes(declaration), false);
+    assert.ok(sourceGovernanceDataInputs.includes('src/frontend/tsconfig.node.json'));
+    fixture.write('src/frontend/tsconfig.node.json', '{"compilerOptions":{"strict":true}}\n');
+    fixture.commit();
+    const changed = fixture.actual();
+    assert.deepEqual(sourceFrontendCheckGroups(changed, 'source-integration', fixture.base, fixture.root),
+        [{ options: ['--mode', 'strict-full'], files: changed.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file) || file === declaration) }]);
+    assert.throws(() => sourceFrontendCheckGroups(changed.filter(file => file !== declaration),
+        'source-integration', fixture.base, fixture.root), /complete actual changed-source scope/u);
+});
+
+test('script declaration owner retains real deleted Git inputs instead of minting absent coverage', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    const declaration = 'src/frontend/scripts/watch.d.mts';
+    fixture.write(declaration, 'export declare const patterns: readonly string[];\n');
+    fixture.commit();
+    const beforeDeletion = execFileSync('git', ['-C', fixture.root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    rmSync(path.join(fixture.root, declaration));
+    fixture.commit();
+    const evidence = readGitChangedPaths(fixture.root, beforeDeletion);
+    const present = evidence.changedFiles.filter(file => existsSync(path.join(fixture.root, file)));
+    assert.equal(typeof sourceStageInspectionFiles, 'function');
+    assert.deepEqual(sourceStageInspectionFiles(present, evidence.changedFiles), [declaration]);
+    assert.deepEqual(unsupportedSourceStageFiles(sourceStageInspectionFiles(present, evidence.changedFiles)), [declaration]);
 });
 
 test('SOURCE configuration drift dispatches every applicable changed input through strict-full without exemptions', t =>
@@ -530,6 +592,31 @@ test('SOURCE compares the union of actual base and current policy inputs includi
     assert.ok(configuration.identities.some(value => value.file === 'config/added.json' && value.baseDigest === null));
     assert.deepEqual(sourceFrontendCheckGroups(fixture.actual(), 'source-integration', fixture.base, fixture.root)[0].options,
         ['--mode', 'strict-full']);
+});
+
+test('SOURCE admits a newly registered canonical configuration only through current required inputs and strict-full', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    const canonical = 'config/development/canonical-digest-edge.json';
+    assert.equal(existsSync(path.join(fixture.root, canonical)), false);
+    assert.equal(sourceFrontendDataInputs.includes(canonical), false);
+    assert.equal(sourceGovernanceDataInputs.includes(canonical), true);
+    fixture.policy.configurationSources.push(canonical);
+    fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+    fixture.write(canonical, '{}\n');
+    fixture.commit();
+    const configuration = inspectSourceFrontendConfiguration(fixture.root, fixture.base);
+    assert.equal(configuration.changed, true);
+    assert.ok(configuration.identities.some(value => value.file === canonical
+        && value.baseDigest === null && /^sha256:[a-f0-9]{64}$/u.test(value.currentDigest)));
+    const changed = fixture.actual();
+    assert.deepEqual(sourceFrontendCheckGroups(changed, 'source-integration', fixture.base, fixture.root),
+        [{ options: ['--mode', 'strict-full'], files: changed.filter(file => fixture.files.includes(file)) }]);
+    assert.throws(() => sourceFrontendCheckGroups(changed.filter(file => file !== canonical),
+        'source-integration', fixture.base, fixture.root), /complete actual changed-source scope/u);
+    rmSync(path.join(fixture.root, canonical));
+    assert.throws(() => inspectSourceFrontendConfiguration(fixture.root, fixture.base),
+        /nonregular or escaped input/u);
 });
 
 test('SOURCE refuses omitted changed inputs under both unchanged and changed configuration', t =>
