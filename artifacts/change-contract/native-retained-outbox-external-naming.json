@@ -5,9 +5,10 @@
             "id": "environment-variable",
             "paths": [
                 "src/migration/ArticlePreservationRetainedOutboxArtifact.cs",
-                "src/migration/ArticlePreservationStorageWriter.cs"
+                "src/migration/ArticlePreservationStorageWriter.cs",
+                "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs"
             ],
-            "reason": "The original trusted registry assigns src/**/*.cs to the process-environment naming surface. This WIP acknowledges that existing path-level ownership for the two retained-outbox sources. It preserves external environment names and original journal SQL identities; the new retained JSON/fact names are explicit Migration-owned integrity data. No environment key, source authority, allocator, canonical issuer or original isolation contract is changed or granted by this manifest."
+            "reason": "The original trusted registry assigns src/**/*.cs to the process-environment naming surface. This WIP acknowledges that existing path-level ownership for the two retained-outbox sources. It preserves external environment names and original journal SQL identities; the new retained JSON/fact names are explicit Migration-owned integrity data. No environment key, source authority, allocator, canonical issuer or original isolation contract is changed or granted by this manifest. The shared PostgreSQL observer preserves all native SQL names while verifying PostgreSQL 18 NOT NULL rows against the existing exact control-column nullability; unknown or malformed native constraints remain refusals."
         }
     ]
 }
