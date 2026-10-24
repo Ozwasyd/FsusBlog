@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/csharp-style-baseline.json",
+                "config/development/csharp-style-policy.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the original policy/baseline JSON fields while adding only the singular Access directory entry and rebinding its policy digest through the pinned original owner operation. Bind the exact owned checker in the shared execution authority using its unchanged canonical producer."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/csharp-style-enforcement.md"
+            ],
+            "reason": "Preserve existing .editorconfig and command spellings in the current mother-style contract; only document the separate Access semantic and digest binding operation."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dotnet/check-csharp-style.mjs"
+            ],
+            "reason": "Retain existing process environment names and GIT_NO_REPLACE_OBJECTS for fixed Git authority verification; no symbol/path exception or general policy admission is added."
+        }
+    ]
+}
