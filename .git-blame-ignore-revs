@@ -36,3 +36,6 @@ a5f53a1aaae8d410216ec1d5f25d526b9fd43a9d
 
 # Native migration transaction source whitespace (#3663, #4668)
 06345a6dd750f4b7cf96ef26d1e16bf2a82eca12
+
+# Reviewed migration guard mechanical formatting for #3663.
+9a23051edcbd5cbb1b6d5209e2508c7fa58ae986
