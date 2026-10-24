@@ -181,7 +181,7 @@ test.describe('settings brand upload trigger / FsusUI final DOM (#1893)', () => 
       const pointer = await collectChoosers(page, () => surface.click({ force: true }))
       expect(pointer, caseName).toHaveLength(0)
       const keyboard = await collectChoosers(page, async () => {
-        await surface.focus({ force: true })
+        await surface.focus()
         await page.keyboard.press('Enter')
         await page.keyboard.press(' ')
       })

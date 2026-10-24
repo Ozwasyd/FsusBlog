@@ -460,7 +460,8 @@ export const sourceGovernanceDataInputs = Object.freeze([
     'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
     'tools/frontend/style-toolchain/eslint.config.mjs',
     'tools/frontend/style-toolchain/stylelint.config.mjs',
-    'src/frontend/tsconfig.node.json'
+    'src/frontend/tsconfig.node.json',
+    'src/frontend/tsconfig.playwright.json'
 ]);
 
 export function assertSourceShellSyntaxInspection(input)

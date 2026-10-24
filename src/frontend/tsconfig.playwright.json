@@ -7,10 +7,15 @@
             "DOM.Iterable"
         ],
         "module": "ESNext",
+        "jsx": "preserve",
+        "jsxImportSource": "vue",
         "moduleResolution": "bundler",
         "ignoreDeprecations": "6.0",
         "baseUrl": ".",
         "paths": {
+            "/src/*": [
+                "src/*"
+            ],
             "@/*": [
                 "src/*"
             ],
@@ -18,6 +23,7 @@
                 "wasm/web/*"
             ],
             "@playwright/test": [
+                "node_modules/@playwright/test/index",
                 "node_modules/@playwright/test/index.mjs"
             ],
             "@playwright/test/*": [
