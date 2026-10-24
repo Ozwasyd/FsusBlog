@@ -6,8 +6,8 @@ using System.Text;
 
 using Npgsql;
 
-using FsusBlog.Contracts.Schema;
 using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
 
 namespace FsusBlog.Migration;
 
