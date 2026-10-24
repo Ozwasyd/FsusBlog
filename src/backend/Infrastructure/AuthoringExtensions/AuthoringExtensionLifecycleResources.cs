@@ -29,6 +29,7 @@ public sealed class AuthoringExtensionLifecycleResources(
     private readonly Dictionary<string, ActiveResources> _active = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _quarantined = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ImmutableArray<AuthoringExecutionTarget>> _targetHistory = new(StringComparer.Ordinal);
+    private readonly AsyncLocal<CleanupFrame?> _cleanupFrame = new();
 
     public async ValueTask ActivateAtomicallyAsync(
         VerifiedAuthoringPackage package,
@@ -138,6 +139,8 @@ public sealed class AuthoringExtensionLifecycleResources(
         long generation,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        RefuseCleanupReentry();
         await _lifecycleGate.WaitAsync(cancellationToken);
         try
         {
@@ -372,6 +375,10 @@ public sealed class AuthoringExtensionLifecycleResources(
                 completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 tracked.ReleaseTask = completion.Task;
             }
+            else
+            {
+                RefuseCleanupReentry();
+            }
             release = tracked.ReleaseTask;
         }
 
@@ -379,7 +386,15 @@ public sealed class AuthoringExtensionLifecycleResources(
         {
             try
             {
-                await resource.DisposeAsync();
+                CleanupFrame cleanup = BeginCleanup();
+                try
+                {
+                    await resource.DisposeAsync();
+                }
+                finally
+                {
+                    EndCleanup(cleanup);
+                }
                 tracked.Disposed = true;
                 lock (_lock)
                 {
@@ -396,21 +411,21 @@ public sealed class AuthoringExtensionLifecycleResources(
         await release;
     }
 
-    private static ValueTask TerminateAndDisposeWorkerAsync(
+    private ValueTask TerminateAndDisposeWorkerAsync(
         TrackedResource<IAuthoringWorkerSandboxInstance> worker,
         string reason) =>
         TerminateAndDisposeAsync(worker,
             instance => instance.TerminateAsync(reason, CancellationToken.None),
             "Lifecycle could not confirm worker termination before disposal.");
 
-    private static ValueTask TerminateAndDisposeServiceAsync(
+    private ValueTask TerminateAndDisposeServiceAsync(
         TrackedResource<IAuthoringServiceProcess> service,
         string reason) =>
         TerminateAndDisposeAsync(service,
             instance => instance.TerminateTreeAsync(reason, CancellationToken.None),
             "Lifecycle could not confirm service-tree termination before disposal.");
 
-    private static async ValueTask TerminateAndDisposeAsync<T>(
+    private async ValueTask TerminateAndDisposeAsync<T>(
         TrackedResource<T> resource,
         Func<T, ValueTask> terminate,
         string terminationFailure)
@@ -430,25 +445,58 @@ public sealed class AuthoringExtensionLifecycleResources(
 
         if (!resource.Disposed)
         {
-            bool terminated = false;
+            CleanupFrame cleanup = BeginCleanup();
             try
             {
-                await terminate(resource.Instance);
-                terminated = true;
-            }
-            catch
-            {
-            }
+                bool terminated = false;
+                try
+                {
+                    await terminate(resource.Instance);
+                    terminated = true;
+                }
+                catch
+                {
+                }
 
-            await resource.Instance.DisposeAsync();
-            resource.Disposed = true;
-            resource.TerminationFailed = !terminated;
+                await resource.Instance.DisposeAsync();
+                resource.Disposed = true;
+                resource.TerminationFailed = !terminated;
+            }
+            finally
+            {
+                EndCleanup(cleanup);
+            }
         }
 
         if (resource.TerminationFailed)
         {
             // Successful disposal cannot be repeated to confirm an earlier failed termination.
             throw new AuthoringExtensionContractException(terminationFailure);
+        }
+    }
+
+    private CleanupFrame BeginCleanup()
+    {
+        var cleanup = new CleanupFrame(_cleanupFrame.Value);
+        _cleanupFrame.Value = cleanup;
+        return cleanup;
+    }
+
+    private void EndCleanup(CleanupFrame cleanup)
+    {
+        // Captured execution contexts share this frame, so restoration alone cannot retire it.
+        cleanup.Complete();
+        _cleanupFrame.Value = cleanup.Parent;
+    }
+
+    private void RefuseCleanupReentry()
+    {
+        for (CleanupFrame? cleanup = _cleanupFrame.Value; cleanup is not null; cleanup = cleanup.Parent)
+        {
+            if (cleanup.IsActive)
+            {
+                throw new AuthoringExtensionContractException("Lifecycle cleanup cannot reenter its resource authority.");
+            }
         }
     }
 
@@ -507,5 +555,16 @@ public sealed class AuthoringExtensionLifecycleResources(
         {
             get; set;
         }
+    }
+
+    private sealed class CleanupFrame(CleanupFrame? parent)
+    {
+        private bool _active = true;
+
+        public CleanupFrame? Parent { get; } = parent;
+
+        public bool IsActive => Volatile.Read(ref _active);
+
+        public void Complete() => Volatile.Write(ref _active, false);
     }
 }

@@ -380,8 +380,18 @@ Activation is all-or-nothing across the complete verified target set. Worker and
 service instances are registered against the exact active generation. A stale
 generation cannot register or revoke a newer instance; health transitions rebind
 the existing resources before publishing their new receipt generation. Release
-and revoke remove one reference under the same lock, so their race has exactly one
-disposal owner. If the final `Running` receipt cannot be appended, the coordinator
+retains each tracked reference until disposal succeeds; concurrent releases share
+one completion, and revoke waits for that completion before retrying failed
+disposal. Successful disposal is not repeated to erase an unconfirmed termination
+report. In its flowing cleanup execution context, a resource termination or
+disposal callback cannot wait on this owner through a nested revoke or an
+already-running release: those calls fail closed.
+Release during already-started revocation remains a harmless no-op, and a canceled
+revoke caller retains cancellation priority. Captured callback contexts cease to
+be active when their cleanup finishes. This guard covers cleanup release/revoke
+self-waits in that context, not activation, generation rebind, host-revocation
+callbacks, or arbitrary cycles across suppressed execution contexts.
+If the final `Running` receipt cannot be appended, the coordinator
 first revokes the newly activated generation, then records the closed failure and
 rolls state back. Late results are accepted only for the current `Running`
 generation.

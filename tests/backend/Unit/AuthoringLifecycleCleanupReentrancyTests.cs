@@ -97,6 +97,98 @@ public sealed class AuthoringLifecycleCleanupReentrancyTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TerminationCallbackCannotRevokeItsOwnAuthority(bool service)
+    {
+        var resource = new CallbackResource();
+        Fixture fixture = await CreateAsync(service, resource);
+        using var cleanupCancellation = new CancellationTokenSource();
+        Task? nested = null;
+        Exception? refusal = null;
+        resource.DuringTermination = async () =>
+        {
+            refusal = await Record.ExceptionAsync(async () =>
+            {
+                nested = fixture.RevokeAsync().AsTask();
+                await nested.WaitAsync(cleanupCancellation.Token);
+            });
+        };
+
+        Task<AuthoringLifecycleResourceReport> operation = fixture.RevokeAsync().AsTask();
+        try
+        {
+            Assert.True((await operation.WaitAsync(TimeSpan.FromSeconds(5))).IsEmpty);
+            AuthoringExtensionContractException failure = Assert.IsType<AuthoringExtensionContractException>(refusal);
+            Assert.Equal("Lifecycle cleanup cannot reenter its resource authority.", failure.Message);
+            Assert.Equal(1, resource.Terminations);
+            Assert.Equal(1, resource.Disposals);
+            Assert.True((await fixture.RevokeAsync()).IsEmpty);
+            Assert.Equal(1, resource.Disposals);
+        }
+        finally
+        {
+            await cleanupCancellation.CancelAsync();
+            await ObserveAsync(operation);
+            await ObserveAsync(nested);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CancelledCleanupRevokePreservesCallerCancellation(bool service)
+    {
+        var resource = new CallbackResource();
+        Fixture fixture = await CreateAsync(service, resource);
+        using var caller = new CancellationTokenSource();
+        await caller.CancelAsync();
+        Exception? refusal = null;
+        resource.DuringDisposal = async () =>
+        {
+            refusal = await Record.ExceptionAsync(async () =>
+                await fixture.Resources.RevokeAllAsync(fixture.ExtensionId, 1, caller.Token));
+        };
+
+        await fixture.ReleaseAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        OperationCanceledException cancellation = Assert.IsAssignableFrom<OperationCanceledException>(refusal);
+        Assert.Equal(caller.Token, cancellation.CancellationToken);
+        Assert.Equal(1, resource.Disposals);
+        Assert.True((await fixture.RevokeAsync()).IsEmpty);
+        Assert.Equal(1, resource.Disposals);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CleanupCallbackCanReleaseAnotherTrackedResource(bool service)
+    {
+        var resource = new CallbackResource();
+        Fixture fixture = await CreateAsync(service, resource);
+        var other = new CallbackResource();
+        if (service)
+        {
+            await fixture.Resources.TrackServiceAsync(fixture.ExtensionId, 1, other);
+        }
+        else
+        {
+            await fixture.Resources.TrackWorkerAsync(fixture.ExtensionId, 1, other);
+        }
+        resource.DuringDisposal = () => service
+            ? fixture.Resources.ReleaseServiceAsync(fixture.ExtensionId, 1, other).AsTask()
+            : fixture.Resources.ReleaseWorkerAsync(fixture.ExtensionId, 1, other).AsTask();
+
+        await fixture.ReleaseAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(1, resource.Disposals);
+        Assert.Equal(1, other.Disposals);
+        Assert.True((await fixture.RevokeAsync()).IsEmpty);
+        Assert.Equal(1, resource.Disposals);
+        Assert.Equal(1, other.Disposals);
+    }
+
     private static async Task ObserveAsync(Task? task)
     {
         if (task is null)
@@ -173,6 +265,11 @@ public sealed class AuthoringLifecycleCleanupReentrancyTests
 
     private sealed class CallbackResource : IAuthoringWorkerSandboxInstance, IAuthoringServiceProcess
     {
+        public Func<Task>? DuringTermination
+        {
+            get; set;
+        }
+
         public Func<Task>? DuringDisposal
         {
             get; set;
@@ -204,10 +301,13 @@ public sealed class AuthoringLifecycleCleanupReentrancyTests
         public ValueTask TerminateTreeAsync(string reason, CancellationToken cancellationToken) =>
             TerminateAsync(reason, cancellationToken);
 
-        public ValueTask TerminateAsync(string reason, CancellationToken cancellationToken)
+        public async ValueTask TerminateAsync(string reason, CancellationToken cancellationToken)
         {
             Terminations++;
-            return ValueTask.CompletedTask;
+            if (DuringTermination is not null)
+            {
+                await DuringTermination();
+            }
         }
 
         public async ValueTask DisposeAsync()
