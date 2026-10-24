@@ -715,6 +715,7 @@ test('compiled C# observation self-test executes real loader, merger, and reques
     assert.match(result.stdout, /self-test.*ok/iu);
 });
 
+// Retain this historical case identity; #3177 retired its JSON exclusion disposition.
 test('pre-3177 normal producer isolates only the exact owned JSON routes and emits the AEDS observation', {
     timeout: 120_000
 }, () =>
@@ -741,14 +742,43 @@ test('pre-3177 normal producer isolates only the exact owned JSON routes and emi
         });
         const diagnostic = `${result.stdout}\n${result.stderr}`;
         assert.equal(result.status, 0, diagnostic);
-        assert.match(diagnostic, /pre-#3177 known non-AEDS routes excluded count=8:/u);
+        assert.doesNotMatch(diagnostic, /known non-AEDS routes excluded/u);
         const observation = readJson(path.join(directory, 'observation.json'));
         assert.ok(observation.operations.some((operation) =>
             operation.operationId === 'binary_get_article_articleId_int_related_aeds'
             && operation.responseFrame === 'ArticleRelatedReading'));
-        assert.ok(observation.operations.every((operation) =>
-            !operation.path.startsWith('/api/binary/author/ops/fonts/')
-            && !operation.path.startsWith('/api/binary/author/ops/themes/')));
+        const migrated = observation.operations.filter((operation) =>
+            operation.path.startsWith('/api/binary/author/ops/fonts/')
+            || operation.path.startsWith('/api/binary/author/ops/themes/'));
+        assert.deepEqual(
+            migrated.map((operation) => [operation.method, operation.path, operation.operationId, operation.responseFrame]),
+            [
+                ['GET', '/api/binary/author/ops/fonts/activations', 'binary_get_author_ops_fonts_activations', 'FontActivationList'],
+                ['GET', '/api/binary/author/ops/fonts/registry', 'binary_get_author_ops_fonts_registry', 'FontRegistryList'],
+                ['GET', '/api/binary/author/ops/fonts/registry/{fontId}', 'binary_get_author_ops_fonts_registry_fontId', 'FontRegistryDetail'],
+                ['GET', '/api/binary/author/ops/themes/activations', 'binary_get_author_ops_themes_activations', 'ThemeActivationList'],
+                ['GET', '/api/binary/author/ops/themes/activations/{scope}', 'binary_get_author_ops_themes_activations_scope', 'ThemeActivation'],
+                ['GET', '/api/binary/author/ops/themes/activations/{scope}/history', 'binary_get_author_ops_themes_activations_scope_history', 'ThemeActivationHistory'],
+                ['GET', '/api/binary/author/ops/themes/registry', 'binary_get_author_ops_themes_registry', 'ThemeRegistryList'],
+                ['GET', '/api/binary/author/ops/themes/registry/{themeId}', 'binary_get_author_ops_themes_registry_themeId', 'ThemeRegistryDetail']
+            ]
+        );
+        for (const operation of migrated)
+        {
+            assert.equal(operation.protocol, 'AEDS', operation.path);
+            assert.equal(operation.aedsVersion, 2, operation.path);
+            assert.equal(operation.requestFrame, null, operation.path);
+            assert.equal(operation.errorFrame, 'ApiError', operation.path);
+            assert.equal(operation.successStatus, 200, operation.path);
+            assert.equal(operation.resultPlacement, 'aeds.frame.payload', operation.path);
+            assert.ok(operation.responses.some((response) =>
+                response.status === 200
+                && response.kind === 'success'
+                && response.schemaRef === `aeds://frame/${operation.responseFrame}`), operation.path);
+            assert.ok(operation.responses.every((response) =>
+                response.contentType === 'application/octet-stream'
+                && response.resultPlacement === 'aeds.frame.payload'), operation.path);
+        }
     }
     finally
     {
