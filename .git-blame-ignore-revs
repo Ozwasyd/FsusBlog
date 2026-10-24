@@ -35,5 +35,8 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 9a23051edcbd5cbb1b6d5209e2508c7fa58ae986
 a9371f2e5de722bf271aa5e41c73b9186433be90
 
+# Closed adapter read-scope getter format, Refs #2139
+859963532668efeec9b29e7836449b7199f7fd0b
+
 # Canonical layout for the lifecycle release fixture helper.
 680e5371ee4c8db14a5e7d6a2c3e6173a01012f2
