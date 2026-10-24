@@ -2,7 +2,7 @@
 
 import { createRequire } from 'node:module'
 import { resolve } from 'node:path'
-import { mount } from '@vue/test-utils'
+import { mount, type DOMWrapper } from '@vue/test-utils'
 import { createSSRApp, defineComponent, h, nextTick } from 'vue'
 import { ElThemeModeToggle } from '@ozwasyd/element-plus'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -194,7 +194,7 @@ describe('PublicBlogLayoutShell PublicShell delegation', () => {
     expect(wrapper.find('a.el-public-shell__desktop-search-trigger').attributes('href')).toBe('/search')
     expect(wrapper.findAll('a[data-public-nav="auth"]')).toHaveLength(2)
     expect(wrapper.findAll('a[data-public-nav="auth"]')).toSatisfy(
-      (links) => links.every((link) => link.attributes('href') === '/user/profile'),
+      (links: DOMWrapper<Element>[]) => links.every((link) => link.attributes('href') === '/user/profile'),
     )
     wrapper.unmount()
   })

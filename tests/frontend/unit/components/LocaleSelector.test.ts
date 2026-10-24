@@ -24,7 +24,7 @@ function mountSelector(
     compact?: boolean
   } = {},
   attach = false
-): VueWrapper {
+): VueWrapper<InstanceType<typeof LocaleSelector>> {
   const activeLocale = props.activeLocale ?? 'zh-CN'
   return mount(LocaleSelector, {
     props: {

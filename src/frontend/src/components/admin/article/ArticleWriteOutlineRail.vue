@@ -73,6 +73,7 @@ import {
     ref,
     resolveComponent,
     watch,
+    type ComponentPublicInstance,
     type PropType
 } from 'vue';
 
@@ -137,7 +138,7 @@ const OutlinePanelContent = defineComponent({
             return hasHeadings.value ? 'ready' : 'empty';
         });
 
-        const registerNodeButton = (nodeId: string, element: Element | null): void =>
+        const registerNodeButton = (nodeId: string, element: Element | ComponentPublicInstance | null): void =>
         {
             if (element instanceof HTMLButtonElement)
             {

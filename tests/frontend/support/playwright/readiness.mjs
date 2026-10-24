@@ -1,3 +1,13 @@
+/**
+ * @typedef {Readonly<{ family: string; representativeText: string; weights: readonly number[]; }>} ExpectedFontReadiness
+ * @typedef {Readonly<{ family: string; status: 'unloaded' | 'loading' | 'loaded' | 'error'; style: string; weight: string; }>} FontFaceReadinessSnapshot
+ * @typedef {Readonly<{
+ *   errorFacesAfterProbe: readonly FontFaceReadinessSnapshot[]; errorFacesBeforeProbe: readonly FontFaceReadinessSnapshot[];
+ *   families: readonly Readonly<{ family: string; facesBeforeProbe: readonly FontFaceReadinessSnapshot[]; loadedWeightsBeforeProbe: readonly number[]; probes: readonly Readonly<{ check: boolean; loadedCount: number; query: string; weight: number; }>[]; representativeText: string; }>[];
+ *   fontSetStatusAfterProbe: 'loading' | 'loaded'; fontSetStatusBeforeProbe: 'loading' | 'loaded';
+ * }>} FontLoadingReadinessReport
+ */
+
 /* global caches, document, HTMLElement, requestAnimationFrame, window */
 
 const DEFAULT_READINESS_TIMEOUT_MS = 45_000;
@@ -11,6 +21,12 @@ function readinessError(description, timeoutMs, error)
     );
 }
 
+/**
+ * @template [T=void]
+ * @param {import('@playwright/test').Page} page
+ * @param {{ description: string; predicate: (argument: T) => unknown | Promise<unknown>; argument?: T; timeoutMs?: number; }} options
+ * @returns {Promise<void>}
+ */
 export async function waitForObservableReadiness(page, {
     description,
     predicate,
@@ -46,6 +62,11 @@ export function applicationReadyPredicate()
     && (!loader || loader.hidden);
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ description?: string; timeoutMs?: number; }} [options]
+ * @returns {Promise<void>}
+ */
 export async function waitForApplicationReady(page, {
     description = 'application root is visible and runtime startup is complete',
     timeoutMs = DEFAULT_READINESS_TIMEOUT_MS
@@ -58,6 +79,11 @@ export async function waitForApplicationReady(page, {
     });
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ timeoutMs?: number; }} [options]
+ * @returns {Promise<void>}
+ */
 export async function waitForPublicHydration(page, {
     timeoutMs = DEFAULT_READINESS_TIMEOUT_MS
 } = {})
@@ -70,6 +96,12 @@ export async function waitForPublicHydration(page, {
     });
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {string} expectedPath
+ * @param {{ content?: import('@playwright/test').Locator; timeoutMs?: number; }} [options]
+ * @returns {Promise<void>}
+ */
 export async function waitForSpaRoute(page, expectedPath, {
     content,
     timeoutMs = DEFAULT_READINESS_TIMEOUT_MS
@@ -93,6 +125,11 @@ export async function waitForSpaRoute(page, expectedPath, {
     }
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ cachePrefix?: string; requireShellCache?: boolean; timeoutMs?: number; }} [options]
+ * @returns {Promise<void>}
+ */
 export async function waitForServiceWorkerCacheReady(page, {
     cachePrefix = 'fsus-',
     requireShellCache = false,
@@ -118,6 +155,11 @@ export async function waitForServiceWorkerCacheReady(page, {
     });
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ timeoutMs?: number; }} [options]
+ * @returns {Promise<void>}
+ */
 export async function waitForNotificationSuppressed(page, {
     timeoutMs = DEFAULT_READINESS_TIMEOUT_MS
 } = {})
@@ -129,6 +171,11 @@ export async function waitForNotificationSuppressed(page, {
     });
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ pathPrefix: string; content: import('@playwright/test').Locator; timeoutMs?: number; }} options
+ * @returns {Promise<void>}
+ */
 export async function waitForAuthPermissionReady(page, {
     pathPrefix,
     content,
@@ -150,6 +197,11 @@ export async function waitForAuthPermissionReady(page, {
     }
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ timeoutMs?: number; }} [options]
+ * @returns {Promise<void>}
+ */
 export async function waitForVisualFrameReady(page, {
     timeoutMs = DEFAULT_READINESS_TIMEOUT_MS
 } = {})
@@ -187,6 +239,11 @@ export async function waitForVisualFrameReady(page, {
     });
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {readonly ExpectedFontReadiness[]} expectedFonts
+ * @returns {Promise<FontLoadingReadinessReport>}
+ */
 export async function inspectFontLoadingReadiness(page, expectedFonts)
 {
     return await page.evaluate(async (expectations) =>
@@ -247,6 +304,11 @@ export async function inspectFontLoadingReadiness(page, expectedFonts)
     }, expectedFonts);
 }
 
+/**
+ * @param {import('@playwright/test').Page} page
+ * @param {{ purpose: string; maxWindowMs: number; evidenceClass: 'performance' | 'soak' | 'animation-measurement'; }} options
+ * @returns {Promise<void>}
+ */
 export async function runBrowserMeasurementWindow(page, {
     purpose,
     maxWindowMs,

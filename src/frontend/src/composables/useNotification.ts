@@ -2,6 +2,7 @@ import { storeToRefs } from 'pinia';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 
+import type { mapPowChallengeFromPayload } from '@/adapters/binary/authAdapter';
 import { getPowChallenge } from '@/api/auth';
 import { usePow } from '@/composables/usePow';
 import { toast } from '@/fsusui/feedback';
@@ -172,7 +173,7 @@ export function useNotification()
 
         prewarm();
         const fp = getBrowserFp();
-        const challengeRes = await getPowChallenge();
+        const challengeRes = await getPowChallenge() as ReturnType<typeof mapPowChallengeFromPayload>;
         const { salt, difficulty, timestamp, signature } = challengeRes;
         const { nonce } = await calculate(salt, fp, difficulty);
         const pow: PowParams = { nonce, salt, fp, signature, difficulty, timestamp };
@@ -627,7 +628,7 @@ export function useNotification()
         {
             while (pendingInitMode)
             {
-                const nextMode = pendingInitMode;
+                const nextMode: 'auth' | 'guest' = pendingInitMode;
                 pendingInitMode = '';
 
                 if (nextMode === currentMode.value && notificationStreamRuntime.isConnected())
@@ -636,7 +637,8 @@ export function useNotification()
                 }
 
                 await runInitialization(nextMode);
-                if (pendingInitMode === nextMode)
+                // Initialization can yield to another caller that queues a mode.
+                if ((pendingInitMode as 'auth' | 'guest' | '') === nextMode)
                 {
                     pendingInitMode = '';
                 }

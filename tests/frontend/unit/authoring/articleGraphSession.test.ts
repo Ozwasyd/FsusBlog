@@ -134,6 +134,7 @@ describe('single transient graph session', () => {
         expect(() => admitArticleGraphResult(graphRequest, { ...result, nodes: [...result.nodes, result.nodes[0]!] })).toThrow('invalid-node');
         expect(() => admitArticleGraphResult(graphRequest, { ...result, edges: [{ ...result.edges[0]!, targetArticle: 'private' }] })).toThrow('invalid-edge');
         expect(() => admitArticleGraphResult(graphRequest, { ...result, positions: [] } as ArticleGraphResult)).toThrow('unknown-field');
-        expect(() => admitArticleGraphResult(graphRequest, { ...result, nodes: [{ ...result.nodes[0]!, cover: 'private-cover' }] } as ArticleGraphResult)).toThrow('invalid-node');
+        const invalidNodeResult = { ...result, nodes: [{ ...result.nodes[0]!, cover: 'private-cover' }] };
+        expect(() => admitArticleGraphResult(graphRequest, invalidNodeResult)).toThrow('invalid-node');
     });
 });

@@ -1,6 +1,6 @@
 import { nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { RouteRecordRaw } from 'vue-router'
+import type { RouteLocationNormalizedLoaded, RouteRecordRaw } from 'vue-router'
 import { APP_ROUTE_RECORDS } from '@/router/appRouteRecords'
 import { assertRouteTitleContracts, staticRouteTitle } from '@/router/routeTitleContract'
 import { syncStaticDocumentTitleOnLocaleChange } from '@/composables/useSessionBootstrap'
@@ -93,10 +93,17 @@ describe('route title contract', () => {
   })
 
   it('updates a static route title once on locale change without navigation', async () => {
-    const route = ref({
+    const route = ref<RouteLocationNormalizedLoaded>({
+      path: '/login',
+      name: 'Login',
       fullPath: '/login',
-      meta: staticRouteTitle('common.routeTitles.login')
-    } as never)
+      meta: staticRouteTitle('common.routeTitles.login'),
+      query: {},
+      hash: '',
+      params: {},
+      matched: [],
+      redirectedFrom: undefined
+    })
     const syncDocumentTitle = vi.fn((currentRoute: { meta: { titleKey?: string } }) => {
       document.title = currentRoute.meta.titleKey === 'common.routeTitles.login'
         ? translate('common.routeTitles.login')

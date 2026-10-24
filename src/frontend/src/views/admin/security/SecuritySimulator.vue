@@ -173,7 +173,10 @@ interface Preset {
 const loading = shallowRef(false);
 const result = shallowRef<RiskControlSimulationResponse | null>(null);
 
-type SimulatorForm = Required<Omit<RiskControlSimulationRequest, 'routeKey' | 'subject' | 'region' | 'identityKind' | 'verifiedCrawler' | 'socialPreviewBot'>>;
+type SimulatorFormFields = Omit<RiskControlSimulationRequest, 'routeKey' | 'subject' | 'region' | 'identityKind' | 'verifiedCrawler' | 'socialPreviewBot'>;
+type SimulatorForm = {
+    [Key in keyof SimulatorFormFields]-?: NonNullable<SimulatorFormFields[Key]>;
+};
 
 const form = reactive<SimulatorForm>({
     action: 'comment.create',

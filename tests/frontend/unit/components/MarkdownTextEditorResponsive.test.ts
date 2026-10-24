@@ -3,6 +3,7 @@
 import { mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { MarkdownEditorCommandContext } from '@ozwasyd/element-plus'
 
 import {
   articleBodyCommandOverflowLabel,
@@ -226,7 +227,7 @@ describe('MarkdownTextEditor article body command composition', () => {
       key: 'fixture.extension.command',
       group: 'extension.insert',
       label: '扩展命令',
-      run: async (context: { dispatch: { dispatch: (transaction: unknown) => unknown } }) => {
+      run: async (context: MarkdownEditorCommandContext) => {
         await gate
         context.dispatch.dispatch({
           changes: [{ from: 0, insert: '扩展', to: 0 }],

@@ -12,7 +12,7 @@ const fixtureModule = `/@fs/${fileURLToPath(
 async function openFixture(
   page: Page,
   title: keyof typeof contract.titles,
-  theme: 'light' | 'dark',
+  theme: typeof contract.themes[number],
   surface: 'title' | 'editor' | 'outline' | 'command' | 'inspector' | 'recovery' = 'title',
   inspectorState: 'empty' | 'loading' | 'error' | 'success' | 'partial' = 'success',
   inspectorView?: typeof contract.inspectorViews[number],

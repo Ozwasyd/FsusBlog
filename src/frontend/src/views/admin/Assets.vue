@@ -292,18 +292,15 @@ import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { FsusUiTaskPageHeader, FsusUiSettingsSection } from "@/fsusui";
 import { confirmDanger, toast } from '@/fsusui/feedback';
 import { Delete, Refresh, Search } from '@/fsusui/icons';
+import {
+    FsusUiTableV2FixedDir as TableV2FixedDir,
+    FsusUiTableV2SortOrder as TableV2SortOrder,
+    type FsusUiTableV2Column as TableV2Column,
+    type FsusUiTableV2SortState as TableV2SortState
+} from '@/fsusui/tableV2';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 
-type AssetTableSortOrder = 'asc' | 'desc';
-interface TableV2Column<T> {
-    key: string;
-    dataKey?: keyof T | string;
-    title?: string;
-    width: number;
-    align?: 'left' | 'center' | 'right';
-    fixed?: true | 'left' | 'right';
-    sortable?: boolean;
-}
+defineOptions({ name: 'AdminAssets' });
 
 const assets = shallowRef<AssetLibraryItemResponse[]>([]);
 const loading = ref(false);
@@ -312,7 +309,7 @@ const processing = ref(false);
 const keyword = ref('');
 const orphanOnly = ref(false);
 const reindexArticleId = ref('');
-const assetSortBy = ref<{ key: 'referenceCount'; order: AssetTableSortOrder; } | null>(null);
+const assetSortBy = ref<{ key: 'referenceCount'; order: TableV2SortOrder; } | null>(null);
 
 const assetTableColumns: TableV2Column<AssetLibraryItemResponse>[] = [
     { key: 'id', dataKey: 'id', title: 'ID', width: 96, align: 'center' },
@@ -320,7 +317,7 @@ const assetTableColumns: TableV2Column<AssetLibraryItemResponse>[] = [
     { key: 'referenceCount', dataKey: 'referenceCount', title: '引用', width: 120, align: 'center', sortable: true },
     { key: 'sourceArticleId', dataKey: 'sourceArticleId', title: '来源文章', width: 130, align: 'center' },
     { key: 'updatedAt', dataKey: 'updatedAt', title: '更新时间', width: 190 },
-    { key: 'actions', title: '管理', width: 150, align: 'right', fixed: 'right' }
+    { key: 'actions', title: '管理', width: 150, align: 'right', fixed: TableV2FixedDir.RIGHT }
 ];
 
 const showMessageBoxError = (error: unknown): void =>
@@ -341,9 +338,9 @@ const filteredAssets = computed(() =>
         return !text || asset.url.toLowerCase().includes(text) || (asset.sha256 ?? '').toLowerCase().includes(text);
     });
 });
-const assetSortState = computed<Record<string, AssetTableSortOrder>>(() =>
+const assetSortState = computed<TableV2SortState>(() =>
 {
-    const state: Record<string, AssetTableSortOrder> = {};
+    const state: TableV2SortState = {};
     if (assetSortBy.value)
     {
         state[assetSortBy.value.key] = assetSortBy.value.order;
@@ -361,7 +358,7 @@ const sortedFilteredAssets = computed(() =>
 
     return rows.sort((left, right) =>
     {
-        const direction = sort.order === 'asc' ? 1 : -1;
+        const direction = sort.order === TableV2SortOrder.ASC ? 1 : -1;
         return (left.referenceCount - right.referenceCount) * direction;
     });
 });
@@ -380,7 +377,7 @@ const resetAssetFilters = (): void =>
     orphanOnly.value = false;
 };
 
-const handleAssetColumnSort = ({ key, order }: { key: string | number | symbol; order?: AssetTableSortOrder; }): void =>
+const handleAssetColumnSort = ({ key, order }: { key: string | number | symbol; order?: TableV2SortOrder; }): void =>
 {
     if (key !== 'referenceCount')
     {
@@ -389,7 +386,7 @@ const handleAssetColumnSort = ({ key, order }: { key: string | number | symbol; 
 
     assetSortBy.value = {
         key: 'referenceCount',
-        order: order ?? 'asc'
+        order: order ?? TableV2SortOrder.ASC
     };
 };
 

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { decode } from '@wasm/aeds'
 import { AEDS_HEADER_LENGTH, AEDS_MAGIC, AEDS_VERSION, FrameType } from '@wasm/protocol/frame'
 import { AppErrorCode } from '@/utils/appError'
@@ -23,7 +23,7 @@ import {
 const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayload)
 const { BinaryRequestError } = binaryApiClient
 const recordBinaryFailureTelemetry = telemetryService.recordBinaryFailureTelemetry
-let recordTelemetrySpy: ReturnType<typeof vi.spyOn>
+let recordTelemetrySpy: MockInstance<typeof recordBinaryFailureTelemetry>
 
 const API_ERROR_POD_SIZE = 584
 

@@ -97,12 +97,29 @@ import {
   getPublicHydrationTakeoverHandle,
   hydratePublicPage
 } from '@/public-renderers/clientHydrate'
+import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
 import type { PublicHydrationPayload } from '@/public-renderers/types'
 
 function payload(): PublicHydrationPayload {
   return {
     pageKind: 'Home',
     routeKey: 'home',
+    title: 'Home',
+    localeCatalogDigest: LOCALE_CATALOG_DIGEST,
+    currentPage: 1,
+    pageSize: 10,
+    total: 0,
+    view: {
+      items: [],
+      pagination: {
+        previous: { label: '上一页', href: '/', disabled: true },
+        next: { label: '下一页', href: '/', disabled: true },
+        indicator: '1 / 1'
+      },
+      showPagination: false,
+      emptyState: { title: 'empty' },
+      searchKeyword: ''
+    },
     siteTitle: 'FsusBlog',
     siteDescription: 'desc',
     rendererVersion: 'test',
@@ -110,7 +127,7 @@ function payload(): PublicHydrationPayload {
     renderTimestamp: '2026-01-01T00:00:00.000Z',
     featuredArticles: [],
     hotArticles: []
-  } as PublicHydrationPayload
+  }
 }
 
 function mountDocument(): HTMLElement {

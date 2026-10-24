@@ -241,7 +241,9 @@ function createAbortBarrier(signal: AbortSignal): {
 }
 {
     let rejectBarrier: (reason: DOMException) => void = () =>
-    {};
+    {
+        // The Promise executor replaces this callback before abort is observed.
+    };
     const promise = new Promise<never>((_resolve, reject) =>
     {
         rejectBarrier = reject;
@@ -254,7 +256,9 @@ function createAbortBarrier(signal: AbortSignal): {
     {
         rejectForAbort();
         return { promise, dispose: () =>
-        {} };
+        {
+            // No listener was registered for an already aborted signal.
+        } };
     }
 
     signal.addEventListener('abort', rejectForAbort, { once: true });
@@ -290,27 +294,33 @@ async function defaultFetchNavigationSnapshot(target: URL, signal: AbortSignal):
     return new Uint8Array(await response.arrayBuffer());
 }
 
-async function defaultPreloadStyle(href: string, signal: AbortSignal): Promise<void>
+function defaultPreloadStyle(href: string, signal: AbortSignal): Promise<void>
 {
-    if (typeof document === 'undefined' || !href || signal.aborted)
+    return new Promise((resolve) =>
     {
-        return;
-    }
+        if (typeof document === 'undefined' || !href || signal.aborted)
+        {
+            resolve();
+            return;
+        }
 
-    const absoluteHref = new URL(href, window.location.href).toString();
-    const existing = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="preload"][as="style"]'))
-        .some((link) => link.href === absoluteHref || link.getAttribute('href') === href);
-    if (existing)
-    {
-        return;
-    }
+        const absoluteHref = new URL(href, window.location.href).toString();
+        const existing = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="preload"][as="style"]'))
+            .some((link) => link.href === absoluteHref || link.getAttribute('href') === href);
+        if (existing)
+        {
+            resolve();
+            return;
+        }
 
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'style';
-    link.href = href;
-    link.dataset.fsusPublicRoutePreload = 'style';
-    document.head.appendChild(link);
+        const link = document.createElement('link');
+        link.rel = 'preload';
+        link.as = 'style';
+        link.href = href;
+        link.dataset.fsusPublicRoutePreload = 'style';
+        document.head.appendChild(link);
+        resolve();
+    });
 }
 
 function decodeSnapshotSeed(envelope: PublicNavigationSnapshotEnvelope): PublicPageSeed<PublicRouteSeedKind> | null
@@ -458,7 +468,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
             seedReady: state.seedReady,
             routeComponentMs: state.routeComponentMs,
             routeSnapshotMs: state.routeSnapshotMs,
-            error: error instanceof Error ? error.message : error === undefined ? undefined : String(error)
+            error: error === undefined ? undefined : failureMessage(error)
         };
     }
 
@@ -569,7 +579,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
 
                 // Component chunk and navigation snapshot are independent producers.
                 // Start both before either resolves; abort the sibling on hard failure.
-                let producerFailure: { stage: 'component' | 'snapshot'; error: unknown; } | null = null;
+                const producerFailure: { current: { stage: 'component' | 'snapshot'; error: unknown; } | null; } = { current: null };
                 const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
                 const componentTask = (async () =>
@@ -586,7 +596,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
                         state.routeComponentMs = Math.max(0, nowMs() - startedAt);
                         if (!isAbortError(error))
                         {
-                            producerFailure ??= { stage: 'component', error };
+                            producerFailure.current ??= { stage: 'component', error };
                             if (!linked.controller.signal.aborted)
                             {
                                 linked.controller.abort(error);
@@ -610,7 +620,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
                         state.routeSnapshotMs = Math.max(0, nowMs() - startedAt);
                         if (!isAbortError(error) && !linked.controller.signal.aborted)
                         {
-                            producerFailure ??= { stage: 'snapshot', error };
+                            producerFailure.current ??= { stage: 'snapshot', error };
                             linked.controller.abort(error);
                         }
                         throw error;
@@ -628,13 +638,13 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
                 }
                 catch (error)
                 {
-                    if (producerFailure?.stage === 'component')
+                    if (producerFailure.current?.stage === 'component')
                     {
-                        throw new Error(`route-component-failed: ${failureMessage(producerFailure.error)}`);
+                        throw new Error(`route-component-failed: ${failureMessage(producerFailure.current.error)}`, { cause: error });
                     }
-                    if (producerFailure?.stage === 'snapshot')
+                    if (producerFailure.current?.stage === 'snapshot')
                     {
-                        throw new Error(`route-snapshot-failed: ${failureMessage(producerFailure.error)}`);
+                        throw new Error(`route-snapshot-failed: ${failureMessage(producerFailure.current.error)}`, { cause: error });
                     }
                     throw error;
                 }
@@ -646,8 +656,7 @@ export function createPublicRoutePrewarmer(dependencies: PublicRoutePrewarmerDep
                 throwIfAborted(linked.controller.signal);
                 const envelope = decodePublicAotPayloadBytes<PublicNavigationSnapshotEnvelope>(frame);
                 const expectedPageId = getSharedPublicPageManifestEntry(matchedRoute.kind).pageId;
-                if (!envelope ||
-            envelope.pageKind !== matchedRoute.kind ||
+                if (envelope?.pageKind !== matchedRoute.kind ||
             envelope.pageId !== expectedPageId)
                 {
                     throw new Error('route-snapshot-decode-failed: invalid navigation snapshot');

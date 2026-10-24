@@ -399,7 +399,7 @@ describe('OpenArticleDocumentRegistry contract (#2293)', () => {
             ['arrayIndex', 0],
             ['markdownBody', '# copied body'],
             ['undoStack', ['copied-history']]
-        ])
+        ] as const)
         {
             const mutated = {
                 ...valid,

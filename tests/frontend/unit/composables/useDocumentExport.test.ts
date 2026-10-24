@@ -58,7 +58,7 @@ describe('one canonical export receipt view', () => {
         const { center, port } = createPort([result]);
         let finishStatus!: (snapshot: DocumentExportPresentation) => void;
         let finishDelivery!: () => void;
-        port.status = vi.fn(() => new Promise((resolve) => { finishStatus = resolve; }));
+        port.status = vi.fn(() => new Promise<DocumentExportPresentation>((resolve) => { finishStatus = resolve; }));
         port.download = vi.fn().mockRejectedValueOnce('lost-response').mockImplementationOnce(() => new Promise<void>((resolve) => { finishDelivery = resolve; }));
         await open(center);
         center.select('task');
@@ -83,7 +83,7 @@ describe('one canonical export receipt view', () => {
         const { center, port } = createPort();
         let finishStatus!: (snapshot: DocumentExportPresentation) => void;
         port.cancel = vi.fn().mockRejectedValue('lost-response');
-        port.status = vi.fn(() => new Promise((resolve) => { finishStatus = resolve; }));
+        port.status = vi.fn(() => new Promise<DocumentExportPresentation>((resolve) => { finishStatus = resolve; }));
         await open(center);
         center.select('task');
         await center.act('cancel', 'task');
@@ -160,7 +160,7 @@ describe('one canonical export receipt view', () => {
         const result = { ...view('task', 6), output: { filename: 'export.pdf', bytes: 4, mediaType: 'application/pdf', expiresAt: '2099-01-01', deleted: false } };
         const { center, port } = createPort([result]);
         let accept!: (value: DocumentExportPresentation) => void;
-        port.delete = vi.fn(() => new Promise((resolve) => { accept = resolve; }));
+        port.delete = vi.fn(() => new Promise<DocumentExportPresentation>((resolve) => { accept = resolve; }));
         await open(center);
         center.select('task');
         const deletion = center.act('delete', 'task');
@@ -269,7 +269,7 @@ describe('one canonical export receipt view', () => {
     it('discards a late admission receipt after identity changes', async () => {
         const { center, port } = createPort();
         let finish!: (snapshot: DocumentExportPresentation) => void;
-        port.request = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+        port.request = vi.fn(() => new Promise<DocumentExportPresentation>((resolve) => { finish = resolve; }));
         const request = center.submit({ sourceId: 'exact-draft-12', formatId: 'pdf', layout: 'reading', theme: 'light' });
         await Promise.resolve();
         center.changeIdentity();
@@ -283,7 +283,7 @@ describe('one canonical export receipt view', () => {
     it('keeps a newer authority receipt when late admission returns and queries the first page', async () => {
         const { center, port } = createPort([view('task', 7, 3)]);
         let finish!: (snapshot: DocumentExportPresentation) => void;
-        port.request = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+        port.request = vi.fn(() => new Promise<DocumentExportPresentation>((resolve) => { finish = resolve; }));
         await open(center);
         const request = center.submit({ sourceId: 'exact-draft-12', formatId: 'pdf', layout: 'reading', theme: 'light' });
         await Promise.resolve();
@@ -297,7 +297,7 @@ describe('one canonical export receipt view', () => {
     it('invalidates a pending cancellation on identity change without claiming cancellation', async () => {
         const { center, port } = createPort();
         let finish!: (snapshot: DocumentExportPresentation) => void;
-        port.cancel = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+        port.cancel = vi.fn(() => new Promise<DocumentExportPresentation>((resolve) => { finish = resolve; }));
         await open(center);
         center.select('task');
         const cancellation = center.act('cancel', 'task');
