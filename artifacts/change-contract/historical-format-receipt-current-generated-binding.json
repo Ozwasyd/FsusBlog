@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/governance/change-contract.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "292f89e3223064236931e5c71f204aae69e1b19b248b032e0bb68182f57e8310"
+        }
+    ]
+}
