@@ -1,8 +1,0 @@
-{
-  "source": "6195837a61c4b4098a879cb151f4f3da45f996f5",
-  "path": "tests/frontend/unit/composables/articleWriterComposedLifecycleRegression.test.ts",
-  "bytes": 38206,
-  "candidateImported": false,
-  "initialWrongPathAndEmptyParse": "preserved separately NOT verification evidence",
-  "originalSourceControls": "13 blocks UNRUN, no new test runtime entry introduced"
-}

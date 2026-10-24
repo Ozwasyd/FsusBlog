@@ -58,12 +58,6 @@ const RISK_CHALLENGE_RECOVERY_FAILURES: ReadonlySet<NotificationStreamFailureCod
 ]);
 type NotificationSubscribeChallengeProofResult = SecurityChallengeProofLease | 'allow' | 'unavailable';
 
-// Another initialization can queue a mode while the current initialization awaits.
-function readPendingInitMode(): 'auth' | 'guest' | ''
-{
-    return pendingInitMode;
-}
-
 function clearReauthRetryTimer(): void
 {
     if (!reauthRetryTimer)
@@ -633,7 +627,7 @@ export function useNotification()
         {
             while (pendingInitMode)
             {
-                const nextMode: 'auth' | 'guest' = pendingInitMode;
+                const nextMode = pendingInitMode;
                 pendingInitMode = '';
 
                 if (nextMode === currentMode.value && notificationStreamRuntime.isConnected())
@@ -642,7 +636,7 @@ export function useNotification()
                 }
 
                 await runInitialization(nextMode);
-                if (readPendingInitMode() === nextMode)
+                if (pendingInitMode === nextMode)
                 {
                     pendingInitMode = '';
                 }

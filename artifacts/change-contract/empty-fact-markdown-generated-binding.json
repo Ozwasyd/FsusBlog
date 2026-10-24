@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/docs/generated-fact-sections/renderers.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "docs/security.md",
+            "sha256": "c3dd5c6a8a4466d5b3bf59b2a986d6134922bd0aec0c099f1706137cade57549"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "6773df025522c2fdd0f917134134459b2cf26484f1bac58fe952512ff75a37f0"
+        }
+    ]
+}

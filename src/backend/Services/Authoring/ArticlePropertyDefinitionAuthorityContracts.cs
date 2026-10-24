@@ -14,29 +14,6 @@ public interface IArticlePropertyDefinitionStore
         Guid definitionId,
         CancellationToken cancellationToken = default);
 
-    // Default bounded compatibility read delegates each held ID to GetAsync.
-    // Visibility, including deleted definitions, follows that implementation of GetAsync.
-    async Task<IReadOnlyList<ArticlePropertyDefinition>> GetManyAsync(
-        ArticlePropertyDefinitionActor actor,
-        ArticlePropertyDefinitionOwner owner,
-        IReadOnlyList<Guid> definitionIds,
-        CancellationToken cancellationToken = default)
-    {
-        Guid[] ids = ArticlePropertyDefinitionBatchRead.HoldIds(definitionIds);
-        cancellationToken.ThrowIfCancellationRequested();
-        var result = new List<ArticlePropertyDefinition>(ids.Length);
-        foreach (Guid id in ids)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ArticlePropertyDefinition? definition = await GetAsync(actor, owner, id, cancellationToken).ConfigureAwait(false);
-            if (definition is not null)
-            {
-                result.Add(definition);
-            }
-        }
-        return result.AsReadOnly();
-    }
-
     Task<ArticlePropertyDefinitionPage> ListAsync(
         ArticlePropertyDefinitionActor actor,
         ArticlePropertyDefinitionOwner owner,
@@ -144,27 +121,6 @@ public interface IArticlePropertyDefinitionPersistence
         Guid definitionId,
         CancellationToken cancellationToken = default);
 
-    // Default bounded compatibility read delegates each held ID to GetAsync.
-    async Task<IReadOnlyList<ArticlePropertyDefinition>> GetManyAsync(
-        ArticlePropertyDefinitionOwner owner,
-        IReadOnlyList<Guid> definitionIds,
-        CancellationToken cancellationToken = default)
-    {
-        Guid[] ids = ArticlePropertyDefinitionBatchRead.HoldIds(definitionIds);
-        cancellationToken.ThrowIfCancellationRequested();
-        var result = new List<ArticlePropertyDefinition>(ids.Length);
-        foreach (Guid id in ids)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            ArticlePropertyDefinition? definition = await GetAsync(owner, id, cancellationToken).ConfigureAwait(false);
-            if (definition is not null)
-            {
-                result.Add(definition);
-            }
-        }
-        return result.AsReadOnly();
-    }
-
     Task<ArticlePropertyDefinitionPage> ListAsync(
         ArticlePropertyDefinitionOwner owner,
         ArticlePropertyDefinitionPageCursor? cursor,
@@ -206,23 +162,3 @@ public sealed record ArticlePropertyDefinitionIdempotencyLookup(
     Guid RequestId,
     string CommandDigest,
     Guid ReceiptId);
-
-internal static class ArticlePropertyDefinitionBatchRead
-{
-    internal static Guid[] HoldIds(IReadOnlyList<Guid> definitionIds)
-    {
-        ArgumentNullException.ThrowIfNull(definitionIds);
-        if (definitionIds.Count > ArticlePropertyDefinitionContract.MaxDefinitionsPerOwner)
-        {
-            throw new ArticlePropertyDefinitionValidationException("article_property_definition_batch_invalid");
-        }
-        Guid[] ids = definitionIds.Take(ArticlePropertyDefinitionContract.MaxDefinitionsPerOwner + 1).ToArray();
-        if (ids.Length > ArticlePropertyDefinitionContract.MaxDefinitionsPerOwner
-            || ids.Any(static id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length)
-        {
-            throw new ArticlePropertyDefinitionValidationException("article_property_definition_batch_invalid");
-        }
-        Array.Sort(ids);
-        return ids;
-    }
-}

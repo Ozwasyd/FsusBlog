@@ -8,7 +8,7 @@
             <span>局部关系 · 深度 {{ state.request?.requestedDepth ?? 1 }}</span>
             <ElButton
                 :disabled="state.pending"
-                @click="session.setDepth(state.request?.requestedDepth === 2 ? 1 : 2)"
+                @click="changeDepth"
             >
                 {{ state.request?.requestedDepth === 2 ? '收起到一层' : '展开到两层' }}
             </ElButton>
@@ -24,8 +24,11 @@
             <ElButton @click="close">关闭</ElButton>
         </div>
         <p
+            ref="feedback"
+            data-graph-feedback
             role="status"
             aria-live="polite"
+            tabindex="-1"
         >
             {{ state.pending ? state.result ? '正在布局（列表可用）' : '正在查询' : state.result ? statusLabels[state.result.status] : '未打开' }}
             · 实际深度 {{ state.result?.effectiveDepth ?? 0 }}
@@ -93,6 +96,7 @@
                     :data-graph-edge="edge.relationIdentity"
                     @click="session.revealEdge(edge.relationIdentity)"
                 >
+                    <title>{{ kindLabels[edge.kind] }} · {{ edge.resolution }} · 来源 {{ edge.source.start }}–{{ edge.source.end }}</title>
                     <line
                         v-if="edge.targetArticle !== null"
                         :x1="nodePoint(edge.sourceArticle).x"
@@ -102,7 +106,7 @@
                         :stroke-dasharray="dashPatterns[edge.kind]"
                     />
                     <text
-                        :x="nodePoint(edge.sourceArticle).x + 16"
+                        :x="nodePoint(edge.sourceArticle).x + 16 + articleGraphEdgeKinds.indexOf(edge.kind) * 24"
                         :y="nodePoint(edge.sourceArticle).y - 16"
                     >{{ edgeSymbols[edge.kind] }}</text>
                 </g>
@@ -126,7 +130,11 @@
             </svg>
         </div>
         <section aria-label="等价文章列表">
-            <h3>文章（{{ nodes.length }}）</h3>
+            <h3
+                ref="nodeHeading"
+                data-graph-node-heading
+                tabindex="-1"
+            >文章（{{ nodes.length }}）</h3>
             <ul>
                 <li
                     v-for="node in visibleNodes"
@@ -143,17 +151,21 @@
             >
                 <ElButton
                     :disabled="nodePage === 0"
-                    @click="nodePage--"
+                    @click="changePage('node', -1, $event)"
                 >上一页文章</ElButton>
                 <span>{{ nodePage + 1 }} / {{ Math.max(1, Math.ceil(nodes.length / pageSize)) }}</span>
                 <ElButton
                     :disabled="(nodePage + 1) * pageSize >= nodes.length"
-                    @click="nodePage++"
+                    @click="changePage('node', 1, $event)"
                 >下一页文章</ElButton>
             </nav>
         </section>
         <section aria-label="等价关系列表">
-            <h3>关系（{{ edges.length }}）</h3>
+            <h3
+                ref="edgeHeading"
+                data-graph-edge-heading
+                tabindex="-1"
+            >关系（{{ edges.length }}）</h3>
             <ul>
                 <li
                     v-for="edge in visibleEdges"
@@ -170,12 +182,12 @@
             >
                 <ElButton
                     :disabled="edgePage === 0"
-                    @click="edgePage--"
+                    @click="changePage('edge', -1, $event)"
                 >上一页关系</ElButton>
                 <span>{{ edgePage + 1 }} / {{ Math.max(1, Math.ceil(edges.length / pageSize)) }}</span>
                 <ElButton
                     :disabled="(edgePage + 1) * pageSize >= edges.length"
-                    @click="edgePage++"
+                    @click="changePage('edge', 1, $event)"
                 >下一页关系</ElButton>
             </nav>
         </section>
@@ -184,7 +196,7 @@
 
 <script setup lang="ts">
 import { ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus';
-import { computed, onBeforeUnmount, onMounted, shallowRef, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, ref, watch } from 'vue';
 
 import { articleGraphEdgeKinds, articleGraphLimits } from '@/services/authoring/articleGraphQuery';
 import type { ArticleGraphIdentity, ArticleGraphNavigationHost, ArticleGraphQueryHost, ArticleGraphScope } from '@/services/authoring/articleGraphQuery';
@@ -202,6 +214,9 @@ const session = new ArticleGraphSession(props.queryHost, props.navigationHost, v
     state.value = value;
 });
 const state = shallowRef(session.state);
+const feedback = ref<HTMLParagraphElement | null>(null);
+const nodeHeading = ref<HTMLHeadingElement | null>(null);
+const edgeHeading = ref<HTMLHeadingElement | null>(null);
 const showGraph = ref(false);
 const nodePage = ref(0);
 const edgePage = ref(0);
@@ -268,6 +283,46 @@ onBeforeUnmount(() =>
     document.removeEventListener('visibilitychange', visibilityChanged);
     session.close();
 });
+
+async function changeDepth(event: MouseEvent): Promise<void>
+{
+    if (state.value.pending || !state.value.request)
+    {
+        return;
+    }
+    const trigger = event.currentTarget as HTMLButtonElement;
+    const restoreFocus = document.activeElement === trigger;
+    if (restoreFocus)
+    {
+        feedback.value?.focus();
+    }
+    const query = session.setDepth(state.value.request.requestedDepth === 2 ? 1 : 2);
+    const sequence = state.value.request?.sequence;
+    await query;
+    await nextTick();
+    if (restoreFocus && document.activeElement === feedback.value && trigger.isConnected
+        && !state.value.pending && state.value.request?.sequence === sequence)
+    {
+        trigger.focus();
+    }
+}
+
+function changePage(kind: 'node' | 'edge', direction: -1 | 1, event: MouseEvent): void
+{
+    const page = kind === 'node' ? nodePage : edgePage;
+    const count = kind === 'node' ? nodes.value.length : edges.value.length;
+    const last = Math.max(0, Math.ceil(count / pageSize) - 1);
+    const next = Math.max(0, Math.min(last, page.value + direction));
+    if (next === page.value)
+    {
+        return;
+    }
+    if (document.activeElement === event.currentTarget && (direction < 0 ? next === 0 : next === last))
+    {
+        (kind === 'node' ? nodeHeading.value : edgeHeading.value)?.focus();
+    }
+    page.value = next;
+}
 
 function changeFilters(scope: ArticleGraphScope = state.value.request?.scope ?? 'current-editable', kinds = state.value.request?.filters.kinds ?? articleGraphEdgeKinds): void
 {

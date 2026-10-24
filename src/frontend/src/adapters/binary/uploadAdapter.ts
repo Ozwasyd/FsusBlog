@@ -1,8 +1,6 @@
 import { readFixedUtf8, readInt32, readInt64Number } from '@/codecs/binary/reader';
 import type {
     UploadCompleteViewModel,
-    UploadAssetPreviewViewModel,
-    UploadAssetFactsViewModel,
     UploadInitViewModel,
     UploadPartAckViewModel,
     UploadPartMapViewModel,
@@ -106,72 +104,4 @@ function assertLength(payload: Uint8Array, expected: number, code: string): void
 function readIsoDate(payload: Uint8Array, offset: number): string
 {
     return new Date(readInt64Number(payload, offset)).toISOString().replace('.000Z', 'Z');
-}
-
-export function mapUploadAssetFactsFromPayload(payload: Uint8Array): UploadAssetFactsViewModel
-{
-    return { ...readUploadAssetHeader(payload, 'fsusblog.upload-asset-facts.v1', 20971520n, false), schema: 'fsusblog.upload-asset-facts.v1' };
-}
-
-export function mapUploadAssetPreviewFromPayload(payload: Uint8Array): UploadAssetPreviewViewModel
-{
-    return { ...readUploadAssetHeader(payload, 'fsusblog.upload-asset-preview.v1', 8387832n, true),
-        schema: 'fsusblog.upload-asset-preview.v1', bytes: payload.slice(760) };
-}
-
-function readUploadAssetHeader(payload: Uint8Array, expectedSchema: string, maximumSize: bigint, includesBytes: boolean): Omit<UploadAssetPreviewViewModel, 'schema' | 'bytes'>
-{
-    const invalid = (): never =>
-    {
-        throw createAppError(AppErrorCode.ProtocolFailure, includesBytes ? 'upload_asset_preview_invalid' : 'upload_asset_facts_invalid');
-    };
-    if (payload.byteLength < 760)
-    {
-        invalid();
-    }
-    const field = (offset: number, length: number): string =>
-    {
-        const bytes = payload.subarray(offset, offset + length);
-        const zero = bytes.indexOf(0);
-        const end = zero < 0 ? length : zero;
-        for (let i = 0; i < length; i++)
-        {
-            const byte = bytes[i];
-            if (i < end ? byte < 33 || byte > 126 : byte !== 0)
-            {
-                invalid();
-            }
-        }
-        return String.fromCharCode(...bytes.subarray(0, end));
-    };
-    const schema = field(0, 64);
-    const uploadId = field(64, 64);
-    const assetId = field(128, 64);
-    const publicUrl = field(192, 256);
-    const mimeType = field(448, 64);
-    const extension = field(512, 32);
-    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
-    const size = view.getBigInt64(544, true);
-    const width = view.getInt32(552, true);
-    const height = view.getInt32(556, true);
-    const sha256 = field(560, 64);
-    const assetVersionSha256 = field(624, 64);
-    const referenceLedgerSha256 = field(688, 64);
-    const referenceRowCount = view.getInt32(752, true);
-    const mime = new Map([['.png', 'image/png'], ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'],
-        ['.gif', 'image/gif'], ['.webp', 'image/webp'], ['.ico', 'image/x-icon']]).get(extension);
-    const canonicalId = `${uploadId.slice(0, 8)}-${uploadId.slice(8, 12)}-${uploadId.slice(12, 16)}-${uploadId.slice(16, 20)}-${uploadId.slice(20)}`;
-    if (schema !== expectedSchema || !/^[0-9a-f]{32}$/u.test(uploadId)
-        || assetId !== canonicalId || !mime || mimeType !== mime
-        || publicUrl !== `/uploads/illustration/${uploadId}${extension}`
-        || size <= 0n || size > maximumSize || (includesBytes ? BigInt(payload.byteLength - 760) !== size : payload.byteLength !== 760)
-        || width < 0 || height < 0 || (width === 0) !== (height === 0)
-        || referenceRowCount < 0 || referenceRowCount > 1024 || view.getInt32(756, true) !== 0
-        || ![sha256, assetVersionSha256, referenceLedgerSha256].every(value => /^[0-9a-f]{64}$/u.test(value)))
-    {
-        invalid();
-    }
-    return { uploadId, assetId, publicUrl, mimeType, extension,
-        sizeBytes: Number(size), width, height, sha256, assetVersionSha256, referenceLedgerSha256,
-        referenceRowCount };
 }

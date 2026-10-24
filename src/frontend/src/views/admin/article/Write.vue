@@ -1,10 +1,8 @@
 <template>
     <main
-        ref="workspaceWriteElement"
         class="account-page write-article-wrapper account-motion-enter w-full"
         aria-labelledby="article-write-title"
-        :aria-busy="pageLoading || submitting || workspacePrimaryMountOnly"
-        :inert="workspacePrimaryMountOnly"
+        :aria-busy="pageLoading || submitting"
     >
         <div
             class="write-workspace"
@@ -144,7 +142,6 @@
                     </div>
 
                     <ArticleWriteTitleField
-                        data-article-form-property="title"
                         v-model="articleForm.title"
                         :disabled="submitting"
                     />
@@ -159,65 +156,21 @@
                         class="write-editor-panel"
                         data-editor-panel="true"
                     >
-                        <AuthoringWorkspaceLayout
-                            ref="workspaceLayoutRef"
-                            :source="workspaceLayoutSource"
-                            primary-region-id="article-write-leading-group"
-                            secondary-region-id="article-write-trailing-group"
-                            :primary-label="translate('admin.workspaceLayout.leading')"
-                            :secondary-label="translate('admin.workspaceLayout.trailing')"
-                            :separator-label="translate('admin.workspaceLayout.resize')"
-                        >
-                            <template #retained="{ expectation, placementRoot, leadingRegion, trailingRegion, ownsRegion, containsPlacementNode, revokePlacement }">
-                                <AuthoringWorkspaceSessionOutlet
-                                    :expectation="expectation"
-                                    :placement-root="placementRoot"
-                                    :leading-region="leadingRegion"
-                                    :trailing-region="trailingRegion"
-                                    :owns-region="ownsRegion"
-                                    :contains-placement-node="containsPlacementNode"
-                                    :revoke-placement="revokePlacement"
-                                    :read-entry="readPrimaryWorkspaceEntry"
-                                    :primary="true"
-                                >
-                                    <ElFormItem
-                                        prop="content"
-                                        data-article-form-property="content"
-                                    >
-                                        <div
-                                            ref="workspaceNativeMountElement"
-                                            class="write-native-editor-mount w-full min-w-0"
-                                        >
-                                            <ArticleWriteEditor
-                                                ref="articleEditorRef"
-                                                :key="nativeEditorKey"
-                                                v-model="articleForm.content"
-                                                textarea-id="article-content"
-                                                labelled-by="article-body-heading"
-                                                outline-panel-id="article-write-outline-panel"
-                                                outline-title-id="article-write-outline-title"
-                                                :command-surfaces="authoringCommandSurfaces"
-                                                :article-identity="authoringDocumentIdentity.id"
-                                                :document-identity="authoringDocumentIdentity"
-                                                :document-context="authoringDocumentContext"
-                                                :loading="pageLoading || nativeRecreationPending"
-                                                :saving="submitting"
-                                                @save="saveDraftNow"
-                                                @draft-save="saveDraftNow"
-                                                @submit="requestSubmit"
-                                                @upload-img="handleUploadImg"
-                                                :attachment-terminal-observer="authoringAttachmentRuntime.observeNativeTerminal"
-                                                :attachment-request-dispatch="authoringAttachmentRuntime.requestDispatch"
-                                                @attachment-capture="consumeAcceptedAttachmentCapture"
-                                                @transaction="consumeAuthoringTransaction"
-                                                @selection-change="consumeAuthoringSelection"
-                                                @editor-focus="consumeAuthoringFocus"
-                                            />
-                                        </div>
-                                    </ElFormItem>
-                                </AuthoringWorkspaceSessionOutlet>
-                            </template>
-                        </AuthoringWorkspaceLayout>
+                        <ElFormItem prop="content">
+                            <ArticleWriteEditor
+                                ref="articleEditorRef"
+                                v-model="articleForm.content"
+                                :command-surfaces="authoringCommandSurfaces"
+                                :article-identity="authoringDocumentIdentity.id"
+                                :document-identity="authoringDocumentIdentity"
+                                :loading="pageLoading"
+                                :saving="submitting"
+                                @save="saveDraftNow"
+                                @draft-save="saveDraftNow"
+                                @submit="requestSubmit"
+                                @upload-img="handleUploadImg"
+                            />
+                        </ElFormItem>
                     </div>
                 </section>
 
@@ -272,7 +225,6 @@
 
                                 <ElFormItem
                                     prop="rights.enabled"
-                                    data-article-form-property="rights.enabled"
                                     label="启用策略"
                                 >
                                     <ElSwitch
@@ -284,7 +236,6 @@
 
                                 <ElFormItem
                                     prop="rights.licenseType"
-                                    data-article-form-property="rights.licenseType"
                                     label="许可类型"
                                 >
                                     <ElSelect
@@ -304,7 +255,6 @@
 
                                 <ElFormItem
                                     prop="rights.copyrightHolder"
-                                    data-article-form-property="rights.copyrightHolder"
                                     label="权利人"
                                 >
                                     <ElInput
@@ -319,7 +269,6 @@
 
                                 <ElFormItem
                                     prop="rights.copyrightYear"
-                                    data-article-form-property="rights.copyrightYear"
                                     label="版权年份"
                                 >
                                     <ElInputNumber
@@ -337,7 +286,6 @@
 
                                 <ElFormItem
                                     prop="rights.rightsStatement"
-                                    data-article-form-property="rights.rightsStatement"
                                     label="权利声明"
                                 >
                                     <ElInput
@@ -355,7 +303,6 @@
 
                                 <ElFormItem
                                     prop="rights.attributionTemplate"
-                                    data-article-form-property="rights.attributionTemplate"
                                     label="署名模板"
                                 >
                                     <ElInput
@@ -373,7 +320,6 @@
 
                                 <ElFormItem
                                     prop="rights.copyPolicy"
-                                    data-article-form-property="rights.copyPolicy"
                                     label="复制策略"
                                 >
                                     <ElSelect
@@ -393,7 +339,6 @@
 
                                 <ElFormItem
                                     prop="rights.maxExcerptChars"
-                                    data-article-form-property="rights.maxExcerptChars"
                                     label="摘录长度"
                                 >
                                     <ElInputNumber
@@ -800,7 +745,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, nextTick, onBeforeUnmount, onUnmounted, provide, ref, shallowRef, watch } from 'vue';
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { ArticlePublishStatus } from '@/api/article';
@@ -815,8 +760,6 @@ import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vu
 import ArticleWriteInspectorShell from '@/components/admin/article/ArticleWriteInspectorShell.vue';
 import ArticleWriteSidebar from '@/components/admin/article/ArticleWriteSidebar.vue';
 import ArticleWriteTitleField from '@/components/admin/article/ArticleWriteTitleField.vue';
-import AuthoringWorkspaceLayout from '@/components/admin/article/AuthoringWorkspaceLayout.vue';
-import AuthoringWorkspaceSessionOutlet from '@/components/admin/article/AuthoringWorkspaceSessionOutlet.vue';
 import FsusDialog from '@/components/ui/FsusDialog.vue';
 import ImageUploadOptionsPanel from '@/components/ui/ImageUploadOptionsPanel.vue';
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite';
@@ -824,42 +767,20 @@ import {
     useArticleWriteInspector,
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
-import type { MarkdownAttachmentBatchIntent, MarkdownAttachmentCaptureObservation } from '@/fsusui/articleAttachments';
-import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
-import { activeLocale, translate } from '@/locales';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
-import type { ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
-import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
-import type { ArticleEditorRuntimeBinding } from '@/services/authoring/articleEditorRuntimeBinding';
-import { createArticleNativeRecreationStaging, type ArticleNativeRecreationSource, type ArticleNativeRecreationStagingLease } from '@/services/authoring/articleNativeRecreationStaging';
-import { createArticleWorkspaceRetainedRecoveryPort } from '@/services/authoring/articleWorkspaceEditorSessionComposition';
-import type { ArticleWorkspaceMountedEditorSource } from '@/services/authoring/articleWorkspaceMountedEditorResolver';
-import type { ArticleWorkspaceRetainedRecoveryPort } from '@/services/authoring/articleWorkspaceRetainedRecoverySnapshot';
 import {
     articleWorkspaceTabRouter,
     createArticleWorkspaceOpenInput,
     type ArticleWorkspaceStatusSummary
 } from '@/services/authoring/articleWorkspaceTabRouter';
-import { projectArticleWriterWorkspaceDocument } from '@/services/authoring/articleWriterMountedEditorSource';
-import { authoringWorkspaceLayoutSourceKey, authoringWorkspacePrimaryMountOnlyKey, authoringWorkspaceMountedAuthoritySourcesKey, authoringWorkspaceMountedAuthorityBeforeReadKey, type AuthoringWorkspaceMountedAuthorityReservation, type AuthoringWorkspaceRootMountedSeal, type AuthoringWorkspaceLayoutPort, type AuthoringWorkspaceOutletExpectation, type AuthoringWorkspacePrimaryMountPort } from '@/services/authoring/authoringWorkspaceLayoutContext';
-import { retainedArticleDocumentHandleBelongsTo } from '@/services/authoring/openArticleDocumentRegistry';
-import {
-    calculateOpenArticleDocumentDigest,
-    type ArticleDocumentContextRef,
-    type ArticleDocumentIdentity,
-    type OpenArticleDocumentEntry
+import type {
+    ArticleDocumentContextRef,
+    ArticleDocumentIdentity
 } from '@/services/authoring/openArticleDocumentRegistry';
-import { useThemeRuntime } from '@/services/themeRuntime';
-import { useAdminStore } from '@/store/admin';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 defineOptions({ name: 'ArticleWriteView' });
-
-const workspaceLayoutContext = inject(authoringWorkspaceLayoutSourceKey, null);
-const workspaceLayoutSource = computed(() => workspaceLayoutContext?.value ?? null);
-const workspacePrimaryMountOnly = inject(authoringWorkspacePrimaryMountOnlyKey, computed(() => false));
-const mountedAuthoritySources = inject(authoringWorkspaceMountedAuthoritySourcesKey, null);
 
 const articleRecoveryPrivacyNotice = ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE;
 
@@ -918,11 +839,8 @@ const {
     seoStatusText,
     articleForm,
     authoringDocumentIdentity,
-    authoringDocumentContext,
-    authoringAttachmentRuntime,
-    authoringEditorRuntime,
-    authoringRetainedPrimaryRuntime,
-    firstInvalidFormProperty,
+    currentRevisionId,
+    currentRevisionNo,
     articleRightsUsingSiteDefaults,
     articleRightsInheritanceText,
     articleRightsLicenseOptions,
@@ -1001,18 +919,35 @@ const workspaceArticleId = computed<number | null>(() =>
     const parsed = Number(value);
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 });
-const workspaceDocument = computed(() => projectArticleWriterWorkspaceDocument(authoringDocumentContext.value));
-const workspaceIdentity = computed<ArticleDocumentIdentity>(() => workspaceDocument.value.identity);
-const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => workspaceDocument.value.documentContext);
-const workspaceMountedSource = shallowRef<ArticleWorkspaceMountedEditorSource | null>(null);
-const workspaceLayoutRef = shallowRef<AuthoringWorkspaceLayoutPort | null>(null);
-const workspaceWriteElement = shallowRef<HTMLElement | null>(null);
-const workspaceNativeMountElement = shallowRef<HTMLElement | null>(null);
-defineExpose({ getArticleWorkspaceMountedEditorSource: () => workspaceMountedSource.value,
-               getAuthoringWorkspaceLayoutPort: () => workspaceLayoutRef.value,
-               getArticleWorkspaceRecoveryCheckpoint,
-               getArticleWorkspaceRetainedRecoveryPort,
-               getArticleWorkspacePrimaryMountPort: () => primaryMountDisposed ? null : primaryMountPort });
+const workspaceIdentity = computed<ArticleDocumentIdentity>(() =>
+{
+    const articleId = workspaceArticleId.value;
+    const documentRef = authoringDocumentIdentity.value.id;
+    return articleId === null
+        ? {
+            articleId: null,
+            draftId: `draft:${documentRef}`,
+            documentId: `document:${documentRef}`
+        }
+        : {
+            articleId,
+            draftId: `draft:article:${articleId}`,
+            documentId: `document:article:${articleId}`
+        };
+});
+const workspaceDocumentContext = computed<ArticleDocumentContextRef>(() => ({
+    documentEpoch: authoringDocumentIdentity.value.epoch,
+    sourceRevision: workspaceArticleId.value === null
+        ? null
+        : currentRevisionId.value?.trim()
+            ? `revision:source:${currentRevisionId.value.trim()}`
+            : `source:article:${workspaceArticleId.value}`,
+    draftRevision: workspaceArticleId.value === null
+        ? `draft:${authoringDocumentIdentity.value.id}`
+        : typeof currentRevisionNo.value === 'number'
+            ? `revision:article:${workspaceArticleId.value}:${currentRevisionNo.value}`
+            : `draft:article:${workspaceArticleId.value}`
+}));
 const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
     dirty: requiresLeaveConfirm.value && !pageLoading.value,
     saving: submitting.value,
@@ -1027,69 +962,12 @@ const workspaceStatus = computed<ArticleWorkspaceStatusSummary>(() => ({
             : 'current',
     statusRef: `workspace-status:${workspaceIdentity.value.documentId}`
 }));
-const workspaceTabId = shallowRef<string | null>(null);
-/** Read only the original entry associated with this actual bound primary native editor. */
-function readPrimaryWorkspaceEntry(expected: AuthoringWorkspaceOutletExpectation): OpenArticleDocumentEntry | null
-{
-    const tabId = workspaceTabId.value;
-    const source = workspaceMountedSource.value;
-    if (!tabId || !source)
-    {
-        return null;
-    }
-    const registry = articleWorkspaceTabRouter.getRegistry();
-    const groups = workspaceLayoutSource.value?.groups;
-    const isCurrentExpectation = (): boolean =>
-    {
-        if (!groups || registry !== expected.registry || groups !== expected.groups
-            || articleWorkspaceTabRouter.getRegistry() !== registry || workspaceLayoutSource.value?.groups !== groups
-            || !groups.verifyBinding(registry) || registry.getRevision() !== expected.projection.state.articleRegistryRevision)
-        {
-            return false;
-        }
-        const current = groups.exportProjection();
-        return current.ratioScope === expected.projection.ratioScope && current.splitRatioRef === expected.projection.splitRatioRef
-            && current.state.revision === expected.projection.state.revision
-            && current.state.articleRegistryRevision === expected.projection.state.articleRegistryRevision
-            && current.state.contentDigest === expected.projection.state.contentDigest;
-    };
-    if (!isCurrentExpectation())
-    {
-        return null;
-    }
-    const entry = registry.getEntry(tabId);
-    if (!entry)
-    {
-        return null;
-    }
-    const identity = workspaceIdentity.value;
-    const context = workspaceDocumentContext.value;
-    const owner = source.readDocumentBinding(entry.editorSessionRef);
-    if (workspaceMountedSource.value !== source || workspaceTabId.value !== tabId
-        || workspaceIdentity.value !== identity || workspaceDocumentContext.value !== context || !isCurrentExpectation()
-        || owner?.identity.articleId !== identity.articleId || owner.identity.draftId !== identity.draftId
-        || owner.identity.documentId !== identity.documentId || owner.documentContext.documentEpoch !== context.documentEpoch
-        || owner.documentContext.sourceRevision !== context.sourceRevision || owner.documentContext.draftRevision !== context.draftRevision)
-    {
-        return null;
-    }
-    if (owner.identity.articleId !== entry.identity.articleId || owner.identity.draftId !== entry.identity.draftId
-        || owner.identity.documentId !== entry.identity.documentId
-        || owner.documentContext.documentEpoch !== entry.documentContext.documentEpoch
-        || owner.documentContext.sourceRevision !== entry.documentContext.sourceRevision
-        || owner.documentContext.draftRevision !== entry.documentContext.draftRevision)
-    {
-        return null;
-    }
-    return entry;
-}
-
+let workspaceTabId: string | null = null;
 let workspaceSyncToken = 0;
 let lastWorkspaceStatusDigest = '';
 
 const workspaceCanRegister = computed(() => (
-    !workspacePrimaryMountOnly.value
-    && !pageLoading.value
+    !pageLoading.value
     && !(isEdit.value && workspaceArticleId.value === null)
     && (!isEdit.value || articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0)
 ));
@@ -1114,18 +992,18 @@ const syncWorkspaceTab = async (): Promise<void> =>
             route: route.fullPath
         }
     ));
-    if (token !== workspaceSyncToken || workspacePrimaryMountOnly.value || workspaceIdentity.value.documentId !== identity.documentId)
+    if (token !== workspaceSyncToken || workspaceIdentity.value.documentId !== identity.documentId)
     {
         return;
     }
 
-    workspaceTabId.value = receipt.tabId;
-    if (!workspaceTabId.value)
+    workspaceTabId = receipt.tabId;
+    if (!workspaceTabId)
     {
         return;
     }
 
-    articleWorkspaceTabRouter.updatePresentation(workspaceTabId.value, {
+    articleWorkspaceTabRouter.updatePresentation(workspaceTabId, {
         title: articleForm.title.trim() || pageTitle.value
     });
     lastWorkspaceStatusDigest = JSON.stringify(workspaceStatus.value);
@@ -1133,28 +1011,25 @@ const syncWorkspaceTab = async (): Promise<void> =>
 
 watch(
     [workspaceCanRegister, workspaceIdentity],
-    () =>
-    {
-        void syncWorkspaceTab();
-    },
+    () => { void syncWorkspaceTab(); },
     { immediate: true, deep: true }
 );
 watch(
     [() => articleForm.title, workspaceStatus],
     ([title, status]) =>
     {
-        if (workspacePrimaryMountOnly.value || !workspaceTabId.value)
+        if (!workspaceTabId)
         {
             return;
         }
 
-        articleWorkspaceTabRouter.updatePresentation(workspaceTabId.value, {
+        articleWorkspaceTabRouter.updatePresentation(workspaceTabId, {
             title: title.trim() || pageTitle.value
         });
         const statusDigest = JSON.stringify(status);
         if (statusDigest !== lastWorkspaceStatusDigest)
         {
-            articleWorkspaceTabRouter.markStatus(workspaceTabId.value, status);
+            articleWorkspaceTabRouter.markStatus(workspaceTabId, status);
             lastWorkspaceStatusDigest = statusDigest;
         }
     },
@@ -1163,7 +1038,7 @@ watch(
 onUnmounted(() =>
 {
     workspaceSyncToken += 1;
-    workspaceTabId.value = null;
+    workspaceTabId = null;
 });
 const quickCreateCategoryDialog = ref(false);
 const quickCreateTagDialog = ref(false);
@@ -1172,877 +1047,7 @@ const quickTagName = ref('');
 const quickCategoryInputRef = ref<{ focus?: () => void; } | null>(null);
 const quickTagInputRef = ref<{ focus?: () => void; } | null>(null);
 const coverInputRef = ref<HTMLInputElement | null>(null);
-const articleEditorRef = ref<{
-    getAuthoringEditorPort: () => ArticleEditorContinuityPort | null;
-    getAuthoringSessionPort?: () => ArticleEditorMountedSessionPort | null;
-    insertMarkdownAtCursor?: (markdown: string) => boolean;
-} | null>(null);
-const authoringTheme = useThemeRuntime();
-const editorRuntimeBinding = shallowRef<ArticleEditorRuntimeBinding | null>(null);
-type MountedWriterBinding = ReturnType<typeof authoringEditorRuntime.bindEditor>;
-type WriterRecoveryCheckpoint = ReturnType<MountedWriterBinding['bindRecoveryCheckpoint']>;
-let mountedWriterBinding: MountedWriterBinding | null = null;
-let recoveryCheckpoint: WriterRecoveryCheckpoint | null = null;
-let recoveryCheckpointSessionRef: string | null = null;
-let boundEditorPort: ArticleEditorContinuityPort | null = null;
-let releaseEditorRuntime: (() => void) | null = null;
-let editorBindingGeneration = 0;
-
-function releaseRecoveryCheckpoint(): void
-{
-    revokeMountedAuthorityBeforeRead();
-    const checkpoint = recoveryCheckpoint;
-    recoveryCheckpoint = null;
-    recoveryCheckpointSessionRef = null;
-    checkpoint?.release();
-}
-
-/** This returns original journal custody; a nullable host port is not snapshot readiness. */
-function getArticleWorkspaceRecoveryCheckpoint(): WriterRecoveryCheckpoint | null
-{
-    revokeMountedAuthorityBeforeRead();
-    const checkpoint = recoveryCheckpoint;
-    const source = workspaceMountedSource.value;
-    const bound = mountedWriterBinding;
-    const tabId = workspaceTabId.value;
-    if (!checkpoint || !source || bound?.mountedSource !== source || !tabId)
-    {
-        return null;
-    }
-    const registry = articleWorkspaceTabRouter.getRegistry();
-    const revision = registry.getRevision();
-    const entry = registry.getEntry(tabId);
-    if (entry?.editorSessionRef !== recoveryCheckpointSessionRef)
-    {
-        return null;
-    }
-    const observed = source.readDocumentBinding(entry.editorSessionRef);
-    if (recoveryCheckpoint !== checkpoint || mountedWriterBinding !== bound || workspaceMountedSource.value !== source
-        || workspaceTabId.value !== tabId || articleWorkspaceTabRouter.getRegistry() !== registry || registry.getRevision() !== revision
-        || observed?.identity.articleId !== entry.identity.articleId || observed.identity.draftId !== entry.identity.draftId
-        || observed.identity.documentId !== entry.identity.documentId
-        || observed.documentContext.documentEpoch !== entry.documentContext.documentEpoch
-        || observed.documentContext.sourceRevision !== entry.documentContext.sourceRevision
-        || observed.documentContext.draftRevision !== entry.documentContext.draftRevision)
-    {
-        return null;
-    }
-    return checkpoint;
-}
-
-function bindWorkspaceRecoveryCheckpoint(): void
-{
-    revokeMountedAuthorityBeforeRead();
-    const bound = mountedWriterBinding;
-    const source = workspaceMountedSource.value;
-    const tabId = workspaceTabId.value;
-    const generation = editorBindingGeneration;
-    const registry = articleWorkspaceTabRouter.getRegistry();
-    const registryRevision = registry.getRevision();
-    const entry = tabId ? registry.getEntry(tabId) : null;
-    if (!bound || !source || bound.mountedSource !== source || !entry)
-    {
-        releaseRecoveryCheckpoint();
-        return;
-    }
-    // Registry public reads clone values; object equality would always reject a genuine entry.
-    const entryDigest = calculateOpenArticleDocumentDigest(entry);
-    const isCurrentBinding = (): boolean => mountedWriterBinding === bound && workspaceMountedSource.value === source
-        && workspaceTabId.value === tabId && editorBindingGeneration === generation
-        && articleWorkspaceTabRouter.getRegistry() === registry && registry.getRevision() === registryRevision
-        && calculateOpenArticleDocumentDigest(registry.getEntry(entry.tabId)) === entryDigest;
-    const observed = source.readDocumentBinding(entry.editorSessionRef);
-    if (!isCurrentBinding() || observed?.identity.articleId !== entry.identity.articleId
-        || observed.identity.draftId !== entry.identity.draftId || observed.identity.documentId !== entry.identity.documentId
-        || observed.documentContext.documentEpoch !== entry.documentContext.documentEpoch
-        || observed.documentContext.sourceRevision !== entry.documentContext.sourceRevision
-        || observed.documentContext.draftRevision !== entry.documentContext.draftRevision)
-    {
-        releaseRecoveryCheckpoint();
-        return;
-    }
-    if (recoveryCheckpoint && recoveryCheckpointSessionRef === entry.editorSessionRef)
-    {
-        return;
-    }
-    releaseRecoveryCheckpoint();
-    let checkpoint: WriterRecoveryCheckpoint;
-    try
-    {
-        checkpoint = bound.bindRecoveryCheckpoint(entry.editorSessionRef);
-    }
-    catch
-    {
-        // The original owner refuses unloaded draft/auth/native custody. Keep the port unavailable.
-        return;
-    }
-    if (!isCurrentBinding())
-    {
-        checkpoint.release();
-        return;
-    }
-    recoveryCheckpoint = checkpoint;
-    recoveryCheckpointSessionRef = entry.editorSessionRef;
-}
-
-/** Borrow the existing original journal host; do not rebind or prepare on mount/geometry updates. */
-const retainedRecoveryPort = createArticleWorkspaceRetainedRecoveryPort({
-    readCurrent: () =>
-    {
-        const checkpoint = getArticleWorkspaceRecoveryCheckpoint();
-        const tabId = workspaceTabId.value;
-        if (!checkpoint || !tabId)
-        {
-            return null;
-        }
-        const registry = articleWorkspaceTabRouter.getRegistry();
-        const revision = registry.getRevision();
-        const entry = registry.getEntry(tabId);
-        if (!entry || checkpoint !== getArticleWorkspaceRecoveryCheckpoint()
-            || workspaceTabId.value !== tabId || articleWorkspaceTabRouter.getRegistry() !== registry
-            || registry.getRevision() !== revision)
-        {
-            return null;
-        }
-        return { entry, checkpoint };
-    }
-});
-
-/** Original Rail may borrow this partial port after SAME composition installation; null is unavailable. */
-function getArticleWorkspaceRetainedRecoveryPort(): ArticleWorkspaceRetainedRecoveryPort | null
-{
-    revokeMountedAuthorityBeforeRead();
-    return getArticleWorkspaceRecoveryCheckpoint() ? retainedRecoveryPort : null;
-}
-
-let primaryMountDisposed = false;
-let primaryMountGeneration = 0n;
-let cancelPrimaryMount: (() => void) | null = null;
-type PrimaryPhysicalMount = Readonly<{
-    editorSessionRef: string;
-    root: HTMLElement;
-    element: HTMLElement;
-    component: NonNullable<typeof articleEditorRef.value>;
-    native: ArticleEditorMountedSessionPort;
-    bound: MountedWriterBinding;
-    context: typeof authoringDocumentContext.value;
-}>;
-let completedPrimaryMount: PrimaryPhysicalMount | null = null;
-const nativeEditorKey = ref('native-primary:0');
-let nativeEditorGeneration = 0n;
-const nativeRecreationPending = ref(false);
-let nativeRecreationCreating = false;
-type NativeRecreationControl = ReturnType<typeof createArticleNativeRecreationStaging>;
-interface NativeRecreationRecord {
-    readonly control: NativeRecreationControl;
-    readonly generation: bigint;
-    readonly signal: AbortSignal;
-    readonly onAbort: () => void;
-    cancelled: boolean;
-    targetWriter: MountedWriterBinding | null;
-}
-let nativeRecreationStage: NativeRecreationRecord | null = null;
-function closeNativeRecreationStage(): void
-{
-    const current = nativeRecreationStage;
-    if (!current)
-    {
-        return;
-    }
-    current.cancelled = true;
-    const failures: unknown[] = [];
-    try
-    {
-        current.control.cancel();
-    }
-    catch (cause: unknown)
-    {
-        failures.push(cause);
-    }
-    try
-    {
-        current.signal.removeEventListener('abort', current.onAbort);
-    }
-    catch (cause: unknown)
-    {
-        failures.push(cause);
-    }
-    if (failures.length)
-    {
-        throw failures.length === 1 ? failures[0]
-            : new AggregateError(failures, 'article-native-staging-write-cleanup-incomplete', { cause: failures[0] });
-    }
-    if (nativeRecreationStage === current)
-    {
-        nativeRecreationStage = null;
-        nativeRecreationPending.value = false;
-    }
-}
-let mountedAuthorityEpoch = 0n;
-let sealingMountedAuthority = false;
-let mountedAuthorityCancellationFailed = false;
-let mountedAuthorityRetired = false;
-let mountedAuthorityCustody: { seal: AuthoringWorkspaceRootMountedSeal; epoch: bigint;
-                               physical: PrimaryPhysicalMount; reservation: AuthoringWorkspaceMountedAuthorityReservation; } | null = null;
-
-function cancelOriginalMountedReservation(reservation: AuthoringWorkspaceMountedAuthorityReservation | null): void
-{
-    try
-    {
-        reservation?.cancel();
-    }
-    catch
-    {
-        mountedAuthorityCancellationFailed = true;
-        completedPrimaryMount = null;
-    }
-}
-
-function revokeMountedAuthorityBeforeRead(): void
-{
-    const previous = mountedAuthorityCustody;
-    mountedAuthorityCustody = null;
-    mountedAuthorityEpoch += 1n;
-    // Retire private custody BEFORE the original producer cancellation callback.
-    const wasSealing = sealingMountedAuthority;
-    sealingMountedAuthority = true;
-    try
-    {
-        cancelOriginalMountedReservation(previous?.reservation ?? null);
-    }
-    finally
-    {
-        sealingMountedAuthority = wasSealing;
-    }
-}
-function revokeMountedAuthorityBeforeChange(): void
-{
-    if (!nativeRecreationCreating || nativeRecreationStage?.targetWriter)
-    {
-        // Only unpublished intentional ref attachment is exempt; an attached target always withdraws.
-        nativeRecreationStage?.control.invalidate();
-    }
-    completedPrimaryMount = null;
-    revokeMountedAuthorityBeforeRead();
-}
-function hasMountedAuthorityCustody(seal: AuthoringWorkspaceRootMountedSeal): boolean
-{
-    // Only this issuer's private state; no DOM/ref/source/clock/read/clone/allocation/callback.
-    return !primaryMountDisposed && !mountedAuthorityRetired && !sealingMountedAuthority && !mountedAuthorityCancellationFailed && mountedAuthorityCustody !== null
-        && mountedAuthorityCustody.seal === seal && mountedAuthorityCustody.epoch === mountedAuthorityEpoch
-        && mountedAuthorityCustody.physical === completedPrimaryMount;
-}
-function cancelMountedAuthority(seal: AuthoringWorkspaceRootMountedSeal): boolean
-{
-    if (mountedAuthorityCustody?.seal !== seal)
-    {
-        return false;
-    }
-    revokeMountedAuthorityBeforeRead();
-    return true;
-}
-function sealMountedAuthority(editorSessionRef: string): AuthoringWorkspaceRootMountedSeal | null
-{
-    if (sealingMountedAuthority || primaryMountDisposed || mountedAuthorityRetired || mountedAuthorityCancellationFailed)
-    {
-        return null;
-    }
-    revokeMountedAuthorityBeforeRead();
-    const physical = completedPrimaryMount;
-    const source = mountedAuthoritySources?.value;
-    // Physical completion or a principal-id watch is not original joint producer authority.
-    if (physical?.editorSessionRef !== editorSessionRef || !source)
-    {
-        return null;
-    }
-    sealingMountedAuthority = true;
-    let reservation: AuthoringWorkspaceMountedAuthorityReservation | null = null;
-    try
-    {
-        const epoch = mountedAuthorityEpoch;
-        reservation = source.reserve(editorSessionRef, physical.bound, physical.native, revokeMountedAuthorityBeforeChange);
-        const seal = Object.freeze({ scope: 'root-mounted' }) as AuthoringWorkspaceRootMountedSeal;
-        if (reservation?.nativeEditor !== physical.native || !reservation.retainedIdentity
-            || typeof reservation.retainedIdentity !== 'object' || !reservation.hasCustody()
-            || primaryMountDisposed || completedPrimaryMount !== physical || mountedAuthorityEpoch !== epoch
-            || mountedAuthoritySources?.value !== source || workspaceWriteElement.value !== physical.root
-            || workspaceNativeMountElement.value !== physical.element || articleEditorRef.value !== physical.component
-            || mountedWriterBinding !== physical.bound || boundEditorPort !== physical.native
-            || authoringDocumentContext.value !== physical.context || !physical.root.isConnected || !physical.element.isConnected
-            || physical.root.ownerDocument !== physical.element.ownerDocument || !physical.root.contains(physical.element))
-        {
-            cancelOriginalMountedReservation(reservation);
-            return null;
-        }
-        mountedAuthorityCustody = { seal, epoch, physical, reservation };
-        return seal;
-    }
-    catch
-    {
-        cancelOriginalMountedReservation(reservation);
-        return null;
-    }
-    finally
-    {
-        sealingMountedAuthority = false;
-    }
-}
-provide(authoringWorkspaceMountedAuthorityBeforeReadKey, revokeMountedAuthorityBeforeRead);
-function retireMountedAuthority(): void
-{
-    mountedAuthorityRetired = true;
-    revokeMountedAuthorityBeforeChange();
-    cancelPrimaryMount?.();
-}
-watch([workspaceWriteElement, workspaceNativeMountElement, articleEditorRef, workspaceMountedSource, authoringDocumentContext,
-       workspacePrimaryMountOnly, () => route.fullPath, () => mountedAuthoritySources?.value], revokeMountedAuthorityBeforeChange, { flush: 'sync' });
-let mountedSubtreeObserver: MutationObserver | null = null;
-watch(workspaceWriteElement, root =>
-{
-    revokeMountedAuthorityBeforeChange();
-    mountedSubtreeObserver?.disconnect();
-    mountedSubtreeObserver = root ? new MutationObserver(() => revokeMountedAuthorityBeforeChange()) : null;
-    if (root)
-    {
-        // The document sees removal/reparenting of the root itself; inspect no outside content.
-        mountedSubtreeObserver?.observe(root.ownerDocument, { childList: true, subtree: true, attributes: true });
-    }
-}, { flush: 'post' });
-
-/** Await the existing real subtree; this cannot adopt a different restored document/body owner. */
-function preparePrimaryMountedEditor(entry: Readonly<OpenArticleDocumentEntry>, signal: AbortSignal, stagingSource = false): Promise<void>
-{
-    if (!stagingSource && nativeRecreationCreating)
-    {
-        return Promise.reject(new Error('article-native-staging-creation-active'));
-    }
-    if (!stagingSource)
-    {
-        closeNativeRecreationStage();
-    }
-    if (primaryMountDisposed || mountedAuthorityRetired || sealingMountedAuthority || cancelPrimaryMount)
-    {
-        return Promise.reject(new Error('article-workspace-primary-mount-owner-unavailable'));
-    }
-    const generation = ++primaryMountGeneration;
-    return new Promise<void>((resolve, reject) =>
-    {
-        let settled = false;
-        let stopWatching: (() => void) | null = null;
-        const cancel = (): void => finish(false, new Error('article-workspace-primary-mount-cancelled'));
-        const finish = (completed: boolean, error?: unknown): void =>
-        {
-            if (settled)
-            {
-                return;
-            }
-            settled = true;
-            const cleanupFailures: unknown[] = [];
-            if (!completed)
-            {
-                try
-                {
-                    revokeMountedAuthorityBeforeChange();
-                }
-                catch (cause: unknown)
-                {
-                    cleanupFailures.push(cause);
-                }
-            }
-            try
-            {
-                stopWatching?.();
-            }
-            catch (cause: unknown)
-            {
-                cleanupFailures.push(cause);
-            }
-            try
-            {
-                signal.removeEventListener('abort', cancel);
-            }
-            catch (cause: unknown)
-            {
-                cleanupFailures.push(cause);
-            }
-            if (cancelPrimaryMount === cancel)
-            {
-                cancelPrimaryMount = null;
-            }
-            if (!completed)
-            {
-                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- Preserve the original thrown value and identity, including non-Error failures.
-                reject(cleanupFailures.length
-                    ? new AggregateError([error, ...cleanupFailures], 'article-workspace-primary-mount-and-cleanup-failed', { cause: error })
-                    : error);
-            }
-            else if (cleanupFailures.length)
-            {
-                try
-                {
-                    revokeMountedAuthorityBeforeChange();
-                }
-                catch (cause: unknown)
-                {
-                    cleanupFailures.push(cause);
-                }
-                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- Keep the exact single cleanup failure; aggregate only genuinely separate causes.
-                reject(cleanupFailures.length === 1 ? cleanupFailures[0]
-                    : new AggregateError(cleanupFailures, 'article-workspace-primary-mount-cleanup-failed', { cause: cleanupFailures[0] }));
-            }
-            else
-            {
-                resolve();
-            }
-        };
-        // Reserve before any caller-held entry/native read can synchronously reenter.
-        cancelPrimaryMount = cancel;
-        // Producer cancellation may synchronously reenter preparation: the slot is already owned.
-        revokeMountedAuthorityBeforeChange();
-        let registry: ReturnType<typeof articleWorkspaceTabRouter.getRegistry>;
-        let registryRevision: number;
-        let context: typeof authoringDocumentContext.value;
-        let identity: ArticleDocumentIdentity;
-        let documentContext: ArticleDocumentContextRef;
-        let mountOnly: boolean;
-        let expectedDigest: string;
-        const assertCurrent = (): void =>
-        {
-            signal.throwIfAborted();
-            if (settled || primaryMountDisposed || primaryMountGeneration !== generation || cancelPrimaryMount !== cancel
-                || articleWorkspaceTabRouter.getRegistry() !== registry || registry.getRevision() !== registryRevision
-                || authoringDocumentContext.value !== context || workspaceIdentity.value !== identity
-                || workspaceDocumentContext.value !== documentContext
-                || workspacePrimaryMountOnly.value !== mountOnly
-                || mountedAuthorityRetired
-                || calculateOpenArticleDocumentDigest(registry.getEntry(entry.tabId)) !== expectedDigest
-                || calculateOpenArticleDocumentDigest(entry) !== expectedDigest)
-            {
-                throw new Error('article-workspace-primary-mount-association-stale');
-            }
-        };
-        const attempt = (): void =>
-        {
-            if (settled)
-            {
-                return;
-            }
-            try
-            {
-                assertCurrent();
-                const root = workspaceWriteElement.value;
-                const element = workspaceNativeMountElement.value;
-                const component = articleEditorRef.value;
-                const source = workspaceMountedSource.value;
-                const bound = mountedWriterBinding;
-                if (pageLoading.value || !root?.isConnected || !element?.isConnected || !component || !source || !bound)
-                {
-                    return;
-                }
-                if (element.ownerDocument !== root.ownerDocument || !root.contains(element) || bound.mountedSource !== source)
-                {
-                    throw new Error('article-workspace-primary-physical-mount-owner-mismatch');
-                }
-                const bindingGeneration = editorBindingGeneration;
-                const ownerDocument = root.ownerDocument;
-                revokeMountedAuthorityBeforeRead();
-                const native = component.getAuthoringSessionPort?.();
-                revokeMountedAuthorityBeforeRead();
-                const mounted = source.readMountedEditor(entry.editorSessionRef);
-                revokeMountedAuthorityBeforeRead();
-                const observed = source.readDocumentBinding(entry.editorSessionRef);
-                if (!native)
-                {
-                    throw new Error('article-workspace-primary-native-document-owner-unavailable');
-                }
-                const assertPhysical = (): void =>
-                {
-                    assertCurrent();
-                    if (mounted !== native || native !== boundEditorPort
-                        || articleEditorRef.value !== component || workspaceMountedSource.value !== source || mountedWriterBinding !== bound
-                        || editorBindingGeneration !== bindingGeneration || workspaceWriteElement.value !== root
-                        || workspaceNativeMountElement.value !== element || !root.isConnected || !element.isConnected || !root.contains(element)
-                        || root.ownerDocument !== ownerDocument || element.ownerDocument !== ownerDocument
-                        || observed?.identity.articleId !== identity.articleId || observed.identity.draftId !== identity.draftId
-                        || observed.identity.documentId !== identity.documentId
-                        || observed.documentContext.documentEpoch !== documentContext.documentEpoch
-                        || observed.documentContext.sourceRevision !== documentContext.sourceRevision
-                        || observed.documentContext.draftRevision !== documentContext.draftRevision)
-                    {
-                        throw new Error('article-workspace-primary-native-document-owner-unavailable');
-                    }
-                };
-                assertPhysical();
-                // Adopt the SAME original body/native Writer through Registry's issued handle.
-                // Reentry/failure cannot replace the original adapter, consumer or cleanup owner.
-                const handle = registry.issueRetainedDocumentHandle(entry.tabId);
-                assertPhysical();
-                const consumer = authoringRetainedPrimaryRuntime.adoptPrimaryRetainedDocument(handle);
-                assertPhysical();
-                const retained = consumer.documentBinding;
-                if (retained.handle !== handle || bound.readRetainedDocumentBinding() !== retained)
-                {
-                    throw new Error('article-workspace-primary-retained-adoption-custody-unavailable');
-                }
-                assertPhysical();
-                // Physical/adoption completion still grants no resource/host readiness.
-                completedPrimaryMount = Object.freeze({ editorSessionRef: entry.editorSessionRef, root, element, component,
-                                                        native, bound, context });
-                assertPhysical();
-                finish(true);
-            }
-            catch (error)
-            {
-                finish(false, error);
-            }
-        };
-        try
-        {
-            registry = articleWorkspaceTabRouter.getRegistry();
-            registryRevision = registry.getRevision();
-            context = authoringDocumentContext.value;
-            identity = workspaceIdentity.value;
-            documentContext = workspaceDocumentContext.value;
-            mountOnly = workspacePrimaryMountOnly.value;
-            const expected = registry.getEntry(entry.tabId);
-            expectedDigest = calculateOpenArticleDocumentDigest(expected);
-            if (!expected || calculateOpenArticleDocumentDigest(entry) !== expectedDigest
-                || expected.identity.articleId !== identity.articleId || expected.identity.draftId !== identity.draftId
-                || expected.identity.documentId !== identity.documentId
-                || expected.documentContext.documentEpoch !== documentContext.documentEpoch
-                || expected.documentContext.sourceRevision !== documentContext.sourceRevision
-                || expected.documentContext.draftRevision !== documentContext.draftRevision
-                || expected.status.permission !== 'allowed' || expected.status.lifecycle !== 'current')
-            {
-                throw new Error('article-workspace-primary-retained-document-adoption-owner-required');
-            }
-            assertCurrent();
-            signal.addEventListener('abort', cancel, { once: true });
-            stopWatching = watch([workspaceWriteElement, workspaceNativeMountElement, articleEditorRef, workspaceMountedSource,
-                                  authoringDocumentContext, workspaceDocument, pageLoading, workspacePrimaryMountOnly], attempt, { flush: 'post' });
-            if (settled)
-            {
-                stopWatching();
-            }
-            else
-            {
-                void nextTick().then(attempt, error => finish(false, error));
-            }
-        }
-        catch (error)
-        {
-            finish(false, error);
-        }
-    });
-}
-
-/** Allocate a real new leaf in the existing production slot; native memory/principal adoption stays with Main. */
-async function reserveNativeRecreationTarget(entry: Readonly<OpenArticleDocumentEntry>, source: ArticleNativeRecreationSource,
-                                             signal: AbortSignal): Promise<ArticleNativeRecreationStagingLease>
-{
-    if (nativeRecreationCreating || primaryMountDisposed || mountedAuthorityRetired)
-    {
-        throw new Error('article-native-staging-write-owner-unavailable');
-    }
-    closeNativeRecreationStage();
-    nativeRecreationCreating = true;
-    let stage: NativeRecreationRecord | null = null;
-    try
-    {
-        signal.throwIfAborted();
-        const sourceEditor = source.editor;
-        const sourceSession = source.session;
-        const sourceSnapshotRef = source.snapshotRef;
-        if (typeof sourceSnapshotRef !== 'string' || !sourceSnapshotRef.trim())
-        {
-            throw new Error('article-native-staging-source-reference-required');
-        }
-        await preparePrimaryMountedEditor(entry, signal, true);
-        signal.throwIfAborted();
-        const physical = completedPrimaryMount;
-        if (!physical)
-        {
-            throw new Error('article-native-staging-original-physical-source-required');
-        }
-        const registry = articleWorkspaceTabRouter.getRegistry();
-        const revision = registry.getRevision();
-        const digest = calculateOpenArticleDocumentDigest(entry);
-        const context = authoringDocumentContext.value;
-        const assertSource = (): void =>
-        {
-            signal.throwIfAborted();
-            if (!physical || primaryMountDisposed || mountedAuthorityRetired || completedPrimaryMount !== physical
-                || physical.native !== sourceEditor || physical.bound !== mountedWriterBinding || physical.native !== boundEditorPort
-                || physical.component !== articleEditorRef.value || context !== authoringDocumentContext.value
-                || articleWorkspaceTabRouter.getRegistry() !== registry || registry.getRevision() !== revision
-                || calculateOpenArticleDocumentDigest(registry.getEntry(entry.tabId)) !== digest
-                || calculateOpenArticleDocumentDigest(entry) !== digest)
-            {
-                throw new Error('article-native-staging-original-source-revoked');
-            }
-        };
-        assertSource();
-        if (sourceEditor.getSession(entry.editorSessionRef) !== sourceSession)
-        {
-            throw new Error('article-native-staging-original-session-mismatch');
-        }
-        assertSource();
-        const retained = physical.bound.readRetainedDocumentBinding();
-        assertSource();
-        if (!retained || !retainedArticleDocumentHandleBelongsTo(retained.handle, registry))
-        {
-            throw new Error('article-native-staging-original-document-required');
-        }
-        const observation = retained.inspect();
-        assertSource();
-        if (observation.admissionClosed || observation.invalidationFailed || !observation.registryRevisionMatchesDocument)
-        {
-            throw new Error('article-native-staging-original-document-revoked');
-        }
-        const generation = nativeEditorGeneration + 1n;
-        const state: { cancelled: boolean; targetWriter: MountedWriterBinding | null; } = { cancelled: false, targetWriter: null };
-        const control = createArticleNativeRecreationStaging(useAdminStore(), retained.handle, observation.principalIdentityId,
-                                                             sourceSnapshotRef, () => nativeRecreationStage?.control === control && !state.cancelled && !primaryMountDisposed
-                                                                 && !mountedAuthorityRetired && nativeEditorGeneration === generation && mountedWriterBinding === state.targetWriter);
-        const onAbort = (): void =>
-        {
-            state.cancelled = true;
-            if (nativeRecreationStage?.control === control)
-            {
-                nativeRecreationStage.cancelled = true;
-            }
-            control.invalidate();
-        };
-        const own: NativeRecreationRecord = { control, generation, signal, onAbort, cancelled: false, targetWriter: null };
-        stage = own;
-        nativeRecreationStage = own;
-        signal.addEventListener('abort', onAbort, { once: true });
-        control.acquire();
-        assertSource();
-        // Actual ordinary custody cancellation precedes source disposal/physical replacement.
-        revokeMountedAuthorityBeforeChange();
-        signal.throwIfAborted();
-        nativeRecreationPending.value = true;
-        nativeEditorGeneration = generation;
-        nativeEditorKey.value = `native-primary:${generation}`;
-        const assertTarget = (): void =>
-        {
-            signal.throwIfAborted();
-            if (nativeRecreationStage !== own || own.cancelled || nativeEditorGeneration !== generation
-                || primaryMountDisposed || mountedAuthorityRetired || authoringDocumentContext.value !== context
-                || articleWorkspaceTabRouter.getRegistry() !== registry || registry.getRevision() !== revision
-                || calculateOpenArticleDocumentDigest(registry.getEntry(entry.tabId)) !== digest
-                || calculateOpenArticleDocumentDigest(entry) !== digest)
-            {
-                throw new Error('article-native-staging-target-association-revoked');
-            }
-        };
-        await nextTick();
-        assertTarget();
-        await nextTick();
-        assertTarget();
-        const root = workspaceWriteElement.value;
-        const element = workspaceNativeMountElement.value;
-        const component = articleEditorRef.value;
-        const bound = mountedWriterBinding;
-        if (!root || !element || !component || !bound || component === physical.component
-            || !root.isConnected || !element.isConnected || root.ownerDocument !== element.ownerDocument || !root.contains(element))
-        {
-            throw new Error('article-native-staging-actual-new-component-required');
-        }
-        own.targetWriter = bound;
-        state.targetWriter = bound;
-        control.attachWriter(bound.subscribeMountedAuthorityRetirement.bind(bound));
-        assertTarget();
-        const targetEditor = component.getAuthoringSessionPort?.();
-        assertTarget();
-        if (!targetEditor || targetEditor === sourceEditor || targetEditor !== boundEditorPort)
-        {
-            throw new Error('article-native-staging-actual-new-editor-required');
-        }
-        const targetSession = targetEditor.getSession(entry.editorSessionRef);
-        assertTarget();
-        if (targetSession === sourceSession)
-        {
-            throw new Error('article-native-staging-actual-new-session-required');
-        }
-        const lifetime = targetSession.getNativeTargetLifetimeHandle();
-        assertTarget();
-        const birth = lifetime?.captureBirth();
-        assertTarget();
-        if (!lifetime || !birth)
-        {
-            throw new Error('article-native-staging-original-pristine-birth-required');
-        }
-        control.attachTarget(targetEditor, targetSession, lifetime, birth);
-        assertTarget();
-        if (articleEditorRef.value !== component || mountedWriterBinding !== bound || workspaceWriteElement.value !== root
-            || workspaceNativeMountElement.value !== element || !root.isConnected || !element.isConnected || !root.contains(element)
-            || component.getAuthoringSessionPort?.() !== targetEditor || targetEditor.getSession(entry.editorSessionRef) !== targetSession)
-        {
-            throw new Error('article-native-staging-target-owner-replaced');
-        }
-        assertTarget();
-        const borrowed = control.publish();
-        const result = Object.freeze<ArticleNativeRecreationStagingLease>({ ...borrowed,
-                                                                            cancel: () =>
-                                                                            {
-                                                                                if (nativeRecreationStage === own)
-                                                                                {
-                                                                                    closeNativeRecreationStage();
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    own.control.cancel();
-                                                                                    signal.removeEventListener('abort', onAbort);
-                                                                                }
-                                                                                return true;
-                                                                            },
-                                                                            retryCleanup: () =>
-                                                                            {
-                                                                                if (nativeRecreationStage === own)
-                                                                                {
-                                                                                    closeNativeRecreationStage();
-                                                                                }
-                                                                                else
-                                                                                {
-                                                                                    own.control.retryCleanup();
-                                                                                    signal.removeEventListener('abort', onAbort);
-                                                                                }
-                                                                            } });
-        assertTarget();
-        if (!result.hasCustody())
-        {
-            throw new Error('article-native-staging-final-custody-revoked');
-        }
-        return result;
-    }
-    catch (cause: unknown)
-    {
-        let cleanupFailure: { cause: unknown; } | null = null;
-        if (stage && nativeRecreationStage === stage)
-        {
-            try
-            {
-                closeNativeRecreationStage();
-            }
-            catch (cleanupCause: unknown)
-            {
-                cleanupFailure = { cause: cleanupCause };
-            }
-        }
-        if (cleanupFailure)
-        {
-            throw new AggregateError([cause, cleanupFailure.cause], 'article-native-staging-and-cleanup-failed', { cause });
-        }
-        throw cause;
-    }
-    finally
-    {
-        nativeRecreationCreating = false;
-    }
-}
-
-const primaryMountPort = Object.freeze<AuthoringWorkspacePrimaryMountPort>({ prepareMountedEditor: (entry, signal) => preparePrimaryMountedEditor(entry, signal),
-                                                                             reserveNativeRecreationTarget, retryNativeRecreationCleanup: closeNativeRecreationStage, sealMountedAuthority,
-                                                                             hasMountedAuthorityCustody, cancelMountedAuthority, revokeBeforeChange: revokeMountedAuthorityBeforeChange,
-                                                                             revokeBeforeExternalRead: revokeMountedAuthorityBeforeRead, retireMountedAuthority }) satisfies AuthoringWorkspacePrimaryMountPort;
-onBeforeUnmount(() =>
-{
-    primaryMountDisposed = true;
-    primaryMountGeneration += 1n;
-    revokeMountedAuthorityBeforeChange();
-    mountedSubtreeObserver?.disconnect();
-    cancelPrimaryMount?.();
-});
-
-watch([workspaceMountedSource, workspaceTabId, workspaceDocumentContext], bindWorkspaceRecoveryCheckpoint, { flush: 'post' });
-
-watch(articleEditorRef, () =>
-{
-    revokeMountedAuthorityBeforeChange();
-    const generation = ++editorBindingGeneration;
-    releaseRecoveryCheckpoint();
-    mountedWriterBinding = null;
-    releaseEditorRuntime?.();
-    releaseEditorRuntime = null;
-    editorRuntimeBinding.value = null;
-    workspaceMountedSource.value = null;
-    boundEditorPort = null;
-    void nextTick().then(() =>
-    {
-        if (generation !== editorBindingGeneration)
-        {
-            return;
-        }
-        const port = articleEditorRef.value?.getAuthoringEditorPort();
-        if (!port)
-        {
-            return;
-        }
-        // Consumer retention bounds; automatic-render eligibility remains owned by the refresh policy.
-        const bound = authoringEditorRuntime.bindEditor(port, {
-            surface: 'source',
-            configuration: { allowLatex: true, allowMermaid: true, baseUrl: null },
-            identity: { themeDigest: calculateOpenArticleDocumentDigest({ theme: authoringTheme.resolvedTheme.value }),
-                        locale: activeLocale.value },
-            cachePolicy: { maxEntryBytes: 4 * 1024 * 1024, maxAgeMs: 60_000, maxReceipts: 64 }
-        }, () => generation === editorBindingGeneration && boundEditorPort === port
-            ? articleEditorRef.value?.getAuthoringSessionPort?.() ?? null : null);
-        boundEditorPort = port;
-        editorRuntimeBinding.value = bound.binding;
-        mountedWriterBinding = bound;
-        workspaceMountedSource.value = bound.mountedSource;
-        releaseEditorRuntime = bound.release;
-        // Observe actual editor events; initialization dispatch would steal initial title focus.
-    });
-}, { flush: 'post' });
-onUnmounted(() =>
-{
-    editorBindingGeneration += 1;
-    releaseRecoveryCheckpoint();
-    mountedWriterBinding = null;
-    releaseEditorRuntime?.();
-    editorRuntimeBinding.value = null;
-    workspaceMountedSource.value = null;
-    boundEditorPort = null;
-});
-
-function consumeAcceptedAttachmentCapture(batch: MarkdownAttachmentBatchIntent,
-                                          capture: MarkdownAttachmentCaptureObservation | undefined, anchorOptions: ArticleAnchorCaptureOptions): void
-{
-    const admitted = authoringAttachmentRuntime.admitAcceptedCapture({ batch, capture, anchorOptions });
-    if (admitted.status !== 'admitted')
-    {
-        showErrorToast(admitted.reason, admitted.reason);
-        return;
-    }
-    // The real rich request dispatch owns upload. This legacy capture callback only admits.
-}
-
-function consumeAuthoringTransaction(event: MarkdownEditorDispatchResult): void
-{
-    editorRuntimeBinding.value?.consumeTransaction(event);
-}
-
-function consumeAuthoringSelection(event: {
-    documentIdentity?: { id: string; epoch: number; };
-    revision: number;
-    selection: MarkdownEditorResolvedSelection;
-}): void
-{
-    if (event.documentIdentity)
-    {
-        editorRuntimeBinding.value?.consumeSelection({ ...event, documentIdentity: event.documentIdentity });
-    }
-}
-
-function consumeAuthoringFocus(event: 'focusin' | 'focusout'): void
-{
-    editorRuntimeBinding.value?.consumeFocus(event);
-}
-
-
+const articleEditorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean; } | null>(null);
 const submitConfirmDialog = ref(false);
 const leaveConfirmDialog = ref(false);
 const {
@@ -2187,14 +1192,8 @@ const requestSubmit = async (): Promise<void> =>
     }
 
     await nextTick();
-    const invalidProperty = firstInvalidFormProperty.value;
-    if (invalidProperty !== null)
-    {
-        formRef.value?.scrollToField(invalidProperty);
-    }
-    const invalidFieldRoot = invalidProperty === null ? null
-        : document.querySelector<HTMLElement>(`[data-article-form-property="${CSS.escape(invalidProperty)}"]`);
-    focusFirstArticleValidationError(invalidFieldRoot);
+    const firstErrorField = formRef.value?.fields.find((field) => field.validateState === 'error');
+    focusFirstArticleValidationError(firstErrorField?.$el);
 };
 
 const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void =>

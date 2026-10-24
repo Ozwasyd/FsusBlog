@@ -1,7 +1,6 @@
 using System.Data;
 using System.Data.Common;
 
-using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Shared.Contracts.BlockLinks;

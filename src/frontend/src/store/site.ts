@@ -62,6 +62,7 @@ export const useSiteStore = defineStore('site', () =>
         keywords: DEFAULT_SITE_KEYWORDS,
         author: 'Fsu',
         ogImage: DEFAULT_SITE_OG_IMAGE,
+        ogImage: DEFAULT_SITE_OG_IMAGE,
         baseUrl: payload?.baseUrl || resolveBaseUrl(),
         ...DEFAULT_SITE_BRAND_CONFIG,
         siteLogoUrl: payload?.siteLogoUrl || DEFAULT_SITE_BRAND_CONFIG.siteLogoUrl,

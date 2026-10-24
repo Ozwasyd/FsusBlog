@@ -1,4 +1,0 @@
-std::set<std::string> tabs,drafts,documents,groups,owned;std::set<std::int32_t> articles;
-    for(const auto& tab:value.tabs){if(!tabs.insert(tab.tabId).second||!drafts.insert(tab.identity.draftId).second||!documents.insert(tab.identity.documentId).second||tab.isPreview==tab.isPinned||(tab.identity.articleId&&!articles.insert(*tab.identity.articleId).second))return false;}
-    for(const auto& group:value.groups){if(!groups.insert(group.groupId).second||(group.tabIds.empty()?group.activeTabId.has_value():!group.activeTabId||std::find(group.tabIds.begin(),group.tabIds.end(),*group.activeTabId)==group.tabIds.end()))return false;int previews=0;for(const auto& tabId:group.tabIds){if(!tabs.contains(tabId)||!owned.insert(tabId).second)return false;for(const auto& tab:value.tabs)if(tab.tabId==tabId&&tab.isPreview)previews++;}if(previews>1)return false;}
-    return owned.size()==tabs.size()&&groups.contains(value.activeGroupId);

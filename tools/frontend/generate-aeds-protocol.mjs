@@ -6,9 +6,7 @@ function validateManifest(manifest)
 {
     const frameTypes = manifest.frameTypes;
     const retiredFrameValues = manifest.retiredFrameValues ?? [];
-    const reservedFrameValues = manifest.reservedFrameValues ?? [];
-    if (!Array.isArray(frameTypes) || frameTypes.length === 0 || !Array.isArray(retiredFrameValues)
-        || !Array.isArray(reservedFrameValues))
+    if (!Array.isArray(frameTypes) || frameTypes.length === 0 || !Array.isArray(retiredFrameValues))
     {
         throw new Error('AEDS frame and retired collections must be complete arrays');
     }
@@ -33,8 +31,6 @@ function validateManifest(manifest)
     const names = new Set();
     const values = new Set();
     const retiredValues = new Set();
-    const reservedValues = new Set();
-    const reservedNames = new Set();
     for (const retired of retiredFrameValues)
     {
         if (!Number.isInteger(retired.value) || retired.value < 0 || retired.value > 0xffff)
@@ -50,31 +46,6 @@ function validateManifest(manifest)
             throw new Error(`Duplicate retired frame value: ${retired.value}`);
         }
         retiredValues.add(retired.value);
-    }
-
-    for (const reservation of reservedFrameValues)
-    {
-        if (reservation == null || typeof reservation !== 'object' || Array.isArray(reservation)
-            || Object.keys(reservation).sort().join(',') !== 'name,ownerIssue,reason,value'
-            || !Number.isInteger(reservation.value) || reservation.value < 0 || reservation.value > 0xffff
-            || typeof reservation.name !== 'string' || reservation.name.trim() !== reservation.name
-            || !/^[A-Z][A-Za-z0-9]*$/u.test(reservation.name)
-            || !Number.isInteger(reservation.ownerIssue) || reservation.ownerIssue <= 0
-            || typeof reservation.reason !== 'string' || reservation.reason.trim() !== reservation.reason
-            || reservation.reason.length === 0)
-        {
-            throw new Error('AEDS reservation must have a closed valid identity and owner shape');
-        }
-        if (reservedValues.has(reservation.value) || reservedNames.has(reservation.name))
-        {
-            throw new Error('Duplicate reserved frame identity');
-        }
-        if (retiredValues.has(reservation.value))
-        {
-            throw new Error(`Reserved frame ${reservation.name} reuses retired value ${reservation.value}`);
-        }
-        reservedValues.add(reservation.value);
-        reservedNames.add(reservation.name);
     }
 
     for (const frame of frameTypes)
@@ -98,10 +69,6 @@ function validateManifest(manifest)
         if (retiredValues.has(frame.value))
         {
             throw new Error(`Frame type ${frame.name} reuses retired value ${frame.value}`);
-        }
-        if (reservedValues.has(frame.value) || reservedNames.has(frame.name))
-        {
-            throw new Error(`Frame type ${frame.name} collides with an unadmitted reservation`);
         }
         names.add(frame.name);
         values.add(frame.value);

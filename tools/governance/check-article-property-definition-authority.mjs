@@ -31,8 +31,6 @@ const runtimeTableFile =
     "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs";
 const auditWriterFile =
     "src/backend/Services/Authoring/AuthoringSignedAuditWriter.cs";
-const impactFile =
-    "src/backend/Services/Authoring/PostgresArticlePropertyDefinitionValueImpactAuthority.cs";
 
 const ownedFiles = [
     storeFile,
@@ -43,8 +41,7 @@ const ownedFiles = [
     catalogFile,
     registrationFile,
     runtimeTableFile,
-    auditWriterFile,
-    impactFile
+    auditWriterFile
 ];
 
 function walk(directory)
@@ -293,28 +290,13 @@ function checkArticlePropertyDefinitionAuthority(repositoryRoot = root)
         "AddScoped<IArticlePropertyDefinitionPersistence, PostgresArticlePropertyDefinitionPersistence>",
         "AddScoped<IArticlePropertyDefinitionStore, ArticlePropertyDefinitionStore>",
         "AddScoped<IArticlePropertyDefinitionPermissionAuthority, ArticlePropertyDefinitionPermissionAuthority>",
-        "AddScoped<IArticlePropertyDefinitionImpactAuthority, PostgresArticlePropertyDefinitionValueImpactAuthority>"
+        "AddScoped<IArticlePropertyDefinitionImpactAuthority, UnavailableArticlePropertyDefinitionImpactAuthority>"
     ])
     {
         const occurrences = registrationSource.split(registration).length - 1;
         if (occurrences !== 1)
         {
             violations.push(`${registrationFile}: ${registration} must have exactly one runtime registration`);
-        }
-    }
-
-    if ((registrationSource.match(/AddScoped<IArticlePropertyDefinitionImpactAuthority,/gu) ?? []).length !== 1)
-    {
-        violations.push(`${registrationFile}: value impact must have exactly one canonical receiver`);
-    }
-    const impactSource = source(repositoryRoot, impactFile);
-    for (const required of ["db.Ado.Transaction", "COUNT(*)", "article_property_value_head",
-        "article_property_value_snapshot", "article_property_value_entry", "owner_user_key = @Owner",
-        "site_scope = @Site", "e.definition_id = @Definition", "article-property-definition-reconciliation"])
-    {
-        if (!impactSource.includes(required))
-        {
-            violations.push(`${impactFile}: current-value impact lost ${required}`);
         }
     }
 

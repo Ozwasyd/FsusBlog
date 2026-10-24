@@ -118,7 +118,8 @@ for (const locale of catalog.locales)
         if (aliases.has(alias))
         {
             fail(`duplicate alias ${alias}`);
-        } aliases.add(alias);
+        }
+        aliases.add(alias);
     }
 }
 if (!codes.has(catalog.defaultCode))
@@ -172,7 +173,30 @@ const indentJson = (value, level = 0) =>
     }
     return q(value);
 };
-const ts = `// ${notice}\n\nexport const LOCALE_CATALOG_DIGEST = '${digest}' as const\nexport const DEFAULT_LOCALE = ${q(catalog.defaultCode)} as const\nexport const LOCALE_CATALOG = ${JSON.stringify(catalog.locales, null, 2)} as const\nexport const ENABLED_LOCALES = LOCALE_CATALOG.filter((locale) => locale.status === 'enabled')\nexport type SupportedLocale = typeof ENABLED_LOCALES[number]['code']\nexport type LocaleDescriptor = typeof ENABLED_LOCALES[number]\nconst descriptorByCode: ReadonlyMap<string, LocaleDescriptor> = new Map(ENABLED_LOCALES.map((locale) => [locale.code, locale]))\nconst codeByAlias: ReadonlyMap<string, SupportedLocale> = new Map(ENABLED_LOCALES.flatMap((locale) => [locale.code, ...locale.aliases].map((alias) => [alias.toLowerCase(), locale.code] as const)))\nexport function parseSupportedLocale(value: unknown): SupportedLocale | undefined { return typeof value === 'string' ? codeByAlias.get(value.toLowerCase()) : undefined }\nexport function isSupportedLocale(value: unknown): value is SupportedLocale { return typeof value === 'string' && descriptorByCode.has(value) }\nexport function getLocaleDescriptor(value: SupportedLocale): LocaleDescriptor { return descriptorByCode.get(value)! }\n`;
+const ts = `// ${notice}
+
+export const LOCALE_CATALOG_DIGEST = '${digest}' as const;
+export const DEFAULT_LOCALE = ${q(catalog.defaultCode)} as const;
+export const LOCALE_CATALOG = ${JSON.stringify(catalog.locales, null, 4)} as const;
+export const ENABLED_LOCALES = LOCALE_CATALOG.filter((locale) => locale.status === 'enabled');
+export type SupportedLocale = typeof ENABLED_LOCALES[number]['code'];
+export type LocaleDescriptor = typeof ENABLED_LOCALES[number];
+const descriptorByCode: ReadonlyMap<string, LocaleDescriptor> = new Map(ENABLED_LOCALES.map((locale) => [locale.code, locale]));
+const codeByAlias: ReadonlyMap<string, SupportedLocale> = new Map(ENABLED_LOCALES.flatMap((locale) => [locale.code, ...locale.aliases].map((alias) => [alias.toLowerCase(), locale.code] as const)));
+export function parseSupportedLocale(value: unknown): SupportedLocale | undefined
+{
+    return typeof value === 'string' ? codeByAlias.get(value.toLowerCase()) : undefined;
+}
+export function isSupportedLocale(value: unknown): value is SupportedLocale
+{
+    return typeof value === 'string' && descriptorByCode.has(value);
+}
+export function getLocaleDescriptor(value: SupportedLocale): LocaleDescriptor
+{
+    return descriptorByCode.get(value)!;
+}
+`;
+
 const localeFontTs = `// ${notice}
 // Font projection digest ${localeFontCatalogDigest}; generated with the locale catalog.
 
@@ -220,10 +244,14 @@ for (const [relative, expected] of outputs)
         current = await readFile(target, 'utf8');
     }
     catch
-    {} if (current === expected)
+    {
+        // Unreadable or absent generated output is treated as drift.
+    }
+    if (current === expected)
     {
         continue;
-    } if (checkOnly)
+    }
+    if (checkOnly)
     {
         console.error(`[locale-catalog] ${relative} is stale`);
         drift = true;

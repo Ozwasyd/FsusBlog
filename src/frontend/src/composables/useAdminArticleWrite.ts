@@ -1,4 +1,5 @@
-import { computed, effectScope, onActivated, onBeforeUnmount, onDeactivated, onMounted, onScopeDispose, onUnmounted, reactive, ref, shallowRef, toRaw, useTemplateRef, watch, type EffectScope } from 'vue';
+import { type FormInstance } from '@ozwasyd/element-plus';
+import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import {
@@ -47,7 +48,6 @@ import { useImageUploadPreferences } from '@/composables/useImageUploadPreferenc
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
 import { usePow } from '@/composables/usePow';
 import { BinaryTransportError } from '@/composition/binaryTransport';
-import { createMarkdownAnchorMap, type MarkdownEditorDispatchResult } from '@/fsusui/articlePositionMaps';
 import { toast } from '@/fsusui/feedback';
 import { isFsusUiOk } from '@/fsusui/result';
 import {
@@ -64,54 +64,17 @@ import {
     type ArticleRecoveryDivergence,
     type ArticleRecoveryFlushResult,
     type ArticleRecoveryJournalRecord,
-    type ArticleRecoveryJournalCheckpointPublicationBinding,
-    type ArticleRecoveryJournalCheckpointSource,
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal';
-import { ArticlePreviewSourceAdmission, type ArticlePreviewSourceInput } from '@/services/authoring';
-import { ArticleAnchorContextAdapter, type ArticleAnchorCaptureOptions } from '@/services/authoring/articleAnchorContext';
-import { createArticleAttachmentBusinessIntentReader } from '@/services/authoring/articleAttachmentBusinessIntentReader';
-import { requestArticleAttachmentCommittedFacts } from '@/services/authoring/articleAttachmentCommittedRequest';
-import { ArticleAttachmentContextAdapter, type ArticleAttachmentPendingHandle, type ArticleAttachmentTransactionPort, type ArticleAttachmentFilePort, type ArticleAttachmentTerminalPort } from '@/services/authoring/articleAttachmentContext';
-import { createArticleAttachmentUploadProvider, type AttachmentUploadObservation } from '@/services/authoring/articleAttachmentUploadProvider';
-import { createArticleAttachmentUploadQueue, type ArticleAttachmentQueuedUploadRequest } from '@/services/authoring/articleAttachmentUploadQueue';
-import { requestArticleAttachmentUpload } from '@/services/authoring/articleAttachmentUploadRequest';
 import {
     articleDocumentContextAuthority,
-    type ArticleDocumentContext,
-    type ArticleDocumentContextAdapter,
-    type ArticleDocumentRetainedBinding,
-    type ArticleDocumentRetainedInspection,
-    type ArticleDocumentLifetimeSeal,
-    type ArticleDocumentTaskLease,
-    type ArticleDocumentTaskRegistry
+    type ArticleDocumentContextAdapter
 } from '@/services/authoring/articleDocumentContext';
-import type { ArticleEditorContinuityPort, ArticleEditorMountedSessionPort } from '@/services/authoring/articleEditorContinuity';
-import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
-import { ArticleEditorSearchRuntime } from '@/services/authoring/articleEditorSearchRuntime';
-import { validateArticleEditorSurfacePreference, type ArticleEditorSurfacePreference } from '@/services/authoring/articleEditorSurface';
-import { ArticleEditorSurfaceRuntime } from '@/services/authoring/articleEditorSurfaceRuntime';
-import { ArticleLiveCapabilitySession } from '@/services/authoring/articleLiveCapability';
-import type { ArticlePreviewAttachmentPort } from '@/services/authoring/articlePreviewAttachments';
-import { createArticlePreviewCurrentAuthorities } from '@/services/authoring/articlePreviewCurrentAuthorities';
-import { articleWorkspaceTabRouter } from '@/services/authoring/articleWorkspaceTabRouter';
-import { createArticleWriterMountedEditorSource } from '@/services/authoring/articleWriterMountedEditorSource';
-import { calculateOpenArticleDocumentDigest, type RetainedArticleDocumentHandle } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
-import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
-import { useAdminStore, type AdminPrincipalSeal } from '@/store/admin';
+import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import { isAbortError } from '@/utils/errors';
-
-import type { FormItemProp, FormValidateCallback, FormValidationResult, MarkdownAttachmentRequestDispatch, MarkdownEditorSession, MarkdownEditorSessionExpose, MarkdownEditorSessionSnapshot } from '@ozwasyd/element-plus';
-
-const mountedWriterAuthorityBrand: unique symbol = Symbol('article-writer-mounted-authority');
-
-/** Accepted only by the issuing original mounted runtime, never copied metadata. */
-export interface MountedWriterSeal {
-    readonly [mountedWriterAuthorityBrand]: true;
-}
 
 interface ArticleParams {
     title: string;
@@ -135,13 +98,6 @@ interface ArticleDraftSnapshot extends ArticleParams {
     serverRevision: number | null;
     documentContextDigest: string;
 }
-
-/** Borrow original live business and attribution owners; this host produces no asset grants or responsibility data. */
-type ArticleWriterPreviewOwners = Readonly<{
-    binding: ArticleEditorRuntimeBinding;
-    business: ArticlePreviewAttachmentPort;
-    readAttribution: () => Pick<ArticlePreviewSourceInput, 'responsibility' | 'siteAuthor'>;
-}>;
 
 export interface ArticleRevisionConflictMetadata {
     currentRevisionId: string;
@@ -509,76 +465,13 @@ const slugifyTitle = (title: string): string =>
 
 export function useAdminArticleWrite()
 {
-    // This is the original Writer's effect scope, not another document/form owner.
-    const writerScope = effectScope(true);
-    try
-    {
-        const writer = writerScope.run(() => createAdminArticleWriteOwner(writerScope));
-        if (!writer)
-        {
-            throw new Error('article-writer-effect-scope-unavailable');
-        }
-        return writer;
-    }
-    catch (error)
-    {
-        writerScope.stop();
-        throw error;
-    }
-}
-
-function createAdminArticleWriteOwner(writerScope: EffectScope)
-{
-    // Expand ONLY this original Writer's own groups. Arbitrary thrown objects or
-    // external AggregateError.errors getters are never inspected or flattened.
-    const writerFailureGroups = new WeakMap<object, readonly unknown[]>();
-    const combineWriterFailures = (failures: readonly unknown[], message: string): unknown =>
-    {
-        const errors: unknown[] = [];
-        const seen = new Set<unknown>();
-        for (const failure of failures)
-        {
-            const own = ((typeof failure === 'object' && failure !== null) || typeof failure === 'function')
-                ? writerFailureGroups.get(failure) : undefined;
-            for (const error of own ?? [failure])
-            {
-                if (!seen.has(error))
-                {
-                    seen.add(error);
-                    errors.push(error);
-                }
-            }
-        }
-        if (errors.length === 1)
-        {
-            return errors[0];
-        }
-        const combined = new AggregateError(errors, message, { cause: errors[0] });
-        writerFailureGroups.set(combined, Object.freeze(errors));
-        return combined;
-    };
     const route = useRoute();
     const router = useRouter();
     const powProvider = usePow();
     const adminStore = useAdminStore();
-    // Actual original function-valued getters: capture once, outside final checks.
-    const sealAdminAuthority = adminStore.sealAdminPrincipalAuthority;
-    const hasAdminAuthority = adminStore.hasAdminPrincipalAuthorityCustody;
-    const cancelAdminAuthority = adminStore.cancelAdminPrincipalAuthority;
-    const formRef = useTemplateRef<{
-        validate: (callback?: FormValidateCallback) => FormValidationResult;
-        scrollToField: (prop: FormItemProp) => void;
-    }>('formRef');
-    const retainedPrimaryBinding = shallowRef<ArticleDocumentRetainedBinding | null>(null);
-    let retainingPrimary = false;
-    let retainedPrimaryReady = false;
-    let componentAttached = true;
+    const formRef = useTemplateRef<FormInstance>('formRef');
     const articleId = computed(() =>
     {
-        if (retainedPrimaryBinding.value)
-        {
-            return retainedPrimaryBinding.value.adapter.context.articleId;
-        }
         const raw = route.params.id ?? route.query.id;
         const parsed = Number(raw);
         return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
@@ -617,7 +510,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     const privatePreview = ref<ArticlePreviewResponse | null>(null);
     const privatePreviewLoading = ref(false);
     const privatePreviewStatusText = ref('预览仅在作者工作台内生成');
-    const previewOwners = shallowRef<ArticleWriterPreviewOwners | null>(null);
     const seoIssues = ref<PrepublishIssue[]>([]);
     const seoChecking = ref(false);
     const seoStatusText = ref('发布前检查随表单实时更新');
@@ -818,8 +710,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         [draftStatusText.value.trim(), articleRecoveryStorageWarning.value.trim()].filter(Boolean).join('；'));
     const requiresLeaveConfirm = computed(() => hasDraftContent(articleForm) || hasLocalDraft.value);
     const selectedRevisionLabel = computed(() => selectedRevision.value ? `版本 ${selectedRevision.value.revisionNo}` : '未选择历史版本');
-    const canGeneratePrivatePreview = computed(() => previewOwners.value !== null
-        && (articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0));
+    const canGeneratePrivatePreview = computed(() => articleForm.title.trim().length > 0 || articleForm.content.trim().length > 0);
     const seoPreview = computed<ArticleSeoPreviewState>(() =>
     {
         const baseUrl = normalizeSeoBaseUrl(firstNonEmptyText(
@@ -898,121 +789,13 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
     const taskFeedback = useAdminTaskFeedback();
     const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal });
 
-    let draftSaveTimer: number | null = null;
-    let serverDraftRetryTimer: number | null = null;
+    let draftSaveTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let serverDraftRetryTimer: ReturnType<typeof window.setTimeout> | null = null;
     let suppressDraftSave = true;
     let serverDraftSaveToken = 0;
     let draftSaveInFlightIdentity: string | null = null;
     let acceptedPrepublishIdentity: string | null = null;
     let active = true;
-    // Bounded local custody of actual Writer work, never a second document/session index.
-    const writerResourceLimit = 32;
-    let writerResourcePhase: 'active' | 'pausing' | 'paused' | 'resuming' = 'active';
-    let writerScopePaused = false;
-    let writerResourceControlRunning = false;
-    let writerResourceControlFailure: { readonly failure: unknown; } | null = null;
-    let writerResourceJobFailure: { readonly failure: unknown; } | null = null;
-    const writerTaskLeases = new Set<ArticleDocumentTaskLease>();
-    let writerLeaseIssuanceReservations = 0;
-    const writerUndispatchedLeases = new Set<ArticleDocumentTaskLease>();
-    const writerPendingWork = new Set<{ readonly kind: string; promise: Promise<unknown> | null; }>();
-    const writerResourceReentrancyFailure = new Error('article-writer-resource-control-reentrant');
-    const canStartWriterResourceWork = (): boolean => active && writerScope.active && !writerResourceControlFailure
-        && (writerResourcePhase === 'active' || writerResourcePhase === 'resuming');
-    const pruneSettledWriterLeases = (): void =>
-    {
-        // Only the original producer's actual settle acknowledgement removes this ref.
-        const pending = new Set(articleDocumentContextAdapter.pendingTaskRefs);
-        for (const lease of writerTaskLeases)
-        {
-            if (!pending.has(lease.taskRef))
-            {
-                writerTaskLeases.delete(lease);
-                writerUndispatchedLeases.delete(lease);
-            }
-        }
-    };
-    const writerTaskRegistry: ArticleDocumentTaskRegistry = Object.freeze({
-        beginTask: (...args: Parameters<ArticleDocumentTaskRegistry['beginTask']>) =>
-        {
-            if (!canStartWriterResourceWork())
-            {
-                throw new Error('article-writer-resource-admission-paused');
-            }
-            pruneSettledWriterLeases();
-            if (writerTaskLeases.size + writerLeaseIssuanceReservations >= writerResourceLimit)
-            {
-                throw new Error('article-writer-resource-lease-capacity');
-            }
-            // Reserve before non-pure admission; a different producer can synchronously reenter.
-            writerLeaseIssuanceReservations += 1;
-            let issuanceReserved = true;
-            try
-            {
-                const lease = articleDocumentContextAdapter.beginTask(...args);
-                writerTaskLeases.add(lease);
-                // Transfer the reserved slot to the exact issued lease without an external callback.
-                writerLeaseIssuanceReservations -= 1;
-                issuanceReserved = false;
-                // Original supersession callbacks may have synchronously paused the owner.
-                // Return the same issued lease; its executor/finally owns real settlement.
-                if (!canStartWriterResourceWork())
-                {
-                    try
-                    {
-                        lease.cancel('article-writer-resource-paused');
-                    }
-                    catch (error)
-                    {
-                        // Refused before the real executor receives this issued lease.
-                        writerUndispatchedLeases.add(lease);
-                        writerResourceControlFailure ??= { failure: error };
-                        throw error;
-                    }
-                }
-                return lease;
-            }
-            finally
-            {
-                if (issuanceReserved)
-                {
-                    writerLeaseIssuanceReservations -= 1;
-                }
-            }
-        }
-    });
-    const observeWriterResourceWork = <T>(kind: string, execute: () => Promise<T>, continuation = false): Promise<T> =>
-    {
-        if ((!continuation && !canStartWriterResourceWork()) || writerPendingWork.size >= writerResourceLimit)
-        {
-            throw new Error('article-writer-resource-work-admission-unavailable');
-        }
-        const work: { readonly kind: string; promise: Promise<unknown> | null; } = { kind, promise: null };
-        writerPendingWork.add(work);
-        try
-        {
-            // Reserve before invoking the real job. Only its returned Promise settles this observation.
-            const promise = execute().then(value =>
-            {
-                writerPendingWork.delete(work);
-                return value;
-            }, error =>
-            {
-                writerResourceJobFailure = { failure: error };
-                writerPendingWork.delete(work);
-                throw error;
-            });
-            work.promise = promise;
-            return promise;
-        }
-        catch (error)
-        {
-            writerResourceJobFailure = { failure: error };
-            writerPendingWork.delete(work);
-            throw error;
-        }
-    };
-
     let activeRecoveryClientRevision: string | null = null;
     let authoritativeArticleSourceHash: string | null = null;
     let authoritativeServerDraftSourceHash: string | null = null;
@@ -1025,12 +808,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             ? null
             : (window as Window & { BroadcastChannel?: typeof BroadcastChannel; }).BroadcastChannel ?? null
     });
-    // Also reclaim the actual channel if original owner acquisition refuses during setup.
-    onScopeDispose(() => recoveryCoordinator.dispose());
-    // Canonical author endpoints resolve the primary site; a browser host is not its authority.
-    const documentSiteScope = 'primary-site';
-    const documentPrincipalIdentityId = adminStore.adminPrincipal?.id?.trim() ?? null;
-    const documentUserScope = `user:${documentPrincipalIdentityId ?? 'unknown'}`
+    const documentSiteHost = typeof window === 'undefined' ? '' : window.location.host.trim();
+    const documentSiteScope = `site:${documentSiteHost.length > 0 ? documentSiteHost : 'unknown'}`
+        .replace(/[^a-zA-Z0-9._:-]/gu, '-');
+    const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() ?? 'unknown'}`
         .replace(/[^a-zA-Z0-9._:-]/gu, '-');
     const articleDocumentContextBinding = articleDocumentContextAuthority.acquire({
         articleId: articleId.value,
@@ -1049,1083 +830,48 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         id: authoringDocumentContext.value.documentId,
         epoch: authoringDocumentContext.value.documentEpoch
     }));
-    // Every authoring consumer shares the existing canonical document binding.
-    const authoringAnchors = new ArticleAnchorContextAdapter(articleDocumentContextAdapter);
-    let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort & ArticleAttachmentTerminalPort> | null = null;
-    const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
-        'article-assets', 'article-assets:v1', authoringAnchors,
-        () => active ? attachmentEditor?.getAttachmentTerminalRevisionIssuer?.() ?? null : null,
-        () => active ? attachmentEditor?.getAttachmentTerminalApplicationEndIssuer?.() ?? null : null,
-        () => active ? attachmentEditor?.getAttachmentTerminalCohortIssuer?.() ?? null : null);
-    let nativeSourceWatch: { readonly transaction: MarkdownEditorDispatchResult; readonly context: ArticleDocumentContext; } | null = null;
-    const attachmentPort: ArticleAttachmentTransactionPort & ArticleAttachmentFilePort & ArticleAttachmentTerminalPort = {
-        getAttachmentTerminalCohortIssuer: () => active ? attachmentEditor?.getAttachmentTerminalCohortIssuer?.() ?? null : null,
-        getAttachmentTerminalRevisionIssuer: () => active ? attachmentEditor?.getAttachmentTerminalRevisionIssuer?.() ?? null : null,
-        getAttachmentTerminalApplicationEndIssuer: () => active ? attachmentEditor?.getAttachmentTerminalApplicationEndIssuer?.() ?? null : null,
-        withAttachmentTerminalTransaction: (observation, consume) => active && !!attachmentEditor
-            && attachmentEditor.withAttachmentTerminalTransaction?.(observation, consume) === true,
-        withAttachmentFile: (batch, item, consume) => active && !!attachmentEditor
-            && attachmentEditor.withAttachmentFile?.(batch, item, consume) === true,
-        dispatch: transaction =>
-        {
-            if (!active || !attachmentEditor)
-            {
-                throw new Error('article-attachment-editor-unbound');
-            }
-            return attachmentEditor.dispatch(transaction);
-        },
-        commitSource: result =>
-        {
-            const current = articleDocumentContextAdapter.context;
-            if (!active || !result.accepted || result.documentIdentity.id !== current.documentId
-                || result.documentIdentity.epoch !== current.documentEpoch
-                || (result.beforeRevision !== current.sourceRevision && result.revision !== current.sourceRevision))
-            {
-                throw new Error('article-attachment-source-commit-invalid');
-            }
-            // Commit the public revision first; the synchronous source watch is then idempotent.
-            if (result.revision > current.sourceRevision)
-            {
-                articleDocumentContextAdapter.updateSource(result.value, result.revision);
-            }
-            else if (articleForm.content !== result.value
-                && !authoringAttachments.hasNativeSourcePublication(result, current))
-            {
-                throw new Error('article-attachment-source-commit-invalid');
-            }
-            const publication = authoringAttachments.hasNativeSourcePublication(result, current)
-                ? { transaction: result, context: current } : null;
-            nativeSourceWatch = publication;
-            try
-            {
-                articleForm.content = result.value;
-            }
-            finally
-            {
-                nativeSourceWatch = null;
-            }
-            syncAuthoringDocumentContext();
-        },
-        binding: () => ({ document: articleDocumentContextAdapter.context,
-            map: createMarkdownAnchorMap({ identity: articleDocumentContextAdapter.documentIdentity,
-                source: articleForm.content }) })
-    };
-    // Only the caller-held original handle and this invocation's loan survive an await.
-    let attachmentUploadAttempt: { handle: ArticleAttachmentPendingHandle; file: File; } | null = null;
-    type UploadAttemptObservation = Readonly<{ status: 'observing' | 'settled' | 'interrupted';
-        observation: AttachmentUploadObservation | null; reason: string | null; }>;
-    // One consumption per genuine handle, without retaining the File or session credentials.
-    const consumedAttachmentUploads = new WeakMap<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
-    const attachmentUploadObligations = new Map<ArticleAttachmentPendingHandle, UploadAttemptObservation>();
-    // Original rich requests remain owned until their actual full-settlement observation.
-    const nativeUploadQueue = createArticleAttachmentUploadQueue();
-    interface NativeUploadRequestCustody {
-        readonly request: ArticleAttachmentQueuedUploadRequest;
-        readonly lease: ArticleDocumentTaskLease;
-        // Populated only by this SAME original future's existing fulfilled callback.
-        observedSettledFuture: ArticleAttachmentQueuedUploadRequest['settled'] | null;
-        observedFailures: ReturnType<ArticleAttachmentQueuedUploadRequest['inspectObservationFailures']> | null;
-    }
-    const nativeUploadRequests = new Map<ArticleAttachmentPendingHandle, NativeUploadRequestCustody>();
-    const nativeUploadFailures: { cause: unknown; }[] = [];
-    const cancelNativeUploadRequests = (reason: string): void =>
-    {
-        let failed = false;
-        let firstCause: unknown;
-        for (const { request } of nativeUploadRequests.values())
-        {
-            try
-            {
-                request.cancelLocal(reason);
-            }
-            catch (cause)
-            {
-                if (!failed)
-                {
-                    failed = true;
-                    firstCause = cause;
-                }
-                nativeUploadFailures.push({ cause });
-            }
-        }
-        if (failed)
-        {
-            throw firstCause;
-        }
-    };
-    const settleOriginalNativeUpload = (handle: ArticleAttachmentPendingHandle, custody: NativeUploadRequestCustody): void =>
-    {
-        if (nativeUploadRequests.get(handle) !== custody || custody.observedSettledFuture !== custody.request.settled)
-        {
-            return;
-        }
-        if (!custody.observedFailures)
-        {
-            const observed = custody.request.inspectObservationFailures();
-            nativeUploadFailures.push(...observed);
-            custody.observedFailures = observed;
-        }
-        const lease = authoringAttachments.readCleanedNativeLease(handle);
-        if (lease !== custody.lease || nativeUploadRequests.get(handle) !== custody
-            || custody.observedSettledFuture !== custody.request.settled)
-        {
-            return;
-        }
-        // Actual original upload/provider/queue future fulfilled AND physical native/Main
-        // cleanup proved. The terminal envelope alone never authorizes this acknowledgment.
-        lease.settle();
-        if (nativeUploadRequests.get(handle) === custody)
-        {
-            nativeUploadRequests.delete(handle);
-        }
-    };
-    const attemptNativeSettlementDuties = (operations: readonly (() => void)[]): void =>
-    {
-        let firstFailure: { cause: unknown; } | null = null;
-        for (const operation of operations)
-        {
-            try
-            {
-                operation();
-            }
-            catch (cause)
-            {
-                firstFailure ??= { cause };
-                nativeUploadFailures.push({ cause });
-            }
-        }
-        if (firstFailure)
-        {
-            throw firstFailure.cause;
-        }
-    };
-    const assertUploadObligationAbsent = (handle?: ArticleAttachmentPendingHandle): void =>
-    {
-        if (handle ? attachmentUploadObligations.has(handle) : attachmentUploadObligations.size > 0)
-        {
-            throw new Error('article-attachment-upload-recovery-required');
-        }
-    };
-    const assertFlowUploadAdmissionAvailable = (): void =>
-    {
-        if (attachmentUploadAttempt || nativeUploadRequests.size > 0 || nativeUploadQueue.hasAdmission())
-        {
-            throw new Error('article-attachment-upload-busy');
-        }
-        assertUploadObligationAbsent();
-    };
-    const authoringAttachmentRuntime = Object.freeze({
-        requestDispatch: (input: Parameters<MarkdownAttachmentRequestDispatch>[0], anchorOptions: ArticleAnchorCaptureOptions) =>
-            requestNativeAttachmentUpload(input, anchorOptions),
-        get nativeUploadRequests()
-        {
-            return Object.freeze([...nativeUploadRequests].map(([handle, custody]) => Object.freeze({ handle, request: custody.request })));
-        },
-        retryNativeUploadCleanup: (handle: ArticleAttachmentPendingHandle, reason?: string): void =>
-        {
-            const custody = nativeUploadRequests.get(handle);
-            if (!custody)
-            {
-                throw new Error('article-native-upload-original-request-unavailable');
-            }
-            attemptNativeSettlementDuties([() => custody.request.cancelLocal(reason),
-                () => settleOriginalNativeUpload(handle, custody)]);
-        },
-        // Stable original producer, not an automatic reservation or task-completion grant.
-        getNativeRevisionProducer: () => authoringAttachments.getNativeRevisionProducer(),
-        observeNativeTerminal: (observation: Parameters<ArticleAttachmentContextAdapter['observeNativeTerminal']>[0]) =>
-            active && authoringAttachments.observeNativeTerminal(observation, attachmentPort),
-        readNativeTerminalTransaction: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalTransaction(handle),
-        readNativeTerminalFailure: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.readNativeTerminalFailure(handle),
-        inspectNativeApplicationEnd: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.inspectNativeApplicationEnd(handle),
-        retryNativeApplicationEnd: (handle: ArticleAttachmentPendingHandle) =>
-        {
-            let observation: ReturnType<ArticleAttachmentContextAdapter['retryNativeApplicationEnd']> = null;
-            attemptNativeSettlementDuties([() => observation = authoringAttachments.retryNativeApplicationEnd(handle), () =>
-            {
-                const custody = nativeUploadRequests.get(handle);
-                if (custody)
-                {
-                    settleOriginalNativeUpload(handle, custody);
-                }
-            }]);
-            return observation;
-        },
-        inspectNativeTransitionCleanup: () => authoringAttachments.inspectNativeTransitionCleanup(),
-        retryNativeTransitionCleanup: (handle: ArticleAttachmentPendingHandle) => authoringAttachments.retryNativeTransitionCleanup(handle),
-        readUploadObservation: (handle: ArticleAttachmentPendingHandle) => consumedAttachmentUploads.get(handle) ?? null,
-        get uploadObligations()
-        {
-            return Object.freeze(Array.from(attachmentUploadObligations, ([handle, observation]) =>
-                Object.freeze({ handle, ...observation })));
-        },
-        observeUpload: (handle: ArticleAttachmentPendingHandle, file: File, signal?: AbortSignal) =>
-            observeOwnedImageUpload(handle, file, signal),
-        captureAnchor: (selection: Parameters<ArticleAnchorContextAdapter['capture']>[1],
-            options: Parameters<ArticleAnchorContextAdapter['capture']>[2]) => authoringAnchors.capture(attachmentPort.binding(), selection, options),
-        capture: (input: Omit<Parameters<ArticleAttachmentContextAdapter['capture']>[0], 'source'>) =>
-            authoringAttachments.capture({ ...input, source: articleForm.content }),
-        admitAcceptedCapture: (input: Parameters<ArticleAttachmentContextAdapter['admitAcceptedCapture']>[0]) =>
-            authoringAttachments.admitAcceptedCapture(input, attachmentPort),
-        commitCreated: (capture: Parameters<ArticleAttachmentContextAdapter['commitCreated']>[0]) =>
-            authoringAttachments.commitCreated(capture, attachmentPort),
-        complete: (handle: Parameters<ArticleAttachmentContextAdapter['complete']>[0], result: Parameters<ArticleAttachmentContextAdapter['complete']>[1]) =>
-        {
-            assertUploadObligationAbsent(handle);
-            return authoringAttachments.complete(handle, result, attachmentPort);
-        },
-        remove: (handle: Parameters<ArticleAttachmentContextAdapter['remove']>[0]) => authoringAttachments.remove(handle, attachmentPort),
-        replace: (handle: Parameters<ArticleAttachmentContextAdapter['replace']>[0], file: Parameters<ArticleAttachmentContextAdapter['replace']>[1]) =>
-        {
-            assertUploadObligationAbsent(handle);
-            return authoringAttachments.replace(handle, file, attachmentPort);
-        },
-        retry: (handle: Parameters<ArticleAttachmentContextAdapter['retry']>[0]) =>
-        {
-            assertUploadObligationAbsent(handle);
-            return authoringAttachments.retry(handle);
-        },
-        readOwnedIntent: (handle: Parameters<ArticleAttachmentContextAdapter['readOwnedIntent']>[0]) =>
-            authoringAttachments.readOwnedIntent(handle, attachmentPort.binding()),
-        // Borrow one actual caller-held capability; the original adapter validates membership.
-        bindBusinessIntent: (handle: Parameters<ArticleAttachmentContextAdapter['readOwnedIntent']>[0]) =>
-            createArticleAttachmentBusinessIntentReader({ attachments: authoringAttachments,
-                handle: intentRef => handle.snapshot.intent.task.taskRef === intentRef ? handle : null,
-                binding: () => attachmentPort.binding() }),
-        consumeTransaction: (result: MarkdownEditorDispatchResult) => authoringAttachments.consumeTransaction(result, attachmentPort),
-        get receipts()
-        {
-            return authoringAttachments.lifecycleReceipts;
-        },
-        bindEditor: (editor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> & Partial<ArticleAttachmentFilePort & ArticleAttachmentTerminalPort>) =>
-        {
-            if (!active || attachmentEditor)
-            {
-                throw new Error('article-attachment-editor-binding-invalid');
-            }
-            attachmentEditor = editor;
-            return () =>
-            {
-                if (attachmentEditor !== editor)
-                {
-                    return;
-                }
-                attachmentEditor = null;
-                authoringAttachments.cancelPending('article-attachment-editor-release');
-            };
-        }
-    });
-    let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
-    let releaseEditorRuntime: (() => void) | null = null;
-    // This slot retains only the original object identity; the mounted source validates its public ports.
-    let originalMountedEditor: object | null = null;
-    let originalMountedRuntime: ReturnType<typeof authoringEditorRuntime.bindEditor> | null = null;
-    // Original Writer physical custody only. This hook is not auth/member authority.
-    let revokeCurrentMountedAuthority: (() => void) | null = null;
-    let notifyCurrentMountedAuthorityRetirement: (() => void) | null = null;
-    let mountedComponentActive = true;
-    onDeactivated(() =>
-    {
-        notifyCurrentMountedAuthorityRetirement?.();
-        mountedComponentActive = false;
-        revokeCurrentMountedAuthority?.();
-    });
-    onActivated(() =>
-    {
-        revokeCurrentMountedAuthority?.();
-        mountedComponentActive = true;
-    });
-    onBeforeUnmount(() =>
-    {
-        notifyCurrentMountedAuthorityRetirement?.();
-        mountedComponentActive = false;
-        try
-        {
-            revokeCurrentMountedAuthority?.();
-        }
-        finally
-        {
-            componentAttached = false;
-        }
-    });
-    onScopeDispose(() => revokeCurrentMountedAuthority?.());
-    const unsubscribeMountedAuthorityContext = articleDocumentContextAdapter.subscribeContext(() => revokeCurrentMountedAuthority?.());
-    onScopeDispose(unsubscribeMountedAuthorityContext);
-    // Revocation-only observation of real auth/private-surface source. These watches
-    // cannot issue an auth token or attest permissions, expiry or admin admission.
-    const mountedAuthorityRevocationWatch = watch(() => [adminStore.adminPrincipal, adminStore.adminState, adminStore.adminSessionStatus,
-        adminStore.permissions, privateSurfaceRuntime.authGeneration.value, privateSurfaceRuntime.isClearing.value],
-    () => revokeCurrentMountedAuthority?.(), { deep: true, flush: 'sync' });
-    const authoringEditorRuntime = Object.freeze({
-        bindEditor: (editor: ArticleEditorContinuityPort & Partial<ArticleAttachmentFilePort & ArticleAttachmentTerminalPort> & Partial<MarkdownEditorSessionExpose>, options: ArticleEditorRuntimeBindingOptions,
-            readMountedEditor?: () => ArticleEditorMountedSessionPort | null) =>
-        {
-            if (!active || editorRuntimeBinding)
-            {
-                throw new Error('article-editor-runtime-already-bound');
-            }
-            // Retire an old physical owner before allocating any replacement resources.
-            revokeCurrentMountedAuthority?.();
-            const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction),
-                getAttachmentTerminalCohortIssuer: () => editor.getAttachmentTerminalCohortIssuer?.() ?? null,
-                getAttachmentTerminalRevisionIssuer: () => editor.getAttachmentTerminalRevisionIssuer?.() ?? null,
-                getAttachmentTerminalApplicationEndIssuer: () => editor.getAttachmentTerminalApplicationEndIssuer?.() ?? null,
-                withAttachmentFile: (batch, item, consume) => editor.withAttachmentFile?.(batch, item, consume) === true,
-                withAttachmentTerminalTransaction: (observation, consume) =>
-                    editor.withAttachmentTerminalTransaction?.(observation, consume) === true });
-            let binding: ArticleEditorRuntimeBinding;
-            try
-            {
-                binding = bindArticleEditorRuntime(articleDocumentContextAdapter, authoringAnchors, authoringAttachments,
-                    attachmentPort, () => articleForm.content, editor, options);
-            }
-            catch (error)
-            {
-                releaseAttachmentEditor();
-                throw error;
-            }
-            let searchRuntime: ArticleEditorSearchRuntime;
-            try
-            {
-                searchRuntime = new ArticleEditorSearchRuntime(articleDocumentContextAdapter, binding);
-            }
-            catch (error)
-            {
-                binding.dispose();
-                releaseAttachmentEditor();
-                throw error;
-            }
-            editorRuntimeBinding = binding;
-            let surfaceRuntime: ArticleEditorSurfaceRuntime | null = null;
-            let recoveryCheckpoint: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
-            let recoveryCheckpointCreating = false;
-            // One reservation in this actual mounted runtime, not a second mount/session store.
-            interface MountedDocumentAuthority {
-                readonly binding: ArticleDocumentRetainedBinding;
-                readonly seal: ArticleDocumentLifetimeSeal;
-                readonly has: ArticleDocumentRetainedBinding['hasLifetimeAuthorityCustody'];
-                readonly cancel: ArticleDocumentRetainedBinding['cancelLifetimeAuthority'];
-            }
-            interface MountedAdminAuthority {
-                readonly seal: AdminPrincipalSeal;
-            }
-            interface MountedWriterCustody {
-                readonly seal: MountedWriterSeal;
-                readonly runtime: object;
-                readonly editor: object;
-                readonly binding: ArticleEditorRuntimeBinding;
-                readonly editorSessionRef: string;
-                readonly session: MarkdownEditorSession;
-                readonly generation: number;
-                readonly document: MountedDocumentAuthority;
-                readonly auth: MountedAdminAuthority;
-            }
-            let mountedAuthorityCustody: MountedWriterCustody | null = null;
-            let mountedDocumentAuthority: MountedDocumentAuthority | null = null;
-            let mountedAdminAuthority: MountedAdminAuthority | null = null;
-            let mountedAdminCancellationFailure: { readonly authority: MountedAdminAuthority; readonly failure: unknown; } | null = null;
-            let mountedDocumentCancellationFailure: { readonly authority: MountedDocumentAuthority; readonly failure: unknown; } | null = null;
-            let mountedAuthorityGeneration = 0;
-            let mountedAuthorityReleased = false;
-            let mountedAuthorityPreparing = false;
-            // One original Root reservation consumer per physical Writer runtime.
-            interface MountedAuthorityRetirementSubscription {
-                readonly listener: () => void;
-                disposeRequested: boolean;
-            }
-            let mountedAuthorityRetirementSubscription: MountedAuthorityRetirementSubscription | null = null;
-            let mountedAuthorityRetirementFailure: { readonly subscription: MountedAuthorityRetirementSubscription; readonly failure: unknown; } | null = null;
-            let mountedAuthorityRetirementNotifying = false;
-            let mountedAuthorityRetirementNotified = false;
-            const retirementReentrancyFailure = new Error('article-writer-mounted-retirement-reentrant');
-            const notifyMountedAuthorityRetirement = (): void =>
-            {
-                if (mountedAuthorityRetirementNotifying)
-                {
-                    throw retirementReentrancyFailure;
-                }
-                if (mountedAuthorityRetirementNotified)
-                {
-                    return;
-                }
-                const subscription = mountedAuthorityRetirementSubscription;
-                if (!subscription)
-                {
-                    return;
-                }
-                mountedAuthorityRetirementNotifying = true;
-                try
-                {
-                    // Root withdraws its reservation before Writer custody/liveness changes
-                    // or original cancellation/recovery/native cleanup callbacks run.
-                    subscription.listener();
-                    mountedAuthorityRetirementNotified = true;
-                    mountedAuthorityRetirementFailure = null;
-                    if (subscription.disposeRequested)
-                    {
-                        mountedAuthorityRetirementSubscription = null;
-                    }
-                }
-                catch (error)
-                {
-                    const previous = mountedAuthorityRetirementFailure;
-                    mountedAuthorityRetirementFailure = previous ?? { subscription, failure: error };
-                    if (previous && previous.failure !== error)
-                    {
-                        throw combineWriterFailures([previous.failure, error], 'article-writer-mounted-retirement-retry-failed');
-                    }
-                    throw error;
-                }
-                finally
-                {
-                    mountedAuthorityRetirementNotifying = false;
-                }
-            };
-            /** Single original Root reservation subscription; synchronous, no replay or readiness receipt.
-             * A failed listener keeps its original slot/error and blocks issuance until a real retry succeeds.
-             * The callback withdraws Root custody; it must not reenter Writer cancellation/release.
-             * Disposal from inside the callback commits only after that callback succeeds.
-             */
-            const subscribeMountedAuthorityRetirement = (listener: () => void): (() => void) =>
-            {
-                if (typeof listener !== 'function' || mountedAuthorityReleased || mountedAuthorityRetirementNotifying
-                    || mountedAuthorityRetirementSubscription || mountedAuthorityRetirementFailure)
-                {
-                    throw new Error('article-writer-mounted-retirement-subscription-invalid');
-                }
-                const subscription: MountedAuthorityRetirementSubscription = { listener, disposeRequested: false };
-                mountedAuthorityRetirementSubscription = subscription;
-                mountedAuthorityRetirementNotified = false;
-                return () =>
-                {
-                    if (mountedAuthorityRetirementSubscription !== subscription)
-                    {
-                        return;
-                    }
-                    if (mountedAuthorityRetirementNotifying)
-                    {
-                        subscription.disposeRequested = true;
-                        return;
-                    }
-                    // A failing disposer cannot discard the original retry obligation.
-                    if (mountedAuthorityRetirementFailure)
-                    {
-                        notifyMountedAuthorityRetirement();
-                    }
-                    if (mountedAuthorityRetirementSubscription === subscription)
-                    {
-                        mountedAuthorityRetirementSubscription = null;
-                    }
-                };
-            };
-
-            const cancelMountedDocumentAuthority = (): boolean =>
-            {
-                if (mountedDocumentCancellationFailure)
-                {
-                    throw mountedDocumentCancellationFailure.failure;
-                }
-                const authority = mountedDocumentAuthority;
-                // Remove original local custody BEFORE invoking actual producer cancellation.
-                mountedDocumentAuthority = null;
-                if (!authority)
-                {
-                    return false;
-                }
-                try
-                {
-                    return authority.cancel(authority.seal);
-                }
-                catch (error)
-                {
-                    // Keep the real issuer/token on failure; never turn a later
-                    // noop into successful cancellation or admit another seal.
-                    mountedDocumentCancellationFailure = { authority, failure: error };
-                    throw error;
-                }
-            };
-            const revokeMountedAuthority = (): void =>
-            {
-                notifyMountedAuthorityRetirement();
-                mountedAuthorityCustody = null;
-                // Retire before any original external callback; old generations cannot revive.
-                if (mountedAuthorityGeneration === Number.MAX_SAFE_INTEGER)
-                {
-                    mountedAuthorityReleased = true;
-                }
-                else
-                {
-                    mountedAuthorityGeneration += 1;
-                }
-                cancelMountedAuthorities();
-            };
-            const mountedAuthorityCurrent = (): boolean =>
-                !mountedAuthorityReleased && writerResourcePhase === 'active' && !writerResourceControlFailure
-                && !mountedAuthorityRetirementNotifying && !mountedAuthorityRetirementFailure
-                && active && componentAttached && mountedComponentActive && writerScope.active
-                && !fullDraftPrincipalRetired && !fullDraftReleased
-                && editorRuntimeBinding === binding && originalMountedEditor === editor && originalMountedRuntime === mountedRuntime;
-            const cancelMountedAuthorities = (): boolean =>
-            {
-                const auth = mountedAdminAuthority;
-                mountedAdminAuthority = null;
-                let canceledAuth = false;
-                let canceledDocument = false;
-                const failures: unknown[] = [];
-                try
-                {
-                    if (mountedAdminCancellationFailure)
-                    {
-                        throw mountedAdminCancellationFailure.failure;
-                    }
-                    if (auth)
-                    {
-                        canceledAuth = cancelAdminAuthority(auth.seal);
-                    }
-                }
-                catch (error)
-                {
-                    if (auth)
-                    {
-                        mountedAdminCancellationFailure = { authority: auth, failure: error };
-                    }
-                    failures.push(error);
-                }
-                try
-                {
-                    canceledDocument = cancelMountedDocumentAuthority();
-                }
-                catch (error)
-                {
-                    failures.push(error);
-                }
-                if (failures.length > 0)
-                {
-                    throw combineWriterFailures(failures, 'article-writer-mounted-authority-cancellation-failed');
-                }
-                return canceledAuth || canceledDocument;
-            };
-            const hasJoinedMountedAuthority = (custody: MountedWriterCustody): boolean =>
-                mountedAuthorityCustody === custody && mountedAdminAuthority === custody.auth
-                && mountedDocumentAuthority === custody.document && mountedAuthorityCurrent()
-                && custody.runtime === originalMountedRuntime && custody.editor === originalMountedEditor
-                && custody.binding === editorRuntimeBinding && custody.generation === mountedAuthorityGeneration
-                && hasAdminAuthority(custody.auth.seal) && custody.document.has(custody.document.seal)
-                && mountedAuthorityCustody === custody && mountedAdminAuthority === custody.auth
-                && mountedDocumentAuthority === custody.document && mountedAuthorityCurrent()
-                && custody.generation === mountedAuthorityGeneration;
-            const sealMountedAuthority = (editorSessionRef: string): MountedWriterSeal | null =>
-            {
-                if (mountedAuthorityPreparing || mountedDocumentCancellationFailure || mountedAdminCancellationFailure
-                    || mountedAuthorityCustody || !mountedAuthorityCurrent()
-                    || typeof editorSessionRef !== 'string' || !editorSessionRef)
-                {
-                    return null;
-                }
-                mountedAuthorityRetirementNotified = false;
-                mountedAuthorityPreparing = true;
-                const generation = mountedAuthorityGeneration;
-                let candidate: MountedWriterCustody | null = null;
-                let operationFailed = false;
-                let operationFailure: unknown;
-                let result: MountedWriterSeal | null = null;
-                const prepare = (): MountedWriterSeal | null =>
-                {
-                    if (!documentPrincipalIdentityId)
-                    {
-                        return null;
-                    }
-                    const authSeal = sealAdminAuthority(documentPrincipalIdentityId);
-                    if (!authSeal)
-                    {
-                        return null;
-                    }
-                    const auth: MountedAdminAuthority = { seal: authSeal };
-                    mountedAdminAuthority = auth;
-                    // Fresh route permission admission can invoke tracked callbacks;
-                    // recheck the exact original epoch after that call.
-                    if (!adminStore.hasPermission('article.write') || !hasAdminAuthority(authSeal)
-                        || mountedAdminAuthority !== auth || !mountedAuthorityCurrent()
-                        || generation !== mountedAuthorityGeneration)
-                    {
-                        return null;
-                    }
-                    const retained = retainedPrimaryBinding.value;
-                    if (retained?.adapter !== articleDocumentContextAdapter)
-                    {
-                        return null;
-                    }
-                    // These are the SAME original frozen binding's real methods,
-                    // not a structural provider or a membership selector/index.
-                    const has = retained.hasLifetimeAuthorityCustody.bind(retained);
-                    const cancel = retained.cancelLifetimeAuthority.bind(retained);
-                    const documentSeal = retained.sealLifetimeAuthority();
-                    if (!documentSeal)
-                    {
-                        return null;
-                    }
-                    mountedDocumentAuthority = { binding: retained, seal: documentSeal, has, cancel };
-                    const document = mountedDocumentAuthority;
-                    if (!mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration
-                        || retainedPrimaryBinding.value !== retained || !has(documentSeal)
-                        || mountedAdminAuthority !== auth || !hasAdminAuthority(authSeal))
-                    {
-                        return null;
-                    }
-                    const context = articleDocumentContextAdapter.context;
-                    const mounted = mountedSource?.readMountedEditor(editorSessionRef);
-                    if (mounted !== editor || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration
-                        || mountedDocumentAuthority !== document || !has(documentSeal)
-                        || mountedAdminAuthority !== auth || !hasAdminAuthority(authSeal))
-                    {
-                        return null;
-                    }
-                    const session = mounted.getSession(editorSessionRef);
-                    const native = session.inspectDocumentState();
-                    if (!mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration
-                        || native.documentIdentity.id !== context.documentId || native.documentIdentity.epoch !== context.documentEpoch
-                        || native.revision !== context.sourceRevision || !articleDocumentContextAdapter.isCurrentContext(context)
-                        || mountedSource?.readMountedEditor(editorSessionRef) !== mounted || mounted.getSession(editorSessionRef) !== session
-                        || !has(documentSeal) || mountedDocumentAuthority !== document
-                        || !hasAdminAuthority(authSeal) || mountedAdminAuthority !== auth
-                        || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
-                    {
-                        return null;
-                    }
-                    const seal = Object.freeze<MountedWriterSeal>({ [mountedWriterAuthorityBrand]: true });
-                    candidate = Object.freeze({ seal, runtime: mountedRuntime, editor, binding, editorSessionRef, session, generation, document, auth });
-                    if (!has(documentSeal) || mountedDocumentAuthority !== document
-                        || !mountedAuthorityCurrent() || generation !== mountedAuthorityGeneration)
-                    {
-                        return null;
-                    }
-                    mountedAuthorityCustody = candidate;
-                    // Actual observed local auth/Doc/physical continuity only.
-                    // No callback/await/allocation after the final original private join.
-                    if (!hasJoinedMountedAuthority(candidate))
-                    {
-                        return null;
-                    }
-                    // All original observed-event producer inputs must be closed and consumed.
-                    return seal;
-                };
-                try
-                {
-                    result = prepare();
-                }
-                catch (error)
-                {
-                    operationFailed = true;
-                    operationFailure = error;
-                }
-                if (result !== null)
-                {
-                    mountedAuthorityPreparing = false;
-                    return result;
-                }
-                // Failure cancels BOTH original tokens, preserving real failures.
-                mountedAuthorityCustody = null;
-                let cancellationFailed = false;
-                let cancellationFailure: unknown;
-                try
-                {
-                    cancelMountedAuthorities();
-                }
-                catch (error)
-                {
-                    cancellationFailed = true;
-                    cancellationFailure = error;
-                }
-                finally
-                {
-                    mountedAuthorityPreparing = false;
-                }
-                if (operationFailed && cancellationFailed)
-                {
-                    throw combineWriterFailures([operationFailure, cancellationFailure], 'article-writer-mounted-seal-and-cancellation-failed');
-                }
-                if (operationFailed)
-                {
-                    throw operationFailure;
-                }
-                if (cancellationFailed)
-                {
-                    throw cancellationFailure;
-                }
-                return null;
-            };
-            const hasMountedAuthorityCustody = (seal: MountedWriterSeal): boolean =>
-            {
-                const custody = mountedAuthorityCustody;
-                if (!seal || custody?.seal !== seal || mountedAuthorityPreparing || !mountedAuthorityCurrent()
-                    || custody.runtime !== originalMountedRuntime || custody.editor !== originalMountedEditor
-                    || custody.binding !== editorRuntimeBinding || custody.generation !== mountedAuthorityGeneration)
-                {
-                    return false;
-                }
-                if (!hasJoinedMountedAuthority(custody))
-                {
-                    return false;
-                }
-                return true;
-            };
-            const cancelMountedAuthority = (seal: MountedWriterSeal): boolean =>
-            {
-                if (!seal || mountedAuthorityCustody?.seal !== seal)
-                {
-                    return false;
-                }
-                notifyMountedAuthorityRetirement();
-                mountedAuthorityCustody = null;
-                return cancelMountedAuthorities();
-            };
-            const release = (): void =>
-            {
-                notifyMountedAuthorityRetirement();
-                // This is actual producer retirement, BEFORE recovery release can reenter/throw.
-                mountedAuthorityReleased = true;
-                mountedAuthorityCustody = null;
-                if (revokeCurrentMountedAuthority === revokeMountedAuthority)
-                {
-                    revokeCurrentMountedAuthority = null;
-                    notifyCurrentMountedAuthorityRetirement = null;
-                }
-                let cancellationFailed = false;
-                let cancellationFailure: unknown;
-                try
-                {
-                    cancelMountedAuthorities();
-                }
-                catch (error)
-                {
-                    cancellationFailed = true;
-                    cancellationFailure = error;
-                }
-                try
-                {
-                    if (editorRuntimeBinding === binding)
-                    {
-                        recoveryCheckpoint?.release();
-                        editorRuntimeBinding = null;
-                        releaseEditorRuntime = null;
-                        originalMountedEditor = null;
-                        originalMountedRuntime = null;
-                        if (previewOwners.value?.binding === binding)
-                        {
-                            previewOwners.value = null;
-                            previewTask.cancel();
-                            previewCurrentAuthorities.cancel();
-                        }
-                        searchRuntime.dispose();
-                        surfaceRuntime?.dispose();
-                        surfaceRuntime = null;
-                        binding.dispose();
-                        releaseAttachmentEditor();
-                    }
-                }
-                catch (error)
-                {
-                    if (cancellationFailed)
-                    {
-                        throw combineWriterFailures([cancellationFailure, error], 'article-writer-mounted-cancellation-and-release-failed');
-                    }
-                    throw error;
-                }
-                if (cancellationFailed)
-                {
-                    throw cancellationFailure;
-                }
-            };
-            releaseEditorRuntime = release;
-            const bindSurfacePreference = (readPreference: () => ArticleEditorSurfacePreference | null): ArticleEditorSurfaceRuntime =>
-            {
-                if (!active || editorRuntimeBinding !== binding || surfaceRuntime || typeof readPreference !== 'function')
-                {
-                    throw new Error('article-editor-surface-binding-invalid');
-                }
-                const readCurrentPreference = (): ArticleEditorSurfacePreference =>
-                {
-                    const preference = readPreference();
-                    const context = binding.context;
-                    if (!articleDocumentContextAdapter.isCurrentContext(context) || !validateArticleEditorSurfacePreference(preference)
-                        || preference.siteScope !== context.siteScope || preference.userScope !== context.userScope)
-                    {
-                        throw new Error('article-editor-surface-preference-unavailable');
-                    }
-                    return preference;
-                };
-                // No guessed preference: admission requires a real current owner snapshot before construction.
-                readCurrentPreference();
-                surfaceRuntime = new ArticleEditorSurfaceRuntime(articleDocumentContextAdapter, binding,
-                    new ArticleLiveCapabilitySession(articleDocumentContextAdapter), readCurrentPreference);
-                return surfaceRuntime;
-            };
-            const bindPreviewOwners = (business: ArticlePreviewAttachmentPort,
-                readAttribution: ArticleWriterPreviewOwners['readAttribution']): (() => void) =>
-            {
-                if (!active || editorRuntimeBinding !== binding || previewOwners.value !== null
-                    || typeof business?.assess !== 'function' || typeof business.verify !== 'function'
-                    || typeof readAttribution !== 'function')
-                {
-                    throw new Error('article-preview-owner-binding-invalid');
-                }
-                const owners = Object.freeze({ binding, business, readAttribution });
-                previewOwners.value = owners;
-                return () =>
-                {
-                    if (previewOwners.value === owners)
-                    {
-                        previewOwners.value = null;
-                        previewTask.cancel();
-                        previewCurrentAuthorities.cancel();
-                    }
-                };
-            };
-            const mountedSource = readMountedEditor
-                ? createArticleWriterMountedEditorSource(articleDocumentContextAdapter, articleWorkspaceTabRouter.getRegistry(),
-                    editor, readMountedEditor, () => active && editorRuntimeBinding === binding,
-                    () => active && writerScope.active && componentAttached && editorRuntimeBinding === binding && originalMountedEditor === editor
-                        ? authoringDraftCheckpointRuntime : null)
-                : null;
-            const bindRecoveryCheckpoint = (editorSessionRef: string): ArticleRecoveryJournalCheckpointPublicationBinding & {
-                /** Native retained snapshot only; complete application factory custody remains unavailable. */
-                captureRetainedSnapshot(reference: string, assertAdmission?: () => void): MarkdownEditorSessionSnapshot;
-            } =>
-            {
-                const identityId = recoveryIdentityId();
-                if (!active || editorRuntimeBinding !== binding || !mountedSource || recoveryCheckpoint || recoveryCheckpointCreating || !identityId
-                    || identityId !== documentPrincipalIdentityId)
-                {
-                    throw new Error('article-recovery-checkpoint-mounted-owner-unavailable');
-                }
-                const registry = articleWorkspaceTabRouter.getRegistry();
-                const readSource = (): ArticleRecoveryJournalCheckpointSource | null =>
-                {
-                    const document = articleDocumentContextAdapter.context;
-                    const clientRevision = activeRecoveryClientRevision;
-                    const entry = registry.getEntryByIdentity({ articleId: document.articleId,
-                        draftId: document.draftId, documentId: document.documentId });
-                    if (!active || editorRuntimeBinding !== binding || recoveryIdentityId() !== identityId
-                        || articleId.value !== document.articleId
-                        || document.userScope !== documentUserScope || document.siteScope !== documentSiteScope
-                        || suppressDraftSave || !clientRevision || entry?.editorSessionRef !== editorSessionRef
-                        || entry.status.permission !== 'allowed' || entry.status.lifecycle !== 'current')
-                    {
-                        return null;
-                    }
-                    const registryRevision = registry.getRevision();
-                    const mountedEditor = mountedSource.readMountedEditor(editorSessionRef);
-                    const observed = mountedSource.readDocumentBinding(editorSessionRef);
-                    const current = registry.getEntry(entry.tabId);
-                    // The original mounted source already checks object equality with this editor.
-                    if (!mountedEditor || !observed || !active || editorRuntimeBinding !== binding
-                        || recoveryIdentityId() !== identityId || !articleDocumentContextAdapter.isCurrentContext(document)
-                        || activeRecoveryClientRevision !== clientRevision || registry.getRevision() !== registryRevision
-                        || current?.lifecycleRevision !== entry.lifecycleRevision
-                        || current.editorSessionRef !== editorSessionRef
-                        || observed.identity.articleId !== document.articleId || observed.identity.draftId !== document.draftId
-                        || observed.identity.documentId !== document.documentId
-                        || entry.documentContext.documentEpoch !== observed.documentContext.documentEpoch
-                        || entry.documentContext.sourceRevision !== observed.documentContext.sourceRevision
-                        || entry.documentContext.draftRevision !== observed.documentContext.draftRevision)
-                    {
-                        return null;
-                    }
-                    return Object.freeze({ owner: binding, mountedEditor, identityId, siteScope: document.siteScope,
-                        draftKey: draftKey.value, registryRevision, associationRevision: entry.lifecycleRevision,
-                        editorSessionRef, documentId: document.documentId, draftId: document.draftId,
-                        documentEpoch: document.documentEpoch, editorRevision: document.sourceRevision,
-                        sourceRevision: observed.documentContext.sourceRevision, draftRevision: document.draftRevision,
-                        articleId: document.articleId, tabId: recoveryCoordinator.tabId,
-                        baseRevisionId: isEdit.value ? currentRevisionId.value : null,
-                        serverRevision: serverDraftRevision.value, clientRevision, content: articleForm.content });
-                };
-                // Reserve before the first caller-held mounted read can reenter this method.
-                recoveryCheckpointCreating = true;
-                let journal: ArticleRecoveryJournalCheckpointPublicationBinding | null = null;
-                let unsubscribe: (() => void) | null = null;
-                let stopIdentityWatch: (() => void) | null = null;
-                let checkpoint: ReturnType<typeof bindRecoveryCheckpoint> | null = null;
-                let released = false;
-                const releaseCheckpoint = (): void =>
-                {
-                    if (released)
-                    {
-                        return;
-                    }
-                    released = true;
-                    if (recoveryCheckpoint === checkpoint)
-                    {
-                        recoveryCheckpoint = null;
-                    }
-                    try
-                    {
-                        unsubscribe?.();
-                    }
-                    finally
-                    {
-                        try
-                        {
-                            stopIdentityWatch?.();
-                        }
-                        finally
-                        {
-                            journal?.release();
-                        }
-                    }
-                };
-                try
-                {
-                    if (!readSource())
-                    {
-                        throw new Error('article-recovery-checkpoint-context-unavailable');
-                    }
-                    const issued = articleRecoveryJournal.bindCheckpointSource(readSource);
-                    journal = issued;
-                    unsubscribe = articleDocumentContextAdapter.subscribeContext(() => issued.invalidate());
-                    stopIdentityWatch = watch(() => adminStore.adminPrincipal?.id, () => issued.invalidate(), { flush: 'sync' });
-                    checkpoint = Object.freeze<ReturnType<typeof bindRecoveryCheckpoint>>({
-                        prepare: signal => issued.prepare(signal),
-                        inspect: token => issued.inspect(token),
-                        validate: token => issued.validate(token),
-                        validateContent: (token, content) => issued.validateContent(token, content),
-                        inspectReference: reference => issued.inspectReference(reference),
-                        hasReferenceCustody: (reference, info) => issued.hasReferenceCustody(reference, info),
-                        validateReference: (reference, content) => issued.validateReference(reference, content),
-                        restoreReference: reference => issued.restoreReference(reference),
-                        preparePublication: signal => issued.preparePublication(signal),
-                        validatePrepared: (candidate, content) => issued.validatePrepared(candidate, content),
-                        hasPreparedCustody: (candidate, info) => issued.hasPreparedCustody(candidate, info),
-                        publishPrepared: (candidate, info) => issued.publishPrepared(candidate, info),
-                        cancelPrepared: candidate => issued.cancelPrepared(candidate),
-                        captureRetainedSnapshot: (reference, assertAdmission?: () => void) =>
-                        {
-                            const source = readSource();
-                            const mounted = mountedSource.readMountedEditor(editorSessionRef);
-                            const info = issued.inspectReference(reference);
-                            if (released || !source || !mounted || source.mountedEditor !== mounted
-                                || info?.editorSessionRef !== editorSessionRef || info.documentId !== source.documentId
-                                || info.documentEpoch !== source.documentEpoch || info.editorRevision !== source.editorRevision)
-                            {
-                                throw new Error('article-recovery-native-snapshot-owner-unavailable');
-                            }
-                            const session = mounted.getSession(editorSessionRef);
-                            const snapshot = session.captureSnapshot(nativeSource =>
-                            {
-                                if (!issued.validateReference(reference, nativeSource))
-                                {
-                                    throw new Error('article-recovery-native-source-checkpoint-mismatch');
-                                }
-                                return calculateOpenArticleDocumentDigest(nativeSource);
-                            }, { documentIdentity: { id: source.documentId, epoch: source.documentEpoch }, revision: source.editorRevision, assertAdmission });
-                            if (mountedSource.readMountedEditor(editorSessionRef) !== mounted
-                                || mounted.getSession(editorSessionRef) !== session || !issued.inspectReference(reference)
-                                || snapshot.documentIdentity.id !== source.documentId
-                                || snapshot.documentIdentity.epoch !== source.documentEpoch || snapshot.revision !== source.editorRevision)
-                            {
-                                throw new Error('article-recovery-native-snapshot-stale');
-                            }
-                            return snapshot;
-                        },
-                        restore: token => issued.restore(token),
-                        invalidate: () => issued.invalidate(),
-                        release: releaseCheckpoint
-                    });
-                    // Allocation/subscription may have synchronously released the original owner.
-                    if (!readSource())
-                    {
-                        throw new Error('article-recovery-checkpoint-context-unavailable');
-                    }
-                    recoveryCheckpoint = checkpoint;
-                    return checkpoint;
-                }
-                catch (error)
-                {
-                    releaseCheckpoint();
-                    throw error;
-                }
-                finally
-                {
-                    recoveryCheckpointCreating = false;
-                }
-            };
-            /** Borrow only the successfully adopted consumer's original binding; this is not a seal or reacquisition. */
-            const readRetainedDocumentBinding = (): ArticleDocumentRetainedBinding | null =>
-            {
-                if (!retainedPrimaryReady || retainingPrimary || !mountedAuthorityCurrent()
-                    || mountedAdminCancellationFailure || mountedDocumentCancellationFailure
-                    || synchronousCleanupRunning || synchronousCleanupFailed || synchronousCleanupCompleted)
-                {
-                    return null;
-                }
-                const retained = retainedPrimaryBinding.value;
-                if (retained?.adapter !== articleDocumentContextAdapter)
-                {
-                    return null;
-                }
-                // Inspect the real issuer; preserve a thrown original error instead of fabricating a binding.
-                const observation = retained.inspect();
-                if (observation.registry.state !== 'live' || observation.admissionClosed || observation.invalidationFailed
-                    || observation.consumerInvalidationState !== 'not-requested' || !observation.registryRevisionMatchesDocument
-                    || !articleDocumentContextAdapter.isCurrentContext(observation.context)
-                    || !retainedPrimaryReady || retainingPrimary || retainedPrimaryBinding.value !== retained
-                    || !mountedAuthorityCurrent() || mountedAdminCancellationFailure || mountedDocumentCancellationFailure
-                    || synchronousCleanupRunning || synchronousCleanupFailed || synchronousCleanupCompleted)
-                {
-                    return null;
-                }
-                return retained;
-            };
-            const mountedRuntime = Object.freeze({ binding, release, bindSurfacePreference, bindPreviewOwners, bindRecoveryCheckpoint,
-                sealMountedAuthority, hasMountedAuthorityCustody, cancelMountedAuthority, subscribeMountedAuthorityRetirement,
-                search: searchRuntime, mountedSource, readRetainedDocumentBinding, resources: authoringWriterSessionResources });
-            revokeCurrentMountedAuthority?.();
-            revokeCurrentMountedAuthority = revokeMountedAuthority;
-            notifyCurrentMountedAuthorityRetirement = notifyMountedAuthorityRetirement;
-            originalMountedEditor = editor;
-            originalMountedRuntime = mountedRuntime;
-            return mountedRuntime;
-        }
-    });
     const initTask = useAbortableTask({
-        registry: writerTaskRegistry,
+        registry: articleDocumentContextAdapter,
         kind: 'refresh',
         producerRef: 'article-write:init'
     });
     const submitTask = useAbortableTask({
-        registry: writerTaskRegistry,
+        registry: articleDocumentContextAdapter,
         kind: 'refresh',
         producerRef: 'article-write:submit'
     });
     const taxonomyTask = useAbortableTask({
-        registry: writerTaskRegistry,
+        registry: articleDocumentContextAdapter,
         kind: 'refresh',
         producerRef: 'article-write:taxonomy'
     });
-    // Source admission owns the document preview lease; this controller only cancels the caller.
-    const previewTask = useAbortableTask();
+    const previewTask = useAbortableTask({
+        registry: articleDocumentContextAdapter,
+        kind: 'preview',
+        producerRef: 'article-write:preview'
+    });
     const prepublishTask = useAbortableTask({
-        registry: writerTaskRegistry,
+        registry: articleDocumentContextAdapter,
         kind: 'feature',
         producerRef: 'article-write:prepublish'
     });
     const aiAssistTask = useAbortableTask({
-        registry: writerTaskRegistry,
+        registry: articleDocumentContextAdapter,
         kind: 'feature',
         producerRef: 'article-write:ai-assist'
     });
     const assetTask = useAbortableTask({
-        registry: writerTaskRegistry,
+        registry: articleDocumentContextAdapter,
         kind: 'attachment',
         producerRef: 'article-write:asset'
     });
     const revisionRefreshTask = useAbortableTask({
-        registry: writerTaskRegistry,
+        registry: articleDocumentContextAdapter,
         kind: 'refresh',
         producerRef: 'article-write:revision-refresh'
     });
     const revisionCompareTask = useAbortableTask({
-        registry: writerTaskRegistry,
+        registry: articleDocumentContextAdapter,
         kind: 'compare',
         producerRef: 'article-write:revision-compare'
     });
@@ -2133,18 +879,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         runtime: imageUploadRuntime,
         getOptions: () => imageUploadOptions.value,
         getWasmOnly: () => wasmOnlyMode.value,
-        taskRegistry: writerTaskRegistry,
+        taskRegistry: articleDocumentContextAdapter,
         taskProducerRef: 'article-write:image-upload',
-        get getAttemptBinding()
-        {
-            return attachmentUploadAttempt ? (file: File) =>
-            {
-                const attempt = attachmentUploadAttempt;
-                return attempt?.file === toRaw(file) ? { owner: authoringAttachments,
-                    documentOwner: articleDocumentContextAdapter, intent: attempt.handle,
-                    getBinding: () => attachmentPort.binding() } : null;
-            } : undefined;
-        },
         notify: {
             success: (message) => toast.success(message),
             warning: (message) => showWarningToast(message, message),
@@ -2152,219 +888,49 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     });
 
-    const requestNativeAttachmentUpload = ({ batch, item, file }: Parameters<MarkdownAttachmentRequestDispatch>[0],
-        anchorOptions: ArticleAnchorCaptureOptions): ArticleAttachmentQueuedUploadRequest =>
-    {
-        if (!active || !canStartWriterResourceWork() || !attachmentEditor || !file)
-        {
-            throw new Error('article-native-upload-admission-unavailable');
-        }
-        let original = authoringAttachments.readNativeUploadBinding(batch, item, file);
-        if (!original)
-        {
-            // Rich dispatch does not emit the legacy capture event. Borrow the same native
-            // observation through its existing mounted File port, then admit it once.
-            const lent = attachmentPort.withAttachmentFile(batch, item, (lentFile, capture) =>
-            {
-                if (lentFile !== file)
-                {
-                    throw new Error('article-native-upload-file-mismatch');
-                }
-                const admitted = authoringAttachments.admitAcceptedCapture({ batch, capture, anchorOptions }, attachmentPort);
-                if (admitted.status !== 'admitted')
-                {
-                    throw new Error(admitted.reason);
-                }
-            });
-            if (!lent)
-            {
-                throw new Error('article-native-upload-capture-unavailable');
-            }
-            original = authoringAttachments.readNativeUploadBinding(batch, item, file);
-        }
-        if (!original || consumedAttachmentUploads.has(original.intent))
-        {
-            throw new Error('article-native-upload-original-binding-unavailable');
-        }
-        if (attachmentUploadAttempt || imageUploadFlow.pendingContext.value)
-        {
-            throw new Error('article-attachment-upload-busy');
-        }
-        assertUploadObligationAbsent();
-        const reservation: UploadAttemptObservation = Object.freeze({ status: 'observing', observation: null, reason: null });
-        consumedAttachmentUploads.set(original.intent, reservation);
-        const binding = original;
-        const signal = AbortSignal.any([batch.signal, item.signal, binding.intent.signal, binding.lease.signal]);
-        const selected = imageUploadOptions.value;
-        const options = Object.freeze({ format: selected.format, quality: selected.quality,
-            scaleRatio: selected.scaleRatio, maxEdge: selected.maxEdge, preserveAlpha: selected.preserveAlpha });
-        const runtimeOptions = Object.freeze({ wasmOnly: wasmOnlyMode.value });
-        const request = nativeUploadQueue.enqueue(signal, () => requestArticleAttachmentUpload({ runtime: imageUploadRuntime, file, batch, item,
-            attemptBinding: { owner: authoringAttachments, documentOwner: articleDocumentContextAdapter,
-                intent: binding.intent, lease: binding.lease, getBinding: () => attachmentPort.binding() },
-            options, runtimeOptions,
-            requestProviderResult: completion => requestArticleAttachmentCommittedFacts(completion, batch, item) }));
-        const custody: NativeUploadRequestCustody = { request, lease: binding.lease,
-            observedSettledFuture: null, observedFailures: null };
-        nativeUploadRequests.set(binding.intent, custody);
-        const settled = request.settled;
-        void settled.then(() =>
-        {
-            if (nativeUploadRequests.get(binding.intent) !== custody)
-            {
-                return;
-            }
-            // Retain the actual original fulfilled future, never result/status/digest permission.
-            custody.observedSettledFuture = settled;
-            try
-            {
-                settleOriginalNativeUpload(binding.intent, custody);
-            }
-            catch (cause)
-            {
-                nativeUploadFailures.push({ cause });
-            }
-            // Missing native/Main proof or a thrown settle retains this same original holder.
-        }, (cause: unknown) => nativeUploadFailures.push({ cause }));
-        return request;
-    };
-
-    const observeOwnedImageUpload = async (
-        handle: ArticleAttachmentPendingHandle,
-        file: File,
-        signal?: AbortSignal
-    ): Promise<AttachmentUploadObservation> =>
-    {
-        signal?.throwIfAborted();
-        const observation = authoringAttachments.readOwnedIntent(handle, attachmentPort.binding());
-        const candidate = observation?.snapshot.intent.candidate;
-        if (!active || !attachmentEditor || !observation?.current || handle.signal.aborted
-            || !authoringAttachments.matchesCapturedFile(handle, toRaw(file))
-            || candidate?.name !== file.name || candidate.mimeType !== file.type
-            || candidate.byteLength !== file.size)
-        {
-            throw new Error('article-attachment-upload-intent-invalid');
-        }
-        assertFlowUploadAdmissionAvailable();
-        if (consumedAttachmentUploads.has(handle))
-        {
-            throw new Error('article-attachment-upload-consumed');
-        }
-        if (imageUploadFlow.pendingContext.value)
-        {
-            throw new Error('article-attachment-upload-busy');
-        }
-        const reservation: UploadAttemptObservation = Object.freeze({ status: 'observing', observation: null, reason: null });
-        consumedAttachmentUploads.set(handle, reservation);
-        attachmentUploadObligations.set(handle, reservation);
-        const attempt = { handle, file };
-        attachmentUploadAttempt = attempt;
-        const outcome: { value: AttachmentUploadObservation | null; error: Error | null; } = { value: null, error: null };
-        const cancel = (): void => imageUploadFlow.cancel();
-        signal?.addEventListener('abort', cancel, { once: true });
-        try
-        {
-            await observeWriterResourceWork('imageUploadFlow:startUpload', () => imageUploadFlow.startUpload({ files: [file], maxFiles: 1,
-                notifyOnSuccess: false, notifyOnError: false,
-                onError: (_message, error) =>
-                {
-                    outcome.error = error instanceof Error ? error : new Error('article-attachment-upload-failed');
-                },
-                onFileUploaded: async completion =>
-                {
-                    if (toRaw(completion.file) !== file || completion.intent !== handle
-                        || attachmentUploadAttempt !== attempt)
-                    {
-                        throw new Error('article-attachment-upload-session-unavailable');
-                    }
-                    // Public runtime session has been cleared. Project named private loan fields
-                    // into the original provider, which freezes enumerable constructor input.
-                    outcome.value = await completion.borrow.withSession(async (facts, loanSignal) =>
-                    {
-                        const provider = createArticleAttachmentUploadProvider({
-                            uploadId: facts.uploadId, uploadToken: facts.uploadToken,
-                            sha256: facts.sha256, totalBytes: facts.totalBytes,
-                            commitMayHaveStarted: facts.commitMayHaveStarted
-                        });
-                        return await provider.observe(loanSignal);
-                    });
-                }
-            }));
-            signal?.throwIfAborted();
-            if (outcome.error)
-            {
-                throw outcome.error;
-            }
-            if (!active || !outcome.value || !authoringAttachments.readOwnedIntent(handle, attachmentPort.binding())?.current)
-            {
-                throw new Error('article-attachment-upload-observation-unavailable');
-            }
-            // Facts are transport observations. A later business-authorized document
-            // transaction must run outside the loan callback and own its own grants.
-            Object.freeze(outcome.value);
-            const settled: UploadAttemptObservation = Object.freeze({ status: 'settled', observation: outcome.value, reason: null });
-            consumedAttachmentUploads.set(handle, settled);
-            if (outcome.value.status === 'committed' || outcome.value.status === 'cancelled')
-            {
-                attachmentUploadObligations.delete(handle);
-            }
-            else
-            {
-                attachmentUploadObligations.set(handle, settled);
-            }
-            return outcome.value;
-        }
-        catch (error)
-        {
-            const interrupted: UploadAttemptObservation = Object.freeze({ status: 'interrupted', observation: outcome.value,
-                reason: error instanceof Error ? error.message : 'article-attachment-upload-observation-unavailable' });
-            consumedAttachmentUploads.set(handle, interrupted);
-            attachmentUploadObligations.set(handle, interrupted);
-            throw error;
-        }
-        finally
-        {
-            signal?.removeEventListener('abort', cancel);
-            attachmentUploadAttempt = null;
-            // An unconfirmed attempt retains the original flow context and Writer obligation.
-            if (!attachmentUploadObligations.has(handle))
-            {
-                imageUploadFlow.clearPending();
-            }
-        }
-    };
-
-    const handleUploadImg = (
-        _files: File[],
-        _callback: (urls: string[]) => void,
+    const handleUploadImg = async (
+        files: File[],
+        callback: (urls: string[]) => void,
         onError: (message: string) => void
     ): Promise<void> =>
     {
-        // The legacy File[] callback carries no original document-intent capability.
-        onError('article-attachment-upload-intent-required');
-        return Promise.resolve();
+        await imageUploadFlow.startUpload({
+            files,
+            maxFiles: 10,
+            messages: {
+                tooManyFiles: '单次上传资源文件不得超过 10 个',
+                uploadFailed: '图片存储服务不可用',
+                uploadSucceeded: `成功同步 ${files.length} 张资源图片`
+            },
+            onSuccess: (urls) =>
+            {
+                callback(urls);
+            },
+            onError: (message) =>
+            {
+                onError(message);
+            }
+        });
     };
 
     const resumeImageUpload = async (): Promise<void> =>
     {
-        assertFlowUploadAdmissionAvailable();
-        await observeWriterResourceWork('imageUploadFlow:resumeUpload', () => imageUploadFlow.resumeUpload({
+        await imageUploadFlow.resumeUpload({
             messages: {
                 resumeMissing: '没有可恢复的上传任务',
                 resumeFailed: '继续上传失败'
             }
-        }));
+        });
     };
 
     const handleCoverUpload = async (files: File[]): Promise<void> =>
     {
-        assertFlowUploadAdmissionAvailable();
         if (files.length === 0)
         {
             return;
         }
         taskFeedback.begin('正在上传文章头图', `待同步 ${files.length} 个文件`, 'article-cover');
-        await observeWriterResourceWork('imageUploadFlow:startUpload', () => imageUploadFlow.startUpload({
+        await imageUploadFlow.startUpload({
             files: [files[0]],
             maxFiles: 1,
             messages: {
@@ -2385,7 +951,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 taskFeedback.fail('文章头图上传失败', message, message, 'article-cover');
                 showErrorToast(message, message);
             }
-        }));
+        });
     };
     let unsubscribeArticleRecoveryCoordination: (() => void) | null = null;
     let disposeArticleRecoveryLifecycle: (() => void) | null = null;
@@ -2466,39 +1032,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         buildDraftSnapshot('', 'server')
     );
 
-    const previewCurrentAuthorities = createArticlePreviewCurrentAuthorities({
-        documentContext: articleDocumentContextAdapter,
-        readHost: () => ({
-            context: articleDocumentContextAdapter.context,
-            source: articleForm.content,
-            revisionId: currentRevisionId.value,
-            attachmentLifecycleHistory: authoringAttachments.lifecycleReceipts,
-            authoringInputDigest: calculateOpenArticleDocumentDigest(currentPrepublishIdentity())
-        }),
-        readEditingResponsibility: () =>
-        {
-            const owners = previewOwners.value;
-            // No editable responsibility fields exist in ArticleParams. Only a real live owner can supply them.
-            // Explicitly missing current input never falls back to saved-revision history.
-            return owners?.binding === editorRuntimeBinding
-                ? owners.readAttribution().responsibility : null;
-        },
-        readCurrentSiteAuthor: () => siteConfig.value?.author
-    });
-
     const articlePreviewGeneration = useArticlePreviewGeneration({
         target: privatePreview,
-        documentContext: articleDocumentContextAdapter,
-        attachmentBusiness: () => previewOwners.value?.business ?? null,
-        sourceAdmission: () =>
-        {
-            const owners = previewOwners.value;
-            if (editorRuntimeBinding !== owners?.binding)
-            {
-                throw new Error('article-preview-owner-unavailable');
-            }
-            return ArticlePreviewSourceAdmission.attachRuntime(owners.binding, () => previewCurrentAuthorities.read());
-        },
         readRequest: () => buildServerDraftRequest(
             buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
         ),
@@ -2578,7 +1113,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const articleRecoveryFlushOwner = new ArticleRecoveryFlushOwner(async (input) =>
     {
-        const result = await observeWriterResourceWork('journal-write', () => articleRecoveryJournal.write(input), true);
+        const result = await articleRecoveryJournal.write(input);
         updateRecoveryStorageWarning(result.status);
         if (result.status === 'stored')
         {
@@ -2597,10 +1132,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     ): boolean =>
     {
-        if (!canStartWriterResourceWork())
-        {
-            return false;
-        }
         const identityId = recoveryIdentityId();
         if (!identityId)
         {
@@ -2622,10 +1153,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const flushArticleRecoveryWrite = async (): Promise<ArticleRecoveryJournalWriteResult> =>
     {
-        if (!canStartWriterResourceWork())
-        {
-            return { status: 'unavailable', record: null };
-        }
         let result: ArticleRecoveryFlushResult;
         try
         {
@@ -2668,15 +1195,11 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         return flushArticleRecoveryWrite();
     };
 
-    const saveServerDraftSnapshotJob = async (
+    const saveServerDraftSnapshot = async (
         snapshot: ArticleDraftSnapshot,
         recoveryRecord: ArticleRecoveryJournalRecord | null
     ): Promise<void> =>
     {
-        if (!canStartWriterResourceWork())
-        {
-            return;
-        }
         if (serverDraftSyncPaused.value
             || articleDocumentContextAdapter.context.contextDigest !== snapshot.documentContextDigest)
         {
@@ -2685,7 +1208,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
 
         const token = ++serverDraftSaveToken;
-        const task = writerTaskRegistry.beginTask('refresh', 'article-write:draft-save');
+        const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:draft-save');
         try
         {
             const saved = await saveServerDraft(buildServerDraftRequest(snapshot), buildSignalConfig(task.signal));
@@ -2695,7 +1218,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             }
             if (recoveryRecord)
             {
-                invalidateDraftCheckpoint();
                 const confirmed = await articleRecoveryJournal.confirm({
                     id: recoveryRecord.id,
                     clientRevision: recoveryRecord.clientRevision,
@@ -2780,15 +1302,12 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         finally
         {
             task.complete();
-            task.settle();
         }
     };
-    const saveServerDraftSnapshot = async (...args: Parameters<typeof saveServerDraftSnapshotJob>): ReturnType<typeof saveServerDraftSnapshotJob> =>
-        observeWriterResourceWork('direct:saveServerDraftSnapshot', () => saveServerDraftSnapshotJob(...args), true);
 
     const saveDraftNow = (): void =>
     {
-        if (!canStartWriterResourceWork() || suppressDraftSave || !hasDraftContent(articleForm))
+        if (suppressDraftSave || !hasDraftContent(articleForm))
         {
             return;
         }
@@ -2802,30 +1321,27 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             return;
         }
-        void observeWriterResourceWork('draft-save-chain', () =>
-        {
-            draftSaveInFlightIdentity = identity;
-            draftSavedAt.value = snapshot.savedAt;
-            draftStatusText.value = '正在保存服务端草稿…';
-            return queueArticleRecoveryWrite(snapshot.content, snapshot.clientRevision, {
-                articleId: snapshot.sourceArticleId,
-                baseRevisionId: snapshot.baseRevisionId,
-                serverRevision: snapshot.serverRevision
-            })
-                .then(result => saveServerDraftSnapshot(snapshot, result.record))
-                .finally(() =>
+        draftSaveInFlightIdentity = identity;
+        draftSavedAt.value = snapshot.savedAt;
+        draftStatusText.value = '正在保存服务端草稿…';
+        void queueArticleRecoveryWrite(snapshot.content, snapshot.clientRevision, {
+            articleId: snapshot.sourceArticleId,
+            baseRevisionId: snapshot.baseRevisionId,
+            serverRevision: snapshot.serverRevision
+        })
+            .then(result => saveServerDraftSnapshot(snapshot, result.record))
+            .finally(() =>
+            {
+                if (draftSaveInFlightIdentity === identity)
                 {
-                    if (draftSaveInFlightIdentity === identity)
-                    {
-                        draftSaveInFlightIdentity = null;
-                    }
-                });
-        });
+                    draftSaveInFlightIdentity = null;
+                }
+            });
     };
 
     const scheduleDraftSave = (): void =>
     {
-        if (!canStartWriterResourceWork() || suppressDraftSave || typeof window === 'undefined')
+        if (suppressDraftSave || typeof window === 'undefined')
         {
             return;
         }
@@ -2859,7 +1375,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
 
-    const refreshArticleRecoveryCandidatesJob = async (parentSignal?: AbortSignal): Promise<void> =>
+    const refreshArticleRecoveryCandidates = async (parentSignal?: AbortSignal): Promise<void> =>
     {
         const identityId = recoveryIdentityId();
         if (!identityId)
@@ -2868,11 +1384,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             selectedArticleRecoveryId.value = '';
             return;
         }
-        const task = writerTaskRegistry.beginTask('refresh', 'article-write:recovery-refresh');
-        const abortParent = (): void =>
-        {
-            task.cancel('parent-task-aborted');
-        };
+        const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:recovery-refresh');
+        const abortParent = (): void => task.cancel('parent-task-aborted');
         parentSignal?.addEventListener('abort', abortParent, { once: true });
         const token = ++articleRecoveryRefreshToken;
         try
@@ -2938,11 +1451,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             parentSignal?.removeEventListener('abort', abortParent);
             task.complete();
-            task.settle();
         }
     };
-    const refreshArticleRecoveryCandidates = async (...args: Parameters<typeof refreshArticleRecoveryCandidatesJob>): ReturnType<typeof refreshArticleRecoveryCandidatesJob> =>
-        observeWriterResourceWork('direct:refreshArticleRecoveryCandidates', () => refreshArticleRecoveryCandidatesJob(...args), true);
 
     const detectDraftCandidates = async (signal: AbortSignal): Promise<void> =>
     {
@@ -2986,523 +1496,26 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         await refreshArticleRecoveryCandidates(signal);
     };
 
-    let draftFormRestoring = false;
-    const applyDraftToForm = (draft: ArticleDraftSnapshot, checkpoint?: {
-        readonly admit: () => boolean;
-        readonly preserveServerPause: true;
-    }): boolean =>
+    const applyDraftToForm = (draft: ArticleDraftSnapshot): void =>
     {
-        if (draftFormRestoring)
-        {
-            throw new Error('article-draft-form-restore-reentrant');
-        }
-        draftFormRestoring = true;
-        const previousSuppression = suppressDraftSave;
         suppressDraftSave = true;
-        try
+        articleForm.title = draft.title;
+        articleForm.content = draft.content;
+        articleForm.summary = draft.summary;
+        articleForm.coverImageUrl = draft.coverImageUrl;
+        articleForm.categoryId = draft.categoryId;
+        articleForm.tagIds = [...draft.tagIds];
+        articleForm.status = draft.status;
+        articleForm.scheduledPublishAt = draft.scheduledPublishAt;
+        articleForm.rights = { ...draft.rights };
+        serverDraftRevision.value = draft.serverRevision;
+        if (draft.isEdit)
         {
-            if (!checkpoint)
-            {
-                invalidateDraftCheckpoint();
-            }
-            // Each setter can invoke synchronous user/component watchers. Never continue
-            // past a superseded checkpoint or overwrite the edit made by that watcher.
-            const writes = [
-                () =>
-                {
-                    articleForm.title = draft.title;
-                },
-                () =>
-                {
-                    articleForm.content = draft.content;
-                },
-                () =>
-                {
-                    articleForm.summary = draft.summary;
-                },
-                () =>
-                {
-                    articleForm.coverImageUrl = draft.coverImageUrl;
-                },
-                () =>
-                {
-                    articleForm.categoryId = draft.categoryId;
-                },
-                () =>
-                {
-                    articleForm.tagIds = [...draft.tagIds];
-                },
-                () =>
-                {
-                    articleForm.status = draft.status;
-                },
-                () =>
-                {
-                    articleForm.scheduledPublishAt = draft.scheduledPublishAt;
-                },
-                () =>
-                {
-                    articleForm.rights = { ...draft.rights };
-                },
-                () =>
-                {
-                    serverDraftRevision.value = draft.serverRevision;
-                },
-                () =>
-                {
-                    if (draft.isEdit)
-                    {
-                        currentRevisionId.value = draft.baseRevisionId;
-                    }
-                }
-            ];
-            for (const write of writes)
-            {
-                if (checkpoint && !checkpoint.admit())
-                {
-                    return false;
-                }
-                write();
-                if (checkpoint && !checkpoint.admit())
-                {
-                    return false;
-                }
-            }
-            if (!checkpoint?.preserveServerPause)
-            {
-                // Only the original explicit recovery flow may resolve this pause.
-                serverDraftSyncPaused.value = false;
-            }
-            return !checkpoint || checkpoint.admit();
+            currentRevisionId.value = draft.baseRevisionId;
         }
-        finally
-        {
-            suppressDraftSave = active && writerScope.active ? previousSuppression : true;
-            draftFormRestoring = false;
-        }
+        serverDraftSyncPaused.value = false;
+        suppressDraftSave = false;
     };
-
-    // One bounded immutable checkpoint in the ORIGINAL full-draft owner; no persistence/body store.
-    const freezeFullDraftSnapshot = (draft: ArticleDraftSnapshot) => Object.freeze({ ...draft,
-        tagIds: Object.freeze([...draft.tagIds]), rights: Object.freeze({ ...draft.rights }) });
-    const fullDraftIdentity = (draft: ArticleDraftSnapshot, clientRevision: string | null, revisionNo: number | null) =>
-        calculateOpenArticleDocumentDigest({ semantic: buildDraftSemanticIdentity(draft), categoryId: draft.categoryId,
-            clientRevision, revisionNo, serverDraftSyncPaused: serverDraftSyncPaused.value, documentContextDigest: draft.documentContextDigest });
-    const currentFullDraftIdentity = () => fullDraftIdentity(
-        buildDraftSnapshot(activeRecoveryClientRevision ?? ''), activeRecoveryClientRevision, currentRevisionNo.value);
-    const readFullDraftOwner = () =>
-    {
-        const document = articleDocumentContextAdapter.context;
-        const identityId = adminStore.adminPrincipal?.id?.trim() ?? null;
-        const runtime = originalMountedRuntime;
-        const registry = articleWorkspaceTabRouter.getRegistry();
-        const entry = registry.getEntryByIdentity({ articleId: document.articleId, draftId: document.draftId, documentId: document.documentId });
-        if (!active || !writerScope.active || !componentAttached || fullDraftPrincipalRetired || serverDraftSyncPaused.value
-            || !identityId || identityId !== documentPrincipalIdentityId
-            || document.siteScope !== documentSiteScope || document.userScope !== documentUserScope
-            || articleId.value !== document.articleId || runtime?.binding !== editorRuntimeBinding
-            || entry?.status.permission !== 'allowed' || entry.status.lifecycle !== 'current'
-            || entry.documentContext.documentEpoch !== document.documentEpoch
-            || entry.documentContext.sourceRevision !== `source-revision:${document.sourceRevision}`
-            || entry.documentContext.draftRevision !== document.draftRevision)
-        {
-            return null;
-        }
-        const retained = retainedPrimaryBinding.value?.inspect();
-        if (retained && (retained.admissionClosed || retained.registry.state !== 'live' || retained.invalidationFailed
-            || retained.context.contextDigest !== document.contextDigest || !retained.registryRevisionMatchesDocument))
-        {
-            return null;
-        }
-        const registryRevision = registry.getRevision();
-        const mounted = runtime.mountedSource?.readMountedEditor(entry.editorSessionRef);
-        const nativeBinding = runtime.mountedSource?.readDocumentBinding(entry.editorSessionRef);
-        if (!mounted || mounted !== originalMountedEditor || nativeBinding?.identity.documentId !== document.documentId
-            || nativeBinding.documentContext.documentEpoch !== document.documentEpoch
-            || nativeBinding.documentContext.sourceRevision !== `source-revision:${document.sourceRevision}`
-            || nativeBinding.documentContext.draftRevision !== document.draftRevision)
-        {
-            return null;
-        }
-        const session = mounted.getSession(entry.editorSessionRef);
-        const native = session.inspectDocumentState();
-        const semanticIdentity = currentFullDraftIdentity();
-        if (!active || !writerScope.active || fullDraftPrincipalRetired || serverDraftSyncPaused.value
-            || runtime !== originalMountedRuntime || runtime.binding !== editorRuntimeBinding
-            || adminStore.adminPrincipal?.id?.trim() !== identityId || !articleDocumentContextAdapter.isCurrentContext(document)
-            || registry.getRevision() !== registryRevision || registry.getEntry(entry.tabId)?.lifecycleRevision !== entry.lifecycleRevision
-            || native.documentIdentity.id !== document.documentId || native.documentIdentity.epoch !== document.documentEpoch
-            || native.revision !== document.sourceRevision || mounted.getSession(entry.editorSessionRef) !== session)
-        {
-            return null;
-        }
-        return Object.freeze({ document, identityId, runtime, mounted, session, registryRevision,
-            associationRevision: entry.lifecycleRevision, editorSessionRef: entry.editorSessionRef,
-            draftKey: draftKey.value, clientRevision: activeRecoveryClientRevision, revisionNo: currentRevisionNo.value,
-            baseRevisionId: currentRevisionId.value, serverRevision: serverDraftRevision.value,
-            serverDraftSyncPaused: serverDraftSyncPaused.value, semanticIdentity });
-    };
-    const fullDraftInfo = (reference: string, owner: NonNullable<ReturnType<typeof readFullDraftOwner>>) => Object.freeze({
-        draftStateRef: reference, documentContext: owner.document, principalIdentityId: owner.identityId,
-        siteScope: owner.document.siteScope, draftKey: owner.draftKey, editorSessionRef: owner.editorSessionRef,
-        registryRevision: owner.registryRevision, associationRevision: owner.associationRevision,
-        nativeRevision: owner.document.sourceRevision, clientRevision: owner.clientRevision,
-        baseRevisionId: owner.baseRevisionId, serverRevision: owner.serverRevision, revisionNo: owner.revisionNo,
-        serverDraftSyncPaused: owner.serverDraftSyncPaused, fullDraftDigest: owner.semanticIdentity
-    });
-    interface FullDraftCustody {
-        readonly snapshot: ReturnType<typeof freezeFullDraftSnapshot>;
-        readonly owner: NonNullable<ReturnType<typeof readFullDraftOwner>>;
-        readonly info: ReturnType<typeof fullDraftInfo>;
-    }
-    let fullDraftCustody: FullDraftCustody | null = null;
-    // One pending candidate in this SAME original owner; committed custody stays untouched.
-    interface PreparedDraftCustody {
-        custody: FullDraftCustody | null;
-        previous: FullDraftCustody | null;
-        readonly generation: number;
-        readonly retained: ArticleDocumentRetainedBinding;
-        state: 'preparing' | 'prepared' | 'validating' | 'validated' | 'published' | 'canceled';
-    }
-    let preparedDraftCustody: PreparedDraftCustody | null = null;
-    let fullDraftGeneration = 0;
-    let fullDraftSequence = 0;
-    let fullDraftCapturing = false;
-    let fullDraftRestoring = false;
-    let fullDraftPrincipalRetired = false;
-    let fullDraftReleased = false;
-    const cancelPreparedDraft = (candidate: PreparedDraftCustody): boolean =>
-    {
-        if (preparedDraftCustody !== candidate)
-        {
-            return false;
-        }
-        preparedDraftCustody = null;
-        candidate.state = 'canceled';
-        candidate.custody = null;
-        candidate.previous = null;
-        return true;
-    };
-    // Private scalars/references only: no borrowed reader, allocation, reactive setter or native operation.
-    const hasPreparedDraftCustody = (candidate: PreparedDraftCustody): boolean =>
-        preparedDraftCustody === candidate && fullDraftCustody === candidate.previous
-        && fullDraftGeneration === candidate.generation && active && componentAttached
-        && !fullDraftReleased && !fullDraftPrincipalRetired && !fullDraftCapturing && !fullDraftRestoring && !draftFormRestoring
-        && (!candidate.custody || candidate.custody.owner.runtime === originalMountedRuntime
-            && candidate.custody.owner.mounted === originalMountedEditor
-            && candidate.custody.owner.clientRevision === activeRecoveryClientRevision);
-    const invalidateDraftCheckpoint = (): void =>
-    {
-        if (fullDraftGeneration === Number.MAX_SAFE_INTEGER)
-        {
-            notifyCurrentMountedAuthorityRetirement?.();
-        }
-        if (preparedDraftCustody)
-        {
-            cancelPreparedDraft(preparedDraftCustody);
-        }
-        fullDraftCustody = null;
-        if (fullDraftGeneration === Number.MAX_SAFE_INTEGER)
-        {
-            fullDraftReleased = true;
-        }
-        else
-        {
-            fullDraftGeneration += 1;
-        }
-    };
-    const sameFullDraftOwner = (current: ReturnType<typeof readFullDraftOwner>, owner: FullDraftCustody['owner']): boolean =>
-        !!current && current.runtime === owner.runtime && current.mounted === owner.mounted
-        && current.session === owner.session && current.identityId === owner.identityId
-        && current.document.contextDigest === owner.document.contextDigest
-        && current.semanticIdentity === owner.semanticIdentity && current.draftKey === owner.draftKey
-        && current.registryRevision === owner.registryRevision && current.associationRevision === owner.associationRevision
-        && current.editorSessionRef === owner.editorSessionRef && current.clientRevision === owner.clientRevision
-        && current.revisionNo === owner.revisionNo && current.baseRevisionId === owner.baseRevisionId
-        && current.serverRevision === owner.serverRevision && current.serverDraftSyncPaused === owner.serverDraftSyncPaused;
-    const validatePreparedDraft = (candidate: PreparedDraftCustody): boolean =>
-    {
-        if ((candidate.state !== 'prepared' && candidate.state !== 'validated') || !hasPreparedDraftCustody(candidate))
-        {
-            // Reentry cannot consume/cancel the validation currently on this stack.
-            if (candidate.state !== 'validating')
-            {
-                cancelPreparedDraft(candidate);
-            }
-            return false;
-        }
-        candidate.state = 'validating';
-        let admitted = false;
-        try
-        {
-            const custody = candidate.custody;
-            const current = readFullDraftOwner();
-            if (!custody || !sameFullDraftOwner(current, custody.owner) || !hasPreparedDraftCustody(candidate)
-                || retainedPrimaryBinding.value !== candidate.retained || candidate.retained.adapter !== articleDocumentContextAdapter)
-            {
-                return false;
-            }
-            const retained = candidate.retained.inspect();
-            if (retained.admissionClosed || retained.invalidationFailed || retained.registry.state !== 'live'
-                || !retained.registryRevisionMatchesDocument || retained.context !== custody.owner.document
-                || retained.principalIdentityId !== custody.owner.identityId)
-            {
-                return false;
-            }
-            // The retained reader can reenter original native/form/membership owners.
-            // Re-read them afterward, then finish with the private slot/generation checks.
-            const after = readFullDraftOwner();
-            admitted = sameFullDraftOwner(after, custody.owner) && retainedPrimaryBinding.value === candidate.retained
-                && candidate.state === 'validating' && candidate.custody === custody && hasPreparedDraftCustody(candidate);
-            return admitted;
-        }
-        catch
-        {
-            return false;
-        }
-        finally
-        {
-            if (admitted)
-            {
-                candidate.state = 'validated';
-            }
-            else
-            {
-                // Failed candidates are discarded; the committed slot is not touched.
-                cancelPreparedDraft(candidate);
-            }
-        }
-    };
-    const inspectDraftReference = (reference: string) =>
-    {
-        const custody = fullDraftCustody;
-        const generation = fullDraftGeneration;
-        if (fullDraftReleased || fullDraftPrincipalRetired || typeof reference !== 'string' || custody?.info.draftStateRef !== reference)
-        {
-            return null;
-        }
-        try
-        {
-            const current = readFullDraftOwner();
-            if (current?.runtime !== custody.owner.runtime || current.mounted !== custody.owner.mounted
-                || current.session !== custody.owner.session || current.identityId !== custody.owner.identityId
-                || current.document.contextDigest !== custody.owner.document.contextDigest
-                || current.semanticIdentity !== custody.owner.semanticIdentity || current.draftKey !== custody.owner.draftKey
-                || current.registryRevision !== custody.owner.registryRevision || current.associationRevision !== custody.owner.associationRevision
-                || fullDraftCustody !== custody || fullDraftGeneration !== generation)
-            {
-                if (fullDraftCustody === custody)
-                {
-                    invalidateDraftCheckpoint();
-                }
-                return null;
-            }
-            return custody.info;
-        }
-        catch
-        {
-            if (fullDraftCustody === custody)
-            {
-                invalidateDraftCheckpoint();
-            }
-            return null;
-        }
-    };
-    const authoringDraftCheckpointRuntime = Object.freeze({
-        /** Prepare actual same-owner/same-revision form custody without invalidating the old reference. */
-        prepareDraftCheckpoint: () =>
-        {
-            const retained = retainedPrimaryBinding.value;
-            if (retained?.adapter !== articleDocumentContextAdapter || preparedDraftCustody
-                || fullDraftReleased || fullDraftPrincipalRetired || !active || !componentAttached
-                || fullDraftCapturing || fullDraftRestoring || draftFormRestoring || fullDraftSequence === Number.MAX_SAFE_INTEGER)
-            {
-                return null;
-            }
-            // Reserve before original native/scope/form readers or randomUUID can reenter.
-            const candidate: PreparedDraftCustody = { custody: null, previous: fullDraftCustody,
-                generation: fullDraftGeneration, retained, state: 'preparing' };
-            preparedDraftCustody = candidate;
-            try
-            {
-                const owner = readFullDraftOwner();
-                if (!owner || !hasPreparedDraftCustody(candidate) || typeof globalThis.crypto?.randomUUID !== 'function')
-                {
-                    return null;
-                }
-                const draft = buildDraftSnapshot(owner.clientRevision ?? '');
-                if (fullDraftIdentity(draft, owner.clientRevision, owner.revisionNo) !== owner.semanticIdentity
-                    || !hasPreparedDraftCustody(candidate))
-                {
-                    return null;
-                }
-                const snapshot = freezeFullDraftSnapshot(draft);
-                const reference = `article-draft-state:${globalThis.crypto.randomUUID()}:${++fullDraftSequence}`;
-                const info = fullDraftInfo(reference, owner);
-                const custody: FullDraftCustody = Object.freeze({ snapshot, owner, info });
-                if (!hasPreparedDraftCustody(candidate))
-                {
-                    return null;
-                }
-                candidate.custody = custody;
-                candidate.state = 'prepared';
-                const preparation = Object.freeze({
-                    info,
-                    validate: () => validatePreparedDraft(candidate),
-                    /** Private custody after the preceding fresh validation; not native/full-host qualification. */
-                    hasCustody: () => candidate.state === 'validated' && hasPreparedDraftCustody(candidate),
-                    publish: () =>
-                    {
-                        if (candidate.state !== 'validated' || !candidate.custody || !hasPreparedDraftCustody(candidate))
-                        {
-                            if (candidate.state !== 'validating' && candidate.state !== 'preparing')
-                            {
-                                cancelPreparedDraft(candidate);
-                            }
-                            return null;
-                        }
-                        // No callback, reader, allocation, form write or cleanup after publication.
-                        fullDraftCustody = candidate.custody;
-                        preparedDraftCustody = null;
-                        candidate.state = 'published';
-                        candidate.custody = null;
-                        candidate.previous = null;
-                        return info;
-                    },
-                    cancel: () => cancelPreparedDraft(candidate)
-                });
-                return validatePreparedDraft(candidate) ? preparation : null;
-            }
-            catch
-            {
-                return null;
-            }
-            finally
-            {
-                if (candidate.state !== 'validated')
-                {
-                    cancelPreparedDraft(candidate);
-                }
-            }
-        },
-        captureDraftCheckpoint: () =>
-        {
-            if (preparedDraftCustody || fullDraftReleased || fullDraftPrincipalRetired || fullDraftCapturing || fullDraftRestoring
-                || draftFormRestoring || fullDraftSequence === Number.MAX_SAFE_INTEGER)
-            {
-                return null;
-            }
-            fullDraftCapturing = true;
-            invalidateDraftCheckpoint();
-            const generation = fullDraftGeneration;
-            try
-            {
-                const owner = readFullDraftOwner();
-                if (!owner || typeof globalThis.crypto?.randomUUID !== 'function')
-                {
-                    return null;
-                }
-                const draft = buildDraftSnapshot(owner.clientRevision ?? '');
-                if (fullDraftIdentity(draft, owner.clientRevision, owner.revisionNo) !== owner.semanticIdentity)
-                {
-                    return null;
-                }
-                const snapshot = freezeFullDraftSnapshot(draft);
-                const reference = `article-draft-state:${globalThis.crypto.randomUUID()}:${++fullDraftSequence}`;
-                if (fullDraftReleased || fullDraftGeneration !== generation)
-                {
-                    return null;
-                }
-                fullDraftCustody = Object.freeze({ snapshot, owner, info: fullDraftInfo(reference, owner) });
-                return inspectDraftReference(reference);
-            }
-            catch
-            {
-                return null;
-            }
-            finally
-            {
-                fullDraftCapturing = false;
-            }
-        },
-        inspectDraftReference,
-        /** Original private slot continuity only; never replaces preceding fresh owner/body inspection. */
-        hasDraftReferenceCustody: (reference: string, info: ReturnType<typeof fullDraftInfo>): boolean =>
-            !fullDraftReleased && !fullDraftPrincipalRetired && !fullDraftCapturing && !fullDraftRestoring && !draftFormRestoring
-            && fullDraftCustody?.info === info && fullDraftCustody.info.draftStateRef === reference,
-        validateDraftReference: (reference: string, nativeSource: string): boolean =>
-            !!inspectDraftReference(reference) && fullDraftCustody?.snapshot.content === nativeSource && articleForm.content === nativeSource,
-        restoreDraftReference: (reference: string) =>
-        {
-            if (preparedDraftCustody || fullDraftRestoring || fullDraftCapturing || draftFormRestoring)
-            {
-                return null;
-            }
-            // Reserve before inspection/materialization can invoke original native or user readers.
-            fullDraftRestoring = true;
-            const custody = fullDraftCustody;
-            const generation = fullDraftGeneration;
-            const admit = (): boolean =>
-            {
-                if (!custody || fullDraftCustody !== custody || fullDraftGeneration !== generation
-                    || fullDraftPrincipalRetired || fullDraftReleased || serverDraftSyncPaused.value)
-                {
-                    return false;
-                }
-                const info = inspectDraftReference(reference);
-                return info === custody.info && fullDraftCustody === custody && fullDraftGeneration === generation
-                    && !fullDraftPrincipalRetired && !fullDraftReleased && !serverDraftSyncPaused.value;
-            };
-            try
-            {
-                if (!custody || !admit())
-                {
-                    return null;
-                }
-                const draft = { ...custody.snapshot, tagIds: [...custody.snapshot.tagIds], rights: { ...custody.snapshot.rights } };
-                if (!admit() || !applyDraftToForm(draft, { admit, preserveServerPause: true }))
-                {
-                    return null;
-                }
-                return admit() ? custody.info : null;
-            }
-            finally
-            {
-                // Exceptions propagate; refusal never fabricates rollback or overwrites newer edits.
-                fullDraftRestoring = false;
-            }
-        },
-        releaseDraftCheckpoint: (reference: string): boolean =>
-        {
-            if (preparedDraftCustody || typeof reference !== 'string' || fullDraftCustody?.info.draftStateRef !== reference)
-            {
-                return false;
-            }
-            invalidateDraftCheckpoint();
-            return true;
-        },
-        invalidateDraftCheckpoint
-    });
-    const draftPrincipalRetirementWatch = watch(() => adminStore.adminPrincipal?.id?.trim() ?? null, (identity, previous) =>
-    {
-        if (identity !== previous)
-        {
-            revokeCurrentMountedAuthority?.();
-            // Retirement is permanent for this original owner, including A→null/B→A.
-            fullDraftPrincipalRetired = true;
-            invalidateDraftCheckpoint();
-        }
-    }, { flush: 'sync' });
-    watch(serverDraftSyncPaused, invalidateDraftCheckpoint, { flush: 'sync' });
-    watch(currentFullDraftIdentity, invalidateDraftCheckpoint, { flush: 'sync' });
-    const unsubscribeDraftCheckpointContext = articleDocumentContextAdapter.subscribeContext(invalidateDraftCheckpoint);
-    onScopeDispose(() =>
-    {
-        notifyCurrentMountedAuthorityRetirement?.();
-        fullDraftReleased = true;
-        invalidateDraftCheckpoint();
-        unsubscribeDraftCheckpointContext();
-    });
 
     const clearArticleRecoveryScope = async (): Promise<void> =>
     {
@@ -3524,13 +1537,13 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         articleRecoveryOperationKind.value = state.kind;
         articleRecoveryOperationError.value = state.error;
     });
-    const runArticleRecoveryOperationJob = async (
+    const runArticleRecoveryOperation = async (
         kind: ArticleRecoveryOperationKind,
         failureMessage: string,
         operation: () => void | Promise<void>
     ): Promise<boolean> =>
     {
-        const task = writerTaskRegistry.beginTask('compare', `article-write:recovery-${kind}`);
+        const task = articleDocumentContextAdapter.beginTask('compare', `article-write:recovery-${kind}`);
         try
         {
             return await articleRecoveryOperationRunner(kind, failureMessage, async () =>
@@ -3549,11 +1562,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         finally
         {
             task.complete();
-            task.settle();
         }
     };
-    const runArticleRecoveryOperation = async (...args: Parameters<typeof runArticleRecoveryOperationJob>): ReturnType<typeof runArticleRecoveryOperationJob> =>
-        observeWriterResourceWork('direct:runArticleRecoveryOperation', () => runArticleRecoveryOperationJob(...args), true);
 
     const compareSelectedArticleRecovery = async (): Promise<void> =>
     {
@@ -3586,10 +1596,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const performRestoreLocalDraft = async (): Promise<void> =>
     {
-        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
-        {
-            throw new Error('article-draft-recovery-during-checkpoint-restore');
-        }
         const recovery = selectedArticleRecovery.value;
         if (recovery)
         {
@@ -3654,10 +1660,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const performDiscardLocalDraft = async (): Promise<void> =>
     {
-        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
-        {
-            throw new Error('article-draft-recovery-during-checkpoint-restore');
-        }
         const recovery = selectedArticleRecovery.value;
         if (recovery)
         {
@@ -3703,10 +1705,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const restoreLocalDraft = async (): Promise<void> =>
     {
-        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
-        {
-            throw new Error('article-draft-recovery-during-checkpoint-restore');
-        }
         if (articleRecoveryComparisonRequired.value)
         {
             articleRecoveryOperationError.value = '此版本与较新的权威正文坐标不同，请先比较再明确恢复';
@@ -3721,10 +1719,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const discardLocalDraft = async (): Promise<void> =>
     {
-        if (preparedDraftCustody || draftFormRestoring || fullDraftRestoring)
-        {
-            throw new Error('article-draft-recovery-during-checkpoint-restore');
-        }
         await runArticleRecoveryOperation(
             'discard',
             '正文丢弃失败，所选版本仍保留，请重试',
@@ -3734,7 +1728,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
     const clearLocalDraft = async (): Promise<void> =>
     {
-        invalidateDraftCheckpoint();
         clearDraftSaveTimer();
         await clearArticleRecoveryScope();
         pendingDraft.value = null;
@@ -3824,13 +1817,10 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
 
-    const refreshAssetLibraryJob = async (signal?: AbortSignal): Promise<void> =>
+    const refreshAssetLibrary = async (signal?: AbortSignal): Promise<void> =>
     {
-        const task = writerTaskRegistry.beginTask('attachment', 'article-write:asset-refresh');
-        const abortParent = (): void =>
-        {
-            task.cancel('parent-task-aborted');
-        };
+        const task = articleDocumentContextAdapter.beginTask('attachment', 'article-write:asset-refresh');
+        const abortParent = (): void => task.cancel('parent-task-aborted');
         signal?.addEventListener('abort', abortParent, { once: true });
         assetLibraryLoading.value = true;
         try
@@ -3859,11 +1849,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             signal?.removeEventListener('abort', abortParent);
             task.complete();
             assetLibraryLoading.value = false;
-            task.settle();
         }
     };
-    const refreshAssetLibrary = async (...args: Parameters<typeof refreshAssetLibraryJob>): ReturnType<typeof refreshAssetLibraryJob> =>
-        observeWriterResourceWork('direct:refreshAssetLibrary', () => refreshAssetLibraryJob(...args), true);
 
     const applyArticleDetailToForm = (data: ArticleDetailResponse): void =>
     {
@@ -3908,7 +1895,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         revisionLoading.value = true;
         try
         {
-            await observeWriterResourceWork('revisionRefreshTask:run', () => revisionRefreshTask.run(async (signal) =>
+            await revisionRefreshTask.run(async (signal) =>
             {
                 const revisions = await listArticleRevisions(articleId.value!, buildSignalConfig(signal));
                 if (signal.aborted)
@@ -3922,7 +1909,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     selectedRevision.value = null;
                 }
                 revisionStatusText.value = revisions.length > 0 ? `已载入 ${revisions.length} 个历史版本` : '暂无修订历史';
-            }));
+            });
         }
         catch (error: unknown)
         {
@@ -3947,7 +1934,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         revisionLoading.value = true;
         try
         {
-            await observeWriterResourceWork('revisionCompareTask:run', () => revisionCompareTask.run(async (signal) =>
+            await revisionCompareTask.run(async (signal) =>
             {
                 const selected = await getArticleRevision(articleId.value!, revision.id, buildSignalConfig(signal));
                 if (signal.aborted)
@@ -3956,7 +1943,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
                 selectedRevision.value = selected;
                 revisionStatusText.value = `正在比较版本 ${selected.revisionNo}`;
-            }));
+            });
         }
         catch (error: unknown)
         {
@@ -3971,7 +1958,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
     };
 
-    const rollbackSelectedRevisionJob = async (selection: { targetStatus: 0 | 2 | 3; reason: string; }): Promise<void> =>
+    const rollbackSelectedRevision = async (selection: { targetStatus: 0 | 2 | 3; reason: string; }): Promise<void> =>
     {
         if (!selectedRevision.value || articleId.value === null)
         {
@@ -3980,7 +1967,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
 
         revisionRollbacking.value = true;
         taskFeedback.begin('正在回滚历史版本', `目标版本 ${selectedRevision.value.revisionNo}`, 'article-revision');
-        const task = writerTaskRegistry.beginTask('feature', 'article-write:revision-rollback');
+        const task = articleDocumentContextAdapter.beginTask('feature', 'article-write:revision-rollback');
         try
         {
             const revisionNo = selectedRevision.value.revisionNo;
@@ -4050,18 +2037,14 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             task.complete();
             suppressDraftSave = false;
             revisionRollbacking.value = false;
-            task.settle();
         }
     };
-    const rollbackSelectedRevision = async (...args: Parameters<typeof rollbackSelectedRevisionJob>): ReturnType<typeof rollbackSelectedRevisionJob> =>
-        observeWriterResourceWork('direct:rollbackSelectedRevision', () => rollbackSelectedRevisionJob(...args), true);
 
     const generatePrivatePreview = async (): Promise<void> =>
     {
         if (!canGeneratePrivatePreview.value)
         {
-            const reason = previewOwners.value === null ? '预览所需的附件与责任信息尚未就绪' : '请先填写标题或正文';
-            showWarningToast(reason, reason);
+            showWarningToast('请先填写标题或正文', '请先填写标题或正文');
             return;
         }
 
@@ -4069,9 +2052,8 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在生成私有预览', '预览不会发布到公开站点', 'article-preview');
         try
         {
-            await observeWriterResourceWork('previewTask:run', () => previewTask.run(async (signal) =>
+            await previewTask.run(async (signal) =>
             {
-                await previewCurrentAuthorities.refresh(signal);
                 const preview = await articlePreviewGeneration.generate(signal);
                 if (!preview)
                 {
@@ -4083,7 +2065,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     ? `已生成预览，存在 ${errorCount} 个发布阻断项`
                     : `已生成预览，正文 ${preview.plainText.length} 字符`;
                 taskFeedback.succeed('私有预览已生成', privatePreviewStatusText.value, 'article-preview');
-            }));
+            });
         }
         catch (error: unknown)
         {
@@ -4137,7 +2119,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         try
         {
             let canPublish = true;
-            await observeWriterResourceWork('prepublishTask:run', () => prepublishTask.run(async (signal) =>
+            await prepublishTask.run(async (signal) =>
             {
                 const snapshot = buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server');
                 const request = {
@@ -4172,7 +2154,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 {
                     taskFeedback.succeed('发布前检查完成', seoStatusText.value, 'article-prepublish');
                 }
-            }));
+            });
             return canPublish;
         }
         catch (error: unknown)
@@ -4240,7 +2222,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在重建资产索引', `文章 ${articleId.value}`, 'article-assets');
         try
         {
-            await observeWriterResourceWork('assetTask:run', () => assetTask.run(async (signal) =>
+            await assetTask.run(async (signal) =>
             {
                 const assets = await reindexArticleAssets(articleId.value!, buildSignalConfig(signal));
                 if (signal.aborted)
@@ -4252,7 +2234,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 assetLibraryStatusText.value = `资产库已重建，当前 ${assets.length} 项`;
                 taskFeedback.succeed('资产索引已重建', assetLibraryStatusText.value, 'article-assets');
                 toast.success('资产库已重建');
-            }));
+            });
         }
         catch (error: unknown)
         {
@@ -4274,7 +2256,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在清理孤儿资产', '仅清理无引用资源', 'article-assets');
         try
         {
-            await observeWriterResourceWork('assetTask:run', () => assetTask.run(async (signal) =>
+            await assetTask.run(async (signal) =>
             {
                 const deleted = await cleanupOrphanAssets(buildSignalConfig(signal));
                 if (signal.aborted)
@@ -4285,7 +2267,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 await refreshAssetLibrary(signal);
                 taskFeedback.succeed('孤儿资产清理完成', `已清理 ${deleted} 个孤儿资产`, 'article-assets');
                 toast.success(`已清理 ${deleted} 个孤儿资产`);
-            }));
+            });
         }
         catch (error: unknown)
         {
@@ -4337,7 +2319,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在创建分类', trimmed, 'article-taxonomy');
         try
         {
-            await observeWriterResourceWork('taxonomyTask:run', () => taxonomyTask.run(async (signal) =>
+            await taxonomyTask.run(async (signal) =>
             {
                 const result = await createCategory(trimmed, buildSignalConfig(signal));
                 await refreshTaxonomy(signal);
@@ -4356,7 +2338,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     categories.value = [...categories.value, { id: result.id, name: trimmed, articleCount: 0 }];
                     articleForm.categoryId = result.id;
                 }
-            }));
+            });
             taskFeedback.succeed('分类已创建并选中', trimmed, 'article-taxonomy');
             return true;
         }
@@ -4387,7 +2369,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在创建标签', trimmed, 'article-taxonomy');
         try
         {
-            await observeWriterResourceWork('taxonomyTask:run', () => taxonomyTask.run(async (signal) =>
+            await taxonomyTask.run(async (signal) =>
             {
                 const result = await createTag(trimmed, buildSignalConfig(signal));
                 await refreshTaxonomy(signal);
@@ -4406,7 +2388,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                     tags.value = [...tags.value, { id: result.id, name: trimmed, articleCount: 0 }];
                     articleForm.tagIds = [...articleForm.tagIds, result.id];
                 }
-            }));
+            });
             taskFeedback.succeed('标签已创建并关联', trimmed, 'article-taxonomy');
             return true;
         }
@@ -4430,7 +2412,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         pageLoading.value = true;
         try
         {
-            await observeWriterResourceWork('initTask:run', () => initTask.run(async (signal) =>
+            await initTask.run(async (signal) =>
             {
                 await Promise.all([
                     refreshTaxonomy(signal),
@@ -4464,7 +2446,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
 
                 await detectDraftCandidates(signal);
-            }));
+            });
         }
         catch (error: unknown)
         {
@@ -4534,20 +2516,14 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         return true;
     };
 
-    const firstInvalidFormProperty = ref<string | null>(null);
     const validateBeforeSubmit = async (): Promise<boolean> =>
     {
-        firstInvalidFormProperty.value = null;
         if (!formRef.value || submitting.value)
         {
             return false;
         }
 
-        const captureInvalidProperty: FormValidateCallback = (valid, fields): void =>
-        {
-            firstInvalidFormProperty.value = valid ? null : Object.keys(fields ?? {})[0] ?? null;
-        };
-        const validation = await formRef.value.validate(captureInvalidProperty);
+        const validation = await formRef.value.validate();
         if (!isFsusUiOk(validation))
         {
             return false;
@@ -4658,7 +2634,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         {
             submitting.value = true;
             taskFeedback.begin(`${submitButtonText.value}处理中`, '正在写入文章并同步相关缓存', 'article-submit');
-            await observeWriterResourceWork('submitTask:run', () => submitTask.run(async (signal) =>
+            await submitTask.run(async (signal) =>
             {
                 const config: ApiRequestConfig = { signal };
                 const articlePayload: ArticleWriteRequest = {
@@ -4729,7 +2705,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
                 articleForm.content = '';
                 await router.push('/user/manage/article/list');
-            }));
+            });
         }
         catch (error: unknown)
         {
@@ -4790,7 +2766,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         taskFeedback.begin('正在检查草稿', '摘要草稿、标签匹配、标题备选与结构检查', 'article-ai-assist');
         try
         {
-            await observeWriterResourceWork('aiAssistTask:run', () => aiAssistTask.run(async (signal) =>
+            await aiAssistTask.run(async (signal) =>
             {
                 const response = await generateAiAssist({
                     title: articleForm.title,
@@ -4810,7 +2786,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 }
                 taskFeedback.succeed('草稿检查结果已生成', aiAssistStatusText.value, 'article-ai-assist');
                 toast.success('草稿检查结果已生成');
-            }));
+            });
         }
         catch (error: unknown)
         {
@@ -4965,7 +2941,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
                 reason: next === null ? 'draft-switch' : 'article-switch'
             });
             imageUploadFlow.cancel();
-            cancelNativeUploadRequests('article-document-switch');
             if (typeof imageUploadFlow.clearPending === 'function')
             {
                 imageUploadFlow.clearPending();
@@ -4984,13 +2959,7 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
             {
                 return;
             }
-            const publication = nativeSourceWatch;
-            if (publication?.transaction.value !== content
-                || articleDocumentContextAdapter.context !== publication.context
-                || !authoringAttachments.hasNativeSourcePublication(publication.transaction, publication.context))
-            {
-                articleDocumentContextAdapter.updateSource(content);
-            }
+            articleDocumentContextAdapter.updateSource(content);
             syncAuthoringDocumentContext();
             const clientRevision = createArticleRecoveryClientRevision();
             activeRecoveryClientRevision = clientRevision;
@@ -5027,26 +2996,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         { deep: true }
     );
 
-    const installWriterRecoveryLifecycle = (): void =>
-    {
-        if (disposeArticleRecoveryLifecycle || typeof window === 'undefined' || typeof document === 'undefined')
-        {
-            return;
-        }
-        disposeArticleRecoveryLifecycle = bindArticleRecoveryLifecycleFlush(async () =>
-        {
-            if (!canStartWriterResourceWork())
-            {
-                return;
-            }
-            await flushArticleRecoveryWrite();
-            if (!suppressDraftSave && canStartWriterResourceWork())
-            {
-                await refreshArticleRecoveryCandidates();
-            }
-        }, { document, window }, ARTICLE_RECOVERY_FLUSH_INTERVAL_MS);
-    };
-
     onMounted(() =>
     {
         if (typeof window !== 'undefined')
@@ -5063,645 +3012,53 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         }
         unsubscribeArticleRecoveryCoordination = recoveryCoordinator.subscribe((message) =>
         {
-            if (canStartWriterResourceWork() && message.articleKey === articleRecoveryArticleKey(articleId.value) && !suppressDraftSave)
+            if (message.articleKey === articleRecoveryArticleKey(articleId.value) && !suppressDraftSave)
             {
                 void refreshArticleRecoveryCandidates();
             }
         });
-        installWriterRecoveryLifecycle();
+        if (typeof window !== 'undefined' && typeof document !== 'undefined')
+        {
+            disposeArticleRecoveryLifecycle = bindArticleRecoveryLifecycleFlush(async () =>
+            {
+                await flushArticleRecoveryWrite();
+                if (!suppressDraftSave)
+                {
+                    await refreshArticleRecoveryCandidates();
+                }
+            }, { document, window }, ARTICLE_RECOVERY_FLUSH_INTERVAL_MS);
+        }
         powProvider.prewarm();
         void initData();
     });
 
-    const inspectWriterSessionResources = () =>
-    {
-        const pending = new Set(articleDocumentContextAdapter.pendingTaskRefs);
-        const leases = [...writerTaskLeases].filter(lease => pending.has(lease.taskRef));
-        const nativeTransitionCleanup = authoringAttachments.inspectNativeTransitionCleanup();
-        const ownWorkPending = writerLeaseIssuanceReservations > 0 || pending.size > 0 || writerPendingWork.size > 0
-            || nativeUploadRequests.size > 0
-            || nativeTransitionCleanup.pending > 0
-            || attachmentUploadAttempt !== null || draftSaveInFlightIdentity !== null;
-        return Object.freeze({
-            scope: 'writer-owned-local' as const,
-            complete: false as const,
-            phase: !active || !writerScope.active ? 'released' as const : writerResourcePhase,
-            scopeActive: writerScope.active,
-            scopePausedByOwner: writerScopePaused,
-            retainedCriticalRevocationObservers: 2,
-            leaseLimit: writerResourceLimit,
-            leaseIssuanceReservations: writerLeaseIssuanceReservations,
-            workLimit: writerResourceLimit,
-            unattributedDocumentTaskCount: pending.size - leases.length,
-            pendingLeases: Object.freeze(leases.map(lease => Object.freeze({ taskRef: lease.taskRef,
-                producerRef: lease.envelope.producerRef, abortRequested: lease.signal.aborted,
-                neverDispatched: writerUndispatchedLeases.has(lease) }))),
-            pendingWork: Object.freeze([...writerPendingWork].map(work => work.kind)),
-            timers: Object.freeze({ draftSave: draftSaveTimer !== null, serverDraftRetry: serverDraftRetryTimer !== null,
-                recoveryLifecycle: disposeArticleRecoveryLifecycle !== null }),
-            attachmentObservationActive: attachmentUploadAttempt !== null,
-            attachmentObligationCount: attachmentUploadObligations.size,
-            nativeUploadRequests: Object.freeze([...nativeUploadRequests.values()].map(custody =>
-                custody.request.inspectUploadResources())),
-            nativeUploadFailures: Object.freeze(nativeUploadFailures.map(failure => Object.freeze({ ...failure }))),
-            nativeTransitionCleanup,
-            imageResumeContextRetained: imageUploadFlow.pendingContext.value !== null,
-            powCalculating: powProvider.isCalculating.value,
-            draftSaveChainPending: draftSaveInFlightIdentity !== null,
-            settlement: writerResourceControlFailure ? 'failed-pending' as const
-                : ownWorkPending ? 'pending' as const : 'settled-local' as const,
-            controlFailure: writerResourceControlFailure ? Object.freeze({ failure: writerResourceControlFailure.failure }) : null,
-            lastObservedJobFailure: writerResourceJobFailure ? Object.freeze({ failure: writerResourceJobFailure.failure }) : null,
-            unsupported: Object.freeze(['native-image-loan-settlement', 'pow-worker-shutdown-acknowledgement',
-                'recovery-coordination-channel-suspension',
-                'external-producer-effects-and-network-settlement'])
-        });
-    };
-    const pauseOriginalWriterScope = (): void =>
-    {
-        const failures: unknown[] = [];
-        // Withdraw a prior acknowledgement before any operation that may fail partially.
-        writerScopePaused = false;
-        try
-        {
-            writerScope.pause();
-            writerScopePaused = true;
-        }
-        catch (error)
-        {
-            failures.push(error);
-        }
-        // Attempt both original retirement guards even if pause or the first guard throws.
-        for (const guard of [mountedAuthorityRevocationWatch, draftPrincipalRetirementWatch])
-        {
-            try
-            {
-                guard.resume();
-            }
-            catch (error)
-            {
-                failures.push(error);
-            }
-        }
-        if (failures.length > 0)
-        {
-            throw combineWriterFailures(failures, 'article-writer-resource-scope-pause-failed');
-        }
-    };
-    const pauseOriginalWriterResourceHandles = (): void =>
-    {
-        const failures: unknown[] = [];
-        const operations = [
-            () => revokeCurrentMountedAuthority?.(),
-            () => pauseOriginalWriterScope(),
-            () => clearDraftSaveTimer(),
-            () =>
-            {
-                disposeArticleRecoveryLifecycle?.();
-                disposeArticleRecoveryLifecycle = null;
-            },
-            () => previewTask.cancel(),
-            () => imageUploadFlow.cancel(),
-            () => cancelNativeUploadRequests('article-writer-resource-paused'),
-            () => powProvider.terminate(),
-            ...[...writerTaskLeases].map(lease => () =>
-            {
-                if (articleDocumentContextAdapter.pendingTaskRefs.includes(lease.taskRef))
-                {
-                    lease.cancel('article-writer-resource-paused');
-                    if (writerUndispatchedLeases.has(lease))
-                    {
-                        // Only this refused-before-dispatch operation has no executor to await.
-                        // Dispatched jobs settle through their original finally.
-                        lease.complete();
-                        lease.settle();
-                        writerUndispatchedLeases.delete(lease);
-                    }
-                }
-            })
-        ];
-        for (const operation of operations)
-        {
-            try
-            {
-                operation();
-            }
-            catch (error)
-            {
-                failures.push(error);
-            }
-        }
-        if (failures.length > 0)
-        {
-            throw combineWriterFailures(failures, 'article-writer-resource-pause-handles-failed');
-        }
-    };
-    const pauseWriterSessionResources = (): ReturnType<typeof inspectWriterSessionResources> =>
-    {
-        if (writerResourceControlRunning)
-        {
-            throw writerResourceReentrancyFailure;
-        }
-        if (!active || !writerScope.active)
-        {
-            return inspectWriterSessionResources();
-        }
-        // Failed notification must leave the actual physical owner and cleanup custody untouched.
-        try
-        {
-            notifyCurrentMountedAuthorityRetirement?.();
-        }
-        catch (error)
-        {
-            writerResourceControlFailure ??= { failure: error };
-            throw error;
-        }
-        writerResourceControlRunning = true;
-        writerResourcePhase = 'pausing';
-        try
-        {
-            pauseOriginalWriterResourceHandles();
-            writerResourcePhase = 'paused';
-            // Only success of these real repeated operations releases the prior control failure.
-            writerResourceControlFailure = null;
-            return inspectWriterSessionResources();
-        }
-        catch (error)
-        {
-            writerResourcePhase = 'paused';
-            const previous = writerResourceControlFailure;
-            writerResourceControlFailure = previous ?? { failure: error };
-            throw previous ? combineWriterFailures([previous.failure, error], 'article-writer-resource-pause-retry-failed') : error;
-        }
-        finally
-        {
-            writerResourceControlRunning = false;
-        }
-    };
-    const resumeWriterSessionResources = (): ReturnType<typeof inspectWriterSessionResources> =>
-    {
-        if (writerResourceControlRunning)
-        {
-            throw writerResourceReentrancyFailure;
-        }
-        if (writerResourcePhase === 'active')
-        {
-            return inspectWriterSessionResources();
-        }
-        writerResourceControlRunning = true;
-        try
-        {
-            const before = inspectWriterSessionResources();
-            const retained = retainedPrimaryBinding.value;
-            if (!active || !writerScope.active || !retainedPrimaryReady || !retained || fullDraftReleased || fullDraftPrincipalRetired
-                || writerResourcePhase !== 'paused' || !writerScopePaused || writerResourceControlFailure
-                || before.settlement !== 'settled-local' || !componentAttached || !mountedComponentActive
-                || adminStore.adminPrincipal?.id?.trim() !== documentPrincipalIdentityId || !adminStore.hasPermission('article.write'))
-            {
-                throw new Error('article-writer-resource-resume-unavailable');
-            }
-            const observation = retained.inspect();
-            if (observation.admissionClosed || observation.invalidationFailed || observation.registry.state !== 'live'
-                || !articleDocumentContextAdapter.isCurrentContext(observation.context) || retainedPrimaryBinding.value !== retained
-                || writerResourcePhase !== 'paused' || !active || !writerScope.active)
-            {
-                throw new Error('article-writer-resource-resume-document-unavailable');
-            }
-            writerResourcePhase = 'resuming';
-            // Real deferred effects replay; draft work uses its existing server validation.
-            writerScopePaused = false;
-            writerScope.resume();
-            installWriterRecoveryLifecycle();
-            powProvider.prewarm();
-            scheduleDraftSave();
-            writerResourcePhase = 'active';
-            return inspectWriterSessionResources();
-        }
-        catch (error)
-        {
-            if (writerResourcePhase === 'resuming')
-            {
-                writerResourcePhase = 'pausing';
-                const firstFailure = writerResourceControlFailure ? writerResourceControlFailure.failure : error;
-                const failures: unknown[] = [firstFailure];
-                if (firstFailure !== error)
-                {
-                    failures.push(error);
-                }
-                try
-                {
-                    // Real rollback, including partial scope replay, guards and newly installed handles.
-                    pauseOriginalWriterResourceHandles();
-                }
-                catch (cleanupError)
-                {
-                    failures.push(cleanupError);
-                }
-                writerResourcePhase = 'paused';
-                const failure = combineWriterFailures(failures, 'article-writer-resource-resume-and-rollback-failed');
-                writerResourceControlFailure = { failure };
-                throw failure;
-            }
-            throw error;
-        }
-        finally
-        {
-            writerResourceControlRunning = false;
-        }
-    };
-    const authoringWriterSessionResources = Object.freeze({
-        inspect: inspectWriterSessionResources,
-        pause: pauseWriterSessionResources,
-        resume: resumeWriterSessionResources,
-        // Cancellation closes admission and uses the same real pause/abort handles, preserving queued recovery and obligations.
-        requestCancellation: pauseWriterSessionResources,
-        settleObservedWork: async () =>
-        {
-            if (writerResourcePhase !== 'paused')
-            {
-                throw new Error('article-writer-resource-settlement-admission-open');
-            }
-            while (writerPendingWork.size > 0)
-            {
-                const promises = [...writerPendingWork].map(work => work.promise).filter((promise): promise is Promise<unknown> => promise !== null);
-                if (promises.length === 0)
-                {
-                    break;
-                }
-                await Promise.allSettled(promises);
-            }
-            // A lease-only job or native loan may still be pending. No timer, signal reset or native aggregate substitutes for its ack.
-            return inspectWriterSessionResources();
-        }
-    });
-
-    let unsubscribeRetainedContext: (() => void) | null = null;
-    let unsubscribeRetainedLifetime: (() => void) | null = null;
-    const inspectPrimary = (retained: ArticleDocumentRetainedBinding, requirePublication = false): ArticleDocumentRetainedInspection =>
-    {
-        const observation = retained.inspect();
-        if (!active || !writerScope.active || retainedPrimaryBinding.value !== retained
-            || retained.adapter !== articleDocumentContextAdapter || observation.registry.state !== 'live'
-            || observation.admissionClosed || observation.invalidationFailed || !articleDocumentContextAdapter.isCurrentContext(observation.context)
-            || (requirePublication && !observation.registryRevisionMatchesDocument))
-        {
-            throw new Error('article-writer-retained-primary-unavailable');
-        }
-        return observation;
-    };
-    const requirePrimaryMount = (retained: ArticleDocumentRetainedBinding) =>
-    {
-        const observation = inspectPrimary(retained);
-        const runtime = originalMountedRuntime;
-        const editor = originalMountedEditor;
-        const entry = observation.registry.entry;
-        if (!componentAttached || !runtime || !editor || !entry || runtime.binding !== editorRuntimeBinding
-            || runtime.mountedSource?.readMountedEditor(entry.editorSessionRef) !== editor)
-        {
-            throw new Error('article-writer-retained-primary-mount-unavailable');
-        }
-        inspectPrimary(retained);
-        return runtime;
-    };
-    const requirePrimaryRuntime = (retained: ArticleDocumentRetainedBinding) =>
-    {
-        const observation = inspectPrimary(retained);
-        const runtime = requirePrimaryMount(retained);
-        const entry = observation.registry.entry;
-        if (!entry)
-        {
-            throw new Error('article-writer-retained-primary-mount-unavailable');
-        }
-        const nativeBinding = runtime.mountedSource?.readDocumentBinding(entry.editorSessionRef);
-        if (nativeBinding?.identity.articleId !== observation.context.articleId
-            || nativeBinding.identity.draftId !== observation.context.draftId
-            || nativeBinding.identity.documentId !== observation.context.documentId
-            || nativeBinding.documentContext.documentEpoch !== observation.context.documentEpoch
-            || nativeBinding.documentContext.sourceRevision !== `source-revision:${observation.context.sourceRevision}`
-            || nativeBinding.documentContext.draftRevision !== observation.context.draftRevision)
-        {
-            throw new Error('article-writer-retained-primary-native-context-unavailable');
-        }
-        inspectPrimary(retained);
-        return runtime;
-    };
-    // The original producer retains this same stable factory and its actual resources.
-    const createPrimaryConsumer = (retained: ArticleDocumentRetainedBinding) =>
-    {
-        try
-        {
-            unsubscribeRetainedContext = retained.adapter.subscribeContext(syncAuthoringDocumentContext);
-            unsubscribeRetainedLifetime = retained.subscribeLifetime(() =>
-            {
-                // Local physical revocation only; this late listener is NOT a
-                // replacement for Document's early private lifetime/member seal.
-                revokeCurrentMountedAuthority?.();
-                // Genuine member/lifetime notification cancels only the pending candidate.
-                if (preparedDraftCustody)
-                {
-                    cancelPreparedDraft(preparedDraftCustody);
-                }
-                syncAuthoringDocumentContext();
-            });
-        }
-        catch (error)
-        {
-            unsubscribeRetainedContext?.();
-            unsubscribeRetainedContext = null;
-            throw error;
-        }
-        return Object.freeze({
-            documentBinding: retained,
-            readView: () =>
-            {
-                const observation = inspectPrimary(retained);
-                return Object.freeze({ documentContext: observation.context, content: articleForm.content,
-                    loading: pageLoading.value, saving: submitting.value, inspection: observation,
-                    componentAttached, effectsActive: writerScope.active });
-            },
-            setContent: (content: string) =>
-            {
-                requirePrimaryRuntime(retained);
-                articleForm.content = content;
-            },
-            bindMountedEditor: (editor: ArticleEditorContinuityPort) =>
-            {
-                const runtime = requirePrimaryRuntime(retained);
-                if (originalMountedEditor !== editor)
-                {
-                    throw new Error('article-writer-retained-primary-editor-replaced');
-                }
-                return runtime;
-            },
-            consumeTransaction: (result: Parameters<ArticleEditorRuntimeBinding['consumeTransaction']>[0]) =>
-            {
-                // Native commits/emits first; the original Writer model is still at beforeRevision.
-                const before = inspectPrimary(retained);
-                const runtime = requirePrimaryMount(retained);
-                const entry = before.registry.entry;
-                const mounted = entry && runtime.mountedSource?.readMountedEditor(entry.editorSessionRef);
-                if (!entry || !mounted || !result.accepted || !result.positionMap
-                    || result.documentIdentity.id !== before.context.documentId
-                    || result.documentIdentity.epoch !== before.context.documentEpoch
-                    || result.beforeRevision !== before.context.sourceRevision
-                    || !Number.isSafeInteger(result.revision) || result.revision < result.beforeRevision)
-                {
-                    return false;
-                }
-                const native = mounted.getSession(entry.editorSessionRef).inspectDocumentState();
-                if (native.documentIdentity.id !== result.documentIdentity.id
-                    || native.documentIdentity.epoch !== result.documentIdentity.epoch || native.revision !== result.revision)
-                {
-                    return false;
-                }
-                if (inspectPrimary(retained).context.contextDigest !== before.context.contextDigest)
-                {
-                    return false;
-                }
-                // Consume the actual public map through the original runtime exactly once; no dispatch/rollback.
-                if (!runtime.binding.consumeTransaction(result))
-                {
-                    return false;
-                }
-                requirePrimaryRuntime(retained);
-                return inspectPrimary(retained).context.sourceRevision === result.revision && articleForm.content === result.value;
-            },
-            consumeSelection: (...args: Parameters<ArticleEditorRuntimeBinding['consumeSelection']>) =>
-                requirePrimaryRuntime(retained).binding.consumeSelection(...args),
-            consumeFocus: (...args: Parameters<ArticleEditorRuntimeBinding['consumeFocus']>) =>
-                requirePrimaryRuntime(retained).binding.consumeFocus(...args),
-            admitAcceptedCapture: (input: Parameters<ArticleAttachmentContextAdapter['admitAcceptedCapture']>[0]) =>
-            {
-                requirePrimaryRuntime(retained);
-                return authoringAttachmentRuntime.admitAcceptedCapture(input);
-            },
-            saveDraft: () =>
-            {
-                requirePrimaryRuntime(retained);
-                inspectPrimary(retained, true);
-                saveDraftNow();
-            },
-            submit: () =>
-            {
-                requirePrimaryRuntime(retained);
-                inspectPrimary(retained, true);
-                return submitForm();
-            },
-            invalidateDocument: () =>
-            {
-                // Only the original handle's actual terminal observation authorizes final cleanup.
-                if (retained.inspect().registry.state !== 'revoked')
-                {
-                    throw new Error('article-writer-retained-primary-invalidation-unavailable');
-                }
-                disposeOriginalWriter();
-            }
-        });
-    };
-    const authoringRetainedPrimaryRuntime = Object.freeze({
-        adoptPrimaryRetainedDocument: (handle: RetainedArticleDocumentHandle) =>
-        {
-            if (!active || !componentAttached || retainingPrimary || !originalMountedRuntime)
-            {
-                throw new Error('article-writer-retained-primary-adoption-unavailable');
-            }
-            retainingPrimary = true;
-            const wasReady = retainedPrimaryReady;
-            try
-            {
-                const existing = retainedPrimaryBinding.value;
-                if (existing && existing.handle !== handle)
-                {
-                    throw new Error('article-writer-retained-primary-already-adopted');
-                }
-                const retained = existing ?? articleDocumentContextAuthority.adoptPrimaryRetainedDocument(
-                    articleWorkspaceTabRouter.getRegistry(), handle, articleDocumentContextBinding, {
-                        readPrincipalIdentityId: () => adminStore.adminPrincipal?.id?.trim() ?? null,
-                        readSiteScope: () => documentSiteScope
-                    });
-                // Preserve actual issued custody if consumer attachment subsequently refuses.
-                retainedPrimaryBinding.value = retained;
-                // Establish original cleanup/lifetime custody before any mount validation callback.
-                const consumer = retained.attachConsumer(createPrimaryConsumer);
-                requirePrimaryRuntime(retained);
-                retainedPrimaryReady = true;
-                return consumer;
-            }
-            catch (error)
-            {
-                if (!wasReady && retainedPrimaryBinding.value)
-                {
-                    // Keep issued document custody; failed caller setup must release its real Writer resources.
-                    try
-                    {
-                        disposeOriginalWriter();
-                    }
-                    catch (cleanupError)
-                    {
-                        throw combineWriterFailures([error, cleanupError], 'article-writer-adoption-and-cleanup-failed');
-                    }
-                }
-                throw error;
-            }
-            finally
-            {
-                retainingPrimary = false;
-            }
-        }
-    });
-    let synchronousCleanupRunning = false;
-    let synchronousCleanupCompleted = false;
-    let synchronousCleanupFailed = false;
-    let synchronousCleanupFailure: unknown;
-    const synchronousCleanupErrors: unknown[] = [];
-    const disposeOriginalWriter = (): void =>
-    {
-        if (synchronousCleanupRunning)
-        {
-            throw new Error('article-writer-cleanup-reentrant');
-        }
-        if (synchronousCleanupFailed)
-        {
-            throw synchronousCleanupFailure;
-        }
-        if (synchronousCleanupCompleted)
-        {
-            return;
-        }
-        // Notification failure leaves physical cleanup custody available for a real retry.
-        notifyCurrentMountedAuthorityRetirement?.();
-        try
-        {
-            revokeCurrentMountedAuthority?.();
-        }
-        catch (error)
-        {
-            // Preserve real cancellation failure without skipping the existing
-            // independent original cleanup operations below.
-            synchronousCleanupFailure = error;
-            synchronousCleanupFailed = true;
-            synchronousCleanupErrors.push(error);
-        }
-        synchronousCleanupRunning = true;
-        active = false;
-        invalidateDraftCheckpoint();
-        retainedPrimaryReady = false;
-        suppressDraftSave = true;
-        // Attempt each original cleanup independently; a thrown port must not strand the channel/scope.
-        const operations = [
-            () =>
-            {
-                unsubscribeRetainedContext?.();
-                unsubscribeRetainedContext = null;
-            },
-            () =>
-            {
-                unsubscribeRetainedLifetime?.();
-                unsubscribeRetainedLifetime = null;
-            },
-            () =>
-            {
-                unsubscribeArticleRecoveryCoordination?.();
-                unsubscribeArticleRecoveryCoordination = null;
-            },
-            () =>
-            {
-                disposeArticleRecoveryLifecycle?.();
-                disposeArticleRecoveryLifecycle = null;
-            },
-            () => recoveryCoordinator.dispose(),
-            () => previewCurrentAuthorities.dispose(),
-            () => releaseEditorRuntime?.(),
-            () =>
-            {
-                attachmentEditor = null;
-            },
-            () => authoringAttachments.dispose(),
-            () => articleDocumentContextBinding.release(),
-            () => initTask.cancel(),
-            () => submitTask.cancel(),
-            () => taxonomyTask.cancel(),
-            () => previewTask.cancel(),
-            () => prepublishTask.cancel(),
-            () => aiAssistTask.cancel(),
-            () => assetTask.cancel(),
-            () => imageUploadFlow.cancel(),
-            () => cancelNativeUploadRequests('article-writer-resource-released'),
-            () => imageUploadFlow.clearPending?.(),
-            () => clearDraftSaveTimer(),
-            () => writerScope.stop()
-        ];
-        try
-        {
-            for (const operation of operations)
-            {
-                try
-                {
-                    operation();
-                }
-                catch (error)
-                {
-                    synchronousCleanupErrors.push(error);
-                    if (!synchronousCleanupFailed)
-                    {
-                        synchronousCleanupFailure = error;
-                        synchronousCleanupFailed = true;
-                    }
-                }
-            }
-            if (synchronousCleanupFailed)
-            {
-                // Actual failed custody is retained; do not turn a later noop into a cleanup success.
-                // Construct the complete outcome only AFTER every original operation was attempted.
-                synchronousCleanupFailure = combineWriterFailures(synchronousCleanupErrors, 'article-writer-cleanup-failed');
-                throw synchronousCleanupFailure;
-            }
-            articleForm.title = '';
-            articleForm.content = '';
-            articleForm.summary = '';
-            articleForm.rights = createDefaultArticleRightsForm();
-            synchronousCleanupCompleted = true;
-        }
-        finally
-        {
-            synchronousCleanupRunning = false;
-        }
-        // Synchronous cleanup completion does not settle canceled producers or native resources.
-    };
     onUnmounted(() =>
     {
-        notifyCurrentMountedAuthorityRetirement?.();
-        componentAttached = false;
-        let cancellationFailed = false;
-        let cancellationFailure: unknown;
-        try
+        active = false;
+        suppressDraftSave = true;
+        unsubscribeArticleRecoveryCoordination?.();
+        unsubscribeArticleRecoveryCoordination = null;
+        disposeArticleRecoveryLifecycle?.();
+        disposeArticleRecoveryLifecycle = null;
+        recoveryCoordinator.dispose();
+        articleDocumentContextBinding.release();
+        initTask.cancel();
+        submitTask.cancel();
+        taxonomyTask.cancel();
+        previewTask.cancel();
+        prepublishTask.cancel();
+        aiAssistTask.cancel();
+        assetTask.cancel();
+        imageUploadFlow.cancel();
+        if (typeof imageUploadFlow.clearPending === 'function')
         {
-            revokeCurrentMountedAuthority?.();
+            imageUploadFlow.clearPending();
         }
-        catch (error)
-        {
-            cancellationFailed = true;
-            cancellationFailure = error;
-        }
-        try
-        {
-            if (!retainedPrimaryReady)
-            {
-                disposeOriginalWriter();
-            }
-        }
-        catch (error)
-        {
-            if (cancellationFailed)
-            {
-                throw combineWriterFailures([cancellationFailure, error], 'article-writer-mounted-cancellation-and-unmount-failed');
-            }
-            throw error;
-        }
-        if (cancellationFailed)
-        {
-            throw cancellationFailure;
-        }
+        clearDraftSaveTimer();
+        articleForm.title = '';
+        articleForm.content = '';
+        articleForm.summary = '';
+        articleForm.rights = createDefaultArticleRightsForm();
     });
 
     return {
@@ -5745,8 +3102,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         privatePreview,
         privatePreviewLoading,
         privatePreviewStatusText,
-        privatePreviewAttachmentState: articlePreviewGeneration.attachmentState,
-        privatePreviewCurrentAuthorities: previewCurrentAuthorities,
         canGeneratePrivatePreview,
         aiAssist,
         aiAssistLoading,
@@ -5761,12 +3116,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         articleForm,
         authoringDocumentContext,
         authoringDocumentIdentity,
-        authoringDocumentContextAdapter: articleDocumentContextAdapter,
-        authoringAttachmentRuntime,
-        authoringEditorRuntime,
-        authoringRetainedPrimaryRuntime,
-        authoringWriterSessionResources,
-        authoringDraftCheckpointRuntime,
         currentRevisionId,
         currentRevisionNo,
         articleRightsUsingSiteDefaults,
@@ -5776,7 +3125,6 @@ function createAdminArticleWriteOwner(writerScope: EffectScope)
         articleRightsExcerptMax: ARTICLE_RIGHTS_EXCERPT_MAX,
         rules,
         validateBeforeSubmit,
-        firstInvalidFormProperty,
         saveDraftNow,
         compareSelectedArticleRecovery,
         handleUploadImg,

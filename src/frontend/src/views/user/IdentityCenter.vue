@@ -620,8 +620,12 @@ import {
     userStepUpPasskeyBegin,
     userStepUpPasskeyComplete,
     verifyMfaSetup,
+    type MfaChallengeResult,
     type MfaProfile,
+    type MfaSetupStart,
+    type MfaSetupVerify,
     type PasskeyCredentialSummary,
+    type PasskeyLoginBeginResponse,
     type UserSessionSummary
 } from '@/api/auth';
 import MfaSetupModal from '@/components/ui/MfaSetupModal.vue';
@@ -669,7 +673,7 @@ const errorCopy = computed(() => identityCopy.value.errors);
 
 const sectionMetaByRoute = computed(() => identityCopy.value.meta);
 
-type IdentityRouteName = keyof typeof sectionMetaByRoute.value;
+type IdentityRouteName = keyof typeof sectionMetaByRoute;
 type IdentityPolicyState = 'open' | 'active' | 'closed' | 'muted';
 
 const stepUpErrorCodes = new Set([
@@ -853,12 +857,10 @@ const explicitPublicSendOptIn = ref(false);
 const deleteAccountLoading = ref(false);
 const deleteAccountError = ref('');
 
-const isIdentityRouteName = (name: string): name is IdentityRouteName => Object.hasOwn(sectionMetaByRoute.value, name);
-
 const currentRouteName = computed<IdentityRouteName>(() =>
 {
     const name = typeof route.name === 'string' ? route.name : '';
-    return isIdentityRouteName(name) ? name : 'UserIdentityOverview';
+    return name in sectionMetaByRoute.value ? name as IdentityRouteName : 'UserIdentityOverview';
 });
 
 const sectionMeta = computed(() => sectionMetaByRoute.value[currentRouteName.value]);

@@ -182,8 +182,6 @@ import type {
     ArticleWorkspaceNavigationPort
 } from '@/services/authoring/articleWorkspaceTabRouter';
 
-import type { ComponentPublicInstance } from 'vue';
-
 defineOptions({ name: 'ArticleWorkspaceTabStrip' });
 
 const props = defineProps<{
@@ -226,7 +224,7 @@ const visibleTabs = computed(() =>
 
 const tabButtonId = (tabId: string): string => `article-workspace-tab-${tabId}`;
 
-const registerTabElement = (tabId: string, element: Element | ComponentPublicInstance | null): void =>
+const registerTabElement = (tabId: string, element: Element | null): void =>
 {
     if (element instanceof HTMLElement)
     {

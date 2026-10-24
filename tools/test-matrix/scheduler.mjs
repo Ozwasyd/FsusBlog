@@ -6,7 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 import { finished } from 'node:stream/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission consumes the canonical BehaviorDoc receipt validator.
@@ -19,11 +19,6 @@ import {
     resumeCurrentRunEvidenceCheckpoint
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Producer terminal handoffs are scheduler checkpoint inputs.
 } from '../test/current-run-evidence-checkpoint.mjs';
-// eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler validates canonical current-run locator inputs.
-import {
-    validateCurrentRunEvidenceContext,
-    validateEvidenceLocatorRegistry
-} from '../test/evidence-location-contract.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
 import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
 import {
@@ -109,6 +104,8 @@ export {
     schedulerRunLockActivity,
     schedulerRunLockIsActive
 } from './scheduler-run-owner.mjs';
+
+const { validateCurrentRunEvidenceContext, validateEvidenceLocatorRegistry } = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1';
 const schedulerResourceRecoveries = new WeakMap();
@@ -4946,6 +4943,17 @@ async function runDagUnlocked(options)
     await options.onSourceState?.(sourceState);
     const resources = options.systemResources ?? defaultSystemResources();
     const budget = resourceBudget(resources);
+    const injectedMemoryTelemetry = typeof options.currentFreeMemoryGiB === 'function';
+    const currentFreeMemoryGiB = () =>
+    {
+        const measured = Number(options.currentFreeMemoryGiB?.() ?? availableMemoryGiB());
+        return Number.isFinite(measured) && measured >= 0 ? measured : budget.memoryGiB;
+    };
+    // The existing internal admission seam also supplies controlled test telemetry.
+    // Default runs still sample the host; injected observations cannot confer authority.
+    const telemetryAvailableMemoryBytes = () => injectedMemoryTelemetry
+        ? currentFreeMemoryGiB() * (1024 ** 3)
+        : availableMemoryBytes();
     const maxParallel = Math.max(1, Math.floor(Number(options.maxParallel) || resources.cpuCount || 1));
     const terminationGraceMs = Math.max(0, Number(options.terminationGraceMs) || 5000);
     const wallClockBudgetMs = Number.isFinite(Number(options.wallClockBudgetMs)) && Number(options.wallClockBudgetMs) > 0
@@ -5159,7 +5167,7 @@ async function runDagUnlocked(options)
         schedulerCandidateIdentityDigest: options.schedulerCandidateIdentityDigest,
         schedulerRunOwnerToken: options.schedulerRunOwnerToken,
         mode,
-        authoritative: mode === 'fresh',
+        authoritative: mode === 'fresh' && !injectedMemoryTelemetry,
         status: 'running',
         startedAt: new Date(effectiveWallClockStartedAtMs).toISOString(),
         updatedAt: new Date().toISOString(),
@@ -5169,7 +5177,7 @@ async function runDagUnlocked(options)
         timedOut: false,
         resourcePeaks: {
             load1: Math.max(0, Number(os.loadavg()[0]) || 0),
-            usedMemoryGiB: Math.max(0, (os.totalmem() - availableMemoryBytes()) / (1024 ** 3)),
+            usedMemoryGiB: Math.max(0, (os.totalmem() - telemetryAvailableMemoryBytes()) / (1024 ** 3)),
             reservedCpuUnits: 0,
             reservedMemoryGiB: 0
         },
@@ -5626,7 +5634,7 @@ async function runDagUnlocked(options)
         checkpoint.resourcePeaks.load1 = Math.max(checkpoint.resourcePeaks.load1, Math.max(0, Number(os.loadavg()[0]) || 0));
         checkpoint.resourcePeaks.usedMemoryGiB = Math.max(
             checkpoint.resourcePeaks.usedMemoryGiB,
-            Math.max(0, (os.totalmem() - availableMemoryBytes()) / (1024 ** 3))
+            Math.max(0, (os.totalmem() - telemetryAvailableMemoryBytes()) / (1024 ** 3))
         );
         checkpoint.resourcePeaks.reservedCpuUnits = Math.max(checkpoint.resourcePeaks.reservedCpuUnits, usage.cpuUnits);
         checkpoint.resourcePeaks.reservedMemoryGiB = Math.max(checkpoint.resourcePeaks.reservedMemoryGiB, usage.memoryGiB);
@@ -5638,7 +5646,7 @@ async function runDagUnlocked(options)
             activeCount: active.size,
             reservedCpuUnits: usage.cpuUnits,
             reservedMemoryGiB: usage.memoryGiB,
-            hostUsedMemoryGiB: Math.max(0, (os.totalmem() - availableMemoryBytes()) / (1024 ** 3))
+            hostUsedMemoryGiB: Math.max(0, (os.totalmem() - telemetryAvailableMemoryBytes()) / (1024 ** 3))
         });
         resourceEnforcer.sample();
         const maximumCurveSamples = Math.max(1024, Math.min(16384, Math.ceil(budget.cpuUnits * 512)));
@@ -5703,12 +5711,6 @@ async function runDagUnlocked(options)
         id: dependencyId,
         fingerprint: resultFingerprints.get(dependencyId) ?? 'external'
     })));
-
-    const currentFreeMemoryGiB = () =>
-    {
-        const measured = Number(options.currentFreeMemoryGiB?.() ?? availableMemoryGiB());
-        return Number.isFinite(measured) && measured >= 0 ? measured : budget.memoryGiB;
-    };
 
     const writeActiveResourceGrants = () =>
     {

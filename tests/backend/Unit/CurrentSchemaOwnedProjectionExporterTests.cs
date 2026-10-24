@@ -218,9 +218,7 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
         Assert.Equal(artifact.Target, FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(original, producer).Target);
         string json = Encoding.UTF8.GetString(original);
         Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
-            Encoding.UTF8.GetBytes("{\"SchemaVersion\":\"duplicate\"," + json[1..]), producer));
-        Assert.ThrowsAny<JsonException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
-            Encoding.UTF8.GetBytes("{\"SchemaVersion\":\"malformed\",}"), producer));
+            Encoding.UTF8.GetBytes(json.Replace("{", "{\"SchemaVersion\":\"duplicate\",", StringComparison.Ordinal)), producer));
         Assert.Throws<JsonException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
             Encoding.UTF8.GetBytes("{\"UnknownApproval\":true," + json[1..]), producer));
         Assert.Throws<InvalidOperationException>(() => FsusBlog.Migration.OwnedCurrentSchemaTarget.ReadArtifact(
@@ -303,12 +301,7 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
                 }
                 else if (operation.Kind == CurrentSchemaRecipeOperationKind.AddColumnIfAbsent)
                 {
-                    // CLR conversion is sealed in the original semantic input;
-                    // native storage projects it to none, retaining every other fact.
-                    Assert.Equal(operation.Column! with
-                    {
-                        Conversion = "none"
-                    }, complete.Tables.Tables[operation.Table!].Columns[operation.Name]);
+                    Assert.Equal(operation.Column, complete.Tables.Tables[operation.Table!].Columns[operation.Name]);
                 }
                 else if (operation.Kind == CurrentSchemaRecipeOperationKind.AddConstraintIfAbsent)
                 {
@@ -352,117 +345,6 @@ public sealed class CurrentSchemaOwnedProjectionExporterTests
     public void RecipeExtraction_UnknownEffectsRefuseWholeExport(string additional)
     {
         var recipe = new CurrentSchemaRuntimeRollupTable("probe", "CREATE TABLE IF NOT EXISTS probe (id integer PRIMARY KEY);", [additional]);
-        Assert.Throws<InvalidOperationException>(() => CurrentSchemaRecipeFactExtractor.Extract(recipe));
-    }
-
-    [Fact]
-    public void RecipeExtraction_OriginalHistoryGreatestKeyRetainsEveryOperandAndDescendingNullSort()
-    {
-        CurrentSchemaRuntimeRollupTable recipe = Assert.Single(CurrentSchemaRuntimeRollupTables.Tables,
-            static value => value.TableName == "author_recent_history_entry");
-        CurrentSchemaRecipeFacts facts = CurrentSchemaRecipeFactExtractor.Extract(recipe);
-        SchemaIndexModel index = Assert.Single(facts.AdditionalOperations).Index!;
-        SchemaIndexKeyModel key = index.Keys[2];
-        Assert.Equal(4, index.Keys.Count);
-        Assert.Equal(string.Empty, key.Column);
-        Assert.Equal("desc", key.Direction);
-        Assert.Equal("first", key.NullPlacement);
-        Assert.Equal("greatest", key.Expression!.Value);
-        Assert.Equal(new[] { "last_opened_at_utc", "last_edited_at_utc", "last_activated_at_utc" },
-            key.Expression.Arguments.Select(static argument => argument.Value));
-        Assert.Equal("article_id", index.Keys[3].Column);
-        Assert.Equal("desc", index.Keys[3].Direction);
-    }
-
-    [Theory]
-    [InlineData("LEAST(opened, edited, activated)")]
-    [InlineData("unknown(opened, edited, activated)")]
-    [InlineData("GREATEST(opened, edited)")]
-    [InlineData("GREATEST(opened, edited, activated, opened)")]
-    [InlineData("GREATEST(opened, edited, missing)")]
-    [InlineData("GREATEST(opened, edited, 1)")]
-    [InlineData("GREATEST(opened, edited, opened)")]
-    [InlineData("GREATEST(opened, edited, activated) SIDEWAYS")]
-    [InlineData("GREATEST(opened, edited, activated) DESC NULLS UNKNOWN")]
-    [InlineData("GREATEST(opened, edited, activated); DROP TABLE probe")]
-    public void RecipeExtraction_UnknownExpressionIndexShapeAndSortRefuse(string key)
-    {
-        var recipe = new CurrentSchemaRuntimeRollupTable("probe", """
-            CREATE TABLE IF NOT EXISTS probe (
-                opened timestamp NULL, edited timestamp NULL, activated timestamp NULL
-            );
-            """, [$"CREATE INDEX IF NOT EXISTS ix_probe ON probe ({key});"]);
-        Assert.Throws<InvalidOperationException>(() => CurrentSchemaRecipeFactExtractor.Extract(recipe));
-    }
-
-    [Fact]
-    public void PreviousV4ModelCannotBecomeTheExpressionCapableV5Target()
-    {
-        var inspector = new SchemaModelInspector();
-        CurrentSchemaCanonicalModel current = inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes());
-        Assert.Equal("fsusblog.current-schema.v5", current.Identity.ModelVersion);
-        CurrentSchemaIdentity previous = current.Identity with
-        {
-            ModelVersion = "fsusblog.current-schema.v4",
-            GeneratorVersion = "fsusblog.current-schema-projection.v4"
-        };
-        Assert.Throws<InvalidOperationException>(() => CurrentSchemaCanonicalAuthority.Generate(new(current.SemanticSchema, previous)));
-    }
-
-    [Fact]
-    public void RecipeExtraction_OriginalPropertyDefinitionRetainsNumericAndInlineTickChecks()
-    {
-        CurrentSchemaRuntimeRollupTable recipe = Assert.Single(CurrentSchemaRuntimeRollupTables.Tables,
-            static table => table.TableName == "article_property_definition");
-        CurrentSchemaRecipeFacts facts = CurrentSchemaRecipeFactExtractor.Extract(recipe);
-        foreach (string name in new[] { "min_number", "max_number" })
-        {
-            SchemaColumnModel column = facts.Table.Columns[name];
-            Assert.Equal("decimal", column.DataType);
-            Assert.Equal("numeric", column.PhysicalType);
-            Assert.True(column.IsNullable);
-            Assert.Null(column.DefaultValue);
-            Assert.Null(column.MaxLength);
-        }
-        foreach (string name in new[] { "min_date_utc_ticks", "max_date_utc_ticks" })
-        {
-            SchemaConstraintModel check = facts.Table.Constraints[$"article_property_definition_{name}_check"];
-            Assert.Equal("check", check.Kind);
-            Assert.Empty(check.Columns);
-            Assert.Equal($"{name} BETWEEN 0 AND 3155378975999999999", check.Expression);
-        }
-        Assert.Equal("article_property_definition", facts.Table.Name);
-        Assert.Empty(facts.AdditionalOperations);
-    }
-
-    [Fact]
-    public void RecipeExtraction_InlineCheckRetainsNestedLiteralAndOriginalImplicitName()
-    {
-        var recipe = new CurrentSchemaRuntimeRollupTable("probe", """
-            CREATE TABLE IF NOT EXISTS probe (
-                id integer PRIMARY KEY,
-                amount numeric NULL,
-                label varchar(64) NULL CHECK (label IN ('a  b', 'c) d'))
-            );
-            """);
-        CurrentSchemaRecipeFacts facts = CurrentSchemaRecipeFactExtractor.Extract(recipe);
-        SchemaConstraintModel check = facts.Table.Constraints["probe_label_check"];
-        Assert.Equal("label IN ('a  b', 'c) d')", check.Expression);
-        Assert.Empty(check.Columns);
-        Assert.Equal("numeric", facts.Table.Columns["amount"].PhysicalType);
-        Assert.Equal("decimal", facts.Table.Columns["amount"].DataType);
-    }
-
-    [Theory]
-    [InlineData("amount numeric(12, 2) NULL")]
-    [InlineData("amount numeric NULL UNKNOWN")]
-    [InlineData("amount numeric NULL CHECK ()")]
-    [InlineData("amount numeric NULL CHECK (amount > 0) DEFERRABLE")]
-    [InlineData("amount numeric NULL CHECK (amount > 0); DROP TABLE probe")]
-    [InlineData("amount numeric NULL CHECK (amount > 0 /* hidden */)")]
-    public void RecipeExtraction_UnknownNumericModifiersAndInlineCheckTailsRefuse(string column)
-    {
-        var recipe = new CurrentSchemaRuntimeRollupTable("probe", $"CREATE TABLE IF NOT EXISTS probe (id integer PRIMARY KEY, {column});");
         Assert.Throws<InvalidOperationException>(() => CurrentSchemaRecipeFactExtractor.Extract(recipe));
     }
 

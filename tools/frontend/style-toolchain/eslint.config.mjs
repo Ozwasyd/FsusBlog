@@ -7,7 +7,18 @@ import importX from 'eslint-plugin-import-x';
 import jsdoc from 'eslint-plugin-jsdoc';
 import vue from 'eslint-plugin-vue';
 import globals from 'globals';
+import typescript from 'typescript';
 import tseslint from 'typescript-eslint';
+
+import { wrapParentImportRule } from './closed-canonical-edge.mjs';
+
+const governedImportX = {
+    ...importX,
+    rules: {
+        ...importX.rules,
+        'no-relative-parent-imports': wrapParentImportRule(importX.rules['no-relative-parent-imports'])
+    }
+};
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const repositoryRoot = path.resolve(process.env.FSUSBLOG_STYLE_ROOT ?? defaultRoot);
@@ -15,10 +26,18 @@ const frontendRoot = path.join(repositoryRoot, 'src/frontend');
 const { resolveLocalFsusUiApplicationProject } = await import(
     new URL('../../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
 );
-const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot });
-const applicationProjectOptions = localApplicationProject
-    ? { projectService: false, project: [localApplicationProject], extraFileExtensions: ['.vue'] }
-    : { projectService: true };
+let applicationProjectOptions;
+function resolveApplicationProjectOptions()
+{
+    if (applicationProjectOptions === undefined)
+    {
+        const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot, typescript });
+        applicationProjectOptions = localApplicationProject
+            ? { projectService: false, project: [localApplicationProject], extraFileExtensions: ['.vue'] }
+            : { projectService: true };
+    }
+    return applicationProjectOptions;
+}
 
 const typedFiles = [
     'src/frontend/src/**/*.{ts,tsx}',
@@ -30,12 +49,13 @@ const frontendNodeFiles = [
     'src/frontend/scripts/**/*.{js,mjs,cjs}',
     'src/frontend/*.{js,mjs,cjs}'
 ];
+const nodeDeclarationFiles = ['src/frontend/scripts/**/*.d.{mts,cts}'];
 const browserJavaScriptFiles = [
     'src/frontend/src/**/*.{js,mjs}',
     'src/frontend/wasm/web/**/*.{js,mjs}',
     'src/frontend/public/**/*.{js,mjs}'
 ];
-const allLintFiles = [...typedFiles, ...vueFiles, ...nodeFiles, ...frontendNodeFiles, ...browserJavaScriptFiles];
+const allLintFiles = [...typedFiles, ...vueFiles, ...nodeFiles, ...frontendNodeFiles, ...nodeDeclarationFiles, ...browserJavaScriptFiles];
 
 const mergeRules = (configs) => Object.assign({}, ...configs.map((config) => config.rules ?? {}));
 const typedRecommendedRules = mergeRules(tseslint.configs.recommendedTypeChecked);
@@ -160,7 +180,7 @@ export default [
         files: allLintFiles,
         plugins: {
             '@stylistic': stylistic,
-            'import-x': importX
+            'import-x': governedImportX
         },
         linterOptions: {
             reportUnusedDisableDirectives: 'error'
@@ -217,15 +237,37 @@ export default [
         }
     },
     {
-        name: 'fsusblog/type-aware-typescript',
-        files: typedFiles,
+        name: 'fsusblog/type-aware-node-declarations',
+        files: nodeDeclarationFiles,
         languageOptions: {
             parser: tseslint.parser,
             parserOptions: {
                 ecmaVersion: 'latest',
-                ...applicationProjectOptions,
+                projectService: false,
+                project: [path.join(frontendRoot, 'tsconfig.node.json')],
                 sourceType: 'module',
                 tsconfigRootDir: frontendRoot
+            },
+            globals: globals.node
+        },
+        plugins: {
+            '@typescript-eslint': tseslint.plugin
+        },
+        rules: typedRules
+    },
+    {
+        name: 'fsusblog/type-aware-typescript',
+        files: typedFiles,
+        languageOptions: {
+            parser: tseslint.parser,
+            get parserOptions()
+            {
+                return {
+                    ecmaVersion: 'latest',
+                    ...resolveApplicationProjectOptions(),
+                    sourceType: 'module',
+                    tsconfigRootDir: frontendRoot
+                };
             },
             globals: {
                 ...globals.browser,
@@ -241,13 +283,16 @@ export default [
         name: 'fsusblog/vue-sfc',
         files: vueFiles,
         languageOptions: {
-            parserOptions: {
-                ecmaVersion: 'latest',
-                extraFileExtensions: ['.vue'],
-                parser: tseslint.parser,
-                ...applicationProjectOptions,
-                sourceType: 'module',
-                tsconfigRootDir: frontendRoot
+            get parserOptions()
+            {
+                return {
+                    ecmaVersion: 'latest',
+                    extraFileExtensions: ['.vue'],
+                    parser: tseslint.parser,
+                    ...resolveApplicationProjectOptions(),
+                    sourceType: 'module',
+                    tsconfigRootDir: frontendRoot
+                };
             },
             globals: globals.browser
         },

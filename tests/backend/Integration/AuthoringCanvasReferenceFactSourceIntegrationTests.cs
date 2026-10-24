@@ -1,6 +1,5 @@
 using System.Text.Json;
 
-using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
 

@@ -1,2 +1,0 @@
-src/frontend/src/services/authoring/articleDocumentContext.ts: AST 0 diagnostics
-tests/frontend/unit/authoring/articleDocumentRetainedAuthority.test.ts: AST 0 diagnostics

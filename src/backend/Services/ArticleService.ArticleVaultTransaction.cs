@@ -4,8 +4,6 @@ namespace FsusBlog.Server.Services;
 
 public partial class ArticleService
 {
-    // The historical vault-named private scope is the canonical article owner transaction.
-    // Canvas conversion enters this same scope; ambient transactions alone never qualify.
     private int _articleVaultGroupTransactionDepth;
     private Dictionary<int, string>? _articleVaultOutboxReferences;
     private HashSet<int?>? _articleVaultPublicFenceScopes;

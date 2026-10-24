@@ -1,1 +1,0 @@
-[locale-domain-static] ok artifacts=100 locales=10 domains=10

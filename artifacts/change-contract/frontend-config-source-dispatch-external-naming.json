@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/frontend-style-policy.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing frontend policy and canonical execution-authority JSON keys while binding the reviewed configuration and SOURCE dispatch to actual source identities."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md",
+                "docs/frontend/fsusui-typecheck-modes.md"
+            ],
+            "reason": "Preserve documented caller-visible command/configuration spellings and referenced DOM/token conventions while describing canonical app checking and strict SOURCE dispatch; no selector or token is renamed."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/style-toolchain/eslint.config.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve existing process environment spellings and externally invoked checker/planner interfaces while selecting canonical app configuration and complete strict SOURCE checks."
+        }
+    ]
+}

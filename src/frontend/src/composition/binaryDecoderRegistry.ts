@@ -16,12 +16,6 @@ import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceCo
 import { mapCategoryListFromPayload, mapTagListFromPayload, mapTaxonomyExactMetadataFromPayload } from '@/adapters/binary/taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
-import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
-import { decodeArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadWire.generated';
-import { decodeAuthorArticleSelectionRevalidationResponse } from '@/codecs/binary/authorArticleSelectionWire.generated';
-import { decodeAuthoringWorkspaceSnapshotResponse } from '@/codecs/binary/authoringWorkspaceSnapshotWire.generated';
-import { decodeDocumentExportJobResponse, decodeDocumentExportPageResponse } from '@/codecs/binary/documentExportWire.generated';
-import { decodeWritingAidPreferenceReceipt, decodeWritingAidPreferenceSnapshot } from '@/codecs/binary/writingAidPreferenceWire.generated';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
@@ -178,16 +172,7 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.SiteSubscriptionResponse,
     FrameType.AdminPrincipalSnapshot,
     FrameType.EmptySuccess,
-    FrameType.MutationId,
-    FrameType.ArticleCanvasLinkReceipt,
-    FrameType.ArticleCanvasLinkHistoryResponse,
-    FrameType.ArticlePropertyValueReadResponse,
-    FrameType.AuthoringWorkspaceSnapshotResponse,
-    FrameType.WritingAidPreferenceSnapshotResponse,
-    FrameType.WritingAidPreferenceReceiptResponse,
-    FrameType.AuthorArticleSelectionRevalidateResponse,
-    FrameType.DocumentExportJobResponse,
-    FrameType.DocumentExportPageResponse
+    FrameType.MutationId
 ] as const satisfies readonly FrameType[]);
 
 export function createBinaryFrameDecoderRegistry(
@@ -389,16 +374,7 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.SiteSubscriptionResponse, mapSiteSubscriptionResponseFromPayload],
     [FrameType.AdminPrincipalSnapshot, mapAuthoringJsonFromPayload],
     [FrameType.EmptySuccess, mapEmptySuccessFromPayload],
-    [FrameType.MutationId, mapMutationIdFromPayload],
-    [FrameType.ArticleCanvasLinkReceipt, decodeArticleCanvasLinkReceipt],
-    [FrameType.ArticleCanvasLinkHistoryResponse, decodeArticleCanvasLinkHistoryResponse],
-    [FrameType.ArticlePropertyValueReadResponse, decodeArticlePropertyValueReadResponse],
-    [FrameType.AuthoringWorkspaceSnapshotResponse, decodeAuthoringWorkspaceSnapshotResponse],
-    [FrameType.WritingAidPreferenceSnapshotResponse, decodeWritingAidPreferenceSnapshot],
-    [FrameType.WritingAidPreferenceReceiptResponse, decodeWritingAidPreferenceReceipt],
-    [FrameType.AuthorArticleSelectionRevalidateResponse, decodeAuthorArticleSelectionRevalidationResponse],
-    [FrameType.DocumentExportJobResponse, decodeDocumentExportJobResponse],
-    [FrameType.DocumentExportPageResponse, decodeDocumentExportPageResponse]
+    [FrameType.MutationId, mapMutationIdFromPayload]
 ] as const satisfies readonly BinaryFrameDecoderRegistration[]);
 
 export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(

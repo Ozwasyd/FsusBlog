@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 
 import { getMe, logout as logoutApi, type CurrentUserSnapshot } from '@/api/auth';
 import { clearLocalFixtureSession } from '@/services/localFixtureSession';
-import { PrivateSurfaceCleanupIncompleteError, privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
+import { privateSurfaceRuntime } from '@/services/privateSurfaceRuntime';
 import { clearPrivateBrowserState } from '@/services/serviceWorkerRuntime';
 import { getKnownErrorInfo, isAuthFailureError } from '@/utils/errorKinds';
 import { isAbortError } from '@/utils/errors';
@@ -100,30 +100,15 @@ export const useUserStore = defineStore('user', () =>
         isLoading.value = false;
     };
 
-    const expireAuthentication = async (options?: {
-        broadcastCredentialPurge?: boolean;
-        ownsCleanup?: () => boolean;
-    }) =>
+    const expireAuthentication = async (options?: { broadcastCredentialPurge?: boolean; }) =>
     {
-        const requireCleanupOwner = (): void =>
-        {
-            if (options?.ownsCleanup && !options.ownsCleanup())
-            {
-                throw new PrivateSurfaceCleanupIncompleteError();
-            }
-        };
-        requireCleanupOwner();
         await privateSurfaceRuntime.invalidate('session-expired', async () =>
         {
-            requireCleanupOwner();
             cancelUserInfoRequest();
-            requireCleanupOwner();
             markGuest();
-            requireCleanupOwner();
             await clearPrivateBrowserState('session-expired', {
                 broadcastCredentialPurge: options?.broadcastCredentialPurge ?? true
             });
-            requireCleanupOwner();
         });
     };
 
@@ -136,16 +121,8 @@ export const useUserStore = defineStore('user', () =>
         lastFetchedAt.value = 0;
     };
 
-    const setLogoutBroadcast = (
-        publisher: (() => void) | null,
-        ownsWrite?: () => boolean,
-        expected?: () => void
-    ): void =>
+    const setLogoutBroadcast = (publisher: (() => void) | null): void =>
     {
-        if ((ownsWrite && !ownsWrite()) || (expected && logoutBroadcast !== expected))
-        {
-            return;
-        }
         logoutBroadcast = publisher;
     };
 
@@ -279,7 +256,7 @@ export const useUserStore = defineStore('user', () =>
         {
             await logoutApi();
         }
-        catch
+        catch (error)
         {
             console.warn('[UserStore] Logout partial failure.');
         }

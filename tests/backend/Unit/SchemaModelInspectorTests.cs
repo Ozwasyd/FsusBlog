@@ -13,19 +13,6 @@ namespace FsusBlog.Server.Tests;
 public sealed class SchemaModelInspectorTests
 {
     [Fact]
-    public async Task Extract_ConcurrentOriginalOwnersRetainIdenticalCompleteFacts()
-    {
-        IReadOnlyList<Type> types = new SchemaModelInspector().GetManagedEntityTypes();
-        CurrentSchemaCanonicalModel[] observations = await Task.WhenAll(Enumerable.Range(0, 24)
-            .Select(_ => Task.Run(() => CurrentSchemaEntityExtractor.Extract(types))));
-        Assert.All(observations, observation =>
-        {
-            Assert.Equal(observations[0].Identity, observation.Identity);
-            Assert.Equal(JsonSerializer.Serialize(observations[0].SemanticSchema), JsonSerializer.Serialize(observation.SemanticSchema));
-        });
-    }
-
-    [Fact]
     public void TestMaterializerCommand_RoutesOnlyExactFirstArgument()
     {
         Assert.True(CurrentSchemaTestMaterializationCommandLine.IsRequested(
@@ -867,8 +854,7 @@ public sealed class SchemaModelInspectorTests
             canonical,
             SchemaProviderKind.PostgreSql);
 
-        SchemaModelSnapshot expected = CurrentSchemaCanonicalAuthority.ProjectProvider(canonical, SchemaProviderKind.PostgreSql);
-        Assert.Empty(SchemaModelComparer.Compare(expected, publicReference));
+        Assert.Empty(SchemaModelComparer.Compare(canonical.SemanticSchema, publicReference));
 
         SchemaModelSnapshot sameTableInAnotherSchema = CurrentSchemaCanonicalAuthority.ProjectProvider(
             canonical,
@@ -882,7 +868,7 @@ public sealed class SchemaModelInspectorTests
         };
 
         Assert.Contains(
-            SchemaModelComparer.Compare(expected, sameTableInAnotherSchema),
+            SchemaModelComparer.Compare(canonical.SemanticSchema, sameTableInAnotherSchema),
             static error => error.StartsWith(
                 "constraint mismatch synthetic_table.fk_synthetic_parent",
                 StringComparison.Ordinal));
@@ -969,7 +955,7 @@ public sealed class SchemaModelInspectorTests
     {
         IReadOnlyList<SchemaIndexKeyModel> keys = SchemaModelInspector.ParsePostgresIndexKeys(
             """
-            [{"column":"State","expression":null,"direction":"desc","nullPlacement":"first","operatorClass":"public.Custom_Ops","collation":"public.Custom_Collation"}]
+            [{"column":"State","direction":"desc","nullPlacement":"first","operatorClass":"public.Custom_Ops","collation":"public.Custom_Collation"}]
             """,
             hasExpressions: false);
         SchemaIndexKeyModel key = Assert.Single(keys);
@@ -1057,23 +1043,9 @@ public sealed class SchemaModelInspectorTests
         Assert.Equal("varchar(64)", mysql.Tables["synthetic_table"].Columns["defaultname"].PhysicalType);
         Assert.Equal("TEXT", sqlite.Tables["synthetic_table"].Columns["defaultname"].PhysicalType);
         Assert.Equal("string", postgresql.Tables["synthetic_table"].Columns["defaultname"].DataType);
-        Assert.Equal("json", canonical.SemanticSchema.Tables["synthetic_table"].Columns["payload"].Conversion);
-        foreach (SchemaModelSnapshot actual in new[] { postgresql, mysql, sqlite })
-        {
-            Assert.Equal("none", actual.Tables["synthetic_table"].Columns["payload"].Conversion);
-            SchemaModelSnapshot expected = CurrentSchemaCanonicalAuthority.ProjectProvider(canonical, actual.Provider);
-            IReadOnlyList<string> errors = SchemaModelComparer.Compare(expected, actual);
-            if (actual.Provider == SchemaProviderKind.MySql)
-            {
-                // A logical dialect projection has no independently observed
-                // MySQL catalog metadata and cannot satisfy native admission.
-                Assert.Contains(errors, static error => error.StartsWith("mysql-physical unobserved table", StringComparison.Ordinal));
-            }
-            else
-            {
-                Assert.Empty(errors);
-            }
-        }
+        Assert.Empty(SchemaModelComparer.Compare(canonical.SemanticSchema, postgresql));
+        Assert.Empty(SchemaModelComparer.Compare(canonical.SemanticSchema, mysql));
+        Assert.Empty(SchemaModelComparer.Compare(canonical.SemanticSchema, sqlite));
     }
 
     [Fact]

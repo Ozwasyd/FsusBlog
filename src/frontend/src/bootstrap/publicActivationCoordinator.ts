@@ -241,7 +241,6 @@ export class PublicActivationCoordinator<PreparedApp = unknown>
    * Idle FullApp core warming only.
    * Must not accept a route URL, request navigation snapshots, or create route seeds.
    */
-    warmCore(source?: string): Promise<PublicCoreWarmResult>;
     async warmCore(): Promise<PublicCoreWarmResult>
     {
         if (this.activationPromise)

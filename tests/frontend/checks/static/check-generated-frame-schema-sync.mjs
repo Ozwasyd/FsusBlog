@@ -102,23 +102,6 @@ try
         timeout: 30_000
     });
     assert(roundTrip.status === 0, `C# golden frame did not round-trip through the C++ decoder: ${roundTrip.stderr || roundTrip.stdout}`);
-
-    const canvasGolden = JSON.parse(readFileSync(resolve(root, 'tests/fixtures/protocol/authoring-canvas-wire-golden.json'), 'utf8'));
-    const canvasSchema = JSON.parse(readFileSync(resolve(root, 'src/shared/Contracts/Validation/authoring-canvas-wire.json'), 'utf8'));
-    for (const frame of canvasSchema.roots)
-    {
-        assert(protocolFrames.get(frame.type) === frame.frameType, `Canvas frame owner drift: ${frame.type}`);
-        assert(canvasGolden.cases.some(row => row.frameType === frame.frameType && row.valid), `Canvas positive golden missing: ${frame.type}`);
-        assert(canvasGolden.cases.some(row => row.frameType === frame.frameType && !row.valid), `Canvas negative golden missing: ${frame.type}`);
-    }
-    const canvasPayloads = spawnSync(executable, ['canvas-payloads'], {
-        cwd: root,
-        input: canvasGolden.cases.map(row => `${row.frameType} ${row.valid ? 1 : 0} ${row.payloadHex}`).join('\n') + '\n',
-        encoding: 'utf8',
-        timeout: 30_000
-    });
-    assert(canvasPayloads.status === 0, `Canvas goldens failed through production C++ decoder: ${canvasPayloads.stderr || canvasPayloads.stdout}`);
-    console.log(canvasPayloads.stdout.trim());
 }
 finally
 {

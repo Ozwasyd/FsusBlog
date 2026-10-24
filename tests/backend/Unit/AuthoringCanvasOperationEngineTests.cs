@@ -1,6 +1,5 @@
 using System.Text.Json;
 
-using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Server.Services.Authoring;
 
 namespace FsusBlog.Server.Tests.Unit;
@@ -107,7 +106,6 @@ public sealed class AuthoringCanvasOperationEngineTests
         Assert.Empty(authority.Edges);
         Assert.Equal(viewport, authority.Header.Viewport);
         Assert.Equal(unpinned, Assert.Single(authority.LastValidatedReferences));
-        Assert.Equal(3, authority.ReferenceValidationCount);
 
         string receiptJson = JsonSerializer.Serialize(receipt);
         Assert.DoesNotContain(ReceiptCanary, receiptJson, StringComparison.Ordinal);

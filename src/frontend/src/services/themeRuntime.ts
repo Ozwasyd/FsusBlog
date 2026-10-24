@@ -6,8 +6,6 @@ import {
     type ThemeMode as FsusThemeMode
 } from '@/fsusui/theme';
 
-import type { GlobalConfigSnapshotProducer } from '@ozwasyd/element-plus';
-
 export type ThemeMode = FsusThemeMode;
 type ResolvedTheme = 'light' | 'dark';
 
@@ -20,65 +18,6 @@ const resolvedThemeState = ref<ResolvedTheme>('light');
 let isThemeRuntimeReady = false;
 
 let themeRootObserver: MutationObserver | null = null;
-interface ThemeConfigBinding {
-    producer: GlobalConfigSnapshotProducer;
-    failed: boolean;
-}
-const themeConfigBindings = new Set<ThemeConfigBinding>();
-let themeWriteActive = false;
-
-/** Bind an actual caller-created producer; registration itself is not provenance certification. */
-export function bindThemeConfigProducer(producer: GlobalConfigSnapshotProducer): () => void
-{
-    if (themeWriteActive)
-    {
-        throw new Error('theme_config_binding_during_write');
-    }
-    ensureThemeRuntime();
-    const binding: ThemeConfigBinding = { producer, failed: false };
-    themeWriteActive = true;
-    try
-    {
-        producer.update({ ...producer.config.value, themeMode: themeModeState.value });
-        themeConfigBindings.add(binding);
-    }
-    catch (cause)
-    {
-        try
-        {
-            producer.release();
-        }
-        catch
-        {
-            // Keep the original binding failure.
-        }
-        throw cause;
-    }
-    finally
-    {
-        themeWriteActive = false;
-    }
-    return () =>
-    {
-        themeConfigBindings.delete(binding);
-    };
-}
-
-function retireThemeConfigBindings(bindings: readonly ThemeConfigBinding[]): void
-{
-    for (const binding of new Set([...bindings, ...themeConfigBindings]))
-    {
-        binding.failed = true;
-        try
-        {
-            binding.producer.release();
-        }
-        catch
-        {
-            // The genuine producer invalidates before notifying; retain the write failure.
-        }
-    }
-}
 
 function readStoredThemeMode(): ThemeMode
 {
@@ -169,43 +108,12 @@ function refreshResolvedTheme(mode = themeModeState.value): void
 
 function syncThemeRuntime(mode: ThemeMode, persist: boolean): void
 {
-    if (themeWriteActive)
-    {
-        throw new Error('theme_config_reentrant_write');
-    }
-    const bindings = [...themeConfigBindings];
-    themeWriteActive = true;
-    try
-    {
-        const nextMode = normalizeThemeMode(mode, 'system');
-        for (const binding of bindings)
-        {
-            if (binding.failed || !themeConfigBindings.has(binding))
-            {
-                throw new Error('theme_config_binding_unavailable');
-            }
-            binding.producer.update({ ...binding.producer.config.value, themeMode: nextMode });
-            if (!themeConfigBindings.has(binding))
-            {
-                throw new Error('theme_config_binding_released_during_write');
-            }
-        }
-        syncThemeMode(mode);
-        refreshResolvedTheme(mode);
+    syncThemeMode(mode);
+    refreshResolvedTheme(mode);
 
-        if (persist)
-        {
-            writeStoredThemeMode(mode);
-        }
-    }
-    catch (cause)
+    if (persist)
     {
-        retireThemeConfigBindings(bindings);
-        throw cause;
-    }
-    finally
-    {
-        themeWriteActive = false;
+        writeStoredThemeMode(mode);
     }
 }
 

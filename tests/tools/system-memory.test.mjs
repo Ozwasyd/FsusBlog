@@ -27,6 +27,7 @@ test('Darwin available memory never undercuts the Node fallback', () =>
 
 test('Darwin probe failure and non-Darwin hosts use the Node fallback', () =>
 {
+    let linuxSamples = 0;
     assert.equal(availableMemoryBytes({
         platform: 'darwin',
         totalMemoryBytes: 16_000,
@@ -37,8 +38,27 @@ test('Darwin probe failure and non-Darwin hosts use the Node fallback', () =>
         platform: 'linux',
         totalMemoryBytes: 16_000,
         fallbackFreeMemoryBytes: 3_000,
-        darwinSampler: () => 8_000
+        darwinSampler: () => 8_000,
+        linuxSampler: () =>
+        {
+            linuxSamples += 1;
+            return null;
+        }
     }), 3_000);
+    assert.equal(linuxSamples, 1);
+});
+
+test('Linux sampler failure never becomes the Node fallback', () =>
+{
+    const failure = new Error('Linux sample unavailable');
+    assert.throws(() => availableMemoryBytes({
+        platform: 'linux',
+        fallbackFreeMemoryBytes: 3_000,
+        linuxSampler: () =>
+        {
+            throw failure;
+        }
+    }), (error) => error === failure);
 });
 
 function linuxMemoryFixture({

@@ -60,6 +60,12 @@ FsusBlog uses layered cache behavior:
 
 Cache invalidation is part of the application contract. Article, taxonomy, public shell, and admin-side mutations must invalidate the matching public and internal caches instead of relying on stale TTL behavior alone.
 
+Article authoring current-context admission belongs to the canonical
+`ArticleDocumentContextAdapter`. Disposing that owner retires every snapshot from
+current-context admission, including its last snapshot with unchanged bytes and
+digest. The historical readonly context remains available for lifecycle evidence;
+consumers must use the owner predicate rather than infer currentness from it.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:
@@ -120,6 +126,7 @@ These outputs should remain standards-compatible even while undocumented interna
 The stable project direction is single-process FsusBlog with Kestrel, PostgreSQL, Redis, public AOT/HotRead, AEDS runtime API, moderation, security, and admin console baselines.
 
 The exact internal API shape, AEDS frame layout, database schema, admin routes, deployment configuration, and third-party client compatibility are not stable unless explicitly classified by a dedicated stability document.
+
 ## Current test dependency edges
 
 <!-- fsus-doc-claim
@@ -226,8 +233,10 @@ render: enum-set
 - `behavior-doc-static-admission->soak-long-evidence-import`
 - `behavior-doc-static-admission->soak-long-scheduled`
 - `behavior-doc-static-admission->static-governance`
+- `behavior-doc-static-admission->test-inventory`
 - `behavior-doc-static-admission->test-quality-lint`
 - `behavior-doc-static-admission->ux-viewport-plan-progress`
+- `behavior-doc-static-admission->validate-matrix`
 - `behavior-doc-static-admission->wasm-build-artifacts`
 - `behavior-evidence-post-runtime->behavior-document-consistency-final`
 - `behavior-evidence-pre-runtime->behavior-evidence-post-runtime`
@@ -306,6 +315,7 @@ render: enum-set
 - `perception-v2-test-matrix->release-evidence`
 - `performance-evidence-summary->release-evidence`
 - `pr-smart-gate-plan->backend-mutation-changed-critical`
+- `pr-smart-gate-plan->source-governance`
 - `privacy-zk-comment-matrix->release-evidence`
 - `production-build-artifacts->browser-contract`
 - `production-build-artifacts->browser-diagnostics-manual`
@@ -352,12 +362,12 @@ render: enum-set
 - `test-inventory->test-quality-lint`
 - `ux-viewport-plan-progress->production-correctness`
 - `ux-viewport-plan-progress->release-evidence`
+- `validate-declarations->behavior-doc-static-admission`
+- `validate-declarations->pr-smart-gate-plan`
 - `validate-matrix->app-config-local-tuning`
-- `validate-matrix->behavior-doc-static-admission`
 - `validate-matrix->behavior-test-evidence`
 - `validate-matrix->native-fuzz-sanitizer`
 - `validate-matrix->native-smoke`
-- `validate-matrix->pr-smart-gate-plan`
 - `validate-matrix->public-hydration-fast`
 - `validate-matrix->public-hydration-nightly`
 - `validate-matrix->release-final-flaky-governance`

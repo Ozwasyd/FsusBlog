@@ -25,7 +25,7 @@
                     <ElButton
                         :icon="Refresh"
                         :loading="loading"
-                        @click="loadAudit()"
+                        @click="loadAudit"
                     >刷新</ElButton>
                 </div>
             </template>
@@ -120,8 +120,7 @@
                 />
                 <div class="audit-filter-date-cell lg:col-span-2">
                     <ElDatePicker
-                        :model-value="dateRange ?? undefined"
-                        @update:model-value="updateAuditDateRange"
+                        v-model="dateRange"
                         type="datetimerange"
                         start-placeholder="起始时间"
                         end-placeholder="结束时间"
@@ -291,7 +290,7 @@
                                 link
                                 type="primary"
                                 :loading="loading"
-                                @click="loadAudit()"
+                                @click="loadAudit"
                             >刷新审计日志</ElButton>
                         </template>
                     </AdminInlineEmptyState>
@@ -403,7 +402,7 @@
                                                     link
                                                     type="primary"
                                                     :loading="loading"
-                                                    @click="loadAudit()"
+                                                    @click="loadAudit"
                                                 >刷新审计日志</ElButton>
                                             </template>
                                         </AdminInlineEmptyState>
@@ -474,7 +473,6 @@
 </template>
 
 <script setup lang="ts">
-import dayjs from 'dayjs';
 import { computed, onMounted, reactive, ref, shallowRef } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -498,7 +496,6 @@ import { FsusUiTaskPageHeader, FsusUiSettingsSection } from "@/fsusui";
 import { toast } from '@/fsusui/feedback';
 import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/fsusui/icons';
 import { toFsusUiTagType } from '@/fsusui/primitiveAdapters';
-import { FsusUiTableV2FixedDir, type FsusUiTableV2Column } from '@/fsusui/tableV2';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import {
     adminStatusLabel,
@@ -508,6 +505,15 @@ import {
 import { formatAuditAction } from '@/view-contracts/auditActionLabels';
 
 type AuditDateRange = [Date, Date] | null;
+interface TableV2Column<T> {
+    key: string;
+    dataKey?: keyof T | string;
+    title?: string;
+    width: number;
+    align?: 'left' | 'center' | 'right';
+    fixed?: true | 'left' | 'right';
+    sortable?: boolean;
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -534,39 +540,6 @@ const filters = reactive({
     severity: ''
 });
 const dateRange = ref<AuditDateRange>(null);
-// Without value-format, calendar selection emits Dates and valid manual edits emit Dayjs values.
-const normalizeAuditDate = (value: unknown): Date | null =>
-{
-    if (value instanceof Date)
-    {
-        return Number.isFinite(value.getTime()) ? value : null;
-    }
-    if (dayjs.isDayjs(value) && value.isValid())
-    {
-        const date = value.toDate();
-        return date instanceof Date && Number.isFinite(date.getTime()) ? date : null;
-    }
-    return null;
-};
-const updateAuditDateRange = (value: unknown): void =>
-{
-    if (value === null || value === undefined || value === '')
-    {
-        dateRange.value = null;
-        return;
-    }
-    if (Array.isArray(value) && value.length === 2)
-    {
-        const from = normalizeAuditDate(value[0]);
-        const to = normalizeAuditDate(value[1]);
-        if (from !== null && to !== null)
-        {
-            dateRange.value = [from, to];
-            return;
-        }
-    }
-    throw new Error('audit-date-range-update-invalid');
-};
 const items = shallowRef<AuditLogItemResponse[]>([]);
 const summary = shallowRef<AuditLogSummaryResponse | null>(null);
 const detail = shallowRef<AuditLogDetailResponse | null>(null);
@@ -577,18 +550,18 @@ const isCompactPagination = useMediaQuery('(max-width: 767px)');
 const cursorByPage = reactive<Record<number, string | null>>({ 1: null });
 const loading = ref(false);
 const hasLoadedAudit = ref(false);
-const verifyingId = ref<AuditLogItemResponse['id'] | null>(null);
+const verifyingId = ref<number | null>(null);
 const detailVisible = ref(false);
 const auditRowMotion = useRowStateMotion({ visibleLimit: 20 });
 
-const auditTableColumns: FsusUiTableV2Column<AuditLogItemResponse>[] = [
+const auditTableColumns: TableV2Column<AuditLogItemResponse>[] = [
     { key: 'occurredAt', dataKey: 'occurredAtUtc', title: '时间', width: 190 },
     { key: 'action', dataKey: 'action', title: '动作', width: 300 },
     { key: 'actor', dataKey: 'actorId', title: '操作者', width: 170 },
     { key: 'target', dataKey: 'targetId', title: '目标', width: 190 },
     { key: 'outcome', dataKey: 'outcome', title: '结果', width: 150, align: 'center' },
     { key: 'evidence', title: '证据', width: 110, align: 'center' },
-    { key: 'detail', title: '详情', width: 110, align: 'right', fixed: FsusUiTableV2FixedDir.RIGHT }
+    { key: 'detail', title: '详情', width: 110, align: 'right', fixed: 'right' }
 ];
 
 const runtime = computed(() => summary.value?.runtime ?? emptyRuntime);

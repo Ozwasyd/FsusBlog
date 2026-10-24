@@ -1,8 +1,8 @@
-using Microsoft.Extensions.Configuration;
-
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Models.Security;
 using FsusBlog.Server.Services.Security;
+
+using Microsoft.Extensions.Configuration;
 
 using ConfigurationBuilder = Microsoft.Extensions.Configuration.ConfigurationBuilder;
 using IConfiguration = Microsoft.Extensions.Configuration.IConfiguration;

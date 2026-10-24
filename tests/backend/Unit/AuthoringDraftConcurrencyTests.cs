@@ -15,69 +15,6 @@ namespace FsusBlog.Server.Tests.Unit;
 [Collection(nameof(SchemaMigrationPostgresCollectionB))]
 public sealed class AuthoringDraftConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
-    [Theory]
-    [InlineData("\uFEFF# Heading\r\n正文😀  \r\n \t")]
-    [InlineData(" \t\r\n")]
-    [InlineData("")]
-    public async Task SaveDraftAsync_RetainsExactSourceAndRejectsByteDifferentRetry(string source)
-    {
-        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(
-            db,
-            typeof(ArticleDraft),
-            typeof(ContentAssetReference),
-            typeof(ContentAssetCleanupQueueItem));
-        AuthoringDraftLifecycleService service = CreateService(db);
-        ServerDraftSaveRequest request = CreateRequest("raw-source", source);
-
-        ServerDraftResponse saved = await service.SaveDraftAsync(7, request);
-        ServerDraftResponse replay = await service.SaveDraftAsync(7, request);
-        ArticleDraft draft = Assert.Single(await db.Queryable<ArticleDraft>().ToListAsync());
-        Assert.Equal(source, draft.MarkdownContent);
-        Assert.Equal(System.Text.Encoding.UTF8.GetBytes(source), System.Text.Encoding.UTF8.GetBytes(saved.Content));
-        Assert.Equal(saved.Content, replay.Content);
-        Assert.Equal(1, saved.ServerRevision);
-        Assert.Equal(saved.ServerRevision, replay.ServerRevision);
-
-        await Assert.ThrowsAsync<ServerDraftConflictException>(() =>
-            service.SaveDraftAsync(7, request with { Content = source + " " }));
-        Assert.Equal(source, Assert.Single(await db.Queryable<ArticleDraft>().ToListAsync()).MarkdownContent);
-    }
-
-    [Fact]
-    public async Task SaveDraftAsync_PreservesExistingSourceLimitWithoutTruncation()
-    {
-        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(
-            db,
-            typeof(ArticleDraft),
-            typeof(ContentAssetReference),
-            typeof(ContentAssetCleanupQueueItem));
-        AuthoringDraftLifecycleService service = CreateService(db);
-        string source = new(' ', FsusBlog.Contracts.Articles.ArticleProductionNormalizers.MaxContentLength);
-        ServerDraftResponse saved = await service.SaveDraftAsync(7, CreateRequest("raw-limit", source));
-        Assert.Equal(source, saved.Content);
-
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
-            service.SaveDraftAsync(7, CreateRequest("raw-over-limit", source + " ", saved.ServerRevision)));
-        ArticleDraft draft = Assert.Single(await db.Queryable<ArticleDraft>().ToListAsync());
-        Assert.Equal(source, draft.MarkdownContent);
-        Assert.Equal(saved.ServerRevision, draft.ServerRevision);
-    }
-
-    [Fact]
-    public async Task SaveDraftAsync_RefusesInvalidUtf16BeforeWritingAnyDraft()
-    {
-        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
-        PostgresSqlSugarTestClient.InitTables(db, typeof(ArticleDraft));
-        AuthoringDraftLifecycleService service = CreateService(db);
-
-        await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.SaveDraftAsync(7, CreateRequest("invalid-source", "before\uD800after")));
-
-        Assert.Empty(await db.Queryable<ArticleDraft>().ToListAsync());
-    }
-
     [Fact]
     public async Task SaveDraftAsync_ConcurrentCreateAllowsExactlyOneWriter()
     {

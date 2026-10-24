@@ -1,4 +1,3 @@
-import { articleRecoveryJournal } from '@/services/articleRecoveryJournal';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 export type PrivateStateCleanupTrigger =
   | 'logout'
@@ -391,10 +390,6 @@ export async function clearRegisteredPrivateState(options: {
     cacheStorage?: CacheStorageLike;
 }): Promise<PrivateStorageCleanupResult>
 {
-    if (ARTICLE_RECOVERY_CLEAR_TRIGGERS.includes(options.trigger))
-    {
-        articleRecoveryJournal.invalidateCheckpoints();
-    }
     const local = options.local ?? (typeof localStorage === 'undefined' ? undefined : localStorage);
     const session = options.session ?? (typeof sessionStorage === 'undefined' ? undefined : sessionStorage);
     const indexedDb = options.indexedDb ?? (typeof indexedDB === 'undefined' ? undefined : indexedDB);
@@ -425,7 +420,7 @@ export async function clearRegisteredPrivateState(options: {
         {
             items.push(await clearCacheStorageEntry(entry, cacheStorage));
         }
-        else if (entry.medium === 'runtime')
+        else
         {
             items.push(await clearRuntimeEntry(entry, options.trigger));
         }

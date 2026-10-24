@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 using FsusBlog.Contracts.Migration;
@@ -73,7 +74,10 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
         CancellationToken cancellationToken)
     {
         await VerifyToolsAsync(cancellationToken).ConfigureAwait(false);
-        return _configuration with { OwnedInputs = this };
+        return _configuration with
+        {
+            OwnedInputs = this
+        };
     }
 
     internal async Task VerifyInvocationAsync(OfflineMigrationShellBackupDrillConfiguration configuration,
@@ -84,7 +88,10 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
         cancellationToken.ThrowIfCancellationRequested();
         // A record clone must not preserve an old byte binding while changing execution
         // paths, credentials or environment. The copied environment is read-only and owned.
-        Require((configuration with { OwnedInputs = null }) == _configuration,
+        Require((configuration with
+        {
+            OwnedInputs = null
+        }) == _configuration,
             "configuration_changed");
         Require(options.ExpectedDatabase == _scope.ExpectedDatabase
             && options.EnvironmentFilePath == _scope.EnvironmentFilePath
@@ -103,7 +110,10 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
     private async Task VerifyToolsAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        Require(OperatingSystem.IsLinux(), "linux_operation_owner_required");
+        if (!OperatingSystem.IsLinux())
+        {
+            throw Failure("linux_operation_owner_required");
+        }
         Require(_scope.ExpectedDatabase is not null
             && _scope.ExpectedDatabase.Provider == CurrentSchemaProviderKind.PostgreSql
             && !string.IsNullOrWhiteSpace(_scope.ExpectedDatabase.InstanceId)
@@ -198,9 +208,10 @@ internal sealed class OfflineMigrationShellBackupDrillOwnedInputs
         }
     }
 
-    private static void Require(bool condition, string code)
+    private static void Require([DoesNotReturnIf(false)] bool condition, string code)
     {
-        if (!condition) throw Failure(code);
+        if (!condition)
+            throw Failure(code);
     }
 
     private static InvalidOperationException Failure(string code)

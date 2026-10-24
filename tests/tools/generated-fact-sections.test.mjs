@@ -226,6 +226,20 @@ test('ordered-set preserves observation order', () =>
     );
 });
 
+test('table observation text cannot become inline HTML or an HTML entity', () =>
+{
+    const rendered = RendererRegistry.render(
+        'key-value-table',
+        { '<method>': '<MapAuthoringModerationRoutes> &lt;raw&gt; | next\nline' },
+        { orderPolicy: 'ordinal', emptyPolicy: 'fail' }
+    );
+    assert.doesNotMatch(rendered, /<[^>]*>/u);
+    assert.match(rendered, /&lt;method&gt;/u);
+    assert.match(rendered, /&lt;MapAuthoringModerationRoutes&gt;/u);
+    assert.match(rendered, /&amp;lt;raw&amp;gt;/u);
+    assert.ok(rendered.includes('\\| next line'));
+});
+
 test('transition-table and route-table emit fixed columns', () =>
 {
     const transitions = RendererRegistry.render(
@@ -245,6 +259,19 @@ test('transition-table and route-table emit fixed columns', () =>
     assert.match(routes, /\| Method \| Path \| Auth \| Protocol \|/);
 });
 
+test('string transitions retain action and guard parsing and reject invalid source states', () =>
+{
+    const rendered = RendererRegistry.render(
+        'transition-table',
+        ['Update:Draft->Published', 'Draft->Archived:archive.allowed'],
+        { orderPolicy: 'ordinal', emptyPolicy: 'fail' }
+    );
+    assert.ok(rendered.includes('| Draft | Published | Update |'));
+    assert.ok(rendered.includes('| Draft | Archived | archive.allowed |'));
+    assert.throws(() => RendererRegistry.render('transition-table', ['Draft-state->Published']));
+    assert.throws(() => RendererRegistry.render('transition-table', ['Draft>state->Published']));
+});
+
 test('emptyPolicy fail rejects empty sets; render-empty emits placeholder', () =>
 {
     assert.throws(
@@ -253,7 +280,11 @@ test('emptyPolicy fail rejects empty sets; render-empty emits placeholder', () =
     );
     assert.equal(
         RendererRegistry.render('enum-set', [], { emptyPolicy: 'render-empty' }),
-        '_empty set_'
+        'Empty set.'
+    );
+    assert.equal(
+        RendererRegistry.render('ordered-set', [], { emptyPolicy: 'render-empty' }),
+        'Empty set.'
     );
 });
 
@@ -409,7 +440,7 @@ test('counter-example: manual deletion of a generated row fails check', () =>
 
 test('receipt-canonical empty set {count:0} obeys render-empty without becoming a map row', () =>
 {
-    assert.equal(RendererRegistry.render('enum-set', { count: 0 }, { emptyPolicy: 'render-empty' }), '_empty set_');
+    assert.equal(RendererRegistry.render('enum-set', { count: 0 }, { emptyPolicy: 'render-empty' }), 'Empty set.');
     assert.throws(
         () => RendererRegistry.render('enum-set', { count: 0 }, { emptyPolicy: 'fail' }),
         /empty observation rejected/u

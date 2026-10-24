@@ -27,7 +27,6 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.ArticleVault;
-using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Background;
 
 using Npgsql;
@@ -70,12 +69,7 @@ public partial class ArticleService(
     IArticleVaultTransactionalGroupResultStore? _vaultGroupResultStore = null,
     IArticleDetailViewProjection? _articleDetailViewProjection = null,
     IArticleListCursorCodec? _articleListCursorCodec = null,
-    IArticleViewProjectionObligationCoordinator? _articleViewProjectionObligations = null,
-    IAuthoringCanvasDocumentStore? _authoringCanvasDocuments = null,
-    IAuthoringCanvasExternalCoordinateAuthority? _authoringCanvasCoordinates = null,
-    ArticlePropertyValuePersistence? _articlePropertyValues = null,
-    ArticlePropertyValueValidator? _articlePropertyValueValidator = null,
-    IArticlePropertyDefinitionStore? _articlePropertyDefinitions = null) : IArticleCoreGateway, IArticleMutationCommandService
+    IArticleViewProjectionObligationCoordinator? _articleViewProjectionObligations = null) : IArticleCoreGateway, IArticleMutationCommandService
 #pragma warning restore IDE1006
 {
     private readonly record struct TrashArticleRow(int Id, int CategoryId, string? CoverImageUrl);

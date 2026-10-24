@@ -623,13 +623,12 @@ test("native table preserves actual governance receipt surrounding oracles and t
         ),
         "utf8"
     );
-    const start = current.indexOf("test('input-only change invalidates");
+    const start = current.indexOf("for (const mutationCase of Object.freeze([");
     const end = current.indexOf(
         "test('tampered rule IDs or command-output digests"
     );
     assert.ok(start > 0 && end > start);
     const table = String.raw`
-const receiptInvalidationFixtureRoots = new Set();
 for (const mutationCase of Object.freeze([
     Object.freeze({
         caseName: 'input-tree', authorityId: 'test-asset-governance',

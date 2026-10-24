@@ -791,7 +791,7 @@
                 "ok"
             ],
             "timeoutPolicy": {
-                "timeoutMs": 600000,
+                "timeoutMs": 1260000,
                 "terminateGraceMs": 5000
             },
             "stateDomains": [

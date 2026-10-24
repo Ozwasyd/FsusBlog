@@ -148,7 +148,7 @@ describe('PublicActivationCoordinator', () => {
       }
     })
 
-    await expect(harness.coordinator.warmCore('idle')).resolves.toEqual({ ready: true })
+    await expect(harness.coordinator.warmCore()).resolves.toEqual({ ready: true })
 
     expect(harness.warmFullApp).toHaveBeenCalledOnce()
     expect(harness.prepareRoute).not.toHaveBeenCalled()
