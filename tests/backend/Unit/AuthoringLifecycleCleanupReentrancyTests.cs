@@ -27,9 +27,12 @@ public sealed class AuthoringLifecycleCleanupReentrancyTests
         Exception? refusal = null;
         resource.DuringDisposal = async () =>
         {
-            Task callback = callbackRevoke ? fixture.RevokeAsync().AsTask() : fixture.ReleaseAsync().AsTask();
-            nested = callback;
-            refusal = await Record.ExceptionAsync(() => callback.WaitAsync(cleanupCancellation.Token));
+            refusal = await Record.ExceptionAsync(async () =>
+            {
+                Task callback = callbackRevoke ? fixture.RevokeAsync().AsTask() : fixture.ReleaseAsync().AsTask();
+                nested = callback;
+                await callback.WaitAsync(cleanupCancellation.Token);
+            });
         };
 
         Task operation = outerRevoke ? fixture.RevokeAsync().AsTask() : fixture.ReleaseAsync().AsTask();
