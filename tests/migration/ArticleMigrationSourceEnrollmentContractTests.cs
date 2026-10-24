@@ -25,7 +25,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     private static readonly ArticlePreservationWriteLimits s_limits = new(500, 20, 200, 1_000_000, TimeSpan.FromSeconds(10));
 
     [Fact]
-    public async Task Rollback_removes_actual_graph_outbox_and_original_journal_receipt_together()
+    public async Task Rollback_Removes_Actual_Graph_Outbox_And_Original_Journal_Receipt_Together()
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await fixture.WithWriteAsync(async (context, transaction, token) =>
@@ -44,7 +44,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     }
 
     [Fact]
-    public async Task Commit_and_exact_replay_keep_actual_EventId_row_identity_and_original_journal_binding()
+    public async Task Commit_And_Exact_Replay_Keep_Actual_EventId_Row_Identity_And_Original_Journal_Binding()
     {
         await using var fixture = await NativeFixture.CreateAsync();
         ArticlePreservationStorageStage first = null!;
@@ -66,7 +66,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Real_wire_commit_loss_recovers_by_actual_journal_and_event_readback(bool serverCommitted)
+    public async Task Real_Wire_Commit_Loss_Recovers_By_Actual_Journal_And_Event_Readback(bool serverCommitted)
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await using var proxy = new CommitLossProxy(serverCommitted);
@@ -109,7 +109,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     }
 
     [Fact]
-    public async Task Family_contention_precedes_offline_lock_and_RR_snapshot_sees_previous_writer_commit()
+    public async Task Family_Contention_Precedes_Offline_Lock_And_RR_Snapshot_Sees_Previous_Writer_Commit()
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await using var holder = new NpgsqlConnection(fixture.ConnectionString);
@@ -156,7 +156,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     }
 
     [Fact]
-    public async Task Busy_offline_lock_releases_only_our_outer_increment_and_preserves_caller_custody()
+    public async Task Busy_Offline_Lock_Releases_Only_Our_Outer_Increment_And_Preserves_Caller_Custody()
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await using var holder = new NpgsqlConnection(fixture.ConnectionString);
@@ -183,7 +183,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     [InlineData(IsolationLevel.RepeatableRead, true)]
     [InlineData(IsolationLevel.Serializable, true)]
     [InlineData(IsolationLevel.ReadCommitted, false)]
-    public async Task Real_media_journal_retains_original_RR_or_Serializable_isolation(IsolationLevel isolation, bool supported)
+    public async Task Real_Media_Journal_Retains_Original_RR_Or_Serializable_Isolation(IsolationLevel isolation, bool supported)
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await using var connection = new NpgsqlConnection(fixture.ConnectionString);
@@ -248,7 +248,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     }
 
     [Fact]
-    public async Task Lost_family_lock_expired_scope_and_transaction_replacement_are_refused()
+    public async Task Lost_Family_Lock_Expired_Scope_And_Transaction_Replacement_Are_Refused()
     {
         await using var fixture = await NativeFixture.CreateAsync();
         OfflineMigrationApplyNativeSession.OwnedReadContext retained = null!;
@@ -278,7 +278,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     }
 
     [Fact]
-    public async Task Ordinary_owned_read_context_and_ReadCommitted_do_not_become_write_adapters()
+    public async Task Ordinary_Owned_Read_Context_And_ReadCommitted_Do_Not_Become_Write_Adapters()
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await using var connection = new NpgsqlConnection(fixture.ConnectionString);
@@ -304,7 +304,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     }
 
     [Fact]
-    public async Task Native_read_only_mode_cannot_mint_an_original_write_context()
+    public async Task Native_Read_Only_Mode_Cannot_Mint_An_Original_Write_Context()
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await using var connection = new NpgsqlConnection(fixture.ConnectionString);
@@ -322,7 +322,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     }
 
     [Fact]
-    public async Task Already_present_graph_without_original_event_is_never_enrolled_after_commit()
+    public async Task Already_Present_Graph_Without_Original_Event_Is_Never_Enrolled_After_Commit()
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await fixture.WithWriteAsync(async (context, transaction, token) =>
@@ -339,7 +339,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     }
 
     [Fact]
-    public async Task Existing_row_and_event_tampering_remain_fail_closed_under_original_readback_oracles()
+    public async Task Existing_Row_And_Event_Tampering_Remain_Fail_Closed_Under_Original_Readback_Oracles()
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await fixture.WithWriteAsync(async (context, transaction, token) => { await fixture.StageAsync(context, token); }, commit: true);
@@ -362,7 +362,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     }
 
     [Fact]
-    public async Task Empty_article_batch_keeps_taxonomy_oracles_and_emits_no_event_or_source_counter()
+    public async Task Empty_Article_Batch_Keeps_Taxonomy_Oracles_And_Emits_No_Event_Or_Source_Counter()
     {
         await using var fixture = await NativeFixture.CreateAsync(emptyArticles: true);
         await fixture.WithWriteAsync(async (context, transaction, token) =>
@@ -388,7 +388,7 @@ public sealed class ArticleMigrationSourceEnrollmentContractTests
     [InlineData("duplicate-json")]
     [InlineData("missing-event")]
     [InlineData("plan")]
-    public void Closed_envelope_binding_refuses_fabricated_or_incomplete_input(string changed)
+    public void Closed_Envelope_Binding_Refuses_Fabricated_Or_Incomplete_Input(string changed)
     {
         var (plan, batch) = Inputs(false);
         var item = batch.Events[0];
