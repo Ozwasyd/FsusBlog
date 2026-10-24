@@ -5,6 +5,11 @@ installed .NET 10 SDK's Roslyn assemblies. It never participates in the checker
 and always returns qualification=false. Original checker and original test
 identities, assertions, timeouts and outcomes are unchanged.
 
+The lifecycle registry explicitly owns this SDK-dependent experiment as a manual
+diagnostic with zero automatic physical executions. It has no static-governance
+entry and does not add an SDK step to the Node-only policy workflow. The original
+production classifier tests and qualification owners remain in their normal lanes.
+
 Run the independently invoked synthetic controls from the repository root with the .NET 10 SDK available:
 
 ```sh
