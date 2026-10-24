@@ -1118,6 +1118,11 @@ identities refuse even when the candidate inventory has a freshly sealed digest;
 zero retries, first-failure blocking and external authority bindings still apply
 to every producer.
 
+The Browser Contract first-stop regression extracts the original scenario loop
+from its syntax tree and executes the real temporal adapter against its Node
+page-clock model. Its continue-after-failure mutation remains required. This
+fixture emits checker-selftest evidence and grants no browser qualification.
+
 Before local physical scheduling, the existing runner projects each non-resident
 bundle's service requirements from its exact logical members. Duplicate or
 missing logical identities, foreign service declarations and MySQL on a resident
