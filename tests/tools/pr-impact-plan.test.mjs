@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
 
-const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration, sourceStageInspectionFiles } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceFrontendDataInputs, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration, sourceStageInspectionFiles } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
 
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });
@@ -274,7 +274,9 @@ test('explicit source integration executes source gates and real declared regres
     const value = matrix();
     const result = selectAffectedPrTiers(value, ['tools/test-matrix/pr-impact-plan.mjs'], { stage: 'source-integration' });
     assert.deepEqual(result.selectedTierIds, ['pr-smart-gate-plan', 'source-governance', 'validate-declarations']);
-    assert.deepEqual(result.sourceRegressionTargets, [...sourceRegressionEntries]);
+    assert.deepEqual(result.sourceRegressionTargets, [...sourceRegressionEntries,
+        'tools/configuration/opaque-fixture-source.test.mjs',
+        'tools/test-matrix/opaque-fixture-source-ownership.test.mjs']);
     assert.ok(result.deferredQualificationTierIds.includes('backend-build'));
     assert.deepEqual(result.fullQualificationTierIds, value.tiers.map(tier => tier.id).sort());
     assert.equal(result.fullMode, false);
@@ -375,7 +377,7 @@ test('only independently checked canonical blame metadata leaves unsupported sou
     assert.deepEqual(unsupportedSourceStageFiles([canonical, ...other]), [canonical, ...other]);
     assert.deepEqual(unsupportedSourceStageFiles([canonical], [], [], ['nested/' + canonical]), [canonical]);
     assert.deepEqual(unsupportedSourceStageFiles([canonical, ...other], [], [], [canonical, ...other]), other);
-    assert.equal(sourceGovernanceExecutableEntries().length, 11);
+    assert.equal(sourceGovernanceExecutableEntries().length, 15);
     assert.deepEqual(selectSourceRegressionTargets([canonical]), ['tools/configuration/solution-source.test.mjs']);
 });
 
@@ -384,7 +386,7 @@ test('flat solution checker and its refusal controls are explicit source executi
     const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
         await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
     assert.equal(sourceGovernanceChildEntries.solution, 'tools/configuration/check-solution-source.mjs');
-    assert.equal(sourceGovernanceExecutableEntries().length, 11);
+    assert.equal(sourceGovernanceExecutableEntries().length, 15);
     assert.ok(sourceGovernanceExecutableEntries().includes('tools/configuration/solution-source.test.mjs'));
     assert.deepEqual(selectSourceRegressionTargets(['tools/contracts/Example.slnx']), ['tools/configuration/solution-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.solution]).includes('tools/configuration/solution-source.test.mjs'));
@@ -468,7 +470,7 @@ function frontendRoutingFixture(t)
         ruleRegistry: sourceGovernanceDataInputs[1],
         toolchain: { package: sourceGovernanceDataInputs[2], lock: sourceGovernanceDataInputs[3] },
         eslintConfig: 'eslint.config.mjs', stylelintConfig: 'stylelint.config.mjs' };
-    for (const file of [...sourceGovernanceDataInputs, ...policy.configurationSources])
+    for (const file of [...sourceFrontendDataInputs, ...policy.configurationSources])
     {
         write(file, '{}\n');
     }
@@ -590,6 +592,31 @@ test('SOURCE compares the union of actual base and current policy inputs includi
     assert.ok(configuration.identities.some(value => value.file === 'config/added.json' && value.baseDigest === null));
     assert.deepEqual(sourceFrontendCheckGroups(fixture.actual(), 'source-integration', fixture.base, fixture.root)[0].options,
         ['--mode', 'strict-full']);
+});
+
+test('SOURCE admits a newly registered canonical configuration only through current required inputs and strict-full', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    const canonical = 'config/development/canonical-digest-edge.json';
+    assert.equal(existsSync(path.join(fixture.root, canonical)), false);
+    assert.equal(sourceFrontendDataInputs.includes(canonical), false);
+    assert.equal(sourceGovernanceDataInputs.includes(canonical), true);
+    fixture.policy.configurationSources.push(canonical);
+    fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
+    fixture.write(canonical, '{}\n');
+    fixture.commit();
+    const configuration = inspectSourceFrontendConfiguration(fixture.root, fixture.base);
+    assert.equal(configuration.changed, true);
+    assert.ok(configuration.identities.some(value => value.file === canonical
+        && value.baseDigest === null && /^sha256:[a-f0-9]{64}$/u.test(value.currentDigest)));
+    const changed = fixture.actual();
+    assert.deepEqual(sourceFrontendCheckGroups(changed, 'source-integration', fixture.base, fixture.root),
+        [{ options: ['--mode', 'strict-full'], files: changed.filter(file => fixture.files.includes(file)) }]);
+    assert.throws(() => sourceFrontendCheckGroups(changed.filter(file => file !== canonical),
+        'source-integration', fixture.base, fixture.root), /complete actual changed-source scope/u);
+    rmSync(path.join(fixture.root, canonical));
+    assert.throws(() => inspectSourceFrontendConfiguration(fixture.root, fixture.base),
+        /nonregular or escaped input/u);
 });
 
 test('SOURCE refuses omitted changed inputs under both unchanged and changed configuration', t =>

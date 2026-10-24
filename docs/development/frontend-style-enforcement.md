@@ -153,7 +153,7 @@ identity after path normalization; a destination already owned by the baseline, 
 duplicate, cycle, chain or path reuse, fails closed. `referenceFiles` are audit context
 only and never authorize a violation identity replacement or a new baseline path.
 
-The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. ESLint uses a content cache under ignored `.tmp/frontend-style/` so unchanged work is resumed rather than parsed repeatedly.
+The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. The current runner invokes ESLint without its content cache for every scan. It retains source/configuration cache-key invalidation under ignored `.tmp/frontend-style/`, but unchanged files are parsed again; those files do not authorize cached diagnostics or canonical-edge admission. This trades repeated parsing for the closed authority read contract; no cached parser or classifier decision can bypass capability controls.
 
 ## Governance preservation
 
@@ -163,6 +163,83 @@ rule-registry exception applies only to that file and specifier. Other files,
 other specifiers and equivalent path aliases retain parent-import rejection.
 The pure dependency firewall remains mandatory and unchanged; this style mapping
 does not authorize filesystem, execution, Markdown or DocClaim capabilities.
+
+### Candidate closed canonical digest ownership edge
+
+This WIP increment prepares one finite governance decision in
+`config/development/canonical-digest-edge.json`: the static named `digestValue`
+import from `tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs` to
+`../fact-extractors/lib/canonicalize.mjs`. This is not a whole-file exemption,
+residual allowance, or permission to disable the rule. The AST wrapper delegates
+every other import, export and dynamic-import visitor to the original import-x
+rule and retains all other ESLint rules and diagnostics.
+
+The decision binds two caller semantic trees (the master value contract and its
+OpenAPI projection obligation) and the canonical owner's semantic tree, ignoring
+source locations and literal spelling only. The owner must also satisfy a finite
+AST language: only the existing value operations and the named `createHash`
+import from `node:crypto` are accepted. Arbitrary JavaScript purity is not claimed.
+Additional dependency imports, ambient identifiers, dynamic code and computed
+ambient lookup fail closed before admission. The semantic seals cannot alone
+authorize a new capability, serializer or transitive dependency. Original pure
+closure, materializer refusal and canonical golden tests remain mandatory.
+
+The executing checker's checkout is `authorityRoot`; `--root` selects only
+read-only candidate source. Configuration, registry, parser, locked toolchain and
+classification come from the authority checkout, not the candidate. An external
+`--policy`, cross-checkout `--fix` or baseline update, candidate configuration
+outside the exact previous/current identities, and candidate-authored edge
+registry are refused. Caller, owner and authority source paths must be canonical
+single-link regular non-executable files without symlink parents. The executing
+classifier and installed parser/toolchain regular inputs also reject hardlink
+aliases, before loading authority and after a prior decision; locked internal
+`.bin` symlinks remain executable interfaces, not source-owner aliases.
+Regular input reads bind no-follow file descriptors, compare before/after and
+final path inode/type/mode/link/size/time metadata, and verify the bytes on a
+second descriptor. Read-time replacement, parent redirection, mode changes or
+in-place writes refuse admission, including an alias with identical approved
+bytes. This bounded read contract does not claim whole-filesystem atomicity.
+Registry, parser/toolchain and source bindings are
+recomputed for decisions; the owner edge does not use ESLint's content cache.
+The current ESLint configuration resolves local FsusUI application projects through
+`src/frontend/scripts/run-local-fsusui-typecheck.mjs` and
+`src/frontend/scripts/fsusui-root.mjs`. Both unchanged source owners belong to the
+same regular-input authority seal and effective PR protection roster. Hardlink
+aliases and changes after a prior decision invalidate that authority, including
+when the classifier and top-level configuration bytes remain unchanged.
+The local project producer receives TypeScript from the same locked style
+toolchain. Reading a candidate project must not execute its installed frontend
+parser package; ordinary application typecheck callers retain their own parser.
+Registry members must be unique in the raw JSON at every nesting level, including
+escaped spellings of the same key; object construction cannot hide duplicates.
+The executor validates the selected caller and actual owner before invoking
+ESLint, rejecting inline enable/disable directives; a candidate cannot suppress
+the edge refusal by disabling the rule's own diagnostic.
+The fixture command declares its own caller, canonical owner, configuration and
+parser inputs; a containing lane's broad source identity is not a substitute for
+the command's actual input ownership.
+The SOURCE child additionally declares the canonical registry as an exact data
+input in the existing source-governance roster. The original execution-authority
+producer seals its current content and Git index identity; omitted, duplicated or
+stale registry witnesses cannot authorize a child execution.
+
+The `source-diff` diagnostic runs both the Git base and candidate through the
+executing authority's unchanged ESLint configuration. Its base scratch root
+contains exact Git policy and source witnesses, not another executable classifier
+authority. The actual CLI, parser, installed version checks and lock come from that
+authority; matching candidate dependency metadata cannot select executable tools.
+Configuration must match the base, candidate and executing authority;
+changed configuration still requires strict checks. Canonical caller validation
+also applies to the base witnesses. Scratch cleanup and configuration/source drift
+refusal remain mandatory, and this diagnostic never grants qualification.
+
+This candidate has not been promoted. Changes to this authority require independent frozen-policy review and the
+owner-controlled bootstrap in [Change contract](change-contract.md). Current style protection uses an exact effective policy roster while the historical
+change-contract roster and existing replay tuples remain unchanged. Candidate
+tests prove implementation behavior only; they do not promote trust, waive the
+old trusted rejection, or authorize merge. A semantic caller or owner change
+requires a new reviewed decision. Rollback removes only this edge decision and
+restores the original parent-import refusal, retaining source and past evidence.
 
 The policy pins the count, ID digest and definition digest of all existing `check:*` scripts. Generic lint is additive: a change that removes or rewrites an AEDS, security, privacy, accessibility, UI or performance command fails before linting. Every new generic rule has an owner, source scope and fixability in the rule registry.
 

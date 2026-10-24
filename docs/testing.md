@@ -1113,7 +1113,7 @@ remain prerequisites.
 
 Correctness migration compares the complete producer ID roster derived from the
 matrix, physical bundle inventory and reliability catalog. Its size follows those
-canonical owners rather than a historical constant. Missing, extra or substituted
+canonical owners rather than a historical constant. Missing, extra, duplicate, substituted or crossed-authority
 identities refuse even when the candidate inventory has a freshly sealed digest;
 zero retries, first-failure blocking and external authority bindings still apply
 to every producer.
@@ -1777,6 +1777,28 @@ installation remains a prerequisite; this port does not independently
 authenticate the complete npm archive.
 The complete refusal controls run through the existing SOURCE regression owner;
 they do not establish product qualification.
+
+### Registered opaque fixture data in SOURCE integration
+
+`config/development/opaque-source-fixture-policy.json` registers only the frozen
+canonical digest caller fixture as text data. Its source and complete original
+consumer are byte-bound to the reviewed policy. The source owner runs all 46
+consumer cases through the actual Node test runner and a bound native event
+reporter, with no filtering, failure, skip, todo or cancellation. Consumer stdout
+cannot substitute assertion events. Node, reporter, policy, matrix, fixture,
+consumer, HEAD, index and regular held inputs are rechecked before and after
+collection and independently reopened for receipt verification.
+The collector must echo a fresh caller-created attempt token; a prior collected
+receipt cannot substitute for the source caller's actual current invocation.
+
+The SOURCE caller parses those exact bound matrix bytes and requires the unique
+original `frontend-style-fixtures` owner, complete command and declared data
+input. It retains the complete Git-changed source scope check before removing
+only the verified registered fixture from executable frontend style groups.
+Missing or failed collection, altered consumer scope, unknown fixtures, stale
+receipts and Node/Git execution overrides fail closed. This one fixture data port
+does not admit other excluded paths or produce compiled, runtime or release
+qualification. Its policy and dispatch require independent owner promotion.
 
 ### Python AST checks in SOURCE integration
 

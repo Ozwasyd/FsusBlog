@@ -13,6 +13,8 @@
         "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
         "src/frontend/scripts/fsusui-root.mjs",
         "tools/frontend/check-frontend-style.mjs",
+        "config/development/canonical-digest-edge.json",
+        "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
         "tools/frontend/style-toolchain/eslint.config.mjs",
         "tools/frontend/style-toolchain/stylelint.config.mjs",
         "src/frontend/tsconfig.node.json"
