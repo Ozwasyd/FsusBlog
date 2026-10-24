@@ -149,7 +149,11 @@ internal sealed partial class PgLegacyNonArticlePreparation
         foreach (LegacyTableProgram program in _programs)
             if (!_currentDigests.TryGetValue(program.Owner, out string? expected)
                 || expected != await ReadCurrentDataDigestAsync(program, connection, transaction, cancellationToken,
-                    rows => { if (rows != _currentCounts[program.Owner]) throw new InvalidOperationException("legacy_current_row_count_changed"); }).ConfigureAwait(false))
+                    rows =>
+                    {
+                        if (rows != _currentCounts[program.Owner])
+                            throw new InvalidOperationException("legacy_current_row_count_changed");
+                    }).ConfigureAwait(false))
                 throw new InvalidOperationException("legacy_current_data_changed:" + program.Owner);
     }
 
@@ -578,7 +582,11 @@ internal sealed partial class PgLegacyNonArticlePreparation
         {
             return await operation(resource).ConfigureAwait(false);
         }
-        catch (Exception error) { primary = error; throw; }
+        catch (Exception error)
+        {
+            primary = error;
+            throw;
+        }
         finally
         {
             try
