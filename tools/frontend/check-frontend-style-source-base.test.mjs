@@ -185,3 +185,77 @@ for (const kind of ['escape', 'symlink', 'invalid-utf8'])
         });
     });
 }
+
+
+test('original ESLint isolates untyped scratch from frontend dependencies and retains typed alias refusal', () =>
+{
+    withRepository(({ root, write }) =>
+    {
+        const actualRoot = fileURLToPath(new URL('../../', import.meta.url));
+        for (const file of ['eslint.config.mjs', 'tools/frontend/style-toolchain/eslint.config.mjs',
+            'src/frontend/scripts/run-local-fsusui-typecheck.mjs', 'src/frontend/scripts/fsusui-root.mjs',
+            'src/frontend/package.json', 'src/frontend/package-lock.json'])
+        {
+            write(file, fs.readFileSync(path.join(actualRoot, file)));
+        }
+        // This is an isolated configuration fixture, not frontend/product qualification.
+        write('src/frontend/tsconfig.app.json', JSON.stringify({ compilerOptions: {
+            target: 'ES2022', module: 'ESNext', moduleResolution: 'Bundler', strict: true,
+            noEmit: true, types: [], ignoreDeprecations: '6.0'
+        }, include: ['src/**/*.ts'] }));
+        for (const file of ['vue/packages/element-plus/index.ts', 'vue/packages/icons-vue/src/index.ts',
+            'vue/global.d.ts', 'vue/typings/components.d.ts', 'vue/typings/env.d.ts'])
+        {
+            write(`.fixture-ui/${file}`, 'export {};\n');
+        }
+        write('src/frontend/src/probe.vue', '<script setup lang="ts">const value = 1;</script><template>{{ value }}</template>\n');
+        write('tools/probe.mjs', 'export const value = 1;\n');
+        write('src/frontend/src/probe.ts', 'export const value = 1;\n');
+        const cli = path.join(path.dirname(toolchain), 'node_modules/eslint/bin/eslint.js');
+        const env = { ...process.env, FSUSBLOG_STYLE_ROOT: root, FSUSBLOG_USE_LOCAL_FSUSUI: '1',
+            FSUSBLOG_LOCAL_FSUSUI_ROOT: path.join(root, '.fixture-ui') };
+        const run = args => spawnSync(process.execPath, [cli, '--config', path.join(root, 'eslint.config.mjs'), ...args],
+            { cwd: root, env, encoding: 'utf8' });
+        const untyped = run(['--format', 'json', 'tools/probe.mjs']);
+        assert.equal(untyped.status, 0, untyped.stderr);
+        assert.deepEqual(JSON.parse(untyped.stdout)[0].messages, []);
+        const absent = run(['--print-config', 'src/frontend/src/probe.ts']);
+        assert.equal(absent.status, 2);
+        assert.match(absent.stderr, /Cannot find module 'typescript'/u);
+        const lock = JSON.parse(fs.readFileSync(path.join(root, 'src/frontend/package-lock.json'), 'utf8'));
+        const toolLock = JSON.parse(fs.readFileSync(path.join(path.dirname(toolchain), 'package-lock.json'), 'utf8'));
+        const frontendCompiler = lock.packages['node_modules/typescript'];
+        const toolCompiler = toolLock.packages['node_modules/typescript'];
+        for (const field of ['version', 'resolved', 'integrity'])
+        {
+            assert.equal(toolCompiler[field], frontendCompiler[field]);
+        }
+        const compiler = fs.realpathSync(path.join(path.dirname(toolchain), 'node_modules/typescript'));
+        const installed = JSON.parse(fs.readFileSync(path.join(compiler, 'package.json'), 'utf8'));
+        assert.equal(lock.packages['node_modules/typescript'].version, '6.0.3');
+        assert.equal(installed.version, lock.packages['node_modules/typescript'].version);
+        fs.mkdirSync(path.join(root, 'src/frontend/node_modules'), { recursive: true });
+        fs.symlinkSync(compiler, path.join(root, 'src/frontend/node_modules/typescript'), 'dir');
+        const typed = run(['--print-config', 'src/frontend/src/probe.ts']);
+        assert.equal(typed.status, 0, typed.stderr);
+        const options = JSON.parse(typed.stdout).languageOptions.parserOptions;
+        assert.equal(options.projectService, false);
+        // The original CLI serializes parser-option arrays as numeric-key JSON objects.
+        assert.deepEqual(Object.values(options.project),
+            [path.join(root, 'src/frontend/.tmp/typecheck/tsconfig.fsusui-local.app.generated.json')]);
+        assert.deepEqual(Object.values(options.extraFileExtensions), ['.vue']);
+        assert.equal(options.tsconfigRootDir, path.join(root, 'src/frontend'));
+        const checked = run(['--format', 'json', 'src/frontend/src/probe.ts']);
+        assert.equal(checked.status, 0, checked.stderr);
+        assert.deepEqual(JSON.parse(checked.stdout)[0].messages, []);
+        const vue = run(['--print-config', 'src/frontend/src/probe.vue']);
+        assert.equal(vue.status, 0, vue.stderr);
+        const vueOptions = JSON.parse(vue.stdout).languageOptions.parserOptions;
+        assert.equal(vueOptions.projectService, false);
+        assert.deepEqual(vueOptions.project, options.project);
+        env.FSUSBLOG_LOCAL_FSUSUI_ROOT = path.join(root, 'missing-ui');
+        const invalid = run(['--print-config', 'src/frontend/src/probe.ts']);
+        assert.equal(invalid.status, 2);
+        assert.match(invalid.stderr, /does not contain the FsusUI source contract/u);
+    });
+});

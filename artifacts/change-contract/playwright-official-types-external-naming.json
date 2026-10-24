@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/pr-impact-plan.mjs"
+            ],
+            "reason": "preserve existing process environment and orchestration caller names while registering the canonical Playwright configuration as an additional SOURCE data witness"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/fsusui-typecheck-modes.md"
+            ],
+            "reason": "preserve the maintained frontend document's existing caller-visible aliases and path spellings while adding official declaration-resolution and runtime-entry guidance without renaming frontend contracts"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "preserve the canonical execution-authority JSON schema and all existing targets while recording the actual SOURCE Playwright configuration witness and producer-input digests"
+        }
+    ]
+}
