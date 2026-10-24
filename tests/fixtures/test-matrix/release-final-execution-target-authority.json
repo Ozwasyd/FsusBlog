@@ -3090,8 +3090,8 @@
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
-            "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
+            "contentDigest": "sha256:7fbd365ce1f281dfef6d675e6fa1b890fac41a64f784776cc79e6dc6768bcb8d",
+            "indexDigest": "sha256:7fbd365ce1f281dfef6d675e6fa1b890fac41a64f784776cc79e6dc6768bcb8d"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
