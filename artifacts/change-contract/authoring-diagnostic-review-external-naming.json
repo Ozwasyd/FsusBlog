@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/diagnostic-contract-review/packages.lock.json"
+            ],
+            "reason": "Preserve the original NuGet lock-file keys version, dependencies and net10.0 in the standalone review runner's generated empty dependency lock. These external tool fields are not C# identifiers or a new product wire contract; the declaration changes no dependency version or naming rule."
+        }
+    ]
+}
