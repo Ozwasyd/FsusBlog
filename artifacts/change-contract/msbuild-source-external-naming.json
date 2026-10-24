@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/msbuild-source-inspector.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve original SOURCE caller environment, system Python invocation and literal MSBuild/XML spellings while binding the finite readonly declaration inspection port and complete receipt."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve current lifecycle ownership fields and canonical generated execution-authority schema while registering the original complete MSBuild refusal suite and its real static import closure."
+        }
+    ]
+}
