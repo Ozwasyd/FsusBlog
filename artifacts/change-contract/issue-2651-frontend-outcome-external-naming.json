@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/outcomes/frontend-vitest-adapter.mjs"
+            ],
+            "reason": "Declare the existing tools/**/*.mjs environment-variable naming surface for this new adapter. Consume original sealed execution-envelope, temporal, replay and attempt identities without reinterpreting host environment variables or changing their upstream external spellings. No environment key, naming registry authority or test semantics is introduced or changed."
+        }
+    ]
+}
