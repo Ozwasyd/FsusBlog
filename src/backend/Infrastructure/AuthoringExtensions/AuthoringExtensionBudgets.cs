@@ -207,7 +207,7 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         using var wallLimit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         wallLimit.CancelAfter(budget.MaximumWallTime);
         using var monitorStop = new CancellationTokenSource();
-        Task<string?> monitor = MonitorAsync(
+        Task<(string? Breach, AuthoringResourceMeasurement LastMeasurement)> monitor = MonitorAsync(
             identity,
             before,
             budget,
@@ -246,7 +246,7 @@ public sealed class AuthoringExtensionBudgetSupervisor(
             gate.Exit();
         }
 
-        string? liveBreach = await monitor;
+        (string? liveBreach, AuthoringResourceMeasurement lastMeasurement) = await monitor;
         AuthoringResourceMeasurement after;
         try
         {
@@ -259,7 +259,14 @@ public sealed class AuthoringExtensionBudgetSupervisor(
             reason = "measurement-authority-failed";
             value = default;
         }
-        if (status == AuthoringBudgetStatus.Completed ||
+        string? measurementFailure = FindMeasurementFailure(lastMeasurement, after);
+        if (measurementFailure is not null)
+        {
+            status = AuthoringBudgetStatus.Breached;
+            reason = measurementFailure;
+            value = default;
+        }
+        else if (status == AuthoringBudgetStatus.Completed ||
             operationReturned && status == AuthoringBudgetStatus.Cancelled)
         {
             string? measuredBreach = liveBreach ?? FindBreach(before, after, stopwatch.Elapsed, budget);
@@ -367,6 +374,9 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         TimeSpan wall,
         AuthoringResourceBudget budget)
     {
+        string? measurementFailure = FindMeasurementFailure(before, after);
+        if (measurementFailure is not null)
+            return measurementFailure;
         if (after.CpuTime - before.CpuTime > budget.MaximumCpuTime)
             return "cpu-budget-exceeded";
         if (wall > budget.MaximumWallTime)
@@ -392,6 +402,8 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         AuthoringResourceMeasurement measurement,
         AuthoringResourceBudget budget)
     {
+        if (!IsValidMeasurement(measurement))
+            return "measurement-authority-failed";
         if (measurement.MemoryBytes > budget.MaximumMemoryBytes)
             return "memory-budget-exceeded";
         if (measurement.Restarts > budget.MaximumRestarts)
@@ -405,7 +417,28 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         return null;
     }
 
-    private async Task<string?> MonitorAsync(
+    private static bool IsValidMeasurement(AuthoringResourceMeasurement measurement) =>
+        measurement.CpuTime >= TimeSpan.Zero && measurement.MemoryBytes >= 0 &&
+        measurement.InboundBytes >= 0 && measurement.OutboundBytes >= 0 &&
+        measurement.Restarts >= 0 && measurement.NetworkBytes >= 0 &&
+        measurement.FileBytes >= 0 && measurement.StateBytes >= 0;
+
+    private static string? FindMeasurementFailure(
+        AuthoringResourceMeasurement before,
+        AuthoringResourceMeasurement after)
+    {
+        if (!IsValidMeasurement(before) || !IsValidMeasurement(after) ||
+            after.CpuTime < before.CpuTime || after.InboundBytes < before.InboundBytes ||
+            after.OutboundBytes < before.OutboundBytes || after.Restarts < before.Restarts ||
+            after.NetworkBytes < before.NetworkBytes || after.FileBytes < before.FileBytes)
+        {
+            return "measurement-authority-failed";
+        }
+
+        return null;
+    }
+
+    private async Task<(string? Breach, AuthoringResourceMeasurement LastMeasurement)> MonitorAsync(
         AuthoringBudgetIdentity identity,
         AuthoringResourceMeasurement before,
         AuthoringResourceBudget budget,
@@ -413,28 +446,35 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         CancellationTokenSource executionCancellation,
         CancellationToken cancellationToken)
     {
+        AuthoringResourceMeasurement previous = before;
         try
         {
             while (true)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(50), timeProvider, cancellationToken);
                 AuthoringResourceMeasurement current = await measurements.MeasureAsync(identity, cancellationToken);
-                string? reason = FindBreach(before, current, stopwatch.Elapsed, budget);
+                string? reason = FindMeasurementFailure(previous, current);
+                if (reason is null)
+                {
+                    previous = current;
+                    reason = FindBreach(before, current, stopwatch.Elapsed, budget);
+                }
+
                 if (reason is not null)
                 {
                     await executionCancellation.CancelAsync();
-                    return reason;
+                    return (reason, previous);
                 }
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return null;
+            return (null, previous);
         }
         catch
         {
             await executionCancellation.CancelAsync();
-            return "measurement-authority-failed";
+            return ("measurement-authority-failed", previous);
         }
     }
 
