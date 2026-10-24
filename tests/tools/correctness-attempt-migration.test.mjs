@@ -72,6 +72,33 @@ for (const mutation of ['missing', 'extra', 'substituted'])
     });
 }
 
+for (const mutation of ['omitted', 'extra', 'duplicate', 'wrong authority'])
+{
+    test(`migration rejects a freshly resealed ${mutation} canonical producer roster`, (context) =>
+    {
+        const { directory: isolatedRoot, inventory } = fixture(context);
+        if (mutation === 'omitted')
+        {
+            inventory.entries.pop();
+        }
+        else if (mutation === 'extra')
+        {
+            inventory.entries.push({ ...inventory.entries[0], producerId: 'matrix:unregistered-producer' });
+        }
+        else if (mutation === 'duplicate')
+        {
+            inventory.entries.push(structuredClone(inventory.entries[0]));
+        }
+        else
+        {
+            inventory.entries[0].authorityBindings.executionEnvelope = 'unregistered-authority';
+        }
+        const destination = path.join(isolatedRoot, 'config/testing/correctness-attempt-producers.json');
+        fs.writeFileSync(destination, JSON.stringify(sealContentDigest(inventory)));
+        assert.throws(() => validateCorrectnessAttemptMigration(isolatedRoot), /differs from canonical authorities/u);
+    });
+}
+
 test('matrix and physical producers fail closed on a crossed execution owner', () =>
 {
     assert.equal(assertCorrectnessAttemptExecutionOwner(

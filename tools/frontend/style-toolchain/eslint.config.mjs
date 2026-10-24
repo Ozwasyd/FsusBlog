@@ -7,7 +7,18 @@ import importX from 'eslint-plugin-import-x';
 import jsdoc from 'eslint-plugin-jsdoc';
 import vue from 'eslint-plugin-vue';
 import globals from 'globals';
+import typescript from 'typescript';
 import tseslint from 'typescript-eslint';
+
+import { wrapParentImportRule } from './closed-canonical-edge.mjs';
+
+const governedImportX = {
+    ...importX,
+    rules: {
+        ...importX.rules,
+        'no-relative-parent-imports': wrapParentImportRule(importX.rules['no-relative-parent-imports'])
+    }
+};
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const repositoryRoot = path.resolve(process.env.FSUSBLOG_STYLE_ROOT ?? defaultRoot);
@@ -20,7 +31,7 @@ function resolveApplicationProjectOptions()
 {
     if (applicationProjectOptions === undefined)
     {
-        const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot });
+        const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot, typescript });
         applicationProjectOptions = localApplicationProject
             ? { projectService: false, project: [localApplicationProject], extraFileExtensions: ['.vue'] }
             : { projectService: true };
@@ -169,7 +180,7 @@ export default [
         files: allLintFiles,
         plugins: {
             '@stylistic': stylistic,
-            'import-x': importX
+            'import-x': governedImportX
         },
         linterOptions: {
             reportUnusedDisableDirectives: 'error'

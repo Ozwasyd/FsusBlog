@@ -7628,6 +7628,39 @@
             }
         },
         {
+            "file": "tests/tools/canonical-digest-edge.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/canonical-digest-edge.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime",
+                "compatibility-wrapper"
+            ]
+        },
+        {
+            "file": "tools/configuration/opaque-fixture-source.test.mjs",
+            "owner": "manual-diagnostic:tools/configuration/opaque-fixture-source.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ]
+        },
+        {
+            "file": "tools/test-matrix/opaque-fixture-source-ownership.test.mjs",
+            "owner": "manual-diagnostic:tools/test-matrix/opaque-fixture-source-ownership.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text"
+            ]
+        },
+        {
             "file": "tests/tools/msbuild-source.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
