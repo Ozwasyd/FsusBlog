@@ -280,3 +280,34 @@ test('opaque CLI refuses additional consumer arguments and duplicate options bef
         assert.equal(result.stdout, '');
     }
 });
+
+test('opaque receipt CLI drains a real large pipe before applying unchanged live identity refusals', () =>
+{
+    fixture(({ root, git }) =>
+    {
+        const result = spawnSync(process.execPath, [path.join(authorityRoot,
+            'tools/configuration/check-opaque-fixture-source.mjs'), '--verify-receipt', '--root', root,
+        '--file', fixtureFile, '--expected-head', git('rev-parse', 'HEAD'),
+        '--expected-attempt-token', 'a'.repeat(64)],
+        { input: `${' '.repeat(1024 * 1024)}{}`, env: cleanEnvironment(), encoding: 'utf8' });
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '');
+        assert.match(result.stderr, /does not match the live original command/u);
+        assert.doesNotMatch(result.stderr, /EAGAIN/u);
+    });
+});
+
+test('opaque receipt CLI refuses oversized and malformed UTF-8 transports before admission', () =>
+{
+    for (const [input, error] of [[Buffer.alloc(16 * 1024 * 1024 + 1, 0x20), /sixteen MiB transport limit/u],
+        [Buffer.from([0xff]), /exact UTF-8/u]])
+    {
+        const result = spawnSync(process.execPath, [path.join(authorityRoot,
+            'tools/configuration/check-opaque-fixture-source.mjs'), '--verify-receipt', '--root', authorityRoot,
+        '--file', fixtureFile, '--expected-head', '0'.repeat(40), '--expected-attempt-token', 'a'.repeat(64)],
+        { input, env: cleanEnvironment(), encoding: 'utf8' });
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '');
+        assert.match(result.stderr, error);
+    }
+});

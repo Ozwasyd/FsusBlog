@@ -250,7 +250,29 @@ export function validateOpaqueFixtureSourceReceipt({ repositoryRoot, files, expe
     });
 }
 
-function main(argv)
+async function readReceipt()
+{
+    const chunks = [];
+    let length = 0;
+    for await (const chunk of process.stdin)
+    {
+        length += chunk.length;
+        if (length > 16 * 1024 * 1024)
+        {
+            throw new Error('opaque fixture receipt exceeds its sixteen MiB transport limit');
+        }
+        chunks.push(chunk);
+    }
+    const bytes = Buffer.concat(chunks);
+    const source = bytes.toString('utf8');
+    if (!Buffer.from(source).equals(bytes))
+    {
+        throw new Error('opaque fixture receipt transport requires exact UTF-8');
+    }
+    return JSON.parse(source);
+}
+
+async function main(argv)
 {
     const options = { files: [], verify: false, expectedHead: null, attemptToken: null,
         expectedAttemptToken: null, root: defaultRoot };
@@ -306,7 +328,7 @@ function main(argv)
     const result = options.verify
         ? validateOpaqueFixtureSourceReceipt({ repositoryRoot: options.root, files: options.files,
             expectedHead: options.expectedHead, expectedAttemptToken: options.expectedAttemptToken,
-            receipt: JSON.parse(fs.readFileSync(0, 'utf8')) })
+            receipt: await readReceipt() })
         : collectOpaqueFixtureSource({ repositoryRoot: options.root, files: options.files, attemptToken: options.attemptToken });
     process.stdout.write(`${JSON.stringify(result)}\n`);
 }
@@ -315,7 +337,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
 {
     try
     {
-        main(process.argv.slice(2));
+        await main(process.argv.slice(2));
     }
     catch (error)
     {
