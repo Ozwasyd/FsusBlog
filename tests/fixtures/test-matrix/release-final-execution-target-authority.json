@@ -3000,8 +3000,8 @@
         },
         {
             "path": "tools/docs/generated-fact-sections/renderers.mjs",
-            "contentDigest": "sha256:4380d20a6e22de09589c227a0d367c1faa150c13d3e6bd323b0422fe8b5fd5b9",
-            "indexDigest": "sha256:4380d20a6e22de09589c227a0d367c1faa150c13d3e6bd323b0422fe8b5fd5b9"
+            "contentDigest": "sha256:34f6c286f48a9a7cd0eb8fd0a40fef96529d1b0ba4d236abeb9fdd6d4e2fc35d",
+            "indexDigest": "sha256:34f6c286f48a9a7cd0eb8fd0a40fef96529d1b0ba4d236abeb9fdd6d4e2fc35d"
         },
         {
             "path": "tools/docs/global-claim-exactness-final.mjs",
