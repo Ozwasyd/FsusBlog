@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringCommandRegistryAuthority.cs"
+            ],
+            "reason": "Retain the existing environment-variable naming registration for this C# source path while requiring signed JSON constructor parameters. No process environment variable, caller-visible JSON key, package entry path or C# identifier is added or renamed."
+        }
+    ]
+}

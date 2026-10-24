@@ -14,13 +14,11 @@ import {
     validateReviewedResidualDocument
 } from './reviewed-residual-classification.mjs';
 import { compareSourceUnitFindings } from './source-unit-style-diff.mjs';
-
-const { resolveLocalFsusUiApplicationProject } = await import(
-    new URL('../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
-);
+import { validateCandidatePolicy, validateSelectedCanonicalSource } from './style-toolchain/closed-canonical-edge.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');
+const authorityRoot = defaultRoot;
 const defaultPolicyPath = 'config/development/frontend-style-policy.json';
 const policySchema = 'fsusblog.frontend-style-policy.v1';
 const registrySchema = 'fsusblog.frontend-style-rule-registry.v1';
@@ -415,11 +413,11 @@ function runEslint(files, fix)
     {
         return [];
     }
-    const executable = path.join(root, policy.toolchain.eslint);
+    const executable = path.join(authorityRoot, policy.toolchain.eslint);
     const declarations = files.filter(file => /\.d\.(?:mts|cts)$/u.test(file));
     for (const file of declarations)
     {
-        const printed = command([executable, '--config', path.join(root, policy.eslintConfig), '--print-config', file], {
+        const printed = command([executable, '--config', path.join(authorityRoot, policy.eslintConfig), '--print-config', file], {
             allowFailure: true,
             environment: { FSUSBLOG_STYLE_ROOT: root }
         });
@@ -448,11 +446,8 @@ function runEslint(files, fix)
             throw new Error(`script declaration parser/project coverage does not use the original Node configuration: ${file}`);
         }
     }
-    // External source types can change without a Blog source edit. Recheck the local program;
-    // registry-installed mode retains its existing content cache.
-    const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot: root });
-    const cache = path.join(root, '.tmp/frontend-style/eslint.cache');
-    const cacheKeyFile = path.join(root, '.tmp/frontend-style/eslint.cache-key');
+    const cache = path.join(authorityRoot, '.tmp/frontend-style/eslint.cache');
+    const cacheKeyFile = path.join(authorityRoot, '.tmp/frontend-style/eslint.cache-key');
     const cacheKey = sha256(`${configurationDigest()}\n${sourceStateDigest()}`);
     fs.mkdirSync(path.dirname(cache), { recursive: true });
     const previousCacheKey = fs.existsSync(cacheKeyFile)
@@ -465,15 +460,11 @@ function runEslint(files, fix)
     }
     const args = [
         executable,
-        '--config', path.join(root, policy.eslintConfig),
+        '--config', path.join(authorityRoot, policy.eslintConfig),
         '--format', 'json',
         '--no-error-on-unmatched-pattern',
         '--no-warn-ignored'
     ];
-    if (!localApplicationProject)
-    {
-        args.push('--cache', '--cache-location', cache, '--cache-strategy', 'content');
-    }
     if (fix)
     {
         args.push('--fix');
@@ -514,10 +505,10 @@ function runStylelint(files, fix)
     {
         return [];
     }
-    const executable = path.join(root, policy.toolchain.stylelint);
+    const executable = path.join(authorityRoot, policy.toolchain.stylelint);
     const args = [
         executable,
-        '--config', path.join(root, policy.stylelintConfig),
+        '--config', path.join(authorityRoot, policy.stylelintConfig),
         '--formatter', 'json',
         '--allow-empty-input'
     ];
@@ -565,12 +556,12 @@ function configurationDigest()
 {
     const paths = [
         policyFile,
-        path.join(root, policy.ruleRegistry),
-        path.join(root, policy.toolchain.package),
-        path.join(root, policy.toolchain.lock),
-        ...policy.configurationSources.map((file) => path.join(root, file))
+        path.join(authorityRoot, policy.ruleRegistry),
+        path.join(authorityRoot, policy.toolchain.package),
+        path.join(authorityRoot, policy.toolchain.lock),
+        ...policy.configurationSources.map((file) => path.join(authorityRoot, file))
     ];
-    const sources = paths.map((file) => `${toPosix(path.relative(root, file))}\n${sha256(fs.readFileSync(file))}`);
+    const sources = paths.map((file) => `${toPosix(path.relative(authorityRoot, file))}\n${sha256(fs.readFileSync(file))}`);
     sources.push(`runtime\nnode=${process.version}\nplatform=${process.platform}\narch=${process.arch}`);
     return sha256(sources.join('\n'));
 }
@@ -1123,7 +1114,7 @@ function validateConfiguration()
         policy.toolchain?.stylelint
     ])
     {
-        if (!file || !fs.existsSync(path.join(root, file)))
+        if (!file || !fs.existsSync(path.join(authorityRoot, file)))
         {
             fail(`missing configured frontend style path ${file ?? '<undefined>'}`);
         }
@@ -1161,7 +1152,7 @@ function validateConfiguration()
     {
         fail('AST-aware ESLint/Stylelint must be the authoritative formatter');
     }
-    const registry = readJson(path.join(root, policy.ruleRegistry), policy.ruleRegistry);
+    const registry = readJson(path.join(authorityRoot, policy.ruleRegistry), policy.ruleRegistry);
     if (registry)
     {
         if (registry.schema !== registrySchema)
@@ -1200,7 +1191,7 @@ function validateConfiguration()
     }
     for (const packagePath of [policy.toolchain.package, 'src/frontend/package.json'])
     {
-        const packageDocument = readJson(path.join(root, packagePath), packagePath);
+        const packageDocument = readJson(path.join(packagePath === policy.toolchain.package ? authorityRoot : root, packagePath), packagePath);
         if (!packageDocument)
         {
             continue;
@@ -1214,14 +1205,14 @@ function validateConfiguration()
             }
         }
     }
-    const residualAuthority = path.join(root, reviewedResidualAuthorityPath);
+    const residualAuthority = path.join(authorityRoot, reviewedResidualAuthorityPath);
     if (fs.existsSync(residualAuthority))
     {
         const bytes = fs.readFileSync(residualAuthority, 'utf8');
         const document = readJson(residualAuthority, reviewedResidualAuthorityPath);
         if (document)
         {
-            for (const residualFailure of validateReviewedResidualDocument(document, bytes, { root }))
+            for (const residualFailure of validateReviewedResidualDocument(document, bytes, { root: authorityRoot }))
             {
                 fail(residualFailure);
             }
@@ -1295,7 +1286,7 @@ export function materializeSourceDiffBase({ repositoryRoot, baseCommit, scratch,
     const dependencies = [];
     const unresolved = [];
     let totalBytes = 0;
-    const parser = createRequire(path.join(repositoryRoot, 'tools/frontend/style-toolchain/package.json'))('espree');
+    const parser = createRequire(path.join(authorityRoot, 'tools/frontend/style-toolchain/package.json'))('espree');
     function resolveReference(owner, reference)
     {
         const relative = contained(path.posix.normalize(path.posix.join(path.posix.dirname(owner), reference)));
@@ -1409,7 +1400,7 @@ export function materializeSourceDiffBase({ repositoryRoot, baseCommit, scratch,
 
 function sourceDiffImportContext({ file, baseSource, candidateSource, baseInputs, identities })
 {
-    const parser = createRequire(path.join(root, 'tools/frontend/style-toolchain/package.json'))('espree');
+    const parser = createRequire(path.join(authorityRoot, 'tools/frontend/style-toolchain/package.json'))('espree');
     const imports = (source) => parser.parse(source, { ecmaVersion: 'latest', sourceType: 'module' }).body
         .filter((node) => node.type === 'ImportDeclaration').map((node) => node.source.value);
     const prior = baseInputs.dependencies.filter((dependency) => dependency.owner === file);
@@ -1489,6 +1480,10 @@ function checkSourceDiff(args, files)
         {
             throw new Error(`source-diff configuration changed: ${file}`);
         }
+        if (current !== fs.readFileSync(path.join(authorityRoot, file), 'utf8'))
+        {
+            throw new Error(`source-diff authority configuration changed: ${file}`);
+        }
         return { file, sha256: sha256(current) };
     });
     const report = { schema: 'fsusblog.frontend-style-source-diff.v1', baseCommit: base,
@@ -1496,8 +1491,8 @@ function checkSourceDiff(args, files)
         configurationIdentities: identities, qualification: false, files: [], failures: [] };
     report.toolVersions = Object.fromEntries(['eslint', 'espree', 'eslint-scope'].map((name) =>
     {
-        const installed = readJson(path.join(root, `tools/frontend/style-toolchain/node_modules/${name}/package.json`), name);
-        const locked = readJson(path.join(root, policy.toolchain.lock), policy.toolchain.lock)?.packages?.[`node_modules/${name}`];
+        const installed = readJson(path.join(authorityRoot, `tools/frontend/style-toolchain/node_modules/${name}/package.json`), name);
+        const locked = readJson(path.join(authorityRoot, policy.toolchain.lock), policy.toolchain.lock)?.packages?.[`node_modules/${name}`];
         if (!installed || !locked || installed.version !== locked.version)
         {
             throw new Error(`source-diff installed tool does not match original lock: ${name}`);
@@ -1507,15 +1502,16 @@ function checkSourceDiff(args, files)
     const scratch = fs.mkdtempSync(path.join(root, '.tmp/frontend-style/source-diff-base-'));
     try
     {
-        // The original ESLint CLI loads identical original configuration in a separate base root.
-        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs', policy.toolchain.package,
+        // Base policy/source bytes are Git witnesses; executable configuration stays in its sealed authority checkout.
+        for (const file of [...identities.map((identity) => identity.file),
+            'tools/frontend/check-frontend-style.mjs', 'tools/frontend/reviewed-residual-classification.mjs',
             'src/frontend/scripts/run-local-fsusui-typecheck.mjs', 'src/frontend/scripts/fsusui-root.mjs'])
         {
             const destination = path.join(scratch, file);
             fs.mkdirSync(path.dirname(destination), { recursive: true });
             fs.writeFileSync(destination, command(['git', 'show', `${base}:${file}`]).stdout);
         }
-        fs.symlinkSync(fs.realpathSync(path.join(root, 'tools/frontend/style-toolchain/node_modules')),
+        fs.symlinkSync(fs.realpathSync(path.join(authorityRoot, 'tools/frontend/style-toolchain/node_modules')),
             path.join(scratch, 'tools/frontend/style-toolchain/node_modules'), 'dir');
         report.baseResolverInputs = materializeSourceDiffBase({ repositoryRoot: root, baseCommit: base, scratch,
             files: files.filter((file) => command(['git', 'ls-tree', base, '--', file]).stdout.length > 0) });
@@ -1537,8 +1533,8 @@ function checkSourceDiff(args, files)
             }
             function lint(workingRoot)
             {
-                const result = spawnSync(process.execPath, ['--max-old-space-size=512', path.join(root, policy.toolchain.eslint),
-                    '--config', path.join(workingRoot, policy.eslintConfig), '--format', 'json', file],
+                const result = spawnSync(process.execPath, ['--max-old-space-size=512', path.join(authorityRoot, policy.toolchain.eslint),
+                    '--config', path.join(authorityRoot, policy.eslintConfig), '--format', 'json', file],
                 { cwd: workingRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
                     env: { ...process.env, FSUSBLOG_STYLE_ROOT: workingRoot } });
                 if (result.error || ![0, 1].includes(result.status))
@@ -1591,6 +1587,18 @@ function checkSourceDiff(args, files)
             {
                 fail(`source-diff configuration changed during inspection: ${identity.file}`);
             }
+            if (sha256(fs.readFileSync(path.join(authorityRoot, identity.file))) !== identity.sha256)
+            {
+                fail(`source-diff authority configuration changed during inspection: ${identity.file}`);
+            }
+        }
+        try
+        {
+            validateCandidatePolicy(root);
+        }
+        catch (error)
+        {
+            fail(`source-diff final authority validation failed: ${error.message}`);
         }
         report.failures = [...failures];
         report.sourceCheckPassed = failures.length === 0;
@@ -1637,7 +1645,16 @@ function main()
     {
         throw new Error('refusing full-repository --fix; mechanical formatting requires a separate reviewed commit');
     }
-    policyFile = path.resolve(args.policy ?? path.join(root, defaultPolicyPath));
+    if (root !== authorityRoot && (args.fix || args.updateBaseline))
+    {
+        throw new Error('cross-checkout candidate source is read-only');
+    }
+    policyFile = path.resolve(args.policy ?? path.join(authorityRoot, defaultPolicyPath));
+    if (policyFile !== path.join(authorityRoot, defaultPolicyPath))
+    {
+        throw new Error('policy must belong to the executing authority checkout');
+    }
+    validateCandidatePolicy(root);
     policy = readJson(policyFile, args.policy ?? defaultPolicyPath);
     if (!policy)
     {
@@ -1650,6 +1667,14 @@ function main()
     }
 
     const files = selectFiles(args);
+    try
+    {
+        validateSelectedCanonicalSource(root, files);
+    }
+    catch (error)
+    {
+        throw new Error(`eslint/import-x/no-relative-parent-imports: ${error.message}`, { cause: error });
+    }
     if (args.mode === 'source-diff')
     {
         fs.mkdirSync(path.join(root, '.tmp/frontend-style'), { recursive: true });

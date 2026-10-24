@@ -9,7 +9,7 @@ import { localFsusUiConsumptionDisabled, resolveLocalFsusUiRepositoryRoot } from
 const defaultRepositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 /** The local alias producer serves focused contracts and the original complete projects. */
-export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, fullApplication = false, fullTests = false })
+export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, fullApplication = false, fullTests = false, typescript })
 {
     if (fullApplication && fullTests)
     {
@@ -20,8 +20,8 @@ export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, 
     const originalProject = fullTests ? 'tsconfig.playwright.json' : fullApplication
         ? 'tsconfig.app.json'
         : 'tsconfig.fsusui-published.json';
-    const require = createRequire(path.join(frontendRoot, 'package.json'));
-    const ts = require('typescript');
+    // A cross-checkout style scan supplies its locked parser instead of executing candidate dependencies.
+    const ts = typescript ?? createRequire(path.join(frontendRoot, 'package.json'))('typescript');
     const original = ts.getParsedCommandLineOfConfigFile(path.join(frontendRoot, originalProject), {}, {
         ...ts.sys,
         onUnRecoverableConfigFileDiagnostic(diagnostic)
@@ -135,7 +135,7 @@ export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, 
 }
 
 /** Local-off keeps the original registry project; invalid configured source roots fail closed. */
-export function resolveLocalFsusUiApplicationProject({ repositoryRoot, env = process.env })
+export function resolveLocalFsusUiApplicationProject({ repositoryRoot, env = process.env, typescript })
 {
     if (localFsusUiConsumptionDisabled(env))
     {
@@ -153,7 +153,7 @@ export function resolveLocalFsusUiApplicationProject({ repositoryRoot, env = pro
         }
         return null;
     }
-    return prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, fullApplication: true });
+    return prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, fullApplication: true, typescript });
 }
 
 function main(args)

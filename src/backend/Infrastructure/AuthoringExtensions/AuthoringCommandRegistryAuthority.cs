@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace FsusBlog.Server.Infrastructure.AuthoringExtensions;
 
@@ -21,7 +22,8 @@ public sealed class VerifiedPackageAuthoringCommandSource : IAuthoringCommandCon
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = false,
         ReadCommentHandling = JsonCommentHandling.Disallow,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver().WithAddedModifier(RequireSignedFields)
     };
 
     public ImmutableArray<AuthoringCommandContribution> Read(
@@ -127,6 +129,19 @@ public sealed class VerifiedPackageAuthoringCommandSource : IAuthoringCommandCon
         {
             throw new AuthoringExtensionContractException(
                 $"Signed command metadata is not closed JSON: {exception.GetType().Name}.");
+        }
+    }
+
+    private static void RequireSignedFields(JsonTypeInfo typeInfo)
+    {
+        foreach (JsonPropertyInfo property in typeInfo.Properties)
+        {
+            // Shortcut is optional in the command protocol despite its positional constructor parameter.
+            if (property.AssociatedParameter is { HasDefaultValue: false } &&
+                !(typeInfo.Type == typeof(AuthoringCommandContribution) && property.Name == "shortcut"))
+            {
+                property.IsRequired = true;
+            }
         }
     }
 
