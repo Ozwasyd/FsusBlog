@@ -3210,8 +3210,8 @@
         },
         {
             "path": "tools/frontend/check-frontend-style-source-base.test.mjs",
-            "contentDigest": "sha256:38d38ff09d3f6510352b08958706d8b8b245b466429faf2a02fa0e9021b167dd",
-            "indexDigest": "sha256:38d38ff09d3f6510352b08958706d8b8b245b466429faf2a02fa0e9021b167dd"
+            "contentDigest": "sha256:449b5d9508e6148e514aec8fd7c92185c308fa75b461c7543f4e358fe9086020",
+            "indexDigest": "sha256:449b5d9508e6148e514aec8fd7c92185c308fa75b461c7543f4e358fe9086020"
         },
         {
             "path": "tools/frontend/check-frontend-style.mjs",
@@ -3315,8 +3315,8 @@
         },
         {
             "path": "tools/frontend/style-toolchain/eslint.config.mjs",
-            "contentDigest": "sha256:bc28356260ae1ce75545acd95955369ad9c4a6324746cecc5bea124e5de8a0c0",
-            "indexDigest": "sha256:bc28356260ae1ce75545acd95955369ad9c4a6324746cecc5bea124e5de8a0c0"
+            "contentDigest": "sha256:17bed88b051b2090a4d67226a5c52e78ce4c9a32987b9fc44bb1ad42ef6d1a94",
+            "indexDigest": "sha256:17bed88b051b2090a4d67226a5c52e78ce4c9a32987b9fc44bb1ad42ef6d1a94"
         },
         {
             "path": "tools/frontend/style-toolchain/package-lock.json",
