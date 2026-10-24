@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/style-toolchain/eslint.config.mjs",
+                "tools/frontend/check-frontend-style-source-base.test.mjs"
+            ],
+            "reason": "Preserve original ESLint and local FsusUI environment/configuration spellings while isolating untyped scratch and retaining the actual frontend lock-bound typed project."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/frontend-style-enforcement.md"
+            ],
+            "reason": "Preserve original formatter, TypeScript configuration and local FsusUI contract spellings in current enforcement documentation."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve every canonical check ID and existing lifecycle/execution schema key while unifying one duplicate declaration and regenerating original authority."
+        }
+    ]
+}
