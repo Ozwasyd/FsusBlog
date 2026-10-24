@@ -236,7 +236,7 @@ let opaqueDocumentSequence = 0;
 let opaqueDraftSequence = 0;
 let opaqueEditorSessionSequence = 0;
 
-const hasExactKeys = (value: unknown, keys: readonly string[]): value is Record<string, unknown> =>
+const hasExactKeys = <K extends readonly string[]>(value: unknown, keys: K): value is Record<K[number], unknown> =>
 {
     if (!value || typeof value !== 'object' || Array.isArray(value))
     {
@@ -550,16 +550,22 @@ export const verifyArticleDocumentEpochReceipt = validateArticleDocumentEpochRec
 
 class ArticleDocumentTaskLeaseImpl implements ArticleDocumentTaskLease
 {
+    private readonly owner: ArticleDocumentContextAdapter;
+    private readonly controller: AbortController;
+    private readonly taskKey: string;
     private currentEnvelope: ArticleDocumentTaskEnvelope;
     private finished = false;
 
     public constructor(
-        private readonly owner: ArticleDocumentContextAdapter,
-        private readonly controller: AbortController,
-        private readonly taskKey: string,
+        owner: ArticleDocumentContextAdapter,
+        controller: AbortController,
+        taskKey: string,
         envelope: ArticleDocumentTaskEnvelope
     )
     {
+        this.owner = owner;
+        this.controller = controller;
+        this.taskKey = taskKey;
         this.currentEnvelope = envelope;
     }
 
@@ -861,7 +867,8 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public isCurrentContext(context: ArticleDocumentContext): boolean
     {
-        return validateArticleDocumentContext(context)
+        return !this.disposed
+            && validateArticleDocumentContext(context)
             && context.contextDigest === this.current.contextDigest;
     }
 

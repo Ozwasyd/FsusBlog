@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing serialized execution authority keys while the canonical producer refreshes only the digest of the changed internal scheduler source."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/scheduler.mjs"
+            ],
+            "reason": "Preserve the scheduler existing environment and execution authority spellings while reusing its internal controlled-memory callback; no public injection option is introduced."
+        }
+    ]
+}

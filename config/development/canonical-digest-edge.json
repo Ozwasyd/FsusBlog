@@ -12,14 +12,14 @@
         "f0877220ccd59b74fd40c740c49ef58ca4a8569593ee5eb3f6a7c180276c327e"
     ],
     "previousPolicySha256": {
-        "config/development/frontend-style-policy.json": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+        "config/development/frontend-style-policy.json": "f53d513697f3538c6c83ed6c590aeabe26abb39c1203b1cf9fa21eb0d5b42aa8",
         "eslint.config.mjs": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
         "stylelint.config.mjs": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925",
-        "tools/frontend/style-toolchain/eslint.config.mjs": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+        "tools/frontend/style-toolchain/eslint.config.mjs": "bc28356260ae1ce75545acd95955369ad9c4a6324746cecc5bea124e5de8a0c0",
         ".editorconfig": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26",
         "src/frontend/eslint.config.mjs": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41",
         "src/frontend/stylelint.config.mjs": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf",
-        "tools/frontend/check-frontend-style.mjs": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+        "tools/frontend/check-frontend-style.mjs": "131ed9e7b58a205978c4bf672776c5931b2c73bd9b928de705e3664634d3ad06",
         "tools/frontend/reviewed-residual-classification.mjs": "d0353f5b4e7c34e18521b3e72a825e24e81d4c0672e055e2419781e494a6d134",
         "config/development/frontend-style-rule-registry.json": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
         "tools/frontend/style-toolchain/stylelint.config.mjs": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe",

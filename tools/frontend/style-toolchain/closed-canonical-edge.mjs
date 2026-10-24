@@ -27,7 +27,10 @@ const authorityFiles = [
     '.editorconfig',
     'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
     'tools/frontend/check-frontend-style.mjs',
-    'tools/frontend/reviewed-residual-classification.mjs'
+    'tools/frontend/reviewed-residual-classification.mjs',
+    'src/frontend/scripts/run-local-fsusui-typecheck.mjs',
+    'src/frontend/scripts/fsusui-root.mjs',
+    'src/frontend/tsconfig.node.json'
 ];
 const initialAuthorityDigest = authorityDigest();
 

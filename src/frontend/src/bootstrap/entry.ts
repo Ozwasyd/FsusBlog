@@ -63,7 +63,10 @@ else
     showGlobalLoader();
     void runBootstrapImport(
         () => import('@/bootstrap/fullApp'),
-        ({ bootstrapFullApp }) => bootstrapFullApp(),
+        async ({ bootstrapFullApp }) =>
+        {
+            await bootstrapFullApp();
+        },
         bootstrapImportRecovery
     );
 }

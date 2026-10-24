@@ -1005,7 +1005,7 @@ export default defineConfig(({ command, mode }) => {
             // exercise this server. They are evidence, not application input,
             // and must never invalidate an in-flight browser measurement.
             watch: {
-                ignored: generatedArtifactWatchIgnorePatterns
+                ignored: generatedArtifactWatchIgnorePatterns.slice()
             },
             fs: {
                 allow: serverFsAllow

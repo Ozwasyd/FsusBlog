@@ -96,3 +96,47 @@ lock-tree checks do not replace actual `npm ci` or Docker build acceptance.
 ## Full App Typecheck
 
 The focused FsusUI export contract is separate from full app `vue-tsc` because the full app can fail on unrelated baseline errors. Full app typecheck should still be run as part of broader frontend cleanup, but FsusUI package/local alias failures should be diagnosed with the two focused modes first.
+
+For the complete application with source aliases, run
+`node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application` from the
+repository root. The existing producer inherits every app/Wasm/SFC include and
+strict compiler setting from `tsconfig.app.json`, adds the local declarations,
+and resolves Vue and `@vue/*` through the consumer's installed dependencies.
+The generated project lives under `src/frontend/.tmp/typecheck`, so each
+worktree resolves its own installed type libraries. The complete application
+inherits the original app's `types` list; the focused contract project separately
+retains its original `vite/client` and Node types.
+Composite emission is disabled for this source-consumption typecheck; strictness,
+unused checks and the application's syntax checks remain inherited.
+
+Canonical ESLint and the standard style executor select this same complete
+project when local source consumption is enabled. They do not use the three
+export-contract fixtures as the application program. Invalid configured local
+roots fail closed. With `FSUSBLOG_USE_LOCAL_FSUSUI=0`, the original registry
+project service remains active. Local-source style checks recheck mutable
+external source types without the registry-mode ESLint content cache.
+
+## Complete Frontend Tests Typecheck
+
+Run `node src/frontend/scripts/run-local-fsusui-typecheck.mjs --tests` for the
+complete frontend test project with the same local source aliases. This mode
+uses TypeScript and extends the original `tsconfig.playwright.json`; it retains
+every original include, compiler option and Playwright path mapping. It does not
+substitute the application project or the focused export contracts. Its generated
+configuration is `src/frontend/.tmp/typecheck/tsconfig.fsusui-local.tests.generated.json`.
+The existing locked TypeScript parser resolves JSONC and inherited configuration;
+complete projects retain explicit files and resolve inherited aliases relative to
+their original path origin before adding the local declarations and aliases.
+
+Local source projects resolve `@ozwasyd/element-plus/es/*` through the checkout's
+`vue/packages/*`, including the original deep-import boundary fixture and the
+metric tone test. Resolving a fixture's type does not authorize that import under
+the FsusUI boundary rules; the fixture and its rejection checks remain unchanged.
+Published-package mode retains its installed-package resolution.
+
+Source-consumption qualification must inspect the actual complete compiler
+program, for example with TypeScript's `--listFiles` against the generated test
+configuration, and confirm that no installed `@ozwasyd/element-plus` files were
+loaded. A path mapping alone is insufficient: a missing source target can cause
+TypeScript to fall back to package resolution. Report actual local-source errors
+instead of restoring package declarations or reducing the project's coverage.

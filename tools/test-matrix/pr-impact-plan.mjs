@@ -1,5 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { opaqueFixtureSourceChecker, opaqueFixtureSourceConsumer, opaqueFixtureSourceRegressions, selectOpaqueFixtureSourceRegressions } from './opaque-fixture-source-ownership.mjs';
 
 const eligiblePrTier = tier => tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
     && !['nightly', 'release-manual'].includes(tier.cadence);
@@ -353,7 +357,8 @@ export const sourceGovernanceChildEntries = Object.freeze({
     csharp: 'tools/dotnet/check-csharp-style.mjs',
     solution: 'tools/configuration/check-solution-source.mjs',
     docs: 'tools/style/check-native-tooling-style.mjs',
-    lifecycle: 'tools/docs/generate-document-lifecycle.mjs'
+    lifecycle: 'tools/docs/generate-document-lifecycle.mjs',
+    opaqueFixture: opaqueFixtureSourceChecker
 });
 
 
@@ -383,24 +388,27 @@ export const sourceRegressionEntries = Object.freeze([
 
 export function selectSourceRegressionTargets(changedFiles)
 {
-    return changedFiles.some(file => sharedPaths.some(pattern => matchesImpactPath(file, pattern))
+    const original = changedFiles.some(file => sharedPaths.some(pattern => matchesImpactPath(file, pattern))
         || sourceRegressionEntries.includes(file)
         || matchesImpactPath(file, 'tools/frontend/check-frontend-style.mjs')
         || matchesImpactPath(file, 'tools/frontend/source-unit-style-diff.mjs')
         || matchesImpactPath(file, 'tools/style/check-native-tooling-style.mjs')
         || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')) ? [...sourceRegressionEntries]
-        : changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')) ? ['tools/configuration/solution-source.test.mjs'] : [];
+        : changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')
+            || file === '.git-blame-ignore-revs') ? ['tools/configuration/solution-source.test.mjs'] : [];
+    return [...new Set([...original, ...selectOpaqueFixtureSourceRegressions(changedFiles)])];
 }
 
 export function sourceGovernanceExecutableEntries()
 {
-    return [...Object.values(sourceGovernanceChildEntries), ...sourceRegressionEntries];
+    return [...Object.values(sourceGovernanceChildEntries), ...sourceRegressionEntries,
+        ...opaqueFixtureSourceRegressions, opaqueFixtureSourceConsumer];
 }
 
 
 export function sourceRegressionArguments(entry)
 {
-    if (!sourceRegressionEntries.includes(entry))
+    if (![...sourceRegressionEntries, ...opaqueFixtureSourceRegressions].includes(entry))
     {
         throw new Error(`unknown source regression entry: ${entry}`);
     }
@@ -412,11 +420,25 @@ export function sourceRegressionArguments(entry)
 
 // Known structured data receives the declaration/closed-input source checks;
 // it never grants executable authority. Every other unchecked surface is explicit.
-export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [])
+export function isScriptDeclarationSource(file)
+{
+    return typeof file === 'string' && file.startsWith('src/frontend/scripts/')
+        && /\.d\.(?:mts|cts)$/u.test(file) && !/[\\\0\r\n]/u.test(file)
+        && file.split('/').every(part => part && part !== '.' && part !== '..');
+}
+
+export function sourceStageInspectionFiles(presentFiles, changedFiles)
+{
+    return [...new Set([...presentFiles, ...changedFiles.filter(isScriptDeclarationSource)])];
+}
+
+export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], checkedBlame = [], checkedDeclarations = [])
 {
     return files.filter(file => !/\.(?:mjs|js|cjs|ts|tsx|vue|css|scss|cs|md|sh|json|yaml|yml)$/u.test(file)
         && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !(file.endsWith('.py') && checkedPython.includes(file))
+        && !(file === '.git-blame-ignore-revs' && checkedBlame.includes(file))
+        && !(isScriptDeclarationSource(file) && checkedDeclarations.includes(file))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
 
@@ -435,6 +457,7 @@ export function sourceShellSyntaxArguments(file)
 // Fixed repository inputs of the reviewed frontend SOURCE checker/parser contract.
 // These are data/configuration witnesses, never executable child ports.
 export const sourceGovernanceDataInputs = Object.freeze([
+    'config/development/opaque-source-fixture-policy.json',
     'config/development/frontend-style-policy.json',
     'config/development/frontend-style-rule-registry.json',
     'config/development/canonical-digest-edge.json',
@@ -443,7 +466,8 @@ export const sourceGovernanceDataInputs = Object.freeze([
     '.editorconfig', 'eslint.config.mjs', 'stylelint.config.mjs',
     'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
     'tools/frontend/style-toolchain/eslint.config.mjs',
-    'tools/frontend/style-toolchain/stylelint.config.mjs'
+    'tools/frontend/style-toolchain/stylelint.config.mjs',
+    'src/frontend/tsconfig.node.json'
 ]);
 
 export function assertSourceShellSyntaxInspection(input)
@@ -456,10 +480,84 @@ export function assertSourceShellSyntaxInspection(input)
     }
 }
 
-export function sourceFrontendCheckGroups(files, stage, baseCommit)
+export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
 {
-    const applicable = files.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file));
+    if (typeof repositoryRoot !== 'string' || !/^[a-f0-9]{40}$/u.test(baseCommit ?? ''))
+    {
+        throw new Error('SOURCE frontend configuration requires the actual repository and exact base commit');
+    }
+    const git = args => execFileSync('git', ['-C', repositoryRoot, ...args]);
+    git(['merge-base', '--is-ancestor', baseCommit, 'HEAD']);
+    function read(file, revision, required)
+    {
+        if (typeof file !== 'string' || !file || file.startsWith('/') || file.startsWith('-')
+            || file.split('/').includes('..') || /[\\\0\r\n]/u.test(file))
+        {
+            throw new Error('SOURCE frontend configuration contains an invalid input path');
+        }
+        const record = git(['ls-tree', '-z', revision, '--', file]).toString('utf8');
+        if (!record && !required)
+        {
+            return null;
+        }
+        if (!/^100(?:644|755) blob [a-f0-9]{40}\t/u.test(record)
+            || record.slice(record.indexOf('\t') + 1) !== `${file}\0`)
+        {
+            throw new Error(`SOURCE frontend configuration requires a tracked regular input: ${file}`);
+        }
+        if (revision !== 'HEAD')
+        {
+            return git(['show', `${revision}:${file}`]);
+        }
+        const absolute = path.resolve(repositoryRoot, file);
+        if (!fs.existsSync(absolute) || !fs.lstatSync(absolute).isFile()
+            || !fs.realpathSync(absolute).startsWith(`${fs.realpathSync(repositoryRoot)}${path.sep}`))
+        {
+            throw new Error(`SOURCE frontend configuration refuses a nonregular or escaped input: ${file}`);
+        }
+        return fs.readFileSync(absolute);
+    }
+    const policyPath = 'config/development/frontend-style-policy.json';
+    const priorPolicy = JSON.parse(read(policyPath, baseCommit, true));
+    const currentPolicy = JSON.parse(read(policyPath, 'HEAD', true));
+    function inputs(policy)
+    {
+        if (!Array.isArray(policy.configurationSources) || !policy.configurationSources.length)
+        {
+            throw new Error('SOURCE frontend configuration requires the complete policy input set');
+        }
+        return new Set([...sourceGovernanceDataInputs, ...policy.configurationSources,
+            policy.ruleRegistry, policy.toolchain?.package, policy.toolchain?.lock,
+            policy.eslintConfig, policy.stylelintConfig]);
+    }
+    const priorInputs = inputs(priorPolicy);
+    const currentInputs = inputs(currentPolicy);
+    const identities = [...new Set([...priorInputs, ...currentInputs])].sort().map(file =>
+    {
+        const prior = read(file, baseCommit, priorInputs.has(file));
+        const current = read(file, 'HEAD', currentInputs.has(file));
+        const digest = bytes => bytes === null ? null : `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+        return { file, baseDigest: digest(prior), currentDigest: digest(current) };
+    });
+    return { baseCommit, changed: identities.some(value => value.baseDigest !== value.currentDigest), identities };
+}
+
+export function sourceFrontendCheckGroups(files, stage, baseCommit, repositoryRoot)
+{
+    const applicable = files.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file)
+        || isScriptDeclarationSource(file));
     if (stage !== 'source-integration')
+    {
+        return [{ options: ['--mode', 'strict-full'], files: applicable }];
+    }
+    const configuration = inspectSourceFrontendConfiguration(repositoryRoot, baseCommit);
+    const actual = readGitChangedPaths(repositoryRoot, baseCommit).changedFiles
+        .filter(file => fs.existsSync(path.join(repositoryRoot, file))).sort();
+    if (JSON.stringify([...files].sort()) !== JSON.stringify(actual))
+    {
+        throw new Error('SOURCE frontend routing requires the complete actual changed-source scope');
+    }
+    if (configuration.changed)
     {
         return [{ options: ['--mode', 'strict-full'], files: applicable }];
     }
@@ -467,6 +565,6 @@ export function sourceFrontendCheckGroups(files, stage, baseCommit)
         { options: ['--mode', 'source-diff', '--base', baseCommit],
             files: applicable.filter(file => /\.(?:mjs|js|cjs)$/u.test(file)) },
         { options: ['--mode', 'strict-full'],
-            files: applicable.filter(file => /\.(?:ts|tsx|vue|css|scss)$/u.test(file)) }
+            files: applicable.filter(file => /\.(?:ts|tsx|vue|css|scss)$/u.test(file) || isScriptDeclarationSource(file)) }
     ];
 }

@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleGraphQueryService.cs",
+                "src/shared/Contracts/ArticleGraph/ArticleGraphContract.cs",
+                "src/shared/Contracts/ArticleGraph/ArticleGraphContracts.cs"
+            ],
+            "reason": "These Graph C# files are covered by the registered src/**/*.cs boundary. They introduce no process environment keys or environment adapters; internal C# identifiers follow the mother standard, and existing external environment spellings remain untouched."
+        }
+    ]
+}

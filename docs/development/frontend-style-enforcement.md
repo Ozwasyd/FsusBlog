@@ -14,6 +14,23 @@ The covered source sets are:
 - `tools/**/*.mjs` and `tests/**/*.mjs` for Node tooling;
 - generated, public artifacts, vendored dependencies, minified files and intentional fixture directories only through explicit policy exclusions.
 
+Script declaration modules under `src/frontend/scripts/` have the finite suffixes
+`.d.mts` (ESM) and `.d.cts` (CommonJS). They use the unchanged typed rule set with
+the complete original `src/frontend/tsconfig.node.json` project, rather than the
+application Project Service or an inferred fallback project. That configuration
+is a policy configuration source and a SOURCE data witness. Bare `.mts`/`.cts`,
+declarations in other roots and unknown suffixes do not gain SOURCE support.
+The declaration owner requires a regular canonical input, the bound regular Node
+configuration, the actual ESLint TypeScript-parser/project configuration, and
+exactly one actual JSON report for each input. An ignored, missing, unowned or
+out-of-program declaration cannot qualify through a zero-file success. SOURCE
+routes declarations through `strict-full` and admits them only after that child
+check succeeds; a deleted declaration remains visible in the Git-derived SOURCE
+inspection scope and does not receive a nonexistent lint receipt. These source
+checks issue no runtime or product qualification. The top-level `vite.config.ts`
+remains outside the existing style source sets and requires its original complete
+Node compiler checks separately.
+
 The suite-convergence test keeps its canonical `tests/tools/` path and consumes
 the three governance module exports from the private local `tools/` package.
 `tests/tools/package-lock.json` binds that file dependency. Before running this
@@ -182,6 +199,15 @@ in-place writes refuse admission, including an alias with identical approved
 bytes. This bounded read contract does not claim whole-filesystem atomicity.
 Registry, parser/toolchain and source bindings are
 recomputed for decisions; the owner edge does not use ESLint's content cache.
+The current ESLint configuration resolves local FsusUI application projects through
+`src/frontend/scripts/run-local-fsusui-typecheck.mjs` and
+`src/frontend/scripts/fsusui-root.mjs`. Both unchanged source owners belong to the
+same regular-input authority seal and effective PR protection roster. Hardlink
+aliases and changes after a prior decision invalidate that authority, including
+when the classifier and top-level configuration bytes remain unchanged.
+The local project producer receives TypeScript from the same locked style
+toolchain. Reading a candidate project must not execute its installed frontend
+parser package; ordinary application typecheck callers retain their own parser.
 Registry members must be unique in the raw JSON at every nesting level, including
 escaped spellings of the same key; object construction cannot hide duplicates.
 The executor validates the selected caller and actual owner before invoking

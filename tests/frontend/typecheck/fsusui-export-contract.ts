@@ -229,3 +229,4 @@ export const fsusUiExportContract = {
 } satisfies Record<string, unknown>
 
 export type { TypePreservingAdapterContract }
+export type { TaxonomyPublicFormConsumerContract } from './admin-taxonomy-form-consumer-contract'

@@ -229,7 +229,31 @@ function isExcluded(file, matchers)
 function sourceSetMatches(file, sourceSet)
 {
     const prefix = sourceSet.root.endsWith('/') ? sourceSet.root : `${sourceSet.root}/`;
-    return file.startsWith(prefix) && sourceSet.extensions.includes(path.extname(file));
+    const extension = /\.d\.(?:mts|cts)$/u.exec(file)?.[0] ?? path.extname(file);
+    return file.startsWith(prefix) && sourceSet.extensions.includes(extension);
+}
+
+function assertScriptDeclarationInput(file, exclusions)
+{
+    if (!file.startsWith('src/frontend/scripts/') || isExcluded(file, exclusions)
+        || toolKinds(file).join(',') !== 'eslint')
+    {
+        throw new Error(`script declaration is not governed by the frontend script owner: ${file}`);
+    }
+    const absolute = path.join(root, file);
+    if (!fs.existsSync(absolute) || !fs.lstatSync(absolute).isFile()
+        || fs.realpathSync(absolute) !== path.join(fs.realpathSync(root), file))
+    {
+        throw new Error(`script declaration requires a regular canonical input: ${file}`);
+    }
+    const project = 'src/frontend/tsconfig.node.json';
+    const projectPath = path.join(root, project);
+    if (!policy.configurationSources.includes(project) || !fs.existsSync(projectPath)
+        || !fs.lstatSync(projectPath).isFile()
+        || fs.realpathSync(projectPath) !== path.join(fs.realpathSync(root), project))
+    {
+        throw new Error(`script declaration requires the bound regular Node configuration: ${project}`);
+    }
 }
 
 function toolKinds(file)
@@ -329,6 +353,11 @@ function selectFiles(args)
     {
         candidates = changedFiles(args.base ?? policy.modes.changedDefaultBase);
     }
+    for (const file of candidates.filter(file => /\.d\.(?:mts|cts)$/u.test(file)
+        && (args.files.length > 0 || file.startsWith('src/frontend/scripts/'))))
+    {
+        assertScriptDeclarationInput(file, exclusions);
+    }
     return [...new Set(candidates)]
         .filter((file) => fs.existsSync(path.join(root, file)))
         .filter((file) => !isExcluded(file, exclusions) && toolKinds(file).length > 0)
@@ -385,6 +414,38 @@ function runEslint(files, fix)
         return [];
     }
     const executable = path.join(authorityRoot, policy.toolchain.eslint);
+    const declarations = files.filter(file => /\.d\.(?:mts|cts)$/u.test(file));
+    for (const file of declarations)
+    {
+        const printed = command([executable, '--config', path.join(authorityRoot, policy.eslintConfig), '--print-config', file], {
+            allowFailure: true,
+            environment: { FSUSBLOG_STYLE_ROOT: root }
+        });
+        let configuration;
+        try
+        {
+            configuration = JSON.parse(printed.stdout);
+        }
+        catch
+        {
+            throw new Error(`script declaration lacks actual ESLint configuration coverage: ${file}`);
+        }
+        const language = configuration?.languageOptions;
+        const parserOptions = language?.parserOptions;
+        const project = path.join(root, 'src/frontend/tsconfig.node.json');
+        // ESLint's printed flat configuration serializes the project array as an
+        // object with numeric keys. Require its exact single original project.
+        const projects = parserOptions?.project;
+        if (printed.status !== 0 || typeof language?.parser !== 'string'
+            || !/^typescript-eslint\/parser@/u.test(language.parser)
+            || parserOptions?.projectService !== false || parserOptions?.programs
+            || !projects || typeof projects !== 'object'
+            || Object.keys(projects).join(',') !== '0' || projects[0] !== project
+            || parserOptions?.tsconfigRootDir !== path.dirname(project))
+        {
+            throw new Error(`script declaration parser/project coverage does not use the original Node configuration: ${file}`);
+        }
+    }
     const cache = path.join(authorityRoot, '.tmp/frontend-style/eslint.cache');
     const cacheKeyFile = path.join(authorityRoot, '.tmp/frontend-style/eslint.cache-key');
     const cacheKey = sha256(`${configurationDigest()}\n${sourceStateDigest()}`);
@@ -419,6 +480,13 @@ function runEslint(files, fix)
         return [];
     }
     const reports = parseToolJson(result, 'eslint');
+    for (const file of declarations)
+    {
+        if (!Array.isArray(reports) || reports.filter(report => report.filePath === path.join(root, file)).length !== 1)
+        {
+            throw new Error(`script declaration lacks exactly one actual ESLint report: ${file}`);
+        }
+    }
     const violations = [];
     for (const report of reports)
     {
@@ -1436,7 +1504,8 @@ function checkSourceDiff(args, files)
     {
         // Base policy/source bytes are Git witnesses; executable configuration stays in its sealed authority checkout.
         for (const file of [...identities.map((identity) => identity.file),
-            'tools/frontend/check-frontend-style.mjs', 'tools/frontend/reviewed-residual-classification.mjs'])
+            'tools/frontend/check-frontend-style.mjs', 'tools/frontend/reviewed-residual-classification.mjs',
+            'src/frontend/scripts/run-local-fsusui-typecheck.mjs', 'src/frontend/scripts/fsusui-root.mjs'])
         {
             const destination = path.join(scratch, file);
             fs.mkdirSync(path.dirname(destination), { recursive: true });

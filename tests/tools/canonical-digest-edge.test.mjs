@@ -44,13 +44,21 @@ function fixture(callback)
     try
     {
         const registry = JSON.parse(fs.readFileSync(path.join(authorityRoot, edgeRegistryPath), 'utf8'));
-        for (const relative of Object.keys(registry.previousPolicySha256))
+        const sourcePolicy = JSON.parse(fs.readFileSync(path.join(authorityRoot,
+            'config/development/frontend-style-policy.json'), 'utf8'));
+        for (const relative of new Set([...Object.keys(registry.previousPolicySha256),
+            ...sourcePolicy.configurationSources]))
         {
             write(root, relative, fs.readFileSync(path.join(authorityRoot, relative)));
         }
         write(root, caller, originalCaller);
         write(root, owner, originalOwner);
         write(root, 'src/frontend/package.json', fs.readFileSync(path.join(authorityRoot, 'src/frontend/package.json')));
+        for (const relative of ['src/frontend/scripts/run-local-fsusui-typecheck.mjs',
+            'src/frontend/scripts/fsusui-root.mjs'])
+        {
+            write(root, relative, fs.readFileSync(path.join(authorityRoot, relative)));
+        }
         callback(root);
     }
     finally
@@ -369,7 +377,10 @@ test('closed authority rejects malformed registration and cached authority chang
             'config/development/frontend-style-rule-registry.json',
             'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
             'tools/frontend/check-frontend-style.mjs',
-            'tools/frontend/reviewed-residual-classification.mjs'
+            'tools/frontend/reviewed-residual-classification.mjs',
+            'src/frontend/scripts/run-local-fsusui-typecheck.mjs',
+            'src/frontend/scripts/fsusui-root.mjs',
+            'src/frontend/tsconfig.node.json'
         ];
         for (const relative of relatives)
         {
@@ -400,7 +411,10 @@ test('closed authority rejects malformed registration and cached authority chang
             edgeRegistryPath,
             'tools/frontend/style-toolchain/eslint.config.mjs',
             'tools/frontend/style-toolchain/node_modules/espree/espree.js',
-            'tools/frontend/style-toolchain/closed-canonical-edge.mjs'
+            'tools/frontend/style-toolchain/closed-canonical-edge.mjs',
+            'src/frontend/scripts/run-local-fsusui-typecheck.mjs',
+            'src/frontend/scripts/fsusui-root.mjs',
+            'src/frontend/tsconfig.node.json'
         ])
         {
             execFileSync(process.execPath, ['--input-type=module', '-e', script, clone, relative]);
@@ -662,6 +676,32 @@ test('source-diff cannot execute candidate CLI or parser with forged matching ve
         assert.equal(report.files[0].rawCandidate.exitCode, 1);
         assert.ok(report.files[0].unexpected.some((finding) => finding.tool === 'eslint' && finding.rule === 'no-debugger'));
         assert.deepEqual(fs.readdirSync(path.join(root, '.tmp/frontend-style')), ['source-diff.json']);
+        const typedMarker = path.join(root, 'candidate-typed-parser-ran');
+        const localRoot = path.join(root, 'local-fsusui');
+        write(root, 'local-fsusui/vue/packages/element-plus/index.ts', 'export {};\n');
+        write(root, 'local-fsusui/vue/packages/icons-vue/src/index.ts', 'export {};\n');
+        write(root, 'src/frontend/tsconfig.app.json', JSON.stringify({
+            compilerOptions: { target: 'ES2023', module: 'ESNext', strict: true },
+            include: ['src/**/*.ts']
+        }));
+        write(root, 'src/frontend/src/TypedInput.ts', 'export const typedValue = 1;\n');
+        for (const relative of ['vue/global.d.ts', 'vue/typings/components.d.ts', 'vue/typings/env.d.ts'])
+        {
+            write(root, `local-fsusui/${relative}`, 'export {};\n');
+        }
+        const metadata = JSON.parse(fs.readFileSync(path.join(authorityRoot,
+            'tools/frontend/style-toolchain/node_modules/typescript/package.json'), 'utf8'));
+        write(root, 'src/frontend/node_modules/typescript/package.json',
+            JSON.stringify({ name: 'typescript', version: metadata.version, main: 'index.cjs' }));
+        write(root, 'src/frontend/node_modules/typescript/index.cjs', `
+            require('node:fs').writeFileSync(${JSON.stringify(typedMarker)}, 'executed');
+            module.exports = require(${JSON.stringify(path.join(authorityRoot, 'tools/frontend/style-toolchain/node_modules/typescript'))});
+        `);
+        execFileSync(process.execPath, [path.join(authorityRoot, 'tools/frontend/check-frontend-style.mjs'),
+            '--root', root, '--mode', 'strict-full', '--file', 'src/frontend/src/TypedInput.ts'],
+        { encoding: 'utf8', stdio: 'pipe', env: { ...process.env,
+            FSUSBLOG_USE_LOCAL_FSUSUI: '1', FSUSBLOG_LOCAL_FSUSUI_ROOT: localRoot } });
+        assert.equal(fs.existsSync(typedMarker), false);
     });
 });
 

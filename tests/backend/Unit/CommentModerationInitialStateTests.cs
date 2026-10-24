@@ -70,6 +70,36 @@ public sealed class CommentModerationInitialStateTests
         Assert.Equal("hidden_region_review", decision.ReasonCode);
     }
 
+    [Fact]
+    public void ResolveInitialState_RegionReviewDoesNotReadUnusableModelConfiguration()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Moderation:AntiSpamModel:Enabled"] = "invalid-boolean"
+            })
+            .Build();
+        var service = new CommentModerationService(
+            Substitute.For<SqlSugar.ISqlSugarClient>(),
+            new RegionLegalModerationService(),
+            Substitute.For<FsusBlog.Server.Infrastructure.Cache.ICacheInvalidationDispatcher>(),
+            Substitute.For<ICommentNotificationService>(),
+            NullLogger<CommentModerationService>.Instance,
+            configuration: configuration);
+
+        CommentInitialModerationDecision hidden = service.ResolveInitialState(PublicActor(), Region(hideUntilReviewed: true));
+        CommentInitialModerationDecision manual = service.ResolveInitialState(PublicActor(), Region(requiresManualReview: true));
+        CommentInitialModerationDecision actorReview = service.ResolveInitialState(PublicActor() with
+        {
+            RequiresModeration = true
+        }, Region());
+
+        Assert.Equal(CommentModerationStatus.Hidden, hidden.Status);
+        Assert.Equal("pending_region_review", manual.ReasonCode);
+        Assert.Equal("pending_anonymous_policy", actorReview.ReasonCode);
+        Assert.Throws<InvalidOperationException>(() => service.ResolveInitialState(PublicActor(), Region()));
+    }
+
     private static CommentModerationService CreateService(bool enabled)
     {
         IConfiguration configuration = new ConfigurationBuilder()

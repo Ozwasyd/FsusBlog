@@ -20,12 +20,12 @@
             aria-label="匿名账号列表"
             role="list"
         >
-            <template #card="{ item: row }: { item: UserListViewItem }">
+            <template #card="{ item: row }">
                 <div
+                    v-if="isTableRow(row)"
                     class="user-resource-list-item border-b border-[var(--fsusblog-panel-border)] px-4 py-3"
                     :class="rowMotionClass(row.accountId)"
                     role="listitem"
-                    v-memo="[row.accountId, row.displayHandle, row.status, row.riskFlags, rowMotionClass(row.accountId)]"
                 >
                     <div class="user-resource-list-identity-row flex items-center gap-3">
                         <div class="shrink-0">
@@ -122,90 +122,90 @@
                             >
                                 <template #cell="{ rowData, column }">
                                     <span
-                                        v-if="column.key === 'accountId'"
+                                        v-if="isTableRow(rowData) && column.key === 'accountId'"
                                         class="tabular-nums"
                                     >
-                                        {{ (rowData as UserListViewItem).accountId }}
+                                        {{ rowData.accountId }}
                                     </span>
 
                                     <div
-                                        v-else-if="column.key === 'account'"
+                                        v-else-if="isTableRow(rowData) && column.key === 'account'"
                                         class="flex items-center gap-5 overflow-hidden whitespace-nowrap"
                                     >
                                         <div class="shrink-0">
                                             <ElAvatar :size="32">
-                                                {{ (rowData as UserListViewItem).initials }}
+                                                {{ rowData.initials }}
                                             </ElAvatar>
                                         </div>
                                         <p class="flex min-w-0 flex-col justify-center overflow-hidden">
                                             <span class="truncate text-sm font-bold leading-tight text-[var(--fsusblog-text-primary)]">
-                                                {{ (rowData as UserListViewItem).displayHandle }}
+                                                {{ rowData.displayHandle }}
                                             </span>
                                             <SemanticTime
-                                                :value="(rowData as UserListViewItem).createTime"
-                                                :text="`${(rowData as UserListViewItem).createdAtText} 初始化`"
+                                                :value="rowData.createTime"
+                                                :text="`${rowData.createdAtText} 初始化`"
                                                 class="mt-1 tabular-nums text-[11px] text-[var(--fsusblog-text-muted)] normal-case tracking-normal"
                                             />
                                         </p>
                                     </div>
 
                                     <span
-                                        v-else-if="column.key === 'identityKind'"
+                                        v-else-if="isTableRow(rowData) && column.key === 'identityKind'"
                                         class="text-xs font-medium italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
                                     >
-                                        {{ (rowData as UserListViewItem).identityKindLabel }}
+                                        {{ rowData.identityKindLabel }}
                                     </span>
 
                                     <div
-                                        v-else-if="column.key === 'credential'"
+                                        v-else-if="isTableRow(rowData) && column.key === 'credential'"
                                         class="flex flex-col whitespace-nowrap"
                                     >
                                         <span class="text-[12px] font-bold text-[var(--fsusblog-text-tertiary)]">
-                                            {{ (rowData as UserListViewItem).credentialSummary }}
+                                            {{ rowData.credentialSummary }}
                                         </span>
                                         <span class="text-[11px] text-[var(--fsusblog-text-muted)]">
-                                            匿名身份：{{ (rowData as UserListViewItem).anonymousCredentialText }}
+                                            匿名身份：{{ rowData.anonymousCredentialText }}
                                         </span>
                                         <span class="text-[11px] text-[var(--fsusblog-text-muted)]">
-                                            风险标记：{{ (rowData as UserListViewItem).riskFlagsText }}
+                                            风险标记：{{ rowData.riskFlagsText }}
                                         </span>
                                     </div>
 
                                     <span
-                                        v-else-if="column.key === 'status'"
+                                        v-else-if="isTableRow(rowData) && column.key === 'status'"
                                         class="inline-flex flex-col items-center justify-center"
                                     >
                                         <span
                                             class="mb-1 h-1 w-1 rounded-[var(--fsus-radius-control-small)]"
-                                            :class="(rowData as UserListViewItem).statusDotClass"
+                                            :class="rowData.statusDotClass"
                                             aria-hidden="true"
                                         />
                                         <span
                                             class="text-xs font-medium normal-case tracking-normal"
-                                            :class="(rowData as UserListViewItem).statusClass"
+                                            :class="rowData.statusClass"
                                         >
-                                            {{ (rowData as UserListViewItem).statusText }}
+                                            {{ rowData.statusText }}
                                         </span>
                                     </span>
 
                                     <div
-                                        v-else-if="column.key === 'actions' && !(rowData as UserListViewItem).isDeleted"
+                                        v-else-if="isTableRow(rowData) && column.key === 'actions' && !rowData.isDeleted"
                                         class="flex items-center justify-end gap-2 pr-2"
                                     >
                                         <ElButton
                                             class="user-table-action-button"
                                             link
-                                            :type="(rowData as UserListViewItem).status === 0 ? 'danger' : 'success'"
+                                            :type="rowData.status === 0 ? 'danger' : 'success'"
                                             size="small"
-                                            :loading="isProcessing && processingId === (rowData as UserListViewItem).accountId"
-                                            :aria-label="`变更匿名账号状态：${(rowData as UserListViewItem).displayHandle}`"
-                                            @click="emit('toggle-status', rowData as UserListViewItem)"
+                                            :loading="isProcessing && processingId === rowData.accountId"
+                                            :aria-label="`变更匿名账号状态：${rowData.displayHandle}`"
+                                            @click="emit('toggle-status', rowData)"
                                         >
-                                            {{ (rowData as UserListViewItem).status === 0 ? '封禁' : '解封' }}
+                                            {{ rowData.status === 0 ? '封禁' : '解封' }}
                                         </ElButton>
                                     </div>
                                     <span
-                                        v-else-if="column.key === 'actions'"
+                                        v-else-if="isTableRow(rowData) && column.key === 'actions'"
                                         class="pr-4 text-xs font-medium italic normal-case tracking-normal text-[var(--fsusblog-text-muted)]"
                                     >
                                         已注销
@@ -241,20 +241,13 @@ import { computed, ref, watch } from 'vue';
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue';
 import SemanticTime from '@/components/ui/SemanticTime.vue';
 import type { UserListViewItem } from '@/composables/useAdminUserManage';
+import { FsusUiTableV2FixedDir as TableV2FixedDir } from '@/fsusui/tableV2';
+
+import type { Column } from '@ozwasyd/element-plus';
 
 defineOptions({
     inheritAttrs: false
 });
-
-interface TableV2Column<T> {
-    key: string;
-    dataKey?: keyof T | string;
-    title?: string;
-    width: number;
-    align?: 'left' | 'center' | 'right';
-    fixed?: true | 'left' | 'right';
-    sortable?: boolean;
-}
 
 interface Props {
     loading: boolean;
@@ -285,18 +278,22 @@ watch(() => props.loading, (isLoading) =>
     }
 });
 
-const userTableColumns: TableV2Column<UserListViewItem>[] = [
+const userTableColumns: Column<UserListViewItem>[] = [
     { key: 'accountId', dataKey: 'accountId', title: 'Account', width: 96, align: 'center' },
     { key: 'account', dataKey: 'displayHandle', title: '匿名账号', width: 280 },
     { key: 'identityKind', dataKey: 'identityKind', title: '身份', width: 128, align: 'center' },
     { key: 'credential', dataKey: 'credentialSummary', title: '凭据', width: 280 },
     { key: 'status', dataKey: 'status', title: '状态', width: 132, align: 'center' },
-    { key: 'actions', title: '操作', width: 128, align: 'right', fixed: 'right' }
+    { key: 'actions', title: '操作', width: 128, align: 'right', fixed: TableV2FixedDir.RIGHT }
 ];
-const tableRows = computed(() => props.list);
+// The public controls require mutable containers; never expose the readonly
+// product input as that container. Keep each row's original object identity.
+const tableRows = computed(() => props.list.slice());
+const tableRowIdentities = computed<ReadonlySet<unknown>>(() => new Set(tableRows.value));
+const isTableRow = (row: unknown): row is UserListViewItem => tableRowIdentities.value.has(row);
 const showInitialSkeleton = computed(() => props.loading && !hasCompletedFirstLoad.value && props.list.length === 0);
 const rowMotionClass = (id: number): string => props.rowMotionClass?.(id) ?? 'blog-motion-row-state';
-const rowClassName = ({ rowData }: { rowData: UserListViewItem; }): string => rowMotionClass(rowData.accountId);
+const rowClassName = ({ rowData }: { rowData: unknown; }): string => isTableRow(rowData) ? rowMotionClass(rowData.accountId) : '';
 
 const emit = defineEmits<{
     refresh: [];

@@ -409,13 +409,27 @@ export const styleAuthorityPolicyFiles = Object.freeze([
     'tools/frontend/style-toolchain/package-lock.json',
     '.editorconfig',
     'src/frontend/eslint.config.mjs',
-    'src/frontend/stylelint.config.mjs'
+    'src/frontend/stylelint.config.mjs',
+    'src/frontend/scripts/run-local-fsusui-typecheck.mjs',
+    'src/frontend/scripts/fsusui-root.mjs',
+    'src/frontend/tsconfig.node.json'
+]);
+
+export const sourceFixtureAuthorityPolicyFiles = Object.freeze([
+    'config/development/opaque-source-fixture-policy.json',
+    'tools/configuration/check-opaque-fixture-source.mjs',
+    'tools/configuration/check-solution-source.mjs',
+    'tools/configuration/opaque-fixture-native-reporter.mjs',
+    'tools/test-matrix/opaque-fixture-source-ownership.mjs',
+    'tools/test-matrix/pr-impact-plan.mjs',
+    'tools/test-matrix/source-governance.mjs'
 ]);
 
 export const effectiveTrustedPolicyFiles = Object.freeze([
     ...trustedPolicyFiles,
     ...generatedOutputHistoryRepairPolicyFiles,
-    ...styleAuthorityPolicyFiles
+    ...styleAuthorityPolicyFiles,
+    ...sourceFixtureAuthorityPolicyFiles
 ]);
 
 // This tuple becomes repair authority only after independent bootstrap review
@@ -488,6 +502,7 @@ export const changeContract = Object.freeze({
     generatedOutputHistoryRepairProducers,
     generatedOutputHistoryRepairPolicyFiles,
     styleAuthorityPolicyFiles,
+    sourceFixtureAuthorityPolicyFiles,
     effectiveTrustedPolicyFiles,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({

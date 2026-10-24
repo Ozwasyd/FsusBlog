@@ -8,6 +8,7 @@ import {
     mkdtempSync,
     readFileSync,
     rmSync,
+    symlinkSync,
     writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -26,7 +27,9 @@ const { validatePostRuntimeReaderFirewall } = await import(new URL('../../tools/
 const { validateJsonSchema } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/schema-validator/validate.mjs')).href
 );
+const checker = path.join(root, 'tools/frontend/check-frontend-style.mjs');
 const toolchain = path.join(root, 'tools/frontend/style-toolchain');
+const eslintConfig = path.join(toolchain, 'eslint.config.mjs');
 const sourcePolicy = JSON.parse(readFileSync(path.join(root, 'config/development/frontend-style-policy.json'), 'utf8'));
 
 function writeFixture(fixtureRoot, relativePath, content)
@@ -93,7 +96,10 @@ function createFixture()
         'src/frontend/eslint.config.mjs', 'src/frontend/stylelint.config.mjs',
         'tools/frontend/check-frontend-style.mjs',
         'tools/frontend/source-unit-style-diff.mjs',
-        'tools/frontend/reviewed-residual-classification.mjs'
+        'tools/frontend/reviewed-residual-classification.mjs',
+        'src/frontend/scripts/run-local-fsusui-typecheck.mjs',
+        'src/frontend/scripts/fsusui-root.mjs',
+        'src/frontend/tsconfig.node.json'
     ])
     {
         writeFixture(fixtureRoot, relative, readFileSync(path.join(root, relative), 'utf8'));
@@ -111,7 +117,7 @@ function runChecker(fixtureRoot, args, env = {})
     ], {
         cwd: fixtureRoot,
         encoding: 'utf8',
-        env: { ...process.env, ...env },
+        env: { ...process.env, FSUSBLOG_USE_LOCAL_FSUSUI: '0', ...env },
         timeout: 90_000
     });
 }
@@ -1672,5 +1678,488 @@ test('frontend style governance AST fixes are idempotent and diagnostics are loc
             .filter((line) => line.includes(relativePath))
             .sort();
         assert.deepEqual(diagnostics(ci), diagnostics(local));
+    });
+});
+function actualAppProgramProbe(localMode)
+{
+    const probe = `
+        import fs from 'node:fs';
+        import path from 'node:path';
+        import { pathToFileURL } from 'node:url';
+        const root = ${JSON.stringify(root)};
+        const { ESLint } = await import(pathToFileURL(path.join(root, 'tools/frontend/style-toolchain/node_modules/eslint/lib/api.js')));
+        const { default: ts } = await import(pathToFileURL(path.join(root, 'tools/frontend/style-toolchain/node_modules/typescript/lib/typescript.js')));
+        const file = path.join(root, 'src/frontend/src/fsusui/overlay.ts');
+        const eslint = new ESLint({ cwd: root, overrideConfigFile: path.join(root, 'eslint.config.mjs') });
+        const config = await eslint.calculateConfigForFile(file);
+        const parsed = config.languageOptions.parser.parseForESLint(fs.readFileSync(file, 'utf8'), {
+            ...config.languageOptions.parserOptions, filePath: file
+        });
+        const program = parsed.services.program;
+        const options = program.getCompilerOptions();
+        const typeLibraries = options.types.map((name) => ({
+            name,
+            file: ts.resolveTypeReferenceDirective(name, options.configFilePath, options, ts.sys)
+                .resolvedTypeReferenceDirective?.resolvedFileName ?? null
+        }));
+        const ui = ts.resolveModuleName('@ozwasyd/element-plus', file, options, ts.sys).resolvedModule?.resolvedFileName ?? null;
+        const runtime = ts.resolveModuleName('@ozwasyd/element-plus/markdown-runtime', file, options, ts.sys).resolvedModule?.resolvedFileName ?? null;
+        const resolve = (specifier, importer) => {
+            const resolved = ts.resolveModuleName(specifier, importer, options, ts.sys).resolvedModule?.resolvedFileName;
+            return resolved ? fs.realpathSync(resolved) : null;
+        };
+        const app = path.join(root, 'src/frontend/tsconfig.app.json');
+        const original = ts.parseJsonConfigFileContent(ts.readConfigFile(app, ts.sys.readFile).config,
+            ts.sys, path.dirname(app), {}, app, undefined,
+            [{ extension: '.vue', isMixedContent: true, scriptKind: ts.ScriptKind.Deferred }]);
+        console.log(JSON.stringify({
+            project: options.configFilePath, parserOptions: config.languageOptions.parserOptions,
+            optionDiagnostics: program.getOptionsDiagnostics().map((diagnostic) => diagnostic.code),
+            typeLibraries, originalTypes: original.options.types,
+            roots: program.getRootFileNames(), originalRoots: original.fileNames,
+            strict: options.strict, originalStrict: original.options.strict,
+            noUnusedLocals: options.noUnusedLocals, originalNoUnusedLocals: original.options.noUnusedLocals,
+            noUnusedParameters: options.noUnusedParameters, originalNoUnusedParameters: original.options.noUnusedParameters,
+            erasableSyntaxOnly: options.erasableSyntaxOnly, originalErasableSyntaxOnly: original.options.erasableSyntaxOnly,
+            ui, runtime, paths: options.paths,
+            vue: [resolve('vue', file), ui ? resolve('vue', ui) : null],
+            vueCore: [resolve('@vue/runtime-core', file), ui ? resolve('@vue/runtime-core', ui) : null],
+            unsafeArgument: config.rules['@typescript-eslint/no-unsafe-argument'],
+            unsafeAssignment: config.rules['@typescript-eslint/no-unsafe-assignment']
+        }));
+    `;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', probe], {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 90_000,
+        env: { ...process.env, FSUSBLOG_STYLE_ROOT: root, FSUSBLOG_USE_LOCAL_FSUSUI: localMode }
+    });
+    assert.equal(result.status, 0, output(result));
+    return JSON.parse(result.stdout);
+}
+
+test('canonical local app program includes every original app, Wasm and SFC root with one Vue identity', () =>
+{
+    const program = actualAppProgramProbe('1');
+    assert.match(program.project, /tsconfig\.fsusui-local\.app\.generated\.json$/u);
+    assert.deepEqual(program.optionDiagnostics, []);
+    assert.deepEqual(program.typeLibraries.map((library) => library.name), program.originalTypes);
+    assert.ok(program.typeLibraries.every((library) => library.file));
+    const roots = new Set(program.roots.map((file) => path.normalize(file)));
+    assert.ok(program.originalRoots.length > 100);
+    for (const file of program.originalRoots)
+    {
+        assert.ok(roots.has(path.normalize(file)), `canonical app program omitted ${file}`);
+    }
+    assert.ok([...roots].some((file) => file.endsWith('.vue')));
+    assert.ok([...roots].some((file) => file.includes(`${path.sep}wasm${path.sep}web${path.sep}`)));
+    assert.equal(program.strict, program.originalStrict);
+    assert.equal(program.noUnusedLocals, program.originalNoUnusedLocals);
+    assert.equal(program.noUnusedParameters, program.originalNoUnusedParameters);
+    assert.equal(program.erasableSyntaxOnly, program.originalErasableSyntaxOnly);
+    assert.ok(program.ui?.endsWith('/vue/packages/element-plus/index.ts'));
+    assert.ok(program.runtime?.endsWith('/vue/packages/element-plus/markdown-runtime.ts'));
+    assert.ok(program.vue[0]);
+    assert.equal(program.vue[0], program.vue[1]);
+    assert.ok(program.vueCore[0]);
+    assert.equal(program.vueCore[0], program.vueCore[1]);
+    assert.deepEqual(program.unsafeArgument, [2]);
+    assert.deepEqual(program.unsafeAssignment, [2]);
+});
+
+async function localFsusUiTypecheckProbe()
+{
+    const { prepareLocalFsusUiTypecheckProject } = await import(
+        new URL('../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
+    );
+    const { resolveLocalFsusUiRepositoryRoot } = await import(
+        new URL('../../src/frontend/scripts/fsusui-root.mjs', import.meta.url)
+    );
+    const { default: ts } = await import(pathToFileURL(
+        path.join(root, 'src/frontend/node_modules/typescript/lib/typescript.js')
+    ));
+    const localRoot = resolveLocalFsusUiRepositoryRoot({
+        repositoryRoot: root,
+        override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT
+    });
+    assert.ok(localRoot, 'the canonical source checks require a real local FsusUI checkout');
+    return { prepareLocalFsusUiTypecheckProject, localRoot, ts };
+}
+
+test('canonical local complete tests project inherits every original root and compiler option', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const originalPath = path.join(root, 'src/frontend/tsconfig.playwright.json');
+    const project = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, fullTests: true });
+    assert.match(project, /tsconfig\.fsusui-local\.tests\.generated\.json$/u);
+    const read = (file) => ts.parseJsonConfigFileContent(ts.readConfigFile(file, ts.sys.readFile).config,
+        ts.sys, path.dirname(file), {}, file);
+    const original = read(originalPath);
+    const generated = read(project);
+    assert.deepEqual(original.errors, []);
+    assert.deepEqual(generated.errors, []);
+    const configuration = JSON.parse(readFileSync(project, 'utf8'));
+    assert.equal(path.resolve(path.dirname(project), configuration.extends), originalPath);
+    assert.equal(configuration.include, undefined);
+    assert.equal(configuration.exclude, undefined);
+    assert.deepEqual(Object.keys(configuration.compilerOptions), ['paths']);
+    const inheritedOptions = (configuration) =>
+    {
+        const options = { ...configuration };
+        for (const key of ['paths', 'pathsBasePath', 'configFilePath'])
+        {
+            delete options[key];
+        }
+        return options;
+    };
+    assert.deepEqual(inheritedOptions(generated.options), inheritedOptions(original.options));
+    for (const [specifier, targets] of Object.entries(original.options.paths))
+    {
+        assert.deepEqual(generated.options.paths[specifier], targets);
+    }
+    const roots = new Set(generated.fileNames);
+    for (const file of original.fileNames)
+    {
+        assert.ok(roots.has(file), `canonical tests project omitted ${file}`);
+    }
+    for (const file of [
+        'tests/frontend/fixtures/fsusui-boundary-violation/src/frontend/src/components/DeepImportViolation.ts',
+        'tests/frontend/unit/view-contracts/adminStatus.test.ts'
+    ])
+    {
+        assert.ok(roots.has(path.join(root, file)), `canonical tests project omitted ${file}`);
+    }
+    assert.throws(() => prepareLocalFsusUiTypecheckProject({
+        repositoryRoot: root, localRoot, fullApplication: true, fullTests: true
+    }), /application and tests projects are mutually exclusive/u);
+});
+
+test('canonical local ES deep imports resolve to genuine FsusUI source in app and complete tests projects', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    for (const mode of [{ fullApplication: true }, { fullTests: true }])
+    {
+        const project = prepareLocalFsusUiTypecheckProject({ repositoryRoot: root, localRoot, ...mode });
+        const parsed = ts.parseJsonConfigFileContent(ts.readConfigFile(project, ts.sys.readFile).config,
+            ts.sys, path.dirname(project), {}, project);
+        for (const [importer, specifier, target] of [
+            ['tests/frontend/fixtures/fsusui-boundary-violation/src/frontend/src/components/DeepImportViolation.ts',
+                '@ozwasyd/element-plus/es/components/button/src/button', 'components/button/src/button.ts'],
+            ['tests/frontend/unit/view-contracts/adminStatus.test.ts',
+                '@ozwasyd/element-plus/es/components/metric-primitives/src/shared', 'components/metric-primitives/src/shared.ts']
+        ])
+        {
+            const resolved = ts.resolveModuleName(specifier, path.join(root, importer),
+                parsed.options, ts.sys).resolvedModule;
+            assert.equal(resolved?.resolvedFileName, path.join(localRoot, 'vue/packages', target));
+            assert.equal(resolved.isExternalLibraryImport, false);
+        }
+    }
+});
+
+test('canonical local complete projects retain JSONC inherited files and path origins', async () =>
+{
+    const { prepareLocalFsusUiTypecheckProject, localRoot, ts } = await localFsusUiTypecheckProbe();
+    const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'fsusblog-local-ui-project-'));
+    try
+    {
+        const frontend = path.join(fixtureRoot, 'src/frontend');
+        const parentDirectory = path.join(frontend, 'configuration');
+        const alternateBase = path.join(parentDirectory, 'module-base');
+        mkdirSync(alternateBase, { recursive: true });
+        symlinkSync(path.join(root, 'src/frontend/node_modules'), path.join(frontend, 'node_modules'), 'dir');
+        const inheritedFile = path.join(root, 'tests/frontend/unit/view-contracts/adminStatus.test.ts');
+        const ownFile = path.join(root,
+            'tests/frontend/fixtures/fsusui-boundary-violation/src/frontend/src/components/DeepImportViolation.ts');
+        const target = path.join(root, 'src/frontend/src/view-contracts/adminStatus.ts');
+        const read = (file) => ts.getParsedCommandLineOfConfigFile(file, {}, {
+            ...ts.sys,
+            onUnRecoverableConfigFileDiagnostic(diagnostic)
+            {
+                assert.fail(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
+            }
+        });
+        for (const baseUrl of [undefined, './module-base'])
+        {
+            const pathsBase = baseUrl ? alternateBase : parentDirectory;
+            const parent = {
+                files: [path.relative(parentDirectory, inheritedFile)],
+                compilerOptions: {
+                    module: 'ESNext', moduleResolution: 'bundler', strict: true, baseUrl,
+                    paths: { 'original/client': [path.relative(pathsBase, target)] }
+                }
+            };
+            writeFileSync(path.join(parentDirectory, 'base.json'),
+                `// The official TypeScript parser owns JSONC and extends semantics.\n${JSON.stringify(parent, null, 2)}\n`);
+            for (const ownFiles of [undefined, [path.relative(frontend, ownFile)]])
+            {
+                const child = { extends: './configuration/base.json', files: ownFiles };
+                for (const mode of [{ fullApplication: true }, { fullTests: true }])
+                {
+                    const originalPath = path.join(frontend, mode.fullTests ? 'tsconfig.playwright.json' : 'tsconfig.app.json');
+                    writeFileSync(originalPath, `${JSON.stringify(child, null, 2)}\n`);
+                    const original = read(originalPath);
+                    assert.deepEqual(original.errors, []);
+                    const project = prepareLocalFsusUiTypecheckProject({ repositoryRoot: fixtureRoot, localRoot, ...mode });
+                    const generated = read(project);
+                    assert.deepEqual(generated.errors, []);
+                    for (const file of original.fileNames)
+                    {
+                        assert.ok(generated.fileNames.includes(file), `canonical project omitted explicit file ${file}`);
+                    }
+                    assert.ok(generated.fileNames.includes(ownFiles ? ownFile : inheritedFile));
+                    if (ownFiles)
+                    {
+                        assert.equal(generated.fileNames.includes(inheritedFile), false,
+                            'an explicit child files list must replace the inherited files list');
+                    }
+                    const resolve = (specifier, options) => ts.resolveModuleName(specifier, ownFile,
+                        options, ts.sys).resolvedModule?.resolvedFileName;
+                    assert.equal(resolve('original/client', original.options), target);
+                    assert.equal(resolve('original/client', generated.options), target);
+                    assert.equal(resolve('@ozwasyd/element-plus/es/components/button/src/button', generated.options),
+                        path.join(localRoot, 'vue/packages/components/button/src/button.ts'));
+                }
+            }
+        }
+    }
+    finally
+    {
+        rmSync(fixtureRoot, { recursive: true, force: true });
+    }
+});
+
+test('canonical local-off mode retains the original application project service', () =>
+{
+    const program = actualAppProgramProbe('0');
+    assert.equal(path.normalize(program.project), path.join(root, 'src/frontend/tsconfig.app.json'));
+    assert.equal(program.parserOptions.projectService, true);
+    assert.equal(program.parserOptions.project, undefined);
+    assert.equal(program.paths['@ozwasyd/element-plus'], undefined);
+    assert.deepEqual(program.unsafeArgument, [2]);
+    assert.deepEqual(program.unsafeAssignment, [2]);
+});
+
+test('canonical local source and standard style commands accept public app consumers without rule overrides', () =>
+{
+    const files = ['src/frontend/src/fsusui/overlay.ts', 'src/frontend/src/security/trustedTypesRuntime.ts'];
+    const env = { ...process.env, FSUSBLOG_STYLE_ROOT: root, FSUSBLOG_USE_LOCAL_FSUSUI: '1' };
+    const source = spawnSync(process.execPath, [path.join(toolchain, 'node_modules/eslint/bin/eslint.js'),
+        '--config', path.join(root, 'eslint.config.mjs'), '--no-cache', '--max-warnings', '0', ...files],
+    { cwd: root, env, encoding: 'utf8', timeout: 90_000 });
+    assert.equal(source.status, 0, output(source));
+    const standard = spawnSync(process.execPath, [checker, '--root', root, '--mode', 'changed',
+        '--base', 'HEAD', ...files.flatMap((file) => ['--file', file])],
+    { cwd: root, env, encoding: 'utf8', timeout: 90_000 });
+    assert.equal(standard.status, 0, output(standard));
+    assert.match(standard.stdout, /files=2 eslint=2 stylelint=0 violations=0 new=0/u);
+});
+
+test('canonical local project rejects an invalid explicit source root and local-off ignores it', async () =>
+{
+    const { resolveLocalFsusUiApplicationProject } = await import(new URL('../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url));
+    const env = { FSUSBLOG_USE_LOCAL_FSUSUI: '1', FSUSBLOG_LOCAL_FSUSUI_ROOT: path.join(root, '.tmp/not-an-fsusui-source') };
+    assert.throws(() => resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env }), /does not contain the FsusUI source contract/u);
+    assert.equal(resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env: { ...env, FSUSBLOG_USE_LOCAL_FSUSUI: '0' } }), null);
+});
+
+function withNodeDeclarationFixture(callback)
+{
+    withFixture(fixtureRoot =>
+    {
+        const project = 'src/frontend/tsconfig.node.json';
+        writeFixture(fixtureRoot, project, readFileSync(path.join(root, project), 'utf8'));
+        const policyPath = path.join(fixtureRoot, 'config/development/frontend-style-policy.json');
+        const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+        policy.configurationSources.push(project);
+        writeFileSync(policyPath, JSON.stringify(policy, null, 4) + '\n');
+        symlinkSync(path.join(root, 'src/frontend/node_modules'), path.join(fixtureRoot, 'src/frontend/node_modules'), 'dir');
+        writeFixture(fixtureRoot, 'src/frontend/scripts/esm-policy.mjs', 'export const patterns = Object.freeze(["**/coverage/**"]);\n');
+        writeFixture(fixtureRoot, 'src/frontend/scripts/cjs-policy.cjs', 'module.exports = Object.freeze(["**/coverage/**"]);\n');
+        const esm = 'src/frontend/scripts/esm-policy.d.mts';
+        const cjs = 'src/frontend/scripts/cjs-policy.d.cts';
+        writeFixture(fixtureRoot, esm, 'export declare const patterns: readonly string[];\n');
+        writeFixture(fixtureRoot, cjs, 'declare const patterns: readonly string[];\nexport = patterns;\n');
+        writeFixture(fixtureRoot, 'src/frontend/vite.config.ts',
+            'import { patterns as esmPatterns } from "./scripts/esm-policy.mjs";\n'
+            + 'import cjsPatterns from "./scripts/cjs-policy.cjs";\n'
+            + 'export const ignored = [...esmPatterns, ...cjsPatterns];\n');
+        callback({ fixtureRoot, esm, cjs, policyPath, project });
+    });
+}
+
+test('script declaration owner inspects real ESM and CJS declarations with the unchanged original Node project', () =>
+{
+    withNodeDeclarationFixture(({ fixtureRoot, esm, cjs, project }) =>
+    {
+        const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm, '--file', cjs]);
+        assert.equal(result.status, 0, output(result));
+        assert.match(result.stdout, /files=2 eslint=2 stylelint=0 violations=0 new=0/u);
+        const probe = `
+            import fs from 'node:fs';
+            import path from 'node:path';
+            import { pathToFileURL } from 'node:url';
+            const toolchain = ${JSON.stringify(toolchain)};
+            const root = ${JSON.stringify(fixtureRoot)};
+            const { ESLint } = await import(pathToFileURL(path.join(toolchain, 'node_modules/eslint/lib/api.js')));
+            const { default: ts } = await import(pathToFileURL(path.join(toolchain, 'node_modules/typescript/lib/typescript.js')));
+            const eslint = new ESLint({ cwd: root, overrideConfigFile: path.join(root, 'eslint.config.mjs') });
+            const file = path.join(root, ${JSON.stringify(esm)});
+            const config = await eslint.calculateConfigForFile(file);
+            const program = config.languageOptions.parser.parseForESLint(fs.readFileSync(file, 'utf8'), {
+                ...config.languageOptions.parserOptions, filePath: file
+            }).services.program;
+            const project = path.join(root, ${JSON.stringify(project)});
+            const original = ts.parseJsonConfigFileContent(ts.readConfigFile(project, ts.sys.readFile).config,
+                ts.sys, path.dirname(project), {}, project);
+            console.log(JSON.stringify({ project: program.getCompilerOptions().configFilePath,
+                roots: program.getRootFileNames(), originalRoots: original.fileNames,
+                options: program.getCompilerOptions(), originalOptions: original.options,
+                declaration: program.getSourceFile(file).isDeclarationFile,
+                esmFormat: program.getSourceFile(file).impliedNodeFormat,
+                cjsFormat: program.getSourceFile(path.join(root, ${JSON.stringify(cjs)})).impliedNodeFormat,
+                esmExpected: ts.ModuleKind.ESNext, cjsExpected: ts.ModuleKind.CommonJS,
+                noAny: config.rules['@typescript-eslint/no-explicit-any'],
+                noUnsafe: config.rules['@typescript-eslint/no-unsafe-assignment'] }));
+        `;
+        const observed = spawnSync(process.execPath, ['--input-type=module', '-e', probe],
+            { cwd: fixtureRoot, encoding: 'utf8', timeout: 90_000,
+                env: { ...process.env, FSUSBLOG_STYLE_ROOT: fixtureRoot, FSUSBLOG_USE_LOCAL_FSUSUI: '0' } });
+        assert.equal(observed.status, 0, output(observed));
+        const actual = JSON.parse(observed.stdout);
+        assert.equal(actual.project, path.join(fixtureRoot, project));
+        assert.deepEqual(actual.roots, actual.originalRoots);
+        for (const option of ['strict', 'noUnusedLocals', 'noUnusedParameters', 'erasableSyntaxOnly',
+            'skipLibCheck', 'noEmit', 'module', 'moduleResolution', 'types'])
+        {
+            assert.deepEqual(actual.options[option], actual.originalOptions[option], option);
+        }
+        assert.equal(actual.declaration, true);
+        assert.equal(actual.esmFormat, actual.esmExpected);
+        assert.equal(actual.cjsFormat, actual.cjsExpected);
+        assert.deepEqual(actual.noAny, [2]);
+        assert.deepEqual(actual.noUnsafe, [2]);
+    });
+});
+
+test('script declaration owner rejects actual syntax and explicit-any violations', () =>
+{
+    for (const source of ['export declare const patterns: ;\n', 'export declare const patterns: any;\n'])
+    {
+        withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+        {
+            writeFixture(fixtureRoot, esm, source);
+            const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /Parsing error|@typescript-eslint\/no-explicit-any/u);
+        });
+    }
+});
+
+test('script declaration owner refuses a real ignored ESLint input without an actual report', () =>
+{
+    for (const ignoredPhase of ['configuration', 'report'])
+    {
+        withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+        {
+            // Both controls use real ESLint. The second keeps print-config valid
+            // and ignores only its actual JSON lint invocation, proving report coverage.
+            const ignore = ignoredPhase === 'report' ? 'process.argv.includes("--format")' : 'true';
+            writeFixture(fixtureRoot, 'eslint.config.mjs',
+                `import original from '${pathToFileURL(eslintConfig).href}';\n`
+                + `const ignored = ${ignore} ? [{ ignores: ["src/frontend/scripts/**/*.d.mts"] }] : [];\n`
+                + 'export default [...ignored, ...original];\n');
+            const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /coverage|report/u);
+            if (ignoredPhase === 'report')
+            {
+                assert.match(output(result), /exactly one actual ESLint report/u);
+            }
+        });
+    }
+});
+
+test('script declaration owner refuses policy omission and an unbound Node configuration', () =>
+{
+    for (const omission of ['suffix', 'configuration', 'missing-configuration'])
+    {
+        withNodeDeclarationFixture(({ fixtureRoot, esm, policyPath, project }) =>
+        {
+            const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+            if (omission === 'suffix')
+            {
+                for (const sourceSet of policy.eslintSourceSets)
+                {
+                    sourceSet.extensions = sourceSet.extensions.filter(extension => extension !== '.d.mts');
+                }
+            }
+            else if (omission === 'configuration')
+            {
+                policy.configurationSources = policy.configurationSources.filter(file => file !== project);
+            }
+            else
+            {
+                rmSync(path.join(fixtureRoot, project));
+            }
+            writeFileSync(policyPath, JSON.stringify(policy, null, 4) + '\n');
+            const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /declaration.*(?:governed|configuration)|Node configuration/u);
+        });
+    }
+});
+
+test('script declaration owner refuses a real default parser even for an empty declaration', () =>
+{
+    withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+    {
+        writeFixture(fixtureRoot, esm, '');
+        writeFixture(fixtureRoot, 'eslint.config.mjs',
+            `import original from '${pathToFileURL(eslintConfig).href}';\n`
+            + 'export default original.filter(config => config.name !== "fsusblog/type-aware-node-declarations");\n');
+        const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', esm]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /declaration.*(?:parser|project)|coverage/u);
+    });
+});
+
+test('script declaration owner refuses missing linked and outside-owner inputs', () =>
+{
+    for (const refusal of ['missing', 'linked', 'outside-owner'])
+    {
+        withNodeDeclarationFixture(({ fixtureRoot, esm }) =>
+        {
+            let file = esm;
+            if (refusal === 'outside-owner')
+            {
+                file = 'tools/unowned.d.mts';
+                writeFixture(fixtureRoot, file, 'export declare const patterns: readonly string[];\n');
+            }
+            else
+            {
+                rmSync(path.join(fixtureRoot, esm));
+                if (refusal === 'linked')
+                {
+                    writeFixture(fixtureRoot, 'src/frontend/scripts/linked.d.mts', 'export declare const patterns: readonly string[];\n');
+                    symlinkSync('linked.d.mts', path.join(fixtureRoot, esm));
+                }
+            }
+            const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', file]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /declaration|ENOENT|regular|governed/u);
+        });
+    }
+});
+
+test('script declaration owner refuses a declaration absent from the original complete Node program', () =>
+{
+    withNodeDeclarationFixture(({ fixtureRoot }) =>
+    {
+        const orphan = 'src/frontend/scripts/orphan.d.mts';
+        writeFixture(fixtureRoot, orphan, 'export declare const value: string;\n');
+        const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', orphan]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /not found|does not include|not included|Parsing error/u);
     });
 });

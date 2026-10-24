@@ -2,13 +2,15 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
+import { assertOpaqueFixtureSourceOwner, isOpaqueFrontendFixture, opaqueFixtureSourcePath, selectOpaqueFixtureSourceRegressions } from './opaque-fixture-source-ownership.mjs';
 import { parseMatrix } from './parse-matrix.mjs';
-import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding, prImpactCallerContext, sourceGovernanceChildEntries, effectivePrExecutionStage, sourceRegressionArguments, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs } from './pr-impact-plan.mjs';
+import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding, prImpactCallerContext, sourceGovernanceChildEntries, effectivePrExecutionStage, sourceRegressionArguments, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, isScriptDeclarationSource, sourceStageInspectionFiles } from './pr-impact-plan.mjs';
 import { inspectReleaseFinalCommandTarget, validateReleaseFinalStaticBoundary, validateSourceGovernanceChildExecution } from './release-final-static-boundary.mjs';
 import { snapshotGitWorktree } from './scheduler.mjs';
 const { parseWorkflowJobNeeds } = await import(new URL('../yaml/workflow-structure.mjs', import.meta.url));
-const { validateSolutionSourceReceipt, validatePythonSourceReceipt } = await import(new URL('../configuration/check-solution-source.mjs', import.meta.url));
+const { validateSolutionSourceReceipt, validatePythonSourceReceipt, validateBlameIgnoreSourceReceipt } = await import(new URL('../configuration/check-solution-source.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const plan = JSON.parse(fs.readFileSync(path.join(root, '.tmp/pr-plan.json'), 'utf8'));
@@ -48,17 +50,77 @@ for (const file of files)
         throw new Error(`source check refuses a nonregular or escaped changed file: ${file}`);
     }
 }
+const results = [];
+const checkedOpaqueFixtures = [];
+const changedOpaqueFixtures = evidence.changedFiles.filter(isOpaqueFrontendFixture);
+if (effectivePrExecutionStage(callerContext) === 'source-integration'
+    && (changedOpaqueFixtures.length || selectOpaqueFixtureSourceRegressions(evidence.changedFiles).length))
+{
+    const opaqueFiles = changedOpaqueFixtures.length ? changedOpaqueFixtures : [opaqueFixtureSourcePath];
+    const checker = sourceGovernanceChildEntries.opaqueFixture;
+    const env = { ...process.env };
+    for (const key of ['NODE_OPTIONS', 'NODE_PATH', 'NODE_TEST_CONTEXT', 'NODE_V8_COVERAGE'])
+    {
+        delete env[key];
+    }
+    let receipt;
+    let verification;
+    let result;
+    let bindingError = null;
+    let accepted = false;
+    try
+    {
+        assertOpaqueFixtureSourceOwner(matrix, opaqueFiles);
+        verifyChildBeforeSpawn(checker);
+        const argv = [checker, '--root', root, ...opaqueFiles.flatMap(file => ['--file', file])];
+        result = spawnSync(process.execPath, argv,
+            { cwd: root, env, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+        if (result.error || result.status !== 0)
+        {
+            throw new Error('opaque fixture original consumer collection failed');
+        }
+        receipt = JSON.parse(result.stdout);
+        verifyChildBeforeSpawn(checker);
+        verification = spawnSync(process.execPath, [checker, '--verify-receipt', '--expected-head', evidence.headCommit,
+            '--root', root, ...opaqueFiles.flatMap(file => ['--file', file])],
+        { cwd: root, env, input: JSON.stringify(receipt), encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+        if (verification.error || verification.status !== 0
+            || !isDeepStrictEqual(JSON.parse(verification.stdout), {
+                schema: 'fsusblog.opaque-fixture-source-verification.v1', status: 'verified',
+                qualificationEligible: false, head: evidence.headCommit, files: opaqueFiles
+            }))
+        {
+            throw new Error('opaque fixture receipt failed independent live-input verification');
+        }
+        // Parse the exact matrix bytes held by the collector, not a receipt-authored owner claim.
+        assertOpaqueFixtureSourceOwner(parseMatrix(receipt.matrixSource), opaqueFiles);
+        verifyChildBeforeSpawn(checker);
+        accepted = true;
+        checkedOpaqueFixtures.push(...opaqueFiles);
+    }
+    catch (error)
+    {
+        bindingError = error.message;
+        process.exitCode = 1;
+    }
+    results.push({ checker, mode: 'opaque-fixture-data', files: opaqueFiles,
+        exitCode: result?.status ?? null, status: accepted ? 'success' : 'failure', qualificationEligible: false,
+        receipt, verification: verification?.stdout ?? null, stderr: result?.stderr ?? '',
+        verificationStderr: verification?.stderr ?? '', spawnError: result?.error?.message ?? null, bindingError });
+}
 const groups = [
-    ...sourceFrontendCheckGroups(files, effectivePrExecutionStage(callerContext), evidence.baseCommit)
+    ...sourceFrontendCheckGroups(files.filter(file => !checkedOpaqueFixtures.includes(file)),
+        effectivePrExecutionStage(callerContext), evidence.baseCommit, root)
         .map(value => [sourceGovernanceChildEntries.frontend, value.options, value.files]),
     [sourceGovernanceChildEntries.csharp, ['--mode', 'full'], files.filter(file => file.endsWith('.cs'))],
     [sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'docs', '--operation', 'lint', '--require-tools'], files.filter(file => file.endsWith('.md'))],
     ...(effectivePrExecutionStage(callerContext) === 'source-integration'
         ? [[sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'scripts', '--operation', 'lint'], files.filter(file => file.endsWith('.sh'))]] : [])
 ];
-const results = [];
 const checkedSolutions = [];
 const checkedPython = [];
+const checkedBlame = [];
+const checkedDeclarations = [];
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
     const solutions = files.filter(file => file.endsWith('.slnx'));
@@ -181,12 +243,42 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration')
             process.exitCode = 1;
         }
     }
-    const unsupported = unsupportedSourceStageFiles(files, checkedSolutions, checkedPython);
-    if (unsupported.length)
+    const blameFiles = evidence.changedFiles.filter(file => file === '.git-blame-ignore-revs');
+    if (blameFiles.length)
     {
-        results.push({ checker: 'unsupported-source-stage-language', files: unsupported,
-            exitCode: null, status: 'unsupported', qualificationEligible: false });
-        process.exitCode = 1;
+        const checker = sourceGovernanceChildEntries.solution;
+        verifyChildBeforeSpawn(checker);
+        const result = spawnSync(process.execPath, [checker, '--language', 'git-blame-ignore', '--root', root,
+            ...blameFiles.flatMap(file => ['--file', file])], { cwd: root, encoding: 'utf8' });
+        let receipt;
+        let bindingError = null;
+        let accepted = false;
+        try
+        {
+            receipt = JSON.parse(result.stdout ?? '');
+            if (result.error || result.status !== 0)
+            {
+                throw new Error('blame-ignore source checker failed');
+            }
+            validateBlameIgnoreSourceReceipt({ repositoryRoot: root, files: blameFiles,
+                expectedHead: evidence.headCommit, receipt });
+            accepted = true;
+        }
+        catch (error)
+        {
+            bindingError = error.message;
+        }
+        results.push({ checker, mode: 'git-blame-ignore', files: blameFiles, exitCode: result.status,
+            status: accepted ? 'success' : 'failure', qualificationEligible: false, receipt,
+            stderr: result.stderr ?? '', spawnError: result.error?.message ?? null, bindingError });
+        if (accepted)
+        {
+            checkedBlame.push(...blameFiles);
+        }
+        else
+        {
+            process.exitCode = 1;
+        }
     }
 }
 for (const [checker, options, applicable] of groups)
@@ -201,6 +293,21 @@ for (const [checker, options, applicable] of groups)
     results.push({ checker, files: applicable, exitCode: result.status });
     if (result.error || result.status !== 0)
     {
+        process.exitCode = 1;
+    }
+    else if (checker === sourceGovernanceChildEntries.frontend && options[1] === 'strict-full')
+    {
+        checkedDeclarations.push(...applicable.filter(isScriptDeclarationSource));
+    }
+}
+if (effectivePrExecutionStage(callerContext) === 'source-integration')
+{
+    const inspectedFiles = sourceStageInspectionFiles(files, evidence.changedFiles);
+    const unsupported = unsupportedSourceStageFiles(inspectedFiles, checkedSolutions, checkedPython, checkedBlame, checkedDeclarations);
+    if (unsupported.length)
+    {
+        results.push({ checker: 'unsupported-source-stage-language', files: unsupported,
+            exitCode: null, status: 'unsupported', qualificationEligible: false });
         process.exitCode = 1;
     }
 }

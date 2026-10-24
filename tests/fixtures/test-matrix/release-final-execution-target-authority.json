@@ -2,7 +2,7 @@
     "schema": "fsusblog.release-final-execution-target-authority.v2",
     "source": "tests/matrix.yml",
     "sourceIndex": "config/testing/release-final-execution-authority-index.json",
-    "sourceIndexDigest": "sha256:6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+    "sourceIndexDigest": "sha256:6c2cc52f641ecc3a3cc4c7b58401b81fe556cf9ca9234e28d25ddc59ec1fb76b",
     "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
     "nodeParserIdentity": {
         "nodeVersion": "v24.16.0",
@@ -29,19 +29,24 @@
             "indexDigest": "sha256:3e1c46bc2ba6674623ab3bf35f7cadfb1b1e5703e3ff83d006da6dd1020e3140"
         },
         {
+            "path": "commitlint.config.mjs",
+            "contentDigest": "sha256:32ab46c67fda654e375327f973c6d73f60f44830230836fda6704e8d6f216070",
+            "indexDigest": "sha256:32ab46c67fda654e375327f973c6d73f60f44830230836fda6704e8d6f216070"
+        },
+        {
             "path": "config/development/authoritative-development-docs.json",
             "contentDigest": "sha256:7dbcae5d4b2f9270cf2ed27f1b402f46210dd9001f333cd79d13dd8470258f78",
             "indexDigest": "sha256:7dbcae5d4b2f9270cf2ed27f1b402f46210dd9001f333cd79d13dd8470258f78"
         },
         {
             "path": "config/development/canonical-digest-edge.json",
-            "contentDigest": "sha256:05fdca2a2ff1aba7a186ec614aeed8522593526bdcf62820ea2345b5b74c3a75",
-            "indexDigest": "sha256:05fdca2a2ff1aba7a186ec614aeed8522593526bdcf62820ea2345b5b74c3a75"
+            "contentDigest": "sha256:11dc9ec05a217b97cb16147ae1bf68cd06096fbf7e808d66165c02d3ee3a2b0b",
+            "indexDigest": "sha256:11dc9ec05a217b97cb16147ae1bf68cd06096fbf7e808d66165c02d3ee3a2b0b"
         },
         {
             "path": "config/development/frontend-style-policy.json",
-            "contentDigest": "sha256:a2c649d9263bcde63e81d6bcc7b98b920a702aa8c4f0d62246352d90df5ff9a1",
-            "indexDigest": "sha256:a2c649d9263bcde63e81d6bcc7b98b920a702aa8c4f0d62246352d90df5ff9a1"
+            "contentDigest": "sha256:627a550e4204bc84ca2596985602155a8d1797dac62fe42c80e1a95bc4fc093a",
+            "indexDigest": "sha256:627a550e4204bc84ca2596985602155a8d1797dac62fe42c80e1a95bc4fc093a"
         },
         {
             "path": "config/development/frontend-style-rule-registry.json",
@@ -110,8 +115,8 @@
         },
         {
             "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
-            "contentDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634",
-            "indexDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634"
+            "contentDigest": "sha256:39ef094e586173d8a3274eef2908044306550d37e95f35cc8eacf855ce50f636",
+            "indexDigest": "sha256:39ef094e586173d8a3274eef2908044306550d37e95f35cc8eacf855ce50f636"
         },
         {
             "path": "src/frontend/scripts/vite-watch-policy.mjs",
@@ -465,8 +470,8 @@
         },
         {
             "path": "src/frontend/src/locales/localeDomainBundleStore.ts",
-            "contentDigest": "sha256:c8183a545cbad1ef8e173658c73876c828ce47558052eeac3cf12c2f6a2f6ebe",
-            "indexDigest": "sha256:c8183a545cbad1ef8e173658c73876c828ce47558052eeac3cf12c2f6a2f6ebe"
+            "contentDigest": "sha256:0202dae264e9c4e7418c33537d8c275c44856d2fbcd47d304a2b92282f515826",
+            "indexDigest": "sha256:0202dae264e9c4e7418c33537d8c275c44856d2fbcd47d304a2b92282f515826"
         },
         {
             "path": "src/frontend/src/locales/localeDomains.ts",
@@ -530,8 +535,8 @@
         },
         {
             "path": "src/frontend/src/locales/routeLocaleDomains.ts",
-            "contentDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4",
-            "indexDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4"
+            "contentDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14",
+            "indexDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14"
         },
         {
             "path": "src/frontend/src/locales/ru-RU/admin.ts",
@@ -764,6 +769,11 @@
             "indexDigest": "sha256:85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
         },
         {
+            "path": "src/frontend/tsconfig.node.json",
+            "contentDigest": "sha256:db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2",
+            "indexDigest": "sha256:db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2"
+        },
+        {
             "path": "src/frontend/wasm/build.sh",
             "contentDigest": "sha256:ab06bd0ca65960c5aa66265b73794843202abf943db1e238da8f4a4a2702aa24",
             "indexDigest": "sha256:ab06bd0ca65960c5aa66265b73794843202abf943db1e238da8f4a4a2702aa24"
@@ -805,8 +815,8 @@
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
-            "contentDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b",
-            "indexDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b"
+            "contentDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731",
+            "indexDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731"
         },
         {
             "path": "tests/browser-contract/fixture.mjs",
@@ -2150,13 +2160,13 @@
         },
         {
             "path": "tests/tools/pr-applicable-execution-authority.test.mjs",
-            "contentDigest": "sha256:e6a49e6f5e3d5b7d5c2c8cf663c613e2f0d1b42896120c66127f50066a2e9f67",
-            "indexDigest": "sha256:e6a49e6f5e3d5b7d5c2c8cf663c613e2f0d1b42896120c66127f50066a2e9f67"
+            "contentDigest": "sha256:18d015c5ee41a212e107e0944ef537465ee57bc6882e0b1af9ee877d114a859b",
+            "indexDigest": "sha256:18d015c5ee41a212e107e0944ef537465ee57bc6882e0b1af9ee877d114a859b"
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252",
-            "indexDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252"
+            "contentDigest": "sha256:c0d344a8aad817f8d5a92486e8f1ebf995a9c94c92aa0bf1f38c3112da4b4aee",
+            "indexDigest": "sha256:c0d344a8aad817f8d5a92486e8f1ebf995a9c94c92aa0bf1f38c3112da4b4aee"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -2480,13 +2490,13 @@
         },
         {
             "path": "tools/configuration/check-solution-source.mjs",
-            "contentDigest": "sha256:a4a7df8597f598795f7ea22392bad6cb15da3433f2807bc2eb82f373cefabed1",
-            "indexDigest": "sha256:a4a7df8597f598795f7ea22392bad6cb15da3433f2807bc2eb82f373cefabed1"
+            "contentDigest": "sha256:2447a7b78b30e32bbf46644204c5b7d85347f2e6462040375190f72f6788adcd",
+            "indexDigest": "sha256:2447a7b78b30e32bbf46644204c5b7d85347f2e6462040375190f72f6788adcd"
         },
         {
             "path": "tools/configuration/solution-source.test.mjs",
-            "contentDigest": "sha256:4764ce7b9ff40ac427a8a4307844170c3deb9ec7e1d1dc2c0f783f00fba91b5a",
-            "indexDigest": "sha256:4764ce7b9ff40ac427a8a4307844170c3deb9ec7e1d1dc2c0f783f00fba91b5a"
+            "contentDigest": "sha256:5c6a7532feacb1baa2443842decba6cdb2d23cf218a25cf0043672bf73f5dd7b",
+            "indexDigest": "sha256:5c6a7532feacb1baa2443842decba6cdb2d23cf218a25cf0043672bf73f5dd7b"
         },
         {
             "path": "tools/contracts/behavior-contract-catalog.mjs",
@@ -2525,8 +2535,8 @@
         },
         {
             "path": "tools/contracts/check-locale-catalog.mjs",
-            "contentDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2",
-            "indexDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2"
+            "contentDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d",
+            "indexDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d"
         },
         {
             "path": "tools/contracts/check-openapi-consumers.mjs",
@@ -2555,8 +2565,8 @@
         },
         {
             "path": "tools/contracts/generate-locale-catalog.mjs",
-            "contentDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55",
-            "indexDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55"
+            "contentDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636",
+            "indexDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636"
         },
         {
             "path": "tools/contracts/generate-perception-character-v3-release-target.mjs",
@@ -2965,8 +2975,8 @@
         },
         {
             "path": "tools/docs/generated-fact-sections/renderers.mjs",
-            "contentDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37",
-            "indexDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37"
+            "contentDigest": "sha256:4380d20a6e22de09589c227a0d367c1faa150c13d3e6bd323b0422fe8b5fd5b9",
+            "indexDigest": "sha256:4380d20a6e22de09589c227a0d367c1faa150c13d3e6bd323b0422fe8b5fd5b9"
         },
         {
             "path": "tools/docs/global-claim-exactness-final.mjs",
@@ -3085,8 +3095,8 @@
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1",
-            "indexDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1"
+            "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+            "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
@@ -3205,8 +3215,8 @@
         },
         {
             "path": "tools/frontend/check-frontend-style.mjs",
-            "contentDigest": "sha256:773274999c5e3f1fc80551957b7e0cf4860868fda23731e115e51e5d7598d4e3",
-            "indexDigest": "sha256:773274999c5e3f1fc80551957b7e0cf4860868fda23731e115e51e5d7598d4e3"
+            "contentDigest": "sha256:bdfbac94099891bc5fccb4bd885a66ddf7a90cc328180d27dc669c53deea9e2a",
+            "indexDigest": "sha256:bdfbac94099891bc5fccb4bd885a66ddf7a90cc328180d27dc669c53deea9e2a"
         },
         {
             "path": "tools/frontend/check-locale-domain-bundles.mjs",
@@ -3305,13 +3315,13 @@
         },
         {
             "path": "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
-            "contentDigest": "sha256:10c254c14861bdc2cb4337d7c2e8bb6534d626eb9d15f498f662bb51c5a84171",
-            "indexDigest": "sha256:10c254c14861bdc2cb4337d7c2e8bb6534d626eb9d15f498f662bb51c5a84171"
+            "contentDigest": "sha256:8d71eedc2c6fcc25bee5df6bb3f40b7a7852cc38c7e6cfb8ddef30b2fc5aee7f",
+            "indexDigest": "sha256:8d71eedc2c6fcc25bee5df6bb3f40b7a7852cc38c7e6cfb8ddef30b2fc5aee7f"
         },
         {
             "path": "tools/frontend/style-toolchain/eslint.config.mjs",
-            "contentDigest": "sha256:425e07ae4763344e6396087626e1fb6f29785cdce55d9db048b0c26ac99403c5",
-            "indexDigest": "sha256:425e07ae4763344e6396087626e1fb6f29785cdce55d9db048b0c26ac99403c5"
+            "contentDigest": "sha256:0d44d8e1ed5d32af3713d4ce947f8e9dedd8178e138a70bf2590f11035aa8ad9",
+            "indexDigest": "sha256:0d44d8e1ed5d32af3713d4ce947f8e9dedd8178e138a70bf2590f11035aa8ad9"
         },
         {
             "path": "tools/frontend/style-toolchain/package-lock.json",
@@ -3360,8 +3370,13 @@
         },
         {
             "path": "tools/governance/change-contract-registry.mjs",
-            "contentDigest": "sha256:33126c69d2fb5dd106d6e59daa1bf177150034901c5b6fd403340935ab20e88d",
-            "indexDigest": "sha256:33126c69d2fb5dd106d6e59daa1bf177150034901c5b6fd403340935ab20e88d"
+            "contentDigest": "sha256:97891b36c7b195c7601b02f627ad02736b96e968a2c39dcbd4759786962f75c4",
+            "indexDigest": "sha256:97891b36c7b195c7601b02f627ad02736b96e968a2c39dcbd4759786962f75c4"
+        },
+        {
+            "path": "tools/governance/change-contract.mjs",
+            "contentDigest": "sha256:8a975c4fdd3df89b9ad2f8cb213a0bd35efd7af75b14d11106172f5aac19b0ee",
+            "indexDigest": "sha256:8a975c4fdd3df89b9ad2f8cb213a0bd35efd7af75b14d11106172f5aac19b0ee"
         },
         {
             "path": "tools/governance/check-article-bulk-authorities.mjs",
@@ -3572,6 +3587,36 @@
             "path": "tools/governance/dependency-update-surface-policy.mjs",
             "contentDigest": "sha256:b844a35cc54b3443ed818db9af747b23f88762933c83d2dfd02649ede13b8b49",
             "indexDigest": "sha256:b844a35cc54b3443ed818db9af747b23f88762933c83d2dfd02649ede13b8b49"
+        },
+        {
+            "path": "tools/governance/generated-output-digest-repair-repository.mjs",
+            "contentDigest": "sha256:40073b27573b088924b6c8a8ff14e6c9747da3db9748346de3d15f61a093a9f0",
+            "indexDigest": "sha256:40073b27573b088924b6c8a8ff14e6c9747da3db9748346de3d15f61a093a9f0"
+        },
+        {
+            "path": "tools/governance/generated-output-digest-repair-v2.mjs",
+            "contentDigest": "sha256:5208b1d34acf213fcceabe3b0d4f1e2dc6eac90368a23d6cf51b8fbe9c06efb7",
+            "indexDigest": "sha256:5208b1d34acf213fcceabe3b0d4f1e2dc6eac90368a23d6cf51b8fbe9c06efb7"
+        },
+        {
+            "path": "tools/governance/generated-output-history-repair-v3.mjs",
+            "contentDigest": "sha256:3242e0e6e3b8586f5acf9e869cd329919214edac2110c0f4052c61259ac46e7a",
+            "indexDigest": "sha256:3242e0e6e3b8586f5acf9e869cd329919214edac2110c0f4052c61259ac46e7a"
+        },
+        {
+            "path": "tools/governance/javascript-format-equivalence.mjs",
+            "contentDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+            "indexDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90"
+        },
+        {
+            "path": "tools/governance/javascript-format-parser/package-lock.json",
+            "contentDigest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9",
+            "indexDigest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9"
+        },
+        {
+            "path": "tools/governance/javascript-format-parser/package.json",
+            "contentDigest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6",
+            "indexDigest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6"
         },
         {
             "path": "tools/governance/revision-compare-authority-rules.mjs",
@@ -4220,8 +4265,8 @@
         },
         {
             "path": "tools/test-inventory/discovery.mjs",
-            "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
-            "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+            "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+            "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
         },
         {
             "path": "tools/test-inventory/package.json",
@@ -4390,8 +4435,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:b64853b4bac5596ee96df0483a563cdce7e90619999404662e5f8006d9836fd5",
-            "indexDigest": "sha256:b64853b4bac5596ee96df0483a563cdce7e90619999404662e5f8006d9836fd5"
+            "contentDigest": "sha256:c08980445b9901388cb9607c86b1130406af7512c155cbe57fc35c0a387dc684",
+            "indexDigest": "sha256:c08980445b9901388cb9607c86b1130406af7512c155cbe57fc35c0a387dc684"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -4595,8 +4640,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808",
-            "indexDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808"
+            "contentDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7",
+            "indexDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7"
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",
@@ -6942,11 +6987,12 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
-            "indexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+            "contentDigest": "sha256:d7e3ceccdc0e79a3ff47837614be54ab948c958f75fde0b105d0dd9e79597752",
+            "indexDigest": "sha256:d7e3ceccdc0e79a3ff47837614be54ab948c958f75fde0b105d0dd9e79597752",
             "dependencyClosure": [
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",
+                "commitlint.config.mjs",
                 "config/development/authoritative-development-docs.json",
                 "config/development/canonical-digest-edge.json",
                 "config/development/frontend-style-policy.json",
@@ -6957,7 +7003,10 @@
                 "eslint.config.mjs",
                 "src/frontend/eslint.config.mjs",
                 "src/frontend/package.json",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
                 "src/frontend/stylelint.config.mjs",
+                "src/frontend/tsconfig.node.json",
                 "stylelint.config.mjs",
                 "tests/tools/native-tooling-style.test.mjs",
                 "tests/tools/package.json",
@@ -7013,7 +7062,15 @@
                 "tools/frontend/style-toolchain/package-lock.json",
                 "tools/frontend/style-toolchain/package.json",
                 "tools/frontend/style-toolchain/stylelint.config.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs",
                 "tools/governance/check-monolithic-distributed-architecture.mjs",
+                "tools/governance/generated-output-digest-repair-repository.mjs",
+                "tools/governance/generated-output-digest-repair-v2.mjs",
+                "tools/governance/generated-output-history-repair-v3.mjs",
+                "tools/governance/javascript-format-equivalence.mjs",
+                "tools/governance/javascript-format-parser/package-lock.json",
+                "tools/governance/javascript-format-parser/package.json",
                 "tools/package.json",
                 "tools/release/browser-release-clean-attempt-consumers.mjs",
                 "tools/release/clean-attempt-evidence-source.mjs",

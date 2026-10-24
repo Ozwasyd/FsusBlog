@@ -16,7 +16,8 @@ const tool = fileURLToPath(new URL('../../tools/operations/archive-compiled-arti
 const sourceInputs = owner => [owner, fileURLToPath(new URL('../../tools/operations/local-task-plan.mjs', import.meta.url))].map(file => ({ file, sha256: readRegular(file).sha256 }));
 const sparseTool = fileURLToPath(new URL('../../tools/operations/retire-idle-materializations.mjs', import.meta.url));
 
-function artifactPlan() {
+function artifactPlan()
+{
     const taskRoot = fs.mkdtempSync(path.join(ownerRoot, 'archive-'));
     const original = path.join(taskRoot, 'artifacts');
     fs.mkdirSync(original, { mode: 0o750 });
@@ -33,7 +34,8 @@ function artifactPlan() {
     return { schema: 'fsusblog.local-task-plan.v1', sourceInputs: sourceInputs(tool), taskRoot, original, terminal: path.join(taskRoot, 'terminal.json'), terminalSha256: readRegular(path.join(taskRoot, 'terminal.json')).sha256, taskLock: path.join(taskRoot, 'task.lock'), budgets: { diskFloorBytes: 1, memoryFloorBytes: 1, archiveBytes: 1024 * 1024, restoreBytes: 1024 * 1024, metadataBytes: 1024 * 1024, maxEntries: 16 }, expectedRoot, originalInventorySha256: null };
 }
 
-test('full disposable artifact tar roundtrip keeps owner/mode/mtime/raw xattr and original epoch', async () => {
+test('full disposable artifact tar roundtrip keeps owner/mode/mtime/raw xattr and original epoch', async () =>
+{
     const plan = artifactPlan();
     validateArchivePlan(plan);
     const observed = await preserveCompiledArtifacts(plan, 'a'.repeat(64));
@@ -44,7 +46,7 @@ test('full disposable artifact tar roundtrip keeps owner/mode/mtime/raw xattr an
     const planFile = path.join(plan.taskRoot, 'plan.json');
     const bytes = Buffer.from(JSON.stringify(plan));
     fs.writeFileSync(planFile, bytes);
-    const actual = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, '/usr/bin/node', '--max-old-space-size=128', tool, '--plan', planFile, '--plan-sha256', sha256(bytes), '--mode', 'archive'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
+    const actual = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, process.execPath, '--max-old-space-size=128', tool, '--plan', planFile, '--plan-sha256', sha256(bytes), '--mode', 'archive'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
     assert.equal(actual.status, 0, actual.stderr);
     const receipt = JSON.parse(actual.stdout);
     assert.equal(receipt.fullRoundtripBytesRootModeOwnerMtimeAclXattrVerified, true);
@@ -55,18 +57,30 @@ test('full disposable artifact tar roundtrip keeps owner/mode/mtime/raw xattr an
     assert.equal(fs.readFileSync(path.join(receipt.restoreRoot, 'nested', 'owner.bin')).toString('hex'), '00017fff');
 });
 
-test('artifact source epoch, symlink and hardlink controls fail before output allocation', async () => {
-    for (const kind of ['epoch', 'symlink', 'hardlink']) {
+test('artifact source epoch, symlink and hardlink controls fail before output allocation', async () =>
+{
+    for (const kind of ['epoch', 'symlink', 'hardlink'])
+    {
         const plan = artifactPlan();
-        if (kind === 'epoch') plan.expectedRoot.ino = '0';
-        if (kind === 'symlink') fs.symlinkSync('/etc/passwd', path.join(plan.original, 'outside'));
-        if (kind === 'hardlink') fs.linkSync(path.join(plan.original, 'nested', 'owner.bin'), path.join(plan.original, 'alias'));
+        if (kind === 'epoch')
+        {
+            plan.expectedRoot.ino = '0';
+        }
+        if (kind === 'symlink')
+        {
+            fs.symlinkSync('/etc/passwd', path.join(plan.original, 'outside'));
+        }
+        if (kind === 'hardlink')
+        {
+            fs.linkSync(path.join(plan.original, 'nested', 'owner.bin'), path.join(plan.original, 'alias'));
+        }
         await assert.rejects(preserveCompiledArtifacts(plan, 'b'.repeat(64)));
         assert.equal(fs.readdirSync(plan.taskRoot).some(value => value.startsWith('compiled-preservation-')), false);
     }
 });
 
-test('frozen plans reject stale SHA, extra authority, duplicate mode and symlink ancestry', () => {
+test('frozen plans reject stale SHA, extra authority, duplicate mode and symlink ancestry', () =>
+{
     const plan = artifactPlan();
     const file = path.join(plan.taskRoot, 'small-plan.json');
     const bytes = Buffer.from(JSON.stringify({ schema: plan.schema, taskRoot: plan.taskRoot, value: 1 }));
@@ -80,7 +94,8 @@ test('frozen plans reject stale SHA, extra authority, duplicate mode and symlink
     assert.throws(() => requireCanonicalOwnedPath(path.join(plan.taskRoot, 'alias', 'nested', 'owner.bin')), /canonical|symlink/);
 });
 
-test('sparse retirement rejects protected target, unknown nested plan fields and outside task ownership', () => {
+test('sparse retirement rejects protected target, unknown nested plan fields and outside task ownership', () =>
+{
     const plan = artifactPlan();
     const source = path.join(plan.taskRoot, 'ownership.json');
     fs.writeFileSync(source, '{}');
@@ -93,12 +108,14 @@ test('sparse retirement rejects protected target, unknown nested plan fields and
     assert.throws(() => validateRetirementPlan(input), /closed current/);
 });
 
-test('disposable sparse preserves Git/raw custody; operational owner refuses unreadable occupancy', () => {
+test('disposable sparse preserves Git/raw custody; operational owner refuses unreadable occupancy', () =>
+{
     const taskRoot = fs.mkdtempSync(path.join(ownerRoot, 'sparse-'));
     const repository = path.join(taskRoot, 'primary');
     const targetRoot = path.join(taskRoot, 'target');
     fs.mkdirSync(repository);
-    const git = (root, ...args) => {
+    const git = (root, ...args) =>
+    {
         const result = spawnSync('/usr/bin/git', ['-C', root, ...args], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_OPTIONAL_LOCKS: '0' } });
         assert.equal(result.status, 0, result.stderr);
         return result.stdout;
@@ -127,10 +144,11 @@ test('disposable sparse preserves Git/raw custody; operational owner refuses unr
     const bytes = Buffer.from(JSON.stringify(plan));
     const planFile = path.join(taskRoot, 'plan.json');
     fs.writeFileSync(planFile, bytes);
-    const actual = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, '/usr/bin/node', '--max-old-space-size=128', sparseTool, '--plan', planFile, '--plan-sha256', sha256(bytes), '--mode', 'sparse'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
+    const actual = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, process.execPath, '--max-old-space-size=128', sparseTool, '--plan', planFile, '--plan-sha256', sha256(bytes), '--mode', 'sparse'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
     assert.equal(actual.status, 0, actual.stderr);
     const receipt = JSON.parse(actual.stdout);
-    if (receipt.refused === 1) {
+    if (receipt.refused === 1)
+    {
         const summary = JSON.parse(fs.readFileSync(path.join(receipt.runRoot, 'summary.json'), 'utf8'));
         assert.equal(summary.results[0].status, 'REFUSED_ACTIVITY_OR_UNKNOWN');
         assert.ok(summary.results[0].activity.unknown.length > 0);
@@ -140,7 +158,9 @@ test('disposable sparse preserves Git/raw custody; operational owner refuses unr
         // Exercise ordinary Git only in this disposable fixture; this is not wrapper admission.
         git(targetRoot, 'sparse-checkout', 'set', '--no-cone', '--no-sparse-index', '/README.md', '/.gitignore', '/source/keep.txt');
         console.log('Operational positive sparse admission unverified: unreadable current-owner /proc occupancy; disposable native Git sparse checked separately.');
-    } else {
+    }
+    else
+    {
         assert.equal(receipt.projected, 1, JSON.stringify(receipt));
         assert.equal(receipt.refused, 0);
     }
@@ -153,7 +173,7 @@ test('disposable sparse preserves Git/raw custody; operational owner refuses unr
     plan.targets[0].head = '0'.repeat(40);
     const staleBytes = Buffer.from(JSON.stringify(plan));
     fs.writeFileSync(path.join(taskRoot, 'stale-plan.json'), staleBytes);
-    const refused = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, '/usr/bin/node', sparseTool, '--plan', path.join(taskRoot, 'stale-plan.json'), '--plan-sha256', sha256(staleBytes), '--mode', 'sparse'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
+    const refused = spawnSync('/usr/bin/flock', ['-n', '--close', plan.taskLock, process.execPath, sparseTool, '--plan', path.join(taskRoot, 'stale-plan.json'), '--plan-sha256', sha256(staleBytes), '--mode', 'sparse'], { encoding: 'utf8', maxBuffer: 1024 * 1024, timeout: 30000 });
     assert.equal(refused.status, 0, refused.stderr);
     assert.equal(JSON.parse(refused.stdout).refused, 1);
 });
