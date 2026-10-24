@@ -26,7 +26,10 @@ internal sealed record OfflineMigrationShellBackupDrillConfiguration(
 {
     // Only the original process composition creates this byte/scope binding. Existing
     // raw configurations remain the isolated shell-fixture seam, not production admission.
-    internal OfflineMigrationShellBackupDrillOwnedInputs? OwnedInputs { get; init; }
+    internal OfflineMigrationShellBackupDrillOwnedInputs? OwnedInputs
+    {
+        get; init;
+    }
 }
 
 /// <summary>
@@ -191,7 +194,8 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
                 {
                     try
                     {
-                        if (!rawOwner.Closed) rawOwner.Stream.Flush(flushToDisk: true);
+                        if (!rawOwner.Closed)
+                            rawOwner.Stream.Flush(flushToDisk: true);
                     }
                     catch (IOException)
                     {
@@ -203,7 +207,8 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
                     throw Failure("cleanup_unverified:" + firstCause
                         + (rawComplete ? string.Empty : ":raw_retention_failed"));
                 }
-                if (!rawComplete) throw Failure(firstCause + ":raw_retention_failed");
+                if (!rawComplete)
+                    throw Failure(firstCause + ":raw_retention_failed");
             }
             // Cancellation/timeout cannot turn a partially cleaned original restore into
             // ExitCode zero, and private values from process failures are not public errors.
@@ -370,40 +375,67 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
     {
         foreach (string entry in Directory.EnumerateDirectories("/proc"))
         {
-            if (!int.TryParse(Path.GetFileName(entry), out _)) continue;
+            if (!int.TryParse(Path.GetFileName(entry), out _))
+                continue;
             try
             {
                 string stat = File.ReadAllText(Path.Combine(entry, "stat"));
                 string[] fields = stat[(stat.LastIndexOf(')') + 2)..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (fields.Length <= 2) return false;
-                if (fields[2] == pid.ToString(CultureInfo.InvariantCulture)) return false;
+                if (fields.Length <= 2)
+                    return false;
+                if (fields[2] == pid.ToString(CultureInfo.InvariantCulture))
+                    return false;
             }
-            catch (FileNotFoundException) { }
-            catch (DirectoryNotFoundException) { }
-            catch (IOException) { return false; }
-            catch (UnauthorizedAccessException) { return false; }
+            catch (FileNotFoundException)
+            {
+            }
+            catch (DirectoryNotFoundException)
+            {
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
         }
         return true;
     }
 
-    private static FileStream CreateRaw(string path) => new(path, new FileStreamOptions
+    private static FileStream CreateRaw(string path)
     {
-        Mode = FileMode.CreateNew,
-        Access = FileAccess.ReadWrite,
-        Share = FileShare.None,
-        Options = FileOptions.Asynchronous,
-        UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
-    });
+        if (!OperatingSystem.IsLinux())
+        {
+            throw Failure("linux_operation_owner_required");
+        }
+        return new(path, new FileStreamOptions
+        {
+            Mode = FileMode.CreateNew,
+            Access = FileAccess.ReadWrite,
+            Share = FileShare.None,
+            Options = FileOptions.Asynchronous,
+            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+        });
+    }
 
     private sealed class RawFileOwner(FileStream stream) : IAsyncDisposable
     {
         internal FileStream Stream { get; } = stream;
-        internal bool Failed { get; private set; }
-        internal bool Closed { get; private set; }
+        internal bool Failed
+        {
+            get; private set;
+        }
+        internal bool Closed
+        {
+            get; private set;
+        }
 
         public async ValueTask DisposeAsync()
         {
-            if (Closed) return;
+            if (Closed)
+                return;
             Closed = true;
             try
             {
@@ -425,9 +457,18 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
         private readonly Stream _stream;
         private readonly SafeHandle _handle;
         private readonly byte[] _buffer = new byte[64 * 1024];
-        internal bool EndOfStream { get; private set; }
-        internal bool ReadFailed { get; private set; }
-        internal bool CaptureIncomplete { get; private set; }
+        internal bool EndOfStream
+        {
+            get; private set;
+        }
+        internal bool ReadFailed
+        {
+            get; private set;
+        }
+        internal bool CaptureIncomplete
+        {
+            get; private set;
+        }
 
         internal InvocationPipe(Stream stream)
         {
@@ -449,14 +490,16 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
             }
             finally
             {
-                if (borrowed) _handle.DangerousRelease();
+                if (borrowed)
+                    _handle.DangerousRelease();
             }
         }
 
         internal async Task<bool> TransferNextAsync(FileStream? destination, string failureCode,
             CancellationToken cancellationToken)
         {
-            if (EndOfStream) return false;
+            if (EndOfStream)
+                return false;
             cancellationToken.ThrowIfCancellationRequested();
             long read;
             int error;
@@ -470,7 +513,8 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
             }
             finally
             {
-                if (borrowed) _handle.DangerousRelease();
+                if (borrowed)
+                    _handle.DangerousRelease();
             }
             if (read == 0)
             {
@@ -479,13 +523,15 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
             }
             if (read < 0)
             {
-                if (error is 4 or 11) return false; // EINTR or EAGAIN; retry under original token/deadline.
+                if (error is 4 or 11)
+                    return false; // EINTR or EAGAIN; retry under original token/deadline.
                 ReadFailed = true;
                 throw Failure(failureCode);
             }
             // A failed raw writer remains an explicit incomplete-evidence refusal. Consume
             // its pipe only to unblock the owned child, while still retaining the healthy pipe.
-            if (destination is null) return true;
+            if (destination is null)
+                return true;
             try
             {
                 // This task is never raced against a timeout wrapper or left in background.
@@ -538,7 +584,8 @@ internal sealed class OfflineMigrationShellBackupDrillProducer : IOfflineMigrati
 
     private static void Require(bool condition, string code)
     {
-        if (!condition) throw Failure(code);
+        if (!condition)
+            throw Failure(code);
     }
 
     private static InvalidOperationException Failure(string code) => new("offline_backup_shell_" + code);
