@@ -61,6 +61,64 @@ TypeScript, JavaScript and Vue script use 4 spaces, Allman braces, explicit semi
 
 Type-like and Vue component names are PascalCase; parameters and locals are camelCase. The #1157 mapping deliberately keeps `useXxx` for Vue composables, PascalCase without a mandatory `I` for TypeScript structural interfaces, `#camelCase` for ECMAScript private fields, and camelCase for normal module bindings. These are named entries in `config/development/frontend-style-rule-registry.json`, not implicit ecosystem exceptions.
 
+### Transparent rejection forwarding
+
+The local `rejection-forwarding.mjs` adapter invokes the locked original
+`@typescript-eslint/prefer-promise-reject-errors` rule with its original visitors,
+metadata, options and diagnostic identity. Its configuration keeps Error creation
+strict: empty rejection, arbitrary `any` and `unknown`, and type allowances remain
+disabled. It recognizes an existing external rejection value only at a proven
+native `Promise.reject` or an unchanged rejection parameter of a directly inlined,
+synchronous arrow executor of native `new Promise`.
+Every other original diagnostic is retained.
+
+The finite source proofs are an unchanged single parameter of an inline native
+Promise `then` rejection callback or `catch` callback. Reassignment anywhere in the
+binding's scope, including nested closures and later writes, refuses the proof.
+Named executors can escape through their own binding and be invoked later with an
+arbitrary rejection function. The adapter therefore refuses all traditional function
+executors, including anonymous ones, and async executors; it does not infer unique
+invocation from their position inside `new Promise`.
+
+Static references cannot prove immutability in the presence of direct eval. Any
+potential direct eval call in the program, including TypeScript expression wrappers
+around the callee, refuses all forwarding exemptions in that program. An unknown
+parser visitor shape also refuses them. This conservative mutation boundary retains
+the original rule's enforcement; it does not suppress a diagnostic or disable a rule.
+Comments and string contents mentioning eval do not establish executable mutation.
+
+There is no AbortSignal-reason exemption. Native signal construction proves only
+the object, not that its reason forwards an original failure. For example,
+`AbortSignal.abort('created').reason` manufactures a reason, and factory arguments
+may contain arbitrary producers or transforms. Direct reason reads and nullish
+AbortError helpers retain all original diagnostics, including on fresh native signals.
+
+Receiver provenance is deliberately limited to direct fresh expressions: native
+`new Promise(...)`, `Promise.reject(...)` or zero-argument `Promise.resolve()` for
+Promise receivers. `Promise.resolve(value)` is excluded:
+it can return a caller-owned Promise whose methods were replaced. There is no general
+helper inference, callback alias, receiver/value alias, cast, computed member,
+transformed value or recursive summary. Merely annotating a parameter as `Promise`
+or `AbortSignal` proves no object origin because those TypeScript types are structural.
+Forwarding from such parameters remains an original-rule failure; this adapter cannot
+resolve those consumer sites.
+
+Native identity requires TypeScript's actual default-library declarations, including
+the finite Promise declaration merges in the locked compiler. Local structural
+lookalikes, shadowed constructors and source declaration augmentations do not qualify.
+Intact native globals and prototypes are the trust boundary; program-wide monkey
+patching is not proved absent. Fresh receiver origin is required in addition to native
+declaration identity. Event state, cleanup and settlement ordering remain runtime-test
+responsibilities. The adapter does not modify or execute application callbacks,
+normalize reasons or wrap their identity.
+
+The adapter is a configuration input in the existing digest and SOURCE comparison
+closure. Changing it invalidates historical exemptions through the original binding
+checks. It cannot promote its own policy, authorize a baseline correction, qualify a
+consumer candidate or replace independent owner review. The existing frontend style
+fixture suite compares the adapter with the unmodified locked rule on identical
+positive and negative source, including unchanged diagnostics from all other rules.
+
 Vue templates use 4-space indentation, one attribute per multiline row, stable closing brackets and PascalCase component references. Standard HTML, ARIA and `data-*` spellings remain browser contracts. Existing public emit names remain unchanged until a semantic caller migration is reviewed.
 
 CSS, SCSS and Vue style blocks use 4 spaces, an Allman opening brace and one declaration per line. CSS classes, BEM selectors and custom properties remain kebab-case contracts; SCSS internal variables, mixins and functions use camelCase. Property order is centrally set to `semantic-preserve`: token dependencies, logical-property fallbacks and component state grouping are not destroyed for alphabetical churn.

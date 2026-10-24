@@ -1508,7 +1508,8 @@ function checkSourceDiff(args, files)
     try
     {
         // The original ESLint CLI loads identical original configuration in a separate base root.
-        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs', policy.toolchain.package,
+        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs',
+            'tools/frontend/style-toolchain/rejection-forwarding.mjs', policy.toolchain.package,
             'src/frontend/scripts/run-local-fsusui-typecheck.mjs', 'src/frontend/scripts/fsusui-root.mjs'])
         {
             const destination = path.join(scratch, file);

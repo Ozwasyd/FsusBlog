@@ -9,6 +9,16 @@ import vue from 'eslint-plugin-vue';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+import { withRejectionForwarding } from './rejection-forwarding.mjs';
+
+const typedPlugin = {
+    ...tseslint.plugin,
+    rules: {
+        ...tseslint.plugin.rules,
+        'prefer-promise-reject-errors': withRejectionForwarding(tseslint.plugin.rules['prefer-promise-reject-errors'])
+    }
+};
+
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const repositoryRoot = path.resolve(process.env.FSUSBLOG_STYLE_ROOT ?? defaultRoot);
 const frontendRoot = path.join(repositoryRoot, 'src/frontend');
@@ -137,6 +147,12 @@ const typedRules = {
     '@typescript-eslint/no-explicit-any': 'error',
     '@typescript-eslint/no-floating-promises': 'error',
     '@typescript-eslint/no-misused-promises': 'error',
+    '@typescript-eslint/prefer-promise-reject-errors': ['error', {
+        allow: [],
+        allowEmptyReject: false,
+        allowThrowingAny: false,
+        allowThrowingUnknown: false
+    }],
     '@typescript-eslint/no-unnecessary-type-assertion': 'error',
     '@typescript-eslint/no-unsafe-argument': 'error',
     '@typescript-eslint/no-unsafe-assignment': 'error',
@@ -240,7 +256,7 @@ export default [
             globals: globals.node
         },
         plugins: {
-            '@typescript-eslint': tseslint.plugin
+            '@typescript-eslint': typedPlugin
         },
         rules: typedRules
     },
@@ -264,7 +280,7 @@ export default [
             }
         },
         plugins: {
-            '@typescript-eslint': tseslint.plugin
+            '@typescript-eslint': typedPlugin
         },
         rules: typedRules
     },
@@ -286,7 +302,7 @@ export default [
             globals: globals.browser
         },
         plugins: {
-            '@typescript-eslint': tseslint.plugin
+            '@typescript-eslint': typedPlugin
         },
         rules: {
             ...typedRules,
