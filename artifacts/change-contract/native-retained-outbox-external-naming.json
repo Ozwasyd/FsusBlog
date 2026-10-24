@@ -5,10 +5,34 @@
             "id": "environment-variable",
             "paths": [
                 "src/migration/ArticlePreservationRetainedOutboxArtifact.cs",
+                "src/migration/ArticlePreservationStorageProgram.cs",
                 "src/migration/ArticlePreservationStorageWriter.cs",
-                "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs"
+                "src/migration/ArticlePreservationWritePlan.cs",
+                "src/migration/CurrentSchemaOwnedTargetProducer.cs",
+                "src/migration/OfflineMigrationApplyNativeSession.cs",
+                "src/migration/OfflineMigrationArticleMediaJournal.cs",
+                "src/migration/OfflineMigrationBackupAdmission.cs",
+                "src/migration/OfflineMigrationExecutor.cs",
+                "src/migration/OfflineMigrationPostgreSqlNativeSession.cs",
+                "src/migration/OfflineMigrationSourceObserver.Providers.cs",
+                "src/migration/OfflineMigrationSourceObserver.cs",
+                "src/migration/PgArticlePreservationOperation.cs",
+                "src/migration/PgLegacyNonArticlePreparation.cs",
+                "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+                "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs"
             ],
-            "reason": "The original trusted registry assigns src/**/*.cs to the process-environment naming surface. This WIP acknowledges that existing path-level ownership for the two retained-outbox sources. It preserves external environment names and original journal SQL identities; the new retained JSON/fact names are explicit Migration-owned integrity data. No environment key, source authority, allocator, canonical issuer or original isolation contract is changed or granted by this manifest. The shared PostgreSQL observer preserves all native SQL names while verifying PostgreSQL 18 NOT NULL rows against the existing exact control-column nullability; unknown or malformed native constraints remain refusals."
+            "reason": "Preserve the existing external environment and native SQL/JSON identities in the composed Migration and Shared source. The original public names and opaque native ownership remain unchanged; the source adds bounded retained data and strict PostgreSQL 18 catalog verification, without granting canonical issuance, source allocation, admission or any internal naming exemption."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/cache-coordination-probe/packages.lock.json",
+                "tests/migration/packages.lock.json"
+            ],
+            "reason": "Preserve the NuGet-defined lock schema keys and external package/project identities in the exact original restore output for MessagePack 2.5.307 and the centrally approved native SQLite 3.53.3. All thirteen affected consumer roots pass audited locked restore with every source and audit policy unchanged."
         }
     ]
 }
