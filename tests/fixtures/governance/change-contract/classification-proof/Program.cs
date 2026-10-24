@@ -4,6 +4,7 @@ using System.Reflection.PortableExecutable;
 using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text.Json;
+
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -26,11 +27,13 @@ byte[] Emit(IEnumerable<SyntaxTree> trees, string name = "Fixture", bool generat
     {
         GeneratorDriver driver = CSharpGeneratorDriver.Create(new[] { new DocumentationGenerator() }, parseOptions: options);
         driver.RunGeneratorsAndUpdateCompilation(compilation, out compilation, out var diagnostics);
-        if (diagnostics.Any(item => item.Severity == DiagnosticSeverity.Error)) throw new Exception("generator diagnostic");
+        if (diagnostics.Any(item => item.Severity == DiagnosticSeverity.Error))
+            throw new Exception("generator diagnostic");
     }
     using var stream = new MemoryStream();
     var result = compilation.Emit(stream);
-    if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error)));
+    if (!result.Success)
+        throw new Exception(string.Join("\n", result.Diagnostics.Where(item => item.Severity == DiagnosticSeverity.Error)));
     return stream.ToArray();
 }
 object? Run(byte[] assembly, string type, string method)
@@ -41,14 +44,22 @@ object? Run(byte[] assembly, string type, string method)
         using var stream = new MemoryStream(assembly);
         return context.LoadFromStream(stream).GetType(type)!.GetMethod(method)!.Invoke(null, null);
     }
-    finally { context.Unload(); }
+    finally
+    {
+        context.Unload();
+    }
 }
 object Counterexample(string before, string after, string type = "Fixture", bool generator = false)
 {
     var first = Emit(new[] { Parse(before) }, generator: generator);
     var second = Emit(new[] { Parse(after) }, generator: generator);
-    return new { tokensEqual = Tokens(before) == Tokens(after), beforeResult = Run(first, type, "Read"),
-        afterResult = Run(second, type, "Read"), peEqual = first.SequenceEqual(second) };
+    return new
+    {
+        tokensEqual = Tokens(before) == Tokens(after),
+        beforeResult = Run(first, type, "Read"),
+        afterResult = Run(second, type, "Read"),
+        peEqual = first.SequenceEqual(second)
+    };
 }
 
 const string positiveDocs = "public static class Fixture { public static int Read() => 7; }";
@@ -79,10 +90,17 @@ if (args.Length == 2)
         "Contracts/Schema/CurrentSchemaCanonicalAuthority.cs", "Contracts/Schema/CurrentSchemaModel.cs"];
     report["exact4698TokenProof"] = targets.Select(path =>
     {
-        string before = File.ReadAllText(Path.Combine(args[0], path)), after = File.ReadAllText(Path.Combine(args[1], path));
+        string before = File.ReadAllText(Path.Combine(args[0], path));
+        string after = File.ReadAllText(Path.Combine(args[1], path));
         string Strip(string text) => string.Concat(text.Split('\n').Where(line => !line.TrimStart().StartsWith("///", StringComparison.Ordinal)).Select(line => line + "\n"));
-        return new { path, beforeTokens = Parse(before).GetRoot().DescendantTokens().Count(), afterTokens = Parse(after).GetRoot().DescendantTokens().Count(),
-            tokensEqual = Tokens(before) == Tokens(after), allNonXmlBytesEqual = Strip(before) == Strip(after) };
+        return new
+        {
+            path,
+            beforeTokens = Parse(before).GetRoot().DescendantTokens().Count(),
+            afterTokens = Parse(after).GetRoot().DescendantTokens().Count(),
+            tokensEqual = Tokens(before) == Tokens(after),
+            allNonXmlBytesEqual = Strip(before) == Strip(after)
+        };
     }).ToArray();
     foreach (var directory in args)
     {
@@ -98,21 +116,38 @@ if (args.Length == 2)
             {
                 var method = reader.GetMethodDefinition(handle);
                 byte[]? il = method.RelativeVirtualAddress == 0 ? null : pe.GetMethodBody(method.RelativeVirtualAddress).GetILBytes();
-                return new { name = reader.GetString(method.Name), signature = Convert.ToHexString(reader.GetBlobBytes(method.Signature)),
-                    il = il is null ? null : Convert.ToHexString(il) };
+                return new
+                {
+                    name = reader.GetString(method.Name),
+                    signature = Convert.ToHexString(reader.GetBlobBytes(method.Signature)),
+                    il = il is null ? null : Convert.ToHexString(il)
+                };
             }).ToArray();
             var serialized = JsonSerializer.SerializeToUtf8Bytes(methods);
-            report["sharedManualCompilation:" + Path.GetFileName(directory)] = new { sourceCount = trees.Count, methodCount = methods.Length,
-                methodProjectionSha256 = Convert.ToHexString(SHA256.HashData(serialized)), peSha256 = Convert.ToHexString(SHA256.HashData(assembly)) };
+            report["sharedManualCompilation:" + Path.GetFileName(directory)] = new
+            {
+                sourceCount = trees.Count,
+                methodCount = methods.Length,
+                methodProjectionSha256 = Convert.ToHexString(SHA256.HashData(serialized)),
+                peSha256 = Convert.ToHexString(SHA256.HashData(assembly))
+            };
         }
-        catch (Exception error) { report["sharedManualCompilation:" + Path.GetFileName(directory)] = new { failure = error.Message }; }
+        catch (Exception error)
+        {
+            report["sharedManualCompilation:" + Path.GetFileName(directory)] = new
+            {
+                failure = error.Message
+            };
+        }
     }
 }
 Console.WriteLine(JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
 
 sealed class DocumentationGenerator : ISourceGenerator
 {
-    public void Initialize(GeneratorInitializationContext context) { }
+    public void Initialize(GeneratorInitializationContext context)
+    {
+    }
     public void Execute(GeneratorExecutionContext context)
     {
         bool before = context.Compilation.SyntaxTrees.Any(tree => tree.GetText().ToString().Contains("Before.", StringComparison.Ordinal));
