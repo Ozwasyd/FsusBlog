@@ -7,6 +7,13 @@
                 "tools/governance/change-contract.mjs"
             ],
             "reason": "The historical-receipt correction preserves the existing GIT_NO_REPLACE_OBJECTS environment-variable spelling and its value while applying the same trusted Git options to related history and diff reads. This exact registered checker-path declaration preserves external tool identities; it neither exempts policy replacement nor promotes this candidate or any downstream application evidence."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "Preserve the existing Format-only classification and formatter evidence field spellings while documenting the distinct historical mechanical-revision and current aggregate validation boundaries. No external contract name or policy promotion authority is renamed."
         }
     ]
 }
