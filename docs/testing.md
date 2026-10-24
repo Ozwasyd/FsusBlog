@@ -1722,7 +1722,6 @@ Source integration and WIP handoff do not grant product acceptance. Applicable s
 
 The same source stage inspects exactly `Directory.Packages.props` and `src/migration/FsusBlog.Migration.csproj` through the bounded readonly [MSBuild declaration inspector](../tools/test-matrix/msbuild-source-inspector.mjs). It compares the finite original package/project declarations and approved dependency edits as literal data. The held regular inputs and referenced witnesses bind actual Git HEAD, index and physical bytes; the caller independently reopens and reparses the complete receipt before counting either path as checked. Only XML 1.0 boundary whitespace is stripped. DTD/entities, unknown structures or paths, arbitrary properties, SDK/import/task evaluation, changed witnesses and forged or stale receipts fail closed. This port executes no restore, compiler, native provider or runtime qualification. The [original refusal controls](../tests/tools/msbuild-source.test.mjs) retain those boundaries, including non-XML Unicode whitespace.
 
-
 ### Python AST checks in SOURCE integration
 
 The existing isolated source checker accepts explicit committed `.py` inputs with
