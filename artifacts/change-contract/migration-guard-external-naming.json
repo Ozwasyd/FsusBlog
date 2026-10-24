@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationArtifactPublisher.cs",
+                "src/migration/OfflineMigrationShellBackupDrillOwnedInputs.cs",
+                "src/migration/OfflineMigrationShellBackupDrillProducer.cs"
+            ],
+            "reason": "The existing environment-variable registry governs these handwritten src/**/*.cs paths. Preserve original process environment spellings, migration tool bindings and refusal codes while exposing existing analyzer guards and formatting only; no external names are added or renamed, and this declaration grants no runtime or acceptance authority."
+        }
+    ]
+}
