@@ -24,7 +24,15 @@ const importCompatibilityOwners = [
     'tests/migration/PgLegacyNonArticlePreparationTests.cs',
     'tests/migration/PgLegacyNonArticleRecoveryTests.cs',
     'src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs',
-    'src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs'
+    'src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs',
+    'src/migration/ArticlePreservationStorageWriter.cs',
+    'src/migration/OfflineMigrationApplyNativeSession.cs',
+    'src/migration/OfflineMigrationExecutor.cs',
+    'tests/migration/PgCurrentSchemaCatalogNotNullTests.cs',
+    'src/migration/OfflineMigrationBackupAdmission.cs',
+    'src/migration/OfflineMigrationSourceObserver.cs',
+    'src/migration/OfflineMigrationSourceObserver.Providers.cs',
+    'src/migration/PgLegacyNonArticlePreparation.cs'
 ];
 
 const sharedThirdPartyGroupOwners = new Set([
@@ -734,7 +742,7 @@ function loadImportCompatibility()
             && typeof entry.reason === 'string' && entry.reason.trim().length >= 20)
         || new Set(document.entries.map((entry) => entry.path)).size !== importCompatibilityOwners.length)
     {
-        throw new Error('import compatibility requires the complete nine exact owners, supported order and a meaningful reason; unknown fields and widened declarations are forbidden');
+        throw new Error('import compatibility requires the complete seventeen exact owners, supported order and a meaningful reason; unknown fields and widened declarations are forbidden');
     }
     return new Set(document.entries.map((entry) => entry.path));
 }
