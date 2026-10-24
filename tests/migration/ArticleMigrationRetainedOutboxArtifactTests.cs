@@ -27,7 +27,7 @@ public sealed class ArticleMigrationRetainedOutboxArtifactTests
     [InlineData(126)]
     [InlineData(127)]
     [InlineData(300)]
-    public void Exact_retained_data_preserves_all_issued_fields_including_empty_and_large_batches(int count)
+    public void Exact_Retained_Data_Preserves_All_Issued_Fields_Including_Empty_And_Large_Batches(int count)
     {
         var data = Data(count);
         var actual = Parse(data);
@@ -49,7 +49,7 @@ public sealed class ArticleMigrationRetainedOutboxArtifactTests
     [InlineData("invocation")]
     [InlineData("database")]
     [InlineData("issuer")]
-    public void Exact_original_binding_rejects_foreign_plan_source_tool_invocation_and_issuer(string changed)
+    public void Exact_Original_Binding_Rejects_Foreign_Plan_Source_Tool_Invocation_And_Issuer(string changed)
     {
         var data = Data(1);
         var binding = data.Binding;
@@ -82,7 +82,7 @@ public sealed class ArticleMigrationRetainedOutboxArtifactTests
     [InlineData("article-roster")]
     [InlineData("payload-budget")]
     [InlineData("byte-budget")]
-    public void Malformed_noncanonical_or_unbounded_retained_data_fails_closed(string changed)
+    public void Malformed_Noncanonical_Or_Unbounded_Retained_Data_Fails_Closed(string changed)
     {
         var original = Data(1);
         var data = original;
@@ -160,7 +160,7 @@ public sealed class ArticleMigrationRetainedOutboxArtifactTests
     }
 
     [Fact]
-    public async Task Original_regular_file_reader_rejects_wrong_digest_symlink_and_size_before_candidate_binding()
+    public async Task Original_Regular_File_Reader_Rejects_Wrong_Digest_Symlink_And_Size_Before_Candidate_Binding()
     {
         using var directory = new ArtifactDirectory();
         var data = Data(1);
@@ -179,7 +179,7 @@ public sealed class ArticleMigrationRetainedOutboxArtifactTests
     }
 
     [Fact]
-    public void Original_256_fact_and_126_inline_event_limits_are_preserved()
+    public void Original_256_Fact_And_126_Inline_Event_Limits_Are_Preserved()
     {
         var inline = Stage(Data(126));
         Assert.Equal(252, ArticlePreservationStorageWriter.OutboxJournalFacts(inline).Length);
@@ -192,7 +192,7 @@ public sealed class ArticleMigrationRetainedOutboxArtifactTests
     }
 
     [Fact]
-    public async Task Large_receipt_is_immutable_bounded_exact_and_never_a_commit_acknowledgement()
+    public async Task Large_Receipt_Is_Immutable_Bounded_Exact_And_Never_A_Commit_Acknowledgement()
     {
         using var directory = new ArtifactDirectory();
         var data = Data(127);
@@ -232,7 +232,7 @@ public sealed class ArticleMigrationRetainedOutboxArtifactTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Real_PG_large_receipt_uses_actual_native_IDs_and_original_journal_atomicity(bool commit)
+    public async Task Real_PG_Large_Receipt_Uses_Actual_Native_IDs_And_Original_Journal_Atomicity(bool commit)
     {
         await using var fixture = await NativeFixture.CreateAsync();
         using var directory = new ArtifactDirectory();
@@ -266,7 +266,7 @@ public sealed class ArticleMigrationRetainedOutboxArtifactTests
     [InlineData("physical-parent")]
     [InlineData("oversized")]
     [InlineData("budget")]
-    public async Task Real_PG_recovery_follows_exact_original_verified_parent_chain_through_resume(string control)
+    public async Task Real_PG_Recovery_Follows_Exact_Original_Verified_Parent_Chain_Through_Resume(string control)
     {
         await using var fixture = await NativeFixture.CreateAsync();
         await using var connection = new NpgsqlConnection(fixture.ConnectionString);
