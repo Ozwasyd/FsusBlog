@@ -232,14 +232,12 @@ function lockedDependencyLocation(lockfile, name)
     return location;
 }
 
-/** Verify the real public install and expose exact locked public dependencies to source aliases. */
-export function verifyLocalFsusUiInstall({ frontend, fsusui })
+/** Resolve the original finite public bindings using caller-bound input and installed manifests. */
+export function inspectLocalFsusUiPublicDependencyBindings({ manifest, lockfile, sourceManifest, readInstalledManifest, readWorkspaceManifest })
 {
-    const root = validateLocalSource(frontend, fsusui);
-    const original = originalInputs(frontend);
+    const original = { manifest, lockfile };
     projectLocalFsusUiInstall(original);
-    assert.equal(fs.existsSync(path.join(frontend, packageLocation, 'package.json')), false, 'FsusUI registry package must not be installed in local mode');
-    const sourceManifest = readJson(path.join(root, 'vue/packages/element-plus/package.json'));
+    assert.equal(sourceManifest.name, 'element-plus', 'named context must contain the real FsusUI source package');
     const lockedPackage = original.lockfile.packages[packageLocation];
     const bindings = sourceDependencyBindings(original);
     for (const [name, specifier] of Object.entries({ ...sourceManifest.dependencies, ...sourceManifest.peerDependencies }))
@@ -247,7 +245,7 @@ export function verifyLocalFsusUiInstall({ frontend, fsusui })
         if (specifier.startsWith('workspace:'))
         {
             assert.match(name, /^@element-plus\/[a-z0-9-]+$/u, 'source workspace dependency must belong to FsusUI');
-            assert.equal(readJson(path.join(root, 'vue/packages', name.split('/')[1], 'package.json')).name, name, `source workspace dependency is missing: ${name}`);
+            assert.equal(readWorkspaceManifest(name).name, name, `source workspace dependency is missing: ${name}`);
             continue;
         }
         const binding = bindings.find(candidate => candidate.name === name);
@@ -256,23 +254,42 @@ export function verifyLocalFsusUiInstall({ frontend, fsusui })
         assert.ok(specifier === lockedPackage.dependencies?.[name]
             || specifier === lockedPackage.peerDependencies?.[name]
             || specifier === locked.version, `source dependency differs from locked runtime input: ${name}`);
-        const manifestFile = path.join(frontend, location, 'package.json');
-        assert.ok(fs.existsSync(manifestFile), `installed locked dependency is missing: ${name}`);
-        const installed = readJson(manifestFile);
+        const installed = readInstalledManifest(location, name);
         assert.equal(installed.version, locked.version, `installed locked dependency version differs: ${name}`);
         assert.equal(installed.name, locked.name ?? name, `installed locked dependency identity differs: ${name}`);
     }
+    for (const binding of bindings)
+    {
+        const installed = readInstalledManifest(binding.location, binding.name);
+        assert.equal(installed.version, binding.locked.version, `installed locked dependency version differs: ${binding.name}`);
+        assert.equal(installed.name, binding.locked.name ?? binding.name, `installed locked dependency identity differs: ${binding.name}`);
+    }
+    return bindings;
+}
+
+/** Verify the real public install and expose exact locked public dependencies to source aliases. */
+export function verifyLocalFsusUiInstall({ frontend, fsusui })
+{
+    const root = validateLocalSource(frontend, fsusui);
+    const original = originalInputs(frontend);
+    assert.equal(fs.existsSync(path.join(frontend, packageLocation, 'package.json')), false, 'FsusUI registry package must not be installed in local mode');
+    const sourceManifest = readJson(path.join(root, 'vue/packages/element-plus/package.json'));
+    const bindings = inspectLocalFsusUiPublicDependencyBindings({ ...original, sourceManifest,
+        readInstalledManifest(location, name)
+        {
+            const manifestFile = path.join(frontend, location, 'package.json');
+            assert.ok(fs.existsSync(manifestFile), `installed locked dependency is missing: ${name}`);
+            return readJson(manifestFile);
+        },
+        readWorkspaceManifest(name)
+        {
+            return readJson(path.join(root, 'vue/packages', name.split('/')[1], 'package.json'));
+        }
+    });
     const destination = path.join(root, 'vue/packages/node_modules');
     assert.equal(fs.existsSync(destination), false, 'source package dependency directory already exists');
     // Link each original import name to the verified public install, including
     // version-conflicting dependencies installed under dedicated npm aliases.
-    for (const binding of bindings)
-    {
-        const target = path.join(frontend, binding.location);
-        const installed = readJson(path.join(target, 'package.json'));
-        assert.equal(installed.version, binding.locked.version, `installed locked dependency version differs: ${binding.name}`);
-        assert.equal(installed.name, binding.locked.name ?? binding.name, `installed locked dependency identity differs: ${binding.name}`);
-    }
     for (const binding of bindings)
     {
         const link = path.join(destination, binding.name);

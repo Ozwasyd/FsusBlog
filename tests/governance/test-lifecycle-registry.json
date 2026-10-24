@@ -7653,6 +7653,22 @@
                 "source-text",
                 "runtime"
             ]
+        },
+        {
+            "file": "tests/tools/canonical-declaration-source.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "canonical-declaration-source",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
         }
     ]
 }

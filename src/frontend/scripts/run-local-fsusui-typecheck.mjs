@@ -9,7 +9,7 @@ import { localFsusUiConsumptionDisabled, resolveLocalFsusUiRepositoryRoot } from
 const defaultRepositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 /** The local alias producer serves focused contracts and the original complete projects. */
-export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, fullApplication = false, fullTests = false })
+export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, fullApplication = false, fullTests = false, typescript, configurationWriter })
 {
     if (fullApplication && fullTests)
     {
@@ -20,8 +20,7 @@ export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, 
     const originalProject = fullTests ? 'tsconfig.playwright.json' : fullApplication
         ? 'tsconfig.app.json'
         : 'tsconfig.fsusui-published.json';
-    const require = createRequire(path.join(frontendRoot, 'package.json'));
-    const ts = require('typescript');
+    const ts = typescript ?? createRequire(path.join(frontendRoot, 'package.json'))('typescript');
     const original = ts.getParsedCommandLineOfConfigFile(path.join(frontendRoot, originalProject), {}, {
         ...ts.sys,
         onUnRecoverableConfigFileDiagnostic(diagnostic)
@@ -126,10 +125,17 @@ export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, 
         })
     };
     const content = `${JSON.stringify(configuration, null, 2)}\n`;
-    mkdirSync(tempRoot, { recursive: true });
-    if (!existsSync(configPath) || readFileSync(configPath, 'utf8') !== content)
+    if (configurationWriter)
     {
-        writeFileSync(configPath, content);
+        configurationWriter(configPath, content);
+    }
+    else
+    {
+        mkdirSync(tempRoot, { recursive: true });
+        if (!existsSync(configPath) || readFileSync(configPath, 'utf8') !== content)
+        {
+            writeFileSync(configPath, content);
+        }
     }
     return configPath;
 }

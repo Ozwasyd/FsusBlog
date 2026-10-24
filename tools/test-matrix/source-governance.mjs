@@ -5,10 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 import { inspectMsbuildSource, msbuildSourceFiles, validateMsbuildSourceReceipt } from './msbuild-source-inspector.mjs';
 import { parseMatrix } from './parse-matrix.mjs';
-import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding, prImpactCallerContext, sourceGovernanceChildEntries, effectivePrExecutionStage, sourceRegressionArguments, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, isScriptDeclarationSource, sourceStageInspectionFiles } from './pr-impact-plan.mjs';
+import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding, prImpactCallerContext, sourceGovernanceChildEntries, effectivePrExecutionStage, sourceRegressionArguments, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, isScriptDeclarationSource, isCanonicalTestDeclarationSource, sourceStageInspectionFiles } from './pr-impact-plan.mjs';
 import { inspectReleaseFinalCommandTarget, validateReleaseFinalStaticBoundary, validateSourceGovernanceChildExecution } from './release-final-static-boundary.mjs';
 import { snapshotGitWorktree } from './scheduler.mjs';
 const { parseWorkflowJobNeeds } = await import(new URL('../yaml/workflow-structure.mjs', import.meta.url));
+const { inspectCanonicalDeclarationSource, validateCanonicalDeclarationSourceReceipt } = await import(
+    new URL('../configuration/check-canonical-declaration-source.mjs', import.meta.url)
+);
 const { validateSolutionSourceReceipt, validatePythonSourceReceipt, validateBlameIgnoreSourceReceipt } = await import(new URL('../configuration/check-solution-source.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -243,6 +246,32 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration')
         {
             process.exitCode = 1;
         }
+    }
+}
+if (effectivePrExecutionStage(callerContext) === 'source-integration')
+{
+    const declarations = evidence.changedFiles.filter(isCanonicalTestDeclarationSource);
+    if (declarations.length)
+    {
+        let receipt = null;
+        let bindingError = null;
+        let accepted = false;
+        try
+        {
+            receipt = inspectCanonicalDeclarationSource({ repositoryRoot: root, files: declarations });
+            validateCanonicalDeclarationSourceReceipt({ repositoryRoot: root, files: declarations,
+                expectedHead: evidence.headCommit, receipt });
+            accepted = true;
+            checkedDeclarations.push(...declarations);
+        }
+        catch (error)
+        {
+            bindingError = error.message;
+            process.exitCode = 1;
+        }
+        results.push({ checker: 'tools/configuration/check-canonical-declaration-source.mjs',
+            mode: 'canonical-generated-declarations', files: declarations, status: accepted ? 'success' : 'failure',
+            qualificationEligible: false, receipt, bindingError });
     }
 }
 for (const [checker, options, applicable] of groups)

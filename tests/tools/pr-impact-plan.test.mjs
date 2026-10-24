@@ -375,7 +375,7 @@ test('only independently checked canonical blame metadata leaves unsupported sou
     assert.deepEqual(unsupportedSourceStageFiles([canonical, ...other]), [canonical, ...other]);
     assert.deepEqual(unsupportedSourceStageFiles([canonical], [], [], ['nested/' + canonical]), [canonical]);
     assert.deepEqual(unsupportedSourceStageFiles([canonical, ...other], [], [], [canonical, ...other]), other);
-    assert.equal(sourceGovernanceExecutableEntries().length, 10);
+    assert.equal(sourceGovernanceExecutableEntries().length, 11);
     assert.deepEqual(selectSourceRegressionTargets([canonical]), ['tools/configuration/solution-source.test.mjs']);
 });
 
@@ -384,7 +384,7 @@ test('flat solution checker and its refusal controls are explicit source executi
     const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
         await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
     assert.equal(sourceGovernanceChildEntries.solution, 'tools/configuration/check-solution-source.mjs');
-    assert.equal(sourceGovernanceExecutableEntries().length, 10);
+    assert.equal(sourceGovernanceExecutableEntries().length, 11);
     assert.ok(sourceGovernanceExecutableEntries().includes('tools/configuration/solution-source.test.mjs'));
     assert.deepEqual(selectSourceRegressionTargets(['tools/contracts/Example.slnx']), ['tools/configuration/solution-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.solution]).includes('tools/configuration/solution-source.test.mjs'));
@@ -658,4 +658,75 @@ test('Python SOURCE syntax uses the existing isolated checker and only verified 
     assert.deepEqual(unsupportedSourceStageFiles(['tests/helpers/Example.py'], [], ['tests/helpers/Foreign.py']), ['tests/helpers/Example.py']);
     assert.deepEqual(unsupportedSourceStageFiles(['tests/helpers/Example.py'], [], ['tests/helpers/Example.py']), []);
     assert.ok(selectSourceRegressionTargets(['tests/helpers/Example.py']).includes('tools/configuration/solution-source.test.mjs'));
+});
+
+test('canonical generated declaration owner requires a complete actual checked-output roster', async () =>
+{
+    const { canonicalTestDeclarationModules, canonicalTestDeclarationOutputs } = await import(
+        new URL('../../tools/frontend/canonical-test-declaration-inputs.mjs', import.meta.url)
+    );
+    assert.equal(canonicalTestDeclarationOutputs.length, 16);
+    assert.equal(Object.isFrozen(canonicalTestDeclarationModules), true);
+    assert.equal(Object.isFrozen(canonicalTestDeclarationOutputs), true);
+    assert.deepEqual(canonicalTestDeclarationOutputs,
+        canonicalTestDeclarationModules.map(file => file.replace(/\.mjs$/u, '.d.mts')));
+    assert.deepEqual(unsupportedSourceStageFiles(canonicalTestDeclarationOutputs), canonicalTestDeclarationOutputs);
+    assert.deepEqual(unsupportedSourceStageFiles(canonicalTestDeclarationOutputs, [], [], [],
+        canonicalTestDeclarationOutputs.slice(0, 15)), canonicalTestDeclarationOutputs.slice(15));
+    const unknown = ['tests/frontend/support/unregistered.d.mts', 'tools/test/random-streams.d.cts'];
+    assert.deepEqual(unsupportedSourceStageFiles([...canonicalTestDeclarationOutputs, ...unknown], [], [], [],
+        [...canonicalTestDeclarationOutputs, ...unknown]), unknown);
+});
+
+test('canonical generated declarations remain separate from the handwritten script declaration owner', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    const file = 'tools/test/random-streams.d.mts';
+    fixture.write(file, 'export declare const fixture: number;\n');
+    fixture.commit();
+    const changed = fixture.actual();
+    const groups = sourceFrontendCheckGroups(changed, 'source-integration', fixture.base, fixture.root);
+    assert.equal(groups.some(group => group.files.includes(file)), false);
+    assert.deepEqual(unsupportedSourceStageFiles(changed), [file]);
+    assert.deepEqual(unsupportedSourceStageFiles(changed, [], [], [], [file]), []);
+});
+
+test('a deleted canonical generated declaration remains an unchecked changed input', t =>
+{
+    const fixture = frontendRoutingFixture(t);
+    const file = 'tools/test/random-streams.d.mts';
+    fixture.write(file, 'export declare const fixture: number;\n');
+    fixture.commit();
+    const before = execFileSync('git', ['-C', fixture.root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    rmSync(path.join(fixture.root, file));
+    fixture.commit();
+    const evidence = readGitChangedPaths(fixture.root, before);
+    const present = evidence.changedFiles.filter(input => existsSync(path.join(fixture.root, input)));
+    assert.deepEqual(sourceStageInspectionFiles(present, evidence.changedFiles), [file]);
+    assert.deepEqual(unsupportedSourceStageFiles(sourceStageInspectionFiles(present, evidence.changedFiles)), [file]);
+});
+
+
+test('canonical declaration changes retain the complete original source regression roster and the new refusal owner', async () =>
+{
+    const { selectSourceRegressionTargets } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+    assert.deepEqual(sourceRegressionEntries, [
+        'tests/tools/pr-impact-plan.test.mjs',
+        'tests/tools/pr-applicable-execution-authority.test.mjs',
+        'tools/frontend/source-unit-style-diff.test.mjs',
+        'tests/tools/native-tooling-style.test.mjs',
+        'tools/configuration/solution-source.test.mjs',
+        'tests/tools/canonical-declaration-source.test.mjs'
+    ]);
+    for (const input of [
+        'tools/configuration/check-canonical-declaration-source.mjs',
+        'tools/frontend/generate-canonical-test-declarations.mjs',
+        'tools/frontend/canonical-test-declaration-inputs.mjs',
+        'src/frontend/scripts/prepare-local-fsusui-install.mjs',
+        'src/frontend/scripts/run-local-fsusui-typecheck.mjs',
+        'tests/frontend/support/aeds-envelope.d.mts'
+    ])
+    {
+        assert.deepEqual(selectSourceRegressionTargets([input]), [...sourceRegressionEntries], input);
+    }
 });

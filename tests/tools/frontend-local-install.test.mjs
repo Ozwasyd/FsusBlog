@@ -358,3 +358,32 @@ test('Docker local mode validates alias before npm and published mode retains to
     assert.match(stage, /unsupported FSUSBLOG_USE_LOCAL_FSUSUI/u);
     assert.match(stage, /ln -s \/app\/node_modules \/opt\/fsusui\/node_modules/u);
 });
+
+test('the original install verifies real workspace identities before exposing public dependency aliases', t =>
+{
+    const f = fixture(t);
+    const sourceFile = path.join(f.fsusui, 'vue/packages/element-plus/package.json');
+    const source = JSON.parse(fs.readFileSync(sourceFile));
+    source.dependencies['@element-plus/icons-vue'] = 'workspace:*';
+    source.dependencies['@element-plus/motion'] = 'workspace:*';
+    f.write(sourceFile, JSON.stringify(source));
+    for (const name of ['icons-vue', 'motion'])
+    {
+        f.write(path.join(f.fsusui, 'vue/packages', name, 'package.json'), JSON.stringify({ name: '@element-plus/' + name }));
+    }
+    verifyLocalFsusUiInstall(f);
+    assert.equal(fs.readlinkSync(path.join(f.fsusui, 'vue/packages/node_modules/katex')),
+        path.join(f.frontend, 'node_modules/fsusui-local-katex'));
+    for (const name of [null, '@element-plus/other'])
+    {
+        const invalid = fixture(t);
+        invalid.write(path.join(invalid.fsusui, 'vue/packages/element-plus/package.json'), JSON.stringify(source));
+        invalid.write(path.join(invalid.fsusui, 'vue/packages/icons-vue/package.json'), JSON.stringify({ name: '@element-plus/icons-vue' }));
+        if (name)
+        {
+            invalid.write(path.join(invalid.fsusui, 'vue/packages/motion/package.json'), JSON.stringify({ name }));
+        }
+        assert.throws(() => verifyLocalFsusUiInstall(invalid), /ENOENT|source workspace dependency is missing/u);
+        assert.equal(fs.existsSync(path.join(invalid.fsusui, 'vue/packages/node_modules')), false);
+    }
+});

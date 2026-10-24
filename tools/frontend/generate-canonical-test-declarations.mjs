@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { canonicalTestDeclarationProducer, canonicalTestDeclarationBindingFile, canonicalTestDeclarationModules, canonicalTestDeclarationReadOnlyInputs } from './canonical-test-declaration-inputs.mjs';
 
 
 const { prepareLocalFsusUiTypecheckProject } = await import(
@@ -12,64 +14,57 @@ const { resolveLocalFsusUiRepositoryRoot } = await import(
     new URL('../../src/frontend/scripts/fsusui-root.mjs', import.meta.url)
 );
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const producer = 'tools/frontend/generate-canonical-test-declarations.mjs';
-const bindingFile = 'artifacts/change-contract/canonical-test-declarations.json';
-const modules = [
-    'tests/frontend/checks/static/check-canonical-viewport-safe-area.mjs',
-    'tests/frontend/checks/static/check-document-viewport-source.mjs',
-    'tests/frontend/support/aeds-envelope.mjs',
-    'tests/frontend/support/playwright/browser-capability-contract.mjs',
-    'tests/frontend/support/playwright/readiness.mjs',
-    'tests/frontend/support/playwright/screenshotPathTemplate.mjs',
-    'tests/frontend/support/playwright/uxViewportPlan.mjs',
-    'tests/frontend/support/public-fixtures.mjs',
-    'tests/frontend/support/publicBootstrapCausalEvidence.mjs',
-    'tests/frontend/support/runtime-browser-timeout.mjs',
-    'tests/frontend/support/system-chromium.mjs',
-    'tools/docs/public-preview-quality.mjs',
-    'tools/docs/public-preview-registry.mjs',
-    'tools/test-fixtures/receipt/canonical.mjs',
-    'tools/test/playwright-browser-identity.mjs',
-    'tools/test/random-streams.mjs'
-];
-const readOnlyInputs = [
-    'src/frontend/package-lock.json',
-    'src/frontend/scripts/fsusui-root.mjs',
-    'src/frontend/scripts/run-local-fsusui-typecheck.mjs',
-    'src/frontend/tsconfig.playwright.json',
-    'tests/frontend/support/playwright/acceptance-shared.ts',
-    'tools/docs/public-preview-quality-contract.mjs',
-    'tools/docs/public-preview-quality-dom.mjs',
-    'tools/docs/public-preview-quality-runtime.mjs',
-    'tools/release/public-preview-quality-receipt-contract.mjs'
-];
+const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+
+const producer = canonicalTestDeclarationProducer;
+const bindingFile = canonicalTestDeclarationBindingFile;
+const modules = canonicalTestDeclarationModules;
+const readOnlyInputs = canonicalTestDeclarationReadOnlyInputs;
+const inputOwner = 'tools/frontend/canonical-test-declaration-inputs.mjs';
 
 function digest(bytes)
 {
     return createHash('sha256').update(bytes).digest('hex');
 }
 
-function generate()
+export function generateCanonicalTestDeclarations({ repositoryRoot = defaultRoot, typescript, localRoot, inMemoryConfiguration = false, onConfiguration, readProvenanceInput } = {})
 {
+    const root = path.resolve(repositoryRoot);
     const frontendRoot = path.join(root, 'src/frontend');
     const require = createRequire(path.join(frontendRoot, 'package.json'));
-    const ts = require('typescript');
-    const localRoot = resolveLocalFsusUiRepositoryRoot({
+    const ts = typescript ?? require('typescript');
+    const resolvedLocalRoot = localRoot ?? resolveLocalFsusUiRepositoryRoot({
         repositoryRoot: root,
         override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT
     });
-    if (!localRoot)
+    if (!resolvedLocalRoot)
     {
         throw new Error('canonical declarations require the real local FsusUI source');
     }
+    let virtualConfiguration = null;
     const configuration = prepareLocalFsusUiTypecheckProject({
         repositoryRoot: root,
-        localRoot,
-        fullTests: true
+        localRoot: resolvedLocalRoot,
+        fullTests: true,
+        typescript: ts,
+        ...(inMemoryConfiguration ? {
+            configurationWriter: (file, content) =>
+            {
+                virtualConfiguration = { file, content };
+                onConfiguration?.(file, content);
+            }
+        } : {})
     });
+    if (inMemoryConfiguration && (virtualConfiguration?.file !== configuration
+        || typeof virtualConfiguration.content !== 'string'))
+    {
+        throw new Error('original test-project configuration was not supplied by its source owner');
+    }
     const original = ts.getParsedCommandLineOfConfigFile(configuration, {}, {
         ...ts.sys,
+        ...(inMemoryConfiguration ? {
+            readFile: file => file === configuration ? virtualConfiguration.content : ts.sys.readFile(file)
+        } : {}),
         onUnRecoverableConfigFileDiagnostic(diagnostic)
         {
             throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'));
@@ -185,10 +180,10 @@ function generate()
         schema: 'fsusblog.generated-output-binding.v1',
         command: `node ${producer} --write`,
         compilerVersion: ts.version,
-        sources: [producer, ...modules],
-        sourceProvenance: [producer, ...modules, ...readOnlyInputs].map((file) => ({
+        sources: [producer, inputOwner, ...modules],
+        sourceProvenance: [producer, inputOwner, ...modules, ...readOnlyInputs].map((file) => ({
             path: file,
-            sha256: digest(readFileSync(path.join(root, file)))
+            sha256: digest(readProvenanceInput ? readProvenanceInput(file) : readFileSync(path.join(root, file)))
         })),
         outputs: [...outputs].map(([file, text]) => ({ path: file, sha256: digest(text) }))
     };
@@ -196,27 +191,31 @@ function generate()
     return outputs;
 }
 
-const args = process.argv.slice(2);
-if (args.length !== 1 || !['--write', '--check'].includes(args[0]))
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href)
 {
-    throw new Error(`usage: node ${producer} --write | --check`);
-}
-const outputs = generate();
-const drift = [];
-for (const [file, text] of outputs)
-{
-    const absolute = path.join(root, file);
-    if (args[0] === '--write')
+    const root = defaultRoot;
+    const args = process.argv.slice(2);
+    if (args.length !== 1 || !['--write', '--check'].includes(args[0]))
     {
-        writeFileSync(absolute, text);
+        throw new Error(`usage: node ${producer} --write | --check`);
     }
-    else if (!existsSync(absolute) || readFileSync(absolute, 'utf8') !== text)
+    const outputs = generateCanonicalTestDeclarations();
+    const drift = [];
+    for (const [file, text] of outputs)
     {
-        drift.push(file);
+        const absolute = path.join(root, file);
+        if (args[0] === '--write')
+        {
+            writeFileSync(absolute, text);
+        }
+        else if (!existsSync(absolute) || readFileSync(absolute, 'utf8') !== text)
+        {
+            drift.push(file);
+        }
     }
+    if (drift.length > 0)
+    {
+        throw new Error(`canonical declaration drift:\n${drift.join('\n')}`);
+    }
+    console.log(`[canonical-test-declarations] ok mode=${args[0]} modules=${modules.length} outputs=${outputs.size - 1}`);
 }
-if (drift.length > 0)
-{
-    throw new Error(`canonical declaration drift:\n${drift.join('\n')}`);
-}
-console.log(`[canonical-test-declarations] ok mode=${args[0]} modules=${modules.length} outputs=${outputs.size - 1}`);

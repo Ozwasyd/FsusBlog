@@ -5,6 +5,10 @@ import path from 'node:path';
 
 import { msbuildSourceFiles } from './msbuild-source-inspector.mjs';
 
+const { canonicalTestDeclarationOutputs } = await import(
+    new URL('../frontend/canonical-test-declaration-inputs.mjs', import.meta.url)
+);
+
 const eligiblePrTier = tier => tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
     && !['nightly', 'release-manual'].includes(tier.cadence);
 
@@ -382,7 +386,8 @@ export const sourceRegressionEntries = Object.freeze([
     'tests/tools/pr-applicable-execution-authority.test.mjs',
     'tools/frontend/source-unit-style-diff.test.mjs',
     'tests/tools/native-tooling-style.test.mjs',
-    'tools/configuration/solution-source.test.mjs'
+    'tools/configuration/solution-source.test.mjs',
+    'tests/tools/canonical-declaration-source.test.mjs'
 ]);
 
 export function selectSourceRegressionTargets(changedFiles)
@@ -392,6 +397,12 @@ export function selectSourceRegressionTargets(changedFiles)
         || matchesImpactPath(file, 'tools/frontend/check-frontend-style.mjs')
         || matchesImpactPath(file, 'tools/frontend/source-unit-style-diff.mjs')
         || matchesImpactPath(file, 'tools/style/check-native-tooling-style.mjs')
+        || matchesImpactPath(file, 'tools/configuration/check-canonical-declaration-source.mjs')
+        || matchesImpactPath(file, 'tools/frontend/generate-canonical-test-declarations.mjs')
+        || matchesImpactPath(file, 'tools/frontend/canonical-test-declaration-inputs.mjs')
+        || matchesImpactPath(file, 'src/frontend/scripts/prepare-local-fsusui-install.mjs')
+        || matchesImpactPath(file, 'src/frontend/scripts/run-local-fsusui-typecheck.mjs')
+        || isCanonicalTestDeclarationSource(file)
         || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')) ? [...sourceRegressionEntries]
         : changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')
             || file === '.git-blame-ignore-revs') ? ['tools/configuration/solution-source.test.mjs'] : [];
@@ -424,9 +435,15 @@ export function isScriptDeclarationSource(file)
         && file.split('/').every(part => part && part !== '.' && part !== '..');
 }
 
+export function isCanonicalTestDeclarationSource(file)
+{
+    return typeof file === 'string' && canonicalTestDeclarationOutputs.includes(file);
+}
+
 export function sourceStageInspectionFiles(presentFiles, changedFiles)
 {
-    return [...new Set([...presentFiles, ...changedFiles.filter(file => isScriptDeclarationSource(file) || msbuildSourceFiles.includes(file))])];
+    return [...new Set([...presentFiles, ...changedFiles.filter(file => isScriptDeclarationSource(file)
+        || isCanonicalTestDeclarationSource(file) || msbuildSourceFiles.includes(file))])];
 }
 
 export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], checkedBlame = [], checkedDeclarations = [], checkedMsbuild = [])
@@ -435,7 +452,7 @@ export function unsupportedSourceStageFiles(files, checkedSolutions = [], checke
         && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !(file.endsWith('.py') && checkedPython.includes(file))
         && !(file === '.git-blame-ignore-revs' && checkedBlame.includes(file))
-        && !(isScriptDeclarationSource(file) && checkedDeclarations.includes(file))
+        && !((isScriptDeclarationSource(file) || isCanonicalTestDeclarationSource(file)) && checkedDeclarations.includes(file))
         && !(msbuildSourceFiles.includes(file) && checkedMsbuild.includes(file))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
