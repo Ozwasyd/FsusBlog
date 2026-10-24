@@ -1,0 +1,54 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractValidator.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringRefreshPolicy.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringPipeline.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs",
+                "tools/governance/check-article-embed-authoring.mjs",
+                "tools/governance/check-article-embed-relations.mjs",
+                "tools/governance/check-article-embed-legacy.mjs",
+                "src/backend/Services/Authoring/ArticleBlockRelationIndexSource.cs",
+                "src/backend/Services/Authoring/ArticleBlockRelationProducer.cs",
+                "src/backend/Services/Authoring/ArticleBlockRelationProducerContracts.cs",
+                "src/backend/Services/Authoring/ArticleRelationIndex.cs",
+                "src/backend/Services/Authoring/ArticleRelationIndexContracts.cs",
+                "src/backend/Services/Authoring/ArticleRelationIndexEmbedAdmission.cs",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "src/shared/Contracts/BlockLinks/BlockTargetQueryContracts.cs",
+                "src/shared/Contracts/BlockLinks/BlockTargetQueryDigest.cs",
+                "src/shared/Contracts/BlockLinks/BlockTargetQueryValidator.cs",
+                "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
+                "src/backend/Services/Articles/ArticleMarkdownSourceAdmission.cs",
+                "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs"
+            ],
+            "reason": "Preserve the existing serialized embed contract identifiers and dependency receipt names while rejecting unmapped payloads, verifying attribution and projecting frozen facts; legacy inventory reads the existing FSUSBLOG_LOCAL_FSUSUI_ROOT source alias without adding or renaming environment variables."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "config/schemas/article-relation-contract.schema.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the canonical3654 NuGet lock wire fields, canonical2442 relation schema anchor grammar, and canonical producer execution-closure wire fields; no independent dependency selection, second schema or wire-key renaming is introduced."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/article-publication-revisions.md"
+            ],
+            "reason": "Consume only the canonical3654 exact-source admission documentation hunks while preserving existing public article lifecycle identifiers and the document authority."
+        }
+    ]
+}

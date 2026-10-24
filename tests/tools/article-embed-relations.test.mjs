@@ -1,18 +1,11 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import test from "node:test";
-import { pathToFileURL } from "node:url";
 
-const root = path.resolve(import.meta.dirname, "../..");
 const {
     checkArticleEmbedRelations,
     checkArticleEmbedRelationSources,
     readArticleEmbedRelationSources
-} = await import(
-    pathToFileURL(
-        path.join(root, "tools/governance/check-article-embed-relations.mjs")
-    ).href
-);
+} = await import(new URL("../../tools/governance/check-article-embed-relations.mjs", import.meta.url));
 
 const contractsPath =
     "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs";
@@ -122,7 +115,7 @@ test("regex, rendered payloads, pipeline reuse, title resolution and second stor
 test("missing source verification, scope or transition guards fail closed", () =>
 {
     const guards = [
-        ["ArticleEmbedAuthoringVerifier.Verify", /authoring source re-verification/u],
+        ["ArticleEmbedDependencyGraphVerifier.Verify", /authoring source re-verification/u],
         ["ArticleEmbedPublicationVerifier.Verify", /publication source re-verification/u],
         ["ArticleEmbedPublicationPlanStatus.Sealed", /sealed-plan requirement/u],
         ["article_embed_relation_plan_blocked", /blocked-plan rejection/u],
@@ -265,7 +258,7 @@ test("verifier must not call the deriver entry points and must recompute digests
                 verifierPath,
                 fixture
                     .get(verifierPath)
-                    .replaceAll("ArticleEmbedAuthoringVerifier.Verify", "TrueMethod")
+                    .replaceAll("ArticleEmbedDependencyGraphVerifier.Verify", "TrueMethod")
             )
         ),
         /re-verify sources, re-derive edges and recompute digests/u

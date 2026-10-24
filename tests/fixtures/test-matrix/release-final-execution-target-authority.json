@@ -1930,8 +1930,8 @@
         },
         {
             "path": "tests/tools/article-embed-authoring.test.mjs",
-            "contentDigest": "sha256:7e7d704a1afe397d3129e6564c86ef318add56b81bec4d90538888c933b185f2",
-            "indexDigest": "sha256:7e7d704a1afe397d3129e6564c86ef318add56b81bec4d90538888c933b185f2"
+            "contentDigest": "sha256:b87e7584a21dd55abd0349ebd10196d6ef91a4aeb6d2384cc36cfc7ff018d862",
+            "indexDigest": "sha256:b87e7584a21dd55abd0349ebd10196d6ef91a4aeb6d2384cc36cfc7ff018d862"
         },
         {
             "path": "tests/tools/article-embed-contract.test.mjs",
@@ -1945,8 +1945,8 @@
         },
         {
             "path": "tests/tools/article-embed-relations.test.mjs",
-            "contentDigest": "sha256:e5d8f2551ab38e2ffc0af8956a4e179f0c684198c7b2134ead1d5f6da3910a48",
-            "indexDigest": "sha256:e5d8f2551ab38e2ffc0af8956a4e179f0c684198c7b2134ead1d5f6da3910a48"
+            "contentDigest": "sha256:0ac42c8b1734abbc33e046e2b1efd3a993a43cba8990173aab55e49af1ccc4ea",
+            "indexDigest": "sha256:0ac42c8b1734abbc33e046e2b1efd3a993a43cba8990173aab55e49af1ccc4ea"
         },
         {
             "path": "tests/tools/article-property-definition-authority.test.mjs",
@@ -3385,8 +3385,8 @@
         },
         {
             "path": "tools/governance/check-article-embed-authoring.mjs",
-            "contentDigest": "sha256:268ea93a9ba926f0a9b0d07d1c23592fbb8bb7d83e129d4496d7cfec3947a207",
-            "indexDigest": "sha256:268ea93a9ba926f0a9b0d07d1c23592fbb8bb7d83e129d4496d7cfec3947a207"
+            "contentDigest": "sha256:4838894583d610d219e8fbebc58605b619191616fbed863e07d9af4e478eea3c",
+            "indexDigest": "sha256:4838894583d610d219e8fbebc58605b619191616fbed863e07d9af4e478eea3c"
         },
         {
             "path": "tools/governance/check-article-embed-contract.mjs",
@@ -3400,8 +3400,8 @@
         },
         {
             "path": "tools/governance/check-article-embed-relations.mjs",
-            "contentDigest": "sha256:e70486b41566817d47e10abf0d247897a8d49adbcc300bfb9bf7b8ffcb6d2b9a",
-            "indexDigest": "sha256:e70486b41566817d47e10abf0d247897a8d49adbcc300bfb9bf7b8ffcb6d2b9a"
+            "contentDigest": "sha256:6a7ae7cba369e133deeb6d9efba3e64f201c60ee342c15d68ec3ceefdbff6dac",
+            "indexDigest": "sha256:6a7ae7cba369e133deeb6d9efba3e64f201c60ee342c15d68ec3ceefdbff6dac"
         },
         {
             "path": "tools/governance/check-article-property-definition-authority.mjs",

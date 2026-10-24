@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/article-embed-authoring.test.mjs",
+        "tests/tools/article-embed-relations.test.mjs",
+        "tools/governance/check-article-embed-authoring.mjs",
+        "tools/governance/check-article-embed-relations.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "b3cd43b80728683e52d4384b4d67782c4624b2d92991a7f08e9192387fcc4482"
+        }
+    ]
+}
