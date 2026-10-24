@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dotnet/check-csharp-style.mjs"
+            ],
+            "reason": "Preserve existing external CLI and environment spellings while registering four exact current native migration import owners through the original validator."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/csharp-import-compatibility.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the original closed compatibility and canonical execution-authority JSON field names while adding four finite owner declarations and regenerating actual source bindings."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/csharp-style-enforcement.md"
+            ],
+            "reason": "Preserve documented command and repository path spellings in the maintained enforcement contract for the expanded finite migration owner roster."
+        }
+    ]
+}
