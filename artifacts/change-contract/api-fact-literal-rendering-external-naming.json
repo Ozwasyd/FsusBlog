@@ -1,0 +1,47 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "tools/docs/generated-fact-sections/renderers.mjs",
+                "docs/api/schemas-and-errors.md",
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve the existing renderer, typed API/schema claims and documentation fact identifiers while the original writer serializes current observations, including exact overview dependency-edge names."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/aeds-only-policy.md",
+                "docs/api/quick-reference.md",
+                "docs/api/stability.md",
+                "docs/architecture/comment-query-boundary.md",
+                "docs/releases/release-identity.md"
+            ],
+            "reason": "Preserve existing external Markdown markers, fragment targets and protocol/release-contract spellings while the original producer refreshes its current canonical sections."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the canonical execution-target schema and exact current declaration/index fields while its unchanged original producer refreshes the real changed source closure hashes."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/comment-command-boundary.md"
+            ],
+            "reason": "Preserve existing content command identifiers and generated markers while the canonical writer serializes the unchanged observed child-limit comparison as literal Markdown text."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/releases/blue-green-deployment-runbook.md"
+            ],
+            "reason": "Preserve current runtime-role, schema-overlap and deployment identifiers while the original writer projects current compiled observation digests and existing matrix facts; no release or execution authority is granted."
+        }
+    ]
+}
