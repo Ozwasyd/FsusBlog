@@ -15,7 +15,7 @@
         "config/development/frontend-style-policy.json": "f53d513697f3538c6c83ed6c590aeabe26abb39c1203b1cf9fa21eb0d5b42aa8",
         "eslint.config.mjs": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
         "stylelint.config.mjs": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925",
-        "tools/frontend/style-toolchain/eslint.config.mjs": "bc28356260ae1ce75545acd95955369ad9c4a6324746cecc5bea124e5de8a0c0",
+        "tools/frontend/style-toolchain/eslint.config.mjs": "17bed88b051b2090a4d67226a5c52e78ce4c9a32987b9fc44bb1ad42ef6d1a94",
         ".editorconfig": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26",
         "src/frontend/eslint.config.mjs": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41",
         "src/frontend/stylelint.config.mjs": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf",

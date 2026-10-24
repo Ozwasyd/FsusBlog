@@ -40,8 +40,8 @@
         },
         {
             "path": "config/development/canonical-digest-edge.json",
-            "contentDigest": "sha256:11dc9ec05a217b97cb16147ae1bf68cd06096fbf7e808d66165c02d3ee3a2b0b",
-            "indexDigest": "sha256:11dc9ec05a217b97cb16147ae1bf68cd06096fbf7e808d66165c02d3ee3a2b0b"
+            "contentDigest": "sha256:51d569ac02210e116a702c6e72c90d5db3c8f7519f928696528ba49095ecab9f",
+            "indexDigest": "sha256:51d569ac02210e116a702c6e72c90d5db3c8f7519f928696528ba49095ecab9f"
         },
         {
             "path": "config/development/frontend-style-policy.json",
@@ -67,6 +67,11 @@
             "path": "config/development/native-tooling-style-policy.json",
             "contentDigest": "sha256:17ef12cad465acc82cbd1e07f0204d34a1dbdc913bfd53df7bce906a52237822",
             "indexDigest": "sha256:17ef12cad465acc82cbd1e07f0204d34a1dbdc913bfd53df7bce906a52237822"
+        },
+        {
+            "path": "config/development/opaque-source-fixture-policy.json",
+            "contentDigest": "sha256:c05912203a279d65c10628bd55f72f202e9c0f97095f359ce2384eeda6d9983e",
+            "indexDigest": "sha256:c05912203a279d65c10628bd55f72f202e9c0f97095f359ce2384eeda6d9983e"
         },
         {
             "path": "eslint.config.mjs",
@@ -95,13 +100,13 @@
         },
         {
             "path": "src/frontend/package-lock.json",
-            "contentDigest": "sha256:a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
-            "indexDigest": "sha256:a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+            "contentDigest": "sha256:ddb81f9d626a63eb7ac75367dd2e654cf7eb5dec50de937782dd7f9f233a55c0",
+            "indexDigest": "sha256:ddb81f9d626a63eb7ac75367dd2e654cf7eb5dec50de937782dd7f9f233a55c0"
         },
         {
             "path": "src/frontend/package.json",
-            "contentDigest": "sha256:a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
-            "indexDigest": "sha256:a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731"
+            "contentDigest": "sha256:2b3d12cecf28f3b4d2d53cac0624b742cc8f5dc36d117906a87fabe819d1a257",
+            "indexDigest": "sha256:2b3d12cecf28f3b4d2d53cac0624b742cc8f5dc36d117906a87fabe819d1a257"
         },
         {
             "path": "src/frontend/scripts/fsusui-root.mjs",
@@ -115,8 +120,8 @@
         },
         {
             "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
-            "contentDigest": "sha256:39ef094e586173d8a3274eef2908044306550d37e95f35cc8eacf855ce50f636",
-            "indexDigest": "sha256:39ef094e586173d8a3274eef2908044306550d37e95f35cc8eacf855ce50f636"
+            "contentDigest": "sha256:3d23b1ebcab581628aed8148314c103c8f5e18e8d02e4801630c527395bc2377",
+            "indexDigest": "sha256:3d23b1ebcab581628aed8148314c103c8f5e18e8d02e4801630c527395bc2377"
         },
         {
             "path": "src/frontend/scripts/vite-watch-policy.mjs",
@@ -772,6 +777,11 @@
             "path": "src/frontend/tsconfig.node.json",
             "contentDigest": "sha256:db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2",
             "indexDigest": "sha256:db4e2e2718e556ab179d0f412fe52dffc4e78790e104fb129ab79f909c6682e2"
+        },
+        {
+            "path": "src/frontend/tsconfig.playwright.json",
+            "contentDigest": "sha256:62ee834bc44c80532981b94cd7ea05f5211a9d8d12a54760eb805f2d68b727f9",
+            "indexDigest": "sha256:62ee834bc44c80532981b94cd7ea05f5211a9d8d12a54760eb805f2d68b727f9"
         },
         {
             "path": "src/frontend/wasm/build.sh",
@@ -2024,6 +2034,11 @@
             "indexDigest": "sha256:f7bd8e915c39c291a5ba9170150e2b60a44d82ad693405aea1bc3a0a63281390"
         },
         {
+            "path": "tests/tools/canonical-digest-edge.test.mjs",
+            "contentDigest": "sha256:90a6f4fe67d3ea342b83d2f01559385a6188b95821d0900368af813bee737566",
+            "indexDigest": "sha256:90a6f4fe67d3ea342b83d2f01559385a6188b95821d0900368af813bee737566"
+        },
+        {
             "path": "tests/tools/code-intent.test.mjs",
             "contentDigest": "sha256:cd2ab59940f357ed56428ef61fa5529ea0f42b397646ca8bbf3b00d45c42d0b5",
             "indexDigest": "sha256:cd2ab59940f357ed56428ef61fa5529ea0f42b397646ca8bbf3b00d45c42d0b5"
@@ -2165,8 +2180,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:c0d344a8aad817f8d5a92486e8f1ebf995a9c94c92aa0bf1f38c3112da4b4aee",
-            "indexDigest": "sha256:c0d344a8aad817f8d5a92486e8f1ebf995a9c94c92aa0bf1f38c3112da4b4aee"
+            "contentDigest": "sha256:217119cfcf2fc462e31ecffb0aab8e3e066d8049bfd8e0cdf70e7f51680f5a85",
+            "indexDigest": "sha256:217119cfcf2fc462e31ecffb0aab8e3e066d8049bfd8e0cdf70e7f51680f5a85"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -2489,9 +2504,19 @@
             "indexDigest": "sha256:9f5cc8ce64722a4c0bbd5377e046552daa997c14c26aef9ff916aa25db836887"
         },
         {
+            "path": "tools/configuration/check-opaque-fixture-source.mjs",
+            "contentDigest": "sha256:fa7014a83243cb00d99a3d27c1a0380a0ec93a48c46c9310fec00862a7de848f",
+            "indexDigest": "sha256:fa7014a83243cb00d99a3d27c1a0380a0ec93a48c46c9310fec00862a7de848f"
+        },
+        {
             "path": "tools/configuration/check-solution-source.mjs",
-            "contentDigest": "sha256:2447a7b78b30e32bbf46644204c5b7d85347f2e6462040375190f72f6788adcd",
-            "indexDigest": "sha256:2447a7b78b30e32bbf46644204c5b7d85347f2e6462040375190f72f6788adcd"
+            "contentDigest": "sha256:61a97bab45c8c463cc914b26c4527ff282a5b7d2e8bba353c10966388eed9eb6",
+            "indexDigest": "sha256:61a97bab45c8c463cc914b26c4527ff282a5b7d2e8bba353c10966388eed9eb6"
+        },
+        {
+            "path": "tools/configuration/opaque-fixture-source.test.mjs",
+            "contentDigest": "sha256:0b8a8ec5f38a7b6682406592202c7f2c6e5aa5f3e38ca8554009cd195bbd311e",
+            "indexDigest": "sha256:0b8a8ec5f38a7b6682406592202c7f2c6e5aa5f3e38ca8554009cd195bbd311e"
         },
         {
             "path": "tools/configuration/solution-source.test.mjs",
@@ -3210,8 +3235,8 @@
         },
         {
             "path": "tools/frontend/check-frontend-style-source-base.test.mjs",
-            "contentDigest": "sha256:a541fd65591fec804b4bfe488be869befa99354b7ac94842fd6351d4c786ca10",
-            "indexDigest": "sha256:a541fd65591fec804b4bfe488be869befa99354b7ac94842fd6351d4c786ca10"
+            "contentDigest": "sha256:0aad956114bfeda06c8b66223b30c12ad5fd8c2fd73ff8f24d9774df2889a23b",
+            "indexDigest": "sha256:0aad956114bfeda06c8b66223b30c12ad5fd8c2fd73ff8f24d9774df2889a23b"
         },
         {
             "path": "tools/frontend/check-frontend-style.mjs",
@@ -3320,8 +3345,8 @@
         },
         {
             "path": "tools/frontend/style-toolchain/eslint.config.mjs",
-            "contentDigest": "sha256:0d44d8e1ed5d32af3713d4ce947f8e9dedd8178e138a70bf2590f11035aa8ad9",
-            "indexDigest": "sha256:0d44d8e1ed5d32af3713d4ce947f8e9dedd8178e138a70bf2590f11035aa8ad9"
+            "contentDigest": "sha256:b803206912e01d97de22823b11353c6923b31d19e4f28e395779793dcfc3846b",
+            "indexDigest": "sha256:b803206912e01d97de22823b11353c6923b31d19e4f28e395779793dcfc3846b"
         },
         {
             "path": "tools/frontend/style-toolchain/package-lock.json",
@@ -3370,8 +3395,8 @@
         },
         {
             "path": "tools/governance/change-contract-registry.mjs",
-            "contentDigest": "sha256:97891b36c7b195c7601b02f627ad02736b96e968a2c39dcbd4759786962f75c4",
-            "indexDigest": "sha256:97891b36c7b195c7601b02f627ad02736b96e968a2c39dcbd4759786962f75c4"
+            "contentDigest": "sha256:a79eda5559e61f9f871110a350a7c26f209da285947f0bc2fb7039833c3bc493",
+            "indexDigest": "sha256:a79eda5559e61f9f871110a350a7c26f209da285947f0bc2fb7039833c3bc493"
         },
         {
             "path": "tools/governance/change-contract.mjs",
@@ -4424,6 +4449,16 @@
             "indexDigest": "sha256:f75d812156449426de251bee3baee0c89772c4bf76d4973f9c5091238eed2958"
         },
         {
+            "path": "tools/test-matrix/opaque-fixture-source-ownership.mjs",
+            "contentDigest": "sha256:9d1011c61e8934be20894eb20fdae1bf0bfb52d74d3c1354e66f58c8caa9925e",
+            "indexDigest": "sha256:9d1011c61e8934be20894eb20fdae1bf0bfb52d74d3c1354e66f58c8caa9925e"
+        },
+        {
+            "path": "tools/test-matrix/opaque-fixture-source-ownership.test.mjs",
+            "contentDigest": "sha256:67240af66c300752ea80b4b8de45b87fe5d0b20b2b32ea06d3c2e689a4dad85f",
+            "indexDigest": "sha256:67240af66c300752ea80b4b8de45b87fe5d0b20b2b32ea06d3c2e689a4dad85f"
+        },
+        {
             "path": "tools/test-matrix/parse-matrix.mjs",
             "contentDigest": "sha256:c5835664eb11b311a62bd5e74c743121981c04e6283a7f3324ed829f66d0fccd",
             "indexDigest": "sha256:c5835664eb11b311a62bd5e74c743121981c04e6283a7f3324ed829f66d0fccd"
@@ -4435,8 +4470,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:c08980445b9901388cb9607c86b1130406af7512c155cbe57fc35c0a387dc684",
-            "indexDigest": "sha256:c08980445b9901388cb9607c86b1130406af7512c155cbe57fc35c0a387dc684"
+            "contentDigest": "sha256:f9ce4c20ac4b2ae9fbf5c20ade7463998d0e18a3a5b39e827115f8945a9fbe21",
+            "indexDigest": "sha256:f9ce4c20ac4b2ae9fbf5c20ade7463998d0e18a3a5b39e827115f8945a9fbe21"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -6476,6 +6511,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -6885,6 +6921,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -6987,8 +7024,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:d7e3ceccdc0e79a3ff47837614be54ab948c958f75fde0b105d0dd9e79597752",
-            "indexDigest": "sha256:d7e3ceccdc0e79a3ff47837614be54ab948c958f75fde0b105d0dd9e79597752",
+            "contentDigest": "sha256:85b508cf7d10b735dbc9c13e43558ef0d9181e1c08bdd5244c1fc4d164366da7",
+            "indexDigest": "sha256:85b508cf7d10b735dbc9c13e43558ef0d9181e1c08bdd5244c1fc4d164366da7",
             "dependencyClosure": [
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",
@@ -7000,6 +7037,7 @@
                 "config/development/native-tooling-style-baseline.json",
                 "config/development/native-tooling-style-exceptions.json",
                 "config/development/native-tooling-style-policy.json",
+                "config/development/opaque-source-fixture-policy.json",
                 "eslint.config.mjs",
                 "src/frontend/eslint.config.mjs",
                 "src/frontend/package.json",
@@ -7007,13 +7045,17 @@
                 "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
                 "src/frontend/stylelint.config.mjs",
                 "src/frontend/tsconfig.node.json",
+                "src/frontend/tsconfig.playwright.json",
                 "stylelint.config.mjs",
+                "tests/tools/canonical-digest-edge.test.mjs",
                 "tests/tools/native-tooling-style.test.mjs",
                 "tests/tools/package.json",
                 "tests/tools/pr-applicable-execution-authority.test.mjs",
                 "tests/tools/pr-impact-plan.test.mjs",
                 "tools/ci/production-build-artifacts.mjs",
+                "tools/configuration/check-opaque-fixture-source.mjs",
                 "tools/configuration/check-solution-source.mjs",
+                "tools/configuration/opaque-fixture-source.test.mjs",
                 "tools/configuration/solution-source.test.mjs",
                 "tools/contracts/behavior-contract-catalog.mjs",
                 "tools/contracts/behavior-graph-join.mjs",
@@ -7109,6 +7151,8 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.test.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -8206,6 +8250,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -8451,6 +8496,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -8630,6 +8676,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -9361,6 +9408,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -10175,6 +10223,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -10989,6 +11038,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -11234,6 +11284,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -11957,6 +12008,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -12771,6 +12823,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -13585,6 +13638,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -14399,6 +14453,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -14648,6 +14703,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -15379,6 +15435,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -16216,6 +16273,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -17030,6 +17088,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -17844,6 +17903,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -18111,6 +18171,7 @@
                 "tools/test-matrix/frontend-build-ready-marker.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -18849,6 +18910,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -19323,6 +19385,7 @@
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/local-runtime-cleanup.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -19549,6 +19612,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -20308,6 +20372,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -21191,6 +21256,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -22007,6 +22073,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -22821,6 +22888,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -23149,6 +23217,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -23873,6 +23942,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -24722,6 +24792,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -25537,6 +25608,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -26351,6 +26423,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -27190,6 +27263,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -28004,6 +28078,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -28818,6 +28893,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -29632,6 +29708,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -30506,6 +30583,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -31408,6 +31486,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -32222,6 +32301,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -32477,6 +32557,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -33216,6 +33297,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -34232,6 +34314,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -35046,6 +35129,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -35968,6 +36052,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -36277,6 +36362,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -37004,6 +37090,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -37818,6 +37905,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -38063,6 +38151,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -38780,6 +38869,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -39621,6 +39711,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -39902,6 +39993,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -40765,6 +40857,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -41687,6 +41780,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -42501,6 +42595,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -43315,6 +43410,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -44129,6 +44225,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -44943,6 +45040,7 @@
                 "tools/test-matrix/local-workflow-plan.mjs",
                 "tools/test-matrix/local-workflow-runner.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
@@ -45581,6 +45679,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -45815,6 +45914,7 @@
                 "tools/test-matrix/frontend-build-ready-marker.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -46060,6 +46160,7 @@
                 "tools/test-matrix/fixture-profile-contract.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",
@@ -46476,6 +46577,7 @@
                 "tools/test-matrix/frontend-build-ready-marker.mjs",
                 "tools/test-matrix/local-profile.mjs",
                 "tools/test-matrix/mysql-fixture-recovery.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
                 "tools/test-matrix/parse-matrix.mjs",
                 "tools/test-matrix/pr-impact-plan.mjs",
                 "tools/test-matrix/priority-score.mjs",

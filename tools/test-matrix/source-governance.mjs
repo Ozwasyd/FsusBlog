@@ -1,4 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -58,6 +59,7 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration'
 {
     const opaqueFiles = changedOpaqueFixtures.length ? changedOpaqueFixtures : [opaqueFixtureSourcePath];
     const checker = sourceGovernanceChildEntries.opaqueFixture;
+    const attemptToken = randomBytes(32).toString('hex');
     const env = { ...process.env };
     for (const key of ['NODE_OPTIONS', 'NODE_PATH', 'NODE_TEST_CONTEXT', 'NODE_V8_COVERAGE'])
     {
@@ -72,7 +74,7 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration'
     {
         assertOpaqueFixtureSourceOwner(matrix, opaqueFiles);
         verifyChildBeforeSpawn(checker);
-        const argv = [checker, '--root', root, ...opaqueFiles.flatMap(file => ['--file', file])];
+        const argv = [checker, '--root', root, '--attempt-token', attemptToken, ...opaqueFiles.flatMap(file => ['--file', file])];
         result = spawnSync(process.execPath, argv,
             { cwd: root, env, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
         if (result.error || result.status !== 0)
@@ -82,12 +84,12 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration'
         receipt = JSON.parse(result.stdout);
         verifyChildBeforeSpawn(checker);
         verification = spawnSync(process.execPath, [checker, '--verify-receipt', '--expected-head', evidence.headCommit,
-            '--root', root, ...opaqueFiles.flatMap(file => ['--file', file])],
+            '--expected-attempt-token', attemptToken, '--root', root, ...opaqueFiles.flatMap(file => ['--file', file])],
         { cwd: root, env, input: JSON.stringify(receipt), encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
         if (verification.error || verification.status !== 0
             || !isDeepStrictEqual(JSON.parse(verification.stdout), {
                 schema: 'fsusblog.opaque-fixture-source-verification.v1', status: 'verified',
-                qualificationEligible: false, head: evidence.headCommit, files: opaqueFiles
+                qualificationEligible: false, head: evidence.headCommit, attemptToken, files: opaqueFiles
             }))
         {
             throw new Error('opaque fixture receipt failed independent live-input verification');
@@ -109,9 +111,9 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration'
         verificationStderr: verification?.stderr ?? '', spawnError: result?.error?.message ?? null, bindingError });
 }
 const groups = [
-    ...sourceFrontendCheckGroups(files.filter(file => !checkedOpaqueFixtures.includes(file)),
-        effectivePrExecutionStage(callerContext), evidence.baseCommit, root)
-        .map(value => [sourceGovernanceChildEntries.frontend, value.options, value.files]),
+    ...sourceFrontendCheckGroups(files, effectivePrExecutionStage(callerContext), evidence.baseCommit, root)
+        .map(value => [sourceGovernanceChildEntries.frontend, value.options,
+            value.files.filter(file => !checkedOpaqueFixtures.includes(file))]),
     [sourceGovernanceChildEntries.csharp, ['--mode', 'full'], files.filter(file => file.endsWith('.cs'))],
     [sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'docs', '--operation', 'lint', '--require-tools'], files.filter(file => file.endsWith('.md'))],
     ...(effectivePrExecutionStage(callerContext) === 'source-integration'

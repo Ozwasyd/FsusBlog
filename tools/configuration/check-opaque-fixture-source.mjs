@@ -194,8 +194,12 @@ function nativeArguments(root)
     return ['--test', '--test-reporter', path.join(root, reporterFile), path.join(root, consumerFile)];
 }
 
-export function collectOpaqueFixtureSource({ repositoryRoot, files })
+export function collectOpaqueFixtureSource({ repositoryRoot, files, attemptToken })
 {
+    if (!/^[a-f0-9]{64}$/u.test(attemptToken ?? ''))
+    {
+        throw new Error('opaque fixture collection requires its independent caller attempt token');
+    }
     return withInputs(repositoryRoot, files, ({ root, inputs, policy, matrixSource }) =>
     {
         const env = { ...process.env };
@@ -213,18 +217,19 @@ export function collectOpaqueFixtureSource({ repositoryRoot, files })
         const consumer = validateOpaqueConsumerEvents(result.stdout,
             { entry: path.join(root, consumerFile), expectedNames: policy.caseNames });
         return { schema: 'fsusblog.opaque-fixture-source-evidence.v1', status: 'collected', qualificationEligible: false,
-            files, inputs, matrixSource, consumer: { entry: consumerFile, arguments: nativeArguments(root),
+            files, inputs, matrixSource, attemptToken, consumer: { entry: consumerFile, arguments: nativeArguments(root),
                 exitCode: result.status, signal: result.signal, stdout: result.stdout, stderr: result.stderr, ...consumer } };
     });
 }
 
-export function validateOpaqueFixtureSourceReceipt({ repositoryRoot, files, expectedHead, receipt })
+export function validateOpaqueFixtureSourceReceipt({ repositoryRoot, files, expectedHead, expectedAttemptToken, receipt })
 {
     return withInputs(repositoryRoot, files, ({ root, inputs, policy, matrixSource }) =>
     {
-        if (!keys(receipt, ['schema', 'status', 'qualificationEligible', 'files', 'inputs', 'matrixSource', 'consumer'])
+        if (!keys(receipt, ['schema', 'status', 'qualificationEligible', 'files', 'inputs', 'matrixSource', 'attemptToken', 'consumer'])
             || receipt.schema !== 'fsusblog.opaque-fixture-source-evidence.v1' || receipt.status !== 'collected'
             || receipt.qualificationEligible !== false || !isDeepStrictEqual(receipt.files, files)
+            || !/^[a-f0-9]{64}$/u.test(expectedAttemptToken ?? '') || receipt.attemptToken !== expectedAttemptToken
             || expectedHead !== inputs.head || !isDeepStrictEqual(receipt.inputs, inputs) || receipt.matrixSource !== matrixSource
             || !keys(receipt.consumer, ['entry', 'arguments', 'exitCode', 'signal', 'stdout', 'stderr', 'caseNames', 'counts'])
             || receipt.consumer.entry !== consumerFile || receipt.consumer.exitCode !== 0 || receipt.consumer.signal !== null
@@ -241,13 +246,14 @@ export function validateOpaqueFixtureSourceReceipt({ repositoryRoot, files, expe
             throw new Error('opaque fixture native event projection differs from the collected consumer');
         }
         return { schema: 'fsusblog.opaque-fixture-source-verification.v1', status: 'verified',
-            qualificationEligible: false, head: inputs.head, files };
+            qualificationEligible: false, head: inputs.head, attemptToken: expectedAttemptToken, files };
     });
 }
 
 function main(argv)
 {
-    const options = { files: [], verify: false, expectedHead: null, root: defaultRoot };
+    const options = { files: [], verify: false, expectedHead: null, attemptToken: null,
+        expectedAttemptToken: null, root: defaultRoot };
     const seen = new Set();
     while (argv.length)
     {
@@ -261,7 +267,7 @@ function main(argv)
         {
             options.verify = true;
         }
-        else if (['--root', '--file', '--expected-head'].includes(option) && argv.length)
+        else if (['--root', '--file', '--expected-head', '--attempt-token', '--expected-attempt-token'].includes(option) && argv.length)
         {
             const value = argv.shift();
             if (option === '--file')
@@ -272,9 +278,17 @@ function main(argv)
             {
                 options.root = value;
             }
-            else
+            else if (option === '--expected-head')
             {
                 options.expectedHead = value;
+            }
+            else if (option === '--attempt-token')
+            {
+                options.attemptToken = value;
+            }
+            else
+            {
+                options.expectedAttemptToken = value;
             }
         }
         else
@@ -282,15 +296,18 @@ function main(argv)
             throw new Error('opaque fixture source accepts only its closed root, file and receipt-verification arguments');
         }
     }
-    if ((options.verify && !/^[a-f0-9]{40}$/u.test(options.expectedHead ?? ''))
-        || (!options.verify && options.expectedHead !== null))
+    if ((options.verify && (!/^[a-f0-9]{40}$/u.test(options.expectedHead ?? '')
+        || !/^[a-f0-9]{64}$/u.test(options.expectedAttemptToken ?? '') || options.attemptToken !== null))
+        || (!options.verify && (options.expectedHead !== null || options.expectedAttemptToken !== null
+            || !/^[a-f0-9]{64}$/u.test(options.attemptToken ?? ''))))
     {
         throw new Error('opaque fixture source requires the exact caller HEAD only for receipt verification');
     }
     const result = options.verify
         ? validateOpaqueFixtureSourceReceipt({ repositoryRoot: options.root, files: options.files,
-            expectedHead: options.expectedHead, receipt: JSON.parse(fs.readFileSync(0, 'utf8')) })
-        : collectOpaqueFixtureSource({ repositoryRoot: options.root, files: options.files });
+            expectedHead: options.expectedHead, expectedAttemptToken: options.expectedAttemptToken,
+            receipt: JSON.parse(fs.readFileSync(0, 'utf8')) })
+        : collectOpaqueFixtureSource({ repositoryRoot: options.root, files: options.files, attemptToken: options.attemptToken });
     process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 

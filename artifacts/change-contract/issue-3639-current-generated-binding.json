@@ -1,25 +1,37 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
-        "tests/matrix.yml",
         "config/development/canonical-digest-edge.json",
         "config/development/frontend-style-policy.json",
+        "config/development/opaque-source-fixture-policy.json",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "tests/matrix.yml",
+        "tests/tools/canonical-digest-edge.test.mjs",
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tools/configuration/check-opaque-fixture-source.mjs",
+        "tools/configuration/check-solution-source.mjs",
+        "tools/configuration/opaque-fixture-source.test.mjs",
+        "tools/dotnet/check-csharp-style.mjs",
+        "tools/frontend/check-frontend-style-source-base.test.mjs",
         "tools/frontend/check-frontend-style.mjs",
         "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
         "tools/frontend/style-toolchain/eslint.config.mjs",
         "tools/governance/change-contract-registry.mjs",
-        "tools/frontend/check-frontend-style-source-base.test.mjs",
+        "tools/governance/change-contract.mjs",
+        "tools/test-matrix/opaque-fixture-source-ownership.mjs",
+        "tools/test-matrix/opaque-fixture-source-ownership.test.mjs",
         "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs",
         "tools/test/correctness-attempt-migration.mjs"
     ],
     "outputs": [
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "2ea6bfe1e817eed70f2c114a0ff467de5f216dc7b12bcd267ef7d9160a105f56"
+            "sha256": "cb7cc87bedca9aff8ee8313e208c314642cb47729066d368a3667855eb4d6332"
         },
         {
             "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
-            "sha256": "2ed343e21f1b9be5f3acd9e50d27749277a57233b2d4a0bf149653d0634af649"
+            "sha256": "82f10f6c2300da42ff6d0bf006e2b8657f5f30395b931fc392f7e4ebdf8ebe73"
         },
         {
             "path": "docs/testing.generated.md",
@@ -27,7 +39,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "b9720ee93b189d25b5264350a0c5e2871f9f73bee7e066d0b507e78a5a389d6a"
+            "sha256": "15daed380b03d187e2dc1dfd6511a88ef2d38077a62492a746c9c33705a48c7d"
         },
         {
             "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",

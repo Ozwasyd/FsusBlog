@@ -1727,6 +1727,28 @@ The collector retains at most 2048 events in memory and writes only task-private
 
 Source integration and WIP handoff do not grant product acceptance. Applicable source CI must pass or remain explicitly failed/unrun; an unselected compiled/native/runtime lane stays OPEN and unqualified, never a synthetic pass. Original assertions, numeric thresholds, immutable build consumption and full release gates are unchanged. An explicit caller stage `source-integration` performs global declarations, actual Git-bound impact planning, mandatory source checks and applicable declared source-only regressions. It preserves the affected product qualification roster as deferred and the complete qualification roster as OPEN; it issues no product acceptance. The stage is bound independently by the caller and the sealed plan, not by a WIP label or candidate metadata. The local command is `node tools/run-test-matrix.mjs ci-pr-smart --stage source-integration --base-ref <actual-base>`; pull-request Quality Gate declares this stage only through maintainer-controlled `vars.FSUSBLOG_CI_STAGE=source-integration`; an unset repository variable retains qualification. Default qualification, explicit full, push, dispatch and release execution retain the original complete applicable admission/build/runtime path. Unknown executable/dependency authority remains fail-closed before any source checker or regression spawn. The initial source-stage checker supports the existing frontend/C# lexical/documentation ports and declared pure regression ports. The SOURCE shell subset uses `bash -n` without executing the script and the existing portable script lint. Missing shellcheck/shfmt are recorded UNRUN/deferred, without claiming full shell style qualification. Flat `.slnx` solution inputs receive a fixed SOURCE XML check: one `Solution` root containing only `Project Path` elements, with DTD/entities, unknown structures, duplicate or escaping project paths, missing files and linked aliases refused. The checker holds the actual solution and repository-relative project files, binds their HEAD/index/physical bytes before and after isolated standard-library XML parsing, and reports no SDK evaluation, restore, compilation or runtime qualification. The caller independently reopens the actual solution/project sources and requires the complete closed receipt to match that projection and the independent candidate HEAD. A solution is supported only after that selected checker succeeds; the checker and its adjacent pure refusal tests are fixed source-governance execution ports. C/C++ source and other unregistered source-language checks explicitly return unsupported/failure; their absence is not a pass or native qualification. Selection-policy changes receive the same mandatory source-stage gates and independent owner review; they do not need to claim complete product qualification to deliver the reviewed policy source. Full qualification and release assertions remain unchanged and OPEN until actually run.
 
+### Registered opaque fixture data in SOURCE integration
+
+`config/development/opaque-source-fixture-policy.json` registers only the frozen
+canonical digest caller fixture as text data. Its source and complete original
+consumer are byte-bound to the reviewed policy. The source owner runs all 46
+consumer cases through the actual Node test runner and a bound native event
+reporter, with no filtering, failure, skip, todo or cancellation. Consumer stdout
+cannot substitute assertion events. Node, reporter, policy, matrix, fixture,
+consumer, HEAD, index and regular held inputs are rechecked before and after
+collection and independently reopened for receipt verification.
+The collector must echo a fresh caller-created attempt token; a prior collected
+receipt cannot substitute for the source caller's actual current invocation.
+
+The SOURCE caller parses those exact bound matrix bytes and requires the unique
+original `frontend-style-fixtures` owner, complete command and declared data
+input. It retains the complete Git-changed source scope check before removing
+only the verified registered fixture from executable frontend style groups.
+Missing or failed collection, altered consumer scope, unknown fixtures, stale
+receipts and Node/Git execution overrides fail closed. This one fixture data port
+does not admit other excluded paths or produce compiled, runtime or release
+qualification. Its policy and dispatch require independent owner promotion.
+
 ### Python AST checks in SOURCE integration
 
 The existing isolated source checker accepts explicit committed `.py` inputs with

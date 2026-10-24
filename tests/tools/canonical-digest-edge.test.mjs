@@ -18,7 +18,8 @@ const {
 const {
     trustedPolicyFiles: historicalPolicyFiles,
     effectiveTrustedPolicyFiles: trustedPolicyFiles,
-    styleAuthorityPolicyFiles
+    styleAuthorityPolicyFiles,
+    sourceFixtureAuthorityPolicyFiles
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/governance/change-contract-registry.mjs')).href);
 const { validatePrContract } = await import(new URL('../../tools/governance/change-contract.mjs', import.meta.url));
 
@@ -555,9 +556,23 @@ test('current style policies refuse PR replacement while retaining the historica
             write(candidate, file, 'candidate replacement\n');
             write(trusted, file, 'trusted original\n');
         }
+        for (const file of sourceFixtureAuthorityPolicyFiles)
+        {
+            assert.equal(trustedPolicyFiles.includes(file), true, 'all opaque source authorities must remain protected');
+            write(candidate, file, 'candidate replacement\n');
+            write(trusted, file, 'trusted original\n');
+        }
         git('add', '.');
         git('commit', '-qm', 'fixture current style authority replacement');
         for (const file of styleAuthorityPolicyFiles)
+        {
+            const errors = validatePrContract({
+                title: 'feat(governance): bind closed canonical ownership', body: '',
+                changedFiles: [file], root: candidate, authorityRoot: trusted
+            });
+            assert.ok(errors.includes(`pull request cannot replace trusted change-contract policy source: ${file}`), file);
+        }
+        for (const file of sourceFixtureAuthorityPolicyFiles)
         {
             const errors = validatePrContract({
                 title: 'feat(governance): bind closed canonical ownership', body: '',

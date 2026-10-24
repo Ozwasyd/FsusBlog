@@ -48,10 +48,27 @@ export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, 
     const fromLocal = (...segments) => fromPathsBase(path.join(localRoot, ...segments));
     const originalPaths = Object.fromEntries(Object.entries(original.options.paths ?? {}).map(([specifier, targets]) =>
         [specifier, targets.map((target) => fromPathsBase(path.resolve(originalPathsBase, target)))]));
+    // Test sources live outside the frontend installation's node_modules ancestry.
+    // Let the original resolver select each real public declaration from that install;
+    // do not guess package internals or expose arbitrary package subpaths.
+    const testDependencyPaths = fullTests ? Object.fromEntries([
+        'vitest', 'fake-indexeddb', 'happy-dom', 'pinia', 'pinia-plugin-persistedstate',
+        'vue-router', '@vue/test-utils', '@noble/hashes/sha2.js', '@noble/hashes/utils.js'
+    ].map((specifier) =>
+    {
+        const resolved = ts.resolveModuleName(specifier, path.join(frontendRoot, 'typecheck.ts'),
+            original.options, ts.sys).resolvedModule;
+        if (!resolved || ![ts.Extension.Dts, ts.Extension.Dmts, ts.Extension.Dcts].includes(resolved.extension))
+        {
+            throw new Error(`complete tests require the installed public declaration: ${specifier}`);
+        }
+        return [specifier, [fromPathsBase(resolved.resolvedFileName)]];
+    })) : {};
 
     const paths = {
         '@/*': [fromPathsBase(path.join(frontendRoot, 'src', '*'))],
         '@wasm/*': [fromPathsBase(path.join(frontendRoot, 'wasm', 'web', '*'))],
+        ...testDependencyPaths,
         ...originalPaths,
         vue: [fromPathsBase(path.join(frontendRoot, 'node_modules', 'vue'))],
         '@vue/*': [fromPathsBase(path.join(frontendRoot, 'node_modules', '@vue', '*'))],
@@ -160,7 +177,9 @@ function main(args)
         fullTests: args.includes('--tests')
     });
     const frontendRoot = path.join(defaultRepositoryRoot, 'src/frontend');
-    const compiler = args.includes('--tests') ? 'tsc' : 'vue-tsc';
+    // The complete tests import real Vue SFCs as well as TypeScript sources.
+    // Use the locked Vue compiler without replacing the original test program.
+    const compiler = 'vue-tsc';
     const compilerBin = process.platform === 'win32'
         ? compiler
         : path.join(frontendRoot, 'node_modules', '.bin', compiler);
