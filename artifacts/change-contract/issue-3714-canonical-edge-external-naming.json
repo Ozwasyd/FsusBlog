@@ -1,0 +1,59 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/canonical-digest-edge.json",
+                "config/development/frontend-style-policy.json",
+                "config/development/opaque-source-fixture-policy.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+                "tests/fixtures/test-matrix/execution-dependency-contract.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/frontend-style-enforcement.md"
+            ],
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve the registered generated testing-document contract while regenerating the original producer from the current matrix."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/configuration/check-opaque-fixture-source.mjs",
+                "tools/configuration/check-solution-source.mjs",
+                "tools/configuration/opaque-fixture-native-reporter.mjs",
+                "tools/configuration/opaque-fixture-source.test.mjs",
+                "tools/frontend/check-frontend-style-source-base.test.mjs",
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
+                "tools/frontend/style-toolchain/eslint.config.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.mjs",
+                "tools/test-matrix/opaque-fixture-source-ownership.test.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
+        }
+    ]
+}
