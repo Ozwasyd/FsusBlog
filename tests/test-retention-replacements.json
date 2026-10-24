@@ -8204,10 +8204,10 @@
             "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditFallbackWriter_SourceBatchesFallbackWrites",
             "path": "tests/backend/Unit/AuditSystemContractTests.cs",
             "replacementTestIds": [
-                "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#AuditFallbackWriterBehaviorTests.WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState",
+                "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#FsusBlog.Server.Tests.Unit.AuditFallbackWriterBehaviorTests.WriteBatchAsync_PublishesEveryDurableRecordAndUpdatesRuntimeState#case-0000",
                 "xunit:tests/backend/Unit/AuditLogWriterWorkerTests.cs#AuditLogWriterWorkerTests.PersistSafelyAsync_WritesOnlyDurableRecordsToFallbackAfterStoreFailure"
             ],
-            "reason": "A temp-file round trip and failed-store worker path prove batched fallback behavior."
+            "reason": "A temp-file round trip and failed-store worker path prove batched fallback behavior. The replacement method was renamed from AppendsEveryDurableRecordAndUpdatesRuntimeState to PublishesEveryDurableRecordAndUpdatesRuntimeState in ce8f8462dd88d41299083985d8c0620f5771f16a; its current canonical case retains both durable records and runtime-state assertions and additionally rejects raw failure text."
         },
         {
             "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditLogEntity_ExposesStructuredFieldsAndTamperEvidence",
@@ -8257,9 +8257,9 @@
             "path": "tests/backend/Unit/AuditSystemContractTests.cs",
             "replacementTestIds": [
                 "xunit:tests/backend/Unit/AuditProjectionBehaviorTests.cs#AuditProjectionBehaviorTests.AuditRecord_SecurityCriticalAndHighValueEventsRequireDurableWrite",
-                "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#AuditFallbackWriterBehaviorTests.WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState"
+                "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#FsusBlog.Server.Tests.Unit.AuditFallbackWriterBehaviorTests.WriteBatchAsync_PublishesEveryDurableRecordAndUpdatesRuntimeState#case-0000"
             ],
-            "reason": "Durable classification and fallback output are executed instead of checking interface presence."
+            "reason": "Durable classification and fallback output are executed instead of checking interface presence. The replacement method was renamed from AppendsEveryDurableRecordAndUpdatesRuntimeState to PublishesEveryDurableRecordAndUpdatesRuntimeState in ce8f8462dd88d41299083985d8c0620f5771f16a; its current canonical case retains both durable records and runtime-state assertions and additionally rejects raw failure text."
         },
         {
             "id": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.SourceFiles_KeepRumSeparateAndExposeAuditConsole",
