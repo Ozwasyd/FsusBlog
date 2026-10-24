@@ -11,6 +11,8 @@ public static class ArticleRelationContractValidator
     public const int MaxRelationsPerSet = 100_000;
     public const int MaxCandidatesPerSource = 10_000;
 
+    /// <summary>Recomputes the relation identity and record digest from the supplied unsealed facts.</summary>
+    /// <remarks>Sealing establishes integrity data only; it neither validates admission nor performs indexing or publication.</remarks>
     public static ArticleRelationRecord Seal(ArticleRelationRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
@@ -301,6 +303,8 @@ public static class ArticleRelationContractValidator
         return Valid();
     }
 
+    /// <summary>Validates relation structure, coordinates, visibility bindings, kind eligibility and both integrity digests.</summary>
+    /// <returns>A typed refusal for missing, inconsistent or unsealed facts; validation grants no publication or write authority.</returns>
     public static ArticleRelationValidationResult Validate(ArticleRelationRecord? record)
     {
         if (record is null
