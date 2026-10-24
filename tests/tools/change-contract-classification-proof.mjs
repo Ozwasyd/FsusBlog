@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { readFileAtRevision } from '../../tools/governance/change-contract.mjs';
+const { readFileAtRevision } = await import(new URL('../../tools/governance/change-contract.mjs', import.meta.url));
 
 // This experiment never participates in change-contract classification. It
 // compiles trusted synthetic fixtures, and optionally compares exact source
