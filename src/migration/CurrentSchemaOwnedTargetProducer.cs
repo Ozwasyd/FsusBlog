@@ -37,7 +37,10 @@ internal sealed class OwnedCurrentSchemaTarget
         Execution = execution;
     }
 
-    internal CurrentSchemaProducerExecution Execution { get; }
+    internal CurrentSchemaProducerExecution Execution
+    {
+        get;
+    }
 
     internal CurrentSchemaIdentity Target => _artifact.Target;
 
@@ -202,11 +205,11 @@ internal sealed class OwnedCurrentSchemaTarget
         }
         // This is the system Node used by the original production entry, never a
         // CLI-selected executable, argument list, checker or caller JSON callback.
-        const string node = "/usr/bin/node";
+        const string Node = "/usr/bin/node";
         string script = Path.Combine(configuration.SourceRoot, "tools/ci/migration-retained-inputs.mjs");
         string[] inputs =
         [
-            node, script,
+            Node, script,
             Path.Combine(configuration.SourceRoot, "tools/ci/production-build-artifacts.mjs"),
             Path.Combine(configuration.SourceRoot, "tools/fact-extractors/identity.mjs"),
             Path.Combine(configuration.SourceRoot, "tools/fact-extractors/lib/canonicalize.mjs")
@@ -246,8 +249,8 @@ internal sealed class OwnedCurrentSchemaTarget
         RequireRegularPath(configuration.EvidenceRoot);
         Directory.CreateDirectory(evidence);
         await WriteNewJsonAsync(Path.Combine(evidence, "producer-before.json"), before, cancellationToken).ConfigureAwait(false);
-        int exit = await InvokeArgumentsAsync(node, configuration.SourceRoot,
-            ["--experimental-vm-modules", "--input-type=module", "--eval", s_retainedCompiledReaderBootstrap, "--",
+        int exit = await InvokeArgumentsAsync(Node, configuration.SourceRoot,
+            ["--experimental-vm-modules", "--input-type=module", "--eval", RetainedCompiledReaderBootstrap, "--",
                 configuration.SourceRoot, configuration.ArtifactRoot, configuration.SdkRoot, .. compiledSources],
             evidence, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CurrentSchemaProducerFile> after = await SnapshotRetainedReaderInputsAsync(inputs,
@@ -305,7 +308,7 @@ internal sealed class OwnedCurrentSchemaTarget
     // Only original compiled resource bytes execute. Identifiers preserve the
     // original import.meta/defaultRoot semantics but never authorize a disk read.
     // Keep this one fixed loader with the sole process owner, not a caller plugin.
-    private const string s_retainedCompiledReaderBootstrap = """
+    private const string RetainedCompiledReaderBootstrap = """
         import vm from 'node:vm';
         import path from 'node:path';
         import { pathToFileURL } from 'node:url';
@@ -583,7 +586,10 @@ internal sealed class OwnedCurrentSchemaTarget
             {
                 foreach (CurrentSchemaProducerFile child in await SnapshotProducerAsync(entry, cancellationToken).ConfigureAwait(false))
                 {
-                    result.Add(child with { RelativePath = Path.Combine(Path.GetFileName(entry), child.RelativePath) });
+                    result.Add(child with
+                    {
+                        RelativePath = Path.Combine(Path.GetFileName(entry), child.RelativePath)
+                    });
                 }
             }
             else
