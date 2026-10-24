@@ -515,19 +515,27 @@ const formatMode = (value: string): string => modeLabels[value] ?? value;
 
     .security-workbench__status
  {
-        grid-template-columns: minmax(0, 1fr) auto;
+        display: flex;
+        flex-wrap: wrap;
         padding-inline: var(--fsus-space-4);
+    }
+
+    .security-workbench__status-copy
+ {
+        flex-basis: 100%;
     }
 
     .security-workbench__checked
  {
-        grid-column: 1;
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        white-space: normal;
     }
 
     .security-workbench__refresh
  {
-        grid-column: 2;
-        grid-row: 2;
+        flex-shrink: 0;
     }
 
     .security-task-list__item
