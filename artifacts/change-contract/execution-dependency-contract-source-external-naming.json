@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/execution-dependency-contract.json"
+            ],
+            "reason": "Preserve the existing execution-dependency JSON schema/key names and original producer identifier while refreshing only graph counts and digest for the source-integration nodes and exact edges already merged by PR #3796. No external contract field is renamed or added."
+        }
+    ]
+}
