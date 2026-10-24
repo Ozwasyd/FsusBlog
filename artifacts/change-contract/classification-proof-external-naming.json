@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the existing lifecycle registry field names while explicitly registering the separately invoked SDK compiler experiment as manual diagnostics with no scheduled physical execution or static-governance promotion."
+        }
+    ]
+}

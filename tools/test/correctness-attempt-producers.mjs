@@ -180,10 +180,9 @@ function reliabilityEntries(root)
     }));
 }
 
-export function buildCorrectnessAttemptProducerInventory(root = defaultRoot)
+function canonicalProducerEntries(root)
 {
     const matrixFile = path.join(root, 'tests/matrix.yml');
-    const reliabilityFile = path.join(root, 'config/testing/release-reliability-scenario-catalog.json');
     const matrix = parseMatrix(fs.readFileSync(matrixFile, 'utf8'));
     const entries = [
         ...matrixEntries(matrix),
@@ -195,6 +194,19 @@ export function buildCorrectnessAttemptProducerInventory(root = defaultRoot)
     {
         throw new Error('correctness attempt producer inventory contains duplicate producer IDs');
     }
+    return entries;
+}
+
+export function correctnessAttemptProducerIds(root = defaultRoot)
+{
+    return canonicalProducerEntries(root).map((item) => item.producerId);
+}
+
+export function buildCorrectnessAttemptProducerInventory(root = defaultRoot)
+{
+    const matrixFile = path.join(root, 'tests/matrix.yml');
+    const reliabilityFile = path.join(root, 'config/testing/release-reliability-scenario-catalog.json');
+    const entries = canonicalProducerEntries(root);
     return sealContentDigest({
         schema: correctnessAttemptProducerSchema,
         generatedBy: 'tools/test/generate-correctness-attempt-producers.mjs',

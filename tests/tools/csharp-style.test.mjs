@@ -1462,3 +1462,49 @@ public sealed record AttributedRecord(string Name)
         assert.equal(result.status, 0, output(result));
     });
 });
+
+for (const owner of [
+    'src/migration/ArticlePreservationStorageWriter.cs',
+    'src/migration/OfflineMigrationApplyNativeSession.cs',
+    'src/migration/OfflineMigrationExecutor.cs',
+    'tests/migration/PgCurrentSchemaCatalogNotNullTests.cs',
+    'src/migration/OfflineMigrationBackupAdmission.cs',
+    'src/migration/OfflineMigrationSourceObserver.cs',
+    'src/migration/OfflineMigrationSourceObserver.Providers.cs',
+    'src/migration/PgLegacyNonArticlePreparation.cs'
+])
+{
+    test(`native migration import owner accepts and normalizes the current mother-standard order for ${owner}`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            writeFixture(fixtureRoot, owner, compatibleImports);
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', owner]);
+            assert.equal(result.status, 0, output(result));
+            writeFixture(fixtureRoot, owner, migrationImports);
+            const fixed = runChecker(fixtureRoot, ['--mode', 'full', '--fix', '--file', owner]);
+            assert.equal(fixed.status, 0, output(fixed));
+            assert.equal(readFileSync(path.join(fixtureRoot, owner), 'utf8'), compatibleImports);
+        });
+    });
+
+    for (const [name, source, rule] of [
+        ['repository before third-party', migrationImports, 'using-order'],
+        ['System last', compatibleImports.replace('using System;\n\n', '').replace('namespace Fixture;', 'using System;\n\nnamespace Fixture;'), 'using-order'],
+        ['reversed third-party roots', compatibleImports.replace('using Microsoft.Extensions.Logging;\n\nusing NSubstitute;', 'using NSubstitute;\n\nusing Microsoft.Extensions.Logging;'), 'using-order'],
+        ['reversed repository imports', compatibleImports.replace('using FsusBlog.Server.Infrastructure.Cache;\nusing FsusBlog.Server.Infrastructure.Execution;', 'using FsusBlog.Server.Infrastructure.Execution;\nusing FsusBlog.Server.Infrastructure.Cache;'), 'using-order'],
+        ['missing third-party separation', compatibleImports.replace('Logging;\n\nusing NSubstitute;', 'Logging;\nusing NSubstitute;'), 'using-group']
+    ])
+    {
+        test(`native migration import owner rejects ${name} for ${owner}`, () =>
+        {
+            withFixture((fixtureRoot) =>
+            {
+                writeFixture(fixtureRoot, owner, source);
+                const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', owner]);
+                assert.notEqual(result.status, 0, output(result));
+                assert.ok(output(result).includes(` ${rule}:`), output(result));
+            });
+        });
+    }
+}
