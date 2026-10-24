@@ -48,6 +48,22 @@ prints its path; retention does not turn a failed gate into acceptance.
 
 By default it resolves the `FsusUI` checkout beside the primary FsusBlog checkout, including when the command runs from a linked Git worktree. Set `FSUSBLOG_LOCAL_FSUSUI_ROOT` to select another checkout; an invalid explicit path fails closed instead of falling back to the installed package. This is the mode to run during local development before the FsusUI package has been published.
 
+`node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application` checks the
+complete original application project with those aliases and its unchanged strict,
+unused and erasable-syntax options. In local-source mode, the original ESLint entry
+also uses that complete project's root files and the frontend's installed TypeScript
+and Vue language plugin used by `vue-tsc`. Imported `.vue` files are compiled from
+real source so their public instance and component types reach typed lint rules.
+The Vue lint parser still supplies the original script AST and locations for the
+currently linted script, including pending fixes; compiler-generated code is not
+linted as hand-written source. Syntax-only parser calls retain their existing path.
+Published-package mode retains Project Service. No lint rule, source set, baseline
+allowance or package installation policy changes with this parser integration.
+
+Typed lint does not replace the complete application/SFC check. For example, an
+unexposed component property must still fail: resolving `FormInstance.validate`
+does not make a private form field collection part of the public instance API.
+
 ### Docker Source Installation
 
 `FSUSBLOG_USE_LOCAL_FSUSUI=1` explicitly selects the checked-out source mode in
