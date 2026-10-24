@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionLifecycleResources.cs"
+            ],
+            "reason": "Declare this lifecycle resource path under the existing src/**/*.cs environment-variable registration. Cleanup custody changes add, rename, read or write no environment variables; existing external environment spelling is preserved and internal identifiers follow repository C# naming."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Declare the maintained architecture document under the existing docs/**/*.md CSS-like contract registration. This bounded cleanup-callback rule adds or renames no DOM attributes, selectors or token spelling; original caller-visible spellings remain unchanged."
+        }
+    ]
+}
