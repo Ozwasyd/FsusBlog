@@ -192,7 +192,7 @@
                 <div class="blog-scroll-x-safe comment-moderation-table-scroll">
                     <ElTable
                         class="comment-moderation-table"
-                        :data="items"
+                        :data="tableItems"
                         :row-key="getRowKey"
                         :row-class-name="rowClassName"
                     >
@@ -420,6 +420,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+
 import { CommentModerationStatus, type CommentModerationStatus as CommentModerationStatusValue } from '@/api/authoring';
 import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue';
 import SemanticTime from '@/components/ui/SemanticTime.vue';
@@ -447,6 +449,8 @@ const emit = defineEmits<{
     'block-anonymous-nullifier': [item: CommentModerationViewItem];
     'revoke-anonymous-credential': [item: CommentModerationViewItem];
 }>();
+
+const tableItems = computed(() => [...props.items]);
 
 const getRowKey = (row: CommentModerationViewItem): string => row.id;
 
