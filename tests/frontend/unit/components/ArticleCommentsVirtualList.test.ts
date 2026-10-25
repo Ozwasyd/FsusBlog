@@ -70,7 +70,7 @@ describe('ArticleCommentsVirtualList recursive comment tree', () => {
     publicWrapper.unmount()
 
     const anonymous = makeNode('1', 0, [], {
-      author: { mode: 'anonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null }
+      author: { mode: 'legacy_server_visible_pseudonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null }
     })
     const anonymousWrapper = mountList(anonymous, false)
     expect(anonymousWrapper.get('.fsus-comment-tree-node__author').classes()).toContain('is-anonymous')
@@ -79,9 +79,22 @@ describe('ArticleCommentsVirtualList recursive comment tree', () => {
     anonymousWrapper.unmount()
   })
 
+  it('renders the current ZK author projection with anonymous presentation and no account action', () => {
+    const anonymous = makeNode('1', 0, [], {
+      author: { mode: 'zk_anonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null }
+    })
+    const wrapper = mountList(anonymous, false)
+    expect(wrapper.get('.fsus-comment-tree-node__author').classes()).toContain('is-anonymous')
+    expect(wrapper.get('.fsus-comment-tree-node__author').text()).toBe('Anonymous')
+    expect(wrapper.get('.fsus-comment-tree-node__badge').text()).toBe('匿名')
+    expect(wrapper.get('.fsus-comment-tree-node__action').text()).toBe('登录后回复')
+    expect(wrapper.find('.is-danger').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('keeps recursive groups, reply identity, permalink, and delete semantics accessible', () => {
     const child = makeNode('2', 1, [], {
-      author: { mode: 'anonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null },
+      author: { mode: 'legacy_server_visible_pseudonymous', displayName: 'Anonymous', displayLanguage: 'en', badge: null, scopeLabel: null },
       replyToAuthor: { mode: 'public', displayName: 'Demo Reader', displayLanguage: 'en', badge: null, scopeLabel: null }
     })
     const wrapper = mountList(makeNode('1', 0, [child]), true, new Set(), true)
