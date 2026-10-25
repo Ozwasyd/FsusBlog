@@ -1,8 +1,8 @@
 <template>
     <div>
-        <button
+        <FsusUiButton
             ref="triggerRef"
-            type="button"
+            native-type="button"
             class="comment-advanced-trigger"
             :aria-expanded="visible"
             aria-controls="comment-advanced-filter-panel"
@@ -15,7 +15,7 @@
                 class="comment-advanced-trigger__count"
                 :aria-label="`${activeCount} 个高级筛选已启用`"
             >{{ activeCount }}</span>
-        </button>
+        </FsusUiButton>
 
         <ElDrawer
             v-model="visible"
@@ -132,13 +132,16 @@
                     class="comment-advanced-panel__active"
                     aria-label="已启用的高级筛选"
                 >
-                    <button
+                    <FsusUiButton
                         v-for="filter in advancedFilters"
                         :key="filter.key"
-                        type="button"
+                        native-type="button"
+                        text
                         class="comment-advanced-panel__active-item"
                         @click="emit('remove-filter', filter.key)"
-                    >移除 {{ filter.label }}</button>
+                    >
+                        <span class="comment-advanced-panel__active-label">移除 {{ filter.label }}</span>
+                    </FsusUiButton>
                 </div>
             </div>
 
@@ -168,6 +171,9 @@ import type {
     CommentModerationFilterKey,
     CommentModerationFilters
 } from '@/composables/useCommentModerationQueue';
+import { FsusUiButton } from '@/fsusui/button';
+
+import type { ComponentPublicInstance } from 'vue';
 
 type FilterOption = Readonly<{ value: string; label: string; }>;
 const advancedKeys = new Set<CommentModerationFilterKey>([
@@ -201,7 +207,7 @@ const emit = defineEmits<{
     'update:dateRange': [value: [string, string] | null];
 }>();
 const visible = ref(false);
-const triggerRef = ref<HTMLButtonElement | null>(null);
+const triggerRef = ref<ComponentPublicInstance | null>(null);
 const panelRef = ref<HTMLElement | null>(null);
 const advancedFilters = computed(() => props.activeFilters.filter(({ key }) => advancedKeys.has(key)));
 const activeCount = computed(() => advancedFilters.value.length);
@@ -224,7 +230,11 @@ function focusPanel(): void
 
 function restoreTriggerFocus(): void
 {
-    triggerRef.value?.focus();
+    const trigger = triggerRef.value;
+    if (trigger !== null && 'ref' in trigger && trigger.ref instanceof HTMLButtonElement)
+    {
+        trigger.ref.focus();
+    }
 }
 
 function apply(): void
@@ -235,33 +245,10 @@ function apply(): void
 </script>
 
 <style scoped>
-.comment-advanced-trigger
- {
-    display: inline-flex;
-    min-height: 44px;
-    align-items: center;
-    justify-content: center;
-    gap: var(--fsus-space-2);
-    padding-inline: var(--fsus-space-4);
-    border: 1px solid var(--fsusblog-panel-border);
-    border-radius: var(--fsus-radius-control);
-    background: var(--fsusblog-page-bg);
-    color: var(--fsusblog-text-secondary);
-    cursor: pointer;
-    font: inherit;
-    font-size: 14px;
-    font-weight: 700;
-}
-
-.comment-advanced-trigger:focus-visible
- {
-    box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
-    outline: none;
-}
-
 .comment-advanced-trigger__count
  {
     min-width: 20px;
+    margin-inline-start: var(--fsus-space-2);
     padding-inline: var(--fsus-space-1);
     border-radius: var(--fsus-radius-control-small);
     background: var(--fsusblog-text-primary);
@@ -285,6 +272,7 @@ function apply(): void
 .comment-advanced-panel__active
  {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--fsus-space-2);
     margin-top: var(--fsus-space-5);
     padding-top: var(--fsus-space-4);
@@ -293,13 +281,19 @@ function apply(): void
 
 .comment-advanced-panel__active-item
  {
-    min-height: 40px;
-    padding: var(--fsus-space-2) var(--fsus-space-3);
-    border: 0;
-    background: transparent;
-    color: var(--fsusblog-text-secondary);
-    cursor: pointer;
+    min-width: 0;
+    height: auto;
+    justify-content: flex-start;
+    margin: 0;
     text-align: left;
+}
+
+.comment-advanced-panel__active-label
+ {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: normal;
+    white-space: normal;
 }
 
 .comment-advanced-panel__footer
