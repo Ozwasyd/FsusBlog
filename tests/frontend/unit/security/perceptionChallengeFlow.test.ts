@@ -27,6 +27,7 @@ const assignment: SecurityChallengeAssignment = {
   issuedAtUnixMs: 1_770_000_000_000,
   expiresAtUnixMs: 1_770_000_300_000
 }
+const envelopeId = '01900000-0000-7000-8000-000000000001'
 
 const recipeJson = JSON.stringify({
   schema: 'fsus.challenge.render-recipe@v2',
@@ -99,6 +100,7 @@ describe('perception v2 business challenge flow', () => {
       dispose: vi.fn()
     }
     const runtime = createPerceptionChallengeRuntime({
+      envelopeId,
       assignment,
       providerPayload,
       workerClient,
@@ -107,10 +109,15 @@ describe('perception v2 business challenge flow', () => {
         verifyRequests.push(request)
         return {
           verified: true,
+          envelopeId,
           challengeId: request.challengeId,
           kind: request.kind,
           policyVersion: 'risk-v1',
+          completedCount: 1,
+          memberCount: 1,
+          envelopeCompleted: true,
           proofToken: 'proof-perception',
+          expiresAtUnixMs: assignment.expiresAtUnixMs,
           reason: '',
           retryAfterMs: 0
         }
@@ -136,6 +143,7 @@ describe('perception v2 business challenge flow', () => {
 
     expect(verifyRequests).toHaveLength(1)
     expect(verifyRequests[0]).toMatchObject({
+      envelopeId,
       challengeId: assignment.challengeId,
       kind: SecurityChallengeKind.PerceptionLocalizationV2,
       action: 'comment.create',
@@ -150,16 +158,22 @@ describe('perception v2 business challenge flow', () => {
         y: '99'
       })
     })
+    if (!verifyRequests[0]?.providerPayload) throw new Error('expected the sealed perception verification payload')
     expect(Number(verifyRequests[0].providerPayload.solveDurationMs)).toBeGreaterThanOrEqual(750)
   })
 
   it('does not expose detailed perception failure reasons to the host', () => {
     expect(mapPerceptionVerifyResult({
       verified: false,
+      envelopeId,
       challengeId: assignment.challengeId,
       kind: assignment.kind,
       policyVersion: 'risk-v1',
+      completedCount: 0,
+      memberCount: 1,
+      envelopeCompleted: false,
       proofToken: '',
+      expiresAtUnixMs: 0,
       reason: 'perception_localization_invalid',
       retryAfterMs: 1500
     })).toEqual({

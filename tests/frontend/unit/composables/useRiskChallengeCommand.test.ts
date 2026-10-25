@@ -236,8 +236,27 @@ function createLease(): SecurityChallengeProofLease {
 function createClient(
   lease: SecurityChallengeProofLease,
   status: 'challenge' | 'allow' = 'challenge',
-  kind = SecurityChallengeKind.PerceptionLocalizationV2
+  kind: SecurityChallengeKind = SecurityChallengeKind.PerceptionLocalizationV2
 ): SecurityChallengeClient {
+  const assignment = {
+    challengeId: 'challenge-1',
+    traceparent: '',
+    tenantId: '',
+    kind,
+    escalationLevel: 1,
+    action: context.action,
+    routeKey: context.routeKey,
+    subjectHash: 'a'.repeat(64),
+    clientIpHash: 'b'.repeat(64),
+    deviceFpHash: 'c'.repeat(64),
+    issuedAtUnixMs: 1,
+    expiresAtUnixMs: 60_000,
+    attemptLimit: 1,
+    providerKey: '',
+    providerVersion: '',
+    providerPayloadRef: '',
+    metadata: {}
+  }
   return {
     issue: vi.fn(async () => status === 'allow' ? {
       status: 'allow' as const,
@@ -252,22 +271,7 @@ function createClient(
     } : ({
       status: 'challenge' as const,
       response: null,
-      assignment: {
-        challengeId: 'challenge-1',
-        traceparent: '',
-        tenantId: '',
-        kind,
-        escalationLevel: 1,
-        action: context.action,
-        routeKey: context.routeKey,
-        issuedAtUnixMs: 1,
-        expiresAtUnixMs: 60_000,
-        attemptLimit: 1,
-        providerKey: '',
-        providerVersion: '',
-        providerPayloadRef: '',
-        metadata: {}
-      },
+      assignment,
       providerPayload: null,
       proof: null,
       capability: resolveChallengeCapability(kind, { action: context.action }),
