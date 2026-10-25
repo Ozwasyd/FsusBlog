@@ -212,7 +212,8 @@ export function createCommentPrivacyCredentialProvider(
                 {
                     return null;
                 }
-                if (!matchesMetadata(issuerResponse, metadata) || issuerResponse.rootExpiresAtUnixMs <= now())
+                if (!matchesMetadata(issuerResponse, metadata) ||
+                    !Number.isFinite(issuerResponse.expiresAtUnixMs) || issuerResponse.expiresAtUnixMs <= now())
                 {
                     return failClosed(signal);
                 }
@@ -299,8 +300,8 @@ export function createCommentPrivacyCredentialProvider(
                     entryHashes: cloneBytes(workerResult.entryHashes)
                 });
 
-                const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.rootExpiresAtUnixMs);
-                if (expiresAtUnixMs <= now())
+                const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.expiresAtUnixMs);
+                if (!Number.isFinite(expiresAtUnixMs) || expiresAtUnixMs <= now())
                 {
                     return failClosed(signal);
                 }

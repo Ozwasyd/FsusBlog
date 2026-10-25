@@ -18,7 +18,7 @@ export interface CommentPrivacyRevocationWitnessMaterial {
 
 export function encodeCommentPrivacyRevocationWitnessMaterial(
     response: CommentPrivacyRevocationWitnessMaterial
-): Uint8Array
+): Uint8Array<ArrayBuffer>
 {
     const algorithm = new TextEncoder().encode(response.algorithmId);
     const issuer = new TextEncoder().encode(response.issuerPublicKeyHash);
@@ -161,7 +161,7 @@ function numberToUint64Bytes(value: bigint): Uint8Array
     return bytes;
 }
 
-function concatBytes(...parts: Uint8Array[]): Uint8Array
+function concatBytes(...parts: Uint8Array[]): Uint8Array<ArrayBuffer>
 {
     const output = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
     let offset = 0;

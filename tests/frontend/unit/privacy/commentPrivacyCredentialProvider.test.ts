@@ -106,8 +106,8 @@ describe('RFC 9474 blind anonymous credential suite', () => {
     expect(await crypto.subtle.verify(
       { name: 'RSA-PSS', saltLength: 48 },
       cryptoKey.publicKey,
-      credential!.issuerSignature,
-      readPreparedMessage(request!.credentialOpening))).toBe(true)
+      new Uint8Array(credential!.issuerSignature),
+      new Uint8Array(readPreparedMessage(request!.credentialOpening)))).toBe(true)
   }, 30_000)
 
   it('gives an issuer with both transcripts no deterministic two-client attribution', async () => {
@@ -272,6 +272,43 @@ describe('RFC 9474 blind anonymous credential suite', () => {
 
     expect(await provider.prepareCredential({ signal: controller.signal })).toBeNull()
     expect(loadMetadata).not.toHaveBeenCalled()
+  })
+
+  it.each<[string, number]>([
+    ['expired', 1],
+    ['not a number', Number.NaN],
+    ['positive infinity', Number.POSITIVE_INFINITY],
+    ['negative infinity', Number.NEGATIVE_INFINITY]
+  ])('rejects an issuer expiry that is %s before accepting its signature', async (_label, expiresAtUnixMs) => {
+    const acceptIssuerResponse = vi.fn(async () => null)
+    const suite: CommentPrivacyCredentialSuite = {
+      async createCredentialRequest() {
+        return {
+          credentialRequest: new Uint8Array(MODULUS_BYTES),
+          credentialOpening: new Uint8Array([1])
+        }
+      },
+      acceptIssuerResponse
+    }
+    const provider = createCommentPrivacyCredentialProvider({
+      vault: {
+        async get() { return null },
+        async put() {},
+        async pruneExpired() { return 0 },
+        async clear() {}
+      },
+      loadMetadata: async () => issuerMetadata(),
+      issueCredential: async () => ({
+        ...issuerResponse(new Uint8Array(MODULUS_BYTES)),
+        expiresAtUnixMs
+      }),
+      credentialSuite: suite,
+      crypto,
+      unavailableCacheTtlMs: 0
+    })
+
+    await expect(provider.prepareCredential({ signal: new AbortController().signal })).resolves.toBeNull()
+    expect(acceptIssuerResponse).not.toHaveBeenCalled()
   })
 })
 

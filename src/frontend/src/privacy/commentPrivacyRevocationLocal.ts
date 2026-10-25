@@ -32,8 +32,8 @@ export interface CommentPrivacyRevocationBuildRequest {
 }
 
 export interface CommentPrivacyRevocationBuildResult {
-    witness: Uint8Array;
-    entryHashes: Uint8Array;
+    witness: Uint8Array<ArrayBuffer>;
+    entryHashes: Uint8Array<ArrayBuffer>;
 }
 
 let roundConstantsPromise: Promise<bigint[]> | null = null;
@@ -315,7 +315,15 @@ function enforceCpuBudget(startedAt: number, maxCpuMs: number): void
 
 async function sha256(bytes: Uint8Array): Promise<Uint8Array>
 {
-    return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    const ownedBytes = new Uint8Array(bytes);
+    try
+    {
+        return new Uint8Array(await crypto.subtle.digest('SHA-256', ownedBytes));
+    }
+    finally
+    {
+        ownedBytes.fill(0);
+    }
 }
 
 function utf8(value: string): Uint8Array
@@ -352,7 +360,7 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean
     return diff === 0;
 }
 
-function concatBytes(...parts: Uint8Array[]): Uint8Array
+function concatBytes(...parts: Uint8Array[]): Uint8Array<ArrayBuffer>
 {
     const result = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
     let offset = 0;
