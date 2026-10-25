@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { FrameType } from '@wasm/protocol/frame'
+import { AEDS_HEADER_LENGTH, FrameType } from '@wasm/protocol/frame'
 
 vi.mock('@/composition/binaryTransport', () => ({
   requestBinaryOnly: vi.fn()
@@ -51,13 +51,31 @@ describe('auth API binary base session flow', () => {
 
     await enrollmentPasskeyRegisterComplete({
       sessionKey: 'challenge',
-      id: 'credential',
-      rawId: new Uint8Array([1]),
-      clientDataBytes: new Uint8Array([2]),
-      attestationObject: new Uint8Array([3]),
-      transports: []
+      attestation: {
+        id: 'credential',
+        rawId: 'AQ',
+        response: {
+          clientDataJSON: 'Ag',
+          attestationObject: 'Aw',
+          transports: []
+        }
+      }
     })
     expectBinaryRoute('binary_post_auth_enrollment_passkey_register_complete', FrameType.AuthLoginFlow)
+    const body = findBinaryRouteCall('binary_post_auth_enrollment_passkey_register_complete')?.requestOptions?.body
+    expect(body).toBeInstanceOf(ArrayBuffer)
+    if (!(body instanceof ArrayBuffer)) throw new Error('expected the encoded enrollment frame')
+    const payload = new Uint8Array(body, AEDS_HEADER_LENGTH)
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
+    expect(view.getInt32(4, true)).toBe(0)
+    const readPart = (offset: number) => payload.subarray(
+      124 + view.getInt32(offset, true),
+      124 + view.getInt32(offset, true) + view.getInt32(offset + 4, true)
+    )
+    expect(new TextDecoder().decode(readPart(72))).toBe('credential')
+    expect([...readPart(80)]).toEqual([1])
+    expect([...readPart(88)]).toEqual([2])
+    expect([...readPart(96)]).toEqual([3])
 
     await getEnrollmentStatus()
     expectBinaryRoute('binary_get_auth_enrollment_status', FrameType.AuthLoginFlow)
@@ -195,7 +213,7 @@ describe('auth API binary base session flow', () => {
         id: 'credential-id',
         rawId: 'AQID',
         response: {
-          clientDataBytes: 'BAUG',
+          clientDataJSON: 'BAUG',
           authenticatorData: 'BwgJ',
           signature: 'CgsM',
           userHandle: 'DQ4P'
@@ -294,7 +312,7 @@ describe('auth API binary base session flow', () => {
         id: 'credential-id',
         rawId: 'AQID',
         response: {
-          clientDataBytes: 'BAUG',
+          clientDataJSON: 'BAUG',
           attestationObject: 'BwgJ',
           transports: ['internal']
         }
@@ -308,7 +326,7 @@ describe('auth API binary base session flow', () => {
         id: 'credential-id',
         rawId: 'AQID',
         response: {
-          clientDataBytes: 'BAUG',
+          clientDataJSON: 'BAUG',
           authenticatorData: 'BwgJ',
           signature: 'CgsM',
           userHandle: 'DQ4P'
@@ -378,7 +396,7 @@ describe('auth API binary base session flow', () => {
         id: 'credential-id',
         rawId: 'AQID',
         response: {
-          clientDataBytes: 'BAUG',
+          clientDataJSON: 'BAUG',
           attestationObject: 'BwgJ',
           transports: ['internal']
         }

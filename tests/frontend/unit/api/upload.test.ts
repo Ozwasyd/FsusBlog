@@ -84,7 +84,7 @@ describe('upload API requests', () => {
 })
 
 function readAedsFrame(body: BodyInit | null | undefined): {
-  frameType: FrameType
+  frameType: number
   payload: Uint8Array
   view: DataView
 } {

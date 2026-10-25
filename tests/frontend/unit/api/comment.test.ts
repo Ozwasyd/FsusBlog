@@ -28,6 +28,7 @@ import {
   getAnonymousCredentialRevocationArtifact,
   resolveCommentAuthorView
 } from '@/api/comment'
+import type { CommentCreateV2Dto } from '@/api/comment'
 import { COMMENT_CONTENT_CONSTRAINT } from '@/utils/contentFilter'
 
 const mockBinary = vi.mocked(requestBinaryOnly)
@@ -124,7 +125,7 @@ describe('comment API', () => {
       nonce: 'n',
       salt: 's',
       answer: 1
-    }
+    } satisfies CommentCreateV2Dto & { nonce: string; salt: string; answer: number }
 
     await createCommentV2(dto)
 

@@ -19,7 +19,8 @@ describe('brand icon generator', () => {
       'pwaMaskableIconUrl'
     ])
     expect(BRAND_ICON_SET_UPLOADS.find((target) => target.field === 'faviconIcoUrl')?.format).toBe('ico')
-    expect(BRAND_ICON_SET_UPLOADS.every((target) => target.field !== 'faviconSvgUrl')).toBe(true)
+    const targetFields: readonly string[] = BRAND_ICON_SET_UPLOADS.map((target) => target.field)
+    expect(targetFields.every((field) => field !== 'faviconSvgUrl')).toBe(true)
   })
 
   it('encodes PNG payloads into a valid ICO directory', () => {
