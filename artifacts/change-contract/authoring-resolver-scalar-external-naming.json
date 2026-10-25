@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs"
+            ],
+            "reason": "Retain the existing source-path naming registration while replacing closed registry predicates with equivalent scalar validation. No environment variable, external name or public contract is introduced or renamed."
+        }
+    ]
+}

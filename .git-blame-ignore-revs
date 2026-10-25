@@ -31,6 +31,21 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 # Original ESLint layout pass for local operational preservation controls.
 9fe86c28d3b2cfd4008b0575111ddcfcf94f598f
 
+# Isolated original strict-build naming-owner whitespace pass (#3663).
+a5f53a1aaae8d410216ec1d5f25d526b9fd43a9d
+
+# Native migration transaction source whitespace (#3663, #4668)
+06345a6dd750f4b7cf96ef26d1e16bf2a82eca12
+
 # Reviewed migration guard mechanical formatting for #3663.
 9a23051edcbd5cbb1b6d5209e2508c7fa58ae986
+
+# Native enrollment control manual layout and verified formatter fixed point.
+dd487ffcb71b9887c790bfaaac2d902e34b53616
+
+# Native preparation manual layout and verified formatter fixed point.
+1b0f4dfbfb737b480cfd57a7265bc613523a7790
 a9371f2e5de722bf271aa5e41c73b9186433be90
+
+# Closed adapter read-scope getter format, Refs #2139
+859963532668efeec9b29e7836449b7199f7fd0b
