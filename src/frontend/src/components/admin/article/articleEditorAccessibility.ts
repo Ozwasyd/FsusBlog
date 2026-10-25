@@ -2,9 +2,8 @@ const FIRST_VISIBLE_FOCUSABLE = 'input:not([type="hidden"]):not([disabled]):not(
 
 const VALIDATION_ERROR_FOCUS_SELECTOR = '.write-validation-form [aria-invalid="true"]:not([disabled]):not([tabindex="-1"])';
 
-// Element Plus exposes validation state per field through the public fields
-// API, so the first-error fallback descends from the field root instead of
-// targeting the internal form-item class.
+// Prefer rendered validation accessibility state. An explicit field root can
+// provide a local fallback without reaching into private form-item state.
 function findFirstFocusable(root: ParentNode): HTMLElement | null
 {
     const candidate = root.querySelector<HTMLElement>(VALIDATION_ERROR_FOCUS_SELECTOR);
