@@ -40,7 +40,7 @@ const defaultEnvironment: BrowserTaskSchedulerEnvironment = {
     scheduler: readSchedulerCapability(),
     now: () => performance.now(),
     visibility: readVisibility,
-    setTimer: callback => globalThis.setTimeout(callback, 0),
+    setTimer: callback => Number(globalThis.setTimeout(callback, 0)),
     clearTimer: timer => globalThis.clearTimeout(timer)
 };
 
