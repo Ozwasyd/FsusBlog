@@ -227,7 +227,7 @@
                     >
                         <template #default="{ row }: { row: ClusterTaskResponse }">
                             <div class="cluster-runtime-primary">{{ row.key }}</div>
-                            <div class="cluster-runtime-secondary">{{ nodeStatusLabel(row.status) }} · attempt {{ row.attempt }}</div>
+                            <div class="cluster-runtime-secondary">{{ taskStatusLabel(row.status) }} · attempt {{ row.attempt }}</div>
                         </template>
                     </ElTableColumn>
                     <ElTableColumn
@@ -387,6 +387,19 @@ const nodeStatusLabel = (status: ClusterNodeResponse['status']): string => ({
 
 const nodeTagType = (status: ClusterNodeResponse['status']): 'success' | 'warning' | 'danger' | 'info' =>
     status === 'alive' ? 'success' : status === 'dead' ? 'danger' : status === 'maintenance' ? 'info' : 'warning';
+
+const taskStatusLabel = (status: ClusterTaskResponse['status']): string =>
+{
+    switch (status)
+    {
+        case 'running': return '运行中';
+        case 'succeeded': return '已成功';
+        case 'retryscheduled': return '等待重试';
+        case 'deadlettered': return '已进入死信';
+        case 'compensationrequired': return '需要补偿';
+        default: return status;
+    }
+};
 
 const assignmentStateLabel = (state: ClusterAssignmentResponse['state']): string => ({
     active: '运行中',
