@@ -72,17 +72,19 @@
                             aria-required="true"
                             class="register-agreement-checkbox"
                         >
-                            {{ copy.agreementPrefix }}
-                            <ElButton
-                                text
-                                inline-action
-                                class="register-guidelines-button"
-                                type="primary"
-                                size="large"
-                                @click.stop.prevent="handleGuidelinesActivator"
-                            >
-                                {{ copy.guidelinesLink }}
-                            </ElButton>
+                            <span class="register-agreement-copy">
+                                {{ copy.agreementPrefix }}
+                                <ElButton
+                                    text
+                                    inline-action
+                                    class="register-guidelines-button"
+                                    type="primary"
+                                    size="large"
+                                    @click.stop.prevent="handleGuidelinesActivator"
+                                >
+                                    {{ copy.guidelinesLink }}
+                                </ElButton>
+                            </span>
                         </ElCheckbox>
                     </div>
 
@@ -306,8 +308,9 @@ const {
     align-items: flex-start;
 }
 
-.register-agreement-checkbox :deep(.el-checkbox__label)
+.register-agreement-copy
  {
+    display: block;
     white-space: normal;
     line-height: 1.5;
 }

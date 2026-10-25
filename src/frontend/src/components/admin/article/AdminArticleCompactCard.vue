@@ -39,12 +39,16 @@
         </div>
 
         <div class="article-compact-tags">
-            <ElTag size="small">
+            <ElTag
+                size="small"
+                class="article-compact-tag"
+            >
                 <span class="article-compact-tag-text">{{ row.categoryName }}</span>
             </ElTag>
             <ElTag
                 size="small"
                 :type="row.statusTagType"
+                class="article-compact-tag"
             >
                 {{ row.statusText }}
             </ElTag>
@@ -158,7 +162,7 @@ defineEmits<{
     object-fit: cover;
 }
 
-.article-compact-tags :deep(.el-tag)
+.article-compact-tag
  {
     max-width: 100%;
 }
