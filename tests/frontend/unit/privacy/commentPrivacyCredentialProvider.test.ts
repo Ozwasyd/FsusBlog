@@ -281,6 +281,7 @@ describe('RFC 9474 blind anonymous credential suite', () => {
     ['negative infinity', Number.NEGATIVE_INFINITY]
   ])('rejects an issuer expiry that is %s before accepting its signature', async (_label, expiresAtUnixMs) => {
     const acceptIssuerResponse = vi.fn(async () => null)
+    const blindSignature = new Uint8Array(MODULUS_BYTES).fill(0x5a)
     const suite: CommentPrivacyCredentialSuite = {
       async createCredentialRequest() {
         return {
@@ -299,7 +300,7 @@ describe('RFC 9474 blind anonymous credential suite', () => {
       },
       loadMetadata: async () => issuerMetadata(),
       issueCredential: async () => ({
-        ...issuerResponse(new Uint8Array(MODULUS_BYTES)),
+        ...issuerResponse(blindSignature),
         expiresAtUnixMs
       }),
       credentialSuite: suite,
@@ -309,6 +310,7 @@ describe('RFC 9474 blind anonymous credential suite', () => {
 
     await expect(provider.prepareCredential({ signal: new AbortController().signal })).resolves.toBeNull()
     expect(acceptIssuerResponse).not.toHaveBeenCalled()
+    expect(blindSignature).toEqual(new Uint8Array(MODULUS_BYTES))
   })
 })
 

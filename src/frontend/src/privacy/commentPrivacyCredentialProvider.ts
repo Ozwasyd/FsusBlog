@@ -208,6 +208,10 @@ export function createCommentPrivacyCredentialProvider(
                     issuerPublicKeyId: metadata.issuerPublicKeyId,
                     blindedMessage: track(cloneBytes(credentialIssuePayload.credentialRequest))
                 }, { signal });
+                if (issuerResponse?.blindSignature instanceof Uint8Array)
+                {
+                    track(issuerResponse.blindSignature);
+                }
                 if (signal.aborted)
                 {
                     return null;
@@ -217,8 +221,6 @@ export function createCommentPrivacyCredentialProvider(
                 {
                     return failClosed(signal);
                 }
-                track(issuerResponse.blindSignature);
-
                 const material = await credentialSuite.acceptIssuerResponse({
                     credentialSecret: track(cloneBytes(credentialSecret)),
                     clientNonce: track(cloneBytes(clientNonce)),
