@@ -22,14 +22,14 @@
                 {{ model.tasks.length }}
             </span>
             <span class="security-workbench__checked">检查于 {{ formatTime(model.checkedAtUtc) }}</span>
-            <button
-                type="button"
+            <FsusUiButton
+                native-type="button"
                 class="security-workbench__refresh"
                 :disabled="loading"
                 @click="$emit('refresh')"
             >
                 {{ loading ? '正在刷新' : '刷新状态' }}
-            </button>
+            </FsusUiButton>
         </section>
 
         <p
@@ -141,6 +141,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
 
+import { FsusUiButton } from '@/fsusui/button';
 import type { SecurityDashboardModel } from '@/view-contracts/securityDashboard';
 
 defineProps<{
@@ -266,7 +267,6 @@ const formatMode = (value: string): string => modeLabels[value] ?? value;
     white-space: nowrap;
 }
 
-.security-workbench__refresh,
 .security-task-list__action
  {
     display: inline-flex;
@@ -283,24 +283,16 @@ const formatMode = (value: string): string => modeLabels[value] ?? value;
     cursor: pointer;
 }
 
-.security-workbench__refresh:hover,
 .security-task-list__action:hover
  {
     border-color: var(--fsusblog-color-primary);
     color: var(--fsusblog-color-primary);
 }
 
-.security-workbench__refresh:focus-visible,
 .security-task-list__action:focus-visible
  {
     box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
     outline: none;
-}
-
-.security-workbench__refresh:disabled
- {
-    cursor: wait;
-    opacity: 0.65;
 }
 
 .security-workbench__error
@@ -523,19 +515,27 @@ const formatMode = (value: string): string => modeLabels[value] ?? value;
 
     .security-workbench__status
  {
-        grid-template-columns: minmax(0, 1fr) auto;
+        display: flex;
+        flex-wrap: wrap;
         padding-inline: var(--fsus-space-4);
+    }
+
+    .security-workbench__status-copy
+ {
+        flex-basis: 100%;
     }
 
     .security-workbench__checked
  {
-        grid-column: 1;
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-wrap: anywhere;
+        white-space: normal;
     }
 
     .security-workbench__refresh
  {
-        grid-column: 2;
-        grid-row: 2;
+        flex-shrink: 0;
     }
 
     .security-task-list__item
