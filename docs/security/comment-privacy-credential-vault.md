@@ -35,6 +35,8 @@ Normal logout/shared-device cleanup preserves explicitly public immutable static
 
 Before a vault lookup, the provider binds cached material to credential epoch, circuit id/numeric id/layout, issuer public-key hash, credential root, and revocation root. A change records the new binding, aborts all in-flight preload/proof work, purges and returns unavailable for that attempt. A later attempt obtains a new blind-signed credential. Old work cannot refill the vault after rotation.
 
+The issuer response's `expiresAtUnixMs` must be finite and still in the future before signature acceptance. Cached material expires at the earlier of that credential expiry and the metadata's root expiry; the provider rechecks this bound after revocation work. Invalid or elapsed expiry fails closed instead of creating a non-expiring memory entry.
+
 Private/incognito storage denial, Safari/iOS eviction, missing crypto, blocked legacy deletion, worker failure, and malformed metadata all fail closed to public-only commenting. No text/legacy credential path is used as a fallback.
 
 Suite selection is centralized in `commentPrivacyCredentialProvider.ts`. Pure credential, issuer metadata, issue payload/response and suite contracts live in the import-free `commentPrivacyContracts.ts`; `commentPrivacyBlindRsaSuite.ts` consumes that contract and never imports the provider. An aborted operation or suite exception remains an opaque unavailable/null result and all temporary byte ownership rules below stay unchanged. The contract checker rejects reverse imports and snapshots the public type set so a later suite cannot silently create a fallback path.

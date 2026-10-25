@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { VerifySecurityChallengeRequest } from '@/api/security'
 import {
   createPerceptionCharacterV3Flow,
   createPerceptionCharacterV3Media,
@@ -22,7 +23,7 @@ const envelopeId = '01900000-0000-7000-8000-000000000001'
 describe('PerceptionCharacterV3 frontend flow', () => {
   it('exposes final PNG through an image object URL and revokes it exactly once', async () => {
     const payload = visualPayload()
-    const createObjectUrl = vi.fn(() => 'blob:v3-visual')
+    const createObjectUrl = vi.fn<(blob: Blob) => string>(() => 'blob:v3-visual')
     const revokeObjectUrl = vi.fn()
     const resource = createPerceptionCharacterV3Media(payload, { createObjectUrl, revokeObjectUrl })
     const raster = resource.media.raster
@@ -32,7 +33,9 @@ describe('PerceptionCharacterV3 frontend flow', () => {
       width: 320,
       height: 120
     })
-    const blob = createObjectUrl.mock.calls[0]?.[0] as Blob
+    const blob = createObjectUrl.mock.calls[0]?.[0]
+    expect(blob).toBeInstanceOf(Blob)
+    if (!(blob instanceof Blob)) throw new Error('expected the visual media Blob allocation')
     expect(blob.type).toBe('image/png')
     expect(new Uint8Array(await blob.arrayBuffer())).toEqual(payload.mediaBytes)
 
@@ -44,12 +47,13 @@ describe('PerceptionCharacterV3 frontend flow', () => {
   })
 
   it('creates and revokes an audio blob URL exactly once', () => {
-    const createObjectUrl = vi.fn(() => 'blob:v3-audio')
+    const createObjectUrl = vi.fn<(blob: Blob) => string>(() => 'blob:v3-audio')
     const revokeObjectUrl = vi.fn()
     const resource = createPerceptionCharacterV3Media(audioPayload(), { createObjectUrl, revokeObjectUrl })
     expect(resource.media.audio).toEqual({ src: 'blob:v3-audio', type: 'audio/ogg; codecs=opus' })
-    const blob = createObjectUrl.mock.calls[0]?.[0] as Blob
+    const blob = createObjectUrl.mock.calls[0]?.[0]
     expect(blob).toBeInstanceOf(Blob)
+    if (!(blob instanceof Blob)) throw new Error('expected the audio media Blob allocation')
     expect(blob.type).toBe('audio/ogg; codecs=opus')
 
     resource.dispose()
@@ -60,7 +64,9 @@ describe('PerceptionCharacterV3 frontend flow', () => {
   })
 
   it('submits only answer, state, identity and representation in the typed verify member', async () => {
-    const verifyChallenge = vi.fn(async () => verifyResponse({ verified: false, reason: 'retryable' }))
+    const verifyChallenge = vi.fn<(request: VerifySecurityChallengeRequest) => Promise<SecurityChallengeVerifyResponse>>(
+      async () => verifyResponse({ verified: false, reason: 'retryable' })
+    )
     const flow = createPerceptionCharacterV3Flow({
       assignment: assignment(),
       payload: visualPayload(),

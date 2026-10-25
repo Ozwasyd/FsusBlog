@@ -208,16 +208,19 @@ export function createCommentPrivacyCredentialProvider(
                     issuerPublicKeyId: metadata.issuerPublicKeyId,
                     blindedMessage: track(cloneBytes(credentialIssuePayload.credentialRequest))
                 }, { signal });
+                if (issuerResponse?.blindSignature instanceof Uint8Array)
+                {
+                    track(issuerResponse.blindSignature);
+                }
                 if (signal.aborted)
                 {
                     return null;
                 }
-                if (!matchesMetadata(issuerResponse, metadata) || issuerResponse.rootExpiresAtUnixMs <= now())
+                if (!matchesMetadata(issuerResponse, metadata) ||
+                    !Number.isFinite(issuerResponse.expiresAtUnixMs) || issuerResponse.expiresAtUnixMs <= now())
                 {
                     return failClosed(signal);
                 }
-                track(issuerResponse.blindSignature);
-
                 const material = await credentialSuite.acceptIssuerResponse({
                     credentialSecret: track(cloneBytes(credentialSecret)),
                     clientNonce: track(cloneBytes(clientNonce)),
@@ -299,8 +302,8 @@ export function createCommentPrivacyCredentialProvider(
                     entryHashes: cloneBytes(workerResult.entryHashes)
                 });
 
-                const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.rootExpiresAtUnixMs);
-                if (expiresAtUnixMs <= now())
+                const expiresAtUnixMs = Math.min(metadata.rootExpiresAtUnixMs, issuerResponse.expiresAtUnixMs);
+                if (!Number.isFinite(expiresAtUnixMs) || expiresAtUnixMs <= now())
                 {
                     return failClosed(signal);
                 }

@@ -153,6 +153,7 @@ describe('commentPrivacyAdapter', () => {
       zkProof: new Uint8Array([12, 13]),
       publicInputs: new Uint8Array([14, 15])
     }), { signal, credentials: 'omit' })
+    expect(vi.mocked(issueAnonymousCommentTicket).mock.calls[0]?.[0]).not.toHaveProperty('credentialEpoch')
     expect(ticket.ok).toBe(true)
   })
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { IDBFactory } from 'fake-indexeddb'
+import { IDBFactory, IDBVersionChangeEvent } from 'fake-indexeddb'
 import {
   COMMENT_PRIVACY_CREDENTIAL_PERSISTENCE_MODE,
   COMMENT_PRIVACY_LEGACY_DATABASE_NAMES,
@@ -181,7 +181,7 @@ function createDeleteOnlyIndexedDb(onDelete?: () => void, blocked = false): IDBF
       } as unknown as IDBOpenDBRequest
       queueMicrotask(() => {
         if (blocked) {
-          request.onblocked?.(new Event('blocked'))
+          request.onblocked?.(new IDBVersionChangeEvent('blocked'))
           return
         }
         onDelete?.()

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import {
   SecurityChallengeKind,
   type SecurityChallengeAssignment,
@@ -29,6 +29,7 @@ const context: SecurityChallengeContext = {
   routeKey: 'notification.subscribe'
 }
 const policyVersion = 'risk-policy-v2'
+const envelopeId = '01900000-0000-7000-8000-000000000001'
 const saltHex = '000102030405060708090a0b0c0d0e0f'
 const nonceHex = '00112233445566778899aabbccddeeff'
 const proofHex = 'b3125c3ae22f4e6e2d5aad929304cf5d2672dca2f8dca3c19480f13ab2fd8b32'
@@ -85,9 +86,13 @@ const solved: PoSpaceWorkerSolveResult = {
 function verifiedResult(challengeId: string): SecurityChallengeVerifyResult {
   const response: SecurityChallengeVerifyResponse = {
     verified: true,
+    envelopeId,
     challengeId,
     kind: SecurityChallengeKind.Argon2IdPoSpaceV1,
     policyVersion,
+    completedCount: 1,
+    memberCount: 1,
+    envelopeCompleted: true,
     proofToken: `proof-token-${challengeId}`,
     expiresAtUnixMs: now + 120_000,
     reason: '',
@@ -107,6 +112,7 @@ function verifiedResult(challengeId: string): SecurityChallengeVerifyResult {
     status: 'verified',
     response,
     proof,
+    next: null,
     reason: null,
     retryAfterMs: 0
   }
@@ -127,9 +133,9 @@ function fakeClient(
 }
 
 type FakeWorker = PoSpaceWorkerClient & {
-  capability: ReturnType<typeof vi.fn>
-  solve: ReturnType<typeof vi.fn>
-  dispose: ReturnType<typeof vi.fn>
+  capability: Mock<PoSpaceWorkerClient['capability']>
+  solve: Mock<PoSpaceWorkerClient['solve']>
+  dispose: Mock<PoSpaceWorkerClient['dispose']>
 }
 
 function fakeWorker(options: {
@@ -137,9 +143,9 @@ function fakeWorker(options: {
   solveImplementation?: PoSpaceWorkerClient['solve']
 } = {}): FakeWorker {
   return {
-    capability: vi.fn().mockResolvedValue(options.capabilityResult ?? capability()),
-    solve: vi.fn(options.solveImplementation ?? (async () => solved)),
-    dispose: vi.fn()
+    capability: vi.fn<PoSpaceWorkerClient['capability']>().mockResolvedValue(options.capabilityResult ?? capability()),
+    solve: vi.fn<PoSpaceWorkerClient['solve']>(options.solveImplementation ?? (async () => solved)),
+    dispose: vi.fn<PoSpaceWorkerClient['dispose']>()
   }
 }
 
@@ -237,6 +243,7 @@ describe('security PoSpace challenge executor', () => {
       status: 'failed',
       response: null,
       proof: null,
+      next: null,
       reason: 'pospace_proof_invalid',
       retryAfterMs: 0
     }))

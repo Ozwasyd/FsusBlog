@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import type { RiskChallengeCommandRuntime } from '@/composables/useRiskChallengeCommand'
 
 const mediaVectors = JSON.parse(readFileSync(
   new URL('../../../fixtures/security/perception-character-v3-vectors.json', import.meta.url),
@@ -34,7 +35,7 @@ async function openChallenge(
     const { BinaryTransportError } = await import(/* @vite-ignore */ transportPath)
     const { SecurityChallengeKind } = await import(/* @vite-ignore */ securityPath)
     const { PerceptionCharacterV3Representation } = await import(/* @vite-ignore */ contractPath)
-    const coordinator = getRiskChallengeCoordinator()
+    const coordinator: RiskChallengeCommandRuntime = getRiskChallengeCoordinator()
     coordinator.handleCancel()
     const nativeCreateObjectUrl = URL.createObjectURL.bind(URL)
     const nativeRevokeObjectUrl = URL.revokeObjectURL.bind(URL)
@@ -213,7 +214,7 @@ async function openChallenge(
         }
         return 'resumed'
       }
-    ).then((value) => { state.result = value }).catch((error) => {
+    ).then((value) => { state.result = value }).catch((error: unknown) => {
       state.rejection = error instanceof Error ? error.message : String(error)
     })
   }, {

@@ -9,7 +9,7 @@ const frameTypes = new Map(protocol.frameTypes.map((frame: { name: string; value
 
 function frameType(name: string): number {
   const value = frameTypes.get(name)
-  if (!Number.isInteger(value)) {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
     throw new Error(`frame_type_missing:${name}`)
   }
   return value
