@@ -34,6 +34,13 @@ const updateSurfacePath = 'config/dependencies/update-surface.json';
 const renovatePath = 'renovate.json5';
 export const FSUSUI_PUBLIC_NPM_MIGRATION_PATCH = 'config/dependencies/fsusui-public-npm-migration.patch.gz';
 export const FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256 = '7cc634569551a238c331469bd042ee1aab964b8a4c794503a3e56fb80c05956c';
+const migrationContextPatch = 'config/dependencies/fsusui-public-npm-migration-context.patch';
+const migrationContextPatchSha256 = '5440a0bff2c66c5ab1f9b625d29c686ed58a8d52d2ecd0086486ce3d4f236ed1';
+const migrationContextSources = Object.freeze({
+    '.github/workflows/quality-gate.yml': 'e734a6275a2134aa10864ad9d903bea5e2f5596a8b9abaa894d3610a4d939390',
+    'ops/docker/FsusBlog.Server.Dockerfile': '9e83d5321fd50655bc51686872245740bf59f750d64496624eea341d342990f1',
+    'tools/build-final-image.sh': 'f0e524d0a79279c56d23979b7a3c5a0ccc4aa83b8ce41cef6ee435da66edff5b'
+});
 
 export const PRIVATE_REGISTRY_ORIGIN = `https://${privateRegistryHost}`;
 export const PRIVATE_REFERENCE_MARKERS = Object.freeze([
@@ -204,6 +211,46 @@ function readIndexFile(repository, environment, file)
     return git(repository, ['show', `:${file}`], { environment, encoding: 'buffer' });
 }
 
+function currentContextPatch(repository, originalPatch)
+{
+    const absolute = path.join(repository, migrationContextPatch);
+    const stat = fs.lstatSync(absolute);
+    requireCondition(stat.isFile() && !stat.isSymbolicLink(), 'migration context patch is not a regular file');
+    const repair = fs.readFileSync(absolute);
+    requireCondition(sha256(repair) === migrationContextPatchSha256, 'migration context patch digest mismatch');
+    for (const [file, expected] of Object.entries(migrationContextSources))
+    {
+        const source = path.join(repository, file);
+        const sourceStat = fs.lstatSync(source);
+        requireCondition(sourceStat.isFile() && !sourceStat.isSymbolicLink(), `migration context source is not a regular file: ${file}`);
+        requireCondition(sha256(fs.readFileSync(source)) === expected, `migration context source digest mismatch: ${file}`);
+    }
+
+    const replacements = new Map();
+    for (const section of repair.toString('utf8').split(/(?=^diff --git )/mu))
+    {
+        const header = /^diff --git a\/(\S+) b\/\1\n/u.exec(section);
+        requireCondition(header && Object.hasOwn(migrationContextSources, header[1]), 'migration context patch has an unowned path');
+        requireCondition(!replacements.has(header[1]), 'migration context patch has a duplicate path');
+        replacements.set(header[1], section);
+    }
+    requireCondition(replacements.size === Object.keys(migrationContextSources).length, 'migration context patch coverage is incomplete');
+    const replaced = new Set();
+    const sections = originalPatch.toString('utf8').split(/(?=^diff --git )/mu).map((section) =>
+    {
+        const header = /^diff --git a\/(\S+) b\/\1\n/u.exec(section);
+        if (!header || !replacements.has(header[1]))
+        {
+            return section;
+        }
+        requireCondition(!replaced.has(header[1]), 'migration archive has a duplicate context path');
+        replaced.add(header[1]);
+        return replacements.get(header[1]);
+    });
+    requireCondition(replaced.size === replacements.size, 'migration archive context paths are missing');
+    return Buffer.from(sections.join(''));
+}
+
 function buildRetiredFileChanges(repository, beforeMatches, expectedPatchSha256)
 {
     const relativePatch = FSUSUI_PUBLIC_NPM_MIGRATION_PATCH;
@@ -231,14 +278,21 @@ function buildRetiredFileChanges(repository, beforeMatches, expectedPatchSha256)
     const temporaryPatch = path.join(temporary, 'migration.patch');
     try
     {
+        let patch;
         try
         {
-            fs.writeFileSync(temporaryPatch, gunzipSync(patchArchive));
+            patch = gunzipSync(patchArchive);
         }
         catch
         {
             throw migrationError('migration patch archive is invalid');
         }
+        const hasCurrentContext = sha256(patchArchive) === FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256;
+        if (hasCurrentContext)
+        {
+            patch = currentContextPatch(repository, patch);
+        }
+        fs.writeFileSync(temporaryPatch, patch);
         const repositoryIndex = git(repository, ['rev-parse', '--git-path', 'index']).trim();
         const absoluteIndex = path.isAbsolute(repositoryIndex)
             ? repositoryIndex
@@ -254,6 +308,10 @@ function buildRetiredFileChanges(repository, beforeMatches, expectedPatchSha256)
             changes.set(file, readIndexFile(repository, environment, file));
         }
         changes.set(relativePatch, null);
+        if (hasCurrentContext)
+        {
+            changes.set(migrationContextPatch, null);
+        }
 
         const matchedFiles = new Set(beforeMatches
             .map((match) => match.file)

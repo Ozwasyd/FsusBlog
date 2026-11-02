@@ -1,0 +1,99 @@
+diff --git a/.github/workflows/quality-gate.yml b/.github/workflows/quality-gate.yml
+--- a/.github/workflows/quality-gate.yml
++++ b/.github/workflows/quality-gate.yml
+@@ -23,7 +23,6 @@
+     FSUSBLOG_BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/master' }}
+     FSUSBLOG_CI_STAGE: ${{ github.event_name == 'pull_request' && (vars.FSUSBLOG_CI_STAGE || 'qualification') || 'qualification' }}
+     FSUSBLOG_TEST_RUN_ID: quality-gate-${{ github.run_id }}-${{ github.run_attempt }}
+-    GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+
+ jobs:
+     validate-declarations:
+@@ -727,7 +726,6 @@
+               with:
+                   repository: Ozwasyd/FsusUI
+                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
+-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                   persist-credentials: false
+                   path: .tmp/local-fsusui
+             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+@@ -784,7 +782,6 @@
+               with:
+                   repository: Ozwasyd/FsusUI
+                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
+-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                   persist-credentials: false
+                   path: .tmp/local-fsusui
+             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+@@ -842,7 +839,6 @@
+               with:
+                   repository: Ozwasyd/FsusUI
+                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
+-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                   persist-credentials: false
+                   path: .tmp/local-fsusui
+             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+@@ -897,7 +893,6 @@
+               with:
+                   repository: Ozwasyd/FsusUI
+                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
+-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                   persist-credentials: false
+                   path: .tmp/local-fsusui
+             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+@@ -1497,7 +1492,6 @@
+                   repository: Ozwasyd/FsusUI
+                   ref: ${{ steps.fsusui-baseline.outputs.commit }}
+                   path: .tmp/local-fsusui
+-                  token: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
+                   persist-credentials: false
+             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+               with:
+diff --git a/ops/docker/FsusBlog.Server.Dockerfile b/ops/docker/FsusBlog.Server.Dockerfile
+--- a/ops/docker/FsusBlog.Server.Dockerfile
++++ b/ops/docker/FsusBlog.Server.Dockerfile
+@@ -329,8 +329,7 @@
+ COPY tools/security/comment-privacy-build-contract.mjs /tools/security/comment-privacy-build-contract.mjs
+ COPY tools/test-matrix/ /tools/test-matrix/
+
+-RUN --mount=type=secret,id=github_packages_token \
+-    /bin/sh -lc 'set -eu; \
++RUN /bin/sh -lc 'set -eu; \
+       case "$FSUSBLOG_USE_LOCAL_FSUSUI" in \
+       1) \
+         tmp_install="$(mktemp -d)"; \
+@@ -345,15 +344,6 @@
+         node scripts/prepare-local-fsusui-install.mjs verify --frontend-root /app --fsusui-root /opt/fsusui; \
+         ;; \
+       0) \
+-      token="$(cat /run/secrets/github_packages_token)"; \
+-      if [ -z "${token}" ]; then echo "github_packages_token is required for npm ci" >&2; exit 1; fi; \
+-      tmp_npmrc="$(mktemp)"; \
+-      cleanup() { rm -f "${tmp_npmrc}"; }; \
+-      trap cleanup EXIT; \
+-      printf "%s\n%s\n" \
+-        "@ozwasyd:registry=https://npm.pkg.github.com" \
+-        "//npm.pkg.github.com/:_authToken=${token}" > "${tmp_npmrc}"; \
+-      export NPM_CONFIG_USERCONFIG="${tmp_npmrc}"; \
+       npm ci \
+         --no-audit \
+         --no-fund \
+diff --git a/tools/build-final-image.sh b/tools/build-final-image.sh
+--- a/tools/build-final-image.sh
++++ b/tools/build-final-image.sh
+@@ -65,7 +65,6 @@
+ RequireCommand bwrap
+ RequireCommand git
+ RequireCommand node
+-[[ -n "${GITHUB_PACKAGES_TOKEN:-}" ]] || Fail "GITHUB_PACKAGES_TOKEN is required"
+ TASK_TOOL_ARGS=()
+ case "$TARGET" in
+     final) ;;
+@@ -290,7 +289,6 @@
+     --build-context "fsusui=$FSUSUI_CONTEXT_DIR" \
+     --build-context "backend-inputs=$BACKEND_INPUT_CONTEXT" \
+     -t "$IMAGE_TAG" \
+-    --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN \
+     "$ROOT_DIR"
+
+ image_inspect_json="$(docker image inspect "$IMAGE_TAG")" || Fail "unable to inspect built image $IMAGE_TAG"

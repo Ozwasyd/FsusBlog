@@ -172,6 +172,15 @@ the consumer before migration. This registration does not exempt neighboring arc
 the dependency directory or `.gz` files generally, and does not authorize a migration,
 dependency upgrade or release.
 
+The consumer also has a fixed, digest-pinned context repair input at
+`config/dependencies/fsusui-public-npm-migration-context.patch`. It replaces only
+the archived workflow, container and final-image hunks whose owners have changed.
+The consumer requires the complete SHA-256 identity of each of those three current
+source files before composing the patch, then retains strict cached Git apply checks.
+It does not retry a failed application with fuzzy or three-way merging. Both inputs
+are retired in the migration transaction; the archive's original bytes and pin,
+verified-event requirement and complete private-reference refusal remain unchanged.
+
 ## Imports and comments
 
 All languages follow the dependency direction “platform/standard → third-party → repository/local”; language-mandated order (such as the corresponding C++ header) takes precedence. Import order must not hide cyclic dependencies.
