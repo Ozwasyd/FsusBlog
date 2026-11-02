@@ -1,0 +1,796 @@
+using FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring;
+
+using static FsusBlog.Shared.Contracts.ArticleEmbeds.Authoring.ArticleEmbedAuthoringVerifier;
+
+namespace FsusBlog.Shared.Contracts.ArticleEmbeds.Graph;
+
+/// <summary>
+/// Independent authoring-resolution verifier. It re-derives expected per-node outcomes from the sealed
+/// authority snapshot, re-walks the recorded expansion tree for cycle/budget legitimacy, recomputes every
+/// digest, and never calls the resolver or trusts candidate-computed fields.
+/// </summary>
+public static class ArticleEmbedDependencyGraphVerifier
+{
+    public static ArticleEmbedAuthoringVerification Verify(
+        IReadOnlyList<ArticleEmbedProviderRequest>? requests,
+        ArticleEmbedAuthoritySnapshot? snapshot,
+        ArticleEmbedResolutionBudgetLimits? budgets,
+        ArticleEmbedAuthoringResolution? candidate)
+    {
+        var reasons = new List<string>();
+        if (candidate is null)
+        {
+            reasons.Add("resolution_missing");
+            return Finish(reasons);
+        }
+
+        ArticleEmbedValidationResult structure = ArticleEmbedAuthoringContractValidator.Validate(candidate);
+        if (!structure.IsValid)
+        {
+            reasons.Add(structure.ReasonCode!);
+            return Finish(reasons);
+        }
+
+        ArticleEmbedValidationResult budgetCheck = ArticleEmbedAuthoringContractValidator.ValidateBudgets(budgets);
+        ArticleEmbedValidationResult snapshotCheck = ArticleEmbedAuthoringContractValidator.Validate(snapshot);
+        if (!budgetCheck.IsValid || !snapshotCheck.IsValid || requests is null
+            || (budgets is not null && requests.Count > budgets.MaxExpandedNodes))
+        {
+            string expectedRejection = !budgetCheck.IsValid
+                ? budgetCheck.ReasonCode!
+                : !snapshotCheck.IsValid
+                    ? snapshotCheck.ReasonCode!
+                    : requests is null
+                        ? "article_embed_authoring_requests_missing"
+                        : "article_embed_authoring_request_set_exceeds_budget";
+            if (candidate.Status != ArticleEmbedAuthoringResolutionStatus.Rejected
+                || candidate.RejectedReasonCode != expectedRejection
+                || candidate.Results.Count != 0)
+            {
+                reasons.Add("rejection_mismatch");
+            }
+            return Finish(reasons);
+        }
+
+        if (candidate.Status != ArticleEmbedAuthoringResolutionStatus.Completed)
+        {
+            reasons.Add("resolution_rejected_without_cause");
+            return Finish(reasons);
+        }
+
+        var factsByIdentity = snapshot!.Targets
+            .GroupBy(static facts => facts.PortableArticleIdentity, StringComparer.Ordinal)
+            .ToDictionary(static group => group.Key, static group => group.ToList(), StringComparer.Ordinal);
+
+        VerifyReceiptBinding(candidate.Receipt, snapshot, budgets!, requests!, reasons);
+
+        if (candidate.Results.Count != requests!.Count || candidate.Receipt.Items.Count != requests.Count)
+        {
+            reasons.Add("result_count_mismatch");
+            return Finish(reasons);
+        }
+
+        int observedNodes = 0;
+        int observedDepth = 0;
+        for (int index = 0; index < requests.Count; index++)
+        {
+            ArticleEmbedProviderRequest request = requests[index];
+            ArticleEmbedAuthoringEmbedResult result = candidate.Results[index];
+            ArticleEmbedAuthoringReceiptItem item = candidate.Receipt.Items[index];
+            VerifyRequestResult(
+                request,
+                result,
+                item,
+                snapshot,
+                factsByIdentity,
+                budgets!,
+                ref observedNodes,
+                ref observedDepth,
+                reasons);
+            if (result.Result.Budgets.Nodes != observedNodes || result.Result.Budgets.Depth != observedDepth)
+            {
+                reasons.Add($"graph_result_observation_mismatch:{request.RequestId}");
+            }
+        }
+        if (candidate.Receipt.Observed.Nodes != observedNodes)
+        {
+            reasons.Add("graph_node_observation_mismatch");
+        }
+        if (candidate.Receipt.Observed.Depth != observedDepth || candidate.Receipt.MaxObservedDepth != observedDepth)
+        {
+            reasons.Add("graph_depth_observation_mismatch");
+        }
+
+        VerifyBudgetObservations(requests, snapshot, factsByIdentity, budgets!, candidate, reasons);
+        return Finish(reasons);
+    }
+
+    private static void VerifyRequestResult(
+        ArticleEmbedProviderRequest request,
+        ArticleEmbedAuthoringEmbedResult result,
+        ArticleEmbedAuthoringReceiptItem item,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ref int observedNodes,
+        ref int observedDepth,
+        List<string> reasons)
+    {
+        observedNodes++;
+        observedDepth = Math.Max(observedDepth, 1);
+        if (result.Result.Status == ArticleEmbedProviderResultStatus.Resolved && observedNodes > budgets.MaxExpandedNodes)
+        {
+            reasons.Add("resolved_node_beyond_node_budget");
+        }
+        if (result.RequestId != request.RequestId || item.RequestId != request.RequestId)
+        {
+            reasons.Add($"result_request_binding_mismatch:{request.RequestId}");
+            return;
+        }
+        if (item.Target != request.Target)
+        {
+            reasons.Add($"receipt_target_mismatch:{request.RequestId}");
+        }
+
+        ArticleEmbedValidationResult requestCheck = ArticleEmbedContractValidator.Validate(request);
+        if (!requestCheck.IsValid)
+        {
+            if (result.Result.Status != ArticleEmbedProviderResultStatus.Failed
+                || result.Result.Error?.Code != ArticleEmbedErrorCode.InvalidTarget
+                || result.Children.Count != 0
+                || result.Eligibility != ArticleEmbedPublicationEligibility.AuthoringOnly
+                || result.OpenSource is not null
+                || result.UpdateAvailable)
+            {
+                reasons.Add($"invalid_request_not_failed:{request.RequestId}");
+            }
+            VerifyReceiptItem(result, item, null, reasons);
+            return;
+        }
+
+        ArticleEmbedValidationResult resultCheck = ArticleEmbedContractValidator.Validate(result.Result, request);
+        if (!resultCheck.IsValid)
+        {
+            reasons.Add($"provider_result_invalid:{request.RequestId}:{resultCheck.ReasonCode}");
+        }
+
+        NodeKey key = NodeKeyOf(request.Target);
+        ArticleEmbedError? bindingFailure = ExpectBinding(request, snapshot);
+        if (bindingFailure is not null)
+        {
+            if (result.Result.Status != ArticleEmbedProviderResultStatus.Failed
+                || result.Result.Error?.Code != bindingFailure.Code
+                || result.Result.Error.SafeReasonCode != bindingFailure.SafeReasonCode
+                || result.Children.Count != 0
+                || result.Eligibility != ArticleEmbedPublicationEligibility.AuthoringOnly)
+            {
+                reasons.Add($"binding_failure_mismatch:{request.RequestId}");
+            }
+            VerifyReceiptItem(result, item, null, reasons);
+            return;
+        }
+
+        if (result.Result.Status == ArticleEmbedProviderResultStatus.Failed
+            && result.Result.Error is not null
+            && IsOrderSensitive(result.Result.Error.Code))
+        {
+            if (result.Result.Error.Code == ArticleEmbedErrorCode.Cycle
+                && (request.Target.Kind != ArticleEmbedTargetKind.Article
+                    || request.Target.PortableArticleIdentity != snapshot.HostPortableArticleIdentity))
+            {
+                reasons.Add($"root_cycle_without_host_ancestor:{request.RequestId}");
+            }
+            if (result.Result.Error.Code == ArticleEmbedErrorCode.DepthExceeded)
+            {
+                reasons.Add($"root_depth_failure_unjustified:{request.RequestId}");
+            }
+            if (result.Children.Count != 0
+                || result.Eligibility != ArticleEmbedPublicationEligibility.AuthoringOnly
+                || result.OpenSource is not null
+                || result.UpdateAvailable)
+            {
+                reasons.Add($"budget_failure_shape_invalid:{request.RequestId}");
+            }
+            VerifyReceiptItem(result, item, null, reasons);
+            return;
+        }
+
+        NodeExpectation expectation = ExpectGraph(request.Target, snapshot, factsByIdentity);
+        if (expectation.Error is not null)
+        {
+            if (result.Result.Status != ArticleEmbedProviderResultStatus.Failed
+                || result.Result.Error?.Code != expectation.Error.Code
+                || result.Result.Error.SafeReasonCode != expectation.Error.SafeReasonCode)
+            {
+                reasons.Add($"expected_failure_mismatch:{request.RequestId}");
+            }
+            bool concealed = expectation.Error.Code is ArticleEmbedErrorCode.PermissionDenied
+                or ArticleEmbedErrorCode.PermissionUnknown;
+            ArticleEmbedPermissionStatus expectedPermission = expectation.Error.Code switch
+            {
+                ArticleEmbedErrorCode.PermissionDenied => ArticleEmbedPermissionStatus.Denied,
+                ArticleEmbedErrorCode.PermissionUnknown => ArticleEmbedPermissionStatus.Unknown,
+                _ => expectation.Facts?.Permission ?? ArticleEmbedPermissionStatus.Unknown
+            };
+            if (result.Result.Visibility != (concealed ? ArticleEmbedVisibilityStatus.Unknown
+                    : expectation.Facts?.Visibility ?? ArticleEmbedVisibilityStatus.Unknown)
+                || result.Result.Lifecycle != (concealed ? ArticleEmbedLifecycleStatus.Unknown
+                    : expectation.Facts?.Lifecycle ?? ArticleEmbedLifecycleStatus.Unknown)
+                || result.Result.Permission != expectedPermission)
+            {
+                reasons.Add($"failure_metadata_mismatch:{request.RequestId}");
+            }
+        }
+        else
+        {
+            if (result.Result.Status != ArticleEmbedProviderResultStatus.Resolved
+                || result.Result.Coordinate is null
+                || result.Result.Coordinate.ResolvedRevision != expectation.Facts!.ResolvedRevision
+                || result.Result.Coordinate.TargetVersionIdentity != expectation.Facts.TargetVersionIdentity
+                || result.Result.Coordinate.ProjectionIdentity != expectation.Projection!.ProjectionIdentity
+                || result.Result.Coordinate.ProjectionDigest != expectation.Projection.ContentDigest
+                || result.Result.Projection != expectation.Projection
+                || result.Result.Visibility != expectation.Facts.Visibility
+                || result.Result.Lifecycle != expectation.Facts.Lifecycle
+                || result.Result.Permission != expectation.Facts.Permission)
+            {
+                reasons.Add($"resolved_coordinate_mismatch:{request.RequestId}");
+            }
+            else
+            {
+                string expectedAttribution = ArticleEmbedContractDigest.ComputeAttribution(
+                    expectation.Facts.PortableArticleIdentity,
+                    expectation.Facts.ResolvedRevision,
+                    expectation.Facts.AttributionDisplayText);
+                if (result.Result.Attribution is null
+                    || result.Result.Attribution.DisplayText != expectation.Facts.AttributionDisplayText
+                    || result.Result.Attribution.AttributionDigest != expectedAttribution)
+                {
+                    reasons.Add($"attribution_mismatch:{request.RequestId}");
+                }
+            }
+        }
+
+        ArticleEmbedPublicationEligibility expectedEligibility =
+            expectation.Error is null
+                && expectation.Facts!.Visibility == ArticleEmbedVisibilityStatus.Public
+                && expectation.Facts.Lifecycle == ArticleEmbedLifecycleStatus.Published
+                    ? ArticleEmbedPublicationEligibility.PublicationEligible
+                    : ArticleEmbedPublicationEligibility.AuthoringOnly;
+        if (result.Eligibility != expectedEligibility)
+        {
+            reasons.Add($"eligibility_mismatch:{request.RequestId}");
+        }
+
+        bool expectedUpdate = expectation.Error is null
+            && expectation.Facts!.LatestObservedRevision > expectation.Facts.ResolvedRevision;
+        if (result.UpdateAvailable != expectedUpdate)
+        {
+            reasons.Add($"update_available_mismatch:{request.RequestId}");
+        }
+
+        bool expectIntent = expectation.Error is null;
+        if ((result.OpenSource is not null) != expectIntent
+            || (expectIntent
+                && (result.OpenSource!.IntentKind != ArticleEmbedAuthoringSchemas.OpenSourceIntentKind
+                    || result.OpenSource.Target != request.Target
+                    || result.OpenSource.ResolvedRevision != expectation.Facts!.ResolvedRevision)))
+        {
+            reasons.Add($"open_source_intent_mismatch:{request.RequestId}");
+        }
+
+        VerifyReceiptItem(result, item, expectation.Error is null ? expectation.Facts!.ResolvedRevision : null, reasons);
+        VerifyChildren(
+            result.Children,
+            expectation.Error is null ? expectation.Facts : null,
+            snapshot,
+            factsByIdentity,
+            depth: 2,
+            path: new HashSet<NodeKey>
+            {
+                new(snapshot.HostPortableArticleIdentity, ArticleEmbedTargetKind.Article, null, null),
+                key
+            },
+            budgets,
+            ref observedNodes,
+            ref observedDepth,
+            reasons);
+    }
+
+    /// <summary>
+    /// Checks descendant shape, facts and coordinates. Stage-specific memo admission and cost are
+    /// independently replayed by the observation pass rather than inferred from this structural walk.
+    /// </summary>
+    private static bool VerifyChildren(
+        IReadOnlyList<ArticleEmbedResolvedNode> children,
+        ArticleEmbedTargetFacts? parentFacts,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        int depth,
+        HashSet<NodeKey> path,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ref int observedNodes,
+        ref int observedDepth,
+        List<string> reasons)
+    {
+        if (parentFacts is null)
+        {
+            if (children.Count != 0)
+            {
+                reasons.Add("unexpected_children_on_failed_node");
+            }
+            return children.Count == 0;
+        }
+
+        ArticleEmbedDirectiveProjection[] expectedDirectives = parentFacts.NestedDirectives
+            .OrderBy(static directive => directive.RawRange.Start)
+            .ThenBy(static directive => directive.RawRange.End)
+            .ThenBy(static directive => directive.TargetToken, StringComparer.Ordinal)
+            .ToArray();
+        if (children.Count != expectedDirectives.Length)
+        {
+            reasons.Add("child_count_mismatch");
+            return false;
+        }
+
+        bool clean = true;
+        for (int index = 0; index < children.Count; index++)
+        {
+            ArticleEmbedResolvedNode child = children[index];
+            observedNodes++;
+            observedDepth = Math.Max(observedDepth, depth);
+            if (child.Status == ArticleEmbedProviderResultStatus.Resolved)
+            {
+                if (observedNodes > budgets.MaxExpandedNodes)
+                {
+                    reasons.Add("resolved_node_beyond_node_budget");
+                    clean = false;
+                }
+                if (depth > budgets.MaxDepth)
+                {
+                    reasons.Add("resolved_node_beyond_depth_budget");
+                    clean = false;
+                }
+            }
+            ArticleEmbedDirectiveProjection directive = expectedDirectives[index];
+            if (child.Directive != directive)
+            {
+                reasons.Add($"child_directive_mismatch:{directive.RawRange.Start}");
+                clean = false;
+                continue;
+            }
+
+            ArticleEmbedTargetIdentity? decoded = null;
+            bool decodable = Enum.IsDefined(directive.Mode)
+                && ArticleEmbedTargetCodec.TryDecode(directive.TargetToken, directive.Mode, out decoded).IsValid
+                && decoded is not null;
+            if (!decodable)
+            {
+                if (child.Status != ArticleEmbedProviderResultStatus.Failed
+                    || child.Error?.Code != ArticleEmbedErrorCode.InvalidTarget
+                    || child.Target is not null
+                    || child.Children.Count != 0)
+                {
+                    reasons.Add("nested_invalid_not_failed");
+                }
+                continue;
+            }
+            if (child.Target != decoded)
+            {
+                reasons.Add("nested_target_mismatch");
+                clean = false;
+                continue;
+            }
+
+            NodeKey key = NodeKeyOf(decoded!);
+            if (child.Status == ArticleEmbedProviderResultStatus.Failed)
+            {
+                if (child.Error is null || child.Children.Count != 0)
+                {
+                    reasons.Add("nested_failure_shape_invalid");
+                    clean = false;
+                    continue;
+                }
+                VerifyChildFailure(child, key, depth, path, snapshot, factsByIdentity, budgets, reasons);
+                if (!IsFactStable(child.Error.Code))
+                {
+                    clean = false;
+                }
+                continue;
+            }
+            if (child.Status != ArticleEmbedProviderResultStatus.Resolved)
+            {
+                reasons.Add("nested_status_unknown");
+                clean = false;
+                continue;
+            }
+            if (path.Contains(key))
+            {
+                reasons.Add("resolved_node_on_cycle_path");
+                clean = false;
+                continue;
+            }
+
+            NodeExpectation expectation = ExpectGraph(decoded!, snapshot, factsByIdentity);
+            // A nested coordinate must bind the selected projection as exactly as a root coordinate.
+            if (expectation.Error is not null
+                || !ArticleEmbedContractValidator.Validate(child.Coordinate).IsValid
+                || child.Coordinate!.ResolvedRevision != expectation.Facts!.ResolvedRevision
+                || child.Coordinate.TargetVersionIdentity != expectation.Facts.TargetVersionIdentity
+                || child.Coordinate.ProjectionIdentity != expectation.Projection!.ProjectionIdentity
+                || child.Coordinate.ProjectionDigest != expectation.Projection.ContentDigest
+                || child.Coordinate.Target != decoded)
+            {
+                reasons.Add("nested_coordinate_mismatch");
+                clean = false;
+                continue;
+            }
+            path.Add(key);
+            bool childClean = VerifyChildren(
+                child.Children,
+                expectation.Facts,
+                snapshot,
+                factsByIdentity,
+                depth + 1,
+                path,
+                budgets,
+                ref observedNodes,
+                ref observedDepth,
+                reasons);
+            path.Remove(key);
+            clean &= childClean;
+        }
+        return clean;
+    }
+
+    private static void VerifyChildFailure(
+        ArticleEmbedResolvedNode child,
+        NodeKey key,
+        int depth,
+        HashSet<NodeKey> path,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        List<string> reasons)
+    {
+        switch (child.Error!.Code)
+        {
+            case ArticleEmbedErrorCode.Cycle:
+                if (!path.Contains(key))
+                {
+                    reasons.Add("cycle_without_ancestor");
+                }
+                return;
+            case ArticleEmbedErrorCode.DepthExceeded:
+                if (depth <= budgets.MaxDepth)
+                {
+                    reasons.Add("depth_failure_unjustified");
+                }
+                return;
+            case ArticleEmbedErrorCode.SizeExceeded:
+            case ArticleEmbedErrorCode.TimeExceeded:
+            case ArticleEmbedErrorCode.StaleSource:
+                // The independent observation pass below verifies cost/abort evidence and refuses
+                // time failures without a clock witness; these enums alone never admit a graph.
+                return;
+            default:
+                break;
+        }
+
+        factsByIdentity.TryGetValue(key.PortableArticleIdentity, out List<ArticleEmbedTargetFacts>? records);
+        if (records is null || records.Count == 0)
+        {
+            if (child.Error.Code != ArticleEmbedErrorCode.Missing)
+            {
+                reasons.Add("missing_target_misclassified");
+            }
+            return;
+        }
+        if (records.Count > 1)
+        {
+            if (child.Error.Code != ArticleEmbedErrorCode.Ambiguous)
+            {
+                reasons.Add("ambiguous_target_misclassified");
+            }
+            return;
+        }
+
+        ArticleEmbedError? expected = ExpectedGraphFailure(records[0], snapshot, child.Target!);
+        if (expected?.Code != child.Error.Code || expected.SafeReasonCode != child.Error.SafeReasonCode)
+        {
+            reasons.Add("nested_failure_misclassified");
+        }
+    }
+
+    private static void VerifyBudgetObservations(
+        IReadOnlyList<ArticleEmbedProviderRequest> requests,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ArticleEmbedAuthoringResolution candidate,
+        List<string> reasons)
+    {
+        // Replay the two stages' meters independently; a copied projection failure performs
+        // no graph source read, while a memoized graph leaf still expands and charges its descendants.
+        var projection = new ObservationMeter();
+        var graph = new ObservationMeter();
+        long elapsed = 0;
+        try
+        {
+            for (int index = 0; index < requests.Count; index++)
+            {
+                ArticleEmbedProviderRequest request = requests[index];
+                ArticleEmbedAuthoringEmbedResult result = candidate.Results[index];
+                int projectionHits = projection.CacheHits;
+                int graphHits = graph.CacheHits;
+                ArticleEmbedError? projectionFailure = ObserveProjectionRequest(
+                    request, snapshot, factsByIdentity, budgets, projection);
+                if (projectionFailure is not null)
+                {
+                    graph.ObserveNode(1);
+                    graph.CacheHits += projection.CacheHits - projectionHits;
+                    VerifyObservedOutcome(result.Result.Status, result.Result.Error, projectionFailure, reasons);
+                }
+                else
+                {
+                    VerifyObservedNode(request, request.Target, result.Result.Status, result.Result.Error,
+                        result.Children, 1, new HashSet<NodeKey>
+                        {
+                            new(snapshot.HostPortableArticleIdentity, ArticleEmbedTargetKind.Article, null, null)
+                        }, snapshot, factsByIdentity, budgets, graph, reasons);
+                }
+                if (candidate.Receipt.Items[index].CacheHit != (graph.CacheHits > graphHits))
+                {
+                    string stage = projectionFailure is not null ? "projection" : "graph";
+                    reasons.Add($"{stage}_cache_hit_mismatch:{request.RequestId}");
+                }
+                ArticleEmbedBudgetObservation observed = result.Result.Budgets;
+                if (observed.Bytes != graph.Bytes || observed.Nodes != graph.Nodes || observed.Depth != graph.Depth)
+                {
+                    reasons.Add($"graph_result_budget_observation_mismatch:{request.RequestId}");
+                }
+                if (observed.ElapsedMilliseconds < elapsed)
+                {
+                    reasons.Add("graph_elapsed_observation_not_monotonic");
+                }
+                elapsed = observed.ElapsedMilliseconds;
+            }
+            if (candidate.Receipt.CacheHitCount != graph.CacheHits)
+            {
+                reasons.Add("graph_cache_hit_count_mismatch");
+            }
+            if (candidate.Receipt.Observed.Bytes != graph.Bytes)
+            {
+                reasons.Add("graph_byte_observation_mismatch");
+            }
+            if (candidate.Receipt.Observed.ElapsedMilliseconds < elapsed)
+            {
+                reasons.Add("graph_elapsed_observation_not_monotonic");
+            }
+        }
+        catch (OverflowException)
+        {
+            reasons.Add("graph_byte_observation_overflow");
+        }
+    }
+
+    private static ArticleEmbedError? ObserveProjectionRequest(
+        ArticleEmbedProviderRequest request,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ObservationMeter meter)
+    {
+        if (!ArticleEmbedContractValidator.Validate(request).IsValid)
+        {
+            return new(ArticleEmbedErrorCode.InvalidTarget, "request_contract_invalid");
+        }
+        ArticleEmbedError? binding = ExpectBinding(request, snapshot);
+        if (binding is not null)
+        {
+            return binding;
+        }
+        meter.ObserveNode(1);
+        NodeKey key = NodeKeyOf(request.Target);
+        if (meter.Memo.TryGetValue(key, out ArticleEmbedError? cached))
+        {
+            meter.CacheHits++;
+            return cached;
+        }
+        ArticleEmbedError? error = ObserveSource(request.Target, snapshot, factsByIdentity, budgets, meter);
+        if (error is null || IsFactStable(error.Code))
+        {
+            meter.Memo[key] = error;
+        }
+        return error;
+    }
+
+    private static ArticleEmbedError? ObserveSource(
+        ArticleEmbedTargetIdentity target,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ObservationMeter meter)
+    {
+        if (++meter.Messages > budgets.MaxAuthorityMessages)
+        {
+            return new(ArticleEmbedErrorCode.SizeExceeded, "authority_messages_exceeded");
+        }
+        NodeExpectation expectation = ExpectProjection(target, snapshot, factsByIdentity);
+        // Permission/lifecycle/revision failures precede the source read. Coordinate selection follows
+        // it, so a missing heading or block still consumes that authorized article's source bytes.
+        if (expectation.Facts is not null && (expectation.Error is null
+            || expectation.Error.Code is ArticleEmbedErrorCode.HeadingMissing or ArticleEmbedErrorCode.HeadingDuplicate
+                or ArticleEmbedErrorCode.BlockMissing or ArticleEmbedErrorCode.BlockDuplicate))
+        {
+            meter.Bytes = checked(meter.Bytes + expectation.Facts.SourceByteCount);
+            if (meter.Bytes > budgets.MaxSourceBytes)
+            {
+                return new(ArticleEmbedErrorCode.SizeExceeded, "source_bytes_exceeded");
+            }
+        }
+        return expectation.Error;
+    }
+
+    private static bool VerifyObservedNode(
+        ArticleEmbedProviderRequest request,
+        ArticleEmbedTargetIdentity target,
+        ArticleEmbedProviderResultStatus status,
+        ArticleEmbedError? error,
+        IReadOnlyList<ArticleEmbedResolvedNode> children,
+        int depth,
+        HashSet<NodeKey> path,
+        ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
+        ArticleEmbedResolutionBudgetLimits budgets,
+        ObservationMeter meter,
+        List<string> reasons)
+    {
+        meter.ObserveNode(depth);
+        var key = NodeKeyOf(target);
+        ArticleEmbedError? failure = request.AbortSignal.IsCancellationRequested
+            ? new(ArticleEmbedErrorCode.StaleSource, "request_aborted")
+            : meter.Nodes > budgets.MaxExpandedNodes
+                ? new(ArticleEmbedErrorCode.SizeExceeded, "expanded_nodes_exceeded")
+                : depth > budgets.MaxDepth
+                    ? new(ArticleEmbedErrorCode.DepthExceeded, "depth_exceeded")
+                    : path.Contains(key) ? new(ArticleEmbedErrorCode.Cycle, "embed_cycle") : null;
+        if (failure is not null)
+        {
+            VerifyObservedOutcome(status, error, failure, reasons);
+            return false;
+        }
+        bool cacheHit = meter.Memo.TryGetValue(key, out failure);
+        if (cacheHit && depth == 1)
+        {
+            meter.CacheHits++;
+        }
+        if (!cacheHit)
+        {
+            failure = ObserveSource(target, snapshot, factsByIdentity, budgets, meter);
+        }
+        if (failure is not null)
+        {
+            VerifyObservedOutcome(status, error, failure, reasons);
+            if (IsFactStable(failure.Code))
+            {
+                meter.Memo[key] = failure;
+                return true;
+            }
+            return false;
+        }
+        NodeExpectation expectation = ExpectGraph(target, snapshot, factsByIdentity);
+        VerifyObservedOutcome(status, error, expectation.Error, reasons);
+        if (expectation.Error is not null)
+        {
+            // An unbound selected projection is not memoized by ExpandChildren.
+            return true;
+        }
+        if (status != ArticleEmbedProviderResultStatus.Resolved)
+        {
+            return false;
+        }
+        ArticleEmbedDirectiveProjection[] directives = expectation.Facts!.NestedDirectives
+            .OrderBy(static directive => directive.RawRange.Start)
+            .ThenBy(static directive => directive.RawRange.End)
+            .ThenBy(static directive => directive.TargetToken, StringComparer.Ordinal)
+            .ToArray();
+        if (children.Count != directives.Length)
+        {
+            return false;
+        }
+        path.Add(key);
+        bool clean = true;
+        for (int index = 0; index < directives.Length; index++)
+        {
+            ArticleEmbedDirectiveProjection directive = directives[index];
+            ArticleEmbedResolvedNode child = children[index];
+            ArticleEmbedTargetIdentity? decoded = null;
+            if (!Enum.IsDefined(directive.Mode)
+                || !ArticleEmbedTargetCodec.TryDecode(directive.TargetToken, directive.Mode, out decoded).IsValid
+                || decoded is null)
+            {
+                meter.ObserveNode(depth + 1);
+                VerifyObservedOutcome(child.Status, child.Error,
+                    new(ArticleEmbedErrorCode.InvalidTarget, "nested_target_invalid"), reasons);
+                continue;
+            }
+            clean &= VerifyObservedNode(request, decoded, child.Status, child.Error, child.Children, depth + 1,
+                path, snapshot, factsByIdentity, budgets, meter, reasons);
+        }
+        path.Remove(key);
+        if (clean)
+        {
+            meter.Memo[key] = null;
+        }
+        return clean;
+    }
+
+    private static void VerifyObservedOutcome(
+        ArticleEmbedProviderResultStatus status, ArticleEmbedError? actual, ArticleEmbedError? expected, List<string> reasons)
+    {
+        // Neither a digest nor candidate-reported elapsed milliseconds witnesses
+        // the monotonic clock at a node's admission. This API has no independent time evidence input.
+        if (actual?.Code == ArticleEmbedErrorCode.TimeExceeded)
+        {
+            reasons.Add("graph_time_evidence_unavailable");
+        }
+        if (expected is null ? status != ArticleEmbedProviderResultStatus.Resolved || actual is not null
+            : status != ArticleEmbedProviderResultStatus.Failed || actual != expected)
+        {
+            reasons.Add("graph_budget_outcome_mismatch");
+        }
+    }
+
+    private sealed class ObservationMeter
+    {
+        public int Nodes
+        {
+            get; private set;
+        }
+        public int Depth
+        {
+            get; private set;
+        }
+        public int CacheHits
+        {
+            get; set;
+        }
+        public int Messages
+        {
+            get; set;
+        }
+        public long Bytes
+        {
+            get; set;
+        }
+        public Dictionary<NodeKey, ArticleEmbedError?> Memo { get; } = new();
+
+        public void ObserveNode(int depth)
+        {
+            Nodes++;
+            Depth = Math.Max(Depth, depth);
+        }
+    }
+
+    private static ArticleEmbedError? ExpectedGraphFailure(
+        ArticleEmbedTargetFacts facts, ArticleEmbedAuthoritySnapshot snapshot, ArticleEmbedTargetIdentity target)
+    {
+        ArticleEmbedError? source = ExpectedProjectionFailure(facts, snapshot, target);
+        return source ?? (target.Kind != ArticleEmbedTargetKind.Article && facts.NestedDirectives.Count != 0
+            ? new ArticleEmbedError(ArticleEmbedErrorCode.InvalidTarget, "projection_dependencies_unbound") : null);
+    }
+
+    private static NodeExpectation ExpectGraph(
+        ArticleEmbedTargetIdentity target, ArticleEmbedAuthoritySnapshot snapshot,
+        Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity)
+    {
+        NodeExpectation source = ExpectProjection(target, snapshot, factsByIdentity);
+        if (source.Error is not null)
+        {
+            return source;
+        }
+        ArticleEmbedError? failure = ExpectedGraphFailure(source.Facts!, snapshot, target);
+        return failure is null ? source : new NodeExpectation(failure, source.Facts, null);
+    }
+}

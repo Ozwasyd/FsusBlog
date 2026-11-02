@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticleEmbedRefreshPreparation.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringPipeline.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringRefreshPolicy.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanContracts.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedRefreshPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphPlanner.cs",
+                "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphVerifier.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDeriver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationVerifier.cs"
+            ],
+            "reason": "Preserve existing public contract, digest and reason spellings in the eleven managed embed owners continued from PR 4352, including the independent nested-coordinate verification repair. No process environment key or naming policy is introduced."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve public contract and package spellings in the maintained API explanation of recursive, projection and graph entry points and exact descendant coordinate verification. No CSS selector, token or naming policy is introduced."
+        }
+    ]
+}
