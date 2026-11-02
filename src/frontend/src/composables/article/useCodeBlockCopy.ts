@@ -1,7 +1,8 @@
 import { useScrollReveal } from '@ozwasyd/element-plus/motion';
-import { nextTick, onUnmounted, type MaybeRefOrGetter, toValue, watch } from 'vue';
+import { getCurrentInstance, h, nextTick, onUnmounted, ref, render, type MaybeRefOrGetter, toValue, watch, watchEffect } from 'vue';
 
 import { fsusBlogScrollRevealOptions } from '@/fsusui/blogMotion';
+import { FsusUiButton } from '@/fsusui/button';
 import { toast } from '@/fsusui/feedback';
 import { activeLocale, translate } from '@/locales';
 
@@ -34,36 +35,57 @@ export function useCodeBlockCopy(
     allowCodeCopy: MaybeRefOrGetter<boolean> = true
 )
 {
-    const insertedButtons = new Set<HTMLButtonElement>();
-    const resetTimers = new WeakMap<HTMLButtonElement, ReturnType<typeof setTimeout>>();
+    const appContext = getCurrentInstance()?.appContext;
+    if (!appContext)
+    {
+        throw new Error('useCodeBlockCopy requires an owning Vue component');
+    }
+    const mountedControls = new Map<HTMLElement, { pre: HTMLElement; stopRendering: (() => void) | null; }>();
+    const resetTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
     const revealControls = useScrollReveal({ ...fsusBlogScrollRevealOptions });
+    let enhancementGeneration = 0;
+    let disposed = false;
+
+    const removeControl = (container: HTMLElement): void =>
+    {
+        const control = mountedControls.get(container);
+        if (!control)
+        {
+            return;
+        }
+        const resetTimer = resetTimers.get(container);
+        if (resetTimer)
+        {
+            globalThis.clearTimeout(resetTimer);
+            resetTimers.delete(container);
+        }
+        control.stopRendering?.();
+        render(null, container);
+        container.remove();
+        control.pre.removeAttribute(ENHANCED_ATTR);
+        control.pre.classList.remove('fsus-code-copy-host');
+        control.pre.removeAttribute('data-fsus-motion-surface');
+        mountedControls.delete(container);
+    };
 
     const cleanup = (): void =>
     {
+        enhancementGeneration++;
         revealControls.kill();
-        for (const button of insertedButtons)
+        for (const container of mountedControls.keys())
         {
-            const resetTimer = resetTimers.get(button);
-            if (resetTimer)
-            {
-                globalThis.clearTimeout(resetTimer);
-                resetTimers.delete(button);
-            }
-            button.remove();
+            removeControl(container);
         }
-        insertedButtons.clear();
-        const root = toValue(contentRoot);
-        root?.querySelectorAll<HTMLElement>(`pre[${ENHANCED_ATTR}]`).forEach((pre) =>
-        {
-            pre.removeAttribute(ENHANCED_ATTR);
-            pre.classList.remove('fsus-code-copy-host');
-            pre.removeAttribute('data-fsus-motion-surface');
-        });
     };
 
     const enhance = async (): Promise<void> =>
     {
+        const generation = enhancementGeneration;
         await nextTick();
+        if (disposed || generation !== enhancementGeneration)
+        {
+            return;
+        }
         const root = toValue(contentRoot);
         if (!root)
         {
@@ -74,6 +96,15 @@ export function useCodeBlockCopy(
         {
             cleanup();
             return;
+        }
+
+        // Markdown can replace descendants without changing the content-root ref.
+        for (const [container, control] of mountedControls)
+        {
+            if (!root.contains(container) || container.parentElement !== control.pre)
+            {
+                removeControl(container);
+            }
         }
 
         root.querySelectorAll<HTMLElement>('pre').forEach((pre) =>
@@ -89,45 +120,57 @@ export function useCodeBlockCopy(
             pre.classList.add('fsus-code-copy-host');
             pre.setAttribute('data-fsus-motion-surface', 'article-code-block');
 
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'fsus-code-copy-button blog-motion-reading-control';
-            button.textContent = translate('article.actions.copyCode');
-            button.setAttribute('aria-label', translate('article.actions.copyCode'));
-            button.setAttribute('aria-live', 'polite');
-            button.addEventListener('click', async (event) =>
+            const container = document.createElement('span');
+            const copied = ref(false);
+            const copyCode = async (event: MouseEvent): Promise<void> =>
             {
                 event.preventDefault();
                 event.stopPropagation();
                 try
                 {
                     await writeClipboard(source);
-                    button.textContent = translate('article.actions.codeCopied');
-                    button.setAttribute('aria-label', translate('article.actions.codeCopied'));
-                    button.classList.add('fsus-code-copy-button--copied');
+                    copied.value = true;
                     toast.success(translate('article.actions.codeCopied'), 1200);
-                    const previousTimer = resetTimers.get(button);
+                    // Clipboard completion may follow cleanup; keep its toast without creating an orphan timer.
+                    if (!mountedControls.has(container))
+                    {
+                        return;
+                    }
+                    const previousTimer = resetTimers.get(container);
                     if (previousTimer)
                     {
                         globalThis.clearTimeout(previousTimer);
                     }
                     const resetTimer = globalThis.setTimeout(() =>
                     {
-                        button.textContent = translate('article.actions.copyCode');
-                        button.setAttribute('aria-label', translate('article.actions.copyCode'));
-                        button.classList.remove('fsus-code-copy-button--copied');
-                        resetTimers.delete(button);
+                        copied.value = false;
+                        resetTimers.delete(container);
                     }, 1400);
-                    resetTimers.set(button, resetTimer);
+                    resetTimers.set(container, resetTimer);
                 }
                 catch
                 {
                     toast.error(translate('article.actions.copyFailed'), 2200);
                 }
-            });
+            };
 
-            pre.appendChild(button);
-            insertedButtons.add(button);
+            mountedControls.set(container, { pre, stopRendering: null });
+            pre.appendChild(container);
+            const stopRendering = watchEffect(() =>
+            {
+                const label = translate(copied.value ? 'article.actions.codeCopied' : 'article.actions.copyCode');
+                const button = h(FsusUiButton, {
+                    nativeType: 'button',
+                    size: 'small',
+                    class: 'fsus-code-copy-button blog-motion-reading-control',
+                    'aria-label': label,
+                    'aria-live': 'polite',
+                    onClick: copyCode
+                }, { default: () => label });
+                button.appContext = appContext;
+                render(button, container);
+            }, { flush: 'sync' });
+            mountedControls.set(container, { pre, stopRendering });
             try
             {
                 revealControls.reveal(pre, fsusBlogScrollRevealOptions);
@@ -146,7 +189,11 @@ export function useCodeBlockCopy(
         void enhance();
     }, { flush: 'post' });
 
-    onUnmounted(cleanup);
+    onUnmounted(() =>
+    {
+        disposed = true;
+        cleanup();
+    });
 
     return {
         refresh: enhance,
