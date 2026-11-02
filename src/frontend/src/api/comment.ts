@@ -8,25 +8,16 @@ import type {
     AnonymousCommentTicketResponse,
     AnonymousCredentialRevocationArtifact,
     AnonymousCredentialRootSnapshot,
-    AnonymousPrivacyStateSnapshot,
     BlindCredentialIssueRequestDto,
-    BlindCredentialIssueResponse,
     BlindCredentialIssuerMetadata,
-    CommentAuthorMode,
     CommentAuthorMutationResult,
     CommentAuthorStatusResult,
-    CommentAuthorView,
-    CommentAuthorViewMode,
     CommentCreateV2Dto as CommentCreateV2ContractDto,
     CommentCreateResult,
-    CommentDisplayLanguage,
     CommentPermalinkContext,
-    CommentPermalinkStatus,
     CommentPolicySnapshot,
     CommentManagementChallengeResult,
     CommentReplyItem,
-    CommentReplyPreviewItem,
-    CommentThreadItem,
     CommentTreeNode,
     CommentTreeRoot,
     CursorResponse,
@@ -278,7 +269,8 @@ function sendCommentMutation(
 
 function normalizeCommentMutationId(value?: string): string
 {
-    const mutationId = value?.trim() || globalThis.crypto?.randomUUID?.() || '';
+    const suppliedMutationId = value?.trim();
+    const mutationId = (suppliedMutationId === '' ? undefined : suppliedMutationId) ?? globalThis.crypto?.randomUUID?.() ?? '';
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(mutationId))
     {
         throw createAppError(AppErrorCode.Validation, 'comment_client_mutation_id_invalid');

@@ -13,7 +13,7 @@ describe('commentPrivacyWorkerClient', () => {
       workerFactory: () => {
         const worker = new FakePrivacyWorker()
         created.push(worker)
-        return worker as unknown as Worker
+        return worker
       }
     })
 
@@ -67,15 +67,20 @@ describe('commentPrivacyWorkerClient', () => {
   })
 })
 
-type FakeMessageHandler = ((event: MessageEvent) => void) | null
-
-class FakePrivacyWorker {
-  onmessage: FakeMessageHandler = null
-  onerror: ((event: ErrorEvent) => void) | null = null
-  messages: Array<{ message: Record<string, unknown>; transfer: Transferable[] }> = []
+class FakePrivacyWorker extends EventTarget implements Worker {
+  onmessage: Worker['onmessage'] = null
+  onmessageerror: Worker['onmessageerror'] = null
+  onerror: Worker['onerror'] = null
+  messages: Array<{ message: Record<string, unknown>; transfer: ArrayBuffer[] }> = []
   terminated = false
 
-  postMessage(message: Record<string, unknown>, transfer: Transferable[] = []): void {
+  postMessage(message: Record<string, unknown>, options: Transferable[] | StructuredSerializeOptions = []): void {
+    const transfer = (Array.isArray(options) ? options : options.transfer ?? []).map(value => {
+      if (!(value instanceof ArrayBuffer)) {
+        throw new TypeError('expected privacy proof input ArrayBuffer')
+      }
+      return value
+    })
     this.messages.push({ message, transfer })
     const response = message.type === 'prewarm'
       ? {
@@ -97,7 +102,7 @@ class FakePrivacyWorker {
           issuerSignature: new Uint8Array([18, 19]),
           revocationWitness: new Uint8Array([20, 21])
         }
-    queueMicrotask(() => this.onmessage?.({ data: response } as MessageEvent))
+    queueMicrotask(() => this.onmessage?.call(this, new MessageEvent('message', { data: response })))
   }
 
   terminate(): void {

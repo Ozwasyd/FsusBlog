@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { IDBFactory } from 'fake-indexeddb'
+import { IDBFactory, IDBOpenDBRequest, IDBVersionChangeEvent } from 'fake-indexeddb'
 import {
   COMMENT_PRIVACY_CREDENTIAL_PERSISTENCE_MODE,
   COMMENT_PRIVACY_LEGACY_DATABASE_NAMES,
@@ -65,7 +65,7 @@ describe('commentPrivacyCredentialVault', () => {
     expect(await dumpLegacyCredentialDatabase(indexedDB, legacyDatabaseName)).toEqual([
       expect.objectContaining({ credentialSecret: new Uint8Array([1, 2, 3]) })
     ])
-    const vault = createMemoryOnlyCommentPrivacyCredentialVault({ indexedDB: indexedDB as unknown as IDBFactory })
+    const vault = createMemoryOnlyCommentPrivacyCredentialVault({ indexedDB })
 
     await expect(vault.initialize?.()).resolves.toBe(true)
 
@@ -170,24 +170,18 @@ function credential(partitionValue: CommentPrivacyCredentialVaultPartition, secr
 }
 
 function createDeleteOnlyIndexedDb(onDelete?: () => void, blocked = false): IDBFactory {
-  return {
-    deleteDatabase: vi.fn(() => {
-      const request = {
-        result: undefined,
-        error: null,
-        onsuccess: null,
-        onerror: null,
-        onblocked: null
-      } as unknown as IDBOpenDBRequest
-      queueMicrotask(() => {
-        if (blocked) {
-          request.onblocked?.(new Event('blocked'))
-          return
-        }
-        onDelete?.()
-        request.onsuccess?.(new Event('success'))
-      })
-      return request
+  const indexedDB = new IDBFactory()
+  vi.spyOn(indexedDB, 'deleteDatabase').mockImplementation(() => {
+    const request = new IDBOpenDBRequest()
+    queueMicrotask(() => {
+      if (blocked) {
+        request.onblocked?.(new IDBVersionChangeEvent('blocked'))
+        return
+      }
+      onDelete?.()
+      request.onsuccess?.(new Event('success'))
     })
-  } as unknown as IDBFactory
+    return request
+  })
+  return indexedDB
 }

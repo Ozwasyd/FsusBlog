@@ -5,6 +5,7 @@ import {
   createBlindRsaCredentialSuite
 } from '@/privacy/commentPrivacyBlindRsaSuite'
 import { createCommentPrivacyCredentialProvider } from '@/privacy/commentPrivacyCredentialProvider'
+import { createMemoryOnlyCommentPrivacyCredentialVault } from '@/privacy/commentPrivacyCredentialVault'
 import type {
   CommentPrivacyCredentialIssueResponse,
   CommentPrivacyCredentialIssuerMetadata,
@@ -106,7 +107,7 @@ describe('RFC 9474 blind anonymous credential suite', () => {
     expect(await crypto.subtle.verify(
       { name: 'RSA-PSS', saltLength: 48 },
       cryptoKey.publicKey,
-      credential!.issuerSignature,
+      new Uint8Array(credential!.issuerSignature),
       readPreparedMessage(request!.credentialOpening))).toBe(true)
   }, 30_000)
 
@@ -264,6 +265,32 @@ describe('RFC 9474 blind anonymous credential suite', () => {
     expect(issueCredential).not.toHaveBeenCalled()
   })
 
+  it.each([0, -1])('rejects issuer expiry at now plus %i ms before accepting or storing a credential', async offset => {
+    const now = Date.now()
+    const vault = createMemoryOnlyCommentPrivacyCredentialVault({ indexedDB: null, now: () => now })
+    const put = vi.spyOn(vault, 'put')
+    const realSuite = createBlindRsaCredentialSuite({ crypto })
+    const acceptIssuerResponse = vi.fn(realSuite.acceptIssuerResponse)
+    const issueCredential = vi.fn(async (request: { blindedMessage: Uint8Array }) => ({
+      ...issuerResponse(blindSign(request.blindedMessage)),
+      expiresAtUnixMs: now + offset
+    }))
+    const provider = createCommentPrivacyCredentialProvider({
+      vault,
+      loadMetadata: async () => issuerMetadata(),
+      issueCredential,
+      credentialSuite: { ...realSuite, acceptIssuerResponse },
+      crypto,
+      now: () => now,
+      unavailableCacheTtlMs: 0
+    })
+
+    expect(await provider.prepareCredential({ signal: new AbortController().signal })).toBeNull()
+    expect(issueCredential).toHaveBeenCalledOnce()
+    expect(acceptIssuerResponse).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+  })
+
   it('does not enter provider lifecycle when already cancelled', async () => {
     const loadMetadata = vi.fn()
     const controller = new AbortController()
@@ -324,10 +351,10 @@ function blindSign(blindedMessage: Uint8Array): Uint8Array {
   return i2osp(modPow(os2ip(blindedMessage), privateExponent, modulus), MODULUS_BYTES)
 }
 
-function readPreparedMessage(opening: Uint8Array): Uint8Array {
+function readPreparedMessage(opening: Uint8Array): Uint8Array<ArrayBuffer> {
   const magicLength = new TextEncoder().encode('FSUS-RFC9474-OPENING-V1').byteLength
   const length = (opening[magicLength] << 8) | opening[magicLength + 1]
-  return opening.slice(magicLength + 2, magicLength + 2 + length)
+  return new Uint8Array(opening.subarray(magicLength + 2, magicLength + 2 + length))
 }
 
 function contains(haystack: Uint8Array, needle: Uint8Array): boolean {

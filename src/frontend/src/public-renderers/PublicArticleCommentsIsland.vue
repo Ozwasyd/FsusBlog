@@ -26,7 +26,6 @@
                             v-for="reply in comment.repliesPreview"
                             :key="reply.id"
                             class="text-sm text-[var(--fsusblog-text-tertiary)]"
-                            v-memo="[reply.id, reply.content, reply.author.displayName]"
                         >
                             <strong class="text-[var(--fsusblog-text-secondary)]">{{ reply.author.displayName }}</strong>
                             <span v-if="reply.replyToAuthor"> 回复 @{{ reply.replyToAuthor?.displayName }}</span>
@@ -85,7 +84,13 @@ async function fetchPage(next?: string | null): Promise<void>
     }
 
     const response = await getComments(articleId, next ?? null, 10);
-    comments.value = next ? [...comments.value, ...response.data] : response.data;
+    const page = response.data.map(({ node, childrenPreview }): CommentThreadItem => ({
+        ...node,
+        replyCount: node.childCount,
+        hasMoreReplies: node.hasMoreChildren,
+        repliesPreview: childrenPreview
+    }));
+    comments.value = next ? [...comments.value, ...page] : page;
     cursor.value = response.nextCursor;
     hasMore.value = response.hasMore;
     hasLoadError.value = false;

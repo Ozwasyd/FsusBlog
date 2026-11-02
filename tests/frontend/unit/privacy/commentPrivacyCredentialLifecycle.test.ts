@@ -10,7 +10,10 @@ class MockBroadcastChannel {
   readonly messages: unknown[] = []
   private readonly listeners = new Set<(event: MessageEvent) => void>()
 
-  constructor(readonly name: string) {
+  readonly name: string
+
+  constructor(name: string) {
+    this.name = name
     MockBroadcastChannel.instances.push(this)
   }
 
