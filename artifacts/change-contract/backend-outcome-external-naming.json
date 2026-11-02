@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/outcomes/backend-test-adapter.mjs",
+                "tools/test-matrix/outcomes/backend-held-evidence-bridge.mjs"
+            ],
+            "reason": "preserve the canonical execution owner's externally supplied replay, attempt and framework observation spellings while adapting them within the backend outcome authority"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/tools/fixtures/backend-outcome-reporter/packages.lock.json"
+            ],
+            "reason": "preserve NuGet-generated dependency lock wire keys and package identities in the producer-owned native reporter fixture"
+        }
+    ]
+}
