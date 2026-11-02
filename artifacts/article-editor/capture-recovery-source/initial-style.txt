@@ -1,0 +1,9 @@
+[frontend-style] src/frontend/src/services/articleCaptureRecovery.ts:149:24 eslint/no-control-regex: Unexpected control character(s) in regular expression: \x09, \x0d.
+[frontend-style] src/frontend/src/services/articleCaptureRecovery.ts:175:29 eslint/@typescript-eslint/no-unnecessary-type-assertion: This assertion is unnecessary since it does not change the type of the expression.
+[frontend-style] src/frontend/src/services/articleCaptureRecovery.ts:175:40 eslint/@typescript-eslint/no-unnecessary-type-assertion: This assertion is unnecessary since it does not change the type of the expression.
+[frontend-style] src/frontend/src/services/articleCaptureRecovery.ts:175:51 eslint/@typescript-eslint/no-unnecessary-type-assertion: This assertion is unnecessary since it does not change the type of the expression.
+[frontend-style] src/frontend/src/services/articleCaptureRecovery.ts:175:62 eslint/@typescript-eslint/no-unnecessary-type-assertion: This assertion is unnecessary since it does not change the type of the expression.
+[frontend-style] src/frontend/src/services/articleCaptureRecovery.ts:175:73 eslint/@typescript-eslint/no-unnecessary-type-assertion: This assertion is unnecessary since it does not change the type of the expression.
+[frontend-style] src/frontend/src/services/articleCaptureRecovery.ts:175:84 eslint/@typescript-eslint/no-unnecessary-type-assertion: This assertion is unnecessary since it does not change the type of the expression.
+[frontend-style] src/frontend/src/services/articleCaptureRecovery.ts:175:95 eslint/@typescript-eslint/no-unnecessary-type-assertion: This assertion is unnecessary since it does not change the type of the expression.
+[frontend-style] src/frontend/src/services/articleCaptureRecovery.ts:175:106 eslint/@typescript-eslint/no-unnecessary-type-assertion: This assertion is unnecessary since it does not change the type of the expression.

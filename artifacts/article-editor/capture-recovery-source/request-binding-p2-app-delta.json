@@ -1,0 +1,10 @@
+{
+  "reviewedSource": "a9ad2f84d0b79b54bd737458e9b5dde58d67fd16",
+  "scope": "P2 repair original whole-application static comparison only",
+  "beforeExit": 2,
+  "afterExit": 2,
+  "beforeDiagnostics": 167,
+  "afterDiagnostics": 167,
+  "added": [],
+  "removed": []
+}

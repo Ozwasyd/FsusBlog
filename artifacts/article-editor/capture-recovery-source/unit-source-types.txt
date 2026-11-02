@@ -1,0 +1,1 @@
+src/frontend/src/services/articleRecoveryJournal.ts(821,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.

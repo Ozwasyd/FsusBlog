@@ -1,0 +1,2 @@
+src/frontend/src/services/articleRecoveryJournal.ts(821,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+tests/frontend/unit/services/articleCaptureRecovery.test.ts(100,78): error TS2314: Generic type 'LockGrantedCallback<T>' requires 1 type argument(s).

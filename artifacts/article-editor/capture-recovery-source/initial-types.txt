@@ -1,0 +1,7 @@
+src/frontend/src/services/articleCaptureRecovery.ts(479,98): error TS18047: 'owned.record' is possibly 'null'.
+src/frontend/src/services/articleCaptureRecovery.ts(491,12): error TS2345: Argument of type 'Readonly<{ status: "blocked"; reason: "coordination-unavailable"; serverOutcome: "unknown"; }>' is not assignable to parameter of type 'Readonly<{ status: "absent"; serverOutcome: "unknown"; }> | Readonly<{ status: "blocked"; reason: "original-record-changed"; serverOutcome: "unknown"; }> | Readonly<{ ...; }>'.
+  Type 'Readonly<{ status: "blocked"; reason: "coordination-unavailable"; serverOutcome: "unknown"; }>' is not assignable to type 'Readonly<{ status: "blocked"; reason: "original-record-changed"; serverOutcome: "unknown"; }> | Readonly<{ status: "blocked" | "discarded"; reason: "original-storage-unavailable" | undefined; serverOutcome: "unknown"; }>'.
+    Type 'Readonly<{ status: "blocked"; reason: "coordination-unavailable"; serverOutcome: "unknown"; }>' is not assignable to type 'Readonly<{ status: "blocked" | "discarded"; reason: "original-storage-unavailable" | undefined; serverOutcome: "unknown"; }>'.
+      Types of property 'reason' are incompatible.
+        Type '"coordination-unavailable"' is not assignable to type '"original-storage-unavailable"'.
+src/frontend/src/services/articleRecoveryJournal.ts(821,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
