@@ -25,7 +25,7 @@
                     <ElButton
                         :icon="Refresh"
                         :loading="loading"
-                        @click="loadAudit"
+                        @click="loadAudit()"
                     >刷新</ElButton>
                 </div>
             </template>
@@ -120,11 +120,12 @@
                 />
                 <div class="audit-filter-date-cell lg:col-span-2">
                     <ElDatePicker
-                        v-model="dateRange"
+                        :model-value="dateRange ?? undefined"
                         type="datetimerange"
                         start-placeholder="起始时间"
                         end-placeholder="结束时间"
                         aria-label="时间范围"
+                        @update:model-value="dateRange = $event ?? null"
                     />
                 </div>
                 <div class="flex items-center gap-2 lg:col-span-2">
@@ -290,7 +291,7 @@
                                 link
                                 type="primary"
                                 :loading="loading"
-                                @click="loadAudit"
+                                @click="loadAudit()"
                             >刷新审计日志</ElButton>
                         </template>
                     </AdminInlineEmptyState>
@@ -402,7 +403,7 @@
                                                     link
                                                     type="primary"
                                                     :loading="loading"
-                                                    @click="loadAudit"
+                                                    @click="loadAudit()"
                                                 >刷新审计日志</ElButton>
                                             </template>
                                         </AdminInlineEmptyState>
@@ -496,6 +497,10 @@ import { FsusUiTaskPageHeader, FsusUiSettingsSection } from "@/fsusui";
 import { toast } from '@/fsusui/feedback';
 import { Aim, Lock, Operation, Refresh, RefreshLeft, Search, User, View } from '@/fsusui/icons';
 import { toFsusUiTagType } from '@/fsusui/primitiveAdapters';
+import {
+    FsusUiTableV2FixedDir as TableV2FixedDir,
+    type FsusUiTableV2Column as TableV2Column
+} from '@/fsusui/tableV2';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 import {
     adminStatusLabel,
@@ -505,15 +510,6 @@ import {
 import { formatAuditAction } from '@/view-contracts/auditActionLabels';
 
 type AuditDateRange = [Date, Date] | null;
-interface TableV2Column<T> {
-    key: string;
-    dataKey?: keyof T | string;
-    title?: string;
-    width: number;
-    align?: 'left' | 'center' | 'right';
-    fixed?: true | 'left' | 'right';
-    sortable?: boolean;
-}
 
 const route = useRoute();
 const router = useRouter();
@@ -550,7 +546,7 @@ const isCompactPagination = useMediaQuery('(max-width: 767px)');
 const cursorByPage = reactive<Record<number, string | null>>({ 1: null });
 const loading = ref(false);
 const hasLoadedAudit = ref(false);
-const verifyingId = ref<number | null>(null);
+const verifyingId = ref<AuditLogItemResponse['id'] | null>(null);
 const detailVisible = ref(false);
 const auditRowMotion = useRowStateMotion({ visibleLimit: 20 });
 
@@ -561,7 +557,7 @@ const auditTableColumns: TableV2Column<AuditLogItemResponse>[] = [
     { key: 'target', dataKey: 'targetId', title: '目标', width: 190 },
     { key: 'outcome', dataKey: 'outcome', title: '结果', width: 150, align: 'center' },
     { key: 'evidence', title: '证据', width: 110, align: 'center' },
-    { key: 'detail', title: '详情', width: 110, align: 'right', fixed: 'right' }
+    { key: 'detail', title: '详情', width: 110, align: 'right', fixed: TableV2FixedDir.RIGHT }
 ];
 
 const runtime = computed(() => summary.value?.runtime ?? emptyRuntime);

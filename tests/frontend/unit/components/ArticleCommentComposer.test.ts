@@ -40,7 +40,9 @@ const RouterLinkStub = defineComponent({
   template: '<a v-bind="$attrs" :data-to="JSON.stringify(to)"><slot /></a>'
 })
 
-const baseProps = {
+type ComposerProps = InstanceType<typeof ArticleCommentComposer>['$props']
+
+const baseProps: ComposerProps = {
   modelValue: '',
   isLoggedIn: true,
   isBanned: false,
@@ -63,7 +65,7 @@ const baseProps = {
   anonymousScope: 'article:42'
 }
 
-const mountComposer = (props: Partial<typeof baseProps> = {}) => mount(ArticleCommentComposer, {
+const mountComposer = (props: Partial<ComposerProps> = {}) => mount(ArticleCommentComposer, {
   props: { ...baseProps, ...props },
   global: {
     stubs: {
@@ -284,7 +286,7 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     expect(wrapper.text()).toContain('评论策略已更新')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
     expect(wrapper.emitted('update:authorMode')).toBeUndefined()
-    expect(wrapper.get('button').exists()).toBe(true)
+    expect(wrapper.get('button').element.tagName).toBe('BUTTON')
 
     await wrapper.get('.comment-composer-draft__actions button').trigger('click')
     expect(wrapper.emitted('update:modelValue')).toContainEqual(['旧策略公开草稿'])
