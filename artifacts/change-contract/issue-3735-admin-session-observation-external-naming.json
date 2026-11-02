@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Security/AdminSessionValidationService.cs",
+                "src/backend/Services/Security/AdminSessionValidationService.Observation.cs"
+            ],
+            "reason": "Preserve original admin identity/session/projection/observability identifiers in these two managed source paths. No environment setting, public auth contract, cookie, permission, DI, database, frozen output or qualification grant is changed."
+        }
+    ]
+}
