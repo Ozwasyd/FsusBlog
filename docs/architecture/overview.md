@@ -66,6 +66,15 @@ current-context admission, including its last snapshot with unchanged bytes and
 digest. The historical readonly context remains available for lifecycle evidence;
 consumers must use the owner predicate rather than infer currentness from it.
 
+The same registry owns retained handles, notifications and retirement. Context
+subscriptions return an owner-held subscription that the borrower releases. Task
+completion and resource settlement are separate: borrowers wait for the original
+producer's terminal work before calling `ArticleDocumentTaskLease.settle()`;
+completion or cancellation alone does not prove cleanup. Anchor, render-cache,
+continuity and editor-runtime binding services reuse these document owners and
+FsusUI's public position, capture and transaction contracts rather than introduce
+a second parser, document registry or cleanup authority.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:

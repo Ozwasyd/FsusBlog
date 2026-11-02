@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve the existing public document, FsusUI and source-contract spellings while describing retained document subscriptions and explicit task settlement. No CSS selector, token, naming rule or authority input is changed."
+        }
+    ]
+}
