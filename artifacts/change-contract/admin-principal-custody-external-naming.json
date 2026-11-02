@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/security/private-surface-runtime.md"
+            ],
+            "reason": "Preserve existing externally addressable document names and contract identifiers while documenting original producer custody; the custody change does not rename selectors or custom properties."
+        }
+    ]
+}
