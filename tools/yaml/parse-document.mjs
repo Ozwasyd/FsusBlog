@@ -1,3 +1,8 @@
+function trimYamlWhitespace(value)
+{
+    return value.replace(/^[ \t\r\n]+|[ \t\r\n]+$/gu, '');
+}
+
 function stripYamlComment(raw)
 {
     let quote = null;
@@ -29,34 +34,41 @@ function stripYamlComment(raw)
             quote = character;
             continue;
         }
-        if (character === '#' && (index === 0 || /\s/u.test(raw[index - 1])))
+        if (character === '#' && (index === 0 || /[ \t]/u.test(raw[index - 1])))
         {
-            return raw.slice(0, index).trimEnd();
+            return raw.slice(0, index).replace(/[ \t]+$/u, '');
         }
     }
 
-    return raw.trimEnd();
+    return raw.replace(/[ \t]+$/u, '');
 }
 
-function tokenize(text, source)
+function tokenize(text)
 {
     const tokens = [];
-    const lines = String(text ?? '').replace(/^\uFEFF/u, '').split(/\r?\n/u);
+    const document = String(text ?? '').replace(/^\uFEFF/u, '');
+    const lines = document.split(/\r?\n/u);
+    if (document.endsWith('\n'))
+    {
+        lines.pop();
+    }
 
     for (let index = 0; index < lines.length; index += 1)
     {
         const raw = lines[index];
         const leading = raw.match(/^[ \t]*/u)?.[0] ?? '';
-        if (leading.includes('\t'))
-        {
-            throw new Error(`${source}:${index + 1}: YAML indentation must not contain tabs`);
-        }
         const content = stripYamlComment(raw.slice(leading.length));
-        if (!content.trim() || content === '---' || content === '...')
-        {
-            continue;
-        }
-        tokens.push({ content: content.trimEnd(), indent: leading.length, line: index + 1 });
+        // Structural comments are ignored only when reading structure. Block
+        // scalars must retain comment text, empty lines and their physical breaks.
+        tokens.push({
+            content,
+            raw,
+            leading,
+            indent: raw.match(/^ */u)[0].length,
+            ignored: !trimYamlWhitespace(content) || content === '---' || content === '...',
+            terminated: index < lines.length - 1 || document.endsWith('\n'),
+            line: index + 1
+        });
     }
 
     return tokens;
@@ -106,7 +118,7 @@ function splitFlowItems(value, source, line)
         }
         if (character === ',' && depth === 0)
         {
-            items.push(value.slice(start, index).trim());
+            items.push(trimYamlWhitespace(value.slice(start, index)));
             start = index + 1;
         }
     }
@@ -115,13 +127,13 @@ function splitFlowItems(value, source, line)
     {
         throw new Error(`${source}:${line}: malformed YAML flow collection`);
     }
-    items.push(value.slice(start).trim());
+    items.push(trimYamlWhitespace(value.slice(start)));
     return items.filter(Boolean);
 }
 
 function splitMapping(content)
 {
-    const match = content.match(/^([A-Za-z_][A-Za-z0-9_.-]*):(?:\s+(.*)|\s*)$/u);
+    const match = content.match(/^([A-Za-z_][A-Za-z0-9_.-]*):(?:[ \t]+(.*)|[ \t]*)$/u);
     if (!match)
     {
         return null;
@@ -133,7 +145,7 @@ export function parseYamlScalar(raw, options = {})
 {
     const source = options.source ?? '<yaml>';
     const line = options.line ?? 1;
-    const value = String(raw ?? '').trim();
+    const value = trimYamlWhitespace(String(raw ?? ''));
 
     if (value.startsWith('['))
     {
@@ -141,7 +153,7 @@ export function parseYamlScalar(raw, options = {})
         {
             throw new Error(`${source}:${line}: unterminated YAML flow sequence`);
         }
-        const inner = value.slice(1, -1).trim();
+        const inner = trimYamlWhitespace(value.slice(1, -1));
         return inner ? splitFlowItems(inner, source, line).map((item) => parseYamlScalar(item, { source, line })) : [];
     }
     if (value.startsWith('{'))
@@ -151,7 +163,7 @@ export function parseYamlScalar(raw, options = {})
             throw new Error(`${source}:${line}: unterminated YAML flow mapping`);
         }
         const result = {};
-        const inner = value.slice(1, -1).trim();
+        const inner = trimYamlWhitespace(value.slice(1, -1));
         for (const item of inner ? splitFlowItems(inner, source, line) : [])
         {
             const mapping = splitMapping(item);
@@ -209,11 +221,24 @@ export function parseYamlScalar(raw, options = {})
 export function parseYamlDocument(text, options = {})
 {
     const source = options.source ?? '<yaml>';
-    const tokens = tokenize(text, source);
+    const tokens = tokenize(text);
     let index = 0;
 
     function current()
     {
+        while (index < tokens.length)
+        {
+            const token = tokens[index];
+            if (token.leading.includes('\t'))
+            {
+                throw new Error(`${source}:${token.line}: YAML indentation must not contain tabs`);
+            }
+            if (!token.ignored)
+            {
+                return token;
+            }
+            index += 1;
+        }
         return tokens[index] ?? null;
     }
 
@@ -229,7 +254,11 @@ export function parseYamlDocument(text, options = {})
         while (index < tokens.length)
         {
             const token = current();
-            parts.push(token.content.trim());
+            if (!token)
+            {
+                break;
+            }
+            parts.push(trimYamlWhitespace(token.content));
             for (const character of token.content)
             {
                 if (quote === '"' && escaped)
@@ -301,58 +330,74 @@ export function parseYamlDocument(text, options = {})
             throw new Error(`${source}:${startLine}: unsupported YAML block scalar ${indicator}`);
         }
         const chomp = indicator.length > 1 ? indicator[1] : '';
-        const lines = [];
+        const block = [];
         let contentIndent = null;
         while (index < tokens.length)
         {
-            const next = current();
-            if (!next || next.indent <= keyIndent)
+            // Read physical lines directly, before structural comment removal.
+            const next = tokens[index];
+            const empty = next.raw.length === next.indent;
+            if (!empty && next.indent <= keyIndent)
             {
                 break;
             }
-            if (contentIndent === null)
+            if (!empty && contentIndent === null)
             {
                 contentIndent = next.indent;
+                if (block.some((line) => line.indent > contentIndent))
+                {
+                    throw new Error(`${source}:${next.line}: YAML block scalar leading empty line is over-indented`);
+                }
             }
-            if (next.indent < contentIndent)
+            if (!empty && next.indent < contentIndent)
             {
                 throw new Error(`${source}:${next.line}: YAML block scalar indentation decreased`);
             }
-            const relative = ' '.repeat(next.indent - contentIndent);
-            lines.push(relative + next.content);
+            block.push(next);
             index += 1;
         }
-        if (style === '>')
+        const lines = block.map((line) => ({
+            text: contentIndent === null ? '' : line.raw.slice(contentIndent),
+            terminated: line.terminated
+        }));
+        let text = '';
+        for (let position = 0; position < lines.length; position += 1)
         {
-            let text = '';
-            for (let i = 0; i < lines.length; i += 1)
+            const line = lines[position];
+            text += line.text;
+            if (!line.terminated)
             {
-                const line = lines[i];
-                if (line === '')
+                continue;
+            }
+            if (style === '>' && line.text !== '' && !/^[ \t]/u.test(line.text))
+            {
+                let following = position + 1;
+                while (following < lines.length && lines[following].text === '')
                 {
-                    text += '\n';
+                    following += 1;
+                }
+                const next = lines[following];
+                if (next && !/^[ \t]/u.test(next.text))
+                {
+                    // Adjacent ordinary lines fold to a space. An intervening
+                    // empty line supplies its own newline, preserving paragraphs.
+                    if (following === position + 1)
+                    {
+                        text += ' ';
+                    }
                     continue;
                 }
-                if (text !== '' && !text.endsWith('\n'))
-                {
-                    text += ' ';
-                }
-                text += line;
             }
-            if (chomp === '+')
-            {
-                text += '\n';
-            }
-            return text;
-        }
-        let text = lines.join('\n');
-        if (chomp === '+')
-        {
             text += '\n';
         }
-        else if (chomp === '')
+        if (chomp === '-')
         {
-            text += '\n';
+            return text.replace(/\n+$/u, '');
+        }
+        if (chomp === '' && text.endsWith('\n'))
+        {
+            const clipped = text.replace(/\n+$/u, '');
+            return clipped === '' ? '' : `${clipped}\n`;
         }
         return text;
     }
@@ -381,6 +426,10 @@ export function parseYamlDocument(text, options = {})
         while (index < tokens.length)
         {
             const token = current();
+            if (!token)
+            {
+                break;
+            }
             if (token.indent < indent)
             {
                 break;
@@ -415,6 +464,10 @@ export function parseYamlDocument(text, options = {})
         while (index < tokens.length)
         {
             const token = current();
+            if (!token)
+            {
+                break;
+            }
             if (token.indent < indent)
             {
                 break;
@@ -427,7 +480,7 @@ export function parseYamlDocument(text, options = {})
             {
                 break;
             }
-            const item = token.content.slice(1).trimStart();
+            const item = token.content.slice(1).replace(/^[ \t]+/u, '');
             index += 1;
 
             if (!item)
@@ -491,16 +544,17 @@ export function parseYamlDocument(text, options = {})
         return token.content.startsWith('-') ? parseSequence(indent) : parseMapping(indent);
     }
 
-    if (tokens.length === 0)
+    const first = current();
+    if (!first)
     {
         return {};
     }
-    if (tokens[0].indent !== 0)
+    if (first.indent !== 0)
     {
-        throw new Error(`${source}:${tokens[0].line}: YAML document must start at column zero`);
+        throw new Error(`${source}:${first.line}: YAML document must start at column zero`);
     }
     const document = parseBlock(0);
-    if (index !== tokens.length)
+    if (current())
     {
         throw new Error(`${source}:${current()?.line ?? 1}: trailing YAML content was not consumed`);
     }
