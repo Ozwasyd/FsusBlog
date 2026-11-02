@@ -21,7 +21,8 @@
                 >
                     <ElFormItem label="动作">
                         <ElSelect
-                            v-model="form.action"
+                            :model-value="form.action ?? undefined"
+                            @update:model-value="updateAction"
                             class="w-full"
                             filterable
                         >
@@ -38,7 +39,8 @@
                     </ElFormItem>
                     <ElFormItem label="风险分">
                         <ElInputNumber
-                            v-model="form.riskScore"
+                            :model-value="form.riskScore ?? undefined"
+                            @update:model-value="updateRiskScore"
                             class="w-full"
                             :min="0"
                             :max="500"
@@ -69,7 +71,8 @@
                     </ElFormItem>
                     <ElFormItem label="登录状态">
                         <ElSelect
-                            v-model="form.actorStatus"
+                            :model-value="form.actorStatus ?? undefined"
+                            @update:model-value="updateActorStatus"
                             class="w-full"
                         >
                             <ElOption
@@ -184,10 +187,10 @@ const form = reactive<SimulatorForm>({
     actorStatus: 'anonymous'
 });
 
-const toIpSubject = (ip: string): string =>
+const toIpSubject = (ip: string | null): string | null =>
 {
-    const normalized = ip.trim();
-    return normalized ? `ip:${normalized}` : '';
+    const normalized = ip?.trim();
+    return normalized ? `ip:${normalized}` : null;
 };
 
 const derivedSubject = computed(() => toIpSubject(form.clientIp));
@@ -202,8 +205,8 @@ const actionOptions = [
     { label: '批量处理评论', value: 'admin.comment.batch', routeKey: 'admin.comment.batch' }
 ] as const;
 
-const selectedAction = computed(() => actionOptions.find((item) => item.value === form.action) ?? actionOptions[0]);
-const derivedRouteKey = computed(() => selectedAction.value.routeKey);
+const selectedAction = computed(() => actionOptions.find((item) => item.value === form.action) ?? null);
+const derivedRouteKey = computed(() => selectedAction.value?.routeKey ?? null);
 
 const actorStatusOptions = [
     { label: '未登录访客', value: 'anonymous' },
@@ -211,12 +214,12 @@ const actorStatusOptions = [
     { label: '管理员会话', value: 'admin_principal' }
 ] as const;
 
-const deriveRegionForSimulation = (ip: string): string =>
+const deriveRegionForSimulation = (ip: string | null): string | null =>
 {
-    const normalized = ip.trim();
-    if (normalized.length === 0)
+    const normalized = ip?.trim();
+    if (!normalized)
     {
-        return 'UNKNOWN';
+        return null;
     }
     if (normalized.startsWith('223.') || normalized.startsWith('114.114.'))
     {
@@ -243,9 +246,9 @@ const formatRegion = (region: string): string =>
 };
 
 const derivedRegion = computed(() => deriveRegionForSimulation(form.clientIp));
-const derivedRegionLabel = computed(() => formatRegion(derivedRegion.value));
+const derivedRegionLabel = computed(() => derivedRegion.value === null ? '-' : formatRegion(derivedRegion.value));
 
-const deriveIdentityKind = (actorStatus: string): string =>
+const deriveIdentityKind = (actorStatus: string | null): string | null =>
 {
     if (actorStatus === 'admin_principal')
     {
@@ -255,10 +258,43 @@ const deriveIdentityKind = (actorStatus: string): string =>
     {
         return 'legacy_user';
     }
-    return 'anonymous';
+    return actorStatus === 'anonymous' ? 'anonymous' : null;
 };
 
 const derivedIdentityKind = computed(() => deriveIdentityKind(form.actorStatus));
+
+const updateAction = (value: unknown): void =>
+{
+    if (value === null || value === undefined || value === '')
+    {
+        form.action = null;
+        return;
+    }
+    if (typeof value !== 'string' || !actionOptions.some((option) => option.value === value))
+    {
+        throw new Error('security-simulation-action-update-invalid');
+    }
+    form.action = value;
+};
+
+const updateActorStatus = (value: unknown): void =>
+{
+    if (value === null || value === undefined || value === '')
+    {
+        form.actorStatus = null;
+        return;
+    }
+    if (typeof value !== 'string' || !actorStatusOptions.some((option) => option.value === value))
+    {
+        throw new Error('security-simulation-actor-update-invalid');
+    }
+    form.actorStatus = value;
+};
+
+const updateRiskScore = (value: number | null | undefined): void =>
+{
+    form.riskScore = value ?? null;
+};
 
 const presets: Preset[] = [
     { label: '放行', riskScore: 10 },
@@ -339,6 +375,12 @@ const runSimulation = async (): Promise<void> =>
     loading.value = true;
     try
     {
+        // Do not let cleared inputs acquire the backend's defaults as a fabricated simulation subject/action.
+        if (!selectedAction.value || derivedRouteKey.value === null || derivedSubject.value === null
+            || derivedRegion.value === null || derivedIdentityKind.value === null)
+        {
+            throw new Error('请选择有效动作和登录状态，并填写来源 IP');
+        }
         result.value = await simulateRiskControl({
             ...form,
             routeKey: derivedRouteKey.value,

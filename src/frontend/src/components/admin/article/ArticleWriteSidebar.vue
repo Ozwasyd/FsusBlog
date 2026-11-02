@@ -65,7 +65,10 @@
                 <p>分类、标签和摘要</p>
             </header>
             <div class="article-sidebar-section__body">
-                <ElFormItem prop="categoryId">
+                <ElFormItem
+                    prop="categoryId"
+                    data-article-form-property="categoryId"
+                >
                     <template #label>
                         <span class="article-field-label"><span>分类</span></span>
                     </template>

@@ -19,7 +19,7 @@ import {
     type SupportedLocale
 } from '../keys';
 import { loadLocaleDomains } from '../localeDomainBundleStore';
-import { LOCALE_FONT_WEIGHTS, type LocaleFontWeight } from '../localeFontCatalog';
+import { LOCALE_FONT_WEIGHTS } from '../localeFontCatalog';
 
 import {
     LocaleRuntimeCoordinator,

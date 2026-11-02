@@ -26,7 +26,6 @@ import {
 
 import type {
     LocaleMessages,
-    PluralCategory,
     PluralNode,
     PluralTranslationArguments,
     PluralTranslationKey,
