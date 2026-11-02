@@ -354,11 +354,18 @@ function appendWorkflowNeed(workflowText, jobId, need)
     return mutateWorkflowJob(workflowText, jobId, (source, job) =>
     {
         const lines = source.split('\n');
-        const pattern = new RegExp(`^\\s{${job.fieldIndent}}needs:\\s*$`, 'u');
+        const pattern = new RegExp(`^\\s{${job.fieldIndent}}needs:\\s*(?:\\[([^\\]]*)\\])?\\s*$`, 'u');
         const index = lines.findIndex((line) => pattern.test(line));
         if (index < 0)
         {
             throw new Error(`workflow job ${jobId} does not use block needs`);
+        }
+        const inline = lines[index].match(pattern)?.[1];
+        if (inline !== undefined)
+        {
+            const existing = inline.replace(/,\s*$/u, '');
+            lines[index] = `${' '.repeat(job.fieldIndent)}needs: [${existing.trim() ? `${existing}, ` : ''}${need}]`;
+            return lines.join('\n');
         }
         const childIndent = job.fieldIndent + (job.fieldIndent - job.jobIndent);
         lines.splice(index + 1, 0, `${' '.repeat(childIndent)}- ${need}`);
