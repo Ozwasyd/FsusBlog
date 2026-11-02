@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchCaseFold.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchContract.PropertyOperands.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchContracts.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchCursor.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchIndex.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchIndexVerifier.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryGrammar.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchTokenizer.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchVerifier.cs",
+                "src/backend/Services/Authoring/AuthorSavedViewContracts.cs",
+                "src/backend/Services/Authoring/AuthorSavedViewExecutionPreparationService.cs",
+                "src/backend/Services/Authoring/AuthorSavedViewExecutionPreparationVerifier.cs",
+                "src/backend/Services/Authoring/AuthorSavedViewPropertyInputAdapter.cs",
+                "src/backend/Services/Authoring/AuthorSearchPropertyValueProjection.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs"
+            ],
+            "reason": "The unchanged trusted environment-variable registry covers these C# paths. This candidate consumes exact author-search/typed-value/preparation source and adds one pure Saved View input adapter; it introduces no environment keys, changes no naming policy and preserves all existing external names. Complete inherited path coverage is recorded without editing the upstream naming manifest."
+        }
+    ]
+}
