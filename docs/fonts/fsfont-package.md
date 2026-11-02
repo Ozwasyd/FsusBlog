@@ -102,6 +102,41 @@ Activation is compiled into stable, locale-aware theme variables by the
 [font token schema and stack runtime](font-token-schema.md); themes reference
 those tokens instead of font IDs, asset paths, or raw `font-family` strings.
 
+## Frozen installed byte reads
+
+The same `LocalFontRegistry` instance also implements `IFontByteSource` through
+its `LocalFontRegistry.FontBytes.cs` partial. Consumers retain the registered
+`IFontRegistry` singleton and use its byte-source interface; they must not create
+a second registry instance for export. The byte source reads explicitly frozen
+font ID, package version, family, weight, style and content hash identities. It
+does not choose fonts, require activation, or derive a selection from a default
+stack. A disabled but installed package remains readable; deleted or replaced
+identities fail closed.
+
+The entire batch holds the original registry `_gate`, including registry load,
+identity checks, file reads and final mutation checks. Paths are derived only
+from validated installed SHA-256 names under `assets/`; no caller file path is
+accepted. Reads use the existing `NativeRegularFileGuard` descriptor and directory
+identity owner on Linux x64/Arm64, reject links and non-regular files, check length
+before allocation, read exactly that length plus an EOF probe, verify SHA-256 and
+recheck native identity and registry state before returning immutable owned bytes.
+Other platforms fail closed. The caller's batch limit may reduce, but cannot
+increase, the existing 64 MiB / 32-face ceilings.
+
+`DocumentExportFontMapper` accepts a caller's frozen selection and requires exactly
+the seven tuples in the read-only `DocumentExportReadingStyleAuthority.RequiredFonts`.
+It delegates the entire batch to the registry and maps the verified identities and
+bytes to the existing export asset contract. It supplies no alias, download, system
+font, built-in fallback, or alternative selection authority. Missing real installed
+faces remain an export prerequisite failure.
+
+The package reader's existing WOFF2 magic check, byte hash checks and mapper tuple
+closure are not font decoding or rendering qualification. The short magic payloads
+in `FontByteProducerTests` exercise real package installation, byte I/O, lifecycle
+races and tuple mapping only. Real fonts, glyph coverage and offline HTML rendering
+must be independently verified with authorized real packages; the repository's
+empty built-in faces cannot supply that evidence.
+
 ## Failure and rollback
 
 A failed package validation leaves the registry and asset store unchanged. A
