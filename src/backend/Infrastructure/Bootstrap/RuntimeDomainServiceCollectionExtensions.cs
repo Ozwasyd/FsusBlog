@@ -182,6 +182,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<AuthoringCanvasOperationEngine>();
         services.AddScoped<AuthoringCanvasOperationDatabaseVerifier>();
         services.AddScoped<IAuthorSavedViewDependencyProvider, PostgresAuthorSavedViewDependencyProvider>();
+        // Definition facts only; property query and sort execution remain unavailable.
+        services.AddScoped<IAuthorSavedViewDependencyProvider, ArticlePropertySavedViewDependencyProvider>();
         services.AddScoped<IAuthorSavedViewDependencyCatalog, AuthorSavedViewDependencyCatalog>();
         services.AddScoped<IAuthorSavedViewQueryValidator, AuthorSavedViewQueryValidator>();
         services.AddScoped<IAuthorSavedViewPersistence, PostgresAuthorSavedViewPersistence>();
