@@ -5,8 +5,8 @@ import { assertDigest, canonicalDigest, deepFreeze, exactKeys } from './distribu
 
 const { canonicalJson } = await import(new URL('../test-fixtures/receipt/canonical.mjs', import.meta.url));
 
-const sourceSchema = 'fsusblog.distribution-article-writer-source-reference.v1';
-const requestSchema = 'fsusblog.distribution-article-writer-capability-request.v1';
+const sourceSchema = 'fsusblog.distribution-article-writer-source-reference.v3';
+const requestSchema = 'fsusblog.distribution-article-writer-capability-request.v3';
 const sourceLimit = 1024 * 1024;
 const serializedLimit = 256 * 1024;
 const sourceReferences = new WeakSet();
@@ -17,8 +17,35 @@ const sourcePaths = Object.freeze([
     'ArticleScalePlan.cs', 'CanonicalArticleGraphFactory.cs',
     'CanonicalArticleGraphModels.cs', 'CanonicalArticleGraphVerifier.cs',
     'ArticleScaleGraphIdentityBindings.cs', 'DataScaleArticlePhysicalProjection.cs',
-    'DataScaleProviderBulkTransport.cs', 'DataScalePhysicalBatchReadback.cs'
+    'DataScaleProviderBulkTransport.cs', 'DataScalePhysicalBatchReadback.cs',
+    'ArticleScaleResolvedInputs.cs', 'ArticleScaleNativeRoleRequirement.cs',
+    'DataScaleArticleBatchAuthority.cs', 'DataScaleArticleBatchWriter.cs',
+    'DataScaleBatchCheckpoint.cs', 'DataScaleBatchCheckpointStore.cs',
+    'DataScaleNativeRoleBindings.cs', 'DataScalePostgresArticleProducer.cs',
+    'DataScalePostgresIdentityReservation.cs', 'DataScalePublicationRequestBinding.cs',
+    'DataScaleArticleTaxonomyProjection.cs'
 ].map((file) => `${sourceDirectory}${file}`));
+// Reviewed real owner implementations, not presence/name heuristics or execution
+// capabilities. A changed implementation requires a new exact source review.
+const resolvedSourceBlobs = Object.freeze({
+    'ArticleScaleResolvedInputs.cs': '49e8893b2365de11550d083bba66b132a48969f7',
+    'CanonicalArticleGraphFactory.cs': '7de9be80e878fd7bdc1f1a6557ebd1dcc774b2a0',
+    'DataScalePostgresArticleProducer.cs': 'cdd15d7c763d3ce2b6cd4389bd24e9c12f88b53a',
+    'DataScaleArticleBatchWriter.cs': '2a5c6f02c454a326a7d05b092e717e28120f6ae8'
+});
+const taxonomySourceBlobs = Object.freeze({
+    ...resolvedSourceBlobs,
+    'DataScalePostgresArticleProducer.cs': '245ba4aa01d4d49daf337b0b33a21eb45963de89',
+    'DataScaleArticlePhysicalProjection.cs': '6f4b0a943657c60e6206decd2fd3485bd861ec37',
+    'DataScaleArticleTaxonomyProjection.cs': 'b0665253e8f0cf6686c4323752c4c52692f85080',
+    'DataScaleArticleBatchAuthority.cs': '546dfcb2d8f47b02762188757d14323905a8cfa6',
+    'DataScalePhysicalBatchReadback.cs': '9a3ce317fbab2ac2d6e633ee5f485d12be04d28b',
+    'DataScaleProviderBulkTransport.cs': '9287154857b82acce13375006661d45c4661e3f2'
+});
+const currentSchemaTaxonomySourceBlobs = Object.freeze({
+    ...taxonomySourceBlobs,
+    'DataScaleProviderBulkTransport.cs': '563a312261c74ae9eaa0ab8d2facbcc51c96d6fe'
+});
 
 function requireCondition(condition, code)
 {
@@ -74,6 +101,10 @@ export function readArticleBulkWriterSourceReference(options)
             }
         }
     }
+    const matches = (blobs) => Object.entries(blobs).every(([file, blob]) =>
+        files.some((entry) => entry.path === `${sourceDirectory}${file}` && entry.gitBlob === blob));
+    const taxonomySourceReviewed = matches(taxonomySourceBlobs) || matches(currentSchemaTaxonomySourceBlobs);
+    const resolvedSourceReviewed = matches(resolvedSourceBlobs) || taxonomySourceReviewed;
     const body = {
         schema: sourceSchema,
         purpose: 'source-reference-only',
@@ -81,6 +112,8 @@ export function readArticleBulkWriterSourceReference(options)
         sourceCommit: options.sourceCommit,
         files,
         physicalBatchGraphLimit,
+        resolvedSourceReviewed,
+        taxonomySourceReviewed,
         executionCapability: false
     };
     const reference = deepFreeze({ ...body, contentDigest: canonicalDigest(body) });
@@ -132,10 +165,14 @@ function requestBody(options)
     requireCondition(limit === null ? options.batchSize === null
         : Number.isSafeInteger(options.batchSize) && options.batchSize > 0 && options.batchSize <= limit,
     'distribution_writer_batch_bound_invalid');
+    const resolved = options.sourceReference.resolvedSourceReviewed;
+    const taxonomy = options.sourceReference.taxonomySourceReviewed;
     const blockers = [
         ...catalogResult.blockers,
-        'article_writer_semantic_assignment_input_missing',
-        'article_writer_complete_plan_admission_host_missing',
+        ...(resolved ? ['article_writer_js_typed_intake_bridge_missing'] : [
+            'article_writer_semantic_assignment_input_missing',
+            'article_writer_complete_plan_admission_host_missing'
+        ]),
         ...options.sourceReference.files.filter((file) => file.status === 'missing')
             .map((file) => `article_writer_source_path_missing:${file.path}`)
     ];
@@ -171,7 +208,36 @@ function requestBody(options)
         ownerRequest: {
             ownerIssue: 2542,
             existingProjection: 'DataScaleArticlePhysicalProjection.Compile',
-            existingProjectionArguments: ['plan', 'graphs', 'identities', 'schema', 'externalIdentities'],
+            existingProjectionArguments: ['plan', 'graphs', 'identities', 'schema', 'externalIdentities',
+                ...(resolved ? ['resolvedBatch'] : []), ...(taxonomy ? ['taxonomySchema'] : [])],
+            existingTypedInput: resolved ? {
+                input: 'ArticleScaleResolvedInput',
+                roster: 'ArticleScaleOrdinalAssignment',
+                coverage: 'ArticleScaleAssignmentCoverage',
+                inputDigest: 'ArticleScaleAssignmentCoverage.ComputeInputDigest',
+                batch: 'ArticleScaleResolvedGraphBatch',
+                factory: 'CanonicalArticleGraphFactory.BuildArticleGraph',
+                postgresProducer: 'DataScalePostgresArticleProducer.ProduceAsync',
+                digestAuthority: 'original-dotnet-json-serializer',
+                bridgeStatus: 'no-published-js-json-intake',
+                preflightScope: 'whole-roster-and-current-batch-payload-only'
+            } : null,
+            existingTaxonomyInput: taxonomy ? {
+                schema: 'DataScaleArticleTaxonomySchema',
+                schemaBindings: ['ArticleTag', 'Category', 'Tag'],
+                projection: 'DataScaleArticleTaxonomyProjection.Attach',
+                producerOptionalArgument: 'taxonomySchema',
+                typedInputs: ['ArticleScaleResolvedInput.CategoryId', 'ArticleScaleResolvedInput.TagIds'],
+                canonicalOutput: 'ArticleScaleRowKind.ArticleTaxonomyReference',
+                currentSelection: 'ArticleScalePointerKind.CurrentRevision',
+                persistedModel: 'ArticleTag',
+                compositePrimaryKey: ['ArticleId', 'TagId'],
+                ownedScope: 'complete-tag-set-for-explicit-article-identities-including-zero-tags',
+                externalReferences: 'all-current-and-historical-category-tag-native-primary-keys',
+                databaseValidationPhase: 'product-transaction-after-native-reservation',
+                scenarioAuthorityStatus: 'category-tag-semantic-catalog-and-statistical-contracts-still-required',
+                scope: 'reviewed-owner-source-only-not-adapter-db-execution'
+            } : null,
             proposedAssignmentIdentityFields: [
                 'catalogDigest', 'scenarioId', 'scenarioDigest', 'assignmentDigest',
                 'entityOrdinalCoverage', 'producerAuthorityReferences'
@@ -180,7 +246,7 @@ function requestBody(options)
                 'content', 'media', 'taxonomy', 'resolvedTemporalRoles',
                 'lifecycleVariant', 'hotness', 'nativeIdentityBinding'
             ],
-            proposedContractStatus: 'owner-definition-required'
+            proposedContractStatus: resolved ? 'typed-input-available-js-bridge-required' : 'owner-definition-required'
         },
         blockers
     };
@@ -235,14 +301,16 @@ export function serializeDistributionArticleWriterRequest(request, sourceReferen
 }
 
 /**
- * Refusal boundary, not a second compiler/writer. The published factory has no
- * distribution assignment importer or complete-plan admission host. Refuse the
- * entire request before obtaining an assignment iterator or yielding any batch.
+ * JS refusal boundary, not a second compiler/writer. Reviewed typed owner inputs
+ * are consumed by DistributionArticleResolvedInputAdapter; no published JS intake
+ * calls the internal PostgreSQL host. Refuse before obtaining any iterator.
  */
 export function prepareDistributionArticleWriterBatches(request, sourceReference, expectedDigest, assignments)
 {
     validateDistributionArticleWriterRequest(request, sourceReference, expectedDigest);
     // Keep the prospective iterable opaque until the canonical owner supplies admission.
     void assignments;
-    throw new Error('article_writer_semantic_assignment_input_missing');
+    throw new Error(sourceReference.resolvedSourceReviewed
+        ? 'article_writer_js_typed_intake_bridge_missing'
+        : 'article_writer_semantic_assignment_input_missing');
 }

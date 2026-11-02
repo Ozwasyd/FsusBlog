@@ -1,0 +1,69 @@
+{
+    "kind": "precise-shared-owner-registration-request-not-active-policy-or-gate-waiver",
+    "sharedOwnerTarget": "tests/governance/csharp-entrypoint-ownership.json:fileBasedApps",
+    "reason": "Original checker currently refuses all four owned C# source paths, two prior typed files and two newly added projection files. Shared registry must be edited by its canonical owner; no candidate policy overlay or skipped checker is provided.",
+    "requestedEntries": [
+        {
+            "path": "tools/data-scale/DistributionArticlePlanCompilerInput.cs",
+            "owner": "distribution #2551 owned typed adapter/probe",
+            "reason": "Explicitly compiled by the dedicated existing MJS probe into a unique task-local project against independently observed exact original writer source; no production app or second writer.",
+            "invocation": "node tests/tools/data-scale-distribution-article-compiler.probe.mjs --owner-root <clean exact owner checkout> --dotnet <absolute configured SDK>",
+            "dependencyDeclarations": [
+                "original FsusBlog.Server project at reviewed owner21a20129b3127fdcfb6f34bff7f80b1ef8b5f239",
+                "explicit Compile items in tests/tools/data-scale-distribution-article-compiler.probe.mjs"
+            ],
+            "tests": [
+                "tests/tools/data-scale-distribution-article-compiler.test.mjs",
+                "tests/tools/data-scale-distribution-article-compiler.probe.mjs"
+            ],
+            "outputContract": "Preserved per-attempt stdout/stderr/control/result records; unit-only with native allocation/database writer/release flags false."
+        },
+        {
+            "path": "tests/fixtures/data-scale/DistributionArticleCompilerInputProbe.cs",
+            "owner": "distribution #2551 owned typed adapter/probe",
+            "reason": "Explicitly compiled by the dedicated existing MJS probe into a unique task-local project against independently observed exact original writer source; no production app or second writer.",
+            "invocation": "node tests/tools/data-scale-distribution-article-compiler.probe.mjs --owner-root <clean exact owner checkout> --dotnet <absolute configured SDK>",
+            "dependencyDeclarations": [
+                "original FsusBlog.Server project at reviewed owner21a20129b3127fdcfb6f34bff7f80b1ef8b5f239",
+                "explicit Compile items in tests/tools/data-scale-distribution-article-compiler.probe.mjs"
+            ],
+            "tests": [
+                "tests/tools/data-scale-distribution-article-compiler.test.mjs",
+                "tests/tools/data-scale-distribution-article-compiler.probe.mjs"
+            ],
+            "outputContract": "Preserved per-attempt stdout/stderr/control/result records; unit-only with native allocation/database writer/release flags false."
+        },
+        {
+            "path": "tools/data-scale/DistributionArticleResolvedInputAdapter.cs",
+            "owner": "distribution #2551 owned typed adapter/probe",
+            "reason": "Explicitly compiled by the dedicated existing MJS probe into a unique task-local project against independently observed exact original writer source; no production app or second writer.",
+            "invocation": "node tests/tools/data-scale-distribution-writer-resolved.probe.mjs --owner-root <clean exact owner checkout> --dotnet <absolute configured SDK> --owner-commit 21a20129b3127fdcfb6f34bff7f80b1ef8b5f239",
+            "dependencyDeclarations": [
+                "original FsusBlog.Server project at reviewed owner21a20129b3127fdcfb6f34bff7f80b1ef8b5f239",
+                "explicit Compile items in tests/tools/data-scale-distribution-writer-resolved.probe.mjs"
+            ],
+            "tests": [
+                "tests/tools/data-scale-distribution-writer-adapter.test.mjs",
+                "tests/tools/data-scale-distribution-writer-resolved.probe.mjs"
+            ],
+            "outputContract": "Preserved per-attempt stdout/stderr/control/result records; unit-only with native allocation/database writer/release flags false."
+        },
+        {
+            "path": "tests/fixtures/data-scale/DistributionResolvedInputProbe.cs",
+            "owner": "distribution #2551 owned typed adapter/probe",
+            "reason": "Explicitly compiled by the dedicated existing MJS probe into a unique task-local project against independently observed exact original writer source; no production app or second writer.",
+            "invocation": "node tests/tools/data-scale-distribution-writer-resolved.probe.mjs --owner-root <clean exact owner checkout> --dotnet <absolute configured SDK> --owner-commit 21a20129b3127fdcfb6f34bff7f80b1ef8b5f239",
+            "dependencyDeclarations": [
+                "original FsusBlog.Server project at reviewed owner21a20129b3127fdcfb6f34bff7f80b1ef8b5f239",
+                "explicit Compile items in tests/tools/data-scale-distribution-writer-resolved.probe.mjs"
+            ],
+            "tests": [
+                "tests/tools/data-scale-distribution-writer-adapter.test.mjs",
+                "tests/tools/data-scale-distribution-writer-resolved.probe.mjs"
+            ],
+            "outputContract": "Preserved per-attempt stdout/stderr/control/result records; unit-only with native allocation/database writer/release flags false."
+        }
+    ],
+    "observedChecker": "tools/check-csharp-entrypoint-ownership.mjs",
+    "qualificationEligible": false
+}
