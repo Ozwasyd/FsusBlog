@@ -17,9 +17,9 @@
             tabindex="-1"
             aria-label="筛选编辑器"
             @submit.prevent="submit"
-            @keydown.esc.stop.prevent="cancel"
-            @keydown.ctrl.enter.prevent="submit"
-            @keydown.meta.enter.prevent="submit"
+            @compositionstart.capture="composing = true"
+            @compositionend.capture="composing = false"
+            @keydown="handleKeydown"
         >
             <p>满足全部条件（AND）；同字段多选满足任一值（OR）。</p>
             <p
@@ -261,6 +261,7 @@ const emit = defineEmits<{
 }>();
 
 const open = ref(false);
+const composing = ref(false);
 const acceptedSource = ref({
     viewId: props.snapshot.viewId,
     revision: props.snapshot.revision,
@@ -343,10 +344,31 @@ async function beginEdit(event: MouseEvent): Promise<void>
         return;
     }
     resetDraft();
+    composing.value = false;
     returnFocus = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
     open.value = true;
     await nextTick();
     form.value?.focus();
+}
+
+function handleKeydown(event: KeyboardEvent): void
+{
+    // Some IMEs clear isComposing before the final keydown; 229 still belongs to the IME.
+    if (composing.value || event.isComposing || event.keyCode === 229)
+    {
+        return;
+    }
+    if (event.key === 'Escape')
+    {
+        event.stopPropagation();
+        event.preventDefault();
+        void cancel();
+    }
+    else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey))
+    {
+        event.preventDefault();
+        submit();
+    }
 }
 
 async function cancel(): Promise<void>
@@ -356,6 +378,7 @@ async function cancel(): Promise<void>
         return;
     }
     resetDraft();
+    composing.value = false;
     open.value = false;
     emit('cancel');
     await nextTick();
