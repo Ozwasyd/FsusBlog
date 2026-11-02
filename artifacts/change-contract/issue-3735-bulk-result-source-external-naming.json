@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Articles/Bulk/ArticleBulkGroupResultStorageContracts.cs",
+                "src/backend/Services/Articles/Bulk/PostgresArticleBulkGroupResultStore.cs",
+                "src/migration/Definitions/ArticleBulkLifecycleResultMigrationDefinitions.cs"
+            ],
+            "reason": "Preserve original Bulk request/configuration/actor-policy/digest and original PostgreSQL identifiers in the three managed storage and migration source paths, conservatively governed by the trusted naming registry. This ordinary evidence introduces no production registration, physical schema application, permission, commit or qualification grant."
+        }
+    ]
+}
