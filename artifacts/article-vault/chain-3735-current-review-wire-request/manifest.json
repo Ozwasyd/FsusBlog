@@ -1,0 +1,28 @@
+{
+  "schema": "fsusblog.task-component-evidence.v1",
+  "sourceCommit": "2de89a7656b4a9a1e0982629b44b45f5999d37a6",
+  "branch": "codex/chain-3735-vault-current-review-wire",
+  "requestOnly": true,
+  "qualifiedManagedTests": 0,
+  "files": {
+    "README.md": "357c2d2509cce807864764b897e563b9f445b1bd5efd8131df1ac3b480941e74",
+    "excluded-managed/alternate-project.csproj": "fa37fb1d8e92d08db9de35cc3d63b886b3c64765e80811b67267380727129a51",
+    "excluded-managed/format.log.gz": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+    "excluded-managed/managed-initial-fixture-failed.log.gz": "b55a6f3a0f7e4e50e0c8bdda636a335592c86b1c01217a55d78e99d1035a20c7",
+    "excluded-managed/managed-initial-fixture-failed.trx.gz": "65c11b5c1b0ca2e33ee245160dabfe8bf4854501d1027c9589f0d61e24664b7d",
+    "excluded-managed/managed.log.gz": "f82611748e86afd40ab2644da6f0b918290c48cf5623f707f5e77767bad1e99b",
+    "excluded-managed/provenance.json": "89722f480aead821581611ec67ae51bb6b2084725a3b8d9ee91775f3a012b1cd",
+    "excluded-managed/request-unit.trx.gz": "237622fb5320e923f72aafde35bdf09d9b968c021f50f2b181ce5e2ca9828972",
+    "permitted-payload/frontend-style-installed.log.gz": "5f015bef52df4e199c4a9fbc990eb0c6e873a6ff7b5ea4a8da2273911ae7ecac",
+    "permitted-payload/frontend-style.log.gz": "6e8988d46b2c368e95d5ca392397b22b5e0574396bea6f58e0410d59f4211457",
+    "permitted-payload/initial-fixture-control-error.json": "f91429dc845fa72833de5c2875e25a52dcec96e1f9a7f9a719c5972595b2216e",
+    "permitted-payload/native-published.log.gz": "07b848c6c97b471c212ad746a5244ec270f091faf2ed2116455f53822c6474c0",
+    "permitted-payload/node-published.log.gz": "71f75f9a21d9f992eb2ca5fa1f5b6cfce9f385ca9150539a7ff6ea32548e526e",
+    "permitted-payload/published-binding.json": "15f219526a3e04165e2b34980c833fe5d43349cf370dd51e1498c825c6012c4d",
+    "permitted-payload/style-toolchain-install-task-cache.log.gz": "5196c071b0005016436cc0d0ed8979e4c268994e73f705deff0792aa9a3b7108",
+    "permitted-payload/style-toolchain-install.log.gz": "1e48b2aa49ca649a1fb44d573ead846dc0ef5c1acf95890a948ed82384a7f6cb",
+    "production-library/production-core-build.log.gz": "ebf7b5b2d9a2cc1fe98ec19315fa26eed32395b0b525d49fd9f2c39733822472",
+    "production-library/production-core-restore.log.gz": "8175b14afcc9dc3b7f20dff91006d6299bdb9ef2a565fa720c85e26bb132ea36",
+    "production-library/record.json": "e8fe59c814a2872052ca4a447888fc490ac432f0c0890c4c6f9cd5aee882d32e"
+  }
+}

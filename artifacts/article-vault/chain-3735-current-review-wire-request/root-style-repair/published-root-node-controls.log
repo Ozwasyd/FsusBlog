@@ -1,0 +1,37 @@
+✔ independent literal proposal-only, immutable detached decode (8.393525ms)
+✔ independent literal exact-checkpoint, immutable detached decode (2.03884ms)
+✔ closed field negative 0/0 (3.737409ms)
+✔ closed field negative 4/2 (0.308139ms)
+✔ closed field negative 6/2 (0.305902ms)
+✔ closed field negative 12/1 (0.155113ms)
+✔ closed field negative 16/0 (0.258747ms)
+✔ closed field negative 27/65 (0.255366ms)
+✔ closed field negative 91/1 (0.489517ms)
+✔ closed field negative 96/65 (0.380624ms)
+✔ closed field negative 167/255 (0.759081ms)
+✔ closed field negative 168/65 (0.598557ms)
+✔ closed field negative 232/0 (0.208342ms)
+✔ closed field negative 275/1 (0.871988ms)
+✔ closed field negative 280/2 (0.259109ms)
+✔ closed field negative 284/1 (0.106484ms)
+✔ closed field negative 288/32 (0.176651ms)
+✔ closed field negative 289/192 (0.231765ms)
+✔ closed field negative 310/1 (0.100269ms)
+✔ closed field negative 800/47 (0.132347ms)
+✔ closed field negative 1312/92 (0.133683ms)
+✔ closed field negative 1824/9 (0.135206ms)
+✔ closed field negative 2848/65 (0.216137ms)
+✔ closed field negative 2912/65 (0.358109ms)
+✔ closed field negative 2976/65 (0.20692ms)
+✔ closed field negative 3047/255 (0.160966ms)
+✔ closed field negative 3048/65 (0.363597ms)
+✔ closed field negative 3112/65 (0.148971ms)
+✔ exact size, absent data, zero article, unsafe integers, unsupported identity and unknown properties (1.393747ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 272.167193

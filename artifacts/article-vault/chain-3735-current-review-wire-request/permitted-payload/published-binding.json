@@ -1,0 +1,64 @@
+{
+  "head": "2de89a7656b4a9a1e0982629b44b45f5999d37a6",
+  "base": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "sourceHashes": {
+    "src/core/Cache/PodBinaryCodec.ArticleVaultCurrentReview.cs": "9320e2a47c592f895ec54780dcf4400ae14c480f39151b635bd10d80b068d29e",
+    "src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts": "89bba7b1dda8656d666c7194666b46250b91ec75e5035cf91e15a6b611f3cfd3",
+    "src/frontend/wasm/aeds/include/article_vault_current_review_wire.hpp": "cb713f8b49c55cca753c413874beac967840ee86b596bc72565086db088784f6",
+    "src/shared/Contracts/ArticleVault/ArticleVaultCurrentReviewWireContracts.cs": "1741c0ed2a58adb9fd16f5539288776a76875bf3e65de4657b1dccad688c51ba",
+    "src/shared/Contracts/ArticleVault/ArticleVaultOperationContracts.cs": "eecee3e6567be6aa05a81283eb4798225c1714a93e8d7a94eba01d5196c02384",
+    "tests/backend/Unit/ArticleVaultCurrentReviewWireTests.cs": "1d091077366f6d57b265422aca95c5252525a952f8afb076e08e07113173d532",
+    "tests/fixtures/article-vault-current-review-wire/exact-checkpoint.hex": "fb877ec7ae2b626fae05366e2f1b4da9ed4f4d2a688e5c6f4ff2f817e4259547",
+    "tests/fixtures/article-vault-current-review-wire/proposal-only.hex": "538c37c29164b716f37b8e982beca6313b1ac200bb2a6cb736edb1e664f82cfb",
+    "tests/native/ArticleVaultCurrentReviewWireTests.cpp": "5af1f41e87c79c7b0beebb9c204a154f24ad0e4651ab8132d4e10da8524f2abb",
+    "tests/tools/article-vault-current-review-wire.test.mjs": "ced7226f0a6733b0b0c1b46415b9700800ca23ebdfb36710ef089279437e8f0a"
+  },
+  "qualifiedManagedTests": 0,
+  "runId": "chain-3735-vault-current-review-request-published-2de89a765-20261009",
+  "scope": "permitted Node/native structural request wire controls only; no registration, current fact acquisition or grants",
+  "headAfter": "2de89a7656b4a9a1e0982629b44b45f5999d37a6",
+  "sourceHashesAfter": {
+    "src/core/Cache/PodBinaryCodec.ArticleVaultCurrentReview.cs": "9320e2a47c592f895ec54780dcf4400ae14c480f39151b635bd10d80b068d29e",
+    "src/frontend/src/codecs/binary/articleVaultCurrentReviewWire.ts": "89bba7b1dda8656d666c7194666b46250b91ec75e5035cf91e15a6b611f3cfd3",
+    "src/frontend/wasm/aeds/include/article_vault_current_review_wire.hpp": "cb713f8b49c55cca753c413874beac967840ee86b596bc72565086db088784f6",
+    "src/shared/Contracts/ArticleVault/ArticleVaultCurrentReviewWireContracts.cs": "1741c0ed2a58adb9fd16f5539288776a76875bf3e65de4657b1dccad688c51ba",
+    "src/shared/Contracts/ArticleVault/ArticleVaultOperationContracts.cs": "eecee3e6567be6aa05a81283eb4798225c1714a93e8d7a94eba01d5196c02384",
+    "tests/backend/Unit/ArticleVaultCurrentReviewWireTests.cs": "1d091077366f6d57b265422aca95c5252525a952f8afb076e08e07113173d532",
+    "tests/fixtures/article-vault-current-review-wire/exact-checkpoint.hex": "fb877ec7ae2b626fae05366e2f1b4da9ed4f4d2a688e5c6f4ff2f817e4259547",
+    "tests/fixtures/article-vault-current-review-wire/proposal-only.hex": "538c37c29164b716f37b8e982beca6313b1ac200bb2a6cb736edb1e664f82cfb",
+    "tests/native/ArticleVaultCurrentReviewWireTests.cpp": "5af1f41e87c79c7b0beebb9c204a154f24ad0e4651ab8132d4e10da8524f2abb",
+    "tests/tools/article-vault-current-review-wire.test.mjs": "ced7226f0a6733b0b0c1b46415b9700800ca23ebdfb36710ef089279437e8f0a"
+  },
+  "sourceStable": true,
+  "node": {
+    "exit": 0,
+    "tests": 29,
+    "passed": 29,
+    "failed": 0,
+    "skipped": 0,
+    "command": [
+      "node",
+      "--test",
+      "tests/tools/article-vault-current-review-wire.test.mjs"
+    ],
+    "log": "node-published.log"
+  },
+  "native": {
+    "compileExit": 0,
+    "exit": 0,
+    "controls": 35,
+    "command": "g++ -std=c++20 -Wall -Wextra -Werror -pedantic -I src/frontend/wasm/aeds/include tests/native/ArticleVaultCurrentReviewWireTests.cpp -o /tmp/chain-3735-vault-current-review-native-published; then execute with the two literal hex files",
+    "log": "native-published.log"
+  },
+  "managed": {
+    "qualified": 0,
+    "classification": "excluded unauthorized alternate harness; never original backend SDK pass",
+    "record": "managed-excluded.json"
+  },
+  "style": {
+    "frontend": "BLOCKED: installed locked style toolchain, then @vue/tsconfig/tsconfig.dom.json missing from actual frontend dependencies",
+    "csharp": "NOT QUALIFIED: first Node wrapper lacked dotnet PATH; later format-only operation used excluded alternate project; no original managed style acceptance"
+  },
+  "responseBlocker": "original owner must supply approved Shared six-field projection and closed nested validators for Proposal, Evidence, Checkpoint including Backend ExecutionResult, MaterializationPreflight; no response implementation/registration",
+  "globalAdmission": "NONE: neither frame286 nor287 or error21 registered by worker; no actual HTTP/current input/permission/PG/native-host acceptance"
+}

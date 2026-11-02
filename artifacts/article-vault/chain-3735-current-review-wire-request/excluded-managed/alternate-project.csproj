@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><IsTestProject>true</IsTestProject><EnableDefaultCompileItems>false</EnableDefaultCompileItems><IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/shared/FsusBlog.Shared.csproj" />
+    <Compile Include="../../src/core/Cache/PodBinaryCodec.ArticleVaultCurrentReview.cs" Link="PodBinaryCodec.ArticleVaultCurrentReview.cs" />
+    <Compile Include="../../tests/backend/Unit/ArticleVaultCurrentReviewWireTests.cs" Link="ArticleVaultCurrentReviewWireTests.cs" />
+    <Compile Include="../../tests/backend/Unit/TestInfrastructure/BackendTestPaths.cs" Link="BackendTestPaths.cs" />
+    <PackageReference Include="xunit" /><PackageReference Include="xunit.runner.visualstudio" /><PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+</Project>
