@@ -13,6 +13,8 @@ import {
     type OpenArticleDocumentEntry
 } from './openArticleDocumentRegistry';
 
+export type { ArticleWorkspaceStatusSummary } from './openArticleDocumentRegistry';
+
 export const articleWorkspaceTabRouterSchema = 'fsusblog.article-workspace-tab-router.v1' as const;
 export const articleWorkspaceSessionReceiptSchema = 'fsusblog.article-workspace-session-receipt.v1' as const;
 

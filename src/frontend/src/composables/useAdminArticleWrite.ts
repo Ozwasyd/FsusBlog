@@ -1,4 +1,4 @@
-import { type FormInstance } from '@ozwasyd/element-plus';
+import { type FormInstance, type FormValidateCallback } from '@ozwasyd/element-plus';
 import { computed, onMounted, onUnmounted, reactive, ref, shallowRef, useTemplateRef, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -1385,7 +1385,10 @@ export function useAdminArticleWrite()
             return;
         }
         const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:recovery-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): void =>
+        {
+            task.cancel('parent-task-aborted');
+        };
         parentSignal?.addEventListener('abort', abortParent, { once: true });
         const token = ++articleRecoveryRefreshToken;
         try
@@ -1820,7 +1823,10 @@ export function useAdminArticleWrite()
     const refreshAssetLibrary = async (signal?: AbortSignal): Promise<void> =>
     {
         const task = articleDocumentContextAdapter.beginTask('attachment', 'article-write:asset-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): void =>
+        {
+            task.cancel('parent-task-aborted');
+        };
         signal?.addEventListener('abort', abortParent, { once: true });
         assetLibraryLoading.value = true;
         try
@@ -2516,14 +2522,20 @@ export function useAdminArticleWrite()
         return true;
     };
 
+    const firstInvalidFormProperty = ref<string | null>(null);
     const validateBeforeSubmit = async (): Promise<boolean> =>
     {
+        firstInvalidFormProperty.value = null;
         if (!formRef.value || submitting.value)
         {
             return false;
         }
 
-        const validation = await formRef.value.validate();
+        const captureInvalidProperty: FormValidateCallback = (valid, fields): void =>
+        {
+            firstInvalidFormProperty.value = valid ? null : Object.keys(fields ?? {})[0] ?? null;
+        };
+        const validation = await formRef.value.validate(captureInvalidProperty);
         if (!isFsusUiOk(validation))
         {
             return false;
@@ -3125,6 +3137,7 @@ export function useAdminArticleWrite()
         articleRightsExcerptMax: ARTICLE_RIGHTS_EXCERPT_MAX,
         rules,
         validateBeforeSubmit,
+        firstInvalidFormProperty,
         saveDraftNow,
         compareSelectedArticleRecovery,
         handleUploadImg,
