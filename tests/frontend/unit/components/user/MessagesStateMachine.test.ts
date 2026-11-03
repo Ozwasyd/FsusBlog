@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { ElBadge, ElButton, ElOption, ElSelect, ElSkeleton, ElTag } from '@ozwasyd/element-plus'
 import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { describe, expect, it } from 'vitest'
@@ -208,3 +209,97 @@ describe('message center component state machines', () => {
     expect(wrapper.emitted('reply')).toHaveLength(1)
   })
 })
+
+const publicButtonConversation = {
+    conversationId: '9007199254740993',
+    subject: '部署后的站内信会话',
+    status: 0,
+    isSystemSource: false,
+    canReply: true,
+    unreadCount: 2,
+    lastMessageAt: '2026-10-17T00:00:00.000Z',
+    updatedAt: '2026-10-17T00:00:00.000Z',
+    lastMessageAtText: '今天',
+    ariaLabel: '部署后的站内信会话，2 条未读',
+    lastMessage: {
+        senderType: 0,
+        senderName: '读者',
+        bodyPreview: '请检查部署后的消息列表。',
+        createdAt: '2026-10-17T00:00:00.000Z'
+    }
+} satisfies ConversationListItemResponse & { lastMessageAtText: string; ariaLabel: string; };
+
+function mountPublicButtonList(mode: 'account' | 'admin')
+{
+    return mount(MessagesConversationList, {
+        props: {
+            mode,
+            isMobile: false,
+            loading: false,
+            filter: 'all',
+            rows: [publicButtonConversation],
+            hiddenCount: 0,
+            hasMore: false,
+            loadingMore: false,
+            selectedConversationId: '',
+            statusLabel: () => '待处理',
+            statusType: () => 'warning',
+            conversationRowClass: () => []
+        },
+        global: {
+            components: { ElBadge, ElButton, ElOption, ElSelect, ElSkeleton, ElTag }
+        }
+    });
+}
+
+describe('conversation row public Button integration', () =>
+{
+    it.each(['account', 'admin'] as const)('delegates one %s selection through the real public Button', async (mode: 'account' | 'admin') =>
+    {
+        const wrapper = mountPublicButtonList(mode);
+        try
+        {
+            const row = wrapper.get('.messages-conversation-item');
+            const button = wrapper.findAllComponents(ElButton).find((candidate) => candidate.element === row.element);
+
+            expect(button).toBeDefined();
+            expect(button?.props('text')).toBe(true);
+            expect(row.element.tagName).toBe('BUTTON');
+            expect(row.attributes('type')).toBe('button');
+            expect(row.attributes('aria-label')).toBe(publicButtonConversation.ariaLabel);
+            expect(row.findAll('button')).toHaveLength(0);
+            expect(row.text()).toContain(publicButtonConversation.subject);
+            expect(row.text()).toContain(publicButtonConversation.lastMessage.bodyPreview);
+            expect(row.text()).toContain('待处理');
+            expect(row.get('time').attributes('datetime')).toBe(publicButtonConversation.lastMessageAt);
+            expect(row.get('time').text()).toBe(publicButtonConversation.lastMessageAtText);
+
+            await row.trigger('click');
+
+            expect(wrapper.emitted('select')).toEqual([[publicButtonConversation.conversationId]]);
+            expect(wrapper.emitted('createTicket')).toBeUndefined();
+            expect(wrapper.emitted('loadMore')).toBeUndefined();
+
+            await wrapper.setProps({
+                selectedConversationId: publicButtonConversation.conversationId,
+                conversationRowClass: () => ['active']
+            });
+
+            expect(row.attributes('aria-current')).toBe('true');
+            expect(row.classes()).toContain('active');
+            expect(wrapper.emitted('select')).toEqual([[publicButtonConversation.conversationId]]);
+
+            await wrapper.setProps({
+                rows: [{ ...publicButtonConversation, subject: '更新后的会话', unreadCount: 3, lastMessageAtText: '刚刚' }]
+            });
+
+            expect(row.text()).toContain('更新后的会话');
+            expect(row.get('time').text()).toBe('刚刚');
+            expect(wrapper.emitted('select')).toHaveLength(1);
+        }
+        finally
+        {
+            wrapper.unmount();
+        }
+    });
+});
