@@ -175,6 +175,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Ordinary-account session authentication context](security/user-session-authentication-context.md)
 - [User session metadata privacy](security/user-session-metadata-privacy.md)
 - [Security-log IP pseudonyms](security/visit-log-ip-pseudonyms.md)
+- [ZAP baseline raw result outlet](testing/zap-baseline-result-outlet.md)
 - [Ordinary-Account Session Revocation Consistency](user-session-revocation.md)
 - [Anonymous credential root bootstrap runbook](zk/anonymous-credential-root-bootstrap.md)
 - [Revocation Accumulator Contract](zk/revocation-accumulator.md)

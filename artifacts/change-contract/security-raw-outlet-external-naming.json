@@ -1,0 +1,37 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/development/document-lifecycle.json"
+            ],
+            "reason": "Preserve the existing lifecycle schema and field spellings, including documents, policyDigest, sourceOfTruth, relatedIssues and supersededBy; the one-record registration changes data, not these parser-facing names."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/zap-baseline-result-outlet.md"
+            ],
+            "reason": "The existing registry covers this documentation path. Preserve its actual documented FSUSBLOG_SKIP_ZAP, publishBaselineResult and zap-baseline-results.jsonl spellings; no selector or token rename, or new naming waiver, is requested."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/security/run-zap-baseline.sh"
+            ],
+            "reason": "Preserve the existing exported FSUSBLOG_ZAP_OUT_DIR, FSUSBLOG_ZAP_RUN_DIR, FSUSBLOG_ZAP_CONFIG and FSUSBLOG_TEST_RUN_ID process names while adding awaited raw-result output; scanner arguments and target selection retain their original spellings."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/security/zap-baseline-result-outlet.mjs",
+                "tools/test-fixtures/producers/catalog-ports.mjs",
+                "tools/test-fixtures/producers/security-fixture-producer.mjs",
+                "tools/test/run-retained-runtime-scenario.mjs"
+            ],
+            "reason": "Preserve catalog strategy keys such as FSUSBLOG_FIXTURE_PRODUCER_STRATEGY and the producer's FSUSBLOG_BASE_URL/FSUSBLOG_DEBUG_BACKEND_URL names, plus the retained runner's forwarded process.env and existing --scenario/--cwd interface. Its new --raw-result-file follows the existing kebab-case CLI convention. The ZAP outlet is covered by this existing tooling path registration but introduces no environment key; preserve its actual positional OUTPUT/TARGET/EXIT_CODE/report arguments and process.argv/exitCode interface without a source-renaming waiver."
+        }
+    ]
+}
