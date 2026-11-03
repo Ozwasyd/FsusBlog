@@ -67,6 +67,12 @@ export function adaptImmutableBuildSemanticOutcome({
             evidenceId: `assertion:${id}`
         }));
     }
+    for (const id of requiredAssertionIds.filter((id) => assertionIds.filter((actual) => actual === id).length > 1))
+    {
+        reasons.push(reason('contract.ambiguous-evidence', immutableBuildOutcomeProducerId, {
+            evidenceId: `assertion:${id}`
+        }));
+    }
     for (const assertion of assertions.filter((item) => item?.status !== 'passed'))
     {
         reasons.push(reason('product.assertion', immutableBuildOutcomeProducerId, { assertionId: assertion.id }));

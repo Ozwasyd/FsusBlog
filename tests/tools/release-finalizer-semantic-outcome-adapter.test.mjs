@@ -33,3 +33,26 @@ test('finalizer metadata is excluded but semantic output digest and clean attemp
     assert.notEqual(first.outcome.semanticPayloadDigest, changed.outcome.semanticPayloadDigest);
     assert.equal(adapt({ attemptEligibility: { ...attemptEligibility, cleanFirstAttempt: false, qualificationEligible: false, firstFailure: true } }).outcome.status, 'failed');
 });
+
+test('consumed inputs without a verified terminal state cannot become success', () =>
+{
+    const result = adapt({ evidence: { ...evidence, verifiedIds: ['browser'] } });
+    assert.equal(result.outcome.status, 'failed');
+    assert.equal(result.outcome.reasons[0].kind, 'contract.missing-evidence');
+});
+
+test('orphan input terminals and output digests fail closed', () =>
+{
+    assert.equal(adapt({ evidence: { ...evidence,
+        verifiedIds: [...evidence.verifiedIds, 'orphan'] } }).outcome.status, 'failed');
+    assert.equal(adapt({ evidence: { ...evidence,
+        outputDigests: { ...evidence.outputDigests, orphan: d('c') } } }).outcome.status, 'failed');
+});
+
+test('finalizer input terminal states must be disjoint and refer to consumed IDs', () =>
+{
+    const overlap = adapt({ evidence: { ...evidence, blockedIds: ['browser'] } });
+    assert.equal(overlap.outcome.status, 'failed');
+    assert.ok(overlap.outcome.reasons.some((item) => item.kind === 'contract.ambiguous-evidence'));
+    assert.equal(adapt({ evidence: { ...evidence, consumedIds: ['browser'] } }).outcome.status, 'failed');
+});

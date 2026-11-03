@@ -32,3 +32,20 @@ test('unqualified attempts and missing semantic digests cannot become projection
     assert.equal(adapt({ attemptEligibility: { ...attemptEligibility, cleanFirstAttempt: false, qualificationEligible: false, firstFailure: true } }).outcome.status, 'failed');
     assert.equal(adapt({ evidence: { ...evidence, semanticDigests: {} } }).outcome.status, 'failed');
 });
+
+test('orphan terminal projection IDs and semantic digests fail closed', () =>
+{
+    assert.equal(adapt({ evidence: { ...evidence,
+        verifiedIds: [...evidence.verifiedIds, 'orphan'],
+        semanticDigests: { ...evidence.semanticDigests, orphan: d('d') } } }).outcome.status, 'failed');
+    assert.equal(adapt({ evidence: { ...evidence,
+        semanticDigests: { ...evidence.semanticDigests, orphan: d('d') } } }).outcome.status, 'failed');
+});
+
+test('projection terminal states must be disjoint and refer to produced IDs', () =>
+{
+    const overlap = adapt({ evidence: { ...evidence, failedIds: ['auth'] } });
+    assert.equal(overlap.outcome.status, 'failed');
+    assert.ok(overlap.outcome.reasons.some((item) => item.kind === 'contract.ambiguous-evidence'));
+    assert.equal(adapt({ evidence: { ...evidence, producedIds: ['auth'] } }).outcome.status, 'failed');
+});

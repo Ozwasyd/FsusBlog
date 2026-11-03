@@ -53,3 +53,11 @@ test('exit status and file existence cannot replace verification assertions', ()
     assert.equal(result.outcome.status, 'failed');
     assert.deepEqual(result.outcome.membership.verificationAssertionIds, []);
 });
+
+test('duplicate verification assertions cannot satisfy exact build membership', () =>
+{
+    const result = adapt({ evidence: { ...evidence,
+        verificationAssertions: [...evidence.verificationAssertions, evidence.verificationAssertions[0]] } });
+    assert.equal(result.outcome.status, 'failed');
+    assert.equal(result.outcome.reasons[0].kind, 'contract.ambiguous-evidence');
+});
