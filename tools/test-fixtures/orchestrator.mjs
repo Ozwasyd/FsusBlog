@@ -474,7 +474,9 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
                         profileIdentity: planDocument.profileIdentity,
                         producerOutputs,
                         handles: baseHandles,
-                        catalogs
+                        catalogs,
+                        // Prepare success has not published any sealed receipts.
+                        producerReceipts: {}
                     });
                     const cleanupResult = await port.cleanup(context, producerOutputs[producerId], signal);
                     throwIfAborted(signal);
@@ -1060,7 +1062,9 @@ export async function cleanup(state, injectedPorts, signal = undefined, {
                 profileIdentity: planDocument?.profileIdentity ?? state.profileIdentity,
                 producerOutputs: state.producerOutputs ?? {},
                 handles: baseHandles,
-                catalogs
+                catalogs,
+                producerReceipts: Object.fromEntries((state.producerReceipts ?? [])
+                    .map((receipt) => [receipt.producerId, receipt]))
             });
             const cleanupResult = await port.cleanup(
                 context,

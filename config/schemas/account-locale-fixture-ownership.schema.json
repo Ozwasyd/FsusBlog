@@ -1,0 +1,234 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.account-locale-fixture-ownership.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "generatedBy",
+        "notAuthoritative",
+        "qualification",
+        "producerId",
+        "strategy",
+        "sourceInputs",
+        "capabilityOwners",
+        "identityRoles",
+        "implementationPaths",
+        "sourceApi",
+        "profileBindings",
+        "consumers",
+        "unresolvedAuthorities"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.account-locale-fixture-ownership.v1"
+        },
+        "generatedBy": {
+            "const": "tools/test/account-locale-fixture-inventory.mjs"
+        },
+        "notAuthoritative": {
+            "const": true
+        },
+        "qualification": {
+            "const": false
+        },
+        "producerId": {
+            "const": "account-profile-preferences"
+        },
+        "strategy": {
+            "const": "transaction-fixture"
+        },
+        "sourceInputs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "path",
+                    "digest"
+                ],
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "digest": {
+                        "type": "string",
+                        "pattern": "^sha256:[a-f0-9]{64}$"
+                    }
+                }
+            }
+        },
+        "capabilityOwners": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "capabilityId",
+                    "ownerProducerId",
+                    "stateDomains",
+                    "dependsOn",
+                    "postconditionIds"
+                ],
+                "properties": {
+                    "capabilityId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "ownerProducerId": {
+                        "const": "account-profile-preferences"
+                    },
+                    "stateDomains": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "dependsOn": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "postconditionIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    }
+                }
+            }
+        },
+        "identityRoles": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            },
+            "uniqueItems": true
+        },
+        "implementationPaths": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "minLength": 1
+            },
+            "uniqueItems": true
+        },
+        "sourceApi": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "interface",
+                "implementation",
+                "gateway",
+                "methods",
+                "cleanupReturn"
+            ],
+            "properties": {
+                "interface": {
+                    "const": "IAccountProfilePreferenceFixtureService"
+                },
+                "implementation": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "gateway": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "methods": {
+                    "const": [
+                        "CleanupAsync",
+                        "PrepareAsync",
+                        "VerifyAsync"
+                    ]
+                },
+                "cleanupReturn": {
+                    "const": "Task"
+                }
+            }
+        },
+        "profileBindings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "profileId",
+                    "capabilityIds"
+                ],
+                "properties": {
+                    "profileId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "capabilityIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    }
+                }
+            }
+        },
+        "consumers": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "consumerId",
+                    "source",
+                    "profileIds",
+                    "capabilityIds",
+                    "provenance"
+                ],
+                "properties": {
+                    "consumerId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "source": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "profileIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "capabilityIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "uniqueItems": true
+                    },
+                    "provenance": {
+                        "const": "declared-canonical-consumer-inventory"
+                    }
+                }
+            }
+        },
+        "unresolvedAuthorities": {
+            "const": [
+                "canonical-cleanup-completion-readback",
+                "verified-device-and-public-aot"
+            ]
+        }
+    }
+}
