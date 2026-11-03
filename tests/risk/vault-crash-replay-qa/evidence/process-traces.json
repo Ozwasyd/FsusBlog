@@ -1,0 +1,271 @@
+[
+    {
+        "host": "vault-crash-replay-qa-6a2effb472",
+        "port": "55439",
+        "version": "17.11",
+        "systemIdentifier": "7694171625161257001"
+    },
+    {
+        "case": "commit-then-SIGKILL",
+        "pid": 4648,
+        "exit": -9,
+        "observed": "{\"action\":\"planned\",\"pid\":4648,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}"
+    },
+    {
+        "action": "read-planned",
+        "database": "committed",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-planned\",\"pid\":4663,\"count\":1,\"state\":\"Planned\",\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "action": "planned",
+        "database": "committed",
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":4678,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "action": "read-planned",
+        "database": "committed",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-planned\",\"pid\":5007,\"count\":1,\"state\":\"Planned\",\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "case": "postgres-SIGKILL-restart",
+        "status": "passed"
+    },
+    {
+        "case": "committed-process-and-postgres-crash-restart",
+        "status": "passed"
+    },
+    {
+        "action": "planned",
+        "database": "interrupted",
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":5126,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "action": "read-planned",
+        "database": "interrupted",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-planned\",\"pid\":5647,\"count\":1,\"state\":\"Planned\",\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "action": "validating",
+        "database": "interrupted",
+        "exit": 0,
+        "stdout": "{\"action\":\"validating\",\"pid\":5662,\"status\":\"committed\",\"sequence\":1,\"digest\":\"32ab0479e1ac47e99333ac220e52ec1f07dcd783cec0159e9417a607bd816e58\"}",
+        "stderr": ""
+    },
+    {
+        "action": "read-validating",
+        "database": "interrupted",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-validating\",\"pid\":5677,\"count\":2,\"state\":\"Validating\",\"digest\":\"32ab0479e1ac47e99333ac220e52ec1f07dcd783cec0159e9417a607bd816e58\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "case": "uncommitted-append-SIGKILL",
+        "pid": 5169,
+        "exit": -9,
+        "persistedRowsBeforeReplay": 1
+    },
+    {
+        "case": "uncommitted-append-rollback-and-replay",
+        "status": "passed"
+    },
+    {
+        "case": "independent-process-race",
+        "database": "duplicate",
+        "pid": 5777,
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":5777,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "case": "independent-process-race",
+        "database": "duplicate",
+        "pid": 5778,
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":5778,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "case": "independent-process-race",
+        "database": "duplicate",
+        "pid": 5779,
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":5779,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "case": "independent-process-race",
+        "database": "duplicate",
+        "pid": 5780,
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":5780,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "action": "identity-conflict",
+        "database": "duplicate",
+        "exit": 20,
+        "stdout": "{\"action\":\"identity-conflict\",\"pid\":5897,\"error\":\"InvalidDataException\",\"reason\":\"article_vault_operation_registration_conflict\",\"sqlState\":null}",
+        "stderr": ""
+    },
+    {
+        "action": "stale-plan",
+        "database": "duplicate",
+        "exit": 20,
+        "stdout": "{\"action\":\"stale-plan\",\"pid\":5912,\"error\":\"InvalidDataException\",\"reason\":\"article_vault_plan_digest_mismatch\",\"sqlState\":null}",
+        "stderr": ""
+    },
+    {
+        "action": "read-planned",
+        "database": "duplicate",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-planned\",\"pid\":5920,\"count\":1,\"state\":\"Planned\",\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "case": "independent-process-duplicate-idempotency",
+        "status": "passed"
+    },
+    {
+        "action": "planned",
+        "database": "race",
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":6062,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "action": "validating",
+        "database": "race",
+        "exit": 0,
+        "stdout": "{\"action\":\"validating\",\"pid\":6077,\"status\":\"committed\",\"sequence\":1,\"digest\":\"32ab0479e1ac47e99333ac220e52ec1f07dcd783cec0159e9417a607bd816e58\"}",
+        "stderr": ""
+    },
+    {
+        "case": "independent-process-race",
+        "database": "race",
+        "pid": 6092,
+        "exit": 20,
+        "stdout": "{\"action\":\"executing\",\"pid\":6092,\"error\":\"InvalidDataException\",\"reason\":\"article_vault_operation_tip_mismatch\",\"sqlState\":null}",
+        "stderr": ""
+    },
+    {
+        "case": "independent-process-race",
+        "database": "race",
+        "pid": 6093,
+        "exit": 0,
+        "stdout": "{\"action\":\"cancel\",\"pid\":6093,\"status\":\"committed\",\"sequence\":2,\"digest\":\"9f978c15c93de6661fced0bba37c0a11abb9c2c9919e48c5e0f3007cb1208a61\"}",
+        "stderr": ""
+    },
+    {
+        "case": "competing-execute-cancel",
+        "status": "passed"
+    },
+    {
+        "action": "planned",
+        "database": "unknown_result",
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":6268,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "action": "validating",
+        "database": "unknown_result",
+        "exit": 0,
+        "stdout": "{\"action\":\"validating\",\"pid\":6283,\"status\":\"committed\",\"sequence\":1,\"digest\":\"32ab0479e1ac47e99333ac220e52ec1f07dcd783cec0159e9417a607bd816e58\"}",
+        "stderr": ""
+    },
+    {
+        "action": "executing",
+        "database": "unknown_result",
+        "exit": 0,
+        "stdout": "{\"action\":\"executing\",\"pid\":6298,\"status\":\"committed\",\"sequence\":2,\"digest\":\"738476b767fc338024006592432be0e6cacbe29054b65f8046154c91f75c5980\"}",
+        "stderr": ""
+    },
+    {
+        "action": "unsafe-cancel",
+        "database": "unknown_result",
+        "exit": 20,
+        "stdout": "{\"action\":\"unsafe-cancel\",\"pid\":6328,\"error\":\"InvalidDataException\",\"reason\":\"article_vault_operation_commit_state_mismatch\",\"sqlState\":null}",
+        "stderr": ""
+    },
+    {
+        "action": "missing-server-result",
+        "database": "unknown_result",
+        "exit": 20,
+        "stdout": "{\"action\":\"missing-server-result\",\"pid\":6344,\"error\":\"InvalidDataException\",\"reason\":\"article_vault_operation_plan_receipt_missing\",\"sqlState\":null}",
+        "stderr": ""
+    },
+    {
+        "action": "recovery",
+        "database": "unknown_result",
+        "exit": 0,
+        "stdout": "{\"action\":\"recovery\",\"pid\":6399,\"status\":\"committed\",\"sequence\":3,\"digest\":\"0cf7bb84140104a4cdd543ea0eccc886818c2d8136de410706743abdac2cac11\"}",
+        "stderr": ""
+    },
+    {
+        "action": "read-recovery",
+        "database": "unknown_result",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-recovery\",\"pid\":6414,\"count\":4,\"state\":\"RecoveryRequired\",\"digest\":\"0cf7bb84140104a4cdd543ea0eccc886818c2d8136de410706743abdac2cac11\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "case": "unknown-outcome-cannot-cancel-or-claim-accepted",
+        "status": "passed"
+    },
+    {
+        "action": "planned",
+        "database": "permission_failure",
+        "exit": 0,
+        "stdout": "{\"action\":\"planned\",\"pid\":6514,\"status\":\"committed\",\"sequence\":0,\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\"}",
+        "stderr": ""
+    },
+    {
+        "action": "validating",
+        "database": "permission_failure",
+        "exit": 20,
+        "stdout": "{\"action\":\"validating\",\"pid\":6559,\"error\":\"PostgresException\",\"reason\":\"42501: permission denied for table article_vault_operation_checkpoint\",\"sqlState\":\"42501\"}",
+        "stderr": ""
+    },
+    {
+        "action": "read-planned",
+        "database": "permission_failure",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-planned\",\"pid\":6575,\"count\":1,\"state\":\"Planned\",\"digest\":\"a5ebd805f60664a7447fd79e1b1faa845a334b0f5d15c14ebcb8ea0d440f797c\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "action": "validating",
+        "database": "permission_failure",
+        "exit": 0,
+        "stdout": "{\"action\":\"validating\",\"pid\":6591,\"status\":\"committed\",\"sequence\":1,\"digest\":\"32ab0479e1ac47e99333ac220e52ec1f07dcd783cec0159e9417a607bd816e58\"}",
+        "stderr": ""
+    },
+    {
+        "action": "expired-executing",
+        "database": "permission_failure",
+        "exit": 20,
+        "stdout": "{\"action\":\"expired-executing\",\"pid\":6607,\"error\":\"InvalidDataException\",\"reason\":\"article_vault_operation_current_deadline_invalid\",\"sqlState\":null}",
+        "stderr": ""
+    },
+    {
+        "action": "read-validating",
+        "database": "permission_failure",
+        "exit": 0,
+        "stdout": "{\"action\":\"read-validating\",\"pid\":6623,\"count\":2,\"state\":\"Validating\",\"digest\":\"32ab0479e1ac47e99333ac220e52ec1f07dcd783cec0159e9417a607bd816e58\",\"baseUnchanged\":true}",
+        "stderr": ""
+    },
+    {
+        "case": "writer-permission-failure-and-restart-expiry",
+        "status": "passed"
+    }
+]

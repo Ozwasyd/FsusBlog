@@ -1,0 +1,97 @@
+{
+    "schema": "bounded-risk-qa-observations-v1",
+    "qualificationEligible": false,
+    "operationRequestedSha": "4b9b17d2fe36262ab04fcfac2d6e810d6718ca86",
+    "operationExecutedSha": "8dca9343f1a8a88a4e8f266750e7844d0186335d",
+    "recoveryExecutedSha": "bb49a4c1f579ddf8630c67776d6cd9fa1f8c0661",
+    "operationSource": {
+        "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs": "40be8ba1089288883319994f6e3298c9f1c8b6eb5f1ca3564b9faa988241145d",
+        "src/backend/Services/ArticleVault/PostgresArticleVaultExecutionStore.cs": "c91160498ffe5d72481789e1c97ec40a64b31a748538230936df3a59da3829f8",
+        "src/backend/Services/ArticleVault/ArticleVaultExecutionContracts.cs": "3106a87c383f48e3530c5aef73047879de267ad8ea69e07389db821ccea82996",
+        "src/backend/Services/ArticleVault/ArticleVaultExecutionIntegrity.cs": "a59b304fd2e531d867a8d516b9e0ae410f95df02b7961ac89593eb077091900b",
+        "src/shared/Contracts/ArticleVault/ArticleVaultOperationVerifier.cs": "222e96f03693c7265d8d820110d717986b13cc033266616257482b87ffb90251",
+        "src/shared/Contracts/ArticleVault/ArticleVaultOperationContracts.cs": "eecee3e6567be6aa05a81283eb4798225c1714a93e8d7a94eba01d5196c02384",
+        "src/migration/Definitions/ArticleVaultOperationMigrationDefinitions.cs": "6e9ce0bf243b1d5fadf851a68373d6d80cc8bf8ca79f57dad00cefffb8929396",
+        "src/migration/Definitions/ArticleVaultExecutionMigrationDefinitions.cs": "ecdb8f7c0ab523b829515afc47ba3ed7b3da36e84242936e7ce05dc1ca415dc8",
+        "tests/backend/Unit/ArticleVaultOperationProtocolTests.cs": "cee61c3576765bde19dd8178ff2b83009be0b835919a7cacc56e56f90968428a"
+    },
+    "recoverySource": {
+        "src/shared/Contracts/ArticleVault/ArticleVaultRecoveryJournal.cs": "e8a5cc83461bd16722ae75bd31c6565c99ebb5929ec966b41dde300a54821064",
+        "src/shared/Contracts/ArticleVault/ArticleVaultGitFacts.cs": "83a3a18c3774bf82d96a8ffce7f06b1eb8bc219242e2e55fa9ec9b3a0e3cfce4",
+        "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs": "e0481f2769b3acad4d9b50b6df0d238f031dbcda6baa0e89717e5694e3ca6b35",
+        "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs": "aa0c16ec941be9b8ab014270fe09c8d65a4d3b3d2eccb681ab5da40ced7f8b48",
+        "src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanContracts.cs": "5bac70138224fc2975c6efd7fd19bb2498d3250ebe2ff13b5ad3f2be82f50312",
+        "src/shared/Contracts/ArticleVault/ArticleVaultSourceAdmission.cs": "25ccf240ae36f46228fd474af37df2effa0b9a98724486455573a38a6dce6b9c",
+        "src/shared/Contracts/ArticleVault/ArticleVaultSyncPlanner.cs": "75f44f5f0519535ecf7e974e0189877d70bb6a5b7af327e0bcae95f56f8eb0fd",
+        "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs": "9a3f00b721b5f755a891ca83b65fcbf28edc6ff49b52144378a0843664eb0475",
+        "src/shared/Contracts/ArticleVault/ArticleVaultResolutionPlan.cs": "35a6f7b661d4d8fdaff5ee601c1102d3b117a7822ba9bc1bf979e0ec126bdb35",
+        "src/shared/Contracts/ArticleVault/ArticleVaultManifestCodec.cs": "f9e898a3f48c43e2042b9223e7476247c09044836dc9fe36706727a67a543de3",
+        "src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs": "06c343b9529c0a54a09cf42ee4b56e65cd9dfbfa504db1ed2e84ce0c0716de17",
+        "src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs": "26317092311377815f1a06a826d4092c6ba493159f8461557fb2e754641e99de",
+        "src/shared/Contracts/ArticleVault/ArticleVaultScalarMetadataMerge.cs": "71eb0324d8fb33d076676f68f0d8e6ddb2e8d33ca44fe1f0f86eca59abeb34ee",
+        "src/shared/Contracts/ArticleVault/ArticleVaultManifestContracts.cs": "66ec8bc2077388095660c39e65a1292c764e0162acf6afcfa421f43874b812d1"
+    },
+    "assemblies": {
+        "operationServer": "b0d96b68d1cd85c2b7f9566d9694e9deec7380c1c33e26bc632e5cf62800b5a2",
+        "operationShared": "908f28b7d447e675878a92b4c532b3310d608228f06eb24ec7ea262a7264ae2f",
+        "recoveryShared": "baa92a3d69fe0c869a46bf49e6510bd6517a500b87c09b3b0c47945ffff28828"
+    },
+    "evidence": {
+        "evidence/process-traces.json": "08db8d8b6005fa6ff74f1fd5982ae21feeb99d4feb6b528801b985c278054931",
+        "evidence/after-insert-traces.json": "5bb6c0d62ab73697b0fef25598d034c15eb528b86ffb4d8624453cf44c1654bd",
+        "evidence/recovery-trace.json": "f0d4683c38f1f56adbcf953edfcb3c10daad1b475ac9d41c614ac1c8bcb0a056"
+    },
+    "observations": {
+        "newProductDefects": 0,
+        "processGroupsPassed": 7,
+        "recoveryStructuralChecksPassed": 7,
+        "canonicalTest": "NU1004 reproduced on unchanged baseline 53da546cc8ab9fd8603067395d988b7ddb650394",
+        "realAcceptedServerMutation": "untested",
+        "nativeFilesAndBaseCommit": "missing API",
+        "durableResolutionJournalAdapter": "missing API"
+    },
+    "initialExecutionHarnessSha256": {
+        "Worker.cs": "4bcbdea607ab495256d3bbdedf70d8cc3ab746278517548510171b5b93e6696f",
+        "run.py": "f76e1abbc11d9186b0dad6ee1db7ba6e145e96ffffb4fe65430ab9709dab157c",
+        "recovery/RecoveryWorker.cs": "04069a53102eeba0a112a1d8dc029cd2c89632bd8eb01ea48e9aa413481fee50"
+    },
+    "afterInsertExecutionHarnessSha256": {
+        "Worker.cs": "4bcbdea607ab495256d3bbdedf70d8cc3ab746278517548510171b5b93e6696f",
+        "run.py": "36146ef861cc456de87bf4a2575caa6ae017f5d1385d21db4b9b1c21125b0f3b"
+    },
+    "commands": [
+        {
+            "command": "dotnet build src/backend/FsusBlog.Server.csproj -p:RestoreLockedMode=true -v:q",
+            "sourceSha": "8dca9343f1a8a88a4e8f266750e7844d0186335d",
+            "exit": 0
+        },
+        {
+            "command": "dotnet build src/shared/FsusBlog.Shared.csproj -p:RestoreLockedMode=true -v:q",
+            "sourceSha": "bb49a4c1f579ddf8630c67776d6cd9fa1f8c0661",
+            "exit": 0
+        },
+        {
+            "command": "python3 /workspace/vault-crash-replay-qa/run.py",
+            "exit": 0,
+            "groups": 6
+        },
+        {
+            "command": "VAULT_CRASH_REPLAY_OPERATION_SOURCE=/workspace/vault-crash-replay-source python3 tests/risk/vault-crash-replay-qa/run.py --after-insert-only",
+            "exit": 0,
+            "groups": 1
+        },
+        {
+            "command": "dotnet test tests/backend/FsusBlog.Server.Tests.csproj -p:RestoreLockedMode=true --filter FullyQualifiedName~ArticleVaultOperationCheckpointPostgresTests -v:q",
+            "sourceSha": "8dca9343f1a8a88a4e8f266750e7844d0186335d",
+            "exit": 1,
+            "observed": "NU1004"
+        },
+        {
+            "command": "dotnet restore tests/backend/FsusBlog.Server.Tests.csproj --locked-mode -v:q",
+            "sourceSha": "53da546cc8ab9fd8603067395d988b7ddb650394",
+            "exit": 1,
+            "observed": "same NU1004; relevant project/lock/package source bytes unchanged"
+        }
+    ],
+    "afterInsertRunnerSourceNote": "Final run.py adds unknown CLI argument rejection after this observation. Removing that three-line parsing guard reconstructs the exact executed runner hash above; process test functions are unchanged. Unknown argument rejection was separately observed."
+}
