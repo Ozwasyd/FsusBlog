@@ -2460,8 +2460,8 @@
         },
         {
             "path": "tools/check-workflow-matrix-sync.mjs",
-            "contentDigest": "sha256:ca3be300270f6234c22f116d6a01a51e2b84f50896956651e7f6f62b1ca6d965",
-            "indexDigest": "sha256:ca3be300270f6234c22f116d6a01a51e2b84f50896956651e7f6f62b1ca6d965"
+            "contentDigest": "sha256:beeddb5eb820f997bdeacb6ca004f8f3e0375f2c3ebe00ff09f0f52c0fb0ba3c",
+            "indexDigest": "sha256:beeddb5eb820f997bdeacb6ca004f8f3e0375f2c3ebe00ff09f0f52c0fb0ba3c"
         },
         {
             "path": "tools/ci/check-flaky-evidence.mjs",

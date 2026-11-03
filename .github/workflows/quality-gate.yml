@@ -304,6 +304,7 @@ jobs:
               with:
                   name: source-governance
                   path: .tmp/source-governance/result.json
+                  include-hidden-files: true
                   if-no-files-found: error
 
 

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/check-workflow-matrix-sync.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "11cdd70231513bf5dfec715ab92e6ed0d6d81939855f030a49cf14883e836aa6"
+        }
+    ]
+}

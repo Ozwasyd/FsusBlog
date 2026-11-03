@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { buildAggregatePlan } from './test-matrix/aggregate-plan.mjs';
 import { parseMatrix, tierExecutionDependencies } from './test-matrix/parse-matrix.mjs';
+import { parseYamlDocument } from './yaml/parse-document.mjs';
 
 const directFile = fileURLToPath(import.meta.url);
 const root = path.resolve(path.join(path.dirname(directFile), '..'));
@@ -277,6 +278,7 @@ function validateMatrixCoverageDimensions(tiers, errors)
 
 export function parseWorkflow(text)
 {
+    const document = parseYamlDocument(text, { source: 'quality gate workflow' });
     const jobs = new Map();
     let inJobs = false;
     let jobsIndent = null;
@@ -360,7 +362,6 @@ export function parseWorkflow(text)
             }
             if (indent > collectingRun.indent)
             {
-                jobs.get(currentJob).runs.push(rawLine.trim());
                 continue;
             }
             collectingRun = null;
@@ -442,19 +443,32 @@ export function parseWorkflow(text)
         if (runMatch)
         {
             const [, indent, value] = runMatch;
-            if (value === '|' || value === '>')
+            if (/^[|>][-+]?$/u.test(value))
             {
                 collectingRun = { job: currentJob, indent: indent.length };
-            }
-            else
-            {
-                jobs.get(currentJob).runs.push(value);
             }
         }
     }
 
-    for (const job of jobs.values())
+    for (const [jobId, job] of jobs)
     {
+        const steps = document.jobs?.[jobId]?.steps ?? [];
+        if (!Array.isArray(steps))
+        {
+            throw new Error(`workflow job ${jobId} steps must be a YAML sequence`);
+        }
+        for (const step of steps)
+        {
+            if (step?.run == null)
+            {
+                continue;
+            }
+            if (typeof step.run !== 'string')
+            {
+                throw new Error(`workflow job ${jobId} run must be a YAML string`);
+            }
+            job.runs.push(...step.run.split(/\r?\n/u).map((command) => command.trim()).filter(Boolean));
+        }
         annotateWorkflowJob(job);
     }
     return jobs;
