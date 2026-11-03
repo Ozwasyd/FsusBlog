@@ -162,6 +162,16 @@ public sealed class AuthorRecentArticleHistoryProjectionService(
                 "author_recent_history_permission_invalid");
         }
 
+        // A Current page authenticates whole-collection facts. Filtering entries cannot hide
+        // their revision or permission digest; refuse before CAS/cursor comparisons or caching.
+        if (permission.Decisions.Any(static decision => !decision.CanProject))
+        {
+            return AuthorRecentArticleHistoryProjectionPage.Empty(
+                request.Owner,
+                AuthorRecentArticleHistoryProjectionStatus.Unavailable,
+                "author_recent_history_permission_unavailable");
+        }
+
         if (request.ExpectedCollectionRevision is long expectedRevision
             && expectedRevision != snapshot.Revision)
         {

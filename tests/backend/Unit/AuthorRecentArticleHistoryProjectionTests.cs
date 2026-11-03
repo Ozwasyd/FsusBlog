@@ -20,17 +20,15 @@ public sealed class AuthorRecentArticleHistoryProjectionTests
                 new(visible.ArticleId, true, true, Hash("decision-visible")),
                 new(hidden.ArticleId, false, false, Hash("decision-hidden"))
             ]);
-        var service = CreateService(store, permission);
+        var cache = new RecordingProjectionCache();
+        var service = CreateService(store, permission, cache);
 
         AuthorRecentArticleHistoryProjectionPage page = await service.ReadAsync(
             new AuthorRecentArticleHistoryProjectionRequest(s_owner, Guid.CreateVersion7(), 10));
 
-        Assert.Equal(AuthorRecentArticleHistoryProjectionStatus.Current, page.Status);
-        Assert.Single(page.Entries);
-        Assert.Equal(visible.ArticleId, page.Entries[0].ArticleId);
-        Assert.DoesNotContain(page.Entries, entry => entry.ArticleId == hidden.ArticleId);
-        Assert.Null(page.Entries[0].GetType().GetProperty("Title"));
-        Assert.False(page.HasMore);
+        AssertCanonicalEmptyPage(page, AuthorRecentArticleHistoryProjectionStatus.Unavailable,
+            "author_recent_history_permission_unavailable");
+        Assert.Equal(0, cache.PublicationCount);
     }
 
     [Fact]
@@ -336,6 +334,11 @@ public sealed class AuthorRecentArticleHistoryProjectionTests
             "partial-cursor-stale" => "author_recent_history_cursor_stale",
             _ => "author_recent_history_permission_stale"
         };
+        if (partial)
+        {
+            expectedStatus = AuthorRecentArticleHistoryProjectionStatus.Unavailable;
+            expectedReason = "author_recent_history_permission_unavailable";
+        }
         AssertCanonicalEmptyPage(page, expectedStatus, expectedReason);
         Assert.Equal(0, cache.PublicationCount);
     }

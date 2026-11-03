@@ -21,6 +21,144 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
     private static readonly AuthorRecentArticleHistoryOwner s_owner = new(1, "primary-site");
 
     [Fact]
+    public async Task CurrentAllDeniedProjection_MustHideWholeCollectionRevision()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var permission = CreatePermissionAuthority(db);
+        var store = new AuthorRecentArticleHistoryStore(db, TimeProvider.System, permission);
+        await store.RecordOpenedAsync(s_owner, 1, 701, 0, Guid.CreateVersion7());
+        await db.Ado.ExecuteCommandAsync("UPDATE article SET status = 3 WHERE id = 1;");
+        var service = new AuthorRecentArticleHistoryProjectionService(
+            store,
+            permission,
+            new AuthorRecentArticleHistoryCursorCodec(new EphemeralDataProtectionProvider()),
+            new DirectAuthorRecentArticleHistoryProjectionCache());
+
+        AuthorRecentArticleHistoryProjectionPage page = await service.ReadAsync(
+            new(s_owner, Guid.CreateVersion7(), 10));
+
+        Assert.Empty(page.Entries);
+        Assert.Equal(0, page.CollectionRevision);
+        Assert.Equal(AuthorRecentArticleHistoryProjectionStatus.Unavailable, page.Status);
+        Assert.Empty(page.PermissionContentDigest);
+        Assert.Empty(page.ProjectionReference);
+        Assert.Empty(page.CacheReference);
+        Assert.Equal(1, (await store.GetAuthoritySnapshotAsync(s_owner)).Revision);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+    }
+
+    [Theory]
+    [InlineData("archived")]
+    [InlineData("deleted")]
+    [InlineData("missing")]
+    public async Task Projection_LiveDenialWithholdsFactsBeforeCasCursorAndCache(string lifecycle)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var permission = CreatePermissionAuthority(db);
+        var store = new AuthorRecentArticleHistoryStore(db, TimeProvider.System, permission);
+        var cache = new TrackingProjectionCache();
+        var service = new AuthorRecentArticleHistoryProjectionService(
+            store,
+            permission,
+            new AuthorRecentArticleHistoryCursorCodec(new EphemeralDataProtectionProvider()),
+            cache);
+        var request = new AuthorRecentArticleHistoryProjectionRequest(s_owner, Guid.CreateVersion7(), 1);
+        AuthorRecentArticleHistoryProjectionPage empty = await service.ReadAsync(request);
+        Assert.Equal(AuthorRecentArticleHistoryProjectionStatus.Current, empty.Status);
+        Assert.Equal(0, empty.CollectionRevision);
+        Assert.Empty(empty.Entries);
+        Assert.False(empty.HasMore);
+        Assert.True(AuthorRecentArticleHistoryContract.TryValidateProjectionPage(empty, []));
+
+        Guid openRequestId = Guid.CreateVersion7();
+        AuthorRecentArticleHistoryReceipt first = await store.RecordOpenedAsync(
+            s_owner, 1, 701, 0, openRequestId);
+        await store.RecordEditedAsync(s_owner, 2, 702, first.Revision, Guid.CreateVersion7());
+        AuthorRecentArticleHistoryCollectionSnapshot snapshot = await store.GetAuthoritySnapshotAsync(s_owner);
+        AuthorRecentArticleHistoryEntry[] orderedEntries = snapshot.Entries
+            .OrderByDescending(RecentArticleHistoryOrdering.LatestFactAtUtc)
+            .ThenByDescending(static entry => entry.ArticleId)
+            .ToArray();
+        AuthorRecentArticleHistoryProjectionPage authorized = await service.ReadAsync(request);
+        Assert.Equal(AuthorRecentArticleHistoryProjectionStatus.Current, authorized.Status);
+        Assert.Equal(snapshot.Revision, authorized.CollectionRevision);
+        Assert.Equal(2, Assert.Single(authorized.Entries).ArticleId);
+        Assert.NotNull(authorized.NextCursor);
+        Assert.True(AuthorRecentArticleHistoryContract.TryValidateProjectionPage(authorized, orderedEntries));
+        int publications = cache.PublicationCount;
+
+        foreach (int articleId in new[] { 2, 1 })
+        {
+            string denySql = lifecycle switch
+            {
+                "archived" => "UPDATE article SET status = 3 WHERE id = @ArticleId;",
+                "deleted" => "UPDATE article SET isdeleted = TRUE WHERE id = @ArticleId;",
+                "missing" => "DELETE FROM article WHERE id = @ArticleId;",
+                _ => throw new ArgumentOutOfRangeException(nameof(lifecycle))
+            };
+            await db.Ado.ExecuteCommandAsync(denySql, new SugarParameter("@ArticleId", articleId));
+            AuthorRecentArticleHistoryPermissionSnapshot denied = await permission.ResolveAsync(
+                new(s_owner, Guid.CreateVersion7(), [1, 2]));
+            Assert.Equal(AuthorRecentArticleHistoryPermissionSnapshotStatus.Current, denied.Status);
+            Assert.Equal(articleId == 2 ? 1 : 0, denied.Decisions.Count(static decision => decision.CanProject));
+
+            foreach (AuthorRecentArticleHistoryProjectionRequest probe in new[]
+            {
+                request,
+                request with { ExpectedCollectionRevision = snapshot.Revision },
+                request with { ExpectedCollectionRevision = 0 },
+                request with { ExpectedPermissionRevision = AuthorRecentArticleHistoryContract.HashText("changed-permission") },
+                request with { ExpectedSiteRevision = AuthorRecentArticleHistoryContract.HashText("changed-site") },
+                request with { ExpectedSessionRevision = AuthorRecentArticleHistoryContract.HashText("changed-session") },
+                request with { Cursor = authorized.NextCursor },
+                request with { Cursor = "not-a-protected-cursor" }
+            })
+            {
+                AssertUnavailableProjection(await service.ReadAsync(probe));
+            }
+            Assert.Equal(publications, cache.PublicationCount);
+            AuthorRecentArticleHistoryCollectionSnapshot retained = await store.GetAuthoritySnapshotAsync(s_owner);
+            Assert.Equal(snapshot.Revision, retained.Revision);
+            Assert.Equal(snapshot.ContentDigest, retained.ContentDigest);
+            Assert.Equal(snapshot.Entries, retained.Entries);
+            Assert.True((await store.VerifyAsync(s_owner)).Valid);
+        }
+
+        if (lifecycle == "missing")
+        {
+            await db.Ado.ExecuteCommandAsync(
+                "INSERT INTO article(id, status, isdeleted, current_revision_id) VALUES (1, 0, FALSE, 701), (2, 2, FALSE, 702);");
+        }
+        else
+        {
+            await db.Ado.ExecuteCommandAsync("UPDATE article SET status = 0, isdeleted = FALSE;");
+        }
+        AuthorRecentArticleHistoryProjectionPage restored = await service.ReadAsync(
+            request with
+            {
+                Limit = 10,
+                ExpectedCollectionRevision = snapshot.Revision
+            });
+        Assert.Equal(AuthorRecentArticleHistoryProjectionStatus.Current, restored.Status);
+        Assert.Equal(snapshot.Revision, restored.CollectionRevision);
+        Assert.Equal(orderedEntries, restored.Entries);
+        Assert.True(AuthorRecentArticleHistoryContract.TryValidateProjectionPage(restored, orderedEntries));
+        Assert.Equal(publications + 1, cache.PublicationCount);
+        AuthorRecentArticleHistoryReceipt replay = await store.RecordOpenedAsync(s_owner, 1, 701, 0, openRequestId);
+        Assert.True(replay.IdempotentReplay);
+        Assert.Equal(first.ReceiptId, replay.ReceiptId);
+        await Assert.ThrowsAsync<AuthorRecentArticleHistoryRevisionConflictException>(() =>
+            store.RecordActivatedAsync(s_owner, 1, 701, 0, Guid.CreateVersion7()));
+        AuthorRecentArticleHistoryReceipt activated = await store.RecordActivatedAsync(
+            s_owner, 1, 701, snapshot.Revision, Guid.CreateVersion7());
+        Assert.Equal(snapshot.Revision + 1, activated.Revision);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+        Assert.Equal(3, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM author_recent_history_receipt;"));
+        Assert.Equal(3, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM author_recent_history_outbox;"));
+        Assert.Equal(3, await db.Ado.GetIntAsync("SELECT COUNT(*) FROM author_recent_history_audit;"));
+    }
+
+    [Fact]
     public async Task Store_EnforcesCasIdempotencyProjectionOrderAndDurableSideEffects()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
@@ -365,8 +503,7 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
             """);
         AuthorRecentArticleHistoryProjectionPage filtered = await service.ReadAsync(
             new(s_owner, Guid.CreateVersion7(), 10));
-        Assert.Equal(AuthorRecentArticleHistoryProjectionStatus.Current, filtered.Status);
-        Assert.Empty(filtered.Entries);
+        AssertUnavailableProjection(filtered);
         AuthorRecentArticleHistoryVerificationResult verifiedFiltered =
             await service.VerifyAsync(s_owner);
         AssertEmptyVerification(verifiedFiltered, "author_recent_history_permission_verification_failed");
@@ -554,30 +691,37 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
 
             AuthorRecentArticleHistoryProjectionPage filtered = await service.ReadAsync(
                 new(s_owner, Guid.CreateVersion7(), 10));
-            Assert.Equal(AuthorRecentArticleHistoryProjectionStatus.Current, filtered.Status);
-            Assert.Equal(articleId == 2 ? 1 : 0, filtered.Entries.Count);
-            Assert.DoesNotContain(filtered.Entries, entry => entry.ArticleId == articleId);
+            AssertUnavailableProjection(filtered);
             AssertEmptyVerification(
                 await service.VerifyAsync(s_owner),
                 "author_recent_history_permission_verification_failed");
 
             AuthorRecentArticleHistoryProjectionPage terminal = await service.ReadAsync(
                 new(s_owner, Guid.CreateVersion7(), 10, ExpectedCollectionRevision: snapshot.Revision + 1));
-            Assert.Equal(AuthorRecentArticleHistoryProjectionStatus.Stale, terminal.Status);
-            Assert.Equal("author_recent_history_collection_stale", terminal.ReasonCode);
-            Assert.Equal(0, terminal.CollectionRevision);
-            Assert.Empty(terminal.Entries);
-            Assert.Null(terminal.NextCursor);
-            Assert.False(terminal.HasMore);
-            Assert.Empty(terminal.PermissionRevision);
-            Assert.Empty(terminal.SiteRevision);
-            Assert.Empty(terminal.SessionRevision);
-            Assert.Empty(terminal.PermissionContentDigest);
-            Assert.Empty(terminal.ProjectionReference);
-            Assert.Empty(terminal.CacheReference);
-            Assert.Equal(AuthorRecentArticleHistoryProjectionPage.Empty(
-                s_owner, terminal.Status, "author_recent_history_collection_stale").ContentDigest, terminal.ContentDigest);
+            AssertUnavailableProjection(terminal);
         }
+    }
+
+    private static void AssertUnavailableProjection(AuthorRecentArticleHistoryProjectionPage page)
+    {
+        const string Reason = "author_recent_history_permission_unavailable";
+        AuthorRecentArticleHistoryProjectionPage empty = AuthorRecentArticleHistoryProjectionPage.Empty(
+            s_owner, AuthorRecentArticleHistoryProjectionStatus.Unavailable, Reason);
+        Assert.Equal(empty.Status, page.Status);
+        Assert.Equal(empty.Owner, page.Owner);
+        Assert.Equal(empty.SchemaVersion, page.SchemaVersion);
+        Assert.Equal(Reason, page.ReasonCode);
+        Assert.Equal(0, page.CollectionRevision);
+        Assert.Empty(page.Entries);
+        Assert.Null(page.NextCursor);
+        Assert.False(page.HasMore);
+        Assert.Empty(page.PermissionRevision);
+        Assert.Empty(page.SiteRevision);
+        Assert.Empty(page.SessionRevision);
+        Assert.Empty(page.PermissionContentDigest);
+        Assert.Empty(page.ProjectionReference);
+        Assert.Empty(page.CacheReference);
+        Assert.Equal(empty.ContentDigest, page.ContentDigest);
     }
 
     private static void AssertEmptyVerification(
@@ -666,6 +810,26 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
             accessor,
             configuration,
             TimeProvider.System);
+    }
+
+    private sealed class TrackingProjectionCache : IAuthorRecentArticleHistoryProjectionCache
+    {
+        private readonly DirectAuthorRecentArticleHistoryProjectionCache _cache = new();
+
+        public int PublicationCount
+        {
+            get;
+            private set;
+        }
+
+        public Task<bool> PublishAsync(
+            AuthorRecentArticleHistoryProjectionPage page,
+            IReadOnlyList<AuthorRecentArticleHistoryEntry> authoritativeEntries,
+            CancellationToken cancellationToken = default)
+        {
+            PublicationCount++;
+            return _cache.PublishAsync(page, authoritativeEntries, cancellationToken);
+        }
     }
 
     private sealed class LocalMutationAuthorizer : IAuthorRecentArticleHistoryMutationAuthorizer
