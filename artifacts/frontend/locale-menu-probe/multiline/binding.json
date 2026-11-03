@@ -1,0 +1,378 @@
+{
+  "schema": "fsusblog.locale-menu-multiline-wip.v1",
+  "qualification": false,
+  "createdAt": "2026-10-08T04:42:00.142Z",
+  "baseline": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "latestOriginMaster": "8b1c739cacef47995f441f096835863d377dc347",
+  "baselineMovement": {
+    "files": [
+      ".github/actionlint.yaml"
+    ],
+    "affectsAssignedImplementation": false,
+    "consumed": false
+  },
+  "blogTestedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6",
+  "fsusUiTestedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+  "blogTree": "14ed201fb9cef67fc96b3ca77119548f624ef24b",
+  "fsusUiTree": "f0dd799385659f87f69eade593458a5c001e599a",
+  "localRunId": "locale-menu-local-2026-10-08T04:38:45.409Z",
+  "publishedRunId": "locale-menu-published-2026-10-08T04:39:17.580Z",
+  "cleanSourceAtBrowserStart": true,
+  "suppliedPrerequisite": {
+    "issue": "#1892",
+    "branch": "fix/interaction-trace-fixture-types-1892",
+    "remoteCommit": "384112ac023a49a8a4fb605f31c05fbd25dd09f5",
+    "consumedCommit": "a19fe53018d1561b1e3bd6bdc2e678ce87ef34e7",
+    "conflicts": false
+  },
+  "publishedFsusUiBranch": "task/830-dropdown-multiline-followup",
+  "fsusUiPr": "https://github.com/Ozwasyd/FsusUI/pull/845",
+  "commands": [
+    {
+      "repository": "Blog",
+      "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI node /workspace/FsusUI/node_modules/vitest/vitest.mjs run --config vitest.config.ts ../../tests/frontend/unit/components/LocaleSelector.test.ts ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts",
+      "exitCode": 0,
+      "result": "33/33",
+      "artifact": "blog-unit.log",
+      "testedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6"
+    },
+    {
+      "repository": "Blog",
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI EVIDENCE_ROOT",
+      "exitCode": 0,
+      "result": "API/DOM + 5 consumer variants; default density and clipping negative controls; touch",
+      "artifact": "local-probe.json",
+      "testedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6"
+    },
+    {
+      "repository": "Blog",
+      "command": "same probe in published mode with dependency root src/frontend",
+      "exitCode": 3,
+      "result": "blocked package missing",
+      "artifact": "published-probe.json",
+      "testedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6"
+    },
+    {
+      "repository": "Blog",
+      "command": "npm view @ozwasyd/element-plus@1.5.1 version --registry=https://npm.pkg.github.com",
+      "exitCode": 1,
+      "result": "blocked E401",
+      "artifact": "registry.log",
+      "testedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6"
+    },
+    {
+      "repository": "Blog",
+      "command": "node fixture-build.mjs BLOG_ROOT FSUSUI_ROOT /tmp/TASK_OUTPUT",
+      "exitCode": 0,
+      "result": "production fixture bundle (canonical ES worker format)",
+      "artifact": "fixture-build.log",
+      "testedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6"
+    },
+    {
+      "repository": "Blog",
+      "command": "npm run typecheck:local-fsusui",
+      "exitCode": 0,
+      "result": "local public export contracts",
+      "artifact": "export-types.log",
+      "testedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6"
+    },
+    {
+      "repository": "Blog",
+      "command": "vue-tsc --noEmit -p node_modules/.tmp/tsconfig.chain-1891.json",
+      "exitCode": 0,
+      "result": "isolated selector plus export config; not complete app typecheck",
+      "artifact": "selector-types.log",
+      "testedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6"
+    },
+    {
+      "repository": "Blog",
+      "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file src/frontend/src/components/ui/LocaleSelector.vue --file tests/frontend/checks/runtime/probe-locale-menu.mjs --file tests/frontend/fixtures/localeMenuProbe/Consumer.vue",
+      "exitCode": 0,
+      "result": "actual checker scope 2 files; fixture excluded by canonical style ownership",
+      "artifact": "style.log",
+      "testedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6"
+    },
+    {
+      "repository": "Blog",
+      "command": "node tools/test/check-frontend-test-layout.mjs",
+      "exitCode": 0,
+      "result": "test layout",
+      "artifact": "layout.log",
+      "testedCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6"
+    },
+    {
+      "repository": "FsusUI",
+      "command": "pnpm typecheck:web",
+      "exitCode": 0,
+      "result": "web typecheck",
+      "artifact": "fsusui-types.log",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac"
+    },
+    {
+      "repository": "FsusUI",
+      "command": "pnpm exec vitest run --config vue/vitest.config.ts vue/packages/components/dropdown/__tests__ vue/packages/hooks/__tests__/use-popper.test.tsx vue/packages/components/popper/__tests__ vue/packages/components/check-tag/__tests__",
+      "exitCode": 0,
+      "result": "63/63; CheckTag 3/3",
+      "artifact": "fsusui-unit.log",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac"
+    },
+    {
+      "repository": "FsusUI",
+      "command": "pnpm exec eslint [five changed Dropdown source files]",
+      "exitCode": 0,
+      "result": "targeted source lint",
+      "artifact": "fsusui-lint.log",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac"
+    },
+    {
+      "repository": "FsusUI",
+      "command": "pnpm run interactions:check",
+      "exitCode": 0,
+      "result": "artifact conformance check; not independent runtime acceptance",
+      "artifact": "fsusui-interactions.log",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac"
+    },
+    {
+      "repository": "FsusUI",
+      "command": "pnpm --filter @element-plus/theme-chalk build",
+      "exitCode": 0,
+      "result": "canonical producer; regenerated CSS hashes match assets used by browser/build",
+      "artifact": "fsusui-theme-build.log",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac"
+    },
+    {
+      "repository": "FsusUI",
+      "command": "pnpm run check:documentation-architecture",
+      "exitCode": 0,
+      "result": "documentation architecture",
+      "artifact": "fsusui-docs.log",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac"
+    },
+    {
+      "repository": "FsusUI",
+      "command": "pnpm run check:fsusui-design-conformance",
+      "exitCode": 0,
+      "result": "domain checker; not UX acceptance",
+      "artifact": "fsusui-design-check.log",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac"
+    },
+    {
+      "repository": "FsusUI",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+      "command": "pnpm run visual:check",
+      "exitCode": 0,
+      "result": "static conformance comparisons; not rendered acceptance",
+      "artifact": "fsusui-visual-check.log"
+    },
+    {
+      "repository": "FsusUI",
+      "testedCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers pnpm run test:visual:affected --base=origin/main",
+      "exitCode": 1,
+      "result": "official demo build passed, readiness rejected icons/demo source fingerprint change before browser suites",
+      "artifact": "fsusui-affected-visual-failed.log",
+      "generatedSourceDirtyDuringSetup": "canonical-generated-icons.patch",
+      "cleanup": "only task-generated icon index changes restored; source checkout clean"
+    }
+  ],
+  "blocked": [
+    "locked published package access and local/published parity",
+    "complete locked production application install/build/typecheck",
+    "canonical affected visual runtime readiness; generated icons/demo source fingerprints changed during official preparation"
+  ],
+  "notRun": [
+    "qualified production route with real preference/resource service",
+    "real browser 200% page zoom (CSS zoom tested separately)",
+    "independent screen-reader and UX acceptance",
+    "nested/custom append-context zoom qualification"
+  ],
+  "remainingOwnedIssues": {
+    "#1891": "source repair and current local evidence passed; acceptance OPEN/WIP"
+  },
+  "priorFailures": {
+    "unit": "b153cd4dbb099063ea33250eb54a7fcf96db5dec had premature focus assertion; corrected observable focus waits, no assertion weakened",
+    "outside": "320823103 had outside visibility sampled during fade; stronger public false notification and detached-DOM wait now required",
+    "types": "new optional Popper data type errors repaired; negative output retained",
+    "build": "fixture omitted canonical worker format es; corrected harness, production fixture build now passed"
+  },
+  "evidence": [
+    {
+      "path": "README.md",
+      "sha256": "ffa2c80528ba3c533b392fef43578d41d6e22d770750511447e0945b5716bd7f"
+    },
+    {
+      "path": "before-probe.json",
+      "sha256": "938c3069339ab0bd8bf31f37735854bae06d043c7b7ce412b1a88da115b22e04"
+    },
+    {
+      "path": "blog-classification.json",
+      "sha256": "4858da8bb0ea85bf640be661709d3d1443ffb218dfad99a8d4ad9d2e59b413c8"
+    },
+    {
+      "path": "blog-unit.log",
+      "sha256": "d4025f64c54f60474a918fb6a26efd92578fa921a6eac1662080e82f300dd454"
+    },
+    {
+      "path": "built-css.json",
+      "sha256": "250c27406c71d750fe323a4eb7b65509fe58c256d74f4eebdfdc79f4a5a6b3ed"
+    },
+    {
+      "path": "canonical-generated-icons.patch",
+      "sha256": "63044dfa441cb5813b525a9637a39b5159748e34868ed470533c58715f8dd8be"
+    },
+    {
+      "path": "consumer-1440-dark-zoom1.png",
+      "sha256": "4912023ff2fc26bf84aa8e086c82cf021d7e2eea2b001578309dc338e8236f5c"
+    },
+    {
+      "path": "consumer-320-light-zoom2.png",
+      "sha256": "15eac477187b08596cbb4dea43a7c1ab52afb5eeae83b6f3ff01dc46c4c556d5"
+    },
+    {
+      "path": "consumer-375-dark-zoom2.png",
+      "sha256": "f67353097d317b4931a8d09fc2734c099a56cfaf69f3825981c8e8c1efb3c3fe"
+    },
+    {
+      "path": "consumer-375-light-zoom1.png",
+      "sha256": "2ca8403c50966c71644f71cda24a8d8eb6b4a4547bc7130c8d4195e10a015d8b"
+    },
+    {
+      "path": "consumer-375-light-zoom2.png",
+      "sha256": "c967b5f7e914f1dbae613dd8ec2f8f5409c6cb85ee8a9d5dbef02a67adbbb580"
+    },
+    {
+      "path": "error-retry.png",
+      "sha256": "968f3cf416c79c4f8ea1dd09c06307d396215679b8804699e5db1e2e0c7b8079"
+    },
+    {
+      "path": "export-types.log",
+      "sha256": "358509ba4e0ac2eccf2f50861bd8bb5c60a48d0369ba95bd553814f39be12805"
+    },
+    {
+      "path": "fixture-build.log",
+      "sha256": "7c36435324eb5eac165ae4dfa1d95df761c1d4740abd1806e623cc49bceb4d93"
+    },
+    {
+      "path": "fixture-build.mjs",
+      "sha256": "4c04749361870a72d9adf5ddd99155bbba34a911a75e0b460efc16e97b44dd4d"
+    },
+    {
+      "path": "fsusui-affected-visual-failed.log",
+      "sha256": "5e4ddfdca23cfed2da89ca9bf2ccd1b6914547438d11f06fa99176806c5e90dc"
+    },
+    {
+      "path": "fsusui-affected-visual-plan.log",
+      "sha256": "eaba2f043fec6a647bc96a296d5e460fa0bfbf8159f995d13bc87e6efefaafc2"
+    },
+    {
+      "path": "fsusui-classification.json",
+      "sha256": "0410f75f981cadad7e77efd5823706f2a4a7c4294cd7622e4b90a1f71cf2c135"
+    },
+    {
+      "path": "fsusui-design-check.log",
+      "sha256": "b25119bb7b6d7cd4c4b88ae92c197af45b90da4bda506711559ca18c3a9ae8ac"
+    },
+    {
+      "path": "fsusui-docs.log",
+      "sha256": "b65c5545e4c1c8e084c6c1f82c8b08c2d0a33fb5573f2d9135a30cb710280617"
+    },
+    {
+      "path": "fsusui-interactions.log",
+      "sha256": "e20d50877c38ad6c1bee2bf5eef61e61f60a63513a2837ba10e5448dbc2ba438"
+    },
+    {
+      "path": "fsusui-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "fsusui-theme-build.log",
+      "sha256": "b2ff91cd2b05e5ca230fb6a0383eb337588faca11f9e17994a69d48f7e9aa109"
+    },
+    {
+      "path": "fsusui-types.log",
+      "sha256": "a79bd5d473b3909e5573fb1cceafc1592ae2ec37343f30387154833775f381c2"
+    },
+    {
+      "path": "fsusui-unit.log",
+      "sha256": "d63315d58f57d0eb7e093c8f8ea0a00a9efd6299c1347e4168db207d6d6b79f3"
+    },
+    {
+      "path": "fsusui-visual-check.log",
+      "sha256": "c222105c6ad394bcd0c91531be231258a3580de0ea05598089ce574e6c90df51"
+    },
+    {
+      "path": "layout.log",
+      "sha256": "54c7f56c7df3e73494f65d6c99d881fff8b6d69e561172e39df3cbb9c869c6d7"
+    },
+    {
+      "path": "local-probe.json",
+      "sha256": "498833af202ab3f3233c1575b7e6dba621f8daacc5e9d7173fcfe11dd55abe01"
+    },
+    {
+      "path": "local.log",
+      "sha256": "75637bf8d50b3452e5daa5ba60192a3a1acb8a2ce333675c2e9e4378f833d75b"
+    },
+    {
+      "path": "menu-alternative.png",
+      "sha256": "558ca8c7eed110f24c7f42d0ec193ca71d6aefd8bb62e605c2fc038fa2be53f2"
+    },
+    {
+      "path": "negative-pre-focus-sync-unit.log",
+      "sha256": "bff11ec8a785084f3cdd939eb6729a49f504b5a2167127c6a4435817d7713f62"
+    },
+    {
+      "path": "negative-pre-outside-sync-probe.json",
+      "sha256": "7294663939b38aba724e0a882dd03dc94a9a24c902c28f8c795cd9baf6f00599"
+    },
+    {
+      "path": "negative-pre-repair-types.log",
+      "sha256": "bd49de7ff600b2636fc8c3a876df8ac2681b3e4d8d1ecf0d8ce1a1aaf7d80cab"
+    },
+    {
+      "path": "negative-pre-worker-config-build.log",
+      "sha256": "c35313eb3b7a7e1bbbce547687fb6fa033e2c25e360abdfab2205804dcb125e6"
+    },
+    {
+      "path": "pending.png",
+      "sha256": "9efb7242fc2179f2d0a0968617a4df8685aca115ab57fec940deb62f2e5bb88e"
+    },
+    {
+      "path": "published-probe.json",
+      "sha256": "3fda27879067a5ec921344ed08436b91501e37f657aba5b7c05adb6c4ecd3466"
+    },
+    {
+      "path": "published.log",
+      "sha256": "7188ba7d5e23477bbe0f699167716bb3104bcfd1950be861a29c93d8cca3e546"
+    },
+    {
+      "path": "registry.log",
+      "sha256": "60035e48effe1003eb7499802d92485efab97ac877d2f24eabdc40d6262bf744"
+    },
+    {
+      "path": "remote-macos-check.json",
+      "sha256": "b6c27845dc0cbbe4b69921f48bb45aeebd4aedb5815c12e7b7b358163e0c9b22"
+    },
+    {
+      "path": "remote-visual-check.json",
+      "sha256": "831da539a2a5ab682765f9531fdd545c3c430c61293f4f701f4ca9b9573972cd"
+    },
+    {
+      "path": "selector-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "style.log",
+      "sha256": "d58b7fae4fe99ccb5f0521063e932259e09a241d9e6ae3299c3abb889617962c"
+    }
+  ],
+  "remoteChecks": {
+    "observedAt": "2026-10-08T04:47:50.296Z",
+    "fsusUiHead": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+    "visual": "FAILURE",
+    "macosPlatform": "FAILURE",
+    "logRead": "Forbidden at redirected log storage; annotations give exit 1 only, exact cause not attributable",
+    "others": "in progress/queued; no all-green claim",
+    "blogHead": "85b9372eac3ef5ab14ff4535af8ae5b3e4e7bf75",
+    "blogChecks": "none at observation"
+  }
+}

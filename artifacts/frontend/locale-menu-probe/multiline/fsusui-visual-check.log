@@ -1,0 +1,5 @@
+
+> @ visual:check /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/visual-conformance.mjs check
+
+Visual conformance comparisons passed.

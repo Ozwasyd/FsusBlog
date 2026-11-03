@@ -1,0 +1,30 @@
+
+> @ test:visual:affected /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/run-visual-tests.mjs --profile=affected --base=origin/main --dry-run
+
+[visual-profile] profile=affected
+[visual-profile] base=origin/main
+[visual-profile] changed-files=.changeset/dropdown-controlled-radio-items.md,docs/components/dropdown.md,docs/design.md,vue/packages/components/dropdown/__tests__/dropdown-multiline.test.ts,vue/packages/components/dropdown/__tests__/dropdown-radio.test.ts,vue/packages/components/dropdown/src/dropdown-item-impl.vue,vue/packages/components/dropdown/src/dropdown-item.vue,vue/packages/components/dropdown/src/dropdown-menu.vue,vue/packages/components/dropdown/src/dropdown.ts,vue/packages/components/dropdown/src/dropdown.vue,vue/packages/components/dropdown/src/tokens.ts,vue/packages/components/dropdown/src/viewport-modifiers.ts,vue/packages/demo-app/src/InteractionTraceFixture.vue,vue/packages/theme-chalk/src/dropdown.scss
+[visual-profile] specs=vue/tests/visual/capture-all.spec.ts,vue/tests/visual/foundation-style-boundary.spec.ts,vue/tests/visual/material-contract.spec.ts,vue/tests/visual/theme-scale-contract.spec.ts,vue/tests/visual/typography-real-weights.spec.ts,vue/tests/visual/ui-audit-all.spec.ts
+[visual-profile] sections=navigation
+[visual-profile] audit-components=ElDropdown
+[visual-profile] full-required=yes files=vue/packages/demo-app/src/InteractionTraceFixture.vue
+[visual-profile] recommendation=pnpm test:visual:full
+Visual capacity: 4 CPU, 16384 MiB
+Suites: serial; preview=3, dev=1, audit buckets=6
+Budgets: reserve=1024 MiB, server=512 MiB each, worker=768 MiB
+- capacity base: cgroup v2 CPU quota 4 included in capacity
+- capacity base: cgroup v2 memory limit included in effective capacity
+- capacity base: CPU constrained the repository parallel lane budget
+- capacity base: reserved 1408 MiB for OS, filesystem cache, package coordinators, and native processes
+- capacity base: Unit workload 307 files selected 3 shard(s) with 1 worker(s) each
+- CPU limited visual workers
+- reserved capacity for Node orchestration, reports, filesystem cache, and web server
+- preview and dev suites run serially to avoid nested overcommit
+[visual-plan] suite=preview
+[visual-plan] selected-projects=desktop-light,mobile-light,desktop-dark,mobile-dark
+[visual-plan] argv=pnpm exec playwright test --config=vue/playwright.config.ts --project=desktop-light --project=mobile-light --project=desktop-dark --project=mobile-dark vue/tests/visual/capture-all.spec.ts vue/tests/visual/foundation-style-boundary.spec.ts vue/tests/visual/material-contract.spec.ts vue/tests/visual/theme-scale-contract.spec.ts vue/tests/visual/typography-real-weights.spec.ts vue/tests/visual/ui-audit-all.spec.ts
+[visual-plan] workers=3
+[visual-plan] report-directory=playwright-report/profile-affected/suite-preview/shard-local
+[visual-plan] result-namespaces=vue/test-results/profile-affected/suite-preview/project-desktop-light/shard-local,vue/test-results/profile-affected/suite-preview/project-mobile-light/shard-local,vue/test-results/profile-affected/suite-preview/project-desktop-dark/shard-local,vue/test-results/profile-affected/suite-preview/project-mobile-dark/shard-local
+[visual-plan] environment=FSUS_UI_AUDIT_COMPONENTS=ElDropdown

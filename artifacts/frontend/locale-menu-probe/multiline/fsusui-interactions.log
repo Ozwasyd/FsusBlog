@@ -1,0 +1,5 @@
+
+> @ interactions:check /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/interaction-conformance.mjs check
+
+Interaction conformance artifacts are current.
