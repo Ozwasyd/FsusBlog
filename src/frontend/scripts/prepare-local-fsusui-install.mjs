@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -232,6 +233,35 @@ function lockedDependencyLocation(lockfile, name)
     return location;
 }
 
+function assertSourceVueIdentity(frontend, root)
+{
+    const consumer = createRequire(path.join(frontend, 'package.json'));
+    const hosts = ['package.json', 'vue/package.json', 'vue/typings/env.d.ts', 'vue/typings/components.d.ts'];
+    for (const host of hosts)
+    {
+        const source = createRequire(path.join(root, host));
+        for (const name of ['vue', '@vue/runtime-core', '@vue/runtime-dom', '@vue/reactivity', '@vue/shared'])
+        {
+            let sourceManifest;
+            try
+            {
+                sourceManifest = source.resolve(`${name}/package.json`);
+            }
+            catch (error)
+            {
+                if (error.code === 'MODULE_NOT_FOUND')
+                {
+                    continue;
+                }
+                throw error;
+            }
+            const consumerManifest = consumer.resolve(`${name}/package.json`);
+            assert.equal(fs.realpathSync(sourceManifest), fs.realpathSync(consumerManifest),
+                `independent source Vue identity at ${host}: ${name}; use an isolated FsusUI source checkout for Blog consumption, not the standalone UI install`);
+        }
+    }
+}
+
 /** Verify the real public install and expose exact locked public dependencies to source aliases. */
 export function verifyLocalFsusUiInstall({ frontend, fsusui })
 {
@@ -273,6 +303,10 @@ export function verifyLocalFsusUiInstall({ frontend, fsusui })
         assert.equal(installed.version, binding.locked.version, `installed locked dependency version differs: ${binding.name}`);
         assert.equal(installed.name, binding.locked.name ?? binding.name, `installed locked dependency identity differs: ${binding.name}`);
     }
+    // A standalone UI program resolves augmentations above packages/. Shadowing
+    // only its component imports would split the Vue declarations and runtime.
+    // The Docker/source consumer has no independent install at those hosts.
+    assertSourceVueIdentity(frontend, root);
     for (const binding of bindings)
     {
         const link = path.join(destination, binding.name);

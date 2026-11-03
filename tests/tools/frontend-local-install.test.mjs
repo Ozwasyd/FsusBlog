@@ -323,6 +323,56 @@ test('installed source dependencies preserve the nested locked version without c
     assert.equal(fs.existsSync(path.join(context.fsusui, 'node_modules')), false);
 });
 
+test('verify refuses a standalone source Vue version before creating any dependency links', (t) =>
+{
+    const context = fixture(t);
+    const sourceManifest = path.join(context.fsusui, 'node_modules/vue/package.json');
+    context.write(sourceManifest, JSON.stringify({ name: 'vue', version: '3.5.32' }));
+    const before = fs.readFileSync(sourceManifest);
+    assert.throws(() => verifyLocalFsusUiInstall(context), /independent source Vue identity/u);
+    assert.deepEqual(fs.readFileSync(sourceManifest), before);
+    assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
+});
+
+test('verify refuses distinct physical Vue providers even with identical package versions', (t) =>
+{
+    const context = fixture(t);
+    context.write(path.join(context.fsusui, 'node_modules/vue/package.json'), JSON.stringify({ name: 'vue', version: '3.5.33' }));
+    assert.throws(() => verifyLocalFsusUiInstall(context), /independent source Vue identity/u);
+    assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
+});
+
+test('verify accepts an existing source root sharing the exact consumer Vue provider', (t) =>
+{
+    const context = fixture(t);
+    fs.mkdirSync(path.join(context.fsusui, 'node_modules'), { recursive: true });
+    fs.symlinkSync(path.join(context.frontend, 'node_modules/vue'), path.join(context.fsusui, 'node_modules/vue'), 'dir');
+    verifyLocalFsusUiInstall(context);
+    assert.equal(fs.realpathSync(path.join(context.fsusui, 'vue/packages/node_modules/vue')),
+        fs.realpathSync(path.join(context.fsusui, 'node_modules/vue')));
+});
+
+test('verify checks declaration-host Vue resolution rather than just the source root', (t) =>
+{
+    const context = fixture(t);
+    fs.mkdirSync(path.join(context.fsusui, 'node_modules'), { recursive: true });
+    fs.symlinkSync(path.join(context.frontend, 'node_modules/vue'), path.join(context.fsusui, 'node_modules/vue'), 'dir');
+    context.write(path.join(context.fsusui, 'vue/typings/node_modules/vue/package.json'), JSON.stringify({ name: 'vue', version: '3.5.32' }));
+    assert.throws(() => verifyLocalFsusUiInstall(context), /identity at vue\/typings\/env\.d\.ts/u);
+    assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
+});
+
+test('verify refuses independent runtime-core augmentation providers with a shared Vue facade', (t) =>
+{
+    const context = fixture(t);
+    fs.mkdirSync(path.join(context.fsusui, 'node_modules'), { recursive: true });
+    fs.symlinkSync(path.join(context.frontend, 'node_modules/vue'), path.join(context.fsusui, 'node_modules/vue'), 'dir');
+    context.write(path.join(context.frontend, 'node_modules/@vue/runtime-core/package.json'), JSON.stringify({ name: '@vue/runtime-core', version: '3.5.33' }));
+    context.write(path.join(context.fsusui, 'node_modules/@vue/runtime-core/package.json'), JSON.stringify({ name: '@vue/runtime-core', version: '3.5.32' }));
+    assert.throws(() => verifyLocalFsusUiInstall(context), /independent source Vue identity.*@vue\/runtime-core/u);
+    assert.equal(fs.existsSync(path.join(context.fsusui, 'vue/packages/node_modules')), false);
+});
+
 test('verify rejects absent nested packages, version drift, already installed private package and source dependency drift', (t) =>
 {
     const missing = fixture(t);
