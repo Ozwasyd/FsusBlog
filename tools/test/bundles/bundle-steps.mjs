@@ -22,13 +22,14 @@ export class StepTerminalError extends Error
 
 export class StepDagExecutionError extends AggregateError
 {
-    constructor({ failures, states, terminalReceipts })
+    constructor({ failures, states, terminalReceipts, interruption = null })
     {
         const primary = failures[0]?.reason ?? new Error('step DAG reached a non-success terminal state');
         super(failures.map((failure) => failure.reason), `step DAG failed in ${failures.length} terminal branches: ${primary.message}`);
         this.name = 'StepDagExecutionError';
         this.cause = primary;
         this.primaryFailure = primary;
+        this.interruption = interruption;
         this.states = Object.fromEntries(states);
         this.terminalReceipts = Object.fromEntries(terminalReceipts);
     }
@@ -826,6 +827,7 @@ export async function executeWeightedStepDag(steps, capacity, execute)
     const reportedExclusiveWaits = new Set();
     const reportedCountedWaits = new Set();
     const reportedStateWaits = new Set();
+    let interruption = null;
     let usedCpuUnits = 0;
     let usedMemoryGiB = 0;
 
@@ -880,12 +882,15 @@ export async function executeWeightedStepDag(steps, capacity, execute)
                         outcome.dependencyOutcomes ?? outcome.evidence?.dependencies ?? []),
                     dependencyOutcomes: outcome.dependencyOutcomes ?? outcome.evidence?.dependencies ?? []
                 });
-                if (terminalFailureStates.has(outcome.terminalState))
+                if (outcome.terminalState !== 'success' && outcome.terminalState !== 'blocked'
+                    && (entry.runAfterSettled !== true || outcome.reason))
                 {
-                    if (outcome.reason || (outcome.primaryFailureRefs?.length ?? 0) === 0)
-                    {
-                        failures.push({ index, entry, reason: outcome.reason });
-                    }
+                    const reason = outcome.reason ?? new StepTerminalError(
+                        outcome.terminalState, outcome.reasonCode ?? 'step-not-success',
+                        `step DAG failed: ${entry.id}`,
+                        { primaryFailureRefs: outcome.primaryFailureRefs ?? [entry.id] }
+                    );
+                    failures.push({ index, entry, reason });
                 }
             });
 
@@ -903,10 +908,33 @@ export async function executeWeightedStepDag(steps, capacity, execute)
     {
         normalizedCapacity = normalizeCapacity();
         normalizedCapacity.stateConflictPolicy?.assertCurrent?.();
-        if (normalizedCapacity.signal?.aborted)
+        if (normalizedCapacity.signal?.aborted && interruption === null)
         {
+            interruption = normalizedCapacity.signal.reason ?? new StepTerminalError(
+                'cancelled', 'global-interrupt', 'step DAG cancelled');
+            // Active owners settle their own processes. Never bypass finalizers.
             await Promise.allSettled([...active.values()].map((record) => record.promise));
-            throw normalizedCapacity.signal.reason ?? new Error('step DAG cancelled');
+            for (const entry of normalized)
+            {
+                if (states.get(entry.id) !== 'pending'
+                    || entry.runAfterSettled === true || entry.alwaysRunFinalizer === true)
+                {
+                    continue;
+                }
+                states.set(entry.id, 'cancelled');
+                terminalReceipts.set(entry.id, {
+                    schema: 'fsusblog.scheduler.terminal-receipt.v1',
+                    stepId: entry.id,
+                    stepKind: 'physical',
+                    terminalState: 'cancelled',
+                    reasonCode: 'global-interrupt-before-admission',
+                    primaryFailureRefs: [entry.id],
+                    evidenceRef: null,
+                    contentDigest: null,
+                    dependencyOutcomeDigest: digest([]),
+                    dependencyOutcomes: []
+                });
+            }
         }
         let propagatedBlock;
         do
@@ -1147,7 +1175,23 @@ export async function executeWeightedStepDag(steps, capacity, execute)
         }
     }
 
-    failures.sort((left, right) => left.index - right.index);
+    if (interruption === null && normalizeCapacity().signal?.aborted)
+    {
+        interruption = normalizeCapacity().signal.reason ?? new StepTerminalError(
+            'cancelled', 'global-interrupt', 'step DAG cancelled');
+    }
+    failures.sort((left, right) =>
+        Number(left.entry.alwaysRunFinalizer === true) - Number(right.entry.alwaysRunFinalizer === true)
+        || left.index - right.index);
+    if (interruption !== null)
+    {
+        const duplicate = failures.findIndex((failure) => failure.reason === interruption);
+        if (duplicate >= 0)
+        {
+            failures.splice(duplicate, 1);
+        }
+        failures.unshift({ entry: { id: 'global-interrupt' }, reason: interruption });
+    }
     if (failures.length === 0)
     {
         const nonSuccessReceipt = [...terminalReceipts.entries()].find(([, receipt]) =>
@@ -1169,7 +1213,8 @@ export async function executeWeightedStepDag(steps, capacity, execute)
         throw new StepDagExecutionError({
             failures: structuredFailures,
             states,
-            terminalReceipts
+            terminalReceipts,
+            interruption
         });
     }
     return {

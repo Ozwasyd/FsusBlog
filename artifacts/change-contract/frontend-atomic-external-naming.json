@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/frontend-atomic/manifest-entry.mjs",
+                "tools/test/frontend-atomic/manifest-projection.mjs",
+                "tools/test/frontend-atomic/property-model-perf.mjs",
+                "tools/test/frontend-atomic/visual-projection.mjs"
+            ],
+            "reason": "Preserve canonical tool schema, process environment and declaration field spellings at the existing external integration boundary."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/frontend-perf-regression.sh",
+                "tools/test/lanes/frontend-property.sh",
+                "tools/test/lanes/frontend-state-machines.sh"
+            ],
+            "reason": "Preserve the existing Bash source/root environment names consumed by the canonical suite and measurement owner."
+        }
+    ]
+}

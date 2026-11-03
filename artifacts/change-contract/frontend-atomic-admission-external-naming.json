@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/frontend-atomic/manifest-admission.mjs"
+            ],
+            "reason": "Preserve existing canonical manifest, replay, resource and process environment field spellings in the frontend compiler consumer."
+        }
+    ]
+}
