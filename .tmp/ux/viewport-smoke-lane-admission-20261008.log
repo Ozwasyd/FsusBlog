@@ -1,0 +1,2 @@
+[test:unknown] error: bootstrap env missing for namespace 'viewport-2228-20261008' (/workspace/FsusBlog/.tmp/env/viewport-2228-20261008.env); run bootstrap in the same FSUSBLOG_TEST_NAMESPACE
+[test:unknown] diagnostics: .tmp/acceptance/*.log and src/frontend/test-results/playwright are preserved when present

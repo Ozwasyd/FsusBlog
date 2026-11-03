@@ -1,0 +1,53 @@
+{
+  "sourceRevision": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "upstreamSource": "c325c600ea2760156d467bfaa375613879211cd9",
+  "qualificationEligible": false,
+  "observation": "Blog full and critical imports resolve to local generated dist CSS, not direct SCSS. Pre-rebuild existing CSS observations do not qualify candidate source.",
+  "resolver": "src/frontend/scripts/fsusui-local.ts",
+  "imports": [
+    "src/frontend/src/assets/main.css",
+    "src/frontend/src/assets/public-shell-critical.css"
+  ],
+  "preRebuildDist": {
+    "index.css": {
+      "exists": true,
+      "sha256": "4777deff651bb46fd7a420b5dda792d270dc36e14f7dfba39adb06f8e1fc03d1",
+      "bytes": 558074,
+      "hasShortLandscape520": false
+    },
+    "el-public-shell-critical.css": {
+      "exists": true,
+      "sha256": "887b8685174859a35bf1979981027cd505fb9c19cbb82bfc10edc1aa2e12f33c",
+      "bytes": 16753,
+      "hasShortLandscape520": false
+    },
+    "el-fsus-theme.css": {
+      "exists": true,
+      "sha256": "a2ca87ad487bbb0b3fbea08ee7076d6b6ea7f54172c410f65dd2d81e6b12a880",
+      "bytes": 98153,
+      "hasShortLandscape520": false
+    }
+  },
+  "postCanonicalBuild": {
+    "command": "pnpm run build:theme",
+    "exitCode": 0,
+    "sourceHead": "79988a85e5f893a5d06eb9ee499c07c3abc37e39",
+    "originalHeaderSource": "c325c600ea2760156d467bfaa375613879211cd9",
+    "evidenceOwner": "Ozwasyd/FsusUI#828",
+    "outputs": {
+      "index.css": {
+        "sha256": "081d9f1036095d1f7c70326c147e073717888a50570f01686745e3f318f8c74c",
+        "bytes": 558274,
+        "hasShortLandscape520": true,
+        "hasSharedSpace2Padding": true
+      },
+      "el-public-shell-critical.css": {
+        "sha256": "489ffa4cff3a3903dfb9d19e23cdbad084a8e24aa898e3602c5dbe58e35962e0",
+        "bytes": 16953,
+        "hasShortLandscape520": true,
+        "hasSharedSpace2Padding": true
+      }
+    },
+    "qualificationLimit": "Local generated CSS capability only; no standalone critical browser, Blog live-stack, published package or device qualification."
+  }
+}

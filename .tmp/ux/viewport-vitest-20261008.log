@@ -1,0 +1,13 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog/src/frontend
+
+ ✓ ../../tests/frontend/unit/viewport/uxViewportSafeAreaIntegration.test.ts (6 tests) 733ms
+ ✓ ../../tests/frontend/unit/viewport/canonicalViewportSafeArea.test.ts (5 tests) 140ms
+
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+   Start at  03:20:26
+   Duration  1.83s (transform 889ms, setup 109ms, import 108ms, tests 873ms, environment 521ms)
+
+JSON report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.xml

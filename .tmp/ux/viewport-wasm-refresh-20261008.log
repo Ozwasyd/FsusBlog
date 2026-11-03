@@ -1,0 +1,6 @@
+
+> fsusblog-client@0.0.0 ensure:wasm
+> node ../../tools/frontend/ensure-wasm.mjs ensure
+
+[ensure-wasm] receipt fallback=run-canonical-producer: WASM build receipt source identity mismatch: commit
+[ensure-wasm] artifacts are up to date; sealed wasm-build-receipt.json

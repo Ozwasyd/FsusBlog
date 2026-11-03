@@ -1,0 +1,112 @@
+{
+  "purpose": "Retained raw preflight observations; this is not a canonical receipt or release manifest.",
+  "qualificationEligible": false,
+  "sourceRevision": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "artifacts": [
+    {
+      "path": ".tmp/ux/viewport-actual-pr-contract-20261008.log",
+      "sha256": "5fc4ee555790f922924e4a8a9c4f6bb7f60d5ab9f7ac5843c202233732f06ffa",
+      "bytes": 43
+    },
+    {
+      "path": ".tmp/ux/viewport-boundaries-first-attempt-20261008.log",
+      "sha256": "1ab68a15e3f6034c50cb1e5fd0f142b64a0049f9d76df0b10f1d3bad5fc048ca",
+      "bytes": 815
+    },
+    {
+      "path": ".tmp/ux/viewport-canonical-20261008.log",
+      "sha256": "2828e2d69087d9d34f9a12b9ff83f6ab06f9efefe17f31621c4cbc6fc0c07d37",
+      "bytes": 205
+    },
+    {
+      "path": ".tmp/ux/viewport-document-20261008.log",
+      "sha256": "0160d0f15d47dd0f93902cfb27919e9d22f5397eee95219e7d0806d30f1e10b0",
+      "bytes": 203
+    },
+    {
+      "path": ".tmp/ux/viewport-followup-plan-20261008.log",
+      "sha256": "ab57c1102593f9997fb81dd78f39818d964d1c24ef79ec1b5c9151aac34f0e75",
+      "bytes": 266
+    },
+    {
+      "path": ".tmp/ux/viewport-inventory-drift-observation-20261008.json",
+      "sha256": "f805cc3f211182495c28cb384d57f05d09e5b78875033c013b4b92a3644a83f3",
+      "bytes": 924
+    },
+    {
+      "path": ".tmp/ux/viewport-issue-contracts-20261008.json",
+      "sha256": "3414482b84295521575c3497af84322fc1884e582b25a235962d05291d5fc62f",
+      "bytes": 41737
+    },
+    {
+      "path": ".tmp/ux/viewport-local-css-resolver-20261008.json",
+      "sha256": "f9badb27bf2caefdb8f5beb0791c85d06408cf32d0710b994d9090f086ab7bdc",
+      "bytes": 2035
+    },
+    {
+      "path": ".tmp/ux/viewport-node-tests-20261008.log",
+      "sha256": "9a3d9c7d9f7278e1eb104310f42977f7032eea0b20310aca69c1d23c3358b65a",
+      "bytes": 2616
+    },
+    {
+      "path": ".tmp/ux/viewport-paired-upstream-diagnosis-20261008.json",
+      "sha256": "37014f3d7ae21599f716d6a607304cae52807126d64ff296dabe404ced3bc576",
+      "bytes": 11090
+    },
+    {
+      "path": ".tmp/ux/viewport-preflight-20261008.md",
+      "sha256": "55351d9bd72e0b025594b4436560c953d78f246ea2c750f7c5a417155f1429a4",
+      "bytes": 22312
+    },
+    {
+      "path": ".tmp/ux/viewport-smoke-first-attempt-20261008.log",
+      "sha256": "5a2a6f700ada0cc14c9991d0be4ccce93877d311c3ae7514444c2a562a5264aa",
+      "bytes": 783
+    },
+    {
+      "path": ".tmp/ux/viewport-smoke-lane-admission-20261008.log",
+      "sha256": "8fee88b196e4ebacd98a88fac0b4964f17ab477cfdcf25fe841ff5a81939a5a8",
+      "bytes": 310
+    },
+    {
+      "path": ".tmp/ux/viewport-smoke-matrix-first-attempt-20261008.log",
+      "sha256": "cb28ced325ab48c49475bd1f789fdb3eb80912aad1750cd2de746214874247ec",
+      "bytes": 266
+    },
+    {
+      "path": ".tmp/ux/viewport-smoke-pinned-plan-20261008.log",
+      "sha256": "446fde4114011b08aabd86cec24c15605fa7d487ed7143493430f2f985fb1a49",
+      "bytes": 265
+    },
+    {
+      "path": ".tmp/ux/viewport-smoke-second-attempt-20261008.log",
+      "sha256": "7a26160d631d35cd256a3cb42c96e3e0dc93d72404b42f358042d64b18ce3b62",
+      "bytes": 2390
+    },
+    {
+      "path": ".tmp/ux/viewport-smoke-unpinned-plan-20261008.log",
+      "sha256": "83762e26e74626a1adceed613c2c660b67e92d2f5562e847990e1be8120b4e3a",
+      "bytes": 559
+    },
+    {
+      "path": ".tmp/ux/viewport-visual-first-attempt-20261008.log",
+      "sha256": "6b8732605caa4e29377d4c73f9f9e24c6dabfd50946a853859b3a65e6e95c559",
+      "bytes": 758
+    },
+    {
+      "path": ".tmp/ux/viewport-visual-second-attempt-20261008.log",
+      "sha256": "a603b556c37465dc7daaebb5d96ad76f6540efef0796f3150ec94c31b2adcff2",
+      "bytes": 3006
+    },
+    {
+      "path": ".tmp/ux/viewport-vitest-20261008.log",
+      "sha256": "25168e8133e85daa7711f6385e61280ee7703805c91448cb390452965d8baeb0",
+      "bytes": 582
+    },
+    {
+      "path": ".tmp/ux/viewport-wasm-refresh-20261008.log",
+      "sha256": "5c4e5c6593a9892a6a6b3a607bed7db5a86557124db02f1dd94bc96284d67b59",
+      "bytes": 267
+    }
+  ]
+}
