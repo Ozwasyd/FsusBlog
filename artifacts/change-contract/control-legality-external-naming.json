@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/frontend/control-legality.json",
+                "tests/frontend/package-lock.json",
+                "tests/frontend/package.json",
+                "tests/governance/frontend-test-layout.json",
+                "tests/tools/package-lock.json",
+                "tests/tools/package.json"
+            ],
+            "reason": "Preserve the exact existing JSON schema, npm lock/package and ownership-manifest field spellings consumed by their canonical tooling. This naming declaration grants no runtime or control-registration acceptance."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "The canonical generated test matrix retains its registered search UTF-8 scalar owner identifiers while adding control-admission input/output declarations. Only the generator-owned document path is bound here; no search behavior or authority is changed."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/control-legality/admission.mjs",
+                "tools/frontend/control-legality/source.mjs"
+            ],
+            "reason": "Preserve Node process and repository tooling environment spellings at the canonical source-admission boundary. Internal option names remain repository governed; this declaration changes no authority or failure gate."
+        }
+    ]
+}

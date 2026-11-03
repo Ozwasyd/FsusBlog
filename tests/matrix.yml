@@ -1013,17 +1013,17 @@ commandGroups:
                     access: "read"
                     stage: "concurrent"
                     reason: "Audits the FsusUI source boundary without shared output."
-                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json", "config/frontend/control-legality.json", "tools/frontend/control-legality", "config/contracts/behavior-contracts.json", "tests/matrix.yml"]
                     ownedOutputs: []
                     dependsOn: []
                     resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
                   - id: "views-constraints:fsusui-boundary-fixture"
                     script: "check:fsusui-boundary-fixture"
-                    access: "read"
+                    access: "write"
                     stage: "concurrent"
-                    reason: "Runs isolated boundary fixtures without repository output."
-                    consumedInputs: ["tests/frontend/fixtures", "src/frontend/package.json"]
-                    ownedOutputs: []
+                    reason: "Runs boundary and default-deny mutations in process-unique disposable repositories."
+                    consumedInputs: ["tests/frontend/fixtures", "tests/tools/control-legality.test.mjs", "tools/frontend/control-legality", "src/frontend/package.json"]
+                    ownedOutputs: ["os-temp://fsus-control-legality-unique"]
                     dependsOn: []
                     resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
             - id: "public-hot-read-fastpath"

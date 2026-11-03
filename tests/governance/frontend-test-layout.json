@@ -42,6 +42,7 @@
             "files": [
                 "tests/frontend/README.md",
                 "tests/frontend/package.json",
+                "tests/frontend/package-lock.json",
                 "tests/frontend/archive-sticky-geometry-evidence.json",
                 "tests/frontend/archive-sticky-geometry-governance-handoff.json",
                 "tests/frontend/internal-selector-migration-evidence.json",

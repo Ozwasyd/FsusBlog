@@ -3,7 +3,10 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { checkControlLegality } from '@fsusblog/control-legality/admission';
+
 const { verifyCandidateBoundaryInput } = await import(new URL('../../../../tools/dependencies/verify-fsusui-candidate.mjs', import.meta.url));
+const { resolveLocalFsusUiRepositoryRoot } = await import(new URL('../../../../src/frontend/scripts/fsusui-root.mjs', import.meta.url));
 // Boundary contract: src/frontend/src/fsusui/README.md
 
 const defaultRepoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -662,6 +665,44 @@ checkBoundaryDoc();
 checkThemeAdapterContract();
 checkAdminEmptyStateDelegation();
 
+// The public-source/default-deny model has one production entry: this gate.
+// Existing import/selector checks retain their narrow responsibilities above.
+// A missing public package or execution receipt never enables a legacy bypass.
+try
+{
+    const argument = (flag) =>
+    {
+        const index = process.argv.indexOf(flag);
+        return index < 0 ? null : process.argv[index + 1];
+    };
+    const observations = process.argv.flatMap((value, index) => value === '--test-observation' ? [process.argv[index + 1]] : []);
+    const inventory = checkControlLegality({ repositoryRoot: repoRoot, parserRoot: defaultRepoRoot,
+        fsusUIRoot: resolveLocalFsusUiRepositoryRoot({ repositoryRoot: defaultRepoRoot,
+            override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT }),
+        executionEvidence: { receipt: argument('--test-receipt'), plan: argument('--test-plan'),
+            staticAdmissionReceipt: argument('--static-admission-receipt'), observations } });
+    const outputIndex = process.argv.indexOf('--inventory');
+    if (outputIndex >= 0)
+    {
+        const output = process.argv[outputIndex + 1];
+        if (!output)
+        {
+            throw new Error('--inventory requires an output path');
+        }
+        fs.writeFileSync(path.resolve(output), JSON.stringify(inventory, null, 2) + '\n');
+    }
+    for (const item of [...inventory.errors, ...inventory.reports.flatMap((report) => report.errors)])
+    {
+        warnings.push({ file: `${item.path ?? 'control-legality'}:${item.line ?? 1}:${item.column ?? 1}`,
+            rule: `control-legality:${item.controlKind ?? 'registration'}`, detail: item.reason,
+            resolvedSource: item.resolvedSource ?? null });
+    }
+}
+catch (error)
+{
+    warnings.push({ file: 'control-legality:1:1', rule: 'control-legality:admission', detail: error.message });
+}
+
 if (warnings.length === 0)
 {
     console.log('[fsusui-boundary] ok warnings=0 strict=' + strict);
@@ -671,7 +712,7 @@ if (warnings.length === 0)
 console.log(`[fsusui-boundary] warnings=${warnings.length} strict=${strict}`);
 for (const item of warnings)
 {
-    console.log(`- ${item.file}: ${item.rule}: ${item.detail}`);
+    console.log(`- ${item.file}: ${item.rule}: ${item.detail}${item.resolvedSource ? ` source=${JSON.stringify(item.resolvedSource)}` : ''}`);
 }
 
 process.exit(1);

@@ -1,5 +1,36 @@
 # FsusUI Adapter Boundary
 
+The canonical `check:fsusui-boundary` entry also owns production control legality.
+Its AST source resolver is exported by the private tooling package
+`@fsusblog/control-legality/source`; it follows imports, aliases, re-exports,
+the actual Vite component resolver and public FsusUI entry points. A component
+prefix is never proof of ownership. Local and genuine published identities must
+agree; missing package declarations or unknown source syntax fail closed.
+
+`config/frontend/control-legality.json` is the sole registration source. It is
+currently empty deliberately: existing controls are not grandfathered in.
+Native occurrences bind offset, line/column and node digest; product compositions
+bind one component definition and retain separately checked native descendants.
+Registration also requires explicit product/browser responsibilities and executable
+test IDs derived from the canonical matrix/behavior catalog. Current execution
+evidence must pass the existing independent behavior evidence verifier. Pure
+validator fixtures are not browser or product acceptance receipts.
+
+For a source-bound machine inventory, run the same entry with
+`--inventory <task-owned-output.json>`. The command still fails when source,
+registration, published parity or execution gates are unresolved; inventory output
+does not qualify the product. The existing import/private-selector rules remain
+narrow checks within this entry, rather than a second control allowlist.
+
+Execution inputs use `--test-plan`, `--test-receipt`, repeatable `--test-observation`,
+and `--static-admission-receipt`. These are the existing canonical behavior
+evidence producer/verifier artifacts, bound to the current commit and worktree.
+Supplying JSON with a success flag cannot grant execution or registration.
+
+Tool setup uses the repository-owned locks: `npm ci --prefix tests/frontend`,
+`npm ci --prefix tests/tools`, and `npm ci --prefix tools/test-matrix/schema-validator`.
+The existing boundary fixture entry runs the control mutation suite as well.
+
 `src/frontend/src/fsusui/` is the FsusBlog adapter boundary for FsusUI: code here may import `@ozwasyd/element-plus` and package subpaths, normalize them into Blog-owned names, and expose stable application contracts. `src/frontend/src/components/ui/` is the Blog shell layer; its files may compose FsusUI-backed adapters, but props, emits, slots, and copy must stay shaped around FsusBlog workflows rather than becoming a second FsusUI barrel or package-runtime internals.
 
 ## Adapter API
