@@ -279,6 +279,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AdminAssetsView' });
 import { computed, onMounted, ref, shallowRef } from 'vue';
 
 import {
@@ -292,18 +293,15 @@ import AdminInlineEmptyState from '@/components/admin/AdminInlineEmptyState.vue'
 import { FsusUiTaskPageHeader, FsusUiSettingsSection } from "@/fsusui";
 import { confirmDanger, toast } from '@/fsusui/feedback';
 import { Delete, Refresh, Search } from '@/fsusui/icons';
+import {
+    FsusUiTableV2FixedDir,
+    FsusUiTableV2SortOrder,
+    type FsusUiTableV2Column,
+    type FsusUiTableV2SortState
+} from '@/fsusui/tableV2';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
 
-type AssetTableSortOrder = 'asc' | 'desc';
-interface TableV2Column<T> {
-    key: string;
-    dataKey?: keyof T | string;
-    title?: string;
-    width: number;
-    align?: 'left' | 'center' | 'right';
-    fixed?: true | 'left' | 'right';
-    sortable?: boolean;
-}
+type AssetTableSortOrder = FsusUiTableV2SortOrder;
 
 const assets = shallowRef<AssetLibraryItemResponse[]>([]);
 const loading = ref(false);
@@ -314,13 +312,13 @@ const orphanOnly = ref(false);
 const reindexArticleId = ref('');
 const assetSortBy = ref<{ key: 'referenceCount'; order: AssetTableSortOrder; } | null>(null);
 
-const assetTableColumns: TableV2Column<AssetLibraryItemResponse>[] = [
+const assetTableColumns: FsusUiTableV2Column<AssetLibraryItemResponse>[] = [
     { key: 'id', dataKey: 'id', title: 'ID', width: 96, align: 'center' },
     { key: 'file', dataKey: 'url', title: '文件', width: 420 },
     { key: 'referenceCount', dataKey: 'referenceCount', title: '引用', width: 120, align: 'center', sortable: true },
     { key: 'sourceArticleId', dataKey: 'sourceArticleId', title: '来源文章', width: 130, align: 'center' },
     { key: 'updatedAt', dataKey: 'updatedAt', title: '更新时间', width: 190 },
-    { key: 'actions', title: '管理', width: 150, align: 'right', fixed: 'right' }
+    { key: 'actions', title: '管理', width: 150, align: 'right', fixed: FsusUiTableV2FixedDir.RIGHT }
 ];
 
 const showMessageBoxError = (error: unknown): void =>
@@ -341,9 +339,9 @@ const filteredAssets = computed(() =>
         return !text || asset.url.toLowerCase().includes(text) || (asset.sha256 ?? '').toLowerCase().includes(text);
     });
 });
-const assetSortState = computed<Record<string, AssetTableSortOrder>>(() =>
+const assetSortState = computed<FsusUiTableV2SortState>(() =>
 {
-    const state: Record<string, AssetTableSortOrder> = {};
+    const state: FsusUiTableV2SortState = {};
     if (assetSortBy.value)
     {
         state[assetSortBy.value.key] = assetSortBy.value.order;
@@ -361,7 +359,7 @@ const sortedFilteredAssets = computed(() =>
 
     return rows.sort((left, right) =>
     {
-        const direction = sort.order === 'asc' ? 1 : -1;
+        const direction = sort.order === FsusUiTableV2SortOrder.ASC ? 1 : -1;
         return (left.referenceCount - right.referenceCount) * direction;
     });
 });
@@ -389,7 +387,7 @@ const handleAssetColumnSort = ({ key, order }: { key: string | number | symbol; 
 
     assetSortBy.value = {
         key: 'referenceCount',
-        order: order ?? 'asc'
+        order: order ?? FsusUiTableV2SortOrder.ASC
     };
 };
 
@@ -413,8 +411,15 @@ const loadAssets = async (): Promise<void> =>
 
 const parseArticleId = (): number | null =>
 {
-    const parsed = Number.parseInt(reindexArticleId.value.trim(), 10);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    const text = reindexArticleId.value.trim();
+    if (!/^\d+$/.test(text))
+    {
+        return null;
+    }
+
+    // Keep leading-zero decimal IDs valid within the route's Int32 range.
+    const parsed = Number(text);
+    return Number.isSafeInteger(parsed) && parsed > 0 && parsed <= 2147483647 ? parsed : null;
 };
 
 const reindexCurrentArticle = async (): Promise<void> =>
