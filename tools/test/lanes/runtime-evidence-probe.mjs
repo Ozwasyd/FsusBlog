@@ -8,47 +8,66 @@ import { performance } from 'node:perf_hooks';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { validateMeasurementNoiseReceipt } from '../measurement-noise-envelope.mjs';
-import { bindReleaseReliabilityEvidence } from '../release-reliability-evidence-binding.mjs';
-
 import { fetchRouteSample, producerRouteIds, routeCatalogDigest, routeContract } from './runtime-http-route-contract.mjs';
-import {
+
+const { validateMeasurementNoiseReceipt } = await import(new URL('../measurement-noise-envelope.mjs', import.meta.url).href);
+const { bindReleaseReliabilityEvidence, readReleaseReliabilityEvidenceBinding } = await import(
+    new URL('../release-reliability-evidence-binding.mjs', import.meta.url).href
+);
+const {
     decodeAedsFrame,
     decodeArticlePage,
     decodeArticleDetail,
     decodeTaxonomyList,
     decodeSearchManifest,
     decodeSearchShard,
-    decodeCommentArticleCursor,
-    decodePublicAotPayload
-} from '../../data-scale/aeds-decoders.mjs';
-import {
-    DATA_SCALE_SEMANTIC_PROOF_SCHEMA,
-    REQUIRED_KINDS,
+    decodeCommentArticleCursor
+} = await import(new URL('../../data-scale/aeds-decoders.mjs', import.meta.url).href);
+const {
     verifyDatabaseProof,
     verifyHttpPayloadProof,
     verifySearchProof,
     verifyAotProof,
     verifyHotReadProof,
     buildSemanticProofReceipt
-} from '../../data-scale/semantic-proof.mjs';
-import {
+} = await import(new URL('../../data-scale/semantic-proof.mjs', import.meta.url).href);
+const {
     computeExpectedTaxonomyModel,
     verifyTaxonomyProjections,
     verifyTaxonomyResponses,
     buildTaxonomyFrameVersionReceipt,
     buildTaxonomyProofReceipt
-} from '../../data-scale/taxonomy-projection.mjs';
-import {
+} = await import(new URL('../../data-scale/taxonomy-projection.mjs', import.meta.url).href);
+const {
     computeExpectedSearchModel,
     executeProductSearchHttpApi,
     materializeSearchEvidenceFromLiveIndex
-} from '../../data-scale/search-evidence.mjs';
-import {
+} = await import(new URL('../../data-scale/search-evidence.mjs', import.meta.url).href);
+const {
     rebuildDataScalePublicAot,
     resolveDataScaleAotRoot,
     DATA_SCALE_AOT_REBUILD_COMMAND
-} from '../../data-scale/aot-evidence.mjs';
+} = await import(new URL('../../data-scale/aot-evidence.mjs', import.meta.url).href);
+
+const { buildOpenLoopLoadSchedule, dispatchOpenLoopLoadSchedule, validateLoadArrivalPolicy } = await import(
+    new URL('../open-loop-load-schedule.mjs', import.meta.url).href
+);
+
+const { buildOpenLoopLoadRouteStatistics, validateLoadRouteStatisticsPolicy, verifyOpenLoopLoadRouteStatistics } = await import(
+    new URL('../open-loop-load-route-statistics.mjs', import.meta.url).href
+);
+
+const { assertLoadTransportCohort, createOpenLoopLoadClientTransport, validateLoadTransportPolicy } = await import(
+    new URL('../open-loop-load-client-transport.mjs', import.meta.url).href
+);
+const { canonicalJson, digestCanonical, sealContentDigest } = await import(new URL('../attempt-provenance.mjs', import.meta.url).href);
+const { readQualifiedRuntimeEnvironment } = await import(new URL('../release-reliability-runtime-environment.mjs', import.meta.url).href);
+const { buildLoadRequestObservations, buildLoadRequestSample, buildLoadResourceObservability, observeLoadRequestStart,
+    observeLoadTransportError, readLoadTransportResponseFacts, validateLoadWorkerRegistration, verifyLoadRequestObservations }
+    = await import(new URL('../load-request-observations.mjs', import.meta.url).href);
+
+const { createOpenLoopLoadGeneratorCollector, validateLoadGeneratorObservationPolicy, verifyOpenLoopLoadGeneratorObservations }
+    = await import(new URL('../open-loop-load-generator-observations.mjs', import.meta.url).href);
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
@@ -219,6 +238,106 @@ export function readLoadProfilePolicy(profile)
     };
 }
 
+function readExplicitLoadProfilePolicy(profile, field, policyText)
+{
+    if (typeof profile !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(profile)
+        || typeof policyText !== 'string')
+    {
+        throw new Error('arrival policy requires a canonical profile identity and actual policy text');
+    }
+    const profileDeclarations = policyText.split(/\r?\n/u).filter((line) => line === `  ${profile}:`);
+    if (profileDeclarations.length !== 1)
+    {
+        throw new Error('arrival policy requires exactly one canonical profile declaration');
+    }
+    const section = yamlSection(yamlSection(policyText, 'loadProfiles'), profile, 2);
+    const declarations = [...section.matchAll(new RegExp(`^ {4}${field}: (.+)$`, 'gmu'))];
+    if (declarations.length !== 1)
+    {
+        throw new Error(`load profile ${profile} requires one explicit ${field} in ${perfPolicyRelativeFile}; closed-loop fields and global budgets cannot supply it`);
+    }
+    let arrival;
+    try
+    {
+        arrival = JSON.parse(declarations[0][1]);
+    }
+    catch (error)
+    {
+        throw new Error(`load profile ${profile} ${field} must be one inline JSON policy object`, { cause: error });
+    }
+    return { value: arrival, section };
+}
+
+export function readLoadArrivalPolicy(profile, { policyText = readPerfPolicy().text } = {})
+{
+    const { value, section } = readExplicitLoadProfilePolicy(profile, 'arrivalPolicy', policyText);
+    const policy = validateLoadArrivalPolicy(value, safeBinaryRouteIds);
+    if (policy.profileId !== profile || policy.durationMs !== yamlScalarMap(section).durationMs)
+    {
+        throw new Error('arrival profile identity or duration differs from the canonical load profile');
+    }
+    return policy;
+}
+
+export function readLoadRouteStatisticsPolicy(profile, schedule, { policyText = readPerfPolicy().text } = {})
+{
+    const { value } = readExplicitLoadProfilePolicy(profile, 'routeStatisticsPolicy', policyText);
+    if (schedule.policy.profileId !== profile)
+    {
+        throw new Error('route statistics policy profile differs from its actual arrival schedule');
+    }
+    return validateLoadRouteStatisticsPolicy(value, schedule, safeBinaryRouteIds);
+}
+
+export function readLoadTransportPolicy(profile, { policyText = readPerfPolicy().text } = {})
+{
+    const { value } = readExplicitLoadProfilePolicy(profile, 'transportPolicy', policyText);
+    return validateLoadTransportPolicy(value);
+}
+
+export function readLoadGeneratorPolicy(profile, { policyText = readPerfPolicy().text } = {})
+{
+    const { value } = readExplicitLoadProfilePolicy(profile, 'generatorObservationPolicy', policyText);
+    return validateLoadGeneratorObservationPolicy(value);
+}
+
+function readLoadTransportRunBinding()
+{
+    const binding = readReleaseReliabilityEvidenceBinding({ repositoryRoot: root });
+    const attemptId = process.env.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID;
+    if (!binding || typeof attemptId !== 'string' || !/^[a-z0-9][a-z0-9_.-]*$/u.test(attemptId))
+    {
+        throw new Error('open-loop transport requires the held release identity and explicit current lifecycle attempt ID before HTTP');
+    }
+    const environment = readQualifiedRuntimeEnvironment({ repositoryRoot: root, namespace, runId: binding.runId });
+    if (environment.FSUSBLOG_DEBUG_BACKEND_URL !== baseUrl)
+    {
+        throw new Error('open-loop endpoint differs from the run-bound bootstrap environment');
+    }
+    // This existing bootstrap binding supplies an endpoint, never a native runtime lease.
+    return { runId: binding.runId, invocationId: binding.invocationId, attemptId,
+        backendOrigin: environment.FSUSBLOG_DEBUG_BACKEND_URL };
+}
+
+function currentLoadSourceSha()
+{
+    const observation = spawnSync('git', ['rev-parse', '--verify', 'HEAD'], {
+        cwd: root, encoding: 'utf8', timeout: 5000,
+        env: { PATH: process.env.PATH, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: os.devNull }
+    });
+    const sourceSha = observation.stdout?.trim();
+    if (observation.error || observation.status !== 0 || !/^[0-9a-f]{40}$/u.test(sourceSha ?? ''))
+    {
+        throw new Error('open-loop producer cannot observe its actual current source SHA');
+    }
+    const binding = readReleaseReliabilityEvidenceBinding({ repositoryRoot: root });
+    if (binding && binding.sourceState.commit !== sourceSha)
+    {
+        throw new Error('open-loop current source differs from its held release reliability identity');
+    }
+    return sourceSha;
+}
+
 function envOverrideInt(name)
 {
     if (process.env[name] === undefined || process.env[name] === '')
@@ -255,7 +374,8 @@ function resolveLoadProfilePolicy(profile)
 
 function thresholdCheck(metric, actual, operator, threshold)
 {
-    const passed = operator === '>=' ? actual >= threshold : actual <= threshold;
+    const passed = Number.isFinite(actual) && Number.isFinite(threshold)
+        && (operator === '>=' ? actual >= threshold : actual <= threshold);
     return {
         metric,
         actual,
@@ -265,7 +385,7 @@ function thresholdCheck(metric, actual, operator, threshold)
     };
 }
 
-function evaluateLoadProfileThresholds(metrics, thresholds)
+export function evaluateLoadProfileThresholds(metrics, thresholds)
 {
     const checks = [
         thresholdCheck('p95Ms', metrics.p95Ms, '<=', thresholds.maxP95Ms),
@@ -457,13 +577,18 @@ async function runRouteContractProbe(routeIds, options = {})
     }
 
     await Promise.all(Array.from({ length: Math.min(concurrency, iterations) }, () => worker()));
+    return summarizeRouteContractProbe(samples, started, concurrency);
+}
+
+function summarizeRouteContractProbe(samples, started, concurrency, requestBaseUrl = baseUrl)
+{
     const durationMs = performance.now() - started;
     const failures = samples.filter((sample) => !sample.ok);
     const latencies = samples.filter((sample) => sample.ok).map((sample) => sample.latencyMs);
     const bytes = samples.reduce((total, sample) => total + sample.bodyBytes, 0);
     const cacheSignals = samples.filter((sample) => sample.xCache || sample.etag || sample.cacheControl).length;
     const probe = {
-        baseUrl,
+        baseUrl: requestBaseUrl,
         namespace,
         measurementSource: 'runtime-http-probe', routeContractDigest: routeCatalogDigest(),
         generatedAt: new Date().toISOString(),
@@ -484,6 +609,267 @@ async function runRouteContractProbe(routeIds, options = {})
         status: failures.length === 0 ? 'ok' : 'failed', samples, failures
     };
     return attachExtendedObservability(probe);
+}
+
+export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sourceSha, transportPolicy, runBinding,
+    workerRegistration, requestBaseUrl = baseUrl, signal, onTransportObservation = () =>
+    {}, onMeasurementStart = () =>
+    {}, onMeasurementEnd = () =>
+    {} })
+{
+    validateLoadRouteStatisticsPolicy(routePolicy, schedule, safeBinaryRouteIds);
+    if (typeof sourceSha !== 'string' || !/^[0-9a-f]{40}$/u.test(sourceSha))
+    {
+        throw new Error('open-loop producer requires an explicit full source SHA before HTTP');
+    }
+    validateLoadTransportPolicy(transportPolicy);
+    if (schedule.policy.requestTimeoutMs > 60_000
+        || [onTransportObservation, onMeasurementStart, onMeasurementEnd].some((port) => typeof port !== 'function'))
+    {
+        throw new Error('open-loop transport requires its supported request timeout and synchronous collector port before HTTP');
+    }
+    const registeredIssuer = validateLoadWorkerRegistration(workerRegistration);
+    const observations = [];
+    const requestTransports = [];
+    const requestContexts = new Map();
+    let requestSequence = 0;
+    const transport = await createOpenLoopLoadClientTransport({ policy: transportPolicy, endpoint: requestBaseUrl,
+        runBinding, headers: defaultHeaders, onObservation: (observation) =>
+        {
+            observations.push(observation);
+            onTransportObservation(observation);
+        } });
+    const started = performance.now();
+    let result;
+    let measurementStart;
+    let measurementEnd;
+    try
+    {
+        result = await dispatchOpenLoopLoadSchedule(schedule, { signal,
+            onMeasurementStart: (window) =>
+            {
+                measurementStart = window;
+                return onMeasurementStart(Object.freeze({ ...window, transportIdentity: transport.identity,
+                    transportSnapshot: transport.snapshot() }));
+            },
+            onMeasurementEnd: (window) =>
+            {
+                measurementEnd = window;
+                return onMeasurementEnd(Object.freeze({ ...window, transportIdentity: transport.identity,
+                    transportSnapshot: transport.snapshot() }));
+            }, request: async (arrival, options) =>
+            {
+                const context = observeLoadRequestStart(arrival, registeredIssuer, requestSequence++);
+                const actualRequest = { ...context, signal: options.signal, finishedMonotonicMs: null, rawSample: null };
+                requestContexts.set(arrival.sampleId, actualRequest);
+                let result;
+                try
+                {
+                    result = await transport.request(arrival, options);
+                }
+                finally
+                {
+                    actualRequest.finishedMonotonicMs = performance.now();
+                }
+                const { transport: actualTransport, transportFailureStage, ...sample } = result;
+                actualRequest.rawSample = sample;
+                requestTransports.push({ sampleId: arrival.sampleId, routeId: arrival.routeId,
+                    transport: actualTransport, failureStage: transportFailureStage });
+                // The payload oracle remains its exact nine-field contract. Socket facts stay in a bound sidecar.
+                return sample;
+            } });
+    }
+    finally
+    {
+        await transport.close();
+    }
+    const headers = observations.filter((observation) => observation.type === 'response-headers').map((observation) => observation.transport);
+    if (headers.length)
+    {
+        assertLoadTransportCohort(transport.identity, headers);
+    }
+    const transportEvidence = sealContentDigest({ schema: 'fsusblog.release-load-transport-evidence.v1',
+        identity: transport.identity, observations, requestTransports: requestTransports.sort((left, right) => left.sampleId.localeCompare(right.sampleId)),
+        finalSnapshot: transport.snapshot(), runtimeLeaseVerified: false, qualificationEligible: false });
+    const measurementWindow = sealContentDigest({ schema: 'fsusblog.release-load-source-window.v1',
+        ...measurementStart, ...measurementEnd, qualificationEligible: false });
+    const loadSamples = [];
+    const unavailableSamples = [];
+    const expectedRequests = [];
+    for (const record of result.timeline.records.filter((entry) => entry.dispatchedAtMs !== null))
+    {
+        const context = requestContexts.get(record.sampleId);
+        expectedRequests.push({ sampleId: record.sampleId, workerId: registeredIssuer.workerId,
+            sequence: context.sequence, path: routeContract(record.routeId).pathTemplate });
+        const raw = context.rawSample;
+        let response = { httpStatus: null, bytes: null, contentType: null, frameType: raw?.frameType ?? null };
+        const terminalEvents = observations.filter((entry) => entry.type === 'request-completed' && entry.sampleId === record.sampleId);
+        const responseFacts = terminalEvents.length === 1 ? terminalEvents[0].responseFacts : null;
+        const terminalControl = record.outcome === 'cancelled' ? 'cancelled' : record.outcome === 'timed-out' ? 'timeout' : 'completed';
+        const failureEvents = observations.filter((entry) => entry.type === 'request-error' && entry.sampleId === record.sampleId);
+        const transportFailureFacts = failureEvents.length === 1 ? failureEvents[0].failureFacts : null;
+        const reason = context.signal.reason;
+        const error = transportFailureFacts === null && terminalControl !== 'completed' && reason instanceof Error
+            ? observeLoadTransportError(reason, terminalControl === 'timeout' ? 'deadline' : 'scenario-cancel') : null;
+        try
+        {
+            if (failureEvents.length > 1)
+            {
+                throw new Error('request has duplicate transport failure observations');
+            }
+            if (terminalEvents.length !== 1 || transportFailureFacts !== null
+                && canonicalJson(failureEvents[0].responseFacts) !== canonicalJson(responseFacts))
+            {
+                throw new Error('request lacks one unchanged actual terminal response observation');
+            }
+            response = readLoadTransportResponseFacts(responseFacts, raw);
+            loadSamples.push(buildLoadRequestSample({ ...context, routeSample: raw, response, terminalControl, error, transportFailureFacts }));
+        }
+        catch (failure)
+        {
+            // Preserve every real request and raw failure; missing transport facts are never zero-filled.
+            unavailableSamples.push({ sampleId: record.sampleId, workerId: registeredIssuer.workerId, sequence: context.sequence,
+                startedMonotonicMs: context.startedMonotonicMs, finishedMonotonicMs: context.finishedMonotonicMs,
+                rawSample: raw, terminalControl, response, responseFacts, error, transportFailureFacts, failureEvents, reason: failure.message });
+        }
+    }
+    const requestAvailability = sealContentDigest({ schema: 'fsusblog.load-request-availability.v1', registeredIssuer,
+        expectedRequests, unavailableSamples, complete: unavailableSamples.length === 0,
+        nativeWorkerAuthorityVerified: false, qualificationEligible: false });
+    const loadRequestObservations = requestAvailability.complete ? buildLoadRequestObservations({ samples: loadSamples,
+        expectedRequests }) : null;
+    if (loadRequestObservations)
+    {
+        verifyLoadRequestObservations(loadRequestObservations, { samples: loadSamples, expectedRequests });
+    }
+    const samples = result.timeline.records.filter((record) => record.sample !== null).map((record) => record.sample);
+    const inputs = { schedule, timeline: result.timeline, routePolicy, expectedRouteIds: safeBinaryRouteIds, sourceSha };
+    const routeStatistics = buildOpenLoopLoadRouteStatistics(inputs);
+    verifyOpenLoopLoadRouteStatistics(routeStatistics, inputs);
+    const candidateBinding = sealContentDigest({ schema: 'fsusblog.release-load-source-candidate.v1', sourceSha,
+        routeStatisticsIdentity: routeStatistics.candidateIdentity, routeStatisticsDigest: routeStatistics.contentDigest,
+        policyDigest: digestCanonical({ arrivalPolicyDigest: schedule.policyDigest,
+            routePolicyDigest: routeStatistics.routePolicyDigest, transportPolicyDigest: digestCanonical(transportPolicy) }),
+        routeCatalogDigest: routeStatistics.routeCatalogDigest, scheduleDigest: schedule.contentDigest,
+        timelineDigest: result.timeline.contentDigest,
+        measurementWindowDigest: measurementWindow.contentDigest,
+        requestAvailabilityDigest: requestAvailability.contentDigest,
+        loadRequestObservationsDigest: loadRequestObservations?.contentDigest ?? null,
+        transportIdentityDigest: transport.identity.contentDigest, transportEvidenceDigest: transportEvidence.contentDigest,
+        runtimeLeaseVerified: false, qualificationEligible: false });
+    const probe = summarizeRouteContractProbe(samples, started, schedule.policy.maximumInFlight, requestBaseUrl);
+    return { ...probe, status: probe.status === 'ok' && routeStatistics.passed
+            && requestAvailability.complete && loadRequestObservations.observationsComplete ? 'ok' : 'failed',
+    openLoop: result, routeStatistics, transportEvidence, measurementWindow, requestAvailability, loadRequestObservations,
+    candidateBinding, candidateIdentity: candidateBinding.contentDigest,
+    qualificationEligible: false };
+}
+
+/** Compose the actual canonical probe and owned collector without granting native authority. */
+export async function runOpenLoopLoadGeneratorProbe(schedule, { generatorPolicy, backendIdentity, ...options })
+{
+    for (const name of ['onMeasurementStart', 'onMeasurementEnd', 'onTransportObservation'])
+    {
+        if (options[name] !== undefined && typeof options[name] !== 'function')
+        {
+            throw new Error(`${name} requires its synchronous callback before HTTP`);
+        }
+    }
+    const collector = createOpenLoopLoadGeneratorCollector({ policy: generatorPolicy, schedule,
+        sourceSha: options.sourceSha, backendIdentity });
+    let collectionFailure = null;
+    let generatorObservations = null;
+    let generatorValidation;
+    function synchronousPort(name, value)
+    {
+        const port = options[name];
+        if (port === undefined)
+        {
+            return;
+        }
+        if (typeof port !== 'function')
+        {
+            throw new Error(`${name} requires its synchronous callback`);
+        }
+        const returned = port(value);
+        if (returned && typeof returned.then === 'function')
+        {
+            throw new Error(`${name} must complete synchronously`);
+        }
+    }
+    function collect(name, value)
+    {
+        if (collectionFailure)
+        {
+            return;
+        }
+        try
+        {
+            collector[name](value);
+        }
+        catch (error)
+        {
+            collectionFailure = error.message;
+            collector.dispose();
+        }
+    }
+    let probe;
+    try
+    {
+        probe = await runOpenLoopRouteContractProbe(schedule, { ...options,
+            onMeasurementStart: (value) =>
+            {
+                // Admission failure still refuses before the first actual request.
+                collector.onMeasurementStart(value);
+                synchronousPort('onMeasurementStart', value);
+            },
+            onMeasurementEnd: (value) =>
+            {
+                collect('onMeasurementEnd', value);
+                synchronousPort('onMeasurementEnd', value);
+            },
+            onTransportObservation: (value) =>
+            {
+                // Preserve the entire actual ledger and request cleanup on collector failure.
+                collect('onTransportObservation', value);
+                synchronousPort('onTransportObservation', value);
+            } });
+        if (!collectionFailure)
+        {
+            const inputs = { sourceSha: options.sourceSha, schedule, timeline: probe.openLoop.timeline,
+                measurementWindow: probe.measurementWindow, transportEvidence: probe.transportEvidence,
+                policy: generatorPolicy, generatorIdentity: collector.identity };
+            try
+            {
+                generatorObservations = collector.finish(inputs);
+                generatorValidation = verifyOpenLoopLoadGeneratorObservations(generatorObservations, inputs);
+            }
+            catch (error)
+            {
+                collectionFailure = error.message;
+            }
+        }
+    }
+    finally
+    {
+        collector.dispose();
+    }
+    if (collectionFailure)
+    {
+        generatorValidation = { passed: false, generatorPassed: false, qualificationEligible: false,
+            failureKind: 'infra.load-generator-collector-unavailable', reason: collectionFailure };
+    }
+    const generatorEvidence = sealContentDigest({ schema: 'fsusblog.release-load-generator-source-evidence.v1',
+        identity: collector.identity, observations: generatorObservations, validation: generatorValidation,
+        status: generatorObservations ? 'observed' : 'probe-failed', reason: collectionFailure,
+        runtimeLeaseVerified: false, qualificationEligible: false });
+    const candidateBinding = sealContentDigest({ ...probe.candidateBinding,
+        policyDigest: digestCanonical({ loadPolicyDigest: probe.candidateBinding.policyDigest,
+            generatorPolicyDigest: collector.identity.policyDigest }),
+        generatorIdentityDigest: collector.identity.contentDigest, generatorEvidenceDigest: generatorEvidence.contentDigest });
+    return { ...probe, serverProbeStatus: probe.status,
+        status: probe.status === 'ok' && generatorValidation.passed ? 'ok' : 'failed',
+        generatorEvidence, candidateBinding, candidateIdentity: candidateBinding.contentDigest, qualificationEligible: false };
 }
 
 async function runHttpProbe(paths, options = {})
@@ -736,52 +1122,6 @@ function runDocker(args)
         return { ok: false, error: (result.stderr || result.stdout || `docker ${args.join(' ')} failed`).trim() };
     }
     return { ok: true, stdout: result.stdout.trim() };
-}
-
-function spawnCommand(command, args, options = {})
-{
-    const child = spawn(command, args, {
-        cwd: options.cwd ?? root,
-        env: options.env ?? process.env,
-        stdio: ['ignore', 'pipe', 'pipe']
-    });
-    const chunks = { stdout: '', stderr: '' };
-    child.stdout.setEncoding('utf8');
-    child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (chunk) =>
-    {
-        chunks.stdout += chunk;
-    });
-    child.stderr.on('data', (chunk) =>
-    {
-        chunks.stderr += chunk;
-    });
-    return { child, chunks };
-}
-
-async function waitForProcessExit(pid, timeoutMs)
-{
-    const started = performance.now();
-    do
-    {
-        if (!isProcessRunning(pid))
-        {
-            return {
-                status: 'stopped',
-                pid,
-                exitObserved: true,
-                durationMs: elapsedMs(started)
-            };
-        }
-        await sleep(100);
-    } while (performance.now() - started < timeoutMs);
-
-    return {
-        status: 'timeout',
-        pid,
-        exitObserved: false,
-        durationMs: elapsedMs(started)
-    };
 }
 
 function queryPostgresScalar(sql)
@@ -1159,7 +1499,7 @@ export function discoverBackendProcessTarget({
             : { status: 'missing', reason: `configured backend pid ${explicitPid} is not running` };
     }
 
-    let port = '';
+    let port;
     try
     {
         port = new URL(baseUrl).port;
@@ -1844,6 +2184,7 @@ function closeSocketQuietly(socket, reason = 'runtime-drill-complete')
                     }
                     catch
                     {
+                        // Socket termination is best effort after close; it cannot qualify the drill.
                     }
                 }, 100).unref?.();
             }
@@ -1851,6 +2192,7 @@ function closeSocketQuietly(socket, reason = 'runtime-drill-complete')
     }
     catch
     {
+        // Already closed or failed sockets retain their original drill result.
     }
 }
 
@@ -2648,8 +2990,8 @@ function runRedisCli(container, args)
 function scanBackendLogsForUnhandledExceptions()
 {
     const container = process.env.FSUSBLOG_BACKEND_CONTAINER_NAME || process.env.FSUSBLOG_BACKEND_CONTAINER || '';
-    let source = null;
-    let target = null;
+    let source;
+    let target;
     let content = '';
     if (container)
     {
@@ -2842,7 +3184,7 @@ async function waitForRedisRecovery()
     const maxWaitMs = positiveInt(process.env.FSUSBLOG_REDIS_RECOVERY_WAIT_MS, 20000);
     const intervalMs = positiveInt(process.env.FSUSBLOG_REDIS_RECOVERY_POLL_MS, 500);
 
-    do
+    for (;;)
     {
         try
         {
@@ -2865,11 +3207,11 @@ async function waitForRedisRecovery()
             });
             if (performance.now() - started >= maxWaitMs)
             {
-                throw new Error(`Redis recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`);
+                throw new Error(`Redis recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`, { cause: error });
             }
             await sleep(intervalMs);
         }
-    } while (true);
+    }
 }
 
 async function executeRedisControlledAction(caseName, container)
@@ -3229,7 +3571,7 @@ async function waitForPostgresRecovery(container)
     const maxWaitMs = positiveInt(process.env.FSUSBLOG_POSTGRES_RECOVERY_WAIT_MS, 25000);
     const intervalMs = positiveInt(process.env.FSUSBLOG_POSTGRES_RECOVERY_POLL_MS, 500);
 
-    do
+    for (;;)
     {
         try
         {
@@ -3252,11 +3594,11 @@ async function waitForPostgresRecovery(container)
             });
             if (performance.now() - started >= maxWaitMs)
             {
-                throw new Error(`PostgreSQL recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`);
+                throw new Error(`PostgreSQL recovery did not complete within ${maxWaitMs}ms: ${attempts.at(-1)?.error}`, { cause: error });
             }
             await sleep(intervalMs);
         }
-    } while (true);
+    }
 }
 
 async function executePostgresControlledAction(caseName, container)
@@ -3850,7 +4192,7 @@ async function runDiskArtifactStorageFaultCase()
     const recoveryPath = path.relative(root, recoveryFile);
     let writeFailureResult = null;
     let recoveryResult = null;
-    let cleanupResult = null;
+    let cleanupResult;
     let finalHealth = null;
     let failure = null;
     let actionStatus = 'blocked';
@@ -4475,8 +4817,19 @@ async function backendQpsSequential(outFile)
 async function loadProfile(profile, outFile)
 {
     const policy = resolveLoadProfilePolicy(profile);
-    const iterations = policy.effective.concurrency * policy.effective.rounds;
-    const probe = await runRouteContractProbe(safeBinaryRouteIds, {
+    const requiresOpenLoop = ['expected-peak', 'burst'].includes(profile);
+    const schedule = requiresOpenLoop ? buildOpenLoopLoadSchedule(readLoadArrivalPolicy(profile), safeBinaryRouteIds) : null;
+    if (schedule && policy.overrideSource !== 'policy')
+    {
+        throw new Error('open-loop arrival policy cannot inherit closed-loop ambient execution overrides');
+    }
+    const routePolicy = schedule ? readLoadRouteStatisticsPolicy(profile, schedule) : null;
+    const transportPolicy = schedule ? readLoadTransportPolicy(profile) : null;
+    const generatorPolicy = schedule ? readLoadGeneratorPolicy(profile) : null;
+    const sourceSha = schedule ? currentLoadSourceSha() : null;
+    const runBinding = schedule ? readLoadTransportRunBinding() : null;
+    const iterations = schedule?.plannedCount ?? policy.effective.concurrency * policy.effective.rounds;
+    const probe = schedule ? await runOpenLoopLoadGeneratorProbe(schedule, { routePolicy, sourceSha, transportPolicy, runBinding, generatorPolicy }) : await runRouteContractProbe(safeBinaryRouteIds, {
         iterations,
         concurrency: policy.effective.concurrency
     });
@@ -4487,16 +4840,10 @@ async function loadProfile(profile, outFile)
         p95Ms: probe.latencyMs.p95,
         p99Ms: probe.latencyMs.p99,
         maxLatencyMs: probe.latencyMs.max,
-        errorRate: failedSamples / probe.sampleCount,
-        timeoutRate: probe.failures.filter((sample) => sample.failureKind === 'timeout').length / probe.sampleCount,
-        cpuPercent: null,
-        rssBytes: null,
-        managedHeapBytes: null,
-        gcCount: null,
-        threadCount: null,
-        socketCount: null,
-        postgresPoolUsage: null,
-        redisLatencyMs: null
+        errorRate: schedule ? probe.loadRequestObservations?.errorRate ?? null : failedSamples / probe.sampleCount,
+        timeoutRate: schedule ? probe.loadRequestObservations?.timeoutRate ?? null
+            : probe.failures.filter((sample) => sample.failureKind === 'timeout').length / probe.sampleCount,
+        ...buildLoadResourceObservability()
     };
     const thresholdEvaluation = evaluateLoadProfileThresholds(metrics, policy.thresholds);
     const status = probe.status === 'ok' && thresholdEvaluation.status === 'pass' ? 'ok' : 'failed';
@@ -4508,8 +4855,17 @@ async function loadProfile(profile, outFile)
         policy: {
             file: policy.file,
             fileDigest: policy.fileDigest,
-            version: policy.version
+            version: policy.version,
+            ...(schedule ? { arrivalPolicyDigest: schedule.policyDigest,
+                routePolicyDigest: probe.routeStatistics.routePolicyDigest,
+                transportPolicyDigest: digestCanonical(transportPolicy),
+                combinedPolicyDigest: probe.candidateBinding.policyDigest } : {})
         },
+        ...(schedule ? { candidateIdentity: probe.candidateIdentity, qualificationEligible: false,
+            routeStatistics: probe.routeStatistics, candidateBinding: probe.candidateBinding,
+            transportEvidence: probe.transportEvidence, measurementWindow: probe.measurementWindow,
+            requestAvailability: probe.requestAvailability, loadRequestObservations: probe.loadRequestObservations,
+            generatorEvidence: probe.generatorEvidence } : {}),
         declared: policy.declared,
         effective: policy.effective,
         thresholds: policy.thresholds,
@@ -4521,6 +4877,7 @@ async function loadProfile(profile, outFile)
             concurrency: policy.effective.concurrency,
             rounds: policy.effective.rounds,
             durationMs: policy.effective.durationMs,
+            arrivalModel: schedule?.policy.arrivalModel ?? 'closed-loop-diagnostic',
             routeIds: safeBinaryRouteIds
         },
         performance_baseline: performanceBaselineMetadata(),
@@ -4531,7 +4888,12 @@ async function loadProfile(profile, outFile)
     });
     if (status !== 'ok')
     {
-        throw new Error(`load profile ${profile} failed ${probe.status !== 'ok' ? `route contract: ${probe.failures[0]?.failureKind}` : 'threshold evaluation'}`);
+        const reason = probe.openLoop && !probe.openLoop.validation.passed
+            ? `arrival conformance: ${JSON.stringify(probe.openLoop.validation.counts)}`
+            : probe.routeStatistics && !probe.routeStatistics.passed
+                ? `per-route policy: ${probe.routeStatistics.routes.filter((route) => !route.passed).map((route) => route.routeId).join(',')}`
+                : probe.status !== 'ok' ? `route contract: ${probe.failures[0]?.failureKind}` : 'threshold evaluation';
+        throw new Error(`load profile ${profile} failed ${reason}`);
     }
 }
 
@@ -4736,7 +5098,10 @@ async function dataScale(tier, outFile)
             articleListDecoded = decodeArticlePage(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     try
     {
@@ -4746,7 +5111,10 @@ async function dataScale(tier, outFile)
             categoryListDecoded = decodeTaxonomyList(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     try
     {
@@ -4756,7 +5124,10 @@ async function dataScale(tier, outFile)
             tagListDecoded = decodeTaxonomyList(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     try
     {
@@ -4766,7 +5137,10 @@ async function dataScale(tier, outFile)
             articleDetailDecoded = decodeArticleDetail(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     try
     {
@@ -4776,7 +5150,10 @@ async function dataScale(tier, outFile)
             commentCursorDecoded = decodeCommentArticleCursor(frame.payload);
         }
     }
-    catch { /* verifier handles missing */ }
+    catch
+    {
+        /* verifier handles missing */
+    }
 
     const decodedResponses = {
         articleList: articleListDecoded,
@@ -5016,7 +5393,7 @@ async function dataScale(tier, outFile)
         canaries
     });
 
-    let frameVersionReceipt = null;
+    let frameVersionReceipt;
     const redisContainer = redisContainerName();
     if (redisContainer)
     {
@@ -5142,7 +5519,10 @@ async function dataScale(tier, outFile)
                     }
                     break;
                 }
-                catch { /* ignore */ }
+                catch
+                {
+                    /* ignore */
+                }
             }
         }
         const searchReceiptFile = path.join(tierDir, 'search-receipt.json');
@@ -5259,7 +5639,10 @@ async function dataScale(tier, outFile)
                     }
                     break;
                 }
-                catch { /* ignore */ }
+                catch
+                {
+                    /* ignore */
+                }
             }
         }
         aotProof = verifyAotProof({
@@ -5288,7 +5671,10 @@ async function dataScale(tier, outFile)
         {
             warmResponse = await fetchPathSample(`/api/binary/article/${canaryArticleId}.aeds`, { includeBody: true });
         }
-        catch { /* ignored */ }
+        catch
+        {
+            /* ignored */
+        }
         hotReadProof = verifyHotReadProof({
             coldResponse: articleDetailSample,
             warmResponse: warmResponse ?? articleDetailSample,
@@ -5596,7 +5982,7 @@ async function soak(mode, outFile)
             }
             catch (error)
             {
-                throw new Error(`long soak imported evidence has no valid measurement noise authority: ${error.message}`);
+                throw new Error(`long soak imported evidence has no valid measurement noise authority: ${error.message}`, { cause: error });
             }
             writeReleaseReliabilityAuthority(outFile, {
                 ...imported,
