@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve existing caller-visible DOM and token spellings while documenting the relational receipt adapter and its host-owned integration boundary."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/PostgresAuthoringLifecycleReceiptStore.cs"
+            ],
+            "reason": "The registry covers every src C# file under the existing process-environment exception. This adapter introduces no environment variable or process spelling; SQL fields are explicitly mapped to the existing internal receipt members."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/postgres-test-collections.json"
+            ],
+            "reason": "Preserve the existing PostgreSQL collection manifest schema and consumer-defined keys while adding only the new receipt test class and its exact case count."
+        }
+    ]
+}
