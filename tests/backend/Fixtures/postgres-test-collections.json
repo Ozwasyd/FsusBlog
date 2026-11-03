@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 331,
+      "estimatedFacts": 430,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -172,12 +172,28 @@
         {
           "path": "Integration/ArticlePropertyDefinitionAuthorityIntegrationTests.cs",
           "class": "ArticlePropertyDefinitionAuthorityIntegrationTests"
+        },
+        {
+          "path": "Integration/AdminAuditDurableReplayIssue2040IntegrationTests.cs",
+          "class": "AdminAuditDurableReplayIssue2040IntegrationTests"
+        },
+        {
+          "path": "Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs",
+          "class": "ArticleRelationSourceCoordinateAuthorityIntegrationTests"
+        },
+        {
+          "path": "Integration/AuditDurableReplayIssue2040IntegrationTests.cs",
+          "class": "AuditDurableReplayIssue2040IntegrationTests"
+        },
+        {
+          "path": "Integration/ChallengeV2DurableReplayIssue2040IntegrationTests.cs",
+          "class": "ChallengeV2DurableReplayIssue2040IntegrationTests"
         }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 458,
+      "estimatedFacts": 562,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -519,6 +535,26 @@
         {
           "path": "Unit/PrivateAssetStoreTests.cs",
           "class": "PrivateAssetStorePostgresIntegrationTests"
+        },
+        {
+          "path": "Integration/AdminPasskeyJoinedEndpointPostgresTests.cs",
+          "class": "AdminPasskeyJoinedEndpointPostgresTests"
+        },
+        {
+          "path": "Integration/OfflineMigrationOwnedWriterReadScopeIntegrationTests.cs",
+          "class": "OfflineMigrationOwnedWriterReadScopeIntegrationTests"
+        },
+        {
+          "path": "Unit/AdminFixtureSessionIssuanceTests.cs",
+          "class": "TypedAdminSessionWriterDatabaseTests"
+        },
+        {
+          "path": "Unit/AdminSessionTouchPersistenceTests.cs",
+          "class": "AdminSessionTouchPersistenceTests"
+        },
+        {
+          "path": "Unit/BlacklistServiceMutationTests.cs",
+          "class": "BlacklistServiceMutationTests"
         }
       ]
     }

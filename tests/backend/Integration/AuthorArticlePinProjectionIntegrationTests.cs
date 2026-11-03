@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Security.Claims;
 
 using FsusBlog.Migration.Definitions;
@@ -8,6 +9,8 @@ using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Configuration;
+
+using Npgsql;
 
 using SqlSugar;
 
@@ -207,6 +210,215 @@ public sealed class AuthorArticlePinProjectionIntegrationTests(PostgresSchemaMig
                 AuthorArticlePinProjectionContract.ComputeArticleFactDigest(fact),
                 fact.ContentDigest);
         });
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PermissionAuthority_RestoresAdoCancellationAndCallerTransactionAfterSuccess(
+        bool priorToken, bool callerTransaction)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        using var previous = new CancellationTokenSource();
+        db.CurrentConnectionConfig.IsAutoCloseConnection = false;
+        await db.Ado.OpenAsync();
+        if (callerTransaction)
+        {
+            await db.Ado.BeginTranAsync(System.Data.IsolationLevel.ReadCommitted);
+        }
+        var connection = db.Ado.Connection;
+        var transaction = db.Ado.Transaction;
+        CancellationToken? before = priorToken ? previous.Token : null;
+        db.Ado.CancellationToken = before;
+        try
+        {
+            AuthorArticlePinPermissionSnapshot result = await CreatePermissionAuthority(db).ResolveAsync(
+                new(s_owner, Guid.CreateVersion7(), [1, 2]));
+            Assert.Equal(AuthorArticlePinPermissionSnapshotStatus.Current, result.Status);
+            Assert.Equal(2, result.Decisions.Count);
+            Assert.All(result.Decisions, static decision => Assert.True(decision.CanProject && decision.CanOpen));
+            Assert.Equal(before, db.Ado.CancellationToken);
+            Assert.Same(connection, db.Ado.Connection);
+            Assert.Same(transaction, db.Ado.Transaction);
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+        }
+        finally
+        {
+            db.Ado.CancellationToken = null;
+            if (callerTransaction)
+            {
+                await db.Ado.RollbackTranAsync();
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("admin_principal", false, false)]
+    [InlineData("admin_principal", true, false)]
+    [InlineData("admin_principal", false, true)]
+    [InlineData("admin_principal", true, true)]
+    [InlineData("article", false, false)]
+    [InlineData("article", true, false)]
+    [InlineData("article", false, true)]
+    [InlineData("article", true, true)]
+    public async Task PermissionAuthority_CancelsActualBlockedCommandAndAwaitsCompletion(
+        string table, bool cancelPriorToken, bool callerTransaction)
+    {
+        Assert.Contains(table, new[] { "admin_principal", "article" });
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        db.CurrentConnectionConfig.IsAutoCloseConnection = false;
+        await db.Ado.OpenAsync();
+        if (callerTransaction)
+        {
+            await db.Ado.BeginTranAsync(System.Data.IsolationLevel.ReadCommitted);
+        }
+        NpgsqlConnection native = Assert.IsType<NpgsqlConnection>(db.Ado.Connection);
+        var transaction = db.Ado.Transaction;
+        // The original client configuration retains the fixture's credentials and temporal options.
+        string testConnectionString = db.CurrentConnectionConfig.ConnectionString;
+        var blocker = new NpgsqlConnection(testConnectionString);
+        var observer = new NpgsqlConnection(testConnectionString);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var prior = new CancellationTokenSource();
+        using var requested = new CancellationTokenSource();
+        NpgsqlTransaction? blockingTransaction = null;
+        Task<AuthorArticlePinPermissionSnapshot>? pending = null;
+        ExceptionDispatchInfo? failure = null;
+        var cleanupFailureTypes = new List<string>();
+        try
+        {
+            await blocker.OpenAsync(deadline.Token);
+            await observer.OpenAsync(deadline.Token);
+            blockingTransaction = await blocker.BeginTransactionAsync(deadline.Token);
+            await using (var command = new NpgsqlCommand($"LOCK TABLE {table} IN ACCESS EXCLUSIVE MODE;", blocker, blockingTransaction))
+            {
+                await command.ExecuteNonQueryAsync(deadline.Token);
+            }
+            db.Ado.CancellationToken = prior.Token;
+            pending = CreatePermissionAuthority(db).ResolveAsync(
+                new(s_owner, Guid.CreateVersion7(), [1]), requested.Token);
+            while (!await IsWaitingForLockAsync(observer, native.ProcessID, deadline.Token))
+            {
+                Assert.False(pending.IsCompleted, "The original SQL command must actually reach the held relation lock.");
+                await Task.Delay(10, deadline.Token);
+            }
+            (cancelPriorToken ? prior : requested).Cancel();
+            while (!pending.IsCompleted)
+            {
+                await Task.Delay(10, deadline.Token);
+            }
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+            Assert.False(await IsWaitingForLockAsync(observer, native.ProcessID, deadline.Token));
+            Assert.Equal(prior.Token, db.Ado.CancellationToken);
+            Assert.Same(native, db.Ado.Connection);
+            Assert.Same(transaction, db.Ado.Transaction);
+            if (!callerTransaction)
+            {
+                db.Ado.CancellationToken = null;
+                Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+            }
+        }
+        catch (Exception error)
+        {
+            failure = ExceptionDispatchInfo.Capture(error);
+        }
+        finally
+        {
+            await CompleteCleanupAsync(() =>
+            {
+                prior.Cancel();
+                return Task.CompletedTask;
+            });
+            await CompleteCleanupAsync(() =>
+            {
+                requested.Cancel();
+                return Task.CompletedTask;
+            });
+            using var cleanupDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            if (blockingTransaction is not null)
+            {
+                await CompleteCleanupAsync(() => blockingTransaction.RollbackAsync(cleanupDeadline.Token));
+            }
+            // Closing only the test-owned blocker also releases its lock if rollback failed.
+            await CompleteCleanupAsync(() => blocker.CloseAsync());
+            if (pending is not null)
+            {
+                // Await the actual SQL task even when earlier cleanup failed; never abandon the borrowed client.
+                await CompleteCleanupAsync(async () =>
+                {
+                    await pending;
+                }, ignoreCancellation: true);
+            }
+            await CompleteCleanupAsync(() =>
+            {
+                db.Ado.CancellationToken = null;
+                return Task.CompletedTask;
+            });
+            if (callerTransaction)
+            {
+                await CompleteCleanupAsync(() => db.Ado.RollbackTranAsync());
+            }
+            if (blockingTransaction is not null)
+            {
+                await CompleteCleanupAsync(() => blockingTransaction.DisposeAsync().AsTask());
+            }
+            await CompleteCleanupAsync(() => observer.DisposeAsync().AsTask());
+            await CompleteCleanupAsync(() => blocker.DisposeAsync().AsTask());
+        }
+        if (failure is not null && cleanupFailureTypes.Count > 0)
+        {
+            failure.SourceException.Data["PermissionCleanupFailureTypes"] = cleanupFailureTypes.ToArray();
+        }
+        failure?.Throw();
+
+        async Task CompleteCleanupAsync(Func<Task> cleanup, bool ignoreCancellation = false)
+        {
+            try
+            {
+                await cleanup();
+            }
+            catch (OperationCanceledException) when (ignoreCancellation)
+            {
+            }
+            catch (Exception error)
+            {
+                failure ??= ExceptionDispatchInfo.Capture(error);
+                cleanupFailureTypes.Add(error.GetType().FullName ?? error.GetType().Name);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PermissionAuthority_RestoresAdoCancellationAfterCommandFailure(bool priorToken)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        using var previous = new CancellationTokenSource();
+        CancellationToken? before = priorToken ? previous.Token : null;
+        db.Ado.CancellationToken = before;
+        var connection = db.Ado.Connection;
+        db.Ado.IsEnableLogEvent = true;
+        db.Aop.OnLogExecuting = static (_, _) => throw new InvalidOperationException("permission-command-failure");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreatePermissionAuthority(db).ResolveAsync(
+            new(s_owner, Guid.CreateVersion7(), [1])));
+        Assert.Equal(before, db.Ado.CancellationToken);
+        Assert.Same(connection, db.Ado.Connection);
+        Assert.Null(db.Ado.Transaction);
+        db.Aop.OnLogExecuting = null;
+        db.Ado.CancellationToken = null;
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+    }
+
+    private static async Task<bool> IsWaitingForLockAsync(
+        NpgsqlConnection observer, int processId, CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(
+            "SELECT count(*) FROM pg_stat_activity WHERE pid = @Pid AND state = 'active' AND wait_event_type = 'Lock';", observer);
+        command.Parameters.AddWithValue("Pid", processId);
+        return (long)(await command.ExecuteScalarAsync(cancellationToken))! == 1;
     }
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()

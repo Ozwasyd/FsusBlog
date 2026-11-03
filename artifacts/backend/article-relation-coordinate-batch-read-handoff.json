@@ -1,0 +1,135 @@
+{
+  "kind": "ordinary source handoff; no runtime acceptance or qualification",
+  "base": "996e2044b8d51ab5ab54a1a33d5b9bdf478f7ae3",
+  "frozenScalarSource": "5c827c1cf0cd209007b301bac9967fa403066114",
+  "productionSource": "348c6853d6bcec900734274440fe8f34c1dd7b55",
+  "consumerInspectedReadOnly": "823a99e7f2e791356429b7e44b600c8e78df704e",
+  "signature": "Task<IReadOnlyList<ArticleRelationRevisionCoordinate>> ReadRevisionsAsync(ISqlSugarClient db, IReadOnlyList<(int ArticleId, long RevisionId)> coordinates, CancellationToken cancellationToken = default)",
+  "contract": {
+    "pairs": "1..64 positive distinct exact pairs; empty/invalid/duplicate/oversized rejected before native access",
+    "commands": 1,
+    "result": "complete immutable bindings in original input order; no partial return",
+    "missingOrWrongOwnership": "article_relation_binding_unavailable",
+    "invalidStoredMapping": "article_relation_binding_invalid",
+    "lifetime": "await command execution, row reads and reader/command disposal; borrow same caller connection/transaction and validate afterward",
+    "isolation": "no changes; scalar caller session contract retained; Graph ReadCommitted admission remains consumer-owned",
+    "writes": 0,
+    "permissionAuthority": "consumer; mapping existence supplies no admission"
+  },
+  "checks": [
+    {
+      "command": "dotnet build src/backend/FsusBlog.Server.csproj --no-restore -m:2 /p:NuGetAudit=false /p:UseSharedCompilation=false",
+      "status": "passed",
+      "errors": 0
+    },
+    {
+      "command": "dotnet build tests/backend/FsusBlog.Server.Tests.csproj --no-restore -m:2 /p:NuGetAudit=false /p:UseSharedCompilation=false",
+      "status": "passed",
+      "errors": 0
+    },
+    {
+      "command": "node tools/dotnet/check-csharp-style.mjs --mode changed --fix --file src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs --file tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs --file tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs",
+      "status": "passed",
+      "files": 3,
+      "violations": 0,
+      "usingFilesFixed": 0
+    },
+    {
+      "command": "node tools/check-postgres-test-collections.mjs",
+      "status": "blocked",
+      "alsoObservedOnUnchangedBase": true,
+      "reason": "Authority integration class is absent from shared manifest; existing count/registration/annotation differences also fail.",
+      "ownerHook": {
+        "manifest": "tests/backend/Fixtures/postgres-test-collections.json",
+        "collection": "SchemaMigrationPostgresCollectionA",
+        "path": "Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs",
+        "class": "ArticleRelationSourceCoordinateAuthorityIntegrationTests",
+        "compiledSourceFacts": 19
+      }
+    },
+    {
+      "command": "node tools/check-backend-test-governance.mjs",
+      "status": "blocked",
+      "alsoObservedOnUnchangedBase": true,
+      "reasons": [
+        "backend-evidence-path-authority.generated.json stale",
+        "backend mutation runner standard dotnet-tool discovery requirement",
+        "ArticlePropertyDefinitionAuthorityTests direct-slnx-root-marker and appcontext-parent-traversal"
+      ]
+    }
+  ],
+  "sdk": "10.0.401",
+  "sourcePreflight": {
+    "status": "passed",
+    "expectedCases": {
+      "unit": 10,
+      "integration": 19
+    },
+    "cases": {
+      "unit": [
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.InvalidNumericCoordinatesFailBeforeDatabaseAccess",
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.LookupRejectsNoncanonicalArticleIdentityBeforeDatabaseAccess",
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.ImportRejectsNoncanonicalArticleIdentityBeforeDatabaseAccess",
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.CancellationStopsEveryOperationBeforeNativeAccess",
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.ProvisioningRequiresCallerTransactionWithoutOpeningConnection",
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.UnsupportedProviderCannotAcquireSourceAuthority",
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.BatchRejectsEmptyOversizedDuplicateAndInvalidPairsBeforeDatabaseAccess",
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.BatchCancellationStopsBeforeOpeningBorrowedConnection",
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateAuthorityTests.BatchRejectsUnsupportedProviderWithoutOpeningConnection",
+        "FsusBlog.Server.Tests.Unit.ArticleRelationSourceCoordinateMigrationDefinitionTests.DefinitionIsTransactionalAndContainsNoBackfillOrRegistration"
+      ],
+      "integration": [
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.ProvisionCommitReconnectAndExactRereadPreserveSavedCoordinates",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.RepeatedProvisioningPreservesBindingsAndLeavesCallerTransactionLive",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.ConcurrentExactAndNewRevisionProvisioningSerializeOneArticleBinding",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.MissingArticleRevisionAndWrongOwnershipRefuseBeforeBindingWrites",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.MismatchedAndCompletedCallerTransactionsAreRejected",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.CallerRollbackRemovesProvisionedBindingsAndFreshRetryPersists",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.CancellationDuringActualCallerRowLockWaitLeavesNoBindings",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.ExactAndPortableReadsRunInReadOnlyTransactionWithoutProvisioning",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.ImportPreservesSuppliedArticleIdentityAndAllocatesLocalRevisionCoordinates",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.ImportRefusesExistingRemapAndCrossArticleIdentityCollision",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.DatabaseRejectsBindingRemapDeletionWrongOwnerAndRevisionEpochCollisions",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.HistoricalBindingsSurviveMetadataSoftDeleteRestoreAndNewRevision",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.DraftCurrentAndPublishedViewsDoNotAllocateOrOverwriteImmutableSourceBindings",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.BatchReadsSixtyFourExactHistoricalBindingsInInputOrderAcrossReconnect",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.BatchReadsUncommittedCallerBindingsAndPreservesReadOnlyRepeatableReadTransaction",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.BatchMissingUnprovisionedOrWrongOwnerRefusesWholeReadWithoutWriting",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.BatchRefusesForeignAndCompletedCallerTransactions",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.BatchCancellationReachesBlockedSqlAndCompletesBeforeBorrowedClientReuse",
+        "FsusBlog.Server.Tests.Integration.ArticleRelationSourceCoordinateAuthorityIntegrationTests.BatchCopiesRequestedPairsBeforeAwaitingActualSql"
+      ]
+    },
+    "positiveCases": [
+      "BatchReadsSixtyFourExactHistoricalBindingsInInputOrderAcrossReconnect",
+      "BatchReadsUncommittedCallerBindingsAndPreservesReadOnlyRepeatableReadTransaction",
+      "BatchCopiesRequestedPairsBeforeAwaitingActualSql"
+    ],
+    "originalScalarAndAllOriginalTestBytes": "preserved by exact subtract-insertion comparison",
+    "originalHookCount": 13,
+    "originalHooks": "unchanged; original-owner integration gates retained"
+  },
+  "executionAdmission": "blocked before discovery or any dynamic test command; no fallback suite",
+  "dynamicTestsExecuted": 0,
+  "testDiscoveryExecuted": false,
+  "postgresContainersCreated": 0,
+  "observedEnvironment": {
+    "cgroupCpuMax": "400000 100000",
+    "cgroupMemoryMax": "17179869184",
+    "postgresFixtureImage": "postgres:18-alpine",
+    "postgresImageId": "sha256:c293117fcecda7344b5480222e813b9f673d7abd69b1dd95eff239b768b04f59",
+    "runtimeResourceAdmission": "not attempted after static gate failure"
+  },
+  "sourceSha256": {
+    "src/backend/Services/Authoring/ArticleRelationSourceCoordinateAuthority.cs": "e5bf964055c7580f2454b533a77d9f5dc549bd2bfde94ac52da0cb6c848e7a59",
+    "tests/backend/Integration/ArticleRelationSourceCoordinateAuthorityIntegrationTests.cs": "eda981edaa36bc3fc87f0f434bcf65c31d4c3e0452720913795f6f506d17f98e",
+    "tests/backend/Unit/ArticleRelationSourceCoordinateAuthorityTests.cs": "35d42ac98aa80a03b97300f96be880f54ffdf7972e4cfdcc1aa9ce0729745292"
+  },
+  "remainingOwners": [
+    "shared test collection/registration/governance",
+    "Graph metadata callback and permission cancellation admission",
+    "CentralDI",
+    "product and original-owner integration acceptance"
+  ],
+  "publication": "source and this concise handoff only; no raw logs, PR actions, held audits, migrations or production writes"
+}

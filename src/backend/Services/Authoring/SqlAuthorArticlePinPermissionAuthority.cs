@@ -70,6 +70,18 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         }
     }
 
+    /// <summary>
+    /// Awaits the original SQL commands and asynchronous reader disposal before completing.
+    /// The request and any existing ADO cancellation token cancel command execution as well as reads;
+    /// the caller's prior ADO token is restored on success, denial, cancellation and failure.
+    /// </summary>
+    /// <remarks>
+    /// The caller must serialize use of its borrowed client and own its connection and transaction
+    /// lifecycle. Cancellation may leave a PostgreSQL transaction aborted; this reader never replaces
+    /// the client, commits or rolls back that transaction, or abandons pending SQL work.
+    /// Command completion follows the native driver's cancellation response policy. This contract
+    /// does not impose an execution deadline or prove the Graph metadata reader's 250 ms budget.
+    /// </remarks>
     public async Task<AuthorArticlePinPermissionSnapshot> ResolveAsync(
         AuthorArticlePinPermissionBatchRequest request,
         CancellationToken cancellationToken = default)
@@ -100,56 +112,79 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
             return Unavailable(request.Owner, "article_pin_permission_context_denied");
         }
 
-        PermissionState? state = await ReadPermissionStateAsync(
-            adminPrincipalId,
-            sessionId,
-            cancellationToken).ConfigureAwait(false);
-        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
-        if (state is null
-            || !string.Equals(state.PrincipalStatus, AdminPrincipalStatus.Active, StringComparison.Ordinal)
-            || (!state.IsRoot && !HasPersistedPermission(state.Permissions, AdminPermissions.ArticleWrite))
-            || state.RevokedAtUtc.HasValue
-            || state.IdleExpiresAtUtc <= now
-            || state.AbsoluteExpiresAtUtc <= now)
+        IAdo ado = db.Ado;
+        CancellationToken? previousCancellation = ado.CancellationToken;
+        using CancellationTokenSource? linkedCancellation = previousCancellation is { CanBeCanceled: true } previous
+            ? CancellationTokenSource.CreateLinkedTokenSource(previous, cancellationToken)
+            : null;
+        CancellationToken commandCancellation = linkedCancellation?.Token ?? cancellationToken;
+        try
         {
-            return Unavailable(request.Owner, "article_pin_permission_session_denied");
-        }
+            ado.CancellationToken = commandCancellation;
+            PermissionState? state = await ReadPermissionStateAsync(
+                ado,
+                adminPrincipalId,
+                sessionId,
+                commandCancellation).ConfigureAwait(false);
+            commandCancellation.ThrowIfCancellationRequested();
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+            if (state is null
+                || !string.Equals(state.PrincipalStatus, AdminPrincipalStatus.Active, StringComparison.Ordinal)
+                || (!state.IsRoot && !HasPersistedPermission(state.Permissions, AdminPermissions.ArticleWrite))
+                || state.RevokedAtUtc.HasValue
+                || state.IdleExpiresAtUtc <= now
+                || state.AbsoluteExpiresAtUtc <= now)
+            {
+                return Unavailable(request.Owner, "article_pin_permission_session_denied");
+            }
 
-        Dictionary<int, ArticleAccessState> articles = await ReadArticleStatesAsync(articleIds, cancellationToken)
-            .ConfigureAwait(false);
-        string siteRevision = AuthorArticlePinProjectionContract.HashText(
-            $"site:{request.Owner.SiteScope}");
-        string permissionRevision = AuthorArticlePinProjectionContract.HashText(
-            $"permission:{adminPrincipalId}:{state.PrincipalRowVersion}:{state.IsRoot}:{state.Permissions}");
-        string sessionRevision = AuthorArticlePinProjectionContract.HashText(
-            $"session:{sessionId}:{state.SessionRowVersion}:{state.IdleExpiresAtUtc:O}:{state.AbsoluteExpiresAtUtc:O}");
-        AuthorArticlePinPermissionDecision[] decisions = articleIds.Select(articleId =>
+            Dictionary<int, ArticleAccessState> articles = await ReadArticleStatesAsync(ado, articleIds, commandCancellation)
+                .ConfigureAwait(false);
+            commandCancellation.ThrowIfCancellationRequested();
+            string siteRevision = AuthorArticlePinProjectionContract.HashText(
+                $"site:{request.Owner.SiteScope}");
+            string permissionRevision = AuthorArticlePinProjectionContract.HashText(
+                $"permission:{adminPrincipalId}:{state.PrincipalRowVersion}:{state.IsRoot}:{state.Permissions}");
+            string sessionRevision = AuthorArticlePinProjectionContract.HashText(
+                $"session:{sessionId}:{state.SessionRowVersion}:{state.IdleExpiresAtUtc:O}:{state.AbsoluteExpiresAtUtc:O}");
+            AuthorArticlePinPermissionDecision[] decisions = articleIds.Select(articleId =>
+            {
+                bool canOpen = articles.TryGetValue(articleId, out ArticleAccessState? article)
+                    && !article.IsDeleted
+                    && article.Status != ArticleStatus.Deleted;
+                string articleRevision = article is null
+                    ? "missing"
+                    : $"{(int)article.Status}:{article.IsDeleted}";
+                return new AuthorArticlePinPermissionDecision(
+                    articleId,
+                    CanProject: true,
+                    CanOpen: canOpen,
+                    AuthorArticlePinProjectionContract.HashText(
+                        $"article-permission:{adminPrincipalId}:{request.Owner.SiteScope}:{articleId}:{articleRevision}:{permissionRevision}:{sessionRevision}"));
+            }).ToArray();
+            var snapshot = new AuthorArticlePinPermissionSnapshot(
+                AuthorArticlePinPermissionSnapshotStatus.Current,
+                request.Owner,
+                permissionRevision,
+                siteRevision,
+                sessionRevision,
+                decisions,
+                string.Empty);
+            return snapshot with
+            {
+                ContentDigest = AuthorArticlePinProjectionContract.ComputePermissionDigest(snapshot)
+            };
+        }
+        catch (Exception)
         {
-            bool canOpen = articles.TryGetValue(articleId, out ArticleAccessState? article)
-                && !article.IsDeleted
-                && article.Status != ArticleStatus.Deleted;
-            string articleRevision = article is null
-                ? "missing"
-                : $"{(int)article.Status}:{article.IsDeleted}";
-            return new AuthorArticlePinPermissionDecision(
-                articleId,
-                CanProject: true,
-                CanOpen: canOpen,
-                AuthorArticlePinProjectionContract.HashText(
-                    $"article-permission:{adminPrincipalId}:{request.Owner.SiteScope}:{articleId}:{articleRevision}:{permissionRevision}:{sessionRevision}"));
-        }).ToArray();
-        var snapshot = new AuthorArticlePinPermissionSnapshot(
-            AuthorArticlePinPermissionSnapshotStatus.Current,
-            request.Owner,
-            permissionRevision,
-            siteRevision,
-            sessionRevision,
-            decisions,
-            string.Empty);
-        return snapshot with
+            // Report cancellation only after the awaited command and reader cleanup have finished.
+            commandCancellation.ThrowIfCancellationRequested();
+            throw;
+        }
+        finally
         {
-            ContentDigest = AuthorArticlePinProjectionContract.ComputePermissionDigest(snapshot)
-        };
+            ado.CancellationToken = previousCancellation;
+        }
     }
 
     public static string ResolveSiteScope(IConfiguration configuration)
@@ -160,11 +195,12 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
     }
 
     private async Task<PermissionState?> ReadPermissionStateAsync(
+        IAdo ado,
         long adminPrincipalId,
         string sessionId,
         CancellationToken cancellationToken)
     {
-        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using DbDataReader reader = (DbDataReader)await ado.GetDataReaderAsync(
             """
             SELECT ap.status AS principal_status,
                    ap.isroot,
@@ -199,6 +235,7 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
     }
 
     private async Task<Dictionary<int, ArticleAccessState>> ReadArticleStatesAsync(
+        IAdo ado,
         IReadOnlyList<int> articleIds,
         CancellationToken cancellationToken)
     {
@@ -207,7 +244,7 @@ public sealed class SqlAuthorArticlePinPermissionAuthority(
         {
             return result;
         }
-        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+        await using DbDataReader reader = (DbDataReader)await ado.GetDataReaderAsync(
             """
             SELECT id, status, isdeleted
             FROM article
