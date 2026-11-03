@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon/favicon-64x64.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon/favicon-dark-64x64.png" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon/favicon-48x48.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon/favicon-dark-48x48.png" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-dark-32x32.png" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-dark-16x16.png" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/x-icon" media="(prefers-color-scheme: dark)" href="/favicon/favicon-dark.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!--fsus:aot:head-start-->
+    <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/feed/rss.xml" />
+    <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="/feed/atom.xml" />
+    <link rel="alternate" type="application/feed+json" title="JSON Feed" href="/feed/feed.json" />
+    <title>站点</title>
+    <!--fsus:aot:head-end-->
+
+    <style>
+      /* FsusUI 2026: The Intellectual Minimalist - Baseline CSS */
+      :root {
+        --fsusblog-page-bg: Canvas;
+        --fsusblog-text-primary: CanvasText;
+        --fsusblog-text-muted: GrayText;
+        --fsusblog-panel-border: ButtonBorder;
+        --fsusblog-loader-muted: var(--fsusblog-text-muted);
+        --fsusblog-loader-rule: var(--fsusblog-panel-border);
+      }
+
+      html.dark,
+      html[data-theme-resolved='dark'] {
+        --fsusblog-page-bg: Canvas;
+        --fsusblog-text-primary: CanvasText;
+        --fsusblog-text-muted: GrayText;
+        --fsusblog-panel-border: ButtonBorder;
+      }
+
+      html,
+      body {
+        background: var(--fsusblog-page-bg);
+        color: var(--fsusblog-text-primary);
+        margin: 0;
+        padding: 0;
+        font-family: "Google Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans JP", ui-sans-serif, system-ui, sans-serif;
+      }
+
+      /* Global Loader: Swiss Grid Editorial Style */
+      #global-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background-color: var(--fsusblog-page-bg);
+        display: flex;
+        flex-direction: column;
+        transition: opacity var(--fsus-motion-control-fast, 160ms) var(--fsus-motion-standard, cubic-bezier(0.4, 0, 0.2, 1));
+      }
+
+      #global-loader[hidden] {
+        display: none;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loader-grid-context {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 4rem 2rem;
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
+      }
+
+      .loader-header-line {
+        height: 1px;
+        background: var(--fsusblog-loader-rule);
+        width: 100%;
+        margin-bottom: 4rem;
+      }
+
+      .loader-branding {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .loader-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        letter-spacing: 0;
+        color: var(--fsusblog-text-primary);
+      }
+
+      .loader-mark {
+        width: 0.375rem;
+        height: 0.375rem;
+        background: var(--fsusblog-loader-muted);
+        border-radius: 999px;
+        opacity: 0.72;
+      }
+
+      .loader-status-group {
+        margin-top: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .loader-text {
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0;
+        color: var(--fsusblog-text-muted);
+        text-transform: none;
+      }
+
+      .loader-document-placeholder {
+        display: grid;
+        width: min(18rem, 70vw);
+        gap: 0.625rem;
+      }
+
+      .loader-placeholder-line {
+        height: 1px;
+        background-color: var(--fsusblog-loader-rule);
+      }
+
+      .loader-placeholder-line--short {
+        width: 62%;
+        background-color: var(--fsusblog-loader-muted);
+        opacity: 0.42;
+      }
+
+      /* Base shell styles for hydration transition */
+      #app:empty {
+        background: var(--fsusblog-page-bg);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #global-loader,
+        #global-loader *,
+        #global-loader *::before,
+        #global-loader *::after {
+          animation: none !important;
+          scroll-behavior: auto !important;
+          transition: none !important;
+        }
+      }
+    </style>
+    <script type="module" crossorigin src="/assets/index-BpANg4sN.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/markdown-CRqUrc_Q.css">
+    <link rel="stylesheet" crossorigin href="/assets/public-page-DVCezysl.css">
+    <link rel="stylesheet" crossorigin href="/assets/public-shell-critical-C4gcilf6.css">
+    <link rel="stylesheet" crossorigin href="/assets/tailwind-IZzT5fVv.css">
+    <link rel="stylesheet" crossorigin href="/assets/PublicContentState-B0TmJNNQ.css">
+    <link rel="stylesheet" crossorigin href="/assets/PublicReadingPageFrame-DLOskmbK.css">
+    <link rel="stylesheet" crossorigin href="/assets/time-BbDi9Ye1.css">
+    <link rel="stylesheet" crossorigin href="/assets/useMotionPreference-Bd6LVac9.css">
+    <link rel="stylesheet" crossorigin href="/assets/fullApp-DzGmqdrW.css">
+    <link rel="stylesheet" crossorigin href="/assets/ThemeModeToggle-BKtU6vy3.css">
+    <link rel="stylesheet" crossorigin href="/assets/routeLocaleDomains-DKzw0AoZ.css">
+    <link rel="stylesheet" crossorigin href="/assets/full-app-core-CpfiCZiY.css">
+  </head>
+  <body>
+
+    <nav hidden aria-hidden="true">
+      <a href="/">Home</a>
+    </nav>
+
+    <div id="global-loader" hidden aria-hidden="true">
+      <div class="loader-grid-context">
+        <div class="loader-header-line"></div>
+        <div class="loader-branding">
+          <span class="loader-title" data-fsus-loader-title>站点</span>
+          <div class="loader-mark"></div>
+        </div>
+        <div class="loader-status-group">
+          <span
+            class="loader-text"
+            data-fsus-loader-status
+            data-locale-key="common.loading.statusWithSite"
+            role="status"
+            aria-live="polite"
+          >正在加载站点</span>
+          <div class="loader-document-placeholder" aria-hidden="true">
+            <div class="loader-placeholder-line"></div>
+            <div class="loader-placeholder-line"></div>
+            <div class="loader-placeholder-line loader-placeholder-line--short"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="app"><!--fsus:aot:app--></div>
+    <!--fsus:aot:payloads-->
+    <!--fsus:aot:spa-boot-->
+  </body>
+</html>

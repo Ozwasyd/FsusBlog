@@ -1,0 +1,76 @@
+{
+  "qualificationEligible": false,
+  "blogBuildCandidate": "dfd494f6a4b2c6b2ef24b1cffb5415c3dc40a07b",
+  "blogInspectedMaster": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+  "fsusuiSource": "ad82fbc053a7a19a1ca23d06e10446dd3b11d475",
+  "fsusuiPublicShellOriginal": "c325c600ea2760156d467bfaa375613879211cd9",
+  "localAlias": "/workspace/FsusUI-828-geometry",
+  "localTheme": {
+    "full": {
+      "path": "/workspace/FsusUI-828-geometry/vue/packages/theme-chalk/dist/index.css",
+      "sha256": "419f3e6413d00ffb371abe64634b8025e6f844d12a9dcf10a1a1d27a0a66f05b",
+      "bytes": 558274
+    },
+    "critical": {
+      "path": "/workspace/FsusUI-828-geometry/vue/packages/theme-chalk/dist/el-public-shell-critical.css",
+      "sha256": "0434427378e195b0ca7899f3430c54495b8485183e9a636d0ff0a882fb66787d",
+      "bytes": 16953
+    }
+  },
+  "commands": [
+    {
+      "command": "npm --prefix src/frontend run build:release",
+      "exitCode": 0,
+      "log": ".tmp/ux/viewport-local-alias-build-first-attempt-20261008.log",
+      "limitations": [
+        "original ::highlight CSS optimization warnings present",
+        "direct-fallback; sourceState.commit=null; schedulerRunId=null",
+        "no live backend/fixture/current runtime admission or browser qualification"
+      ]
+    },
+    {
+      "command": "npm --prefix src/frontend run check:document-viewport-source",
+      "exitCode": 0,
+      "sourceCount": 1,
+      "dist": "checked",
+      "mutationCount": 3,
+      "log": ".tmp/ux/viewport-local-alias-built-document-20261008.log"
+    }
+  ],
+  "products": [
+    {
+      "path": "src/frontend/dist/index.html",
+      "sha256": "bc3b7e00c63a99b6aacf3f3321683a875c78cfda91bc1fdf4b03d4f967182322",
+      "bytes": 7696
+    },
+    {
+      "path": "src/frontend/dist/server/public-ssr.mjs",
+      "sha256": "0579bc59986b071f64ae6719b30058bc6c9642a125ca4c59a150e610fbce9863",
+      "bytes": 116561
+    },
+    {
+      "path": "src/frontend/dist/server/package.json",
+      "sha256": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8",
+      "bytes": 42
+    },
+    {
+      "path": ".tmp/frontend/generated/frontend-build-stages.json",
+      "sha256": "b987fd9b61b411b4ef03169902192b25b7a17c2b8e6a2ffa90995dde74a40d22",
+      "bytes": 30483
+    }
+  ],
+  "notRun": [
+    "Public AOT actual HTTP response",
+    "deep fallback actual HTTP response",
+    "hydration identity",
+    "admitted DebugStack/ReleasePreview fixtures",
+    "live safe-area geometry/focus/scroll",
+    "current Chromium+WebKit matrix",
+    "real iOS17+ continuous media/verifier"
+  ],
+  "usableDownstream": [
+    "local-alias consumer compilation with freshly rebuilt full/critical CSS",
+    "current source/dist canonical viewport static contract"
+  ],
+  "sourceWorktreeCleanAfterBuild": true
+}

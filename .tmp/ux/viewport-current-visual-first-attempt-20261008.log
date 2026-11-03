@@ -1,0 +1,42 @@
+
+> fsusblog-client@0.0.0 check:ux:viewport-visual
+> npm run verify:wasm && env -u NO_COLOR NODE_PATH=./node_modules FSUSBLOG_UX_VIEWPORT_MODE=visual FSUSBLOG_PLAYWRIGHT_BROWSERS=${FSUSBLOG_PLAYWRIGHT_BROWSERS:-chromium,webkit} FSUSBLOG_UX_VIEWPORT_SCREENSHOTS=1 FSUSBLOG_UX_VIEWPORT_WORKERS=${FSUSBLOG_UX_VIEWPORT_WORKERS:-${FSUSBLOG_PLAYWRIGHT_WORKERS:-`node ../../tools/test/resolve-playwright-workers.mjs ux-viewport-visual`}} PLAYWRIGHT_OUTPUT_DIR=${PLAYWRIGHT_OUTPUT_DIR:-test-results/playwright/ux-viewport-visual} node ../../tests/frontend/checks/ux/run-ux-viewport-playwright.mjs visual
+
+
+> fsusblog-client@0.0.0 verify:wasm
+> node ../../tools/frontend/ensure-wasm.mjs status
+
+[ensure-wasm] fresh: receipt-bound sha256:d584d235f7c0c862e5b23b5e74c3c883f91dfb4e903659f300a923d7cf16eac0
+[playwright-workers] profile=ux-viewport-visual hostCpus=4 grantedCpus=4.00 grantedMemoryGiB=15.77 memAvailableGiB=15.8 load1=1.22 cpuBusyCpus=0.00 workers=4
+Error: browserType.launch: Target page, context or browser has been closed
+Browser logs:
+
+<launching> /workspace/.setup/playwright-browsers/webkit-2272/pw_run.sh --inspector-pipe --headless --no-startup-window
+<launched> pid=114502
+[pid=114502][err] /workspace/.setup/playwright-browsers/webkit-2272/minibrowser-wpe/bin/MiniBrowser: error while loading shared libraries: libwoff2dec.so.1.0.2: cannot open shared object file: No such file or directory
+Call log:
+[2m  - <launching> /workspace/.setup/playwright-browsers/webkit-2272/pw_run.sh --inspector-pipe --headless --no-startup-window[22m
+[2m  - <launched> pid=114502[22m
+[2m  - [pid=114502][err] /workspace/.setup/playwright-browsers/webkit-2272/minibrowser-wpe/bin/MiniBrowser: error while loading shared libraries: libwoff2dec.so.1.0.2: cannot open shared object file: No such file or directory[22m
+[2m  - [pid=114502] <gracefully close start>[22m
+[2m  - [pid=114502] <kill>[22m
+[2m  - [pid=114502] <will force kill>[22m
+[2m  - [pid=114502] <process did exit: exitCode=127, signal=null>[22m
+[2m  - [pid=114502] starting temporary directories cleanup[22m
+[2m  - [pid=114502] finished temporary directories cleanup[22m
+[2m  - [pid=114502] <gracefully close end>[22m
+
+
+   at ../../../tools/test/playwright-browser-identity.mjs:388
+
+  386 |         try
+  387 |         {
+> 388 |             browser = await sealedCurrentPlan.browserType.launch(structuredClone(suppliedPlan.launchOptions));
+      |                                                           ^
+  389 |             const context = await browser.newContext({
+  390 |                 locale: suppliedPlan.rendering.locale,
+  391 |                 deviceScaleFactor: suppliedPlan.rendering.deviceScaleFactor,
+    at verifyCorrectnessBrowserPlans (/workspace/FsusBlog-2228-current/tools/test/playwright-browser-identity.mjs:388:59)
+    at globalSetup (/workspace/FsusBlog-2228-current/tests/frontend/support/playwright/global-setup.ts:30:3)
+
+[ux-viewport-runner] summary failed: ENOENT: no such file or directory, open '/workspace/FsusBlog-2228-current/.tmp/ux/current-visual-run.json'

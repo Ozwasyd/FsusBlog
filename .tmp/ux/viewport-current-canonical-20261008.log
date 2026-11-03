@@ -1,0 +1,5 @@
+
+> fsusblog-client@0.0.0 check:canonical-viewport-safe-area
+> node ../../tests/frontend/checks/static/check-canonical-viewport-safe-area.mjs
+
+[check-canonical-viewport-safe-area] ok surfaces=3 mutations=4
