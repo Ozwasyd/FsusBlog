@@ -1,0 +1,130 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="f303685b-8dcf-443a-9571-aec5c86d8d32" name="@c8273327fc8c 2026-10-08 11:40:19" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T11:40:19.9880489+00:00" queuing="2026-10-08T11:40:19.9880490+00:00" start="2026-10-08T11:40:19.1042992+00:00" finish="2026-10-08T11:40:20.0360800+00:00" />
+  <TestSettings name="default" id="41f8a798-31ba-4191-a289-4159a8dd6505">
+    <Deployment runDeploymentRoot="_c8273327fc8c_2026-10-08_11_40_19" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="6fdaeaa8-da73-464c-a9ce-be151937b669" testId="445d02c2-bcfd-09c2-8f1a-ada0b36cd17f" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CallerExceptionStillReleasesAReentrantlyDisposedFinalOperationHold" computerName="c8273327fc8c" duration="00:00:00.0016256" startTime="2026-10-08T11:40:19.9545921+00:00" endTime="2026-10-08T11:40:19.9565905+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6fdaeaa8-da73-464c-a9ce-be151937b669" />
+    <UnitTestResult executionId="de933f1b-71c4-4356-9bbf-699e2879f490" testId="8e243aac-61e3-a889-fbf4-25c9e141e524" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ReplacedStagingInodeIsNeitherPublishedNorDeletedAndOriginalChargeSurvivesUntilRestoredCleanup" computerName="c8273327fc8c" duration="00:00:00.0100398" startTime="2026-10-08T11:40:19.8976558+00:00" endTime="2026-10-08T11:40:19.8977028+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="de933f1b-71c4-4356-9bbf-699e2879f490" />
+    <UnitTestResult executionId="d99f87eb-a1e3-49b5-bea1-7ff1c2396940" testId="48772bda-0a00-18f2-a1d4-88d9d62275c3" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryApprovalDefersCandidateDeletionUntilOperationExit" computerName="c8273327fc8c" duration="00:00:00.0015672" startTime="2026-10-08T11:40:19.9622987+00:00" endTime="2026-10-08T11:40:19.9623313+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d99f87eb-a1e3-49b5-bea1-7ff1c2396940" />
+    <UnitTestResult executionId="6c9cec5a-0fef-4507-a8cb-b180151968a6" testId="ddf9ed5e-f867-ab42-3a27-5dba0902f27e" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringCompactionWaitsForExistingSourceLeaseAndWholeCompactionOperation" computerName="c8273327fc8c" duration="00:00:00.0026226" startTime="2026-10-08T11:40:19.9624259+00:00" endTime="2026-10-08T11:40:19.9624578+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6c9cec5a-0fef-4507-a8cb-b180151968a6" />
+    <UnitTestResult executionId="c5fca78e-4a06-4bef-a53c-159f9b6fe669" testId="ddf8aa0f-a330-2512-918a-1df7c0a406be" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringIndexAdmissionStopsRecoveryBeforeExistingOwnershipRegistration" computerName="c8273327fc8c" duration="00:00:00.0011612" startTime="2026-10-08T11:40:19.9543684+00:00" endTime="2026-10-08T11:40:19.9544357+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c5fca78e-4a06-4bef-a53c-159f9b6fe669" />
+    <UnitTestResult executionId="0ec2b0bb-d25a-48f4-b056-4fd713a4ab31" testId="50dd41f3-548e-da32-4ab8-154d4693abfe" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain(disableAtObservation: 1)" computerName="c8273327fc8c" duration="00:00:00.0009324" startTime="2026-10-08T11:40:19.9074079+00:00" endTime="2026-10-08T11:40:19.9081621+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0ec2b0bb-d25a-48f4-b056-4fd713a4ab31" />
+    <UnitTestResult executionId="40d1f037-ab11-4388-bc11-0779e3e91cf9" testId="4ddb8947-0456-2209-91d3-9d0fda12f779" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DrainedWaitsForDisableEvenWhenEmptyAndLeavesCallerOwnedRootUsable" computerName="c8273327fc8c" duration="00:00:00.0005681" startTime="2026-10-08T11:40:19.9236872+00:00" endTime="2026-10-08T11:40:19.9241534+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="40d1f037-ab11-4388-bc11-0779e3e91cf9" />
+    <UnitTestResult executionId="1f62a5b0-aa2a-4ddb-957c-4f225fbe3e34" testId="a7f0a3b4-b51a-2441-b91f-167b5e48268a" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.MovedWriterStagingWithoutReplacementRetainsReservationUntilOriginalInodeIsUnlinked" computerName="c8273327fc8c" duration="00:00:00.0017464" startTime="2026-10-08T11:40:19.9219247+00:00" endTime="2026-10-08T11:40:19.9235524+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1f62a5b0-aa2a-4ddb-957c-4f225fbe3e34" />
+    <UnitTestResult executionId="1618ebdf-25c7-4760-a0b0-51f743cb26bb" testId="a5871456-352f-b392-0daf-e28fcc8b0567" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableBlocksNewOperationsAndDrainsExistingReaderBeforeDeletion" computerName="c8273327fc8c" duration="00:00:00.0010594" startTime="2026-10-08T11:40:19.9567755+00:00" endTime="2026-10-08T11:40:19.9568143+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1618ebdf-25c7-4760-a0b0-51f743cb26bb" />
+    <UnitTestResult executionId="6b79dad0-72b5-4acf-b2d5-017313f560aa" testId="13a5ccf2-acca-75d0-b394-f80198690688" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryApprovalMovingOriginalWithoutReplacementRetainsOwnershipUntilProvenUnlink" computerName="c8273327fc8c" duration="00:00:00.0134611" startTime="2026-10-08T11:40:19.9082818+00:00" endTime="2026-10-08T11:40:19.9217654+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6b79dad0-72b5-4acf-b2d5-017313f560aa" />
+    <UnitTestResult executionId="508b634a-5dc5-4094-b45e-5c3efbae0c84" testId="691898b6-437e-d099-d825-4ba0ef0ad2e3" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringPayloadReadRetainsWriterReservationUntilOperationExitThenDrains" computerName="c8273327fc8c" duration="00:00:00.0014785" startTime="2026-10-08T11:40:19.9538665+00:00" endTime="2026-10-08T11:40:19.9539345+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="508b634a-5dc5-4094-b45e-5c3efbae0c84" />
+    <UnitTestResult executionId="6556b5f2-cabd-4d7b-8a66-998e6872ac47" testId="6ccabb6b-524d-8758-1445-48e4516e342c" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain(acquireReader: False)" computerName="c8273327fc8c" duration="00:00:00.0015273" startTime="2026-10-08T11:40:19.8961252+00:00" endTime="2026-10-08T11:40:19.8962274+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6556b5f2-cabd-4d7b-8a66-998e6872ac47" />
+    <UnitTestResult executionId="d064285a-75ca-4c7c-9407-a89ef05ad564" testId="dbf18b23-a654-c050-8340-9fd6fb13501d" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CanceledDrainedWaiterCannotReleaseLiveReaderOrCompleteSharedDrain" computerName="c8273327fc8c" duration="00:00:00.0056585" startTime="2026-10-08T11:40:19.8978342+00:00" endTime="2026-10-08T11:40:19.9015772+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d064285a-75ca-4c7c-9407-a89ef05ad564" />
+    <UnitTestResult executionId="999d08d0-a6e0-4198-96a5-329c8ac4a36e" testId="dad73224-40fe-e85c-e0be-8fc541898865" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryOwnerApprovalReplacementPreservesReplacementAndRetainsOriginalRegisteredCharge" computerName="c8273327fc8c" duration="00:00:00.0019698" startTime="2026-10-08T11:40:19.9621419+00:00" endTime="2026-10-08T11:40:19.9621951+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="999d08d0-a6e0-4198-96a5-329c8ac4a36e" />
+    <UnitTestResult executionId="913d89bc-f93d-4fc8-9251-89241a11e602" testId="5deec2cb-ea2b-b13a-98ec-b672875f5a42" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain(disableAtObservation: 2)" computerName="c8273327fc8c" duration="00:00:00.0055449" startTime="2026-10-08T11:40:19.9017137+00:00" endTime="2026-10-08T11:40:19.9071976+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="913d89bc-f93d-4fc8-9251-89241a11e602" />
+    <UnitTestResult executionId="be3cd4a3-1f73-41b2-b73e-47ea848c0013" testId="9c649e19-be3f-f4ca-266c-1fb9c2eadeaa" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain(acquireReader: True)" computerName="c8273327fc8c" duration="00:00:00.0769905" startTime="2026-10-08T11:40:19.8074725+00:00" endTime="2026-10-08T11:40:19.8839183+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="be3cd4a3-1f73-41b2-b73e-47ea848c0013" />
+    <UnitTestResult executionId="f88d9473-004a-4fe5-b9e0-262a2960d4fb" testId="5aaf325e-77f9-8748-e63b-9140c227ea1d" testName="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ReentrantDisposeKeepsCopyOperationAliveUntilItsFinalHoldEnds" computerName="c8273327fc8c" duration="00:00:00.0018807" startTime="2026-10-08T11:40:19.9542233+00:00" endTime="2026-10-08T11:40:19.9542696+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f88d9473-004a-4fe5-b9e0-262a2960d4fb" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain(acquireReader: True)" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="9c649e19-be3f-f4ca-266c-1fb9c2eadeaa">
+      <Execution id="be3cd4a3-1f73-41b2-b73e-47ea848c0013" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableBlocksNewOperationsAndDrainsExistingReaderBeforeDeletion" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="a5871456-352f-b392-0daf-e28fcc8b0567">
+      <Execution id="1618ebdf-25c7-4760-a0b0-51f743cb26bb" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DisableBlocksNewOperationsAndDrainsExistingReaderBeforeDeletion" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain(disableAtObservation: 1)" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="50dd41f3-548e-da32-4ab8-154d4693abfe">
+      <Execution id="0ec2b0bb-d25a-48f4-b056-4fd713a4ab31" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CanceledDrainedWaiterCannotReleaseLiveReaderOrCompleteSharedDrain" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="dbf18b23-a654-c050-8340-9fd6fb13501d">
+      <Execution id="d064285a-75ca-4c7c-9407-a89ef05ad564" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="CanceledDrainedWaiterCannotReleaseLiveReaderOrCompleteSharedDrain" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryApprovalMovingOriginalWithoutReplacementRetainsOwnershipUntilProvenUnlink" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="13a5ccf2-acca-75d0-b394-f80198690688">
+      <Execution id="6b79dad0-72b5-4acf-b2d5-017313f560aa" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="RecoveryApprovalMovingOriginalWithoutReplacementRetainsOwnershipUntilProvenUnlink" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.RecoveryOwnerApprovalReplacementPreservesReplacementAndRetainsOriginalRegisteredCharge" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="dad73224-40fe-e85c-e0be-8fc541898865">
+      <Execution id="999d08d0-a6e0-4198-96a5-329c8ac4a36e" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="RecoveryOwnerApprovalReplacementPreservesReplacementAndRetainsOriginalRegisteredCharge" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringIndexAdmissionStopsRecoveryBeforeExistingOwnershipRegistration" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="ddf8aa0f-a330-2512-918a-1df7c0a406be">
+      <Execution id="c5fca78e-4a06-4bef-a53c-159f9b6fe669" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DisableDuringIndexAdmissionStopsRecoveryBeforeExistingOwnershipRegistration" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain(acquireReader: False)" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="6ccabb6b-524d-8758-1445-48e4516e342c">
+      <Execution id="6556b5f2-cabd-4d7b-8a66-998e6872ac47" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DisableDuringReadOrInventoryAdmissionWaitsForWholeOperationDrain" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringCompactionWaitsForExistingSourceLeaseAndWholeCompactionOperation" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="ddf9ed5e-f867-ab42-3a27-5dba0902f27e">
+      <Execution id="6c9cec5a-0fef-4507-a8cb-b180151968a6" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DisableDuringCompactionWaitsForExistingSourceLeaseAndWholeCompactionOperation" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ReplacedStagingInodeIsNeitherPublishedNorDeletedAndOriginalChargeSurvivesUntilRestoredCleanup" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="8e243aac-61e3-a889-fbf4-25c9e141e524">
+      <Execution id="de933f1b-71c4-4356-9bbf-699e2879f490" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="ReplacedStagingInodeIsNeitherPublishedNorDeletedAndOriginalChargeSurvivesUntilRestoredCleanup" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain(disableAtObservation: 2)" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="5deec2cb-ea2b-b13a-98ec-b672875f5a42">
+      <Execution id="913d89bc-f93d-4fc8-9251-89241a11e602" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DisableDuringRecoveryScanOrProbeAdmissionWaitsForTransientOperationDrain" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringRecoveryApprovalDefersCandidateDeletionUntilOperationExit" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="48772bda-0a00-18f2-a1d4-88d9d62275c3">
+      <Execution id="d99f87eb-a1e3-49b5-bea1-7ff1c2396940" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DisableDuringRecoveryApprovalDefersCandidateDeletionUntilOperationExit" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DisableDuringPayloadReadRetainsWriterReservationUntilOperationExitThenDrains" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="691898b6-437e-d099-d825-4ba0ef0ad2e3">
+      <Execution id="508b634a-5dc5-4094-b45e-5c3efbae0c84" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DisableDuringPayloadReadRetainsWriterReservationUntilOperationExitThenDrains" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.CallerExceptionStillReleasesAReentrantlyDisposedFinalOperationHold" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="445d02c2-bcfd-09c2-8f1a-ada0b36cd17f">
+      <Execution id="6fdaeaa8-da73-464c-a9ce-be151937b669" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="CallerExceptionStillReleasesAReentrantlyDisposedFinalOperationHold" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.DrainedWaitsForDisableEvenWhenEmptyAndLeavesCallerOwnedRootUsable" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="4ddb8947-0456-2209-91d3-9d0fda12f779">
+      <Execution id="40d1f037-ab11-4388-bc11-0779e3e91cf9" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="DrainedWaitsForDisableEvenWhenEmptyAndLeavesCallerOwnedRootUsable" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.ReentrantDisposeKeepsCopyOperationAliveUntilItsFinalHoldEnds" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="5aaf325e-77f9-8748-e63b-9140c227ea1d">
+      <Execution id="f88d9473-004a-4fe5-b9e0-262a2960d4fb" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="ReentrantDisposeKeepsCopyOperationAliveUntilItsFinalHoldEnds" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests.MovedWriterStagingWithoutReplacementRetainsReservationUntilOriginalInodeIsUnlinked" storage="/tmp/mem-disk-source-tests/bin/debug/net10.0/memorydisksourcetests.dll" id="a7f0a3b4-b51a-2441-b91f-167b5e48268a">
+      <Execution id="1f62a5b0-aa2a-4ddb-957c-4f225fbe3e34" />
+      <TestMethod codeBase="/tmp/mem-disk-source-tests/bin/Debug/net10.0/MemoryDiskSourceTests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.DiskSegmentStoreTests" name="MovedWriterStagingWithoutReplacementRetainsReservationUntilOriginalInodeIsUnlinked" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="445d02c2-bcfd-09c2-8f1a-ada0b36cd17f" executionId="6fdaeaa8-da73-464c-a9ce-be151937b669" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8e243aac-61e3-a889-fbf4-25c9e141e524" executionId="de933f1b-71c4-4356-9bbf-699e2879f490" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="48772bda-0a00-18f2-a1d4-88d9d62275c3" executionId="d99f87eb-a1e3-49b5-bea1-7ff1c2396940" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ddf9ed5e-f867-ab42-3a27-5dba0902f27e" executionId="6c9cec5a-0fef-4507-a8cb-b180151968a6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ddf8aa0f-a330-2512-918a-1df7c0a406be" executionId="c5fca78e-4a06-4bef-a53c-159f9b6fe669" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="50dd41f3-548e-da32-4ab8-154d4693abfe" executionId="0ec2b0bb-d25a-48f4-b056-4fd713a4ab31" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4ddb8947-0456-2209-91d3-9d0fda12f779" executionId="40d1f037-ab11-4388-bc11-0779e3e91cf9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a7f0a3b4-b51a-2441-b91f-167b5e48268a" executionId="1f62a5b0-aa2a-4ddb-957c-4f225fbe3e34" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a5871456-352f-b392-0daf-e28fcc8b0567" executionId="1618ebdf-25c7-4760-a0b0-51f743cb26bb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="13a5ccf2-acca-75d0-b394-f80198690688" executionId="6b79dad0-72b5-4acf-b2d5-017313f560aa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="691898b6-437e-d099-d825-4ba0ef0ad2e3" executionId="508b634a-5dc5-4094-b45e-5c3efbae0c84" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6ccabb6b-524d-8758-1445-48e4516e342c" executionId="6556b5f2-cabd-4d7b-8a66-998e6872ac47" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dbf18b23-a654-c050-8340-9fd6fb13501d" executionId="d064285a-75ca-4c7c-9407-a89ef05ad564" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="dad73224-40fe-e85c-e0be-8fc541898865" executionId="999d08d0-a6e0-4198-96a5-329c8ac4a36e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5deec2cb-ea2b-b13a-98ec-b672875f5a42" executionId="913d89bc-f93d-4fc8-9251-89241a11e602" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9c649e19-be3f-f4ca-266c-1fb9c2eadeaa" executionId="be3cd4a3-1f73-41b2-b73e-47ea848c0013" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5aaf325e-77f9-8748-e63b-9140c227ea1d" executionId="f88d9473-004a-4fe5-b9e0-262a2960d4fb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="17" executed="17" passed="17" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.09]   Discovering: MemoryDiskSourceTests
+[xUnit.net 00:00:00.15]   Discovered:  MemoryDiskSourceTests
+[xUnit.net 00:00:00.19]   Starting:    MemoryDiskSourceTests
+[xUnit.net 00:00:00.38]   Finished:    MemoryDiskSourceTests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
