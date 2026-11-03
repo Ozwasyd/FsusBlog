@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorFullTextSearchCaseFold.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchContracts.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchCursor.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchIndex.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchIndexVerifier.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryEvaluator.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchQueryGrammar.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchTokenizer.cs",
+                "src/backend/Services/Authoring/AuthorFullTextSearchVerifier.cs"
+            ],
+            "reason": "Preserve existing caller-visible tokenizer/runtime environment identifiers in the supplied canonical search prerequisite and query evaluator; repository-owned C# names retain the normal mapping."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve the current API document external query schema, unavailable reason and command identifiers while recording unadmitted source-stage limits."
+        }
+    ]
+}
