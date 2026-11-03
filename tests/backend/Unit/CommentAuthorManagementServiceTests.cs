@@ -54,6 +54,33 @@ public sealed class CommentAuthorManagementServiceTests(PostgresSchemaMigrationF
     }
 
     [Fact]
+    public async Task PublicAccountEdit_NormalizesBeforeSharedRevisionAndWriterAllocatesRevisionId()
+    {
+        await using TestContext context = await CreateContextAsync();
+        await context.InsertCommentAsync(id: 801, userId: 7, capabilityHash: null, CommentAuthorModes.Public);
+        CommentManagementChallengeResult issued = await context.Service.IssueAccountChallengeAsync(
+            801, 7, CommentManagementPurposes.Edit, CancellationToken.None);
+
+        CommentAuthorMutationResult result = await context.Service.EditAsAccountAsync(
+            801, 7, new CommentEditRequest(1, "  edited public\r\ncontent  ", issued.Challenge!),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Comment stored = await context.Db.Queryable<Comment>().InSingleAsync(801);
+        CommentRevision revision = Assert.Single(await context.Db.Queryable<CommentRevision>().ToListAsync());
+        Assert.Equal("edited public\ncontent", stored.Content);
+        Assert.Equal(stored.Content, revision.Content);
+        Assert.Equal("b884acd127d69531e8a7bdf2c071673064476c44e90baab685c7ebe2dce05629", revision.ContentSha256);
+        Assert.True(revision.Id > 0);
+        Assert.Equal(801, revision.CommentId);
+        Assert.Equal(2, revision.Version);
+        Assert.Equal(CommentRevisionOperations.Edited, revision.Operation);
+        Assert.Equal(s_baseline.UtcDateTime, revision.CreatedAtUtc);
+        Assert.Equal(7, revision.ActorAccountId);
+        Assert.Null(revision.ActorAdminPrincipalId);
+    }
+
+    [Fact]
     public async Task StrongAnonymousEdit_KeepsAccountAssociationAbsentAndCreatesRevision()
     {
         await using TestContext context = await CreateContextAsync();

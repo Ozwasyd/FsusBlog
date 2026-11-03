@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/CommentAuthorManagementService.cs",
+                "src/backend/Services/CommentService.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.cs"
+            ],
+            "reason": "Preserve existing production configuration and process environment names in the registered C# services and fixture adapters while sharing the same compiled comment construction and routing contracts."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/comment-command-boundary.md"
+            ],
+            "reason": "Preserve the documented external configuration and generated-section identifiers in the maintained command and testing boundaries."
+        }
+    ]
+}
