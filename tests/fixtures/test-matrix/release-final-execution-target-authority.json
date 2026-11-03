@@ -4910,8 +4910,8 @@
         },
         {
             "path": "tools/test/bundles/bundle-steps.mjs",
-            "contentDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727",
-            "indexDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727"
+            "contentDigest": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad",
+            "indexDigest": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad"
         },
         {
             "path": "tools/test/bundles/runtime-environment.mjs",
