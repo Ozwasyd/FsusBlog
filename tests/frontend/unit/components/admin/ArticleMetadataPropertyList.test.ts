@@ -45,6 +45,7 @@ function render(overrides: Partial<typeof baseProps> = {})
 {
     const wrapper = mount(ArticleMetadataPropertyList, {
         attachTo: document.body,
+        global: { components: { ElButton, ElInput } },
         props: { ...baseProps, ...overrides },
         slots: {
             status: () => h('span', { 'data-owner-status': '' }, 'server validation status'),
@@ -86,7 +87,10 @@ function renderPageRace(mutate: (state: typeof baseProps, visible: Ref<boolean>)
             ]);
         }
     });
-    const wrapper = mount(Host, { attachTo: document.body });
+    const wrapper = mount(Host, {
+        attachTo: document.body,
+        global: { components: { ElButton, ElInput } }
+    });
     wrappers.push(wrapper);
     return { wrapper, state, visible };
 }
@@ -220,6 +224,7 @@ describe('ArticleMetadataPropertyList presentation boundary', () =>
         });
         const wrapper = mount(ArticleMetadataPropertyList, {
             props: baseProps,
+            global: { components: { ElButton, ElInput } },
             slots: { property: () => h(Field) }
         });
         wrappers.push(wrapper);

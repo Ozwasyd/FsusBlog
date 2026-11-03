@@ -86,7 +86,6 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElInput } from '@ozwasyd/element-plus';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 // Presentation only: the owner supplies a permission-filtered, ordered page of
