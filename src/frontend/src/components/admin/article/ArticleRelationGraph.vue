@@ -46,13 +46,20 @@
         <fieldset class="article-relation-graph__filters">
             <legend>当前查询筛选</legend>
             <label>范围
-                <select
-                    :value="state.request?.scope"
-                    @change="changeFilters(($event.target as HTMLSelectElement).value as ArticleGraphScope)"
+                <ElSelect
+                    :model-value="state.request?.scope"
+                    aria-label="范围"
+                    @change="changeScope"
                 >
-                    <option value="current-editable">当前可编辑</option>
-                    <option value="published">已发布</option>
-                </select>
+                    <ElOption
+                        value="current-editable"
+                        label="当前可编辑"
+                    />
+                    <ElOption
+                        value="published"
+                        label="已发布"
+                    />
+                </ElSelect>
             </label>
             <ElCheckbox
                 v-for="kind in articleGraphEdgeKinds"
@@ -198,6 +205,7 @@
 import { ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, ref, watch } from 'vue';
 
+import { FsusUiClassicOption as ElOption, FsusUiClassicSelect as ElSelect } from '@/fsusui/classicSelect';
 import { articleGraphEdgeKinds, articleGraphLimits } from '@/services/authoring/articleGraphQuery';
 import type { ArticleGraphIdentity, ArticleGraphNavigationHost, ArticleGraphQueryHost, ArticleGraphScope } from '@/services/authoring/articleGraphQuery';
 import { ArticleGraphSession } from '@/services/authoring/articleGraphSession';
@@ -322,6 +330,14 @@ function changePage(kind: 'node' | 'edge', direction: -1 | 1, event: MouseEvent)
         (kind === 'node' ? nodeHeading.value : edgeHeading.value)?.focus();
     }
     page.value = next;
+}
+
+function changeScope(value: unknown): void
+{
+    if (value === 'current-editable' || value === 'published')
+    {
+        changeFilters(value);
+    }
 }
 
 function changeFilters(scope: ArticleGraphScope = state.value.request?.scope ?? 'current-editable', kinds = state.value.request?.filters.kinds ?? articleGraphEdgeKinds): void

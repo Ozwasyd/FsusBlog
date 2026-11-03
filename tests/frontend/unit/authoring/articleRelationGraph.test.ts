@@ -31,7 +31,10 @@ describe('bounded graph/list composition', () => {
         await settle(wrapper);
         expect(wrapper.findAll('[data-list-node]')).toHaveLength(5);
         expect(wrapper.findAll('[data-list-edge]')).toHaveLength(4);
-        expect(wrapper.findAll('svg')).toHaveLength(0);
+        // Graph absence excludes control icons and still forbids graph facts outside the diagram.
+        expect(wrapper.findAll('.article-relation-graph__diagram > svg')).toHaveLength(0);
+        expect(wrapper.findAll('[data-graph-node]')).toHaveLength(0);
+        expect(wrapper.findAll('[data-graph-edge]')).toHaveLength(0);
         await wrapper.findAll('input[type="checkbox"]').at(-1)!.setValue(true);
         expect(wrapper.findAll('[data-graph-node]').map(element => element.attributes('data-graph-node'))).toEqual(wrapper.findAll('[data-list-node]').map(element => element.attributes('data-list-node')));
         expect(wrapper.findAll('[data-graph-edge]').map(element => element.attributes('data-graph-edge'))).toEqual(wrapper.findAll('[data-list-edge]').map(element => element.attributes('data-list-edge')));
@@ -74,7 +77,9 @@ describe('bounded graph/list composition', () => {
             expect(wrapper.text()).toContain('仅列表（布局 task-unavailable）');
             expect(wrapper.findAll('[data-list-node]')).toHaveLength(40);
             expect(wrapper.findAll('[data-list-edge]')).toHaveLength(40);
-            expect(wrapper.findAll('svg')).toHaveLength(0);
+            expect(wrapper.findAll('.article-relation-graph__diagram > svg')).toHaveLength(0);
+            expect(wrapper.findAll('[data-graph-node]')).toHaveLength(0);
+            expect(wrapper.findAll('[data-graph-edge]')).toHaveLength(0);
             await wrapper.find('[data-list-node="article-00001"] button').trigger('click');
             await wrapper.find('[data-list-edge="relation-00000"] button').trigger('click');
             expect(openOrActivate.mock.calls[0]![0].articleIdentity).toBe('article-00001');
@@ -118,7 +123,9 @@ describe('bounded graph/list composition', () => {
         await settle(wrapper);
         expect(wrapper.text()).toContain('请求被拒绝');
         expect(wrapper.findAll('[data-list-node]')).toHaveLength(0);
-        expect(wrapper.findAll('svg')).toHaveLength(0);
+        expect(wrapper.findAll('.article-relation-graph__diagram > svg')).toHaveLength(0);
+        expect(wrapper.findAll('[data-graph-node]')).toHaveLength(0);
+        expect(wrapper.findAll('[data-graph-edge]')).toHaveLength(0);
         wrapper.unmount();
     });
 
