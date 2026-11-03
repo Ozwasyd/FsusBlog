@@ -1,0 +1,81 @@
+{
+  "schema": "fsusui-design-conformance.ui-ux-classification-receipt.v2",
+  "ownerRepository": "Ozwasyd/FsusUI",
+  "affectedSurfaces": [
+    "Dropdown public single-selection overlay"
+  ],
+  "uiDecisionClass": "bounded-composition",
+  "verificationClass": "ux-local",
+  "requiredAuthorities": [
+    {
+      "id": "docs/design.md",
+      "path": "docs/design.md",
+      "digest": "24c88676101dde43bb0907ed173f001b6e1659973caf19701ea57eddf0617039"
+    },
+    {
+      "id": "docs/design/governance.md",
+      "path": "docs/design/governance.md",
+      "digest": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+    },
+    {
+      "id": "docs/design/change-classification.md",
+      "path": "docs/design/change-classification.md",
+      "digest": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+    },
+    {
+      "id": "docs/workflows/visual-change.md",
+      "path": "docs/workflows/visual-change.md",
+      "digest": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+    },
+    {
+      "id": "docs/consumers/design-integration.md",
+      "path": "docs/consumers/design-integration.md",
+      "digest": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+    },
+    {
+      "id": "docs/components/dropdown.md",
+      "path": "docs/components/dropdown.md",
+      "digest": "e80d0905aab113bc5fcc4b2e51483b21f07c7415602aaa39f8d73aad5f5f2b3f"
+    },
+    {
+      "id": "docs/api-stability.md",
+      "path": "docs/api-stability.md",
+      "digest": "cfc1acd37ea205d7bc94784747e211e6238ca4efd0afe10728a1679ea52cb85f"
+    }
+  ],
+  "requiredSkillDigests": [
+    "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+  ],
+  "activeBaselineIdentity": {
+    "repository": "Ozwasyd/FsusUI",
+    "revision": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "skillDigest": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+    "authorityDigest": "e4a04a02736e73a1f398ef249cff4c7299fbaf0b2b714ad89afda547fa711248",
+    "dirtyFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "candidateSha": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "candidateDigest": "6eaef6ceb39763a53aaf0f928697a393d7d793c763e781c58a3f7510734efbd2",
+  "stateEvidenceMatrix": [
+    {
+      "state": "single-selection missing role; pending/error/retry and keyboard primitive baseline",
+      "viewport": "1440x900",
+      "theme": "light",
+      "evidenceDigest": "9c43f3f134566e786c11ec50a6a4f406617496b720f3b01fa1c775c66cb19f12"
+    }
+  ],
+  "inScope": [
+    "documented consumer-owned checked state on DropdownItem",
+    "trigger ArrowUp and existing keyboard/focus contract",
+    "generic mixed item activation adapter public contract"
+  ],
+  "outOfScope": [
+    "shared Menu implementation",
+    "locale values/resource/preference/routing transaction",
+    "theme geometry and unrelated controls",
+    "package publishing and product acceptance"
+  ],
+  "classificationEvidenceDigest": "9c43f3f134566e786c11ec50a6a4f406617496b720f3b01fa1c775c66cb19f12",
+  "domainPolicyDigest": "620c4f746c1f259e3b640044975ad2878b7913806038706f7991bee9d72104d3",
+  "status": "frozen",
+  "receiptDigest": "d332835db1c1f7458bd4ae1ee311e16fd05360e56230579851a281b19d14155c"
+}

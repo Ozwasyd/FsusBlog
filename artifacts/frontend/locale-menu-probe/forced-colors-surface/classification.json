@@ -1,0 +1,96 @@
+{
+  "schema": "fsusui-design-conformance.ui-ux-classification-receipt.v2",
+  "ownerRepository": "Ozwasyd/FsusUI",
+  "affectedSurfaces": [
+    "Dropdown owned forced-colors popup and arrow paper surface"
+  ],
+  "uiDecisionClass": "prescribed",
+  "verificationClass": "ux-local",
+  "requiredAuthorities": [
+    {
+      "id": "docs/design.md",
+      "path": "docs/design.md",
+      "digest": "6fe0f02f1217d1a5430dac505a5a1ae06072fb0fc6487011841e5b0fc6a7df55"
+    },
+    {
+      "id": "docs/design/governance.md",
+      "path": "docs/design/governance.md",
+      "digest": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104"
+    },
+    {
+      "id": "docs/design/change-classification.md",
+      "path": "docs/design/change-classification.md",
+      "digest": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e"
+    },
+    {
+      "id": "docs/workflows/visual-change.md",
+      "path": "docs/workflows/visual-change.md",
+      "digest": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042"
+    },
+    {
+      "id": "docs/consumers/design-integration.md",
+      "path": "docs/consumers/design-integration.md",
+      "digest": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b"
+    },
+    {
+      "id": "docs/components/dropdown.md",
+      "path": "docs/components/dropdown.md",
+      "digest": "75a0713f11a5af36184ce86af85a6fd55bc95e30924d9ca7c1d0656f5dc4bf0a"
+    },
+    {
+      "id": "docs/api-stability.md",
+      "path": "docs/api-stability.md",
+      "digest": "cfc1acd37ea205d7bc94784747e211e6238ca4efd0afe10728a1679ea52cb85f"
+    },
+    {
+      "id": "docs/theme/tokens.md",
+      "path": "docs/theme/tokens.md",
+      "digest": "427a399416b901d39dc4545bd8337b153378cdeeb5ceff73419b61d308b5a0dd"
+    },
+    {
+      "id": "spec/tokens/tokens.json",
+      "path": "spec/tokens/tokens.json",
+      "digest": "c97d4b2f3ffcf311fb060b21e12e13367763fb4ca9ba9c8fa4cacf6f72d381d1"
+    },
+    {
+      "id": "spec/platform-overrides/README.md",
+      "path": "spec/platform-overrides/README.md",
+      "digest": "f40dec14403a77985b234eb23b8d011188a4696fc6f6785c004e507f49ce1cf3"
+    }
+  ],
+  "requiredSkillDigests": [
+    "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+  ],
+  "activeBaselineIdentity": {
+    "repository": "Ozwasyd/FsusUI",
+    "revision": "e14c9f8321e77c765128732473bb4121c578f559",
+    "skillDigest": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+    "authorityDigest": "bceb39a6ce714b7cc92d54150803181a662f5665d5e152af6c9528a9310c1103",
+    "dirtyFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "candidateSha": "e14c9f8321e77c765128732473bb4121c578f559",
+  "candidateDigest": "d24f039dadbeddec24c717ef8bb1cee71e11e85ca55f97cacea4b9a0b61dfaba",
+  "stateEvidenceMatrix": [
+    {
+      "state": "Forced-colors maps 0.98 alpha overlay to system Canvas but retains alpha; transparent menu reveals background text",
+      "viewport": "375x900 physical, 187x450 CSS at real browser zoom2",
+      "theme": "both",
+      "evidenceDigest": "8737df347e0d6dd543b8b0fce6b498a54162ccb30ddd5834b9e427303e80ae78"
+    }
+  ],
+  "inScope": [
+    "Restore opaque system Canvas only for Dropdown popup/arrow under forced-colors, preserving automatic palette mapping",
+    "Retain public radio selection, multiline/default density, viewport, focus and keyboard contract",
+    "Actual opposite-underlay pixel regression, reversible alpha negative, prior focus-removal controls"
+  ],
+  "outOfScope": [
+    "Shared fsus-theme, Popper, Input, Dialog, Menu and canonical token implementation",
+    "Ordinary themes, new tokens/materials/variants or third theme preset",
+    "Consumer CSS or private-selector workaround",
+    "Independent UX acceptance, other chain implementations, publishing/merge"
+  ],
+  "classificationEvidenceDigest": "8737df347e0d6dd543b8b0fce6b498a54162ccb30ddd5834b9e427303e80ae78",
+  "domainPolicyDigest": "620c4f746c1f259e3b640044975ad2878b7913806038706f7991bee9d72104d3",
+  "status": "frozen",
+  "receiptDigest": "67ec3ab5e20a54fd701a48e38d549a4bf5fcedf511408167e1ede23a444c40b2"
+}

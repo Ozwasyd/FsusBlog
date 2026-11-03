@@ -1,0 +1,159 @@
+{
+  "qualification": false,
+  "issues": {
+    "FsusBlog#1891": "OPEN/WIP: local implementation verified, published parity and product acceptance blocked",
+    "FsusUI#830": "OPEN/WIP: public source implemented, package identity and independent UX acceptance missing"
+  },
+  "initialBlogMaster": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "latestFetchedBlogMaster": "ee808392b54d690d5f99a1e95140bc975a76d5d4",
+  "latestFetchedUIMain": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "providedCanonicalHead": "06abdea678a8cb74682b83cc93e1ff31d3b271da",
+  "canonicalIntegration": "canonical-integration-assessment.json",
+  "currentUISource": "e14c9f8321e77c765128732473bb4121c578f559",
+  "currentBlogSource": "31dfc28a043a7d05300a3dadec4dec3e7e7747ed",
+  "blogImplementation": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6",
+  "consumerRun": {
+    "blog": "90ea7b9dcee0f85d0e6b6e5b57c7fefd44e03cd2",
+    "ui": "e14c9f8321e77c765128732473bb4121c578f559",
+    "runId": "locale-menu-local-2026-10-08T06:57:06.128Z",
+    "command": "FSUSBLOG_LOCALE_PROBE_REAL_ZOOM=1 PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI /tmp/chain-830-canonical-evidence/forced-focus-candidate",
+    "exitCode": 0,
+    "report": "forced-focus-candidate/probe.json",
+    "laterBlogChange": "31dfc28a043a7d05300a3dadec4dec3e7e7747ed changes only helper indentation"
+  },
+  "focusedUI": {
+    "source": "08eb2c3b191985e8bef041b9e5f06bf99cc32aa2",
+    "command": "pnpm exec vitest run --config vue/vitest.config.ts vue/packages/components/dropdown/__tests__ vue/packages/hooks/__tests__/use-popper.test.tsx vue/packages/components/popper/__tests__ vue/packages/components/check-tag/__tests__",
+    "exitCode": 0,
+    "tests": 63,
+    "log": "forced-focus-focused-unit.log",
+    "metadataOnlySuccessor": "e14c9f8321e77c765128732473bb4121c578f559"
+  },
+  "focusedBlog": {
+    "blog": "90ea7b9dcee0f85d0e6b6e5b57c7fefd44e03cd2",
+    "ui": "e14c9f8321e77c765128732473bb4121c578f559",
+    "command": "FSUSBLOG_LOCAL_FSUSUI_ROOT=/workspace/FsusUI node /workspace/FsusUI/node_modules/vitest/vitest.mjs run --config vitest.config.ts ../../tests/frontend/unit/components/LocaleSelector.test.ts ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts",
+    "cwd": "src/frontend",
+    "exitCode": 0,
+    "tests": 33,
+    "log": "paint-candidate-blog-unit.log"
+  },
+  "broaderTests": {
+    "source": "a996d9e742ce31927f3845024eaa72b8a77d13f3",
+    "allUnit": {
+      "command": "pnpm test:unit",
+      "exitCode": 0,
+      "tests": 3007,
+      "files": 306,
+      "log": "all-unit.log"
+    },
+    "types": {
+      "command": "pnpm typecheck:no-cache",
+      "exitCode": 0,
+      "targets": [
+        "Web",
+        "Node",
+        "Vite",
+        "Vitest"
+      ],
+      "log": "types-all.log"
+    },
+    "focused": {
+      "exitCode": 0,
+      "tests": 105,
+      "log": "focused-complete.log"
+    },
+    "fullVisual": {
+      "exitCode": 1,
+      "preview": {
+        "passed": 646,
+        "failed": 42,
+        "total": 688
+      },
+      "dev": {
+        "passed": 11,
+        "failed": 8,
+        "total": 19
+      },
+      "ledger": "full-failure-ledger.json",
+      "log": "full-visual.log",
+      "currentPaintCandidateFull": "not rerun; no current Full qualification"
+    }
+  },
+  "currentChecks": "paint-candidate-checks.json",
+  "currentProductionPreparation": {
+    "source": "e14c9f8321e77c765128732473bb4121c578f559",
+    "command": "PATH=/tmp/chain-830-tools/node_modules/.bin:$PATH node scripts/prepare-visual-runtime.mjs",
+    "exitCode": 0,
+    "log": "paint-candidate-prepare.log",
+    "sourceFingerprint": "be62e10e50901708b54066f5aeb1e5b56c0f8e95317d352264100112b0dd8984",
+    "readinessExit": 0,
+    "readinessLog": "paint-candidate-readiness.log",
+    "artifactNegativeExit": 0,
+    "artifactNegative": "paint-candidate-artifact-negative.json"
+  },
+  "negativeControls": {
+    "forcedFocusBefore": {
+      "ui": "089e133dedc6c6db11a8f463cf821eb3e882f8ac",
+      "blog": "e1cf725fa730d19051798633fa6721028b63d210",
+      "exitCode": 2,
+      "report": "forced-focus-red/probe.json"
+    },
+    "firstBorderRemovalAttempt": {
+      "exitCode": 3,
+      "report": "forced-focus-final/probe.json",
+      "reason": "setting border width to zero did not remove computed forced-color border; preserved failed attempt"
+    },
+    "currentPseudoRemoval": {
+      "exitCode": 0,
+      "report": "forced-focus-candidate/probe.json",
+      "control": "remove pseudo content, detect absent paint, remove test style and verify original paint restored"
+    },
+    "pendingThemeRace": "theme-red-control.json",
+    "tracePolicy": "policy-real-browser.json",
+    "artifactCorruption": "paint-candidate-artifact-negative.json"
+  },
+  "failedNativeCounterGate": {
+    "source": "089e133dedc6c6db11a8f463cf821eb3e882f8ac",
+    "command": "pnpm test:contract-v2",
+    "exitCode": 1,
+    "passed": 46,
+    "failed": 3,
+    "candidateLog": "contract-negative-current-head.log",
+    "baselineLog": "native-counter-baseline.log",
+    "baseline": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "assertions": {
+      "line169": "2115 != 2098",
+      "line430": "410 != 408",
+      "line683": "26 != 25"
+    },
+    "nativeBaselineOwnerCommit": "ad51456ec078aa5a1d9579eec62354f4a00dff60",
+    "nativeTestOwnerCommit": "5b0333a402cb848f6c612eb804c0f2fcfacd4d16"
+  },
+  "publication": {
+    "uiBranch": "task/830-canonical-integration",
+    "uiRemoteSHA": "e14c9f8321e77c765128732473bb4121c578f559",
+    "uiDraftPR": "https://github.com/Ozwasyd/FsusUI/pull/857",
+    "blogBranch": "task/1891-readiness-evidence",
+    "blogDraftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3927",
+    "githubStatusWrites": "stopped on parent instruction after secondary rate-limit 403; local replacement drafts only"
+  },
+  "remainingGates": [
+    "Accessible authorized locked/published package with source additions; current published probe exits 3 ENOENT, prior registry E401, no fallback",
+    "Independent UX/screen-reader and production service/resource/preference acceptance",
+    "Forced-colors screenshots show popup background text bleed and low-contrast outside fixture controls: needs canonical surface/UX review before palette acceptance",
+    "Parent assigns exact canonical owners/evidence for Full 50 failures and native 3 count mismatches; no guessed sibling source",
+    "Native SDK/Orca/Xvfb/emcc not available in current PATH, no native/performance qualification",
+    "Full Blog app build/type/install remains blocked by incomplete dependencies; fixture bundle success is not full app acceptance"
+  ],
+  "defaultMergeChecks": {
+    "blog": "read-only merge-tree at a64 vs ee808 exit0 tree261aac6b5570c9942b7d45d0eb5e1bdc45debe5a",
+    "ui": "read-only merge-tree at089 vsf2 exit0 treef97f2b1e2401d4133ea926676a76c6a5aac3bf18",
+    "mergedTreeTested": false
+  },
+  "cleanup": "full-generated-cleanup.json: only 14 task-written tracked metric PNGs restored to original HEAD after saving actual bytes; snapshots untouched",
+  "toolLimits": [
+    "stylelint not in UI configured tooling: attempted exit254; official Prettier check0 and theme build0",
+    "initial artifact script wrong module path exit1 before mutation; corrected canonical core inspector verifies ready true/false/true with finally restoration"
+  ]
+}

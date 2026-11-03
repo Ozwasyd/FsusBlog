@@ -1,0 +1,85 @@
+{
+  "source": "eb8ed608b263cf2bfd8f7b8b3503c23bedb4c360",
+  "checks": [
+    {
+      "name": "api",
+      "command": [
+        "pnpm",
+        "avalonia:baseline:check"
+      ],
+      "exitCode": 0,
+      "log": "api.log"
+    },
+    {
+      "name": "contract",
+      "command": [
+        "pnpm",
+        "contract-v2:check"
+      ],
+      "exitCode": 0,
+      "log": "contract.log"
+    },
+    {
+      "name": "vue-public",
+      "command": [
+        "pnpm",
+        "conformance:v2:vue-public"
+      ],
+      "exitCode": 0,
+      "log": "vue-public.log"
+    },
+    {
+      "name": "tokens",
+      "command": [
+        "pnpm",
+        "tokens:check"
+      ],
+      "exitCode": 0,
+      "log": "tokens.log"
+    },
+    {
+      "name": "design",
+      "command": [
+        "pnpm",
+        "check:fsusui-design-conformance"
+      ],
+      "exitCode": 0,
+      "log": "design.log"
+    },
+    {
+      "name": "docs",
+      "command": [
+        "pnpm",
+        "check:documentation-architecture"
+      ],
+      "exitCode": 0,
+      "log": "docs.log"
+    },
+    {
+      "name": "anti-ai",
+      "command": [
+        "pnpm",
+        "check:anti-ai-visual"
+      ],
+      "exitCode": 0,
+      "log": "anti-ai.log"
+    },
+    {
+      "name": "focused",
+      "command": [
+        "pnpm",
+        "exec",
+        "vitest",
+        "run",
+        "--config",
+        "vue/vitest.config.ts",
+        "vue/packages/components/dropdown/__tests__",
+        "vue/packages/hooks/__tests__/use-popper.test.tsx",
+        "vue/packages/components/popper/__tests__",
+        "vue/packages/components/check-tag/__tests__"
+      ],
+      "exitCode": 0,
+      "log": "focused.log"
+    }
+  ]
+}

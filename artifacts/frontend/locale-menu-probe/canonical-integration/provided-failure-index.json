@@ -1,0 +1,1098 @@
+{
+  "sourceCommit": "c325c600ea2760156d467bfaa375613879211cd9",
+  "candidateHead": "55f7951abb75ee5b28f4781ed91ee5aa11f70320",
+  "failures": [
+    {
+      "phase": "Preview",
+      "number": 1,
+      "test": "[desktop-light] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data ────────────────────",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 766,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "DataSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 2,
+      "test": "[desktop-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "cause": "aborted local dynamic asset diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 804,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 3,
+      "test": "[desktop-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "cause": "status-slot fixture text mismatch",
+      "firstError": "expect(locator).toContainText(expected) failed",
+      "rawLogLine": 846,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 4,
+      "test": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:25:5 › zoom-in transitions use opacity+translate, no axis scale",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 908,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 5,
+      "test": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:50:5 › list transitions use <=8px displacement",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 946,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 6,
+      "test": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:72:5 › zoom-in overlay transitions have scale >= 0.98",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 984,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 7,
+      "test": "[desktop-light] › vue/tests/visual/motion-transition-acceptance.spec.ts:94:5 › no transition uses 500ms",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 1022,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 8,
+      "test": "[mobile-light] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data ─────────────────────",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 1060,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "DataSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 9,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in source mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1098,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 10,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in live mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1152,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 11,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in split mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1206,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 12,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in source mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1260,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 13,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in live mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1314,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 14,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in split mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1368,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 15,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in source mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1422,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 16,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in live mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1476,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 17,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in split mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1530,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 18,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "cause": "aborted local dynamic asset diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 1584,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 19,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:354:13 › markdown editor chrome variants matrix (#429) › stays usable at 150% and 200% zoom",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1619,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 20,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "cause": "status-slot fixture text mismatch",
+      "firstError": "expect(locator).toContainText(expected) failed",
+      "rawLogLine": 1673,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 21,
+      "test": "[mobile-light] › vue/tests/visual/markdown-editor-chrome.spec.ts:520:13 › markdown editor chrome variants matrix (#429) › keeps framed geometry under forced colors",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 1735,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 22,
+      "test": "[desktop-dark] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data ────────────────────",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 1789,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "DataSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 23,
+      "test": "[desktop-dark] › vue/tests/visual/form-production.spec.ts:63:5 › keeps production form columns aligned for its project viewport and 320px",
+      "cause": "slider overflow at 320px",
+      "firstError": "horizontal overflow: {\"offenders\":[{\"selector\":\"div.el-slider__button-wrapper\",\"left\":417,\"right\":453,\"width\":36},{\"selector\":\"div.el-slider__button.el-tooltip__trigger\",\"left\":428,\"right\":442,\"width\":14}],\"scrollWidth\":453,\"viewportWidth\":320}",
+      "rawLogLine": 1827,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "FormSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": false,
+        "group": "baseline-preview-paired-first.log",
+        "note": "dark form targeted replay passed on both candidates; variable failure is not evidence of repair"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 24,
+      "test": "[desktop-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "cause": "aborted local dynamic asset diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 1860,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 25,
+      "test": "[desktop-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "cause": "status-slot fixture text mismatch",
+      "firstError": "expect(locator).toContainText(expected) failed",
+      "rawLogLine": 1896,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 26,
+      "test": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:25:5 › zoom-in transitions use opacity+translate, no axis scale",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 1958,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 27,
+      "test": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:50:5 › list transitions use <=8px displacement",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 1996,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 28,
+      "test": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:72:5 › zoom-in overlay transitions have scale >= 0.98",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 2034,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 29,
+      "test": "[desktop-dark] › vue/tests/visual/motion-transition-acceptance.spec.ts:94:5 › no transition uses 500ms",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 2072,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 30,
+      "test": "[mobile-dark] › vue/tests/visual/capture-all.spec.ts:67:7 › capture data ─────────────────────",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 2110,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "DataSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 31,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in source mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2148,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 32,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in live mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2202,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 33,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders framed chrome in split mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2256,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 34,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in source mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2310,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 35,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in live mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2364,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 36,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders embedded chrome in split mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2418,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 37,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in source mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2472,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 38,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in live mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2526,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 39,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:141:17 › markdown editor chrome variants matrix (#429) › renders minimal chrome in split mode with correct geometry and semantics",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2580,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 40,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:186:13 › markdown editor chrome variants matrix (#429) › keeps one editor instance through rapid mode switches",
+      "cause": "aborted local dynamic asset diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 2634,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 41,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:354:13 › markdown editor chrome variants matrix (#429) › stays usable at 150% and 200% zoom",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2676,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 42,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:400:13 › markdown editor chrome variants matrix (#429) › renders toolbar, status, and slot visibility contract",
+      "cause": "status-slot fixture text mismatch",
+      "firstError": "expect(locator).toContainText(expected) failed",
+      "rawLogLine": 2730,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Preview",
+      "number": 43,
+      "test": "[mobile-dark] › vue/tests/visual/markdown-editor-chrome.spec.ts:520:13 › markdown editor chrome variants matrix (#429) › keeps framed geometry under forced colors",
+      "cause": "screenshot difference",
+      "firstError": "expect(page).toHaveScreenshot(expected) failed",
+      "rawLogLine": 2792,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownEditorChromeVisualSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-preview-paired-first.log",
+        "note": "Original baseline test/config, with unchanged expectations"
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 1,
+      "test": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:159:7 › dev server home route has no browser diagnostics",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 2915,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery/data",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-dev-paired-first.log",
+        "cause": "CDN certificate afterEach diagnostics"
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 2,
+      "test": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:159:7 › dev server data route has no browser diagnostics",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 2953,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery/data",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-dev-paired-first.log",
+        "cause": "CDN certificate afterEach diagnostics"
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 3,
+      "test": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:251:5 › default home mounts only the virtual window and navigates to sections",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 2991,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery/data",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-dev-paired-first.log",
+        "cause": "CDN certificate afterEach diagnostics"
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 4,
+      "test": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:269:5 › default home TreeSelect dropdown does not bleed into the next section",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 3029,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery/data",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-dev-paired-first.log",
+        "cause": "CDN certificate afterEach diagnostics"
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 5,
+      "test": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:372:5 › Calendar header controls use soft segmented styling",
+      "cause": "external CDN certificate diagnostics",
+      "firstError": "expect(received).toEqual(expected) // deep equality",
+      "rawLogLine": 3067,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "gallery/data",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-dev-paired-first.log",
+        "cause": "CDN certificate afterEach diagnostics"
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 6,
+      "test": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:429:5 › markdown stress route renders long raw HTML without browser diagnostics",
+      "cause": "stress renderer/status text timeout",
+      "firstError": "expect(locator).toHaveText(expected) failed",
+      "rawLogLine": 3105,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownStressSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-dev-paired-first.log",
+        "cause": "stress renderer/status timeout"
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 7,
+      "test": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:661:5 › markdown stress scrollbar thumb drag stays smooth without text blur",
+      "cause": "stress renderer/status text timeout",
+      "firstError": "expect(locator).toHaveText(expected) failed",
+      "rawLogLine": 3140,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownStressSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-dev-paired-first.log",
+        "cause": "stress renderer/status timeout"
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 8,
+      "test": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:814:5 › markdown stress preview scroll remains monotonic while renderer settles",
+      "cause": "stress renderer/status text timeout",
+      "firstError": "expect(locator).toContainText(expected) failed",
+      "rawLogLine": 3175,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownStressSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-dev-paired-first.log",
+        "cause": "stress renderer/status timeout"
+      }
+    },
+    {
+      "phase": "Dev",
+      "number": 9,
+      "test": "vue/tests/demo-app-dev/demo-app-dev.spec.ts:839:5 › markdown stress preview keeps position in narrow devtools-like viewport",
+      "cause": "stress renderer/status text timeout",
+      "firstError": "expect(locator).toHaveText(expected) failed",
+      "rawLogLine": 3210,
+      "sourceExposure": {
+        "stylesheetImport": "vue/packages/demo-app/src/main.ts -> @element-plus/theme-chalk/src/fsus.scss -> index.scss -> public-shell.scss",
+        "routeRoot": "vue/packages/demo-app/src/demo-contract.ts -> App.vue",
+        "section": "MarkdownStressSection",
+        "publicShellOrSiteHeaderReferenceInSpecOrSection": false,
+        "diagnosticProof": "selector-exposure.json; 16 changed selector lists, 16 route/theme observations, zero matches; not universal state qualification"
+      },
+      "pairedBaseline": {
+        "commit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+        "reproduced": true,
+        "group": "baseline-dev-paired-first.log",
+        "cause": "stress renderer/status timeout"
+      }
+    }
+  ]
+}

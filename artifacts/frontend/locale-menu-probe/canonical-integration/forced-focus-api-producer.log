@@ -1,0 +1,5 @@
+
+> @ avalonia:baseline /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/avalonia-vue-public-api-baseline.mjs
+
+avalonia:baseline generated

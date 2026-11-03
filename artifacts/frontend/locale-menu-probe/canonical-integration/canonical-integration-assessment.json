@@ -1,0 +1,43 @@
+{
+  "suppliedHead": "06abdea678a8cb74682b83cc93e1ff31d3b271da",
+  "suppliedHeadVerified": true,
+  "fullDiffFile": "supplied-pr843-complete.patch",
+  "fullDiffSha256": "1261e67d530938eeca44cac52c227c6ec752b13daa6bc747c0f73283fc164bfb",
+  "boundedConsumption": [
+    {
+      "original": "7d9de0259f26eb87ac102ca4ceddc2918ff7890a",
+      "consumed": "9f78c8ed0f35bedc34093ce8b10cc11f50009d4f",
+      "paths": [
+        ".changeset/complete-canonical-icon-alias-exports.md",
+        "vue/packages/icons-vue/src/components/index.ts"
+      ],
+      "conflicts": []
+    },
+    {
+      "original": "9a482352ebb34b2c6fb079be5742626268cc34a7",
+      "consumed": "ae66636b37c47eb1fa577864c7613ef44cc21e3f",
+      "paths": [
+        ".changeset/markdown-pending-theme-invalidation.md",
+        "docs/components/markdown-renderer.md",
+        "vue/packages/components/markdown-renderer/__tests__/markdown-renderer.test.tsx",
+        "vue/packages/components/markdown-renderer/src/markdown-renderer.vue"
+      ],
+      "conflicts": []
+    }
+  ],
+  "alreadyPresent": {
+    "source": "8ce8d0027590a96c6aed5250a14219b71b0eb624",
+    "path": "vue/packages/demo-app/src/InteractionTraceFixture.vue",
+    "sameBytes": true,
+    "priorParentSuppliedSource": "384112ac023a49a8a4fb605f31c05fbd25dd09f5",
+    "consumed": "a19fe53018d1561b1e3bd6bdc2e678ce87ef34e7"
+  },
+  "notConsumed": [
+    "Original #829 empty ATX outline/parser implementation",
+    "Sibling generated API baseline source identity; official producer generated owning candidate instead"
+  ],
+  "ownBaselineCommit": "a996d9e742ce31927f3845024eaa72b8a77d13f3",
+  "ownTraceAssertionRepair": "7253a363ac4fc22c2619ab3d14860d302852c387",
+  "inheritedQualification": false,
+  "nativePerformanceQualification": "not inherited; own runtime result only"
+}

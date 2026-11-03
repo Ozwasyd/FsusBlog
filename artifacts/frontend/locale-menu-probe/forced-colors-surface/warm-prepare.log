@@ -1,0 +1,5 @@
+[visual-runtime] icons reuse: fingerprints match
+[visual-runtime] wasm reuse: fingerprints match
+[visual-runtime] demo reuse: fingerprints match
+[visual-runtime] ready manifest=.tmp/visual-runtime/manifest.json
+[visual-runtime] demo-dist=demo-dist source-fingerprint=872865c413cf4d9204dabed1eef3bd22d70cbaf6f55256848104c33e1a315ba3

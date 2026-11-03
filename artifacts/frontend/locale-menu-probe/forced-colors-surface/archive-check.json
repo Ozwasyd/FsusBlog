@@ -1,0 +1,10 @@
+{
+  "credentialPatternMatches": [],
+  "oldArchivesModified": false,
+  "sourceOnlyScope": [
+    "dropdown.scss",
+    "docs/components/dropdown.md",
+    ".changeset/dropdown-forced-colors-surface.md"
+  ],
+  "acceptance": false
+}

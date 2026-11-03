@@ -1,0 +1,39 @@
+[
+  {
+    "mode": "normal",
+    "command": [
+      "pnpm",
+      "exec",
+      "playwright",
+      "test",
+      "--config=.tmp/issue-830-policy-probe/playwright.config.cjs"
+    ],
+    "exitCode": 1,
+    "intentionalFailure": true,
+    "traceFiles": [
+      "policy-normal/policy-intentional-failure-evidence-fixture/trace.zip"
+    ],
+    "screenshotFiles": [
+      "policy-normal/policy-intentional-failure-evidence-fixture/test-failed-1.png"
+    ]
+  },
+  {
+    "mode": "evidence",
+    "command": [
+      "pnpm",
+      "exec",
+      "playwright",
+      "test",
+      "--config=.tmp/issue-830-policy-probe/playwright.config.cjs"
+    ],
+    "exitCode": 1,
+    "intentionalFailure": true,
+    "traceFiles": [
+      "policy-evidence/policy-intentional-failure-evidence-fixture/trace.zip"
+    ],
+    "screenshotFiles": [
+      "policy-evidence/policy-intentional-failure-evidence-fixture/test-failed-1.png",
+      "policy-evidence/policy-successful-evidence-fixture/test-finished-1.png"
+    ]
+  }
+]

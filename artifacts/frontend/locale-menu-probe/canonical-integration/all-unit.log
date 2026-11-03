@@ -1,0 +1,54 @@
+
+> @ test:unit /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs run-s prepare:test-artifacts _test:unit:parallel
+
+
+> @ prepare:test-artifacts /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/prepare-test-artifacts.mjs
+
+[test-artifacts] icons cache-hit source-hash=d32686b4706e5f7d
+[test-artifacts] skipping ensure:icons
+[test-artifacts] wasm cache-hit source-hash=743a7500a128f6e6
+[test-artifacts] skipping ensure:wasm
+[test-artifacts] ready
+
+> @ _test:unit:parallel /workspace/FsusUI
+> node ./scripts/run-capacity-unit.mjs
+
+CI capacity: 4 CPU, 16384 MiB
+Lanes: typecheck=3, unit=3, build=1, coverage=1, visual=3
+Unit: files=307, shards=3, workers/shard=1
+Node heap: profile=auto, cap=1536 MiB, safe/process=4736 MiB
+Overrides: none
+- cgroup v2 CPU quota 4 included in capacity
+- cgroup v2 memory limit included in effective capacity
+- CPU constrained the repository parallel lane budget
+- reserved 1408 MiB for OS, filesystem cache, package coordinators, and native processes
+- Unit workload 307 files selected 3 shard(s) with 1 worker(s) each
+
+ RUN  v4.1.5 /workspace/FsusUI
+
+
+ RUN  v4.1.5 /workspace/FsusUI
+
+
+ RUN  v4.1.5 /workspace/FsusUI
+
+
+ Test Files  102 passed (102)
+      Tests  828 passed (828)
+   Start at  05:56:19
+   Duration  361.11s (transform 37.87s, setup 14.11s, import 106.84s, tests 75.31s, environment 131.92s)
+
+
+ Test Files  102 passed (102)
+      Tests  1112 passed (1112)
+   Start at  05:56:18
+   Duration  378.56s (transform 34.80s, setup 14.76s, import 97.70s, tests 103.24s, environment 129.89s)
+
+
+ Test Files  102 passed (102)
+      Tests  1067 passed (1067)
+   Start at  05:56:18
+   Duration  383.91s (transform 39.55s, setup 13.98s, import 99.98s, tests 109.56s, environment 128.99s)
+

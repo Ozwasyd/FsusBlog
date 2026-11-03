@@ -1,0 +1,5 @@
+
+> @ check:anti-ai-visual /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/check-anti-ai-visual.mjs
+
+Anti-AI visual conformance check passed.

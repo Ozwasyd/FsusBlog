@@ -1,0 +1,52 @@
+
+Running 2 tests using 1 worker
+
+(node:129805) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:129805) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 .tmp/issue-830-policy-probe/policy.spec.ts:2:5 › successful evidence fixture (131ms)
+  ✘  2 .tmp/issue-830-policy-probe/policy.spec.ts:6:5 › intentional failure evidence fixture (145ms)
+
+
+  1) .tmp/issue-830-policy-probe/policy.spec.ts:6:5 › intentional failure evidence fixture ─────────
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoHaveText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator:  getByRole('button')
+    Expected: [32m"[7mintention[27mal f[7mail[27mure"[39m
+    Received: [31m"[7mactu[27mal f[7mixt[27mure"[39m
+    Timeout:  50ms
+
+    Call log:
+    [2m  - Expect "toHaveText" with timeout 50ms[22m
+    [2m  - waiting for getByRole('button')[22m
+    [2m    2 × locator resolved to <button>actual fixture</button>[22m
+    [2m      - unexpected value "actual fixture"[22m
+
+
+       6 | test('intentional failure evidence fixture', async ({ page }) => {
+       7 |   await page.setContent('<button>actual fixture</button>')
+    >  8 |   await expect(page.getByRole('button')).toHaveText('intentional failure', { timeout: 50 })
+         |                                          ^
+       9 | })
+      10 |
+        at /workspace/FsusUI/.tmp/issue-830-policy-probe/policy.spec.ts:8:42
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../../tmp/chain-830-canonical-evidence/policy-evidence/policy-intentional-failure-evidence-fixture/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../../tmp/chain-830-canonical-evidence/policy-evidence/policy-intentional-failure-evidence-fixture/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../tmp/chain-830-canonical-evidence/policy-evidence/policy-intentional-failure-evidence-fixture/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../tmp/chain-830-canonical-evidence/policy-evidence/policy-intentional-failure-evidence-fixture/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    .tmp/issue-830-policy-probe/policy.spec.ts:6:5 › intentional failure evidence fixture ──────────
+  1 passed (1.1s)

@@ -1,0 +1,398 @@
+{
+    "schema": "fsusblog.locale-menu-api-probe.v1",
+    "runId": "locale-menu-local-2026-10-08T06:37:18.295Z",
+    "mode": "local",
+    "blogCommit": "e1cf725fa730d19051798633fa6721028b63d210",
+    "blogStatus": "?? artifacts/frontend/locale-menu-probe/canonical-integration/",
+    "localRoot": "/workspace/FsusUI",
+    "localCommit": "089e133dedc6c6db11a8f463cf821eb3e882f8ac",
+    "localTree": "f97f2b1e2401d4133ea926676a76c6a5aac3bf18",
+    "localStatus": "",
+    "nodeVersion": "v24.19.0",
+    "harnessDigests": {
+        "tests/frontend/fixtures/localeMenuProbe/App.vue": "e7ba645a0d71cda83a8f36b15cbe6441e59f354ee1da9e6be43f71bd140ac600",
+        "tests/frontend/fixtures/localeMenuProbe/Consumer.vue": "6bacbe1d8b35d1a85014643a4fd6f7c3195ea2c66d39c819b0b0600808b72525",
+        "tests/frontend/fixtures/localeMenuProbe/main.ts": "e295dd61fbd7e3c13ec4de264607f090240f918dfe9dc3b56cd6e8ce667eaf80",
+        "tests/frontend/fixtures/localeMenuProbe/index.html": "52f5c8e6b05020c7461fdf72535610a26b98cb6d3f2f73c1419e7ad7d9e372eb",
+        "tests/frontend/checks/runtime/probe-locale-menu.mjs": "47c90037948fffec77d53c3f0973d76353483623a34cdc7f2b1365fee31ceb03",
+        "tests/frontend/checks/runtime/probe-locale-menu-browser-zoom.mjs": "39bbdb73069377911d64f3e187a7ab22c69ea37ee733dbe082dadee862671c54"
+    },
+    "authorityDigests": {
+        ".agents/skills/fsusui-design-conformance/SKILL.md": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe",
+        "docs/design.md": "6fe0f02f1217d1a5430dac505a5a1ae06072fb0fc6487011841e5b0fc6a7df55",
+        "docs/design/governance.md": "d871bc86ed2a66f3a851f947530ff576c3d1d0a1a37c721d11cf09b1cbc4e104",
+        "docs/design/change-classification.md": "c5d43303e89931346f9d634dd592ecb54418d15a74ae923f72e52795a115544e",
+        "docs/workflows/visual-change.md": "0bd20f9ae6997aa9b7daeb0cec2f558738565bd0932828617aea2f5b84626042",
+        "docs/consumers/design-integration.md": "0aece5130fd251487b3215f62f38a8a743ed4c0d02ed8e292b865daecae0195b",
+        "docs/components/dropdown.md": "7b0aeba884d848f54fe83806dc562ec3108aee6ae74f0298268b7b6f12ac03d7",
+        "docs/components/menu.md": "e1cefbe282c93edf225ecc5f5b9b6da1ea7043ca3c5a6b0093eb35de4603a6d4",
+        "docs/components/select.md": "0e395da3fb2d3cbd662cac6629c7c4b3c5ac9056be87217a6a956986893cd762",
+        "docs/api-stability.md": "cfc1acd37ea205d7bc94784747e211e6238ca4efd0afe10728a1679ea52cb85f"
+    },
+    "observations": {
+        "defaultRowHeight": 34,
+        "publicOpen": true,
+        "triggerAssociation": {
+            "expanded": "true",
+            "controls": "el-id-3138-1",
+            "haspopup": "menu"
+        },
+        "radioItem": {
+            "role": "menuitemradio",
+            "checked": "true"
+        },
+        "publicClose": true,
+        "keyboardEntry": true,
+        "keyboard": {
+            "ArrowDown": true,
+            "End": true,
+            "Home": true,
+            "ArrowUp": true
+        },
+        "pendingOpen": true,
+        "commandKeepsUrl": true,
+        "commandsAfterEnter": [
+            "ja"
+        ],
+        "commandsAfterSpace": [
+            "ja",
+            "ja"
+        ],
+        "escapeFocusReturn": true,
+        "outsideClose": true,
+        "outsideFocus": "outside",
+        "retryCommand": "retry",
+        "retryOpen": true,
+        "disabledItemIgnored": true,
+        "linkKeyboardHash": "#linked-locale",
+        "linkPointerHash": "#linked-locale",
+        "linkPointerCommand": "link",
+        "triggerDisabled": true,
+        "disabledOpen": false,
+        "selectAfterActivation": {
+            "selection": "en",
+            "selectPending": "ja",
+            "selectVisible": false
+        },
+        "selectRetryReachable": false,
+        "menuAlternativeRole": "menuitemradio",
+        "menuAlternativeKeyboardEntry": false,
+        "menuAlternativeOpenAfterArrow": false,
+        "menuAlternativeArrowDown": false,
+        "consumerFailureRetry": {
+            "active": "zh-CN",
+            "pending": "ru-RU",
+            "failed": null,
+            "open": true,
+            "requests": [
+                "ja-JP",
+                "de-DE",
+                "ru-RU",
+                "ru-RU"
+            ]
+        },
+        "consumerUrl": {
+            "active": "ru-RU",
+            "pending": null,
+            "failed": null,
+            "open": true,
+            "requests": [
+                "ja-JP",
+                "de-DE",
+                "ru-RU",
+                "ru-RU"
+            ]
+        },
+        "consumerVariants": [
+            {
+                "width": 375,
+                "theme": "light",
+                "rtl": false,
+                "forcedColors": "none",
+                "reducedMotion": "no-preference",
+                "zoom": 1,
+                "cssZoomOnly": true,
+                "overflow": false,
+                "clippedLabels": [],
+                "viewportGeometry": {
+                    "innerWidth": 375,
+                    "clientWidth": 375,
+                    "scrollWidth": 375,
+                    "visualWidth": 375,
+                    "cssZoom": "1",
+                    "menu": {
+                        "left": 6,
+                        "right": 165.8125,
+                        "width": 159.8125
+                    },
+                    "panel": {
+                        "left": 5,
+                        "right": 166.8125,
+                        "top": 329,
+                        "bottom": 867,
+                        "width": 161.8125,
+                        "height": 538
+                    },
+                    "overflowingElements": []
+                },
+                "panelOverflow": false,
+                "geometryNegativeControl": true
+            },
+            {
+                "width": 1440,
+                "theme": "dark",
+                "rtl": true,
+                "forcedColors": "none",
+                "reducedMotion": "reduce",
+                "zoom": 1,
+                "cssZoomOnly": true,
+                "overflow": false,
+                "clippedLabels": [],
+                "viewportGeometry": {
+                    "innerWidth": 1440,
+                    "clientWidth": 1440,
+                    "scrollWidth": 1440,
+                    "visualWidth": 1440,
+                    "cssZoom": "1",
+                    "menu": {
+                        "left": 1274,
+                        "right": 1433.8125,
+                        "width": 159.8125
+                    },
+                    "panel": {
+                        "left": 1273,
+                        "right": 1434.8125,
+                        "top": 204,
+                        "bottom": 742,
+                        "width": 161.8125,
+                        "height": 538
+                    },
+                    "overflowingElements": []
+                },
+                "panelOverflow": false,
+                "geometryNegativeControl": true
+            },
+            {
+                "width": 375,
+                "theme": "dark",
+                "rtl": true,
+                "forcedColors": "active",
+                "reducedMotion": "reduce",
+                "zoom": 2,
+                "cssZoomOnly": true,
+                "overflow": false,
+                "clippedLabels": [],
+                "viewportGeometry": {
+                    "innerWidth": 375,
+                    "clientWidth": 375,
+                    "scrollWidth": 375,
+                    "visualWidth": 375,
+                    "cssZoom": "2",
+                    "menu": {
+                        "left": 48,
+                        "right": 367.609375,
+                        "width": 319.609375
+                    },
+                    "panel": {
+                        "left": 46,
+                        "right": 369.609375,
+                        "top": 42,
+                        "bottom": 898,
+                        "width": 323.609375,
+                        "height": 856
+                    },
+                    "overflowingElements": []
+                },
+                "panelOverflow": false,
+                "geometryNegativeControl": true
+            },
+            {
+                "width": 375,
+                "theme": "light",
+                "rtl": false,
+                "forcedColors": "none",
+                "reducedMotion": "reduce",
+                "zoom": 2,
+                "cssZoomOnly": true,
+                "overflow": false,
+                "clippedLabels": [],
+                "viewportGeometry": {
+                    "innerWidth": 375,
+                    "clientWidth": 375,
+                    "scrollWidth": 375,
+                    "visualWidth": 375,
+                    "cssZoom": "2",
+                    "menu": {
+                        "left": 8,
+                        "right": 327.609375,
+                        "width": 319.609375
+                    },
+                    "panel": {
+                        "left": 6,
+                        "right": 329.609375,
+                        "top": 42,
+                        "bottom": 898,
+                        "width": 323.609375,
+                        "height": 856
+                    },
+                    "overflowingElements": []
+                },
+                "panelOverflow": false,
+                "geometryNegativeControl": true
+            },
+            {
+                "width": 320,
+                "theme": "light",
+                "rtl": false,
+                "forcedColors": "none",
+                "reducedMotion": "reduce",
+                "zoom": 2,
+                "expanded": true,
+                "cssZoomOnly": true,
+                "overflow": false,
+                "clippedLabels": [],
+                "viewportGeometry": {
+                    "innerWidth": 320,
+                    "clientWidth": 320,
+                    "scrollWidth": 320,
+                    "visualWidth": 320,
+                    "cssZoom": "2",
+                    "menu": {
+                        "left": 8,
+                        "right": 304,
+                        "width": 296
+                    },
+                    "panel": {
+                        "left": 6,
+                        "right": 306,
+                        "top": 43,
+                        "bottom": 899,
+                        "width": 300,
+                        "height": 856
+                    },
+                    "overflowingElements": []
+                },
+                "panelOverflow": false,
+                "geometryNegativeControl": true
+            }
+        ],
+        "consumerAccessibilitySnapshot": "- menu \"Русский (ru-RU)\":\n  - menuitemradio \"简体中文 Simplified ChineseSimplified ChineseSimplified ChineseSimplified Chinese\"\n  - menuitemradio \"English EnglishEnglishEnglishEnglish\"\n  - menuitemradio \"繁體中文 Traditional ChineseTraditional ChineseTraditional ChineseTraditional Chinese\"\n  - menuitemradio \"日本語 JapaneseJapaneseJapaneseJapanese\"\n  - menuitemradio \"한국어 KoreanKoreanKoreanKorean\"\n  - menuitemradio \"Español (Latinoamérica) Spanish (Latin America)Spanish (Latin America)Spanish (Latin America)Spanish (Latin America)\"\n  - menuitemradio \"Français FrenchFrenchFrenchFrench\"\n  - menuitemradio \"Deutsch GermanGermanGermanGerman\"\n  - menuitemradio \"Português (Brasil) Portuguese (Brazil)Portuguese (Brazil)Portuguese (Brazil)Portuguese (Brazil)\"\n  - menuitemradio \"Русский RussianRussianRussianRussian\" [checked]",
+        "consumerComposition": true,
+        "consumerTouchPendingOutside": true,
+        "realBrowserZoom": {
+            "method": "chrome.tabs.setZoom/getZoom",
+            "factor": 2,
+            "before": {
+                "innerWidth": 1440,
+                "dpr": 1
+            },
+            "variants": [
+                {
+                    "width": 375,
+                    "theme": "light",
+                    "rtl": false,
+                    "forcedColors": "none",
+                    "geometry": {
+                        "innerWidth": 187,
+                        "innerHeight": 450,
+                        "dpr": 2,
+                        "cssZoom": "1",
+                        "clientWidth": 187,
+                        "scrollWidth": 187,
+                        "panel": {
+                            "left": 5,
+                            "right": 166.8046875,
+                            "top": 131,
+                            "bottom": 448
+                        },
+                        "clippedLabels": []
+                    },
+                    "focusPaint": {
+                        "focusVisible": true,
+                        "boxShadow": "rgb(42, 89, 156) 0px 0px 0px 2px inset",
+                        "outlineStyle": "none",
+                        "outlineWidth": "3px",
+                        "afterContent": "none",
+                        "afterBorderStyle": "none",
+                        "afterBorderWidth": "0px",
+                        "afterBorderColor": "rgb(42, 89, 156)"
+                    }
+                },
+                {
+                    "width": 1440,
+                    "theme": "dark",
+                    "rtl": true,
+                    "forcedColors": "none",
+                    "geometry": {
+                        "innerWidth": 720,
+                        "innerHeight": 450,
+                        "dpr": 2,
+                        "cssZoom": "1",
+                        "clientWidth": 720,
+                        "scrollWidth": 720,
+                        "panel": {
+                            "left": 553,
+                            "right": 714.8046875,
+                            "top": 131,
+                            "bottom": 448
+                        },
+                        "clippedLabels": []
+                    },
+                    "focusPaint": {
+                        "focusVisible": true,
+                        "boxShadow": "rgb(75, 121, 204) 0px 0px 0px 2px inset",
+                        "outlineStyle": "none",
+                        "outlineWidth": "3px",
+                        "afterContent": "none",
+                        "afterBorderStyle": "none",
+                        "afterBorderWidth": "0px",
+                        "afterBorderColor": "rgb(75, 121, 204)"
+                    }
+                },
+                {
+                    "width": 375,
+                    "theme": "dark",
+                    "rtl": true,
+                    "forcedColors": "active",
+                    "geometry": {
+                        "innerWidth": 187,
+                        "innerHeight": 450,
+                        "dpr": 2,
+                        "cssZoom": "1",
+                        "clientWidth": 187,
+                        "scrollWidth": 187,
+                        "panel": {
+                            "left": 20.5,
+                            "right": 182.3046875,
+                            "top": 131,
+                            "bottom": 448
+                        },
+                        "clippedLabels": []
+                    },
+                    "focusPaint": {
+                        "focusVisible": true,
+                        "boxShadow": "none",
+                        "outlineStyle": "none",
+                        "outlineWidth": "3px",
+                        "afterContent": "none",
+                        "afterBorderStyle": "none",
+                        "afterBorderWidth": "0px",
+                        "afterBorderColor": "rgb(255, 255, 255)"
+                    }
+                }
+            ],
+            "focusPaintFailures": [
+                "forced-colors-focus-paint"
+            ],
+            "qualification": false
+        }
+    },
+    "errors": [],
+    "qualification": false,
+    "browserVersion": "147.0.7727.15",
+    "failures": [
+        "forced-colors-focus-paint"
+    ],
+    "status": "capability-gap",
+    "observedCoverage": "minimal public API/DOM probe; no product UX acceptance"
+}

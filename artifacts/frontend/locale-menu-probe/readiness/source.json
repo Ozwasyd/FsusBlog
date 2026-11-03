@@ -1,0 +1,18 @@
+{
+  "commit": "ef36c0d006a1fd330d238ed699b5d1f47d9fbc75",
+  "tree": "e85ba9aedd379db601ace450f4a406b5df2a14e9",
+  "status": "",
+  "files": {
+    "vue/packages/icons-vue/build/generate.ts": "1234ea398eaaa7de14bfef16ee7cd1af4698f8a73576453210217b3ff0a6c953",
+    "spec/icons/registry.yaml": "fd8fa84e3e87d1621990351eb3f2600061c25a4b362930578d5f4bd354014e86",
+    "spec/tokens/tokens.json": "c97d4b2f3ffcf311fb060b21e12e13367763fb4ca9ba9c8fa4cacf6f72d381d1",
+    "vue/packages/icons-vue/src/components/index.ts": "a1d167e6c8a47fc01774cbc35d160afca7451fc674e1ab9041d0630a7f3a7b64",
+    "scripts/visual-runtime-core.mjs": "58eee9204c4b5db69332c37cadf26e524534f782da8ac11801152e25d544f06c",
+    "scripts/ensure-icons-artifacts.mjs": "cf93a71bc50dcbb63cc4c47bb55f221f1641fe1e2d10cb2c2133a78b8e82d9ec",
+    "scripts/test-artifact-cache.mjs": "713f2ecab65555b207d4a0c2ab3eab69c0196aea5bc41ffca3d51315f712781a"
+  },
+  "onlyIncrementPaths": [
+    ".changeset/icons-registry-export-sync.md",
+    "vue/packages/icons-vue/src/components/index.ts"
+  ]
+}

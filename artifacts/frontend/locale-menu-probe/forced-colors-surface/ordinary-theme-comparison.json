@@ -1,0 +1,39 @@
+[
+  {
+    "file": "consumer-375-light-real-browser-zoom2-none.png",
+    "beforeSha256": "6988e91901fd76c7e8a509ffb4bab0ef00bab021c40ef9579768f70035fc9af3",
+    "afterSha256": "1d9fb5772b9e069ef48902cbb7c57d1df410da44571d990852c5300af2ce9ed7",
+    "byteIdentical": false,
+    "pixelComparison": {
+      "changedPixels": 27,
+      "bounds": {
+        "left": 82,
+        "right": 220,
+        "top": 80,
+        "bottom": 261
+      },
+      "maxChannelDelta": 7
+    },
+    "geometryUnchanged": true,
+    "surfacePaintUnchanged": true,
+    "itemFocusPaintUnchanged": true,
+    "triggerFocusPaintUnchanged": true,
+    "paintDeltaOutsideDropdown": true
+  },
+  {
+    "file": "consumer-1440-dark-real-browser-zoom2-none.png",
+    "beforeSha256": "5a5f71e0b8cbdcec07a3fe0e76352aeed6ecccbba80c99ffc0ba8734132a870a",
+    "afterSha256": "5a5f71e0b8cbdcec07a3fe0e76352aeed6ecccbba80c99ffc0ba8734132a870a",
+    "byteIdentical": true,
+    "pixelComparison": {
+      "changedPixels": 0,
+      "bounds": null,
+      "maxChannelDelta": 0
+    },
+    "geometryUnchanged": true,
+    "surfacePaintUnchanged": true,
+    "itemFocusPaintUnchanged": true,
+    "triggerFocusPaintUnchanged": true,
+    "paintDeltaOutsideDropdown": true
+  }
+]

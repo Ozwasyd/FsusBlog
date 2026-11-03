@@ -1,0 +1,51 @@
+{
+  "schema": "fsusblog-design-conformance.ui-classification-receipt.v2",
+  "domainPolicyDigest": "a0c0120751f77f81ecb32dad389fd1e8465035576a81444b8daec463fa76b82f",
+  "repository": "Ozwasyd/FsusBlog",
+  "issueId": "#1891",
+  "uiImpact": true,
+  "ownerRepository": "Ozwasyd/FsusBlog",
+  "affectedSurfaces": [
+    "LocaleSelector public-editorial utility and inherited overlay"
+  ],
+  "uiDecisionClass": "bounded-composition",
+  "verificationClass": "ux-path",
+  "requiredDesignAuthorities": [
+    {
+      "id": "FsusBlog design Skill",
+      "digest": "0122f00f1b14f98a92daf5164e59487cba2fad3d45b5547c7b0e96f5cb08ce73"
+    },
+    {
+      "id": "FsusUI design Skill",
+      "digest": "c88357a6ba0340000bae5839daeb67a3cd2722e8242cf7e0148006c3610a44fe"
+    }
+  ],
+  "fsusUIBaseline": {
+    "repository": "Ozwasyd/FsusUI",
+    "revision": "a19fe53018d1561b1e3bd6bdc2e678ce87ef34e7",
+    "mode": "local-source",
+    "publishedPin": "1.5.1",
+    "publishedProbe": "blocked package access; no parity qualification"
+  },
+  "stateEvidenceMatrix": [
+    "Source prerequisite: checked role, pending/retry, commands/URL, keyboard and Escape/outside; 1440x900 light Chromium",
+    "Required consumer coverage: 10 locales plus RTL direction, 375/1440,200% zoom,light/dark,forced colors,reduced motion,keyboard/touch; independent screen-reader qualification pending",
+    "Current before-change CSS 2x zoom has real popup overflow; preserve dimension assertions"
+  ],
+  "inScope": [
+    "One-way removal of LocaleSelector generic menu kernel in favor of public Dropdown primitives",
+    "Consumer active/pending/error/failed retry target and latest-wins projection",
+    "Existing component/runtime tests and real consumer browser evidence",
+    "Consume explicit public multiline/description/suffix content contract; remove consumer-owned generic row geometry"
+  ],
+  "outOfScope": [
+    "FsusUI shared Menu files",
+    "Catalog/translation/backend/resource transaction ownership",
+    "Package publishing and independent UX acceptance"
+  ],
+  "candidateSha": "fbb90a21d029ea795060c7a5e6266b55e2eb067f",
+  "candidateIdentityDigest": "2124f2eec382f1b841d3d18677ffa95af3f9f7857a4f3bd62fe3c37ed61b7353",
+  "classificationEvidenceDigest": "938c3069339ab0bd8bf31f37735854bae06d043c7b7ce412b1a88da115b22e04",
+  "status": "frozen",
+  "receiptDigest": "1a29dc53e547c966dab10add9e8381830e2d9fc6c062978f82cdffe157a30413"
+}

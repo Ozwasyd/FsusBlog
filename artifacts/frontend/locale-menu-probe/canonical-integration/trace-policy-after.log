@@ -1,0 +1,20 @@
+✔ default Demo runtime invalidates when its base tsconfig changes (45.744529ms)
+✔ cold preparation ignores owned WASM build output and then reuses every layer (36.920199ms)
+✔ prepares an empty runtime and writes a ready manifest (25.614153ms)
+✔ reuses every layer when inputs and runtime outputs are unchanged (24.963261ms)
+✔ invalidates icons, WASM, and Demo layers independently (46.91846ms)
+✔ detects missing, stale, corrupt, and mismatched runtime state (22.519111ms)
+✔ detects manifest configuration and fingerprint-file mismatches (18.310589ms)
+✔ dry-run reports rebuild reasons without commands or writes (7.104895ms)
+✔ works without Actions variables and exposes a local fallback command (17.49653ms)
+✔ direct Playwright server path fails clearly when runtime is missing (522.397891ms)
+✔ normal mode keeps only failure evidence while evidence mode is explicit (1.092769ms)
+✔ custom screenshots are cleaned normally and retained for evidence (5.281292ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 585.444644

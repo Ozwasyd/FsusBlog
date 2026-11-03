@@ -1,0 +1,130 @@
+vite v7.3.1 building client environment for production...
+transforming...
+✓ 4174 modules transformed.
+✗ Build failed in 23.60s
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+[vite:worker] Could not load /workspace/FsusUI/vue/packages/wasm/markdown-heavy-feature-frame.ts?worker&url (imported by ../FsusUI/vue/packages/wasm/markdown-heavy-feature-isolated-client.ts): Invalid value "iife" for option "worker.format" - UMD and IIFE output formats are not supported for code-splitting builds.
+    at getRollupError (file:///workspace/FsusUI/node_modules/rollup/dist/es/shared/parseAst.js:406:41)
+    at error (file:///workspace/FsusUI/node_modules/rollup/dist/es/shared/parseAst.js:402:42)
+    at validateOptionsForMultiChunkOutput (file:///workspace/FsusUI/node_modules/rollup/dist/es/shared/node-entry.js:21142:16)
+    at Bundle.generate (file:///workspace/FsusUI/node_modules/rollup/dist/es/shared/node-entry.js:20997:17)
+    at async file:///workspace/FsusUI/node_modules/rollup/dist/es/shared/node-entry.js:23954:27
+    at async catchUnfinishedHookActions (file:///workspace/FsusUI/node_modules/rollup/dist/es/shared/node-entry.js:23321:16)
+    at async bundleWorkerEntry (file:///workspace/FsusUI/node_modules/vite/dist/node/chunks/config.js:26681:12)
+    at async workerFileToUrl (file:///workspace/FsusUI/node_modules/vite/dist/node/chunks/config.js:26714:17)
+    at async Object.handler (file:///workspace/FsusUI/node_modules/vite/dist/node/chunks/config.js:26796:21)
+    at async PluginDriver.hookFirstAndGetPlugin (file:///workspace/FsusUI/node_modules/rollup/dist/es/shared/node-entry.js:22849:28) {
+  code: 'PLUGIN_ERROR',
+  url: 'https://rollupjs.org/configuration-options/#output-format',
+  pluginCode: 'INVALID_OPTION',
+  plugin: 'vite:worker',
+  hook: 'load',
+  watchFiles: [
+    '/workspace/FsusBlog/tests/frontend/fixtures/localeMenuProbe/index.html',
+    '/workspace/FsusBlog/tests/frontend/fixtures/localeMenuProbe/main.ts',
+    '/workspace/FsusUI/node_modules/vue/dist/vue.runtime.esm-bundler.js',
+    '/workspace/FsusBlog/tests/frontend/fixtures/localeMenuProbe/App.vue',
+    '/workspace/FsusUI/node_modules/@vue/runtime-dom/dist/runtime-dom.esm-bundler.js',
+    '/workspace/FsusBlog/tests/frontend/fixtures/localeMenuProbe/Consumer.vue',
+    '/workspace/FsusUI/vue/packages/element-plus/index.ts',
+    '/workspace/FsusUI/vue/packages/theme-chalk/dist/el-fsus-theme.css',
+    '/workspace/FsusUI/vue/packages/theme-chalk/dist/index.css',
+    '/workspace/FsusUI/node_modules/@vue/shared/dist/shared.esm-bundler.js',
+    '/workspace/FsusUI/node_modules/@vue/runtime-core/dist/runtime-core.esm-bundler.js',
+    '/workspace/FsusUI/vue/packages/element-plus/package.json',
+    '/workspace/FsusUI/node_modules/dayjs/dayjs.min.js',
+    '/workspace/FsusUI/vue/packages/element-plus/render-pipeline-policies.ts',
+    '/workspace/FsusUI/vue/packages/element-plus/defaults.ts',
+    '/workspace/FsusUI/vue/packages/element-plus/make-installer.ts',
+    '/workspace/FsusUI/vue/packages/element-plus/result.ts',
+    '/workspace/FsusUI/vue/packages/constants/index.ts',
+    '/workspace/FsusUI/vue/packages/components/index.ts',
+    '/workspace/FsusUI/vue/packages/directives/index.ts',
+    '/workspace/FsusUI/vue/packages/hooks/index.ts',
+    '/workspace/FsusUI/vue/packages/components/site-header/index.ts',
+    '/workspace/FsusUI/vue/packages/components/empty-state/index.ts',
+    '/workspace/FsusUI/vue/packages/motion/index.ts',
+    '/workspace/FsusUI/vue/packages/components/perception-challenge/index.ts',
+    '/workspace/FsusBlog/src/frontend/src/locales/localeCatalog.ts',
+    '/workspace/FsusBlog/src/frontend/src/components/ui/LocaleSelector.vue',
+    '/workspace/FsusUI/vue/packages/constants/package.json',
+    '/workspace/FsusUI/vue/packages/components/package.json',
+    '/workspace/FsusUI/vue/packages/directives/package.json',
+    '/workspace/FsusUI/vue/packages/hooks/package.json',
+    '/workspace/FsusUI/vue/packages/motion/package.json',
+    '/workspace/FsusUI/vue/packages/utils/index.ts',
+    '/workspace/FsusUI/vue/packages/element-plus/plugin.ts',
+    '/workspace/FsusUI/vue/packages/element-plus/component.ts',
+    '/workspace/FsusUI/vue/packages/element-plus/version.ts',
+    '/workspace/FsusUI/vue/packages/components/config-provider/index.ts',
+    '/workspace/FsusUI/vue/packages/constants/aria.ts',
+    '/workspace/FsusUI/vue/packages/constants/date.ts',
+    '/workspace/FsusUI/vue/packages/constants/event.ts',
+    '/workspace/FsusUI/vue/packages/constants/size.ts',
+    '/workspace/FsusUI/vue/packages/constants/key.ts',
+    '/workspace/FsusUI/vue/packages/components/affix/index.ts',
+    '/workspace/FsusUI/vue/packages/components/alert/index.ts',
+    '/workspace/FsusUI/vue/packages/components/autocomplete/index.ts',
+    '/workspace/FsusUI/vue/packages/components/avatar/index.ts',
+    '/workspace/FsusUI/vue/packages/components/badge/index.ts',
+    '/workspace/FsusUI/vue/packages/components/backtop/index.ts',
+    '/workspace/FsusUI/vue/packages/components/breadcrumb/index.ts',
+    '/workspace/FsusUI/vue/packages/components/button/index.ts',
+    '/workspace/FsusUI/vue/packages/components/calendar/index.ts',
+    '/workspace/FsusUI/vue/packages/components/card/index.ts',
+    '/workspace/FsusUI/vue/packages/components/carousel/index.ts',
+    '/workspace/FsusUI/vue/packages/components/cascader-panel/index.ts',
+    '/workspace/FsusUI/vue/packages/components/cascader/index.ts',
+    '/workspace/FsusUI/vue/packages/components/check-tag/index.ts',
+    '/workspace/FsusUI/vue/packages/components/checkbox/index.ts',
+    '/workspace/FsusUI/vue/packages/components/col/index.ts',
+    '/workspace/FsusUI/vue/packages/components/collapse/index.ts',
+    '/workspace/FsusUI/vue/packages/components/collapse-transition/index.ts',
+    '/workspace/FsusUI/vue/packages/components/color-picker/index.ts',
+    '/workspace/FsusUI/vue/packages/components/collection-primitives/index.ts',
+    '/workspace/FsusUI/vue/packages/components/container/index.ts',
+    '/workspace/FsusUI/vue/packages/components/countdown/index.ts',
+    '/workspace/FsusUI/vue/packages/components/date-picker/index.ts',
+    '/workspace/FsusUI/vue/packages/components/dialog/index.ts',
+    '/workspace/FsusUI/vue/packages/components/divider/index.ts',
+    '/workspace/FsusUI/vue/packages/components/descriptions/index.ts',
+    '/workspace/FsusUI/vue/packages/components/dropdown/index.ts',
+    '/workspace/FsusUI/vue/packages/components/drawer/index.ts',
+    '/workspace/FsusUI/vue/packages/components/empty/index.ts',
+    '/workspace/FsusUI/vue/packages/components/form/index.ts',
+    '/workspace/FsusUI/vue/packages/components/icon/index.ts',
+    '/workspace/FsusUI/vue/packages/components/image/index.ts',
+    '/workspace/FsusUI/vue/packages/components/image-viewer/index.ts',
+    '/workspace/FsusUI/vue/packages/components/link/index.ts',
+    '/workspace/FsusUI/vue/packages/components/inbox-primitives/index.ts',
+    '/workspace/FsusUI/vue/packages/components/metric-primitives/index.ts',
+    '/workspace/FsusUI/vue/packages/components/overlay/index.ts',
+    '/workspace/FsusUI/vue/packages/components/menu/index.ts',
+    '/workspace/FsusUI/vue/packages/components/page-header/index.ts',
+    '/workspace/FsusUI/vue/packages/components/pagination/index.ts',
+    '/workspace/FsusUI/vue/packages/components/input-number/index.ts',
+    '/workspace/FsusUI/vue/packages/components/popconfirm/index.ts',
+    '/workspace/FsusUI/vue/packages/components/popper/index.ts',
+    '/workspace/FsusUI/vue/packages/components/progress/index.ts',
+    '/workspace/FsusUI/vue/packages/components/public-shell/index.ts',
+    '/workspace/FsusUI/vue/packages/components/radio/index.ts',
+    '/workspace/FsusUI/vue/packages/components/responsive-collection/index.ts',
+    '/workspace/FsusUI/vue/packages/components/rate/index.ts',
+    '/workspace/FsusUI/vue/packages/components/result/index.ts',
+    '/workspace/FsusUI/vue/packages/components/row/index.ts',
+    '/workspace/FsusUI/vue/packages/components/select/index.ts',
+    '/workspace/FsusUI/vue/packages/components/settings-primitives/index.ts',
+    '/workspace/FsusUI/vue/packages/components/select-v2/index.ts',
+    '/workspace/FsusUI/vue/packages/components/scrollbar/index.ts',
+    '/workspace/FsusUI/vue/packages/components/skeleton/index.ts',
+    '/workspace/FsusUI/vue/packages/components/slider/index.ts',
+    '/workspace/FsusUI/vue/packages/components/space/index.ts',
+    '/workspace/FsusUI/vue/packages/components/steps/index.ts',
+    ... 3539 more items
+  ]
+}
+
+Node.js v24.19.0

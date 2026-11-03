@@ -1,0 +1,23 @@
+{
+  "status": "execution available in original task",
+  "utc": "2026-10-08T09:14:48Z",
+  "checks": [
+    {
+      "cwd": "/workspace/FsusUI",
+      "command": "date -u '+%Y-%m-%dT%H:%M:%SZ'; pwd; git status --short; git rev-parse HEAD",
+      "exitCode": 0,
+      "output": "2026-10-08T09:14:48Z\n/workspace/FsusUI\neb8ed608b263cf2bfd8f7b8b3503c23bedb4c360\n",
+      "workingTreeClean": true
+    },
+    {
+      "cwd": "/workspace/FsusBlog",
+      "command": "date -u '+%Y-%m-%dT%H:%M:%SZ'; pwd; git status --short; git rev-parse HEAD",
+      "exitCode": 0,
+      "output": "2026-10-08T09:14:48Z\n/workspace/FsusBlog\n?? artifacts/frontend/locale-menu-probe/forced-colors-surface/\n94f55bad202d696eb51090c5521e2e296d8cb6c1\n"
+    }
+  ],
+  "disconnectCause": "not inferred",
+  "originalUIBaseline": "e14c9f8321e77c765128732473bb4121c578f559",
+  "replacementCreated": false,
+  "testEvidence": "Tests remain bound to actual09:05 run at eb8ed608, not a new run receipt implied by availability check."
+}

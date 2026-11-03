@@ -1,0 +1,78 @@
+✖ Avalonia semantic baselines retain compiler and input freshness identity (6.481557ms)
+✖ Avalonia automation baseline separates source observations from declared and runtime contracts (0.808631ms)
+✖ Avalonia token/theme baseline retains generated authorities and honest dependency ownership (0.274654ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 410.65433
+
+✖ failing tests:
+
+test at tests/contract-v2.test.mjs:149:1
+✖ Avalonia semantic baselines retain compiler and input freshness identity (6.481557ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2115 !== 2098
+  
+      at TestContext.<anonymous> (file:///tmp/chain-830-fsusui-baseline/tests/contract-v2.test.mjs:169:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2115,
+    expected: 2098,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/contract-v2.test.mjs:408:1
+✖ Avalonia automation baseline separates source observations from declared and runtime contracts (0.808631ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  410 !== 408
+  
+      at TestContext.<anonymous> (file:///tmp/chain-830-fsusui-baseline/tests/contract-v2.test.mjs:430:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at node:internal/test_runner/test:1285:31
+      at node:internal/process/task_queues:151:7
+      at AsyncResource.runInAsyncScope (node:async_hooks:227:14)
+      at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 410,
+    expected: 408,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/contract-v2.test.mjs:678:1
+✖ Avalonia token/theme baseline retains generated authorities and honest dependency ownership (0.274654ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  26 !== 25
+  
+      at TestContext.<anonymous> (file:///tmp/chain-830-fsusui-baseline/tests/contract-v2.test.mjs:683:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at node:internal/test_runner/test:1285:31
+      at node:internal/process/task_queues:151:7
+      at AsyncResource.runInAsyncScope (node:async_hooks:227:14)
+      at AsyncResource.runMicrotask (node:internal/process/task_queues:148:8) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 26,
+    expected: 25,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,127 @@
+
+> @ test:contract-v2 /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node --test tests/contract-v2.test.mjs
+
+✔ valid Contract V2 fixture registry passes validation (2.961782ms)
+✔ committed Contract V2 registry passes validation with the committed gate (105.161274ms)
+✖ Avalonia semantic baselines retain compiler and input freshness identity (7.346793ms)
+✔ Avalonia semantic output hash rejects payload drift (5.251891ms)
+✔ Avalonia semantic baseline distinguishes declared pseudo-class contracts from observed class implementation (0.817314ms)
+✔ pseudo-class and class-state mutations invalidate Contract V2 state identities (209.16609ms)
+✖ Avalonia automation baseline separates source observations from declared and runtime contracts (1.06655ms)
+✔ automation mutations invalidate independent Contract V2 identities without changing derived status (806.428823ms)
+✖ Avalonia token/theme baseline retains generated authorities and honest dependency ownership (0.454356ms)
+✔ token/theme dependency drift invalidates package and type Contract V2 identities without changing status (774.056766ms)
+✔ Avalonia semantic baseline retains real generic constraints and command surfaces (0.944666ms)
+✔ generic-constraint and command-nullability mutations invalidate Contract V2 identities (127.2822ms)
+✔ explicit command operation bindings remain partial without invocation semantics (329.304288ms)
+✔ Vue compiler AST retains dynamic names and scoped slot payload structure (0.285441ms)
+✔ Vue compiler AST binds deprecated metadata to the real declaration (49.595889ms)
+✔ enum and deprecated comparator mutations fail closed (0.262396ms)
+✔ real Vue slot source mutation reaches compiler baseline coverage (26.86775ms)
+✔ content-region comparator fails closed on unknown and drifted structure (0.447425ms)
+✔ content-region baseline mutation invalidates Avalonia-only surface identity (64.899639ms)
+✔ real Avalonia public surfaces have one current mapped or avalonia-extra state (55.141813ms)
+✔ real Avalonia surface mutations invalidate current registration (445.342524ms)
+✔ Avalonia registration mutations cannot hide missing or duplicate ownership (497.605431ms)
+✔ explicit semantic member bindings resolve real members from both baselines (278.556279ms)
+✔ inactive MarkdownEditor issue gate preserves evidence-derived partial status (414.049692ms)
+✔ explicit semantic member bindings reject stale and duplicate endpoints (13.96673ms)
+✔ explicit member dispositions register only exact reviewed Web surfaces (512.81017ms)
+✔ member disposition mutations fail closed (33.884426ms)
+✔ real mapped inputs use compiler-known metadata and keep unknown values partial (251.986678ms)
+✔ real mapped input baseline mutations expose default, required, access, and nullability drift (2784.883125ms)
+✔ mapped input semantic mutations invalidate the committed surface hash (228.49816ms)
+✔ real operation signatures are retained and fail closed when not comparable (259.6502ms)
+✔ TypeScript checker extracts mapped exposed signatures and source mutations change the contract (3038.466037ms)
+✔ real baseline mutations expose operation parameter drift (1050.528425ms)
+✔ real mapped event payload shapes fail closed on field drift (1304.996139ms)
+✔ real Vue source payload type mutation reaches the comparator (1160.916071ms)
+✔ mutation fixture kills auto-counterpart (1.007552ms)
+✔ mutation fixture kills broad-override (0.212841ms)
+✔ mutation fixture kills write-alias-modes (0.235896ms)
+✔ mutation fixture kills write-alias-flag (0.175535ms)
+✔ mutation fixture kills capability-set (0.164118ms)
+✔ mutation fixture kills capability-consumer-mapping (0.171048ms)
+✔ mutation fixture kills capability-numeric-codes (0.157648ms)
+✔ mutation fixture kills capability-unknown-fallback (0.186972ms)
+✔ mutation fixture kills unmapped-member (0.319723ms)
+✔ mutation fixture kills missing-scenario (0.187723ms)
+✔ mutation fixture kills missing-governance (0.18546ms)
+✔ mutation fixture kills aligned-false-claim (0.3511ms)
+✔ mutation fixture kills incomplete-markdown-editor-alignment (0.310539ms)
+✔ mutation fixture kills drift-aligned (0.19868ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 46
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15360.799138
+
+✖ failing tests:
+
+test at tests/contract-v2.test.mjs:149:1
+✖ Avalonia semantic baselines retain compiler and input freshness identity (7.346793ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2115 !== 2098
+  
+      at TestContext.<anonymous> (file:///workspace/FsusUI/tests/contract-v2.test.mjs:169:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2115,
+    expected: 2098,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/contract-v2.test.mjs:408:1
+✖ Avalonia automation baseline separates source observations from declared and runtime contracts (1.06655ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  410 !== 408
+  
+      at TestContext.<anonymous> (file:///workspace/FsusUI/tests/contract-v2.test.mjs:430:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 410,
+    expected: 408,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/contract-v2.test.mjs:678:1
+✖ Avalonia token/theme baseline retains generated authorities and honest dependency ownership (0.454356ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  26 !== 25
+  
+      at TestContext.<anonymous> (file:///workspace/FsusUI/tests/contract-v2.test.mjs:683:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 26,
+    expected: 25,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+ ELIFECYCLE  Command failed with exit code 1.

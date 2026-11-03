@@ -1,0 +1,411 @@
+{
+  "sourceCommit": "e14c9f8321e77c765128732473bb4121c578f559",
+  "before": {
+    "configurationFingerprint": "16c4cf3b39c236fe5e10e1269e8d40548c0a20e959ff1237b0f8f1902c386ad4",
+    "groups": [
+      {
+        "command": [
+          "pnpm",
+          "run",
+          "ensure:icons"
+        ],
+        "id": "icons",
+        "inputPaths": [
+          "scripts/ensure-icons-artifacts.mjs",
+          "scripts/test-artifact-cache.mjs",
+          "vue/packages/icons-vue/build",
+          "vue/packages/icons-vue/package.json",
+          "vue/packages/icons-vue/src"
+        ],
+        "runtimePath": "artifacts/icons",
+        "sourceArtifactPath": "vue/packages/icons-vue/dist",
+        "excludedInputPaths": [],
+        "artifactFingerprint": "6635181125542bafec33cf0321a3a7184ca5caf5becd91ea118631e4c07fd6c7",
+        "fingerprintPath": "/workspace/FsusUI/.tmp/visual-runtime/fingerprints/icons.sha256",
+        "fresh": true,
+        "reasons": [],
+        "runtimeAbsolutePath": "/workspace/FsusUI/.tmp/visual-runtime/artifacts/icons",
+        "sourceFingerprint": "59882524fd5379de71360518a225645be641ad9f6cdc90079cbf5438976450dc"
+      },
+      {
+        "command": [
+          "pnpm",
+          "run",
+          "ensure:wasm"
+        ],
+        "id": "wasm",
+        "inputPaths": [
+          "scripts/ensure-wasm-artifacts.mjs",
+          "scripts/run-wasm-build.mjs",
+          "scripts/test-artifact-cache.mjs",
+          "vue/packages/wasm/build.config.ts",
+          "vue/packages/wasm/index.ts",
+          "vue/packages/wasm/markdown",
+          "vue/packages/wasm/markdown-feature-output-gateway.ts",
+          "vue/packages/wasm/markdown-runtime.ts",
+          "vue/packages/wasm/markdown.ts",
+          "vue/packages/wasm/package.json",
+          "vue/packages/wasm/runtime",
+          "vue/packages/wasm/src"
+        ],
+        "runtimePath": "artifacts/wasm",
+        "sourceArtifactPath": "vue/packages/wasm/dist",
+        "excludedInputPaths": [],
+        "artifactFingerprint": "a03898265a37aaa28e98acd9d8ce4041ae099f13b3c884e0edb725558fd53b77",
+        "fingerprintPath": "/workspace/FsusUI/.tmp/visual-runtime/fingerprints/wasm.sha256",
+        "fresh": true,
+        "reasons": [],
+        "runtimeAbsolutePath": "/workspace/FsusUI/.tmp/visual-runtime/artifacts/wasm",
+        "sourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def"
+      },
+      {
+        "command": [
+          "pnpm",
+          "run",
+          "-C",
+          "vue/packages/demo-app",
+          "build"
+        ],
+        "id": "demo",
+        "excludedInputPaths": [
+          "vue/packages/wasm/build"
+        ],
+        "inputPaths": [
+          "package.json",
+          "pnpm-lock.yaml",
+          "scripts/vite-manual-chunks.mjs",
+          "vue/packages",
+          "vue/tsconfig.base.json"
+        ],
+        "runtimePath": "demo-dist",
+        "sourceArtifactPath": "vue/packages/demo-app/dist",
+        "artifactFingerprint": "1c7232762bed7c9ac8a26fa3d3f35e80a4b0718c87a92422d4ef1a6310d11ec0",
+        "fingerprintPath": "/workspace/FsusUI/.tmp/visual-runtime/fingerprints/demo.sha256",
+        "fresh": true,
+        "reasons": [],
+        "runtimeAbsolutePath": "/workspace/FsusUI/.tmp/visual-runtime/demo-dist",
+        "sourceFingerprint": "15af8c5c815e24c10d9b4f6af64f894af178947309c056ed6150dfe926399db6"
+      }
+    ],
+    "manifest": {
+      "configurationFingerprint": "16c4cf3b39c236fe5e10e1269e8d40548c0a20e959ff1237b0f8f1902c386ad4",
+      "createdAt": "2026-10-08T06:57:53.732Z",
+      "groups": {
+        "icons": {
+          "artifactFingerprint": "6635181125542bafec33cf0321a3a7184ca5caf5becd91ea118631e4c07fd6c7",
+          "runtimePath": "artifacts/icons",
+          "sourceFingerprint": "59882524fd5379de71360518a225645be641ad9f6cdc90079cbf5438976450dc"
+        },
+        "wasm": {
+          "artifactFingerprint": "a03898265a37aaa28e98acd9d8ce4041ae099f13b3c884e0edb725558fd53b77",
+          "runtimePath": "artifacts/wasm",
+          "sourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def"
+        },
+        "demo": {
+          "artifactFingerprint": "1c7232762bed7c9ac8a26fa3d3f35e80a4b0718c87a92422d4ef1a6310d11ec0",
+          "runtimePath": "demo-dist",
+          "sourceFingerprint": "15af8c5c815e24c10d9b4f6af64f894af178947309c056ed6150dfe926399db6"
+        }
+      },
+      "paths": {
+        "demoDist": "demo-dist",
+        "runtimeRoot": ".tmp/visual-runtime"
+      },
+      "readiness": {
+        "groups": [
+          "icons",
+          "wasm",
+          "demo"
+        ],
+        "ready": true
+      },
+      "schemaVersion": 1,
+      "sourceFingerprint": "be62e10e50901708b54066f5aeb1e5b56c0f8e95317d352264100112b0dd8984",
+      "tools": {
+        "node": "24.19.0",
+        "playwright": "1.59.1",
+        "pnpm": "pnpm@10.33.0"
+      }
+    },
+    "manifestPath": "/workspace/FsusUI/.tmp/visual-runtime/manifest.json",
+    "ready": true,
+    "reasons": [],
+    "repositoryRoot": "/workspace/FsusUI",
+    "runtimeRoot": "/workspace/FsusUI/.tmp/visual-runtime",
+    "sourceFingerprint": "be62e10e50901708b54066f5aeb1e5b56c0f8e95317d352264100112b0dd8984"
+  },
+  "corrupted": {
+    "configurationFingerprint": "16c4cf3b39c236fe5e10e1269e8d40548c0a20e959ff1237b0f8f1902c386ad4",
+    "groups": [
+      {
+        "command": [
+          "pnpm",
+          "run",
+          "ensure:icons"
+        ],
+        "id": "icons",
+        "inputPaths": [
+          "scripts/ensure-icons-artifacts.mjs",
+          "scripts/test-artifact-cache.mjs",
+          "vue/packages/icons-vue/build",
+          "vue/packages/icons-vue/package.json",
+          "vue/packages/icons-vue/src"
+        ],
+        "runtimePath": "artifacts/icons",
+        "sourceArtifactPath": "vue/packages/icons-vue/dist",
+        "excludedInputPaths": [],
+        "artifactFingerprint": "7638b8f1cdce53ae7eb5c4ce79591b76d88195b53d00aaf5a7711e80694807e1",
+        "fingerprintPath": "/workspace/FsusUI/.tmp/visual-runtime/fingerprints/icons.sha256",
+        "fresh": false,
+        "reasons": [
+          "icons runtime artifact fingerprint mismatch",
+          "icons runtime fingerprint file mismatch"
+        ],
+        "runtimeAbsolutePath": "/workspace/FsusUI/.tmp/visual-runtime/artifacts/icons",
+        "sourceFingerprint": "59882524fd5379de71360518a225645be641ad9f6cdc90079cbf5438976450dc"
+      },
+      {
+        "command": [
+          "pnpm",
+          "run",
+          "ensure:wasm"
+        ],
+        "id": "wasm",
+        "inputPaths": [
+          "scripts/ensure-wasm-artifacts.mjs",
+          "scripts/run-wasm-build.mjs",
+          "scripts/test-artifact-cache.mjs",
+          "vue/packages/wasm/build.config.ts",
+          "vue/packages/wasm/index.ts",
+          "vue/packages/wasm/markdown",
+          "vue/packages/wasm/markdown-feature-output-gateway.ts",
+          "vue/packages/wasm/markdown-runtime.ts",
+          "vue/packages/wasm/markdown.ts",
+          "vue/packages/wasm/package.json",
+          "vue/packages/wasm/runtime",
+          "vue/packages/wasm/src"
+        ],
+        "runtimePath": "artifacts/wasm",
+        "sourceArtifactPath": "vue/packages/wasm/dist",
+        "excludedInputPaths": [],
+        "artifactFingerprint": "a03898265a37aaa28e98acd9d8ce4041ae099f13b3c884e0edb725558fd53b77",
+        "fingerprintPath": "/workspace/FsusUI/.tmp/visual-runtime/fingerprints/wasm.sha256",
+        "fresh": true,
+        "reasons": [],
+        "runtimeAbsolutePath": "/workspace/FsusUI/.tmp/visual-runtime/artifacts/wasm",
+        "sourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def"
+      },
+      {
+        "command": [
+          "pnpm",
+          "run",
+          "-C",
+          "vue/packages/demo-app",
+          "build"
+        ],
+        "id": "demo",
+        "excludedInputPaths": [
+          "vue/packages/wasm/build"
+        ],
+        "inputPaths": [
+          "package.json",
+          "pnpm-lock.yaml",
+          "scripts/vite-manual-chunks.mjs",
+          "vue/packages",
+          "vue/tsconfig.base.json"
+        ],
+        "runtimePath": "demo-dist",
+        "sourceArtifactPath": "vue/packages/demo-app/dist",
+        "artifactFingerprint": "1c7232762bed7c9ac8a26fa3d3f35e80a4b0718c87a92422d4ef1a6310d11ec0",
+        "fingerprintPath": "/workspace/FsusUI/.tmp/visual-runtime/fingerprints/demo.sha256",
+        "fresh": true,
+        "reasons": [],
+        "runtimeAbsolutePath": "/workspace/FsusUI/.tmp/visual-runtime/demo-dist",
+        "sourceFingerprint": "15af8c5c815e24c10d9b4f6af64f894af178947309c056ed6150dfe926399db6"
+      }
+    ],
+    "manifest": {
+      "configurationFingerprint": "16c4cf3b39c236fe5e10e1269e8d40548c0a20e959ff1237b0f8f1902c386ad4",
+      "createdAt": "2026-10-08T06:57:53.732Z",
+      "groups": {
+        "icons": {
+          "artifactFingerprint": "6635181125542bafec33cf0321a3a7184ca5caf5becd91ea118631e4c07fd6c7",
+          "runtimePath": "artifacts/icons",
+          "sourceFingerprint": "59882524fd5379de71360518a225645be641ad9f6cdc90079cbf5438976450dc"
+        },
+        "wasm": {
+          "artifactFingerprint": "a03898265a37aaa28e98acd9d8ce4041ae099f13b3c884e0edb725558fd53b77",
+          "runtimePath": "artifacts/wasm",
+          "sourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def"
+        },
+        "demo": {
+          "artifactFingerprint": "1c7232762bed7c9ac8a26fa3d3f35e80a4b0718c87a92422d4ef1a6310d11ec0",
+          "runtimePath": "demo-dist",
+          "sourceFingerprint": "15af8c5c815e24c10d9b4f6af64f894af178947309c056ed6150dfe926399db6"
+        }
+      },
+      "paths": {
+        "demoDist": "demo-dist",
+        "runtimeRoot": ".tmp/visual-runtime"
+      },
+      "readiness": {
+        "groups": [
+          "icons",
+          "wasm",
+          "demo"
+        ],
+        "ready": true
+      },
+      "schemaVersion": 1,
+      "sourceFingerprint": "be62e10e50901708b54066f5aeb1e5b56c0f8e95317d352264100112b0dd8984",
+      "tools": {
+        "node": "24.19.0",
+        "playwright": "1.59.1",
+        "pnpm": "pnpm@10.33.0"
+      }
+    },
+    "manifestPath": "/workspace/FsusUI/.tmp/visual-runtime/manifest.json",
+    "ready": false,
+    "reasons": [
+      "icons runtime artifact fingerprint mismatch",
+      "icons runtime fingerprint file mismatch"
+    ],
+    "repositoryRoot": "/workspace/FsusUI",
+    "runtimeRoot": "/workspace/FsusUI/.tmp/visual-runtime",
+    "sourceFingerprint": "be62e10e50901708b54066f5aeb1e5b56c0f8e95317d352264100112b0dd8984"
+  },
+  "restored": {
+    "configurationFingerprint": "16c4cf3b39c236fe5e10e1269e8d40548c0a20e959ff1237b0f8f1902c386ad4",
+    "groups": [
+      {
+        "command": [
+          "pnpm",
+          "run",
+          "ensure:icons"
+        ],
+        "id": "icons",
+        "inputPaths": [
+          "scripts/ensure-icons-artifacts.mjs",
+          "scripts/test-artifact-cache.mjs",
+          "vue/packages/icons-vue/build",
+          "vue/packages/icons-vue/package.json",
+          "vue/packages/icons-vue/src"
+        ],
+        "runtimePath": "artifacts/icons",
+        "sourceArtifactPath": "vue/packages/icons-vue/dist",
+        "excludedInputPaths": [],
+        "artifactFingerprint": "6635181125542bafec33cf0321a3a7184ca5caf5becd91ea118631e4c07fd6c7",
+        "fingerprintPath": "/workspace/FsusUI/.tmp/visual-runtime/fingerprints/icons.sha256",
+        "fresh": true,
+        "reasons": [],
+        "runtimeAbsolutePath": "/workspace/FsusUI/.tmp/visual-runtime/artifacts/icons",
+        "sourceFingerprint": "59882524fd5379de71360518a225645be641ad9f6cdc90079cbf5438976450dc"
+      },
+      {
+        "command": [
+          "pnpm",
+          "run",
+          "ensure:wasm"
+        ],
+        "id": "wasm",
+        "inputPaths": [
+          "scripts/ensure-wasm-artifacts.mjs",
+          "scripts/run-wasm-build.mjs",
+          "scripts/test-artifact-cache.mjs",
+          "vue/packages/wasm/build.config.ts",
+          "vue/packages/wasm/index.ts",
+          "vue/packages/wasm/markdown",
+          "vue/packages/wasm/markdown-feature-output-gateway.ts",
+          "vue/packages/wasm/markdown-runtime.ts",
+          "vue/packages/wasm/markdown.ts",
+          "vue/packages/wasm/package.json",
+          "vue/packages/wasm/runtime",
+          "vue/packages/wasm/src"
+        ],
+        "runtimePath": "artifacts/wasm",
+        "sourceArtifactPath": "vue/packages/wasm/dist",
+        "excludedInputPaths": [],
+        "artifactFingerprint": "a03898265a37aaa28e98acd9d8ce4041ae099f13b3c884e0edb725558fd53b77",
+        "fingerprintPath": "/workspace/FsusUI/.tmp/visual-runtime/fingerprints/wasm.sha256",
+        "fresh": true,
+        "reasons": [],
+        "runtimeAbsolutePath": "/workspace/FsusUI/.tmp/visual-runtime/artifacts/wasm",
+        "sourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def"
+      },
+      {
+        "command": [
+          "pnpm",
+          "run",
+          "-C",
+          "vue/packages/demo-app",
+          "build"
+        ],
+        "id": "demo",
+        "excludedInputPaths": [
+          "vue/packages/wasm/build"
+        ],
+        "inputPaths": [
+          "package.json",
+          "pnpm-lock.yaml",
+          "scripts/vite-manual-chunks.mjs",
+          "vue/packages",
+          "vue/tsconfig.base.json"
+        ],
+        "runtimePath": "demo-dist",
+        "sourceArtifactPath": "vue/packages/demo-app/dist",
+        "artifactFingerprint": "1c7232762bed7c9ac8a26fa3d3f35e80a4b0718c87a92422d4ef1a6310d11ec0",
+        "fingerprintPath": "/workspace/FsusUI/.tmp/visual-runtime/fingerprints/demo.sha256",
+        "fresh": true,
+        "reasons": [],
+        "runtimeAbsolutePath": "/workspace/FsusUI/.tmp/visual-runtime/demo-dist",
+        "sourceFingerprint": "15af8c5c815e24c10d9b4f6af64f894af178947309c056ed6150dfe926399db6"
+      }
+    ],
+    "manifest": {
+      "configurationFingerprint": "16c4cf3b39c236fe5e10e1269e8d40548c0a20e959ff1237b0f8f1902c386ad4",
+      "createdAt": "2026-10-08T06:57:53.732Z",
+      "groups": {
+        "icons": {
+          "artifactFingerprint": "6635181125542bafec33cf0321a3a7184ca5caf5becd91ea118631e4c07fd6c7",
+          "runtimePath": "artifacts/icons",
+          "sourceFingerprint": "59882524fd5379de71360518a225645be641ad9f6cdc90079cbf5438976450dc"
+        },
+        "wasm": {
+          "artifactFingerprint": "a03898265a37aaa28e98acd9d8ce4041ae099f13b3c884e0edb725558fd53b77",
+          "runtimePath": "artifacts/wasm",
+          "sourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def"
+        },
+        "demo": {
+          "artifactFingerprint": "1c7232762bed7c9ac8a26fa3d3f35e80a4b0718c87a92422d4ef1a6310d11ec0",
+          "runtimePath": "demo-dist",
+          "sourceFingerprint": "15af8c5c815e24c10d9b4f6af64f894af178947309c056ed6150dfe926399db6"
+        }
+      },
+      "paths": {
+        "demoDist": "demo-dist",
+        "runtimeRoot": ".tmp/visual-runtime"
+      },
+      "readiness": {
+        "groups": [
+          "icons",
+          "wasm",
+          "demo"
+        ],
+        "ready": true
+      },
+      "schemaVersion": 1,
+      "sourceFingerprint": "be62e10e50901708b54066f5aeb1e5b56c0f8e95317d352264100112b0dd8984",
+      "tools": {
+        "node": "24.19.0",
+        "playwright": "1.59.1",
+        "pnpm": "pnpm@10.33.0"
+      }
+    },
+    "manifestPath": "/workspace/FsusUI/.tmp/visual-runtime/manifest.json",
+    "ready": true,
+    "reasons": [],
+    "repositoryRoot": "/workspace/FsusUI",
+    "runtimeRoot": "/workspace/FsusUI/.tmp/visual-runtime",
+    "sourceFingerprint": "be62e10e50901708b54066f5aeb1e5b56c0f8e95317d352264100112b0dd8984"
+  }
+}

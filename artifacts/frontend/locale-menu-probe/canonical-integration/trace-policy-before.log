@@ -1,0 +1,50 @@
+✔ default Demo runtime invalidates when its base tsconfig changes (115.649248ms)
+✔ cold preparation ignores owned WASM build output and then reuses every layer (56.938876ms)
+✔ prepares an empty runtime and writes a ready manifest (23.511958ms)
+✔ reuses every layer when inputs and runtime outputs are unchanged (30.006734ms)
+✔ invalidates icons, WASM, and Demo layers independently (52.288514ms)
+✔ detects missing, stale, corrupt, and mismatched runtime state (25.10616ms)
+✔ detects manifest configuration and fingerprint-file mismatches (24.642681ms)
+✔ dry-run reports rebuild reasons without commands or writes (12.63623ms)
+✔ works without Actions variables and exposes a local fallback command (21.491506ms)
+✔ direct Playwright server path fails clearly when runtime is missing (719.081184ms)
+✖ normal mode keeps only failure evidence while evidence mode is explicit (1.882993ms)
+✔ custom screenshots are cleaned normally and retained for evidence (6.473805ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 11
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 795.379708
+
+✖ failing tests:
+
+test at tests/visual-runtime/visual-runtime-integration.test.mjs:38:1
+✖ normal mode keeps only failure evidence while evidence mode is explicit (1.882993ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      evidence: true,
+      preserveOutput: 'always',
+      screenshot: 'on',
+  +   trace: 'retain-on-failure'
+  -   trace: 'on'
+    }
+  
+      at TestContext.<anonymous> (file:///workspace/FsusUI/tests/visual-runtime/visual-runtime-integration.test.mjs:45:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { evidence: true, preserveOutput: 'always', screenshot: 'on', trace: 'retain-on-failure' },
+    expected: { evidence: true, preserveOutput: 'always', screenshot: 'on', trace: 'on' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

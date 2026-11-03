@@ -1,0 +1,66 @@
+{
+  "inspectionReady": true,
+  "manifest": {
+    "configurationFingerprint": "16c4cf3b39c236fe5e10e1269e8d40548c0a20e959ff1237b0f8f1902c386ad4",
+    "createdAt": "2026-10-08T05:00:03.838Z",
+    "groups": {
+      "icons": {
+        "artifactFingerprint": "6635181125542bafec33cf0321a3a7184ca5caf5becd91ea118631e4c07fd6c7",
+        "runtimePath": "artifacts/icons",
+        "sourceFingerprint": "59882524fd5379de71360518a225645be641ad9f6cdc90079cbf5438976450dc"
+      },
+      "wasm": {
+        "artifactFingerprint": "a03898265a37aaa28e98acd9d8ce4041ae099f13b3c884e0edb725558fd53b77",
+        "runtimePath": "artifacts/wasm",
+        "sourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def"
+      },
+      "demo": {
+        "artifactFingerprint": "c314532a9f21c45fdcfd6fb8479c0ae3a40efbecabde0d0ff08f7335fc5622be",
+        "runtimePath": "demo-dist",
+        "sourceFingerprint": "84cfe552fdd824681276235b0e8901c5b467c268b052677f2f78435e6ef0d3b7"
+      }
+    },
+    "paths": {
+      "demoDist": "demo-dist",
+      "runtimeRoot": ".tmp/visual-runtime-1891-readiness"
+    },
+    "readiness": {
+      "groups": [
+        "icons",
+        "wasm",
+        "demo"
+      ],
+      "ready": true
+    },
+    "schemaVersion": 1,
+    "sourceFingerprint": "de746e4192e80063d056075da5e0cf4f424cf55e064b0e0cb4344052eb1486b0",
+    "tools": {
+      "node": "24.19.0",
+      "playwright": "1.59.1",
+      "pnpm": "pnpm@10.33.0"
+    }
+  },
+  "groups": [
+    {
+      "id": "icons",
+      "sourceFingerprint": "59882524fd5379de71360518a225645be641ad9f6cdc90079cbf5438976450dc",
+      "artifactFingerprint": "6635181125542bafec33cf0321a3a7184ca5caf5becd91ea118631e4c07fd6c7",
+      "fresh": true,
+      "reasons": []
+    },
+    {
+      "id": "wasm",
+      "sourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def",
+      "artifactFingerprint": "a03898265a37aaa28e98acd9d8ce4041ae099f13b3c884e0edb725558fd53b77",
+      "fresh": true,
+      "reasons": []
+    },
+    {
+      "id": "demo",
+      "sourceFingerprint": "84cfe552fdd824681276235b0e8901c5b467c268b052677f2f78435e6ef0d3b7",
+      "artifactFingerprint": "c314532a9f21c45fdcfd6fb8479c0ae3a40efbecabde0d0ff08f7335fc5622be",
+      "fresh": true,
+      "reasons": []
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog/src/frontend
+
+ ✓ ../../tests/frontend/unit/components/LocaleSelector.test.ts (17 tests) 2849ms
+     ✓ keeps long native names fully present without ellipsis truncation styles  340ms
+ ✓ ../../tests/frontend/unit/locales/runtime/localeRuntimeCoordinator.test.ts (9 tests) 648ms
+ ✓ ../../tests/frontend/unit/components/LocaleSelectorRuntimeAdapter.test.ts (7 tests) 292ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  06:57:35
+   Duration  20.64s (transform 12.16s, setup 435ms, import 15.22s, tests 3.79s, environment 581ms)
+
+JSON report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog/.tmp/test-results/vitest/unit/unsharded.xml

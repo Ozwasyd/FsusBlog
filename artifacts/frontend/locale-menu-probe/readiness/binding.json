@@ -1,0 +1,187 @@
+{
+  "schema": "fsusblog.locale-menu-readiness-diagnostic.v2",
+  "qualification": false,
+  "createdAt": "2026-10-08T05:09:58.834Z",
+  "blogTestedCommit": "60523f506aa7fd867176adeb484bc303d20033db",
+  "blogImplementationCommit": "e863c6fec58dab2de3029e759eb3c4c1f082f7d6",
+  "fsusUiTestedCommit": "ef36c0d006a1fd330d238ed699b5d1f47d9fbc75",
+  "fsusUiTree": "e85ba9aedd379db601ace450f4a406b5df2a14e9",
+  "sourceIncrementBase": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+  "sourceIncrementFiles": [
+    ".changeset/icons-registry-export-sync.md",
+    "vue/packages/icons-vue/src/components/index.ts"
+  ],
+  "fullCandidateDiff": "complete-candidate.patch",
+  "sourceIncrementDiff": "source-increment.patch",
+  "sourceCleanAtBrowserStart": true,
+  "localRunId": "locale-menu-local-2026-10-08T05:00:05.701Z",
+  "baselineFsusUi": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "latestBlogOriginMaster": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+  "latestBlogMovement": "release-governance/test-inventory changes; no owned selector/frontend implementation paths touched; not incorporated",
+  "producerInputs": [
+    "spec/icons/registry.yaml",
+    "spec/tokens/tokens.json",
+    "vue/packages/icons-svg/*.svg"
+  ],
+  "producer": "vue/packages/icons-vue/build/generate.ts",
+  "legalSourceOnly": true,
+  "changedGlyphs": false,
+  "changedFingerprintCode": false,
+  "changedHashesByHand": false,
+  "changedAssertions": false,
+  "fsusUiBranch": "task/830-canonical-generated-icons",
+  "fsusUiPr": "https://github.com/Ozwasyd/FsusUI/pull/846",
+  "commands": [
+    {
+      "command": "pnpm -C vue/packages/icons-vue build:generate (two runs)",
+      "exitCode": 0,
+      "result": "idempotent generated index; exactly five existing registry aliases",
+      "artifact": "generate-repeat.log"
+    },
+    {
+      "command": "pnpm icons:check",
+      "exitCode": 0,
+      "result": "canonical icons current",
+      "artifact": "icons-check.log"
+    },
+    {
+      "command": "node import public element-plus/icons-vue.ts; assert all five aliases equal existing components",
+      "exitCode": 0,
+      "result": "5/5 actual public export identities",
+      "artifact": "public-icons.log"
+    },
+    {
+      "command": "pnpm typecheck:web",
+      "exitCode": 0,
+      "result": "web typecheck at exact source SHA",
+      "artifact": "web-types.log"
+    },
+    {
+      "command": "pnpm exec vitest run --config vue/vitest.config.ts [icon,Dropdown,Popper,usePopper,CheckTag]",
+      "exitCode": 0,
+      "result": "67/67",
+      "artifact": "component-unit.log"
+    },
+    {
+      "command": "pnpm exec vitest run --config vue/vitest.config.ts vue/packages/icons-vue/__tests__/design-alignment.test.ts",
+      "exitCode": 0,
+      "result": "5/5",
+      "artifact": "icons-unit.log"
+    },
+    {
+      "command": "node --test tests/visual-runtime/visual-runtime-core.test.mjs",
+      "exitCode": 0,
+      "result": "9/9 including stale/corrupt/mismatched state and cold/reuse controls",
+      "artifact": "core-unit.log"
+    },
+    {
+      "command": "node scripts/prepare-visual-runtime.mjs --runtime-dir=.tmp/visual-runtime-1891-readiness",
+      "exitCode": 0,
+      "result": "cold official icons type build/demo production build plus readiness; source stays clean",
+      "artifact": "cold.log"
+    },
+    {
+      "command": "same canonical prepare repeated",
+      "exitCode": 0,
+      "result": "all three layers reuse and requalify",
+      "artifact": "warm.log"
+    },
+    {
+      "command": "same canonical prepare --check",
+      "exitCode": 0,
+      "result": "all layer fingerprints match",
+      "artifact": "check.log"
+    },
+    {
+      "command": "mutate isolated actual icon artifact; require rejection; restore original bytes; require readiness",
+      "exitCode": 0,
+      "result": "actual artifact corruption rejected and cleanup requalified; no manifest/hash edit",
+      "artifact": "artifact-negative.log"
+    },
+    {
+      "command": "pnpm test:visual:affected --base=origin/main",
+      "exitCode": 1,
+      "result": "74 passed, 4 capture-data failures at external CDN ERR_CERT_AUTHORITY_INVALID; browser suites now actually execute",
+      "artifact": "affected-runtime.log"
+    },
+    {
+      "command": "node --test tests/visual-runtime/core + integration",
+      "exitCode": 1,
+      "result": "11/12; unchanged trace expectation failure",
+      "artifact": "broader-integration-failed.log"
+    },
+    {
+      "command": "same core + integration command on clean f2b3bb baseline worktree",
+      "exitCode": 1,
+      "result": "same 11/12 and trace assertion reproduced",
+      "artifact": "baseline-integration-failed.log"
+    },
+    {
+      "command": "Blog focused selector/adapter/coordinator vitest with exact FsusUI ef36c0d alias",
+      "exitCode": 0,
+      "result": "33/33",
+      "artifact": "blog-unit.log"
+    },
+    {
+      "command": "Blog public API/DOM consumer probe with exact FsusUI ef36c0d",
+      "exitCode": 0,
+      "result": "ten locales, five variants, keyboard/touch, geometry and negative controls",
+      "artifact": "blog-local.json"
+    }
+  ],
+  "candidateReadiness": "passed producer/runtime preparation gate only; not full visual/UX qualification",
+  "providedSiblingEvidence": {
+    "identity": "cecf260475fab0a3efb3225f6d7aa39f96a0ae6b",
+    "pr": "https://github.com/Ozwasyd/FsusUI/pull/844",
+    "use": "comparison only; not consumed or accepted as candidate qualification"
+  },
+  "blocked": [
+    "canonical #842/#1805 exact commit/scope/evidence handoff from coordinating parent",
+    "locked published package access/parity",
+    "four canonical affected external CDN certificate failures",
+    "unchanged broader visual-runtime integration assertion (candidate/baseline both fail)"
+  ],
+  "notRun": [
+    "full-profile candidate qualification",
+    "real browser page zoom",
+    "independent screen-reader/UX acceptance",
+    "qualified real production resource/preferences path"
+  ],
+  "ownedIssueStatus": {
+    "#1891": "Local migration/probe implementation verified; acceptance OPEN/WIP pending canonical integration and published/runtime gates.",
+    "#830": "Public menu capability implemented and locally exercised; acceptance OPEN/WIP pending canonical integration, published parity, broader qualification and owner handoffs."
+  },
+  "frozenBranchHeadsPreserved": {
+    "Blog task/1891-readiness-evidence base": "60523f506aa7fd867176adeb484bc303d20033db",
+    "FsusUI task/830-dropdown-multiline-followup": "2f3707e6453abebcfd6579683e5685f97a17c9ac"
+  },
+  "sourceDisposition": "Historical independent icon-generation diagnostic. Parent subsequently assigned canonical icon/theme follow-up to FsusUI #842 / original Blog #1805. ef36c0d is not the canonical integration candidate and must not be promoted or merged on the strength of this receipt.",
+  "canonicalDependency": {
+    "owner": "FsusUI #842 / original Blog #1805",
+    "state": "waiting for coordinating parent exact source identity, accepted scope and evidence; issue comments alone are not consumption authorization",
+    "observedPr": "https://github.com/Ozwasyd/FsusUI/pull/843",
+    "observedHead": "06abdea678a8cb74682b83cc93e1ff31d3b271da",
+    "observedIncrements": [
+      "7d9de0259f26eb87ac102ca4ceddc2918ff7890a",
+      "9a482352ebb34b2c6fb079be5742626268cc34a7",
+      "06abdea678a8cb74682b83cc93e1ff31d3b271da"
+    ],
+    "consumed": false,
+    "nextAction": "Parent supplies exact canonical increments and acceptance evidence; integrate into a new branch from frozen 2f3707e, check conflicts, rebuild artifacts and rerun exact-candidate tests."
+  },
+  "freshDefaultConflictProbe": {
+    "checkedAt": "2026-10-08T05:16:43.198749+00:00",
+    "blogDefault": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+    "blogCandidate": "60523f506aa7fd867176adeb484bc303d20033db",
+    "blogCommand": "git merge-tree --write-tree origin/master HEAD",
+    "blogExitCode": 0,
+    "blogResultTree": "610b19cd52daa173811fea3cc29cec857e449893",
+    "uiDefault": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "uiCandidate": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+    "uiCommand": "git merge-tree --write-tree origin/main 2f3707e6453abebcfd6579683e5685f97a17c9ac",
+    "uiExitCode": 0,
+    "uiResultTree": "f0dd799385659f87f69eade593458a5c001e599a",
+    "refsChanged": false,
+    "qualification": false
+  }
+}

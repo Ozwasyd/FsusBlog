@@ -1,0 +1,66 @@
+{
+  "stage": "before-canonical-source-generation",
+  "sourceCommit": "2f3707e6453abebcfd6579683e5685f97a17c9ac",
+  "producer": "vue/packages/icons-vue/build/generate.ts",
+  "producerInputs": [
+    "spec/icons/registry.yaml",
+    "spec/tokens/tokens.json",
+    "vue/packages/icons-svg/*.svg"
+  ],
+  "groups": [
+    {
+      "id": "icons",
+      "inputPaths": [
+        "scripts/ensure-icons-artifacts.mjs",
+        "scripts/test-artifact-cache.mjs",
+        "vue/packages/icons-vue/build",
+        "vue/packages/icons-vue/package.json",
+        "vue/packages/icons-vue/src"
+      ],
+      "excludedInputPaths": [],
+      "recordedSourceFingerprint": "8bc817f064f994d03c1a9efea3c50db91864e65054021d9e93c7c6a286060f86",
+      "actualSourceFingerprint": "8bc817f064f994d03c1a9efea3c50db91864e65054021d9e93c7c6a286060f86",
+      "fresh": true,
+      "reasons": []
+    },
+    {
+      "id": "wasm",
+      "inputPaths": [
+        "scripts/ensure-wasm-artifacts.mjs",
+        "scripts/run-wasm-build.mjs",
+        "scripts/test-artifact-cache.mjs",
+        "vue/packages/wasm/build.config.ts",
+        "vue/packages/wasm/index.ts",
+        "vue/packages/wasm/markdown",
+        "vue/packages/wasm/markdown-feature-output-gateway.ts",
+        "vue/packages/wasm/markdown-runtime.ts",
+        "vue/packages/wasm/markdown.ts",
+        "vue/packages/wasm/package.json",
+        "vue/packages/wasm/runtime",
+        "vue/packages/wasm/src"
+      ],
+      "excludedInputPaths": [],
+      "recordedSourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def",
+      "actualSourceFingerprint": "6f1165e005d0b4c75f6a04bfc0bd9f2a95b31fcc3afc1c9d021dc99b27af9def",
+      "fresh": true,
+      "reasons": []
+    },
+    {
+      "id": "demo",
+      "inputPaths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "scripts/vite-manual-chunks.mjs",
+        "vue/packages",
+        "vue/tsconfig.base.json"
+      ],
+      "excludedInputPaths": [
+        "vue/packages/wasm/build"
+      ],
+      "recordedSourceFingerprint": "40ef59fc6aa45a07998c971a4551f19ed503547fc603dcb70f51219c97266108",
+      "actualSourceFingerprint": "40ef59fc6aa45a07998c971a4551f19ed503547fc603dcb70f51219c97266108",
+      "fresh": true,
+      "reasons": []
+    }
+  ]
+}

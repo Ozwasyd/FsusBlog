@@ -1,0 +1,6 @@
+
+> @ check:documentation-architecture /workspace/FsusUI
+> node ./scripts/with-node-heap.mjs node ./scripts/check-documentation-architecture.mjs && node ./scripts/with-node-heap.mjs node ./scripts/test-documentation-architecture.mjs
+
+Documentation architecture contract passed.
+[documentation-architecture-fixtures] valid=1 retired-directories=2 retired-files=7 narrative-files=3

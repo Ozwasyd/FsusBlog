@@ -1,0 +1,5 @@
+Modified actual isolated icon artifact rejected: [
+  'icons runtime artifact fingerprint mismatch',
+  'icons runtime fingerprint file mismatch'
+]
+Original bytes restored; readiness: true
