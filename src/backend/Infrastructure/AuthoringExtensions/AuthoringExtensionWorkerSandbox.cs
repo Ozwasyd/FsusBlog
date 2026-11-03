@@ -253,6 +253,16 @@ public sealed class AuthoringExtensionWorkerSandbox(
                     request.Payload.Length);
             }
 
+            if (cancellationToken.IsCancellationRequested || deadline.IsCancellationRequested ||
+                timeProvider.GetUtcNow() >= request.Deadline)
+            {
+                await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
+                AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
+                    ? AuthoringWorkerResultStatus.Cancelled
+                    : AuthoringWorkerResultStatus.TimedOut;
+                return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
+            }
+
             if (response is null || !IsResponseBound(response, request) ||
                 response.Payload.IsDefault ||
                 response.Payload.Length > package.Contract.Manifest.Limits.MaximumResponseBytes)
@@ -266,11 +276,35 @@ public sealed class AuthoringExtensionWorkerSandbox(
                     request.Payload.Length);
             }
 
-            if (!await revisionGate.IsCurrentAsync(
+            bool currentRevision;
+            try
+            {
+                currentRevision = await revisionGate.IsCurrentAsync(
                     request.DocumentId,
                     request.DocumentEpoch,
                     request.SourceRevision,
-                    cancellationToken))
+                    deadline.Token);
+            }
+            catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+            {
+                await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
+                AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
+                    ? AuthoringWorkerResultStatus.Cancelled
+                    : AuthoringWorkerResultStatus.TimedOut;
+                return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
+            }
+
+            if (cancellationToken.IsCancellationRequested || deadline.IsCancellationRequested ||
+                timeProvider.GetUtcNow() >= request.Deadline)
+            {
+                await instance.TerminateAsync("cancelled-or-timeout", CancellationToken.None);
+                AuthoringWorkerResultStatus status = cancellationToken.IsCancellationRequested
+                    ? AuthoringWorkerResultStatus.Cancelled
+                    : AuthoringWorkerResultStatus.TimedOut;
+                return Rejected(launch, request, status, "cancelled-or-timeout", request.Payload.Length);
+            }
+
+            if (!currentRevision)
             {
                 await instance.TerminateAsync("stale-document", CancellationToken.None);
                 return Rejected(
