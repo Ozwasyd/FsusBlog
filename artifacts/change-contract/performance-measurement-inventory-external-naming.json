@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/issue-1081-performance-evidence-marker-dag.md"
+            ],
+            "reason": "Preserve the existing caller-visible measurement and marker identifiers while documenting inventory derivation from the canonical performance steps."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/local-profile.mjs",
+                "tools/test/measurement-noise-envelope.mjs"
+            ],
+            "reason": "Preserve all existing process environment names while deriving required measurement identities; no environment contract is renamed or added."
+        }
+    ]
+}

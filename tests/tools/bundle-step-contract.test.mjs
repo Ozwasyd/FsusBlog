@@ -7,10 +7,54 @@ import test from 'node:test';
 const { buildSettledPhaseJoinEvidence, executeWeightedStepDag, performanceSteps, resolveBundleRuntimeCapacity, resolveBundleSteps, resolveConcurrentStepCapacities, resolveMachineExecutionTimeoutMs, resolveStepRuntimeCapacity, runtimeSteps, StepDagExecutionError, validateSettledPhaseJoinConsistency } = await import(new URL("../../tools/test/bundles/bundle-steps.mjs", import.meta.url));
 const { parseRuntimeEnvironment } = await import(new URL("../../tools/test/bundles/runtime-environment.mjs", import.meta.url));
 const { writeBundleSummaryAtomically } = await import(new URL("../../tools/test/bundles/terminal-summary.mjs", import.meta.url));
-const { validateLocalBundleSummary } = await import(new URL("../../tools/test-matrix/local-profile.mjs", import.meta.url));
+const { validateLocalBundleSummary, validatePerformanceDeadlineEvidence } = await import(new URL("../../tools/test-matrix/local-profile.mjs", import.meta.url));
 const { resolveWorkerTestSession } = await import(new URL("../frontend/support/test-session.mjs", import.meta.url));
 
 const byId = (steps) => new Map(steps.map((step) => [step.id, step]));
+
+test('deadline evidence accepts the canonical measurement inventory and rejects missing duplicate and overlapping windows', () =>
+{
+    let at = 0;
+    const steps = performanceSteps().filter((step) => step.evidencePhase === 'measurement')
+        .map(({ id, evidencePhase }) =>
+        {
+            const durationMs = id === 'mixed-performance-window' ? 60_000 : 1_000;
+            const step = { id, evidencePhase, status: 'success', durationMs, startedAtMs: at, finishedAtMs: at + durationMs };
+            at += durationMs;
+            return step;
+        });
+    const evidence = {
+        schema: 'fsusblog.performance-deadline-evidence.v2',
+        status: 'sufficient',
+        schedulerRunId: 'inventory-contract',
+        sourceState: { commit: 'source', worktreeFingerprint: 'tree' },
+        candidateBudgetMs: at,
+        bundleDurationMs: at,
+        mixedWindow: { stepId: 'mixed-performance-window', minimumDurationMs: 60_000, measuredDurationMs: 60_000 },
+        measuredOtherSerialMs: at - 60_000,
+        requiredBudgetMs: at,
+        coordinationWaitMs: 0,
+        preparationWorkMs: 0,
+        postMeasurementWorkMs: 0,
+        measurementIsolation: { status: 'isolated', noiseOverlaps: [] },
+        steps
+    };
+    assert.deepEqual(validatePerformanceDeadlineEvidence(evidence), []);
+    for (const measurement of steps)
+    {
+        assert.ok(validatePerformanceDeadlineEvidence({
+            ...evidence,
+            steps: steps.filter((step) => step.id !== measurement.id)
+        }).some((error) => error.includes('measurement steps must be exactly')));
+    }
+    assert.ok(validatePerformanceDeadlineEvidence({ ...evidence, steps: [...steps, steps[0]] })
+        .some((error) => error.includes('unique non-empty ids')));
+    const overlap = steps.map((step, index) => index === steps.length - 1
+        ? { ...step, startedAtMs: steps[0].startedAtMs, finishedAtMs: steps[0].startedAtMs + step.durationMs }
+        : step);
+    assert.ok(validatePerformanceDeadlineEvidence({ ...evidence, steps: overlap })
+        .some((error) => error.includes('benchmark-window measurements overlap')));
+});
 
 function settledOutcome(entry)
 {

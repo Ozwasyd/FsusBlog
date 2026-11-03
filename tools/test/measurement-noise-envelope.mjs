@@ -6,6 +6,8 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
+import { performanceSteps } from './bundles/bundle-steps.mjs';
+
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const defaultPolicyFile = path.join(repositoryRoot, 'config/testing/measurement-noise-policy.json');
 export const measurementNoiseSchema = 'fsusblog.measurement-noise-envelope.v1';
@@ -1724,12 +1726,9 @@ export function qualifyMeasurementCohort(rounds)
 }
 
 export function buildMeasurementNoiseRound(receipts, {
-    requiredWindowSuffixes = [
-        '/performance-evidence/backend-perf',
-        '/performance-evidence/privacy-zk-benchmark',
-        '/performance-evidence/mixed-performance-window',
-        '/performance-evidence/aeds-frame-cost'
-    ]
+    requiredWindowSuffixes = performanceSteps()
+        .filter((step) => step.evidencePhase === 'measurement')
+        .map((step) => `/performance-evidence/${step.id}`)
 } = {})
 {
     if (!Array.isArray(receipts))

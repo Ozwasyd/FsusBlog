@@ -119,7 +119,7 @@ test('MySQL projection rejects duplicate logical identities and resident ownersh
         { availableCpuUnits: 8, availableMemoryGiB: 18 });
     assert.throws(() => projectLocalNonResidentServiceRequirements(
         createLocalBundleTiers('production', resolved), [...matrix.tiers, matrix.tiers[0]]),
-        /unique logical tier identities/u);
+    /unique logical tier identities/u);
     const resident = createLocalBundleTiers('production', resolved);
     resident.find((bundle) => bundle.physicalBundleId === 'runtime-browser').logicalMembers = ['backend-unit'];
     assert.throws(() => projectLocalNonResidentServiceRequirements(resident, matrix.tiers),
@@ -241,6 +241,7 @@ test('performance deadline evidence binds the mixed floor to same-run measured s
         { id: 'backend-perf', evidencePhase: 'measurement', status: 'success', durationMs: 20_000, startedAtMs: 65_000, finishedAtMs: 85_000 },
         { id: 'privacy-zk-benchmark', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 85_000, finishedAtMs: 85_000 },
         { id: 'aeds-frame-cost', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 85_000, finishedAtMs: 85_000 },
+        { id: 'aeds-compression', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 85_000, finishedAtMs: 85_000 },
         { id: 'performance-summary', evidencePhase: 'post-measurement', status: 'success', durationMs: 1_000, startedAtMs: 85_000, finishedAtMs: 86_000 }
     ];
     const valid = {
