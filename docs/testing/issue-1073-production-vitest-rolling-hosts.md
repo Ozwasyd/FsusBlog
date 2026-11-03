@@ -26,6 +26,8 @@ partitions remain. A smaller grant never kills a running host; it blocks further
 reservations fit the new grant. Every host receives a unique report ID, partition ID, JSON, JUnit, blob, log, and
 coverage directory. Mock state, globals, and module singletons remain process-isolated.
 
+The reader validates the declared parent resource budget as well as the selected grant: CPU allocations must be positive integers, memory must be positive, and neither grant may exceed its parent. Missing or invalid parent budgets fail closed before coordinator host admission. Grant generation and stale-time qualification require the canonical scheduler conformance contract; these budget checks alone do not establish it.
+
 The catalog pass also warms one run-bound transform-cache seed. Each admitted host receives a reflink/copy clone of
 that seed, so concurrent Vite processes never mutate the same cache directory. Successful host caches are merged in
 stable path order after execution. Byte-identical entries are reused; equivalent transformed code with different

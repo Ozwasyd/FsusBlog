@@ -2578,6 +2578,7 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
     let peakConcurrentProcesses = 0;
     let observedGrant = null;
     let expansionFailure = null;
+    const activePartitionSlots = new Set();
     let activeAffinityProcesses = 0;
     let ioOvercommitSlot = null;
     let ioOvercommitObservedAvailableMemoryGiB = null;
@@ -2654,9 +2655,44 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
             peakConcurrentProcesses = Math.max(peakConcurrentProcesses, activeProcesses);
             let completedPartitions = 0;
             while (nextPartition < executionQueue.length
+        && !expansionFailure
         && (slot.admission !== 'io-overcommit'
           || activeAffinityProcesses >= (observedGrant?.cpuUnits ?? Number.POSITIVE_INFINITY)))
             {
+                if (dynamic)
+                {
+                    let admitted = false;
+                    while (nextPartition < executionQueue.length && !expansionFailure)
+                    {
+                        try
+                        {
+                            const grant = await readValidatedResourceGrant();
+                            const activeCpu = [...activePartitionSlots].reduce((sum, activeSlot) => sum + activeSlot.processors, 0);
+                            const activeMemory = [...activePartitionSlots].reduce((sum, activeSlot) => sum + activeSlot.memoryGiB, 0);
+                            // The optional I/O bridge retains its separately declared policy.
+                            // Ordinary slots must re-admit every partition against current costs.
+                            if (nextPartition < executionQueue.length && !expansionFailure
+                                && (slot.admission === 'io-overcommit'
+                                    || (activeCpu + slot.processors <= grant.cpuUnits
+                                        && activeMemory + slot.memoryGiB <= grant.memoryGiB + 1e-9)))
+                            {
+                                activePartitionSlots.add(slot);
+                                admitted = true;
+                                break;
+                            }
+                        }
+                        catch (error)
+                        {
+                            expansionFailure = error;
+                            break;
+                        }
+                        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+                    }
+                    if (!admitted)
+                    {
+                        break;
+                    }
+                }
                 const queueIndex = nextPartition;
                 nextPartition += 1;
                 const partition = executionQueue[queueIndex];
@@ -2689,6 +2725,7 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
                 }
                 finally
                 {
+                    activePartitionSlots.delete(slot);
                     if (partition.affinityPriority)
                     {
                         activeAffinityProcesses -= 1;
@@ -2722,10 +2759,6 @@ export async function runRollingPartitions(partitions, processorsByProcess, runP
                 const grantedSlots = slots.filter((slot) => slot.admission !== 'io-overcommit');
                 const allocatedCpuUnits = grantedSlots.reduce((total, slot) => total + slot.processors, 0);
                 const allocatedMemoryGiB = grantedSlots.reduce((total, slot) => total + slot.memoryGiB, 0);
-                if (cpuUnits < allocatedCpuUnits || memoryGiB + 1e-9 < allocatedMemoryGiB)
-                {
-                    throw new Error('backend production rolling execution live grant shrank below active slot allocations');
-                }
                 observedGrant = { cpuUnits, memoryGiB };
                 const availableCpuSlots = Math.floor(cpuUnits - allocatedCpuUnits);
                 const remainingMemoryGiB = memoryGiB - allocatedMemoryGiB;

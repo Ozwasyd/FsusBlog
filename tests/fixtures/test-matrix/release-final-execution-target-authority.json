@@ -2110,8 +2110,8 @@
         },
         {
             "path": "tests/tools/frontend-vitest-rolling-shards.test.mjs",
-            "contentDigest": "sha256:a4e189b921770fc43a5b89c1da3c36d8a841d0800a891129b41470d44ae8b239",
-            "indexDigest": "sha256:a4e189b921770fc43a5b89c1da3c36d8a841d0800a891129b41470d44ae8b239"
+            "contentDigest": "sha256:ffb32d7662b1fca7601a9b72e3700e99b54e5c01f4fef8256f67f2f2fcf07ee7",
+            "indexDigest": "sha256:ffb32d7662b1fca7601a9b72e3700e99b54e5c01f4fef8256f67f2f2fcf07ee7"
         },
         {
             "path": "tests/tools/fsusui-candidate.test.mjs",
@@ -5435,8 +5435,8 @@
         },
         {
             "path": "tools/test/run-backend-production-shards.mjs",
-            "contentDigest": "sha256:6e426180d9279a87b696a4e54b53c57e86be7d39d729881d215b0db6b76a03f5",
-            "indexDigest": "sha256:6e426180d9279a87b696a4e54b53c57e86be7d39d729881d215b0db6b76a03f5"
+            "contentDigest": "sha256:24657aa273a4746fa3cac769815b41d0d28902bfbd95e26cb490389284523b08",
+            "indexDigest": "sha256:24657aa273a4746fa3cac769815b41d0d28902bfbd95e26cb490389284523b08"
         },
         {
             "path": "tools/test/run-changed-critical-mutation.mjs",
@@ -5455,8 +5455,8 @@
         },
         {
             "path": "tools/test/run-frontend-vitest-rolling-shards.mjs",
-            "contentDigest": "sha256:d93fd79487585b6e0a345306c91b06a4a7aeb45d2f92515ecfe908ff5f2ed26a",
-            "indexDigest": "sha256:d93fd79487585b6e0a345306c91b06a4a7aeb45d2f92515ecfe908ff5f2ed26a"
+            "contentDigest": "sha256:3dbd3e4e4afea3cd20299bbb78fd69d32002e76668e5535e2152e8369aa5d359",
+            "indexDigest": "sha256:3dbd3e4e4afea3cd20299bbb78fd69d32002e76668e5535e2152e8369aa5d359"
         },
         {
             "path": "tools/test/run-governance-suites.mjs",

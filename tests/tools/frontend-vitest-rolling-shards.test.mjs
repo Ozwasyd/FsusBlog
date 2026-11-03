@@ -347,12 +347,17 @@ test('live grant is atomic, run-bound and fails closed on stale identity', () =>
     const document = {
         schema: 'fsusblog.test-matrix.resource-grants.v1',
         runId: 'run-a',
+        resourceBudget: { cpuUnits: 4, memoryGiB: 4 },
         grants: { vitest: { cpuUnits: 3, memoryGiB: 2.5 } }
     };
     assert.deepEqual(readLiveVitestGrant(env, () => JSON.stringify(document)), {
         cpuUnits: 3, memoryGiB: 2.5, source: 'scheduler-resource-grants'
     });
     assert.throws(() => readLiveVitestGrant(env, () => JSON.stringify({ ...document, runId: 'stale' })), /runId mismatch/u);
+    for (const resourceBudget of [undefined, { cpuUnits: 2, memoryGiB: 4 }, { cpuUnits: 4, memoryGiB: 2 }, { cpuUnits: 3.5, memoryGiB: 4 }])
+    {
+        assert.throws(() => readLiveVitestGrant(env, () => JSON.stringify({ ...document, resourceBudget })), /parent resource budget/u);
+    }
     assert.throws(() => readLiveVitestGrant({ FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE: '/grant.json' }), /both grant file and tier id/u);
 });
 
