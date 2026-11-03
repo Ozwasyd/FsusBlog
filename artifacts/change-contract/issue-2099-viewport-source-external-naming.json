@@ -1,0 +1,10 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": ["tests/frontend/fixtures/ux-viewport-matrix.json"],
+            "reason": "Preserve the existing viewport catalog wire keys and source version while adding the two required boundary viewport records."
+        }
+    ]
+}

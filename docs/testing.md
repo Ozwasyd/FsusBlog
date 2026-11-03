@@ -911,6 +911,7 @@ PublicShell scene fixture consumption creates a fresh owned Browser context, dis
 - viewport registry by `tests/frontend/fixtures/ux-viewport-matrix.json`
 - screenshot baseline viewport: `narrow-mobile` 360x780, `mobile` 390x844, `desktop` 1440x960
 - smoke/boundary additionally covers extreme sizes such as 320x568, 844x390, 1024x900, 1366x640, 2560x1440, 3440x1440, etc.
+- The canonical boundary planner also declares `mobile-375` 375x812 and `tablet-768` 768x1024 for every existing route/theme/media group. Its declared coverage is 1080 navigations and 7416 cases, including the existing 24 safe-area cases; smoke, visual and screenshot baselines are unchanged. This is coverage planning, not a #2099 geometry/state receipt or native browser zoom qualification. The existing `zoom-*` media helper uses CSS zoom; current-run verified scene/state admission, native zoom observations, computed geometry/accessibility evidence, and local/published identity and transport binding remain required.
 - Screenshot baseline version management (`test-results/` directory)
 
 Manually reproduce the complete visual category:
