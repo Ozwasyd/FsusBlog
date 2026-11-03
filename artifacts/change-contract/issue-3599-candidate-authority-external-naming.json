@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the serialized execution-authority contract while its original producer projects the changed gate-integrity candidate source identities; declarations, parser identity and qualification semantics remain unchanged."
+        }
+    ]
+}
