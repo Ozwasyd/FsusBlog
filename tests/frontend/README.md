@@ -34,3 +34,27 @@ Cross-stack contract governance:
 - `npm run check:cross-stack-contract` validates the full frontend/backend contract ledger in `fixtures/cross-stack-contract-matrix.json`, covering binary endpoint routes, API wrapper parity, shared AEDS schema sync, negative cases, runtime/distribution/notification stream/upload/auth/SW/perf coherence profiles, fixture families, and eventual-consistency evidence fields.
 
 Keep `../../tools/frontend/` for build, Wasm, public hydration generation, and local utility scripts only.
+
+The plugin collection capability probe mounts the public DataList adapter,
+ResponsiveCollection and Menu in a disposable Vite/Chromium consumer fixture:
+
+```bash
+node tests/frontend/checks/runtime/check-plugin-collection-probe.mjs both
+```
+
+Run this command from the repository root with the frontend dependencies and
+Playwright Chromium installed. `local` and `published` select one source;
+`both` runs the same contract against each. Local aliases use the repository's
+existing resolver. Published mode requires the real installed package and never
+falls back to local source. Reports, accessibility trees and screenshots go to
+one new `.tmp/chain-1894/plugin-collection-*` directory per invocation. Exit 1
+means an observed contract failure; exit 2 means a blocked source/runtime.
+These component capability diagnostics do not qualify the authenticated
+PluginAdmin route, the canonical pinned test lanes or independent UX acceptance.
+
+An optional second argument selects `data-list`, `responsive-collection` or
+`menu`; the default `all` keeps the full candidate comparison. For example,
+`node tests/frontend/checks/runtime/check-plugin-collection-probe.mjs local data-list`
+checks the chosen DataList capability without claiming the other candidates
+support single selection. DataList includes public collection/keyed disabling,
+loading, pointer, keyboard, synthetic-click and touch rejection plus recovery.
