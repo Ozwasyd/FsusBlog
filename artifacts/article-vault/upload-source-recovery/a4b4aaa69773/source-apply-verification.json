@@ -1,0 +1,43 @@
+{
+  "kind": "Git text/source checks only",
+  "records": [
+    {
+      "label": "view-model-only",
+      "target": "a4b4aaa69773e0039ce1acdb525bb7aef3d8b330",
+      "postimages": 1,
+      "patchSha256": "5ac4c511ef23fd96dbf5219181e32b1d62f2dce16202a760b579c6050e44c189",
+      "applyCheckExit": 0,
+      "applyExit": 0,
+      "exactPostimages": true,
+      "reverseCheckExit": 0,
+      "fixtureRemoved": true,
+      "productExecuted": false
+    },
+    {
+      "label": "handwritten-closure",
+      "target": "a4b4aaa69773e0039ce1acdb525bb7aef3d8b330",
+      "postimages": 17,
+      "patchSha256": "8a61d17251af0f50f122611cb723d79c91e20113cc4ba04f90c31390e73edc1a",
+      "applyCheckExit": 0,
+      "applyExit": 0,
+      "exactPostimages": true,
+      "reverseCheckExit": 0,
+      "fixtureRemoved": true,
+      "productExecuted": false
+    },
+    {
+      "label": "conditional-canonical-input",
+      "target": "a4b4aaa69773e0039ce1acdb525bb7aef3d8b330",
+      "postimages": 18,
+      "patchSha256": "760d1c0965dac2438ee9e74287a6d425f91df1d69af8f295eb30ffb459647dd6",
+      "applyCheckExit": 0,
+      "applyExit": 0,
+      "exactPostimages": true,
+      "reverseCheckExit": 0,
+      "fixtureRemoved": true,
+      "productExecuted": false
+    }
+  ],
+  "productWorktreesChangedByOffers": false,
+  "qualification": false
+}

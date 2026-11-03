@@ -1,0 +1,20 @@
+{
+  "historicalOriginalManifest": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "entries": [
+    {
+      "name": "UploadAssetPreview",
+      "value": 275,
+      "goldenFamily": "upload-response",
+      "goldenOrder": 266
+    },
+    {
+      "name": "UploadAssetFacts",
+      "value": 285,
+      "goldenFamily": "upload-response",
+      "goldenOrder": 267
+    }
+  ],
+  "notAnActiveManifest": true,
+  "notApplied": true,
+  "qualification": false
+}

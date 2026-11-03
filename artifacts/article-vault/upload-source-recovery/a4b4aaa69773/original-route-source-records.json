@@ -1,0 +1,30 @@
+{
+  "historicalProducer": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "records": [
+    {
+      "method": "POST",
+      "path": "/api/binary/upload/{uploadId}/facts",
+      "operationId": "binary_post_upload_uploadId_facts",
+      "requestFrame": "UploadCompleteRequest",
+      "requestType": "FsusBlog.Core.Mapping.Models.UploadCompleteRequestCoreModel",
+      "requestEncoding": "binary-layout",
+      "responseFrame": "UploadAssetFacts",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/binary/upload/{uploadId}/preview",
+      "operationId": "binary_post_upload_uploadId_preview",
+      "requestFrame": "UploadCompleteRequest",
+      "requestType": "FsusBlog.Core.Mapping.Models.UploadCompleteRequestCoreModel",
+      "requestEncoding": "binary-layout",
+      "responseFrame": "UploadAssetPreview",
+      "errorFrame": "ApiError",
+      "successStatus": 200
+    }
+  ],
+  "notCurrentObservation": true,
+  "notAppliedToFrozenContracts": true,
+  "qualification": false
+}

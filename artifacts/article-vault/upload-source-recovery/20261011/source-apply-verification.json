@@ -1,0 +1,58 @@
+{
+  "kind": "Git text/source verification, not test execution or discovery",
+  "records": [
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "postimagePaths": 15,
+      "changedPaths": 15,
+      "patchSha256": "434b54f1e4d7e37a2015ca79f186c6d390492eaeb15573e71e2f62fe7fca724d",
+      "gitApplyCheckExit": 0,
+      "gitApplyExit": 0,
+      "allAppliedBytesEqualPostimages": true,
+      "reverseCheckExit": 0,
+      "textFixtureRemoved": true,
+      "productCodeExecuted": false
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "postimagePaths": 15,
+      "changedPaths": 14,
+      "patchSha256": "cc9b52d0998a3085098ba8ce9fe3a8441e0a090827371bfe0e9908ca4a50997e",
+      "gitApplyCheckExit": 0,
+      "gitApplyExit": 0,
+      "allAppliedBytesEqualPostimages": true,
+      "reverseCheckExit": 0,
+      "textFixtureRemoved": true,
+      "productCodeExecuted": false
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "postimagePaths": 15,
+      "changedPaths": 14,
+      "patchSha256": "48e926939d995653c1b33f6daa3f2b468307977d8482e1f85ce209d0c53ddec5",
+      "gitApplyCheckExit": 0,
+      "gitApplyExit": 0,
+      "allAppliedBytesEqualPostimages": true,
+      "reverseCheckExit": 0,
+      "textFixtureRemoved": true,
+      "productCodeExecuted": false
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "postimagePaths": 15,
+      "changedPaths": 14,
+      "patchSha256": "48e926939d995653c1b33f6daa3f2b468307977d8482e1f85ce209d0c53ddec5",
+      "gitApplyCheckExit": 0,
+      "gitApplyExit": 0,
+      "allAppliedBytesEqualPostimages": true,
+      "reverseCheckExit": 0,
+      "textFixtureRemoved": true,
+      "productCodeExecuted": false
+    }
+  ],
+  "qualification": false
+}

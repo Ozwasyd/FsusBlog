@@ -1,0 +1,35 @@
+{
+  "source": "f27a1c5eb0191134b48780e58b60dfd1473000eb",
+  "preCommit": "d020d72cd16885471b7168c9e41c49c285707d4e",
+  "preFileAlsoExactC08": true,
+  "file": "src/frontend/src/contracts/binaryApi.ts",
+  "pre": {
+    "blob": "3307348190f5aee7c64cf50945a085f039b3bc70",
+    "sha256": "15527f4a52224b76c40dbcd3aee8a4f8be6ba192c966a8cf95f870389554983c",
+    "bytes": 27230
+  },
+  "post": {
+    "blob": "a32e36705b50ba7b570b9824bc77b289d3aa951a",
+    "sha256": "cbeb4788b21af865fa444553ae144b2f7a3abea9e4a434ccfdcddd2f3c1a89c4",
+    "bytes": 27227
+  },
+  "patchSha256": "d012605776dbd7c1165419423703250a0f7f97ac1c6f1b5fde04e52c4282ab39",
+  "sourceDiffPaths": 1,
+  "reverseCheckExit": 0,
+  "strictLintBeforeFindings": 2,
+  "strictLintAfterFindings": 0,
+  "heldSourcesUnchanged": [
+    "src/shared/Contracts/Validation/aeds-protocol.json",
+    "src/frontend/wasm/web/protocol/frame.ts",
+    "src/core/Algorithms/AedsFrameType.cs",
+    "src/shared/AedsFrameHeader.cs",
+    "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+    "src/frontend/src/generated/fsusBinaryRoutes.ts",
+    "tests/backend/Fixtures/aeds-golden-catalog.json"
+  ],
+  "ownedLinksRemoved": 201,
+  "sharedCachesPreserved": true,
+  "worktreeCleanAfterCleanup": true,
+  "timeUtc": "2026-10-11T23:47:26.364252+00:00",
+  "qualification": false
+}

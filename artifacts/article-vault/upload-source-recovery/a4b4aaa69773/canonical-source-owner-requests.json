@@ -1,0 +1,95 @@
+{
+  "shared": {
+    "owner": "canonical Shared source owner, coordination PR4155",
+    "currentReadHead": "55afe2a483f1d34b1f9c4257c8af77b6358672ff",
+    "branch": "codex/shared-package-prototype-reconciliation-20261009",
+    "manifestExactSameAsCaller": true,
+    "rosterCount": 244,
+    "originalNormSource": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+    "writerCurrentSource": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+    "writerEntries": [
+      {
+        "name": "UploadAssetPreview",
+        "value": 275,
+        "goldenFamily": "upload-response",
+        "goldenOrder": 261
+      },
+      {
+        "name": "UploadAssetFacts",
+        "value": 285,
+        "goldenFamily": "upload-response",
+        "goldenOrder": 262
+      }
+    ],
+    "minimumRequest": "review/join only original UploadAssetPreview275 and UploadAssetFacts285 source entries into this exact current roster, retain all244 existing rows, then provide owner-generated four source projections with exact commit/postimages; requires separate generator authorization, not granted by this task",
+    "inactiveInputProposal": [
+      {
+        "name": "UploadAssetPreview",
+        "value": 275,
+        "goldenFamily": "upload-response",
+        "goldenOrder": 244
+      },
+      {
+        "name": "UploadAssetFacts",
+        "value": 285,
+        "goldenFamily": "upload-response",
+        "goldenOrder": 245
+      }
+    ],
+    "noOld266267OrWriter261262Transplant": true,
+    "sourceProducer": "tools/frontend/generate-aeds-protocol.mjs",
+    "requiredSourceOutputs": [
+      "src/core/Algorithms/AedsFrameType.cs",
+      "src/shared/AedsFrameHeader.cs",
+      "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+      "src/frontend/wasm/web/protocol/frame.ts"
+    ],
+    "frozenGoldenCatalog": "remain held; full CLI also writes tests/backend/Fixtures/aeds-golden-catalog.json, so do not silently run it",
+    "writerGeneratedSourceEvidence": [
+      {
+        "path": "src/core/Algorithms/AedsFrameType.cs",
+        "blob": "ced7f7a10ec06aa008412a71bfc16b5fffc3acf0",
+        "previewPresent": true,
+        "factsPresent": true
+      },
+      {
+        "path": "src/shared/AedsFrameHeader.cs",
+        "blob": "80c821c722f45c26d619caae5a4bd244f6858419",
+        "previewPresent": true,
+        "factsPresent": true
+      },
+      {
+        "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+        "blob": "34cc2fddb182206edcb867f133ddc986cb9b98f1",
+        "previewPresent": true,
+        "factsPresent": true
+      },
+      {
+        "path": "src/frontend/wasm/web/protocol/frame.ts",
+        "blob": "d04a8e6fe22b48f6f314160713bbb811d093d7a2",
+        "previewPresent": true,
+        "factsPresent": true
+      }
+    ]
+  },
+  "routes": {
+    "owner": "original upload endpoint producer2258 plus canonical OpenAPI/Shared route producer",
+    "headOffer": "c08ace9061492fbfab1dea8d57928a998938dcc8",
+    "actualEndpointOffer": "handwritten-closure.patch.gz: real original preview/facts route/handler/service/encoder; no fake generated route availability",
+    "minimumRequest": "after owner-confirmed source join, obtain separately authorized real compiled endpoint observation and its generated frontend routes bound to exact joined source; preserve unrelated current operations; provide exact producer/source identity and postimages for the two operations",
+    "producerChain": [
+      "tools/contracts/export-openapi.sh",
+      "tools/contracts/check-openapi-sync.mjs",
+      "tools/contracts/FsusBlog.OpenApiObservation",
+      "tools/contracts/generate-frontend-routes.mjs"
+    ],
+    "blockedOutputs": [
+      "src/shared/Contracts/Validation/fsusblog.openapi.json",
+      "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+      "src/frontend/src/generated/fsusBinaryRoutes.ts"
+    ],
+    "frozenAuthorityRefreshAndGeneratorRun": "NOT authorized/run here; original two records are historical source references only"
+  },
+  "result": "five named type references have real original declarations; four generated-symbol references and full producer coherence remain BLOCKED, not generic test failures or a claimed cleared typecheck",
+  "qualification": false
+}

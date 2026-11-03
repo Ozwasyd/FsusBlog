@@ -1,0 +1,16 @@
+{
+  "originalSource": "313c340356e2c8f8fc1bcceb550b6526871c12c6",
+  "previewOrigin": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+  "factsNeutralContractOrigin": "313c340356e2c8f8fc1bcceb550b6526871c12c6",
+  "caller": "a4b4aaa69773e0039ce1acdb525bb7aef3d8b330",
+  "path": "src/frontend/src/contracts/binaryApi.ts",
+  "beforeSha256": "353b9e5c833c5f8584e005253ee32d108d03da00d2321d681f5dbeb8fe70aeef",
+  "postSha256": "15527f4a52224b76c40dbcd3aee8a4f8be6ba192c966a8cf95f870389554983c",
+  "blockSha256": "d1673e4d3785de14263041567ad756445ecf62edafc36d8ce88f2335e4d39699",
+  "originalBlockExact": true,
+  "callerAndMasterInterfaceBeforeIdentical": true,
+  "shim": false,
+  "generatorRun": false,
+  "testsRun": false,
+  "restoredCommit": "c08ace9061492fbfab1dea8d57928a998938dcc8"
+}

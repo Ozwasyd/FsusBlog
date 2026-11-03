@@ -1,0 +1,9 @@
+{
+  "baseFileMatchesC08": true,
+  "gitApplyCheckExit": 0,
+  "actualGitApplyExit": 0,
+  "appliedBytesExactPostimage": true,
+  "fixtureRemoved": true,
+  "actualRailHeadNotSupplied": "scope is exact original c08 file, not guessed integrated Rail head",
+  "qualification": false
+}

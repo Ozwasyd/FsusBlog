@@ -1,0 +1,32 @@
+{
+  "original": "982430c1c696e51715e1fb9587acbc2f61ec8902",
+  "base": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "files": [
+    {
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "sha256": "f2e2644b574b81e4a8ee08e528bbd2145d7312013f7d2a79f866cd0d8e0b147e",
+      "exactOriginalWholeFile": true
+    },
+    {
+      "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+      "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f",
+      "exactOriginalWholeFile": true
+    },
+    {
+      "path": "src/backend/Services/FileService.AssetObservation.cs",
+      "sha256": "1f39a8c33f15cddc37db67d5168281578ce58a61509ef0334428c4517cf3995b",
+      "exactOriginalWholeFile": true
+    },
+    {
+      "path": "docs/architecture/article-asset-reference-lifecycle.md",
+      "sha256": "6f51d6a9d4bed02da7bd0a631132d8066adec659cc332859b331e838f1741bf3",
+      "exactOriginalWholeFile": true
+    }
+  ],
+  "sourceApplyCheckExit": 0,
+  "sourceDiffCheckExit": 0,
+  "testsAndExecution": "NOT RUN",
+  "qualification": false,
+  "recoveredSourceCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+  "noNewFrameOrTransport": true
+}

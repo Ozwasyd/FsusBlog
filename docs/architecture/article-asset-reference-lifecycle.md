@@ -21,6 +21,37 @@ Markdown and public URLs are presentation input, not ledger identity. `ArticleAs
 
 The store does not accept a URL, path, Markdown body, or storage key. It never scans Markdown, reads or writes a second reference table, or maintains an independent reference-count cache. Public URL rendering happens in `PublicAssetUrlCodec` only when a presentation response needs it.
 
+## Committed upload observation
+
+`IFileService.ObserveCommittedUploadAsync(UploadSessionAccess, sha256)` reads a
+completed upload through its original unexpired owner/token grant. Under the
+existing AssetId advisory lock it checks the active public `content_asset` row,
+storage key, owner, media metadata and expected digest against actual bytes.
+The native regular-file owner rejects links and validates the opened file and
+parent identities after reading. Platforms without that native owner fail
+closed. Cancellation does not produce an observation.
+
+The server observation contains the canonical AssetId/record, a public URL
+projection, at most 1,024 complete reference rows, and separate asset-version and
+reference-ledger digests. A missing ledger, changed owner, pending deletion,
+missing or changed bytes, or an oversized/invalid reference observation fails;
+neither URL nor file existence is sufficient. The filesystem-only test
+constructor cannot produce this observation. No second ledger is written.
+
+This is an internal server read port, not an AEDS upload-complete wire change or
+an article/Vault permission receipt. Consumers must obtain current article/site
+rights and bind the actual plan, operation and revision through their canonical
+authority. The observation grants no rights, seals no caller-supplied plan and
+does not authorize historical re-use after its observed versions change.
+
+The original frontend producer models `UploadAssetPreviewViewModel` and
+`UploadAssetFactsViewModel` live in `src/frontend/src/contracts/binaryApi.ts`.
+They declare the closed observation data decoded by the upload adapter; the
+facts model omits image bytes. Neither model is a verified intent, article right
+or reference receipt. Frame allocation, decoder registration and endpoint-route
+projection remain separate canonical producer joins; restoring these type
+declarations does not activate a missing endpoint or qualify those joins.
+
 ## Delete and cleanup protocol
 
 Permanent article deletion and trash clearing load affected AssetIds from `content_asset_reference` and remove the applicable current article/draft sources inside the article transaction. An AssetId is inserted into `content_asset_cleanup_queue` only when the ledger has no remaining row, with a 24-hour grace period. Restoring any source reference cancels that queue row and returns the asset to `active`.

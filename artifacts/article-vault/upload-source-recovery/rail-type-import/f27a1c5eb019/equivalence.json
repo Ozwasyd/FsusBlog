@@ -1,0 +1,25 @@
+{
+  "typescript": "6.0.3",
+  "preSha256": "15527f4a52224b76c40dbcd3aee8a4f8be6ba192c966a8cf95f870389554983c",
+  "postSha256": "cbeb4788b21af865fa444553ae144b2f7a3abea9e4a434ccfdcddd2f3c1a89c4",
+  "runtimeEmitIdentical": true,
+  "runtimeEmitSha256": "80e225f89e4f0fe40657d116527de593b11c6895802c6c73ff0929eb7d6e84ad",
+  "transpileDiagnostics": [
+    0,
+    0
+  ],
+  "exactTextDelta": true,
+  "originalTypeSites": 2,
+  "newTypeOnlyBinding": 1,
+  "normalizedAstIdentical": true,
+  "normalizedAstSha256": "15bd3b10cb344eeeebc2b384337f68bd296cc81ddc688671f2bc0c4df3ca290a",
+  "normalizedPrintedAstSha256": "3063823226dd23d456171271d60ee0076af39afc5f2bcde48bd850eedff5dda6",
+  "normalization": "only exact original SupportedLocale import-type references -> same actual named type binding; remove that one new type-only import; all other AST nodes/comments preserved",
+  "actualLocaleModule": "/workspace/chain2258-upload-source-recovery/src/frontend/src/locales/localeCatalog.ts",
+  "actualLocaleSourceSha256": "f202a96439b284e8a8f5955a30f3cd7b613d031d8cd70d440e9cbb856b94d4d8",
+  "actualExport": "export type SupportedLocale = typeof ENABLED_LOCALES[number]['code'];",
+  "originalPreviewAndFactsDeclarationsByteIdentical": true,
+  "fullTypecheck": false,
+  "runtimeOrProtocolExecution": false,
+  "qualification": false
+}

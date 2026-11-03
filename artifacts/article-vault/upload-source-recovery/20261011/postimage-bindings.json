@@ -1,0 +1,967 @@
+{
+  "sourceRecoveryOnly": true,
+  "appliedToProductWorktrees": false,
+  "rows": [
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "before": {
+        "bytes": 1094,
+        "sha256": "71e42a4c7e5e8b5e855ef5c2c778bf416118f619cd1c69b4d868b3d666b52847",
+        "blob": "254587dc73fc0c6d43b3dcb2f116edf68a264e05"
+      },
+      "post": {
+        "bytes": 1422,
+        "sha256": "460456b8e25b965320c2d521c7b9fa1c97723bee2622d57fbff9b1e42eab2011"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/master/postimages/src/backend/Interfaces/IFileService.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+      "before": null,
+      "post": {
+        "bytes": 593,
+        "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/master/postimages/src/backend/Interfaces/UploadAssetObservation.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+      "before": null,
+      "post": {
+        "bytes": 260,
+        "sha256": "f552ea8ea9105e3e3afb9ff4acbc8e5cb962cc0197fab7d2de8fa51c027428ab"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/master/postimages/src/backend/Interfaces/UploadAssetPreview.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "before": null,
+      "post": {
+        "bytes": 3578,
+        "sha256": "39c5984bd01463b3e2deb6316608dffe84842e0eb772694e9f8e22ebfafbfd16"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/master/postimages/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "before": {
+        "bytes": 10235,
+        "sha256": "d4cf582e025fea7b143612d5bc6faa1ea13f099f8279e94dfe41be8f8630b793",
+        "blob": "9070d076b8b3c5d94051c436497f5eb5f63d003f"
+      },
+      "post": {
+        "bytes": 13323,
+        "sha256": "5f5b6ae7b575ad3d1d1118c3f8e5d60f5b881859b394547fbdced5f922421ab6"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/master/postimages/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/backend/Services/FileService.AssetObservation.cs",
+      "before": null,
+      "post": {
+        "bytes": 11245,
+        "sha256": "a2f2dd87425efb41d35a4ee2ccce276e52c05e746c7b3265fa52d9df447921a9"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/master/postimages/src/backend/Services/FileService.AssetObservation.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "before": null,
+      "post": {
+        "bytes": 8846,
+        "sha256": "5fcec4dbcd394698d06a9be30f33d66b0a512ea871bb4c8bfe1738bb29fd3800"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/master/postimages/src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+      "before": {
+        "bytes": 991,
+        "sha256": "8fd18041428fe9370747c04629d47c9f1a84b80b114b50d41b96a78ad1bf4b1d",
+        "blob": "cb08cf6bc20b742afb90ad6d4f4d3a454b8fc834"
+      },
+      "post": {
+        "bytes": 1075,
+        "sha256": "eaa9b21650cd3f360e92e37e4202bf5762d66493ea38a220d7969c6dcd290714"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/master/postimages/src/frontend/wasm/aeds/include/aeds_decode.hpp.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+      "before": null,
+      "post": {
+        "bytes": 4169,
+        "sha256": "f6108a331c46b39da4988ef35f9e0a083c02cd46c2500064a92702887f89de1e"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/master/postimages/src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+      "before": {
+        "bytes": 4228,
+        "sha256": "53bf6a67da59b8538366a5d2971aab02b5c3349aab3d46747a90b1488abe0aa2",
+        "blob": "2fcbee4cf5dd83fdf8c9b9e16127756cb942e1ae"
+      },
+      "post": {
+        "bytes": 5173,
+        "sha256": "f61243f496ccf38bca323886df5f8096f0b9288c6122cf0987476609ddc79a27"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/master/postimages/src/frontend/wasm/aeds/src/aeds_decode.cpp.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+      "before": null,
+      "post": {
+        "bytes": 900,
+        "sha256": "242f88d0fe7eb0f123f903f9a58cbf5434d87608d7a4d56108404aeabb176453"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/master/postimages/src/shared/Contracts/Models/UploadAssetPreviewPod.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+      "before": null,
+      "post": {
+        "bytes": 1068,
+        "sha256": "dc209c3b6e33f9fbfa9d5ca486863cdd1d49157c26fcb618a52def823262b10f"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/master/postimages/src/shared/Contracts/Outputs/UploadAssetFactsDto.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+      "before": null,
+      "post": {
+        "bytes": 1394,
+        "sha256": "87401200b84260f049960413330d1be87aecdcc781c9e09a25f7d137ab6c4d01"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/master/postimages/src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/shared/Contracts/Validation/PodContractValidation.cs",
+      "before": {
+        "bytes": 9424,
+        "sha256": "863504ea701036e3263b7f53cd34c34689b4a0d0befdf67374a18c0c0e3934fe",
+        "blob": "262a079d6c1ce4b05056cbbdaad3b1045e7df3f1"
+      },
+      "post": {
+        "bytes": 9480,
+        "sha256": "d9eb9a6e2bdf7d9f8b648d5a7a490aae195a4b7c2655310c357e4e7ecd49e413"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/master/postimages/src/shared/Contracts/Validation/PodContractValidation.cs.gz"
+    },
+    {
+      "target": "master",
+      "targetCommit": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+      "path": "src/shared/Contracts/Validation/PodSizeCatalog.cs",
+      "before": {
+        "bytes": 18486,
+        "sha256": "4a4496ef17c686be7cc400837d3580c98b74c862993a5fea6f6f49eb319f5af9",
+        "blob": "4c924d15732cae2b38d7c2f2ebd70c9b6a59f271"
+      },
+      "post": {
+        "bytes": 18596,
+        "sha256": "62fc06644ad7d957241ec3cd203c1092b075f2c048a5f9c2e6e50e1da78f4f6b"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/master/postimages/src/shared/Contracts/Validation/PodSizeCatalog.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "before": {
+        "bytes": 1258,
+        "sha256": "f2e2644b574b81e4a8ee08e528bbd2145d7312013f7d2a79f866cd0d8e0b147e",
+        "blob": "87d20f3ba03fe07d55f47b35b6a4debbd63583f9"
+      },
+      "post": {
+        "bytes": 1422,
+        "sha256": "460456b8e25b965320c2d521c7b9fa1c97723bee2622d57fbff9b1e42eab2011"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/backend/Interfaces/IFileService.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+      "before": {
+        "bytes": 593,
+        "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f",
+        "blob": "37afe9d22327903e50340b36484a07595ef6f76d"
+      },
+      "post": {
+        "bytes": 593,
+        "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/backend/Interfaces/UploadAssetObservation.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+      "before": null,
+      "post": {
+        "bytes": 260,
+        "sha256": "f552ea8ea9105e3e3afb9ff4acbc8e5cb962cc0197fab7d2de8fa51c027428ab"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/backend/Interfaces/UploadAssetPreview.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "before": null,
+      "post": {
+        "bytes": 3578,
+        "sha256": "39c5984bd01463b3e2deb6316608dffe84842e0eb772694e9f8e22ebfafbfd16"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "before": {
+        "bytes": 10235,
+        "sha256": "d4cf582e025fea7b143612d5bc6faa1ea13f099f8279e94dfe41be8f8630b793",
+        "blob": "9070d076b8b3c5d94051c436497f5eb5f63d003f"
+      },
+      "post": {
+        "bytes": 13323,
+        "sha256": "5f5b6ae7b575ad3d1d1118c3f8e5d60f5b881859b394547fbdced5f922421ab6"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/backend/Services/FileService.AssetObservation.cs",
+      "before": {
+        "bytes": 10107,
+        "sha256": "1f39a8c33f15cddc37db67d5168281578ce58a61509ef0334428c4517cf3995b",
+        "blob": "a0f3cb9feb998efe39418673ba8ff293319e7022"
+      },
+      "post": {
+        "bytes": 11245,
+        "sha256": "a2f2dd87425efb41d35a4ee2ccce276e52c05e746c7b3265fa52d9df447921a9"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/backend/Services/FileService.AssetObservation.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "before": null,
+      "post": {
+        "bytes": 8846,
+        "sha256": "5fcec4dbcd394698d06a9be30f33d66b0a512ea871bb4c8bfe1738bb29fd3800"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+      "before": {
+        "bytes": 991,
+        "sha256": "8fd18041428fe9370747c04629d47c9f1a84b80b114b50d41b96a78ad1bf4b1d",
+        "blob": "cb08cf6bc20b742afb90ad6d4f4d3a454b8fc834"
+      },
+      "post": {
+        "bytes": 1075,
+        "sha256": "eaa9b21650cd3f360e92e37e4202bf5762d66493ea38a220d7969c6dcd290714"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/frontend/wasm/aeds/include/aeds_decode.hpp.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+      "before": null,
+      "post": {
+        "bytes": 4169,
+        "sha256": "f6108a331c46b39da4988ef35f9e0a083c02cd46c2500064a92702887f89de1e"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+      "before": {
+        "bytes": 4228,
+        "sha256": "53bf6a67da59b8538366a5d2971aab02b5c3349aab3d46747a90b1488abe0aa2",
+        "blob": "2fcbee4cf5dd83fdf8c9b9e16127756cb942e1ae"
+      },
+      "post": {
+        "bytes": 5173,
+        "sha256": "f61243f496ccf38bca323886df5f8096f0b9288c6122cf0987476609ddc79a27"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/frontend/wasm/aeds/src/aeds_decode.cpp.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+      "before": null,
+      "post": {
+        "bytes": 900,
+        "sha256": "242f88d0fe7eb0f123f903f9a58cbf5434d87608d7a4d56108404aeabb176453"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/shared/Contracts/Models/UploadAssetPreviewPod.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+      "before": null,
+      "post": {
+        "bytes": 1068,
+        "sha256": "dc209c3b6e33f9fbfa9d5ca486863cdd1d49157c26fcb618a52def823262b10f"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/shared/Contracts/Outputs/UploadAssetFactsDto.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+      "before": null,
+      "post": {
+        "bytes": 1394,
+        "sha256": "87401200b84260f049960413330d1be87aecdcc781c9e09a25f7d137ab6c4d01"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/shared/Contracts/Validation/PodContractValidation.cs",
+      "before": {
+        "bytes": 9424,
+        "sha256": "863504ea701036e3263b7f53cd34c34689b4a0d0befdf67374a18c0c0e3934fe",
+        "blob": "262a079d6c1ce4b05056cbbdaad3b1045e7df3f1"
+      },
+      "post": {
+        "bytes": 9480,
+        "sha256": "d9eb9a6e2bdf7d9f8b648d5a7a490aae195a4b7c2655310c357e4e7ecd49e413"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/shared/Contracts/Validation/PodContractValidation.cs.gz"
+    },
+    {
+      "target": "after-observation-48f123c3",
+      "targetCommit": "48f123c3e20e69caa5b63b07409056a419abf9ce",
+      "path": "src/shared/Contracts/Validation/PodSizeCatalog.cs",
+      "before": {
+        "bytes": 18486,
+        "sha256": "4a4496ef17c686be7cc400837d3580c98b74c862993a5fea6f6f49eb319f5af9",
+        "blob": "4c924d15732cae2b38d7c2f2ebd70c9b6a59f271"
+      },
+      "post": {
+        "bytes": 18596,
+        "sha256": "62fc06644ad7d957241ec3cd203c1092b075f2c048a5f9c2e6e50e1da78f4f6b"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/after-observation-48f123c3/postimages/src/shared/Contracts/Validation/PodSizeCatalog.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "before": {
+        "bytes": 1258,
+        "sha256": "f2e2644b574b81e4a8ee08e528bbd2145d7312013f7d2a79f866cd0d8e0b147e",
+        "blob": "87d20f3ba03fe07d55f47b35b6a4debbd63583f9"
+      },
+      "post": {
+        "bytes": 1422,
+        "sha256": "460456b8e25b965320c2d521c7b9fa1c97723bee2622d57fbff9b1e42eab2011"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-7b203a3f/postimages/src/backend/Interfaces/IFileService.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+      "before": {
+        "bytes": 593,
+        "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f",
+        "blob": "37afe9d22327903e50340b36484a07595ef6f76d"
+      },
+      "post": {
+        "bytes": 593,
+        "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-7b203a3f/postimages/src/backend/Interfaces/UploadAssetObservation.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+      "before": null,
+      "post": {
+        "bytes": 260,
+        "sha256": "f552ea8ea9105e3e3afb9ff4acbc8e5cb962cc0197fab7d2de8fa51c027428ab"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-7b203a3f/postimages/src/backend/Interfaces/UploadAssetPreview.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "before": null,
+      "post": {
+        "bytes": 3578,
+        "sha256": "39c5984bd01463b3e2deb6316608dffe84842e0eb772694e9f8e22ebfafbfd16"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-7b203a3f/postimages/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "before": {
+        "bytes": 10235,
+        "sha256": "d4cf582e025fea7b143612d5bc6faa1ea13f099f8279e94dfe41be8f8630b793",
+        "blob": "9070d076b8b3c5d94051c436497f5eb5f63d003f"
+      },
+      "post": {
+        "bytes": 13323,
+        "sha256": "5f5b6ae7b575ad3d1d1118c3f8e5d60f5b881859b394547fbdced5f922421ab6"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-7b203a3f/postimages/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/backend/Services/FileService.AssetObservation.cs",
+      "before": {
+        "bytes": 10107,
+        "sha256": "1f39a8c33f15cddc37db67d5168281578ce58a61509ef0334428c4517cf3995b",
+        "blob": "a0f3cb9feb998efe39418673ba8ff293319e7022"
+      },
+      "post": {
+        "bytes": 11245,
+        "sha256": "a2f2dd87425efb41d35a4ee2ccce276e52c05e746c7b3265fa52d9df447921a9"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-7b203a3f/postimages/src/backend/Services/FileService.AssetObservation.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "before": null,
+      "post": {
+        "bytes": 8846,
+        "sha256": "5fcec4dbcd394698d06a9be30f33d66b0a512ea871bb4c8bfe1738bb29fd3800"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-7b203a3f/postimages/src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+      "before": {
+        "bytes": 1122,
+        "sha256": "9a61a68d40d03e9e50c285c0e383c627c6043a9f535dc4b8a56f036c0248a75f",
+        "blob": "f723160742c6c887541b19807a00b75d4577746a"
+      },
+      "post": {
+        "bytes": 1206,
+        "sha256": "47927b6490f4313653f1f130bd1f3bac54d3332aea894a023ecf7e062197a678"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-7b203a3f/postimages/src/frontend/wasm/aeds/include/aeds_decode.hpp.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+      "before": null,
+      "post": {
+        "bytes": 4169,
+        "sha256": "f6108a331c46b39da4988ef35f9e0a083c02cd46c2500064a92702887f89de1e"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-7b203a3f/postimages/src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+      "before": {
+        "bytes": 5334,
+        "sha256": "f80d39ce921c0debec8549ba89fc38113df0f91ee30185c20bac90e545078449",
+        "blob": "106edbfc2f01470f69b612e8a774b6e227d1f889"
+      },
+      "post": {
+        "bytes": 6279,
+        "sha256": "574481057235df8c98a1a839ecd7cac7888eeb50db50cc2a9a17e45bddf2ceaf"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-7b203a3f/postimages/src/frontend/wasm/aeds/src/aeds_decode.cpp.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+      "before": null,
+      "post": {
+        "bytes": 900,
+        "sha256": "242f88d0fe7eb0f123f903f9a58cbf5434d87608d7a4d56108404aeabb176453"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-7b203a3f/postimages/src/shared/Contracts/Models/UploadAssetPreviewPod.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+      "before": null,
+      "post": {
+        "bytes": 1068,
+        "sha256": "dc209c3b6e33f9fbfa9d5ca486863cdd1d49157c26fcb618a52def823262b10f"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-7b203a3f/postimages/src/shared/Contracts/Outputs/UploadAssetFactsDto.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+      "before": null,
+      "post": {
+        "bytes": 1394,
+        "sha256": "87401200b84260f049960413330d1be87aecdcc781c9e09a25f7d137ab6c4d01"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-7b203a3f/postimages/src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/shared/Contracts/Validation/PodContractValidation.cs",
+      "before": {
+        "bytes": 9424,
+        "sha256": "863504ea701036e3263b7f53cd34c34689b4a0d0befdf67374a18c0c0e3934fe",
+        "blob": "262a079d6c1ce4b05056cbbdaad3b1045e7df3f1"
+      },
+      "post": {
+        "bytes": 9480,
+        "sha256": "d9eb9a6e2bdf7d9f8b648d5a7a490aae195a4b7c2655310c357e4e7ecd49e413"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-7b203a3f/postimages/src/shared/Contracts/Validation/PodContractValidation.cs.gz"
+    },
+    {
+      "target": "writer-7b203a3f",
+      "targetCommit": "7b203a3f4fd8346f05b7aeb176eb653bdb4b2fc9",
+      "path": "src/shared/Contracts/Validation/PodSizeCatalog.cs",
+      "before": {
+        "bytes": 18486,
+        "sha256": "4a4496ef17c686be7cc400837d3580c98b74c862993a5fea6f6f49eb319f5af9",
+        "blob": "4c924d15732cae2b38d7c2f2ebd70c9b6a59f271"
+      },
+      "post": {
+        "bytes": 18596,
+        "sha256": "62fc06644ad7d957241ec3cd203c1092b075f2c048a5f9c2e6e50e1da78f4f6b"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-7b203a3f/postimages/src/shared/Contracts/Validation/PodSizeCatalog.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/backend/Interfaces/IFileService.cs",
+      "before": {
+        "bytes": 1258,
+        "sha256": "f2e2644b574b81e4a8ee08e528bbd2145d7312013f7d2a79f866cd0d8e0b147e",
+        "blob": "87d20f3ba03fe07d55f47b35b6a4debbd63583f9"
+      },
+      "post": {
+        "bytes": 1422,
+        "sha256": "460456b8e25b965320c2d521c7b9fa1c97723bee2622d57fbff9b1e42eab2011"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-5e324f1d/postimages/src/backend/Interfaces/IFileService.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/backend/Interfaces/UploadAssetObservation.cs",
+      "before": {
+        "bytes": 593,
+        "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f",
+        "blob": "37afe9d22327903e50340b36484a07595ef6f76d"
+      },
+      "post": {
+        "bytes": 593,
+        "sha256": "1b769acfa3f396a4f932fc86aec5644f3a31f43452a6314ba87c81e7040a6f9f"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-5e324f1d/postimages/src/backend/Interfaces/UploadAssetObservation.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/backend/Interfaces/UploadAssetPreview.cs",
+      "before": null,
+      "post": {
+        "bytes": 260,
+        "sha256": "f552ea8ea9105e3e3afb9ff4acbc8e5cb962cc0197fab7d2de8fa51c027428ab"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-5e324f1d/postimages/src/backend/Interfaces/UploadAssetPreview.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs",
+      "before": null,
+      "post": {
+        "bytes": 3578,
+        "sha256": "39c5984bd01463b3e2deb6316608dffe84842e0eb772694e9f8e22ebfafbfd16"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-5e324f1d/postimages/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.UploadAssetFacts.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+      "before": {
+        "bytes": 10235,
+        "sha256": "d4cf582e025fea7b143612d5bc6faa1ea13f099f8279e94dfe41be8f8630b793",
+        "blob": "9070d076b8b3c5d94051c436497f5eb5f63d003f"
+      },
+      "post": {
+        "bytes": 13323,
+        "sha256": "5f5b6ae7b575ad3d1d1118c3f8e5d60f5b881859b394547fbdced5f922421ab6"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-5e324f1d/postimages/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/backend/Services/FileService.AssetObservation.cs",
+      "before": {
+        "bytes": 10107,
+        "sha256": "1f39a8c33f15cddc37db67d5168281578ce58a61509ef0334428c4517cf3995b",
+        "blob": "a0f3cb9feb998efe39418673ba8ff293319e7022"
+      },
+      "post": {
+        "bytes": 11245,
+        "sha256": "a2f2dd87425efb41d35a4ee2ccce276e52c05e746c7b3265fa52d9df447921a9"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-5e324f1d/postimages/src/backend/Services/FileService.AssetObservation.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs",
+      "before": null,
+      "post": {
+        "bytes": 8846,
+        "sha256": "5fcec4dbcd394698d06a9be30f33d66b0a512ea871bb4c8bfe1738bb29fd3800"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-5e324f1d/postimages/src/core/Cache/PodBinaryCodec.UploadAssetPreview.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/frontend/wasm/aeds/include/aeds_decode.hpp",
+      "before": {
+        "bytes": 1122,
+        "sha256": "9a61a68d40d03e9e50c285c0e383c627c6043a9f535dc4b8a56f036c0248a75f",
+        "blob": "f723160742c6c887541b19807a00b75d4577746a"
+      },
+      "post": {
+        "bytes": 1206,
+        "sha256": "47927b6490f4313653f1f130bd1f3bac54d3332aea894a023ecf7e062197a678"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-5e324f1d/postimages/src/frontend/wasm/aeds/include/aeds_decode.hpp.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp",
+      "before": null,
+      "post": {
+        "bytes": 4169,
+        "sha256": "f6108a331c46b39da4988ef35f9e0a083c02cd46c2500064a92702887f89de1e"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-5e324f1d/postimages/src/frontend/wasm/aeds/include/upload_asset_preview_pod.hpp.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+      "before": {
+        "bytes": 5334,
+        "sha256": "f80d39ce921c0debec8549ba89fc38113df0f91ee30185c20bac90e545078449",
+        "blob": "106edbfc2f01470f69b612e8a774b6e227d1f889"
+      },
+      "post": {
+        "bytes": 6279,
+        "sha256": "574481057235df8c98a1a839ecd7cac7888eeb50db50cc2a9a17e45bddf2ceaf"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-5e324f1d/postimages/src/frontend/wasm/aeds/src/aeds_decode.cpp.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/shared/Contracts/Models/UploadAssetPreviewPod.cs",
+      "before": null,
+      "post": {
+        "bytes": 900,
+        "sha256": "242f88d0fe7eb0f123f903f9a58cbf5434d87608d7a4d56108404aeabb176453"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-5e324f1d/postimages/src/shared/Contracts/Models/UploadAssetPreviewPod.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/shared/Contracts/Outputs/UploadAssetFactsDto.cs",
+      "before": null,
+      "post": {
+        "bytes": 1068,
+        "sha256": "dc209c3b6e33f9fbfa9d5ca486863cdd1d49157c26fcb618a52def823262b10f"
+      },
+      "originalWholeFileCommit": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-5e324f1d/postimages/src/shared/Contracts/Outputs/UploadAssetFactsDto.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs",
+      "before": null,
+      "post": {
+        "bytes": 1394,
+        "sha256": "87401200b84260f049960413330d1be87aecdcc781c9e09a25f7d137ab6c4d01"
+      },
+      "originalWholeFileCommit": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+      "exactWholeFileEqualOrigin": true,
+      "extraction": "whole exact original file",
+      "postimage": "targets/writer-5e324f1d/postimages/src/shared/Contracts/Outputs/UploadAssetPreviewDto.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/shared/Contracts/Validation/PodContractValidation.cs",
+      "before": {
+        "bytes": 9424,
+        "sha256": "863504ea701036e3263b7f53cd34c34689b4a0d0befdf67374a18c0c0e3934fe",
+        "blob": "262a079d6c1ce4b05056cbbdaad3b1045e7df3f1"
+      },
+      "post": {
+        "bytes": 9480,
+        "sha256": "d9eb9a6e2bdf7d9f8b648d5a7a490aae195a4b7c2655310c357e4e7ecd49e413"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-5e324f1d/postimages/src/shared/Contracts/Validation/PodContractValidation.cs.gz"
+    },
+    {
+      "target": "writer-5e324f1d",
+      "targetCommit": "5e324f1d582866242cc90cdb5a7e4d3f5631355a",
+      "path": "src/shared/Contracts/Validation/PodSizeCatalog.cs",
+      "before": {
+        "bytes": 18486,
+        "sha256": "4a4496ef17c686be7cc400837d3580c98b74c862993a5fea6f6f49eb319f5af9",
+        "blob": "4c924d15732cae2b38d7c2f2ebd70c9b6a59f271"
+      },
+      "post": {
+        "bytes": 18596,
+        "sha256": "62fc06644ad7d957241ec3cd203c1092b075f2c048a5f9c2e6e50e1da78f4f6b"
+      },
+      "originalWholeFileCommit": null,
+      "exactWholeFileEqualOrigin": false,
+      "extraction": "original owned hunks joined into target while preserving unrelated text",
+      "postimage": "targets/writer-5e324f1d/postimages/src/shared/Contracts/Validation/PodSizeCatalog.cs.gz"
+    }
+  ],
+  "qualification": false
+}

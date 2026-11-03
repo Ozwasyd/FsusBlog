@@ -1,0 +1,15 @@
+{
+  "command": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "strict-full",
+    "--file",
+    "src/frontend/src/contracts/binaryApi.ts"
+  ],
+  "source": "d020d72cd16885471b7168c9e41c49c285707d4e",
+  "cwd": "/workspace/chain2258-upload-source-recovery",
+  "exitCode": 1,
+  "timeUtc": "2026-10-11T23:41:17.674142+00:00",
+  "qualification": false
+}

@@ -1,0 +1,12 @@
+{
+  "previousOfferCommit": "7e68bb47f1d11723b57b045649ca5fc510ed3ea5",
+  "oldTarget": "9d72a1c93b297f719d8695a642cdfb1615cf1d51",
+  "actualTarget": "a4b4aaa69773e0039ce1acdb525bb7aef3d8b330",
+  "actualCheckAndApplyExit": 0,
+  "files": 15,
+  "originalObservation": "982430c1c696e51715e1fb9587acbc2f61ec8902",
+  "previewOrigin": "66fa8b0e6c6bc8b7555275ca9fb8feb220d3fd1f",
+  "factsOrigin": "4cfdbbf9542f14eab305642aabb968fb6b3179bd",
+  "endpointSourceNotActivated": true,
+  "qualification": false
+}

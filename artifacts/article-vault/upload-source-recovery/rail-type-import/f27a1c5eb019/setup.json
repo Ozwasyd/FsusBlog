@@ -1,0 +1,32 @@
+{
+  "sourceBefore": "d020d72cd16885471b7168c9e41c49c285707d4e",
+  "preBlob": "3307348190f5aee7c64cf50945a085f039b3bc70",
+  "preSha256": "15527f4a52224b76c40dbcd3aee8a4f8be6ba192c966a8cf95f870389554983c",
+  "lockedInputs": [
+    {
+      "path": "src/frontend/package.json",
+      "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "cacheManifestAndLockExact": true
+    },
+    {
+      "path": "src/frontend/package-lock.json",
+      "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "cacheManifestAndLockExact": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/package.json",
+      "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95",
+      "cacheManifestAndLockExact": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/package-lock.json",
+      "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+      "cacheManifestAndLockExact": true
+    }
+  ],
+  "ownedLinks": [
+    "/workspace/chain2258-upload-source-recovery/src/frontend/node_modules",
+    "/workspace/chain2258-upload-source-recovery/tools/frontend/style-toolchain/node_modules"
+  ],
+  "node": "/workspace/chain-1975-evidence/provider-caller-cancellation/node-runtime/node-v24.16.0-linux-x64/bin/node"
+}
