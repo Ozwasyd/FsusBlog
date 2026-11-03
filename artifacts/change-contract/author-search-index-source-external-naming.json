@@ -1,0 +1,19 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/backend/Services/Authoring/AuthorFullTextSearchCaseFold.cs",
+        "src/backend/Services/Authoring/AuthorFullTextSearchContracts.cs",
+        "src/backend/Services/Authoring/AuthorFullTextSearchCursor.cs",
+        "src/backend/Services/Authoring/AuthorFullTextSearchIndex.cs",
+        "src/backend/Services/Authoring/AuthorFullTextSearchIndexVerifier.cs",
+        "src/backend/Services/Authoring/AuthorFullTextSearchQueryGrammar.cs",
+        "src/backend/Services/Authoring/AuthorFullTextSearchTokenizer.cs",
+        "src/backend/Services/Authoring/AuthorFullTextSearchVerifier.cs"
+      ],
+      "reason": "The trusted environment-variable registry mechanically covers these C# source paths. This author-private implementation introduces no process environment keys, preserves canonical source-coordinate/tokenizer authority, and does not broaden any external naming rule. The manifest records the changed path coverage required by that existing registry."
+    }
+  ]
+}
