@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceIoBroker.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceBroker.cs"
+            ],
+            "reason": "The existing environment-variable registry governs both src/**/*.cs owners in this composed candidate. The original supplier and I/O consumer introduce no environment keys and preserve caller-visible process configuration spelling while sharing the validator original TimeProvider."
+        }
+    ]
+}
