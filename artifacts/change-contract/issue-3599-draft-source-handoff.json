@@ -1,0 +1,1546 @@
+{
+  "purpose": "Portable complete draft PR bodies and exact source supersession evidence. Publication drafting only; no merge or acceptance authority.",
+  "sourceCorrectionCommit": "f5e28f648c3a05387f4e79118a804772b5151f8c",
+  "completeOtherPayloadCount": 10,
+  "payloads": [
+    {
+      "branch": "task/3599-bounded-1686-compatibility",
+      "head": "d88071bae538bbea996197143ebf5f7f96cafaed",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+      "changedPaths": [
+        "M\t.github/workflows/quality-gate.yml",
+        "A\tartifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "M\tartifacts/change-contract/issue-3739-fixture-permission-generated-binding.json",
+        "M\tartifacts/change-contract/locale-catalog-source-generated-binding.json",
+        "A\tartifacts/change-contract/required-evidence-dependencies-external-naming.json",
+        "A\tartifacts/change-contract/required-evidence-dependencies-generated-binding.json",
+        "A\tartifacts/change-contract/shared-governance-external-naming.json",
+        "M\tconfig/schemas/test-execution-envelope-applicability.schema.json",
+        "M\tconfig/testing/content-field-contracts.generated.json",
+        "M\tconfig/testing/correctness-attempt-producers.json",
+        "M\tconfig/testing/test-execution-envelope-applicability.json",
+        "M\tdocs/testing.md",
+        "M\ttests/fixtures/test-matrix/execution-dependency-contract.json",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/governance/test-lifecycle-registry.json",
+        "M\ttests/test-retention-replacements.json",
+        "M\ttests/tools/correctness-attempt-migration.test.mjs",
+        "M\ttests/tools/execution-envelope-policy.test.mjs",
+        "A\ttests/tools/required-evidence-dependencies.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/ci/check-job-summaries.mjs",
+        "M\ttools/ci/run-stage.mjs",
+        "M\ttools/run-test-matrix.mjs",
+        "M\ttools/test-matrix/release-final-evidence-contract.mjs",
+        "A\ttools/test-matrix/required-evidence-dependencies.mjs",
+        "M\ttools/test-matrix/scheduler.mjs",
+        "M\ttools/test/correctness-attempt-migration.mjs",
+        "M\ttools/test/lanes/static-governance.sh",
+        "M\ttools/test/run-matrix-governance-once.sh"
+      ],
+      "commits": [
+        "4b819abd1cec1b73d8a22359c74ac06b45519e90 fix(governance): bind gate integrity to parsed scheduler ownership",
+        "334367035c17ecdd854ebfed0fc767d2b56baa65 build(governance): propagate gate integrity candidate source authority",
+        "9ce00f8e0175c26fec99ddac98cd204387f0bcc6 fix(governance): retain one canonical lifecycle fixture owner",
+        "c1fe974419f871d8924f74aa38b3343d2be8ce0f fix(governance): consolidate complementary retention mappings",
+        "f4eb4d6c46c7f32d9b9702f831a25f43d1972053 fix(governance): bind migration to the current canonical producer roster",
+        "a6abc251f2de44ded74d34dcfd6dc436e14ee311 fix(governance): bind current migration dependency closure metadata",
+        "7f2cc2f9008b7219c71f0f11dc5453150a8766ee chore(governance): bind combined candidate source projection",
+        "2a6bc73086509489860b350a731cd282f6b04d2e build(governance): consume canonical execution graph snapshot",
+        "4c25fe679e0e4680b21abc85861a891f65ef8f5d chore(governance): integrate current reviewed master declaration",
+        "2053540f47e4de1088d68786733743d51f380cb9 chore(governance): preserve source work with current reviewed master",
+        "852a38e9ec60e399d2113852203ecee43292c8b5 chore(governance): integrate reviewed source tooling master",
+        "a706bca6533894a007ff6b985bb7488c57658ffc fix(contracts): regenerate the canonical article field projection",
+        "604cdc8c3dc6bcee4fb5a885e24d44ded75e8661 chore(governance): integrate reviewed prerequisite source master",
+        "521271ba53077c6f498bdd8254a19581847899ca fix(release): project catalog dependencies into release plans",
+        "0928dbca7e835b1ae4f6651a343afabf79564f70 fix(test): bind declared SDK and MySQL envelope projections",
+        "d88071bae538bbea996197143ebf5f7f96cafaed fix(release): separate read-only planning metadata from resource grants"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "dc59357672d35b0043818d423efde827fcec6b8982b2291901d499be673808e0"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the serialized execution-authority contract while its original producer projects the changed gate-integrity candidate source identities; declarations, parser identity and qualification semantics remain unchanged."
+            }
+          ]
+        },
+        "artifacts/change-contract/shared-governance-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-retention-replacements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
+            },
+            {
+              "id": "environment-variable",
+              "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+              ],
+              "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            }
+          ]
+        },
+        "artifacts/change-contract/required-evidence-dependencies-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "tools/test-matrix/release-final-static-boundary.mjs",
+            "tools/test-matrix/required-evidence-dependencies.mjs",
+            "tools/test-matrix/release-final-evidence-contract.mjs",
+            "tools/run-test-matrix.mjs",
+            "tools/ci/check-job-summaries.mjs",
+            "tools/test-matrix/scheduler.mjs",
+            "tools/test/lanes/static-governance.sh",
+            "tests/tools/required-evidence-dependencies.test.mjs",
+            "tests/matrix.yml",
+            "tools/test-matrix/execution-dependency-contract.mjs",
+            "config/testing/release-reliability-scenario-catalog.json",
+            "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+            "config/testing/replay-qualification-producers.json",
+            "tools/test/attempt-runner.mjs",
+            "tools/test/temporal-context.mjs",
+            "tools/test/temporal-context-contract.mjs",
+            "tools/test/correctness-attempt-migration.mjs",
+            "tools/testing/generate-test-execution-envelope-applicability.mjs",
+            "config/testing/producer-execution-class-contract.json",
+            "config/schemas/test-execution-envelope-applicability.schema.json",
+            "tools/test/run-matrix-governance-once.sh",
+            "tests/tools/execution-envelope-policy.test.mjs"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "dc59357672d35b0043818d423efde827fcec6b8982b2291901d499be673808e0"
+            },
+            {
+              "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+              "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+            },
+            {
+              "path": "config/testing/correctness-attempt-producers.json",
+              "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+            },
+            {
+              "path": "config/testing/test-execution-envelope-applicability.json",
+              "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
+            }
+          ],
+          "exceptions": null
+        }
+      },
+      "title": "fix(governance): preserve bounded catalog compatibility work pending acceptance",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Inherited lifecycle/inventory work: [#3521](https://github.com/Ozwasyd/FsusBlog/issues/3521), [owner draft PR #3859](https://github.com/Ozwasyd/FsusBlog/pull/3859). Inherited catalog/graph capability: [#1686](https://github.com/Ozwasyd/FsusBlog/issues/1686), [owner draft PR #3855](https://github.com/Ozwasyd/FsusBlog/pull/3855). Article-field projection capability: [#1728](https://github.com/Ozwasyd/FsusBlog/issues/1728), [supplied canonical source commit](https://github.com/Ozwasyd/FsusBlog/commit/4921d772fc01896db797fe2acf89eefb84288885).\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Include the previously supplied lifecycle, retention and canonical producer-roster dependency changes; these are inherited prerequisites, not a second implementation of their owners.\n- Published head: [d88071bae538bbea996197143ebf5f7f96cafaed](https://github.com/Ozwasyd/FsusBlog/commit/d88071bae538bbea996197143ebf5f7f96cafaed); branch `task/3599-bounded-1686-compatibility`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `0e9dd5751bdd584204fd149bdb1526b97ff682a6`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `M .github/workflows/quality-gate.yml`\n- `A artifacts/change-contract/current-correctness-inventory-generated-binding.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `M artifacts/change-contract/issue-3739-fixture-permission-generated-binding.json`\n- `M artifacts/change-contract/locale-catalog-source-generated-binding.json`\n- `A artifacts/change-contract/required-evidence-dependencies-external-naming.json`\n- `A artifacts/change-contract/required-evidence-dependencies-generated-binding.json`\n- `A artifacts/change-contract/shared-governance-external-naming.json`\n- `M config/schemas/test-execution-envelope-applicability.schema.json`\n- `M config/testing/content-field-contracts.generated.json`\n- `M config/testing/correctness-attempt-producers.json`\n- `M config/testing/test-execution-envelope-applicability.json`\n- `M docs/testing.md`\n- `M tests/fixtures/test-matrix/execution-dependency-contract.json`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/governance/test-lifecycle-registry.json`\n- `M tests/test-retention-replacements.json`\n- `M tests/tools/correctness-attempt-migration.test.mjs`\n- `M tests/tools/execution-envelope-policy.test.mjs`\n- `A tests/tools/required-evidence-dependencies.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/ci/check-job-summaries.mjs`\n- `M tools/ci/run-stage.mjs`\n- `M tools/run-test-matrix.mjs`\n- `M tools/test-matrix/release-final-evidence-contract.mjs`\n- `A tools/test-matrix/required-evidence-dependencies.mjs`\n- `M tools/test-matrix/scheduler.mjs`\n- `M tools/test/correctness-attempt-migration.mjs`\n- `M tools/test/lanes/static-governance.sh`\n- `M tools/test/run-matrix-governance-once.sh`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `d88071bae538bbea996197143ebf5f7f96cafaed`. This is publication metadata verification, not regression or runtime qualification.\n\nUNRUN for this publication handoff: regression, producer, style, aggregate PR admission and scheduler/native/default/release checks. Previously recorded source work remains preserved; no old receipt is promoted to current-master qualification. Precise historical results must be reviewed at their original tested SHA before being added as acceptance evidence.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. No new format-only or naming-only change is asserted by this handoff.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/shared-governance-external-naming.json\n\nExisting per-owner manifests are retained; their combined changed-surface coverage and final PR-level union remain unresolved, so this selected historical manifest is not claimed to satisfy composite admission.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve bounded catalog compatibility work pending acceptance\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `dc59357672d35b0043818d423efde827fcec6b8982b2291901d499be673808e0`. Other inherited producer outputs and bindings are listed in the complete path scope; this one manifest does not represent all composite edges. Aggregate multi-producer representation is unresolved and must retain every original input/output.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: provenance checkpoint; do not recommend a duplicate independent implementation PR. Exact commit ancestry preserves this complete candidate lineage; later canonical changes evolve its tree.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status 0e9dd5751bdd584204fd149bdb1526b97ff682a6 d88071bae538bbea996197143ebf5f7f96cafaed\ngit log --oneline 0e9dd5751bdd584204fd149bdb1526b97ff682a6..d88071bae538bbea996197143ebf5f7f96cafaed\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "bounded-1686-compatibility.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": true
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": false
+        },
+        "sourceCompare": {
+          "target": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "inspectedPaths": [
+            ".github/workflows/quality-gate.yml",
+            "config/schemas/test-execution-envelope-applicability.schema.json",
+            "config/testing/correctness-attempt-producers.json",
+            "config/testing/test-execution-envelope-applicability.json",
+            "docs/testing.md",
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tests/tools/execution-envelope-policy.test.mjs",
+            "tests/tools/required-evidence-dependencies.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/ci/check-job-summaries.mjs",
+            "tools/ci/run-stage.mjs",
+            "tools/run-test-matrix.mjs",
+            "tools/test-matrix/release-final-evidence-contract.mjs",
+            "tools/test-matrix/required-evidence-dependencies.mjs",
+            "tools/test-matrix/scheduler.mjs",
+            "tools/test/correctness-attempt-migration.mjs",
+            "tools/test/lanes/static-governance.sh",
+            "tools/test/run-matrix-governance-once.sh"
+          ],
+          "byteIdenticalPaths": [
+            ".github/workflows/quality-gate.yml",
+            "config/schemas/test-execution-envelope-applicability.schema.json",
+            "config/testing/correctness-attempt-producers.json",
+            "config/testing/test-execution-envelope-applicability.json",
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tests/tools/execution-envelope-policy.test.mjs",
+            "tests/tools/required-evidence-dependencies.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/ci/check-job-summaries.mjs",
+            "tools/ci/run-stage.mjs",
+            "tools/run-test-matrix.mjs",
+            "tools/test-matrix/release-final-evidence-contract.mjs",
+            "tools/test-matrix/required-evidence-dependencies.mjs",
+            "tools/test/correctness-attempt-migration.mjs",
+            "tools/test/lanes/static-governance.sh",
+            "tools/test/run-matrix-governance-once.sh"
+          ],
+          "differingPaths": [
+            "docs/testing.md",
+            "tools/test-matrix/scheduler.mjs"
+          ]
+        }
+      },
+      "publicationDisposition": {
+        "recommendation": "provenance checkpoint; do not recommend a duplicate independent implementation PR",
+        "allUniqueImplementationAbsorbed": true,
+        "coveredBy": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+        "proof": "Exact commit ancestry preserves this complete candidate lineage; later canonical changes evolve its tree."
+      }
+    },
+    {
+      "branch": "task/3599-combined-candidate",
+      "head": "51d5588e5f4ebd6d5972f53541db005a4454221e",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+      "changedPaths": [
+        "A\tartifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "A\tartifacts/change-contract/shared-governance-external-naming.json",
+        "M\tconfig/testing/correctness-attempt-producers.json",
+        "M\tdocs/testing.md",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/governance/test-lifecycle-registry.json",
+        "M\ttests/test-retention-replacements.json",
+        "M\ttests/tools/correctness-attempt-migration.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/test/correctness-attempt-migration.mjs"
+      ],
+      "commits": [
+        "4b819abd1cec1b73d8a22359c74ac06b45519e90 fix(governance): bind gate integrity to parsed scheduler ownership",
+        "334367035c17ecdd854ebfed0fc767d2b56baa65 build(governance): propagate gate integrity candidate source authority",
+        "5cd81c5fe0c3da6d97756d2023c24d183bbd5306 fix(governance): retain one canonical lifecycle fixture owner",
+        "9abdffbb2e8963bf158fc528d9cf6bce70e7613b fix(governance): consolidate complementary retention mappings",
+        "29e2d8081f17101dd7643959f395e8874da0adec fix(governance): bind migration to the current canonical producer roster",
+        "5e5dbe0af97f83d1fe24a6493f150338d955f95a fix(governance): bind current migration dependency closure metadata",
+        "51d5588e5f4ebd6d5972f53541db005a4454221e chore(governance): bind combined candidate source projection"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the serialized execution-authority contract while its original producer projects the changed gate-integrity candidate source identities; declarations, parser identity and qualification semantics remain unchanged."
+            }
+          ]
+        },
+        "artifacts/change-contract/shared-governance-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-retention-replacements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
+            },
+            {
+              "id": "environment-variable",
+              "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+              ],
+              "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            }
+          ]
+        }
+      },
+      "title": "fix(governance): preserve combined gate and lifecycle source pending acceptance",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Inherited lifecycle/inventory work: [#3521](https://github.com/Ozwasyd/FsusBlog/issues/3521), [owner draft PR #3859](https://github.com/Ozwasyd/FsusBlog/pull/3859).\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Include the previously supplied lifecycle, retention and canonical producer-roster dependency changes; these are inherited prerequisites, not a second implementation of their owners.\n- Published head: [51d5588e5f4ebd6d5972f53541db005a4454221e](https://github.com/Ozwasyd/FsusBlog/commit/51d5588e5f4ebd6d5972f53541db005a4454221e); branch `task/3599-combined-candidate`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `A artifacts/change-contract/current-correctness-inventory-generated-binding.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `A artifacts/change-contract/shared-governance-external-naming.json`\n- `M config/testing/correctness-attempt-producers.json`\n- `M docs/testing.md`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/governance/test-lifecycle-registry.json`\n- `M tests/test-retention-replacements.json`\n- `M tests/tools/correctness-attempt-migration.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/test/correctness-attempt-migration.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `51d5588e5f4ebd6d5972f53541db005a4454221e`. This is publication metadata verification, not regression or runtime qualification.\n\nUNRUN for this publication handoff: regression, producer, style, aggregate PR admission and scheduler/native/default/release checks. Previously recorded source work remains preserved; no old receipt is promoted to current-master qualification. Precise historical results must be reviewed at their original tested SHA before being added as acceptance evidence.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. No new format-only or naming-only change is asserted by this handoff.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/shared-governance-external-naming.json\n\nExisting per-owner manifests are retained; their combined changed-surface coverage and final PR-level union remain unresolved, so this selected historical manifest is not claimed to satisfy composite admission.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve combined gate and lifecycle source pending acceptance\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12`. Other inherited producer outputs and bindings are listed in the complete path scope; this one manifest does not represent all composite edges. Aggregate multi-producer representation is unresolved and must retain every original input/output.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: source-equivalent predecessor and historical metadata checkpoint; do not recommend a duplicate independent implementation PR. Every changed executable/test/source path is byte-identical in the later composite except docs/testing.md and the generated producer inventory. All original added documentation lines remain; the complete inventory roster is equal after excluding only sourceDigests/contentDigest. Only applicability source digest and corresponding content digest advance. This establishes source coverage, not runtime acceptance or equivalence of historical generated receipts.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8 51d5588e5f4ebd6d5972f53541db005a4454221e\ngit log --oneline 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8..51d5588e5f4ebd6d5972f53541db005a4454221e\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "combined-candidate.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": false
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": false
+        },
+        "sourceCompare": {
+          "target": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "inspectedPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md",
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "byteIdenticalPaths": [
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "differingPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md"
+          ]
+        },
+        "rosterChangedRootKeys": [
+          "sourceDigests",
+          "contentDigest"
+        ],
+        "originalDocAddedLines": 6,
+        "allOriginalDocAdditionsRetained": true,
+        "missingDocAdditions": [],
+        "changedSourceDigestKeys": [
+          "config/testing/test-execution-envelope-applicability.json"
+        ],
+        "oldSourceRosterEqualsLaterIgnoringOnlyDigests": true
+      },
+      "publicationDisposition": {
+        "recommendation": "source-equivalent predecessor and historical metadata checkpoint; do not recommend a duplicate independent implementation PR",
+        "allUniqueImplementationAbsorbed": true,
+        "coveredBy": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+        "isGitAncestor": false,
+        "proof": "Every changed executable/test/source path is byte-identical in the later composite except docs/testing.md and the generated producer inventory. All original added documentation lines remain; the complete inventory roster is equal after excluding only sourceDigests/contentDigest. Only applicability source digest and corresponding content digest advance. This establishes source coverage, not runtime acceptance or equivalence of historical generated receipts.",
+        "byteIdenticalSourcePaths": [
+          "tests/governance/test-lifecycle-registry.json",
+          "tests/test-retention-replacements.json",
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "tools/check-gate-integrity.sh",
+          "tools/test/correctness-attempt-migration.mjs"
+        ],
+        "originalDocAddedLineCount": 6,
+        "changedInventorySourceDigestKeys": [
+          "config/testing/test-execution-envelope-applicability.json"
+        ]
+      }
+    },
+    {
+      "branch": "task/3599-content-projection-source-probe",
+      "head": "a706bca6533894a007ff6b985bb7488c57658ffc",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+      "changedPaths": [
+        "A\tartifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "A\tartifacts/change-contract/shared-governance-external-naming.json",
+        "M\tconfig/testing/content-field-contracts.generated.json",
+        "M\tconfig/testing/correctness-attempt-producers.json",
+        "M\tdocs/testing.md",
+        "M\ttests/fixtures/test-matrix/execution-dependency-contract.json",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/governance/test-lifecycle-registry.json",
+        "M\ttests/test-retention-replacements.json",
+        "M\ttests/tools/correctness-attempt-migration.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/test/correctness-attempt-migration.mjs"
+      ],
+      "commits": [
+        "4b819abd1cec1b73d8a22359c74ac06b45519e90 fix(governance): bind gate integrity to parsed scheduler ownership",
+        "334367035c17ecdd854ebfed0fc767d2b56baa65 build(governance): propagate gate integrity candidate source authority",
+        "9ce00f8e0175c26fec99ddac98cd204387f0bcc6 fix(governance): retain one canonical lifecycle fixture owner",
+        "c1fe974419f871d8924f74aa38b3343d2be8ce0f fix(governance): consolidate complementary retention mappings",
+        "f4eb4d6c46c7f32d9b9702f831a25f43d1972053 fix(governance): bind migration to the current canonical producer roster",
+        "a6abc251f2de44ded74d34dcfd6dc436e14ee311 fix(governance): bind current migration dependency closure metadata",
+        "7f2cc2f9008b7219c71f0f11dc5453150a8766ee chore(governance): bind combined candidate source projection",
+        "2a6bc73086509489860b350a731cd282f6b04d2e build(governance): consume canonical execution graph snapshot",
+        "4c25fe679e0e4680b21abc85861a891f65ef8f5d chore(governance): integrate current reviewed master declaration",
+        "2053540f47e4de1088d68786733743d51f380cb9 chore(governance): preserve source work with current reviewed master",
+        "852a38e9ec60e399d2113852203ecee43292c8b5 chore(governance): integrate reviewed source tooling master",
+        "a706bca6533894a007ff6b985bb7488c57658ffc fix(contracts): regenerate the canonical article field projection"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the serialized execution-authority contract while its original producer projects the changed gate-integrity candidate source identities; declarations, parser identity and qualification semantics remain unchanged."
+            }
+          ]
+        },
+        "artifacts/change-contract/shared-governance-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-retention-replacements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
+            },
+            {
+              "id": "environment-variable",
+              "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+              ],
+              "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            }
+          ]
+        }
+      },
+      "title": "fix(governance): preserve gate and article projection source pending acceptance",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Inherited lifecycle/inventory work: [#3521](https://github.com/Ozwasyd/FsusBlog/issues/3521), [owner draft PR #3859](https://github.com/Ozwasyd/FsusBlog/pull/3859). Inherited catalog/graph capability: [#1686](https://github.com/Ozwasyd/FsusBlog/issues/1686), [owner draft PR #3855](https://github.com/Ozwasyd/FsusBlog/pull/3855). Article-field projection capability: [#1728](https://github.com/Ozwasyd/FsusBlog/issues/1728), [supplied canonical source commit](https://github.com/Ozwasyd/FsusBlog/commit/4921d772fc01896db797fe2acf89eefb84288885).\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Include the previously supplied lifecycle, retention and canonical producer-roster dependency changes; these are inherited prerequisites, not a second implementation of their owners.\n- Published head: [a706bca6533894a007ff6b985bb7488c57658ffc](https://github.com/Ozwasyd/FsusBlog/commit/a706bca6533894a007ff6b985bb7488c57658ffc); branch `task/3599-content-projection-source-probe`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `0a755584aa256995fd9997ca974806e8a0e29d2e`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `A artifacts/change-contract/current-correctness-inventory-generated-binding.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `A artifacts/change-contract/shared-governance-external-naming.json`\n- `M config/testing/content-field-contracts.generated.json`\n- `M config/testing/correctness-attempt-producers.json`\n- `M docs/testing.md`\n- `M tests/fixtures/test-matrix/execution-dependency-contract.json`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/governance/test-lifecycle-registry.json`\n- `M tests/test-retention-replacements.json`\n- `M tests/tools/correctness-attempt-migration.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/test/correctness-attempt-migration.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `a706bca6533894a007ff6b985bb7488c57658ffc`. This is publication metadata verification, not regression or runtime qualification.\n\nUNRUN for this publication handoff: regression, producer, style, aggregate PR admission and scheduler/native/default/release checks. Previously recorded source work remains preserved; no old receipt is promoted to current-master qualification. Precise historical results must be reviewed at their original tested SHA before being added as acceptance evidence.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. No new format-only or naming-only change is asserted by this handoff.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/shared-governance-external-naming.json\n\nExisting per-owner manifests are retained; their combined changed-surface coverage and final PR-level union remain unresolved, so this selected historical manifest is not claimed to satisfy composite admission.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve gate and article projection source pending acceptance\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12`. Other inherited producer outputs and bindings are listed in the complete path scope; this one manifest does not represent all composite edges. Aggregate multi-producer representation is unresolved and must retain every original input/output.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: provenance checkpoint; do not recommend a duplicate independent implementation PR. Exact commit ancestry preserves this complete candidate lineage; later canonical changes evolve its tree.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status 0a755584aa256995fd9997ca974806e8a0e29d2e a706bca6533894a007ff6b985bb7488c57658ffc\ngit log --oneline 0a755584aa256995fd9997ca974806e8a0e29d2e..a706bca6533894a007ff6b985bb7488c57658ffc\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "content-projection-source-probe.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": true
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": false
+        },
+        "sourceCompare": {
+          "target": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "inspectedPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md",
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "byteIdenticalPaths": [
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "differingPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md"
+          ]
+        }
+      },
+      "publicationDisposition": {
+        "recommendation": "provenance checkpoint; do not recommend a duplicate independent implementation PR",
+        "allUniqueImplementationAbsorbed": true,
+        "coveredBy": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+        "proof": "Exact commit ancestry preserves this complete candidate lineage; later canonical changes evolve its tree."
+      }
+    },
+    {
+      "branch": "task/3599-current-base-source-integration",
+      "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "changedPaths": [
+        "M\t.github/workflows/quality-gate.yml",
+        "M\tartifacts/change-contract/controlled-memory-generated-binding.json",
+        "A\tartifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "M\tartifacts/change-contract/issue-3650-csharp-policy-rebind.json",
+        "M\tartifacts/change-contract/issue-3739-fixture-permission-generated-binding.json",
+        "M\tartifacts/change-contract/locale-catalog-source-generated-binding.json",
+        "M\tartifacts/change-contract/public-shell-domain-generated-binding.json",
+        "A\tartifacts/change-contract/required-evidence-dependencies-external-naming.json",
+        "A\tartifacts/change-contract/required-evidence-dependencies-generated-binding.json",
+        "M\tartifacts/change-contract/reviewed-source-combined-generated-binding.json",
+        "A\tartifacts/change-contract/shared-governance-external-naming.json",
+        "M\tconfig/schemas/test-execution-envelope-applicability.schema.json",
+        "M\tconfig/testing/content-field-contracts.generated.json",
+        "M\tconfig/testing/correctness-attempt-producers.json",
+        "M\tconfig/testing/test-execution-envelope-applicability.json",
+        "M\tdocs/testing.md",
+        "M\ttests/fixtures/test-matrix/execution-dependency-contract.json",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/governance/test-lifecycle-registry.json",
+        "M\ttests/test-retention-replacements.json",
+        "M\ttests/tools/correctness-attempt-migration.test.mjs",
+        "M\ttests/tools/execution-envelope-policy.test.mjs",
+        "A\ttests/tools/required-evidence-dependencies.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/ci/check-job-summaries.mjs",
+        "M\ttools/ci/run-stage.mjs",
+        "M\ttools/run-test-matrix.mjs",
+        "M\ttools/test-matrix/release-final-evidence-contract.mjs",
+        "A\ttools/test-matrix/required-evidence-dependencies.mjs",
+        "M\ttools/test-matrix/scheduler.mjs",
+        "M\ttools/test/correctness-attempt-migration.mjs",
+        "M\ttools/test/lanes/static-governance.sh",
+        "M\ttools/test/run-matrix-governance-once.sh"
+      ],
+      "commits": [
+        "4b819abd1cec1b73d8a22359c74ac06b45519e90 fix(governance): bind gate integrity to parsed scheduler ownership",
+        "334367035c17ecdd854ebfed0fc767d2b56baa65 build(governance): propagate gate integrity candidate source authority",
+        "9ce00f8e0175c26fec99ddac98cd204387f0bcc6 fix(governance): retain one canonical lifecycle fixture owner",
+        "c1fe974419f871d8924f74aa38b3343d2be8ce0f fix(governance): consolidate complementary retention mappings",
+        "f4eb4d6c46c7f32d9b9702f831a25f43d1972053 fix(governance): bind migration to the current canonical producer roster",
+        "a6abc251f2de44ded74d34dcfd6dc436e14ee311 fix(governance): bind current migration dependency closure metadata",
+        "7f2cc2f9008b7219c71f0f11dc5453150a8766ee chore(governance): bind combined candidate source projection",
+        "2a6bc73086509489860b350a731cd282f6b04d2e build(governance): consume canonical execution graph snapshot",
+        "4c25fe679e0e4680b21abc85861a891f65ef8f5d chore(governance): integrate current reviewed master declaration",
+        "2053540f47e4de1088d68786733743d51f380cb9 chore(governance): preserve source work with current reviewed master",
+        "852a38e9ec60e399d2113852203ecee43292c8b5 chore(governance): integrate reviewed source tooling master",
+        "a706bca6533894a007ff6b985bb7488c57658ffc fix(contracts): regenerate the canonical article field projection",
+        "604cdc8c3dc6bcee4fb5a885e24d44ded75e8661 chore(governance): integrate reviewed prerequisite source master",
+        "521271ba53077c6f498bdd8254a19581847899ca fix(release): project catalog dependencies into release plans",
+        "0928dbca7e835b1ae4f6651a343afabf79564f70 fix(test): bind declared SDK and MySQL envelope projections",
+        "d88071bae538bbea996197143ebf5f7f96cafaed fix(release): separate read-only planning metadata from resource grants",
+        "14245af6518645c36066cb53a3d9fc8df4d008fa chore(governance): integrate current accepted source authority"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "45b68651a56765aeb7652ce97bd5ef7c22f026b643c0c14279e1da0216137fb3"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the serialized execution-authority contract while its original producer projects the changed gate-integrity candidate source identities; declarations, parser identity and qualification semantics remain unchanged."
+            }
+          ]
+        },
+        "artifacts/change-contract/shared-governance-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-retention-replacements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
+            },
+            {
+              "id": "environment-variable",
+              "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+              ],
+              "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            }
+          ]
+        },
+        "artifacts/change-contract/required-evidence-dependencies-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "tools/test-matrix/release-final-static-boundary.mjs",
+            "tools/test-matrix/required-evidence-dependencies.mjs",
+            "tools/test-matrix/release-final-evidence-contract.mjs",
+            "tools/run-test-matrix.mjs",
+            "tools/ci/check-job-summaries.mjs",
+            "tools/test-matrix/scheduler.mjs",
+            "tools/test/lanes/static-governance.sh",
+            "tests/tools/required-evidence-dependencies.test.mjs",
+            "tests/matrix.yml",
+            "tools/test-matrix/execution-dependency-contract.mjs",
+            "config/testing/release-reliability-scenario-catalog.json",
+            "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+            "config/testing/replay-qualification-producers.json",
+            "tools/test/attempt-runner.mjs",
+            "tools/test/temporal-context.mjs",
+            "tools/test/temporal-context-contract.mjs",
+            "tools/test/correctness-attempt-migration.mjs",
+            "tools/testing/generate-test-execution-envelope-applicability.mjs",
+            "config/testing/producer-execution-class-contract.json",
+            "config/schemas/test-execution-envelope-applicability.schema.json",
+            "tools/test/run-matrix-governance-once.sh",
+            "tests/tools/execution-envelope-policy.test.mjs"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "45b68651a56765aeb7652ce97bd5ef7c22f026b643c0c14279e1da0216137fb3"
+            },
+            {
+              "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+              "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+            },
+            {
+              "path": "config/testing/correctness-attempt-producers.json",
+              "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+            },
+            {
+              "path": "config/testing/test-execution-envelope-applicability.json",
+              "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
+            }
+          ],
+          "exceptions": null
+        }
+      },
+      "title": "fix(governance): preserve integrated gate and dependency source pending acceptance",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Inherited lifecycle/inventory work: [#3521](https://github.com/Ozwasyd/FsusBlog/issues/3521), [owner draft PR #3859](https://github.com/Ozwasyd/FsusBlog/pull/3859). Inherited catalog/graph capability: [#1686](https://github.com/Ozwasyd/FsusBlog/issues/1686), [owner draft PR #3855](https://github.com/Ozwasyd/FsusBlog/pull/3855). Article-field projection capability: [#1728](https://github.com/Ozwasyd/FsusBlog/issues/1728), [supplied canonical source commit](https://github.com/Ozwasyd/FsusBlog/commit/4921d772fc01896db797fe2acf89eefb84288885).\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Include the previously supplied lifecycle, retention and canonical producer-roster dependency changes; these are inherited prerequisites, not a second implementation of their owners.\n- Published head: [14245af6518645c36066cb53a3d9fc8df4d008fa](https://github.com/Ozwasyd/FsusBlog/commit/14245af6518645c36066cb53a3d9fc8df4d008fa); branch `task/3599-current-base-source-integration`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `aaba7b8c84ecfb336c71443e30d9fd82d21fb16d`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `M .github/workflows/quality-gate.yml`\n- `M artifacts/change-contract/controlled-memory-generated-binding.json`\n- `A artifacts/change-contract/current-correctness-inventory-generated-binding.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `M artifacts/change-contract/issue-3650-csharp-policy-rebind.json`\n- `M artifacts/change-contract/issue-3739-fixture-permission-generated-binding.json`\n- `M artifacts/change-contract/locale-catalog-source-generated-binding.json`\n- `M artifacts/change-contract/public-shell-domain-generated-binding.json`\n- `A artifacts/change-contract/required-evidence-dependencies-external-naming.json`\n- `A artifacts/change-contract/required-evidence-dependencies-generated-binding.json`\n- `M artifacts/change-contract/reviewed-source-combined-generated-binding.json`\n- `A artifacts/change-contract/shared-governance-external-naming.json`\n- `M config/schemas/test-execution-envelope-applicability.schema.json`\n- `M config/testing/content-field-contracts.generated.json`\n- `M config/testing/correctness-attempt-producers.json`\n- `M config/testing/test-execution-envelope-applicability.json`\n- `M docs/testing.md`\n- `M tests/fixtures/test-matrix/execution-dependency-contract.json`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/governance/test-lifecycle-registry.json`\n- `M tests/test-retention-replacements.json`\n- `M tests/tools/correctness-attempt-migration.test.mjs`\n- `M tests/tools/execution-envelope-policy.test.mjs`\n- `A tests/tools/required-evidence-dependencies.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/ci/check-job-summaries.mjs`\n- `M tools/ci/run-stage.mjs`\n- `M tools/run-test-matrix.mjs`\n- `M tools/test-matrix/release-final-evidence-contract.mjs`\n- `A tools/test-matrix/required-evidence-dependencies.mjs`\n- `M tools/test-matrix/scheduler.mjs`\n- `M tools/test/correctness-attempt-migration.mjs`\n- `M tools/test/lanes/static-governance.sh`\n- `M tools/test/run-matrix-governance-once.sh`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `14245af6518645c36066cb53a3d9fc8df4d008fa`. This is publication metadata verification, not regression or runtime qualification.\n\nUNRUN for this publication handoff: regression, producer, style, aggregate PR admission and scheduler/native/default/release checks. Previously recorded source work remains preserved; no old receipt is promoted to current-master qualification. Precise historical results must be reviewed at their original tested SHA before being added as acceptance evidence.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. No new format-only or naming-only change is asserted by this handoff.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/shared-governance-external-naming.json\n\nExisting per-owner manifests are retained; their combined changed-surface coverage and final PR-level union remain unresolved, so this selected historical manifest is not claimed to satisfy composite admission.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve integrated gate and dependency source pending acceptance\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `45b68651a56765aeb7652ce97bd5ef7c22f026b643c0c14279e1da0216137fb3`. Other inherited producer outputs and bindings are listed in the complete path scope; this one manifest does not represent all composite edges. Aggregate multi-producer representation is unresolved and must retain every original input/output.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: distinct preserved composite source candidate; review separately from the narrow YAML candidate, with canonical prerequisite ownership and unresolved admission. Read-only exact source-tree diff, not branch-name inference.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status aaba7b8c84ecfb336c71443e30d9fd82d21fb16d 14245af6518645c36066cb53a3d9fc8df4d008fa\ngit log --oneline aaba7b8c84ecfb336c71443e30d9fd82d21fb16d..14245af6518645c36066cb53a3d9fc8df4d008fa\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "current-base-source-integration.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": true
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": false
+        }
+      },
+      "publicationDisposition": {
+        "recommendation": "distinct preserved composite source candidate; review separately from the narrow YAML candidate, with canonical prerequisite ownership and unresolved admission",
+        "allUniqueImplementationAbsorbed": false,
+        "comparedWith": "f5e28f648c3a05387f4e79118a804772b5151f8c",
+        "distinctSourceExamples": [
+          "tools/run-test-matrix.mjs exports logicalTierPlanningResources and projectLogicalTierPlanningMetadata and imports canonical required-evidence projection in this candidate; these are absent in the narrow YAML candidate",
+          "tools/test-matrix/required-evidence-dependencies.mjs and related scheduler/job-summary integration differ between the two exact commits"
+        ],
+        "proof": "Read-only exact source-tree diff, not branch-name inference."
+      }
+    },
+    {
+      "branch": "task/3599-current-master-source-probe",
+      "head": "cb78ed410ed916ad19a550c48e418507b5095652",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "8b1c739cacef47995f441f096835863d377dc347",
+      "changedPaths": [
+        "A\tartifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "A\tartifacts/change-contract/shared-governance-external-naming.json",
+        "M\tconfig/testing/correctness-attempt-producers.json",
+        "M\tdocs/testing.md",
+        "M\ttests/fixtures/test-matrix/execution-dependency-contract.json",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/governance/test-lifecycle-registry.json",
+        "M\ttests/test-retention-replacements.json",
+        "M\ttests/tools/correctness-attempt-migration.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/test/correctness-attempt-migration.mjs"
+      ],
+      "commits": [
+        "4b819abd1cec1b73d8a22359c74ac06b45519e90 fix(governance): bind gate integrity to parsed scheduler ownership",
+        "334367035c17ecdd854ebfed0fc767d2b56baa65 build(governance): propagate gate integrity candidate source authority",
+        "5cd81c5fe0c3da6d97756d2023c24d183bbd5306 fix(governance): retain one canonical lifecycle fixture owner",
+        "9abdffbb2e8963bf158fc528d9cf6bce70e7613b fix(governance): consolidate complementary retention mappings",
+        "29e2d8081f17101dd7643959f395e8874da0adec fix(governance): bind migration to the current canonical producer roster",
+        "5e5dbe0af97f83d1fe24a6493f150338d955f95a fix(governance): bind current migration dependency closure metadata",
+        "51d5588e5f4ebd6d5972f53541db005a4454221e chore(governance): bind combined candidate source projection",
+        "c95de397acb0bacb48756704297919f1a2fac438 build(governance): consume canonical execution graph snapshot",
+        "cb78ed410ed916ad19a550c48e418507b5095652 chore(governance): integrate current reviewed master declaration"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the serialized execution-authority contract while its original producer projects the changed gate-integrity candidate source identities; declarations, parser identity and qualification semantics remain unchanged."
+            }
+          ]
+        },
+        "artifacts/change-contract/shared-governance-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-retention-replacements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
+            },
+            {
+              "id": "environment-variable",
+              "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+              ],
+              "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            }
+          ]
+        }
+      },
+      "title": "fix(governance): preserve gate and graph source composition pending acceptance",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Inherited lifecycle/inventory work: [#3521](https://github.com/Ozwasyd/FsusBlog/issues/3521), [owner draft PR #3859](https://github.com/Ozwasyd/FsusBlog/pull/3859). Inherited catalog/graph capability: [#1686](https://github.com/Ozwasyd/FsusBlog/issues/1686), [owner draft PR #3855](https://github.com/Ozwasyd/FsusBlog/pull/3855).\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Include the previously supplied lifecycle, retention and canonical producer-roster dependency changes; these are inherited prerequisites, not a second implementation of their owners.\n- Published head: [cb78ed410ed916ad19a550c48e418507b5095652](https://github.com/Ozwasyd/FsusBlog/commit/cb78ed410ed916ad19a550c48e418507b5095652); branch `task/3599-current-master-source-probe`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `8b1c739cacef47995f441f096835863d377dc347`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `A artifacts/change-contract/current-correctness-inventory-generated-binding.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `A artifacts/change-contract/shared-governance-external-naming.json`\n- `M config/testing/correctness-attempt-producers.json`\n- `M docs/testing.md`\n- `M tests/fixtures/test-matrix/execution-dependency-contract.json`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/governance/test-lifecycle-registry.json`\n- `M tests/test-retention-replacements.json`\n- `M tests/tools/correctness-attempt-migration.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/test/correctness-attempt-migration.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `cb78ed410ed916ad19a550c48e418507b5095652`. This is publication metadata verification, not regression or runtime qualification.\n\nUNRUN for this publication handoff: regression, producer, style, aggregate PR admission and scheduler/native/default/release checks. Previously recorded source work remains preserved; no old receipt is promoted to current-master qualification. Precise historical results must be reviewed at their original tested SHA before being added as acceptance evidence.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. No new format-only or naming-only change is asserted by this handoff.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/shared-governance-external-naming.json\n\nExisting per-owner manifests are retained; their combined changed-surface coverage and final PR-level union remain unresolved, so this selected historical manifest is not claimed to satisfy composite admission.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve gate and graph source composition pending acceptance\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12`. Other inherited producer outputs and bindings are listed in the complete path scope; this one manifest does not represent all composite edges. Aggregate multi-producer representation is unresolved and must retain every original input/output.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: source-equivalent predecessor and historical metadata checkpoint; do not recommend a duplicate independent implementation PR. Every changed executable/test/source path is byte-identical in the later composite except docs/testing.md and the generated producer inventory. All original added documentation lines remain; the complete inventory roster is equal after excluding only sourceDigests/contentDigest. Only applicability source digest and corresponding content digest advance. This establishes source coverage, not runtime acceptance or equivalence of historical generated receipts.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status 8b1c739cacef47995f441f096835863d377dc347 cb78ed410ed916ad19a550c48e418507b5095652\ngit log --oneline 8b1c739cacef47995f441f096835863d377dc347..cb78ed410ed916ad19a550c48e418507b5095652\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "current-master-source-probe.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": false
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": false
+        },
+        "sourceCompare": {
+          "target": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "inspectedPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md",
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "byteIdenticalPaths": [
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "differingPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md"
+          ]
+        },
+        "rosterChangedRootKeys": [
+          "sourceDigests",
+          "contentDigest"
+        ],
+        "originalDocAddedLines": 6,
+        "allOriginalDocAdditionsRetained": true,
+        "missingDocAdditions": [],
+        "changedSourceDigestKeys": [
+          "config/testing/test-execution-envelope-applicability.json"
+        ],
+        "oldSourceRosterEqualsLaterIgnoringOnlyDigests": true
+      },
+      "publicationDisposition": {
+        "recommendation": "source-equivalent predecessor and historical metadata checkpoint; do not recommend a duplicate independent implementation PR",
+        "allUniqueImplementationAbsorbed": true,
+        "coveredBy": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+        "isGitAncestor": false,
+        "proof": "Every changed executable/test/source path is byte-identical in the later composite except docs/testing.md and the generated producer inventory. All original added documentation lines remain; the complete inventory roster is equal after excluding only sourceDigests/contentDigest. Only applicability source digest and corresponding content digest advance. This establishes source coverage, not runtime acceptance or equivalence of historical generated receipts.",
+        "byteIdenticalSourcePaths": [
+          "tests/governance/test-lifecycle-registry.json",
+          "tests/test-retention-replacements.json",
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "tools/check-gate-integrity.sh",
+          "tools/test/correctness-attempt-migration.mjs"
+        ],
+        "originalDocAddedLineCount": 6,
+        "changedInventorySourceDigestKeys": [
+          "config/testing/test-execution-envelope-applicability.json"
+        ]
+      }
+    },
+    {
+      "branch": "task/3599-current-source-metadata",
+      "head": "2053540f47e4de1088d68786733743d51f380cb9",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "87209d571a93254dcacfe9093753002e8c98822a",
+      "changedPaths": [
+        "A\tartifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "A\tartifacts/change-contract/shared-governance-external-naming.json",
+        "M\tconfig/testing/correctness-attempt-producers.json",
+        "M\tdocs/testing.md",
+        "M\ttests/fixtures/test-matrix/execution-dependency-contract.json",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/governance/test-lifecycle-registry.json",
+        "M\ttests/test-retention-replacements.json",
+        "M\ttests/tools/correctness-attempt-migration.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/test/correctness-attempt-migration.mjs"
+      ],
+      "commits": [
+        "4b819abd1cec1b73d8a22359c74ac06b45519e90 fix(governance): bind gate integrity to parsed scheduler ownership",
+        "334367035c17ecdd854ebfed0fc767d2b56baa65 build(governance): propagate gate integrity candidate source authority",
+        "9ce00f8e0175c26fec99ddac98cd204387f0bcc6 fix(governance): retain one canonical lifecycle fixture owner",
+        "c1fe974419f871d8924f74aa38b3343d2be8ce0f fix(governance): consolidate complementary retention mappings",
+        "f4eb4d6c46c7f32d9b9702f831a25f43d1972053 fix(governance): bind migration to the current canonical producer roster",
+        "a6abc251f2de44ded74d34dcfd6dc436e14ee311 fix(governance): bind current migration dependency closure metadata",
+        "7f2cc2f9008b7219c71f0f11dc5453150a8766ee chore(governance): bind combined candidate source projection",
+        "2a6bc73086509489860b350a731cd282f6b04d2e build(governance): consume canonical execution graph snapshot",
+        "4c25fe679e0e4680b21abc85861a891f65ef8f5d chore(governance): integrate current reviewed master declaration",
+        "2053540f47e4de1088d68786733743d51f380cb9 chore(governance): preserve source work with current reviewed master"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the serialized execution-authority contract while its original producer projects the changed gate-integrity candidate source identities; declarations, parser identity and qualification semantics remain unchanged."
+            }
+          ]
+        },
+        "artifacts/change-contract/shared-governance-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-retention-replacements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
+            },
+            {
+              "id": "environment-variable",
+              "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+              ],
+              "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            }
+          ]
+        }
+      },
+      "title": "fix(governance): preserve gate source metadata and dependency provenance",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Inherited lifecycle/inventory work: [#3521](https://github.com/Ozwasyd/FsusBlog/issues/3521), [owner draft PR #3859](https://github.com/Ozwasyd/FsusBlog/pull/3859). Inherited catalog/graph capability: [#1686](https://github.com/Ozwasyd/FsusBlog/issues/1686), [owner draft PR #3855](https://github.com/Ozwasyd/FsusBlog/pull/3855).\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Include the previously supplied lifecycle, retention and canonical producer-roster dependency changes; these are inherited prerequisites, not a second implementation of their owners.\n- Published head: [2053540f47e4de1088d68786733743d51f380cb9](https://github.com/Ozwasyd/FsusBlog/commit/2053540f47e4de1088d68786733743d51f380cb9); branch `task/3599-current-source-metadata`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `87209d571a93254dcacfe9093753002e8c98822a`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `A artifacts/change-contract/current-correctness-inventory-generated-binding.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `A artifacts/change-contract/shared-governance-external-naming.json`\n- `M config/testing/correctness-attempt-producers.json`\n- `M docs/testing.md`\n- `M tests/fixtures/test-matrix/execution-dependency-contract.json`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/governance/test-lifecycle-registry.json`\n- `M tests/test-retention-replacements.json`\n- `M tests/tools/correctness-attempt-migration.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/test/correctness-attempt-migration.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `2053540f47e4de1088d68786733743d51f380cb9`. This is publication metadata verification, not regression or runtime qualification.\n\nUNRUN for this publication handoff: regression, producer, style, aggregate PR admission and scheduler/native/default/release checks. Previously recorded source work remains preserved; no old receipt is promoted to current-master qualification. Precise historical results must be reviewed at their original tested SHA before being added as acceptance evidence.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. No new format-only or naming-only change is asserted by this handoff.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/shared-governance-external-naming.json\n\nExisting per-owner manifests are retained; their combined changed-surface coverage and final PR-level union remain unresolved, so this selected historical manifest is not claimed to satisfy composite admission.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve gate source metadata and dependency provenance\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12`. Other inherited producer outputs and bindings are listed in the complete path scope; this one manifest does not represent all composite edges. Aggregate multi-producer representation is unresolved and must retain every original input/output.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: provenance checkpoint; do not recommend a duplicate independent implementation PR. Exact commit ancestry preserves this complete candidate lineage; later canonical changes evolve its tree.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status 87209d571a93254dcacfe9093753002e8c98822a 2053540f47e4de1088d68786733743d51f380cb9\ngit log --oneline 87209d571a93254dcacfe9093753002e8c98822a..2053540f47e4de1088d68786733743d51f380cb9\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "current-source-metadata.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": true
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": false
+        },
+        "sourceCompare": {
+          "target": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "inspectedPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md",
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "byteIdenticalPaths": [
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "differingPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md"
+          ]
+        }
+      },
+      "publicationDisposition": {
+        "recommendation": "provenance checkpoint; do not recommend a duplicate independent implementation PR",
+        "allUniqueImplementationAbsorbed": true,
+        "coveredBy": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+        "proof": "Exact commit ancestry preserves this complete candidate lineage; later canonical changes evolve its tree."
+      }
+    },
+    {
+      "branch": "task/3599-execution-graph-source-probe",
+      "head": "c95de397acb0bacb48756704297919f1a2fac438",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+      "changedPaths": [
+        "A\tartifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "A\tartifacts/change-contract/shared-governance-external-naming.json",
+        "M\tconfig/testing/correctness-attempt-producers.json",
+        "M\tdocs/testing.md",
+        "M\ttests/fixtures/test-matrix/execution-dependency-contract.json",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/governance/test-lifecycle-registry.json",
+        "M\ttests/test-retention-replacements.json",
+        "M\ttests/tools/correctness-attempt-migration.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/test/correctness-attempt-migration.mjs"
+      ],
+      "commits": [
+        "4b819abd1cec1b73d8a22359c74ac06b45519e90 fix(governance): bind gate integrity to parsed scheduler ownership",
+        "334367035c17ecdd854ebfed0fc767d2b56baa65 build(governance): propagate gate integrity candidate source authority",
+        "5cd81c5fe0c3da6d97756d2023c24d183bbd5306 fix(governance): retain one canonical lifecycle fixture owner",
+        "9abdffbb2e8963bf158fc528d9cf6bce70e7613b fix(governance): consolidate complementary retention mappings",
+        "29e2d8081f17101dd7643959f395e8874da0adec fix(governance): bind migration to the current canonical producer roster",
+        "5e5dbe0af97f83d1fe24a6493f150338d955f95a fix(governance): bind current migration dependency closure metadata",
+        "51d5588e5f4ebd6d5972f53541db005a4454221e chore(governance): bind combined candidate source projection",
+        "c95de397acb0bacb48756704297919f1a2fac438 build(governance): consume canonical execution graph snapshot"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the serialized execution-authority contract while its original producer projects the changed gate-integrity candidate source identities; declarations, parser identity and qualification semantics remain unchanged."
+            }
+          ]
+        },
+        "artifacts/change-contract/shared-governance-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-retention-replacements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
+            },
+            {
+              "id": "environment-variable",
+              "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+              ],
+              "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            }
+          ]
+        }
+      },
+      "title": "fix(governance): preserve canonical execution graph consumption pending acceptance",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Inherited lifecycle/inventory work: [#3521](https://github.com/Ozwasyd/FsusBlog/issues/3521), [owner draft PR #3859](https://github.com/Ozwasyd/FsusBlog/pull/3859). Inherited catalog/graph capability: [#1686](https://github.com/Ozwasyd/FsusBlog/issues/1686), [owner draft PR #3855](https://github.com/Ozwasyd/FsusBlog/pull/3855).\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Include the previously supplied lifecycle, retention and canonical producer-roster dependency changes; these are inherited prerequisites, not a second implementation of their owners.\n- Published head: [c95de397acb0bacb48756704297919f1a2fac438](https://github.com/Ozwasyd/FsusBlog/commit/c95de397acb0bacb48756704297919f1a2fac438); branch `task/3599-execution-graph-source-probe`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `A artifacts/change-contract/current-correctness-inventory-generated-binding.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `A artifacts/change-contract/shared-governance-external-naming.json`\n- `M config/testing/correctness-attempt-producers.json`\n- `M docs/testing.md`\n- `M tests/fixtures/test-matrix/execution-dependency-contract.json`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/governance/test-lifecycle-registry.json`\n- `M tests/test-retention-replacements.json`\n- `M tests/tools/correctness-attempt-migration.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/test/correctness-attempt-migration.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `c95de397acb0bacb48756704297919f1a2fac438`. This is publication metadata verification, not regression or runtime qualification.\n\nUNRUN for this publication handoff: regression, producer, style, aggregate PR admission and scheduler/native/default/release checks. Previously recorded source work remains preserved; no old receipt is promoted to current-master qualification. Precise historical results must be reviewed at their original tested SHA before being added as acceptance evidence.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. No new format-only or naming-only change is asserted by this handoff.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/shared-governance-external-naming.json\n\nExisting per-owner manifests are retained; their combined changed-surface coverage and final PR-level union remain unresolved, so this selected historical manifest is not claimed to satisfy composite admission.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve canonical execution graph consumption pending acceptance\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `52f20ee5d6acef0b061965d7b99a7692be750dd65b5a4db4626423772d3afe12`. Other inherited producer outputs and bindings are listed in the complete path scope; this one manifest does not represent all composite edges. Aggregate multi-producer representation is unresolved and must retain every original input/output.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: source-equivalent predecessor and historical metadata checkpoint; do not recommend a duplicate independent implementation PR. Every changed executable/test/source path is byte-identical in the later composite except docs/testing.md and the generated producer inventory. All original added documentation lines remain; the complete inventory roster is equal after excluding only sourceDigests/contentDigest. Only applicability source digest and corresponding content digest advance. This establishes source coverage, not runtime acceptance or equivalence of historical generated receipts.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8 c95de397acb0bacb48756704297919f1a2fac438\ngit log --oneline 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8..c95de397acb0bacb48756704297919f1a2fac438\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "execution-graph-source-probe.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": false
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": false
+        },
+        "sourceCompare": {
+          "target": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "inspectedPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md",
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "byteIdenticalPaths": [
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "differingPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md"
+          ]
+        },
+        "rosterChangedRootKeys": [
+          "sourceDigests",
+          "contentDigest"
+        ],
+        "originalDocAddedLines": 6,
+        "allOriginalDocAdditionsRetained": true,
+        "missingDocAdditions": [],
+        "changedSourceDigestKeys": [
+          "config/testing/test-execution-envelope-applicability.json"
+        ],
+        "oldSourceRosterEqualsLaterIgnoringOnlyDigests": true
+      },
+      "publicationDisposition": {
+        "recommendation": "source-equivalent predecessor and historical metadata checkpoint; do not recommend a duplicate independent implementation PR",
+        "allUniqueImplementationAbsorbed": true,
+        "coveredBy": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+        "isGitAncestor": false,
+        "proof": "Every changed executable/test/source path is byte-identical in the later composite except docs/testing.md and the generated producer inventory. All original added documentation lines remain; the complete inventory roster is equal after excluding only sourceDigests/contentDigest. Only applicability source digest and corresponding content digest advance. This establishes source coverage, not runtime acceptance or equivalence of historical generated receipts.",
+        "byteIdenticalSourcePaths": [
+          "tests/governance/test-lifecycle-registry.json",
+          "tests/test-retention-replacements.json",
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "tools/check-gate-integrity.sh",
+          "tools/test/correctness-attempt-migration.mjs"
+        ],
+        "originalDocAddedLineCount": 6,
+        "changedInventorySourceDigestKeys": [
+          "config/testing/test-execution-envelope-applicability.json"
+        ]
+      }
+    },
+    {
+      "branch": "task/3599-narrow-current-master",
+      "head": "2f122ad0ced6cebf3ac79c1fccc1e448c98f8673",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+      "changedPaths": [
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/tools/yaml-consumer-style.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/yaml/parse-document.mjs"
+      ],
+      "commits": [
+        "0e36edcfeb27de342fb259ddc706714ccca7cbea fix(governance): bind gate integrity to parsed scheduler ownership",
+        "de2a3b49ab4aa00b0217c540bb1ea80ede096900 chore(governance): bind narrow gate integrity candidate output",
+        "5322067cf8e2ac74ae906b3c59c35c087359dd5c fix(governance): scope leaf naming evidence to registered paths",
+        "6812ec448320b57d8aea6805f872e355b6ed8083 fix(governance): reject quoted matrix bypasses and disabled owners",
+        "6d971dac70565edf85e22c819f78c4345cd42982 fix(yaml): preserve block scalar content before structural comment removal",
+        "2f122ad0ced6cebf3ac79c1fccc1e448c98f8673 chore(governance): bind scalar repair to the original source projection"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh",
+            "tools/yaml/parse-document.mjs"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "60fececee3a5fa8f03af33c315b21113cbc3a24e7e8a493440158d4e2856fb59"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the original execution-authority wire keys while its unchanged canonical producer projects only current source identities; declarations, target roster, independent index and qualification semantics stay unchanged."
+            }
+          ]
+        }
+      },
+      "title": "fix(governance): preserve parsed scheduler binding and scalar refusal controls",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Earlier lifecycle source is already in the recorded merge base; no new lifecycle implementation is included in this narrow diff.\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Preserve block scalar physical lines until structural parsing, including folded blank lines, shell comments, indentation and chomping semantics.\n- Published head: [2f122ad0ced6cebf3ac79c1fccc1e448c98f8673](https://github.com/Ozwasyd/FsusBlog/commit/2f122ad0ced6cebf3ac79c1fccc1e448c98f8673); branch `task/3599-narrow-current-master`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `7f128208dc59b408adda9089ff4e0a805ef2777d`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/tools/yaml-consumer-style.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/yaml/parse-document.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `2f122ad0ced6cebf3ac79c1fccc1e448c98f8673`. This is publication metadata verification, not regression or runtime qualification.\n\nUNRUN for this publication handoff: regression, producer, style, aggregate PR admission and scheduler/native/default/release checks. Previously recorded source work remains preserved; no old receipt is promoted to current-master qualification. Precise historical results must be reviewed at their original tested SHA before being added as acceptance evidence.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. No new format-only or naming-only change is asserted by this handoff.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/issue-3599-candidate-authority-external-naming.json\n\nPreserve the original serialized authority key names through the existing exact-path manifest; current-base acceptance remains unrun.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve parsed scheduler binding and scalar refusal controls\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh, tools/yaml/parse-document.mjs\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `60fececee3a5fa8f03af33c315b21113cbc3a24e7e8a493440158d4e2856fb59`. Retain the 102-target authority roster, original producer, independent index and original qualification boundary. No authority output is regenerated for this draft handoff.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: provenance checkpoint; do not recommend a duplicate independent implementation PR. Exact commit ancestry, including original source, mechanical and syntax commits; later imports evolve only in their separate authorized increment.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status 7f128208dc59b408adda9089ff4e0a805ef2777d 2f122ad0ced6cebf3ac79c1fccc1e448c98f8673\ngit log --oneline 7f128208dc59b408adda9089ff4e0a805ef2777d..2f122ad0ced6cebf3ac79c1fccc1e448c98f8673\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "narrow-current-master.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": false
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": true
+        },
+        "sourceCompare": {
+          "target": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "inspectedPaths": [
+            "tests/tools/yaml-consumer-style.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/yaml/parse-document.mjs"
+          ],
+          "byteIdenticalPaths": [
+            "tools/check-gate-integrity.sh",
+            "tools/yaml/parse-document.mjs"
+          ],
+          "differingPaths": [
+            "tests/tools/yaml-consumer-style.test.mjs"
+          ]
+        }
+      },
+      "publicationDisposition": {
+        "recommendation": "provenance checkpoint; do not recommend a duplicate independent implementation PR",
+        "allUniqueImplementationAbsorbed": true,
+        "coveredBy": "f5e28f648c3a05387f4e79118a804772b5151f8c",
+        "proof": "Exact commit ancestry, including original source, mechanical and syntax commits; later imports evolve only in their separate authorized increment."
+      }
+    },
+    {
+      "branch": "task/3599-with-3521-source-probe",
+      "head": "5e5dbe0af97f83d1fe24a6493f150338d955f95a",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+      "changedPaths": [
+        "A\tartifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "A\tartifacts/change-contract/shared-governance-external-naming.json",
+        "M\tconfig/testing/correctness-attempt-producers.json",
+        "M\tdocs/testing.md",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/governance/test-lifecycle-registry.json",
+        "M\ttests/test-retention-replacements.json",
+        "M\ttests/tools/correctness-attempt-migration.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/test/correctness-attempt-migration.mjs"
+      ],
+      "commits": [
+        "4b819abd1cec1b73d8a22359c74ac06b45519e90 fix(governance): bind gate integrity to parsed scheduler ownership",
+        "334367035c17ecdd854ebfed0fc767d2b56baa65 build(governance): propagate gate integrity candidate source authority",
+        "5cd81c5fe0c3da6d97756d2023c24d183bbd5306 fix(governance): retain one canonical lifecycle fixture owner",
+        "9abdffbb2e8963bf158fc528d9cf6bce70e7613b fix(governance): consolidate complementary retention mappings",
+        "29e2d8081f17101dd7643959f395e8874da0adec fix(governance): bind migration to the current canonical producer roster",
+        "5e5dbe0af97f83d1fe24a6493f150338d955f95a fix(governance): bind current migration dependency closure metadata"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "b344dbdd3f88f95d6ffeda0dcd43f7c5f53588a9acd48c0e061d084724665c8c"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the serialized execution-authority contract while its original producer projects the changed gate-integrity candidate source identities; declarations, parser identity and qualification semantics remain unchanged."
+            }
+          ]
+        },
+        "artifacts/change-contract/shared-governance-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/governance/test-lifecycle-registry.json",
+                "config/testing/correctness-attempt-producers.json",
+                "tests/test-retention-replacements.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "preserve the original serialized lifecycle and producer authority field names while consolidating duplicate ownership and refreshing only canonical generated source digests"
+            },
+            {
+              "id": "environment-variable",
+              "paths": [
+                "tools/test/correctness-attempt-migration.mjs"
+              ],
+              "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            }
+          ]
+        }
+      },
+      "title": "fix(governance): preserve gate and supplied lifecycle source pending acceptance",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Inherited lifecycle/inventory work: [#3521](https://github.com/Ozwasyd/FsusBlog/issues/3521), [owner draft PR #3859](https://github.com/Ozwasyd/FsusBlog/pull/3859).\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Include the previously supplied lifecycle, retention and canonical producer-roster dependency changes; these are inherited prerequisites, not a second implementation of their owners.\n- Published head: [5e5dbe0af97f83d1fe24a6493f150338d955f95a](https://github.com/Ozwasyd/FsusBlog/commit/5e5dbe0af97f83d1fe24a6493f150338d955f95a); branch `task/3599-with-3521-source-probe`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `A artifacts/change-contract/current-correctness-inventory-generated-binding.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `A artifacts/change-contract/shared-governance-external-naming.json`\n- `M config/testing/correctness-attempt-producers.json`\n- `M docs/testing.md`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/governance/test-lifecycle-registry.json`\n- `M tests/test-retention-replacements.json`\n- `M tests/tools/correctness-attempt-migration.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/test/correctness-attempt-migration.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `5e5dbe0af97f83d1fe24a6493f150338d955f95a`. This is publication metadata verification, not regression or runtime qualification.\n\nUNRUN for this publication handoff: regression, producer, style, aggregate PR admission and scheduler/native/default/release checks. Previously recorded source work remains preserved; no old receipt is promoted to current-master qualification. Precise historical results must be reviewed at their original tested SHA before being added as acceptance evidence.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [ ] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. No new format-only or naming-only change is asserted by this handoff.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/shared-governance-external-naming.json\n\nExisting per-owner manifests are retained; their combined changed-surface coverage and final PR-level union remain unresolved, so this selected historical manifest is not claimed to satisfy composite admission.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve gate and supplied lifecycle source pending acceptance\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `b344dbdd3f88f95d6ffeda0dcd43f7c5f53588a9acd48c0e061d084724665c8c`. Other inherited producer outputs and bindings are listed in the complete path scope; this one manifest does not represent all composite edges. Aggregate multi-producer representation is unresolved and must retain every original input/output.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: source-equivalent predecessor and historical metadata checkpoint; do not recommend a duplicate independent implementation PR. Every changed executable/test/source path is byte-identical in the later composite except docs/testing.md and the generated producer inventory. All original added documentation lines remain; the complete inventory roster is equal after excluding only sourceDigests/contentDigest. Only applicability source digest and corresponding content digest advance. This establishes source coverage, not runtime acceptance or equivalence of historical generated receipts.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. The combined source contains inherited dependency changes and generated outputs. Complete source/output rosters and producer edges must be preserved; an unchanged input or uncovered naming surface cannot be hidden to obtain ordinary admission. Historical runtime/matrix failures remain unresolved until their canonical owners supply current evidence.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8 5e5dbe0af97f83d1fe24a6493f150338d955f95a\ngit log --oneline 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8..5e5dbe0af97f83d1fe24a6493f150338d955f95a\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "with-3521-source-probe.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": false
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": false
+        },
+        "sourceCompare": {
+          "target": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "inspectedPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md",
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "byteIdenticalPaths": [
+            "tests/governance/test-lifecycle-registry.json",
+            "tests/test-retention-replacements.json",
+            "tests/tools/correctness-attempt-migration.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/test/correctness-attempt-migration.mjs"
+          ],
+          "differingPaths": [
+            "config/testing/correctness-attempt-producers.json",
+            "docs/testing.md"
+          ]
+        },
+        "rosterChangedRootKeys": [
+          "sourceDigests",
+          "contentDigest"
+        ],
+        "originalDocAddedLines": 6,
+        "allOriginalDocAdditionsRetained": true,
+        "missingDocAdditions": [],
+        "changedSourceDigestKeys": [
+          "config/testing/test-execution-envelope-applicability.json"
+        ],
+        "oldSourceRosterEqualsLaterIgnoringOnlyDigests": true
+      },
+      "publicationDisposition": {
+        "recommendation": "source-equivalent predecessor and historical metadata checkpoint; do not recommend a duplicate independent implementation PR",
+        "allUniqueImplementationAbsorbed": true,
+        "coveredBy": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+        "isGitAncestor": false,
+        "proof": "Every changed executable/test/source path is byte-identical in the later composite except docs/testing.md and the generated producer inventory. All original added documentation lines remain; the complete inventory roster is equal after excluding only sourceDigests/contentDigest. Only applicability source digest and corresponding content digest advance. This establishes source coverage, not runtime acceptance or equivalence of historical generated receipts.",
+        "byteIdenticalSourcePaths": [
+          "tests/governance/test-lifecycle-registry.json",
+          "tests/test-retention-replacements.json",
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "tools/check-gate-integrity.sh",
+          "tools/test/correctness-attempt-migration.mjs"
+        ],
+        "originalDocAddedLineCount": 6,
+        "changedInventorySourceDigestKeys": [
+          "config/testing/test-execution-envelope-applicability.json"
+        ]
+      }
+    },
+    {
+      "branch": "task/3599-yaml-test-style",
+      "head": "b63aec028da6e9679caed4791c1d37f1a8404c6c",
+      "base": "master",
+      "baseSha": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+      "mergeBase": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+      "changedPaths": [
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-external-naming.json",
+        "A\tartifacts/change-contract/issue-3599-candidate-authority-generated-binding.json",
+        "A\tartifacts/style/issue-3599-yaml-test-baseline.json",
+        "A\tartifacts/style/issue-3599-yaml-test-idempotence.json",
+        "M\ttests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "M\ttests/tools/yaml-consumer-style.test.mjs",
+        "M\ttools/check-gate-integrity.sh",
+        "M\ttools/yaml/parse-document.mjs"
+      ],
+      "commits": [
+        "0e36edcfeb27de342fb259ddc706714ccca7cbea fix(governance): bind gate integrity to parsed scheduler ownership",
+        "de2a3b49ab4aa00b0217c540bb1ea80ede096900 chore(governance): bind narrow gate integrity candidate output",
+        "5322067cf8e2ac74ae906b3c59c35c087359dd5c fix(governance): scope leaf naming evidence to registered paths",
+        "6812ec448320b57d8aea6805f872e355b6ed8083 fix(governance): reject quoted matrix bypasses and disabled owners",
+        "6d971dac70565edf85e22c819f78c4345cd42982 fix(yaml): preserve block scalar content before structural comment removal",
+        "2f122ad0ced6cebf3ac79c1fccc1e448c98f8673 chore(governance): bind scalar repair to the original source projection",
+        "3400ae4c64c94dcb10ce741ced5d3b5c537b3af1 chore(governance): record the frozen YAML test style baseline",
+        "d162c80554b9426a9b23e07664c102fc38401037 style(test): format YAML consumer tests without changing tokens",
+        "a1ca668e292e89bbc2d61011d9052855544c4e60 fix(test): make YAML control statement terminators explicit",
+        "b63aec028da6e9679caed4791c1d37f1a8404c6c chore(governance): bind actual YAML test formatter idempotence"
+      ],
+      "existingPrs": [],
+      "manifestMetadata": {
+        "artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json": {
+          "schema": "fsusblog.generated-output-binding.v1",
+          "generator": null,
+          "sources": [
+            "tools/check-gate-integrity.sh",
+            "tools/yaml/parse-document.mjs"
+          ],
+          "outputs": [
+            {
+              "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+              "sha256": "60fececee3a5fa8f03af33c315b21113cbc3a24e7e8a493440158d4e2856fb59"
+            }
+          ],
+          "exceptions": null
+        },
+        "artifacts/change-contract/issue-3599-candidate-authority-external-naming.json": {
+          "schema": "fsusblog.external-naming-exceptions.v1",
+          "generator": null,
+          "sources": null,
+          "outputs": null,
+          "exceptions": [
+            {
+              "id": "json-wire-key",
+              "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+              ],
+              "reason": "Preserve the original execution-authority wire keys while its unchanged canonical producer projects only current source identities; declarations, target roster, independent index and qualification semantics stay unchanged."
+            }
+          ]
+        }
+      },
+      "title": "fix(governance): preserve separate YAML test formatting and syntax changes",
+      "draft": true,
+      "labels": [
+        "release-note:internal",
+        "governance"
+      ],
+      "body": "## Linked Issue\n\nRefs #3599\n\n[Original source draft PR #3827](https://github.com/Ozwasyd/FsusBlog/pull/3827). Earlier lifecycle source is already in the recorded merge base; no new lifecycle implementation is included in this narrow diff.\n\n## Scope Summary\n\n**WIP \u2014 source preservation for review; acceptance remains OPEN.**\n\n- Retain the issue-scoped checker repair, canonical source/output binding and original refusal controls. Preserve block scalar physical lines until structural parsing, including folded blank lines, shell comments, indentation and chomping semantics. Keep the authentic baseline, whitespace-only commit, explicit-semicolon commit and subsequent idempotence evidence separate. No naming changes.\n- Published head: [b63aec028da6e9679caed4791c1d37f1a8404c6c](https://github.com/Ozwasyd/FsusBlog/commit/b63aec028da6e9679caed4791c1d37f1a8404c6c); branch `task/3599-yaml-test-style`; target `master`.\n- Base snapshot fetched for this draft: `537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea`; actual merge base: `7f128208dc59b408adda9089ff4e0a805ef2777d`. Master can advance independently. This handoff does not assert conflict freedom or authorize resolving new cross-chain conflicts.\n- Complete PR changed-path scope from that merge base, including inherited prerequisite changes:\n\n- `A artifacts/change-contract/issue-3599-candidate-authority-external-naming.json`\n- `A artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json`\n- `A artifacts/style/issue-3599-yaml-test-baseline.json`\n- `A artifacts/style/issue-3599-yaml-test-idempotence.json`\n- `M tests/fixtures/test-matrix/release-final-execution-target-authority.json`\n- `M tests/tools/yaml-consumer-style.test.mjs`\n- `M tools/check-gate-integrity.sh`\n- `M tools/yaml/parse-document.mjs`\n\n## Change Classification\n\n- [x] Behavior change\n- [ ] Format-only\n- [ ] Naming-only\n- [x] Generated output\n- [ ] Public contract change\n- [x] External naming exception\n- Contract impact: none\n\nThe full PR includes source behavior and separately committed metadata. Individual mechanical commits retain their original classification; the whole PR is not format-only. No product public API, wire or database contract change is intended; inherited governance contracts still require owner review.\n\n## Tests Run\n\n- [ ] `./tools/test.sh fast` \u2014 UNRUN for this draft handoff.\n- [ ] Targeted backend tests: UNRUN for this draft handoff.\n- [ ] Targeted frontend checks: see exact-head results below.\n- [x] Other: PASS read-only remote-head/PR inventory and complete merge-base changed-path enumeration for `b63aec028da6e9679caed4791c1d37f1a8404c6c`. This is publication metadata verification, not regression or runtime qualification.\n\nFAIL, exit 1: the locked ESLint 10.8.0 one-file scan on exact `b63aec028da6e9679caed4791c1d37f1a8404c6c` in the preceding run reported four import diagnostics: built-in ordering and three parent imports. The import follow-up has its own branch; its results do not certify this frozen head.\nUNRUN for this publication handoff: all regression, producer, admission and scheduler/native/default/release checks. Earlier records are not promoted to current-master acceptance.\n\n## UI Evidence\n\n- [ ] Screenshots or video attached for UI changes\n- [ ] Mobile layout checked\n- [ ] Dark mode checked\n- [ ] Accessibility and reduced-motion impact considered\n\nNot applicable: this scope changes governance tooling and tests, with no rendered UI change.\n\n## Coding Convention\n\n- [x] C# mother-style mapping checked\n- [x] Formatter/linter run\n- [x] No tool default overrides repository style\n- [x] Mechanical formatting separated from logic\n- [ ] `.git-blame-ignore-revs` updated when applicable\n\n- Formatter identity: none\n- Formatter version: none\n- Formatter command: none\n- Formatter idempotence evidence: none\n- Blame-ignore revision: none\n\nThese fields classify the aggregate behavior PR. A checked linter item means execution, not a clean result; failures are explicit above. Inherited format evidence and the exact pending reviewed blame registration are described in Notes For Reviewers.\n\n## External Naming Exception\n\n- Exceptions manifest: artifacts/change-contract/issue-3599-candidate-authority-external-naming.json\n\nPreserve the original serialized authority key names through the existing exact-path manifest; current-base acceptance remains unrun.\n\n## Documentation / Intent\n\n- [ ] Public API docs updated\n- [ ] Ownership/security/performance intent updated\n- [ ] Historical handoff archived or source-of-truth updated\n- [x] TODO/FIXME references valid issues\n\nNo new product API documentation is applicable. Preserve existing authoritative documentation and inherited intent. Remaining evidence and admission details are recorded in this WIP description; unresolved document/ownership review remains unchecked.\n\n## Compatibility And Risk\n\n- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed\n- [ ] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer\n- [x] External wire / ABI / database / third-party names preserved or explicitly adapted\n- [x] Public API impact reviewed\n- [x] AEDS frame / binary contract impact reviewed\n- [x] Database migration impact reviewed\n- [ ] Security, auth, moderation, PoW, or privacy impact reviewed\n- [x] Docs updated or a reason is recorded below\n- [x] Known limitations updated if applicable\n\nProduct public API, AEDS and database changes are not present in this tooling/test scope; no migration or deployment is proposed. Governance refusal/evidence controls are security-sensitive and still require independent review. Unchecked required items remain acceptance gaps; draft publication does not waive them.\n\n## Performance Claim\n\n- Claim level: none\n- Evidence path: none\n- Non-goals: product performance changes, native qualification, trusted-baseline promotion, release, deployment or issue closure.\n\n## Release Note\n\n- Audience: internal\n- Category: Internal/Tooling\n- Summary: preserve separate YAML test formatting and syntax changes\n\n## Generated Output\n\n- Generator source: tools/check-gate-integrity.sh, tools/yaml/parse-document.mjs\n- Generated outputs: tests/fixtures/test-matrix/release-final-execution-target-authority.json\n- Digest/evidence: artifacts/change-contract/issue-3599-candidate-authority-generated-binding.json\n- Automation identity: none\n\nThis is the existing issue-specific source/output binding, not an assertion of aggregate acceptance. Authority producer: `node tools/test-matrix/generate-release-final-execution-authority.mjs`. Output recorded by the existing manifest: SHA-256 `60fececee3a5fa8f03af33c315b21113cbc3a24e7e8a493440158d4e2856fb59`. Retain the 102-target authority roster, original producer, independent index and original qualification boundary. No authority output is regenerated for this draft handoff.\n\n## Rollout / Rollback\n\n- Rollout: draft source review only; no merge, auto-merge, baseline promotion or deployment.\n- Rollback: on a demonstrated affected regression, revert the exact issue increment under its canonical owner while preserving independent prerequisite work and original gates. Do not rewrite published frozen branches.\n- Deferred work: Independent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. Reviewed registration of whitespace-only commit d162c80554b9426a9b23e07664c102fc38401037 in .git-blame-ignore-revs is pending. Semicolon and import corrections are not blame-ignore candidates. Original idempotence metadata is stage evidence, not a newly executed final-head format certificate.\n- Known limitations: WIP; unchecked template requirements and failed/unrun checks remain unresolved. Publication is not acceptance.\n\n## Notes For Reviewers\n\nPublication disposition: provenance checkpoint; do not recommend a duplicate independent implementation PR. Exact commit ancestry, including original source, mechanical and syntax commits; later imports evolve only in their separate authorized increment.\n\nOwnership: [#3599](https://github.com/Ozwasyd/FsusBlog/issues/3599) covers the gate-integrity checker and its relevant ordinary parser/consumer controls. CODEOWNERS designates @Ozwasyd for touched tooling and documentation. Supplied lifecycle, catalog and article-projection changes remain with the public owners linked above; this draft does not duplicate their implementation or accept their issues.\n\nApplicable acceptance: prove the exact executable scheduler workflow step, unique validate-matrix tier and canonical command are bound end to end; retain comments, duplicate/renamed tiers, wrong commands, direct validate/preflight/evidence-plan routes, unbound tokens, missing/non-executable/stale assets, workflow and producer refusal controls. Do not edit the candidate workflow or matrix merely to satisfy a checker. Inherited workflow changes, if any, are listed openly in the full diff and need their own prerequisite-owner evidence.\n\nIndependent source review and current-base generated/naming admission remain unresolved. Full scheduler/native/default/release qualification remains OPEN. This PR is WIP and closes no issue. Reviewed registration of whitespace-only commit d162c80554b9426a9b23e07664c102fc38401037 in .git-blame-ignore-revs is pending. Semicolon and import corrections are not blame-ignore candidates. Original idempotence metadata is stage evidence, not a newly executed final-head format certificate.\n\nN/A review reasons: product API, AEDS frame, binary ABI and database migration reviews do not require product documentation or executable migration evidence because these surfaces are outside the changed-path scope. UI evidence is not applicable. Performance claim and bot automation identity are none. External names are preserved by existing owner manifests; no new external naming policy is introduced. These reasons do not excuse governance, generated, style, independent-review or runtime requirements.\n\nRead-only next commands after checking out the exact published branch:\n\n```bash\ngit rev-parse HEAD\ngit diff --name-status 7f128208dc59b408adda9089ff4e0a805ef2777d b63aec028da6e9679caed4791c1d37f1a8404c6c\ngit log --oneline 7f128208dc59b408adda9089ff4e0a805ef2777d..b63aec028da6e9679caed4791c1d37f1a8404c6c\n```\n\nNo unchanged tests should be repeated for publication. No broad or held suite is authorized by this handoff.\n\nGitHub Actions availability, protected check results and final independent acceptance are unresolved for this new draft. Do not record absent or unrun checks as passing. Preserve the trusted-base policy and the original global review/merge barrier.\n",
+      "bodyFile": "yaml-test-style.md",
+      "supersessionAnalysis": {
+        "integrated": {
+          "head": "14245af6518645c36066cb53a3d9fc8df4d008fa",
+          "ancestor": false
+        },
+        "narrow": {
+          "head": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "ancestor": true
+        },
+        "sourceCompare": {
+          "target": "af38800b7e4d26f96bda832cbad2b9a0e78a6f9c",
+          "inspectedPaths": [
+            "tests/tools/yaml-consumer-style.test.mjs",
+            "tools/check-gate-integrity.sh",
+            "tools/yaml/parse-document.mjs"
+          ],
+          "byteIdenticalPaths": [
+            "tools/check-gate-integrity.sh",
+            "tools/yaml/parse-document.mjs"
+          ],
+          "differingPaths": [
+            "tests/tools/yaml-consumer-style.test.mjs"
+          ]
+        }
+      },
+      "publicationDisposition": {
+        "recommendation": "provenance checkpoint; do not recommend a duplicate independent implementation PR",
+        "allUniqueImplementationAbsorbed": true,
+        "coveredBy": "f5e28f648c3a05387f4e79118a804772b5151f8c",
+        "proof": "Exact commit ancestry, including original source, mechanical and syntax commits; later imports evolve only in their separate authorized increment."
+      }
+    }
+  ]
+}

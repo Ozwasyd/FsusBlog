@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "d162c80554b9426a9b23e07664c102fc38401037",
+    "formatter": {
+        "identity": "eslint",
+        "version": "10.8.0",
+        "command": "node /tmp/fsusblog-3599-evidence/test-style-followup/format-and-verify.mjs whitespace"
+    },
+    "paths": [
+        "tests/tools/yaml-consumer-style.test.mjs"
+    ],
+    "firstPassTreeSha256": "3b931d824e3883a3dbb0f61345d223ecc9234bf9bcb5e83f4441a378eae3f108",
+    "secondPassTreeSha256": "3b931d824e3883a3dbb0f61345d223ecc9234bf9bcb5e83f4441a378eae3f108",
+    "idempotent": true
+}
