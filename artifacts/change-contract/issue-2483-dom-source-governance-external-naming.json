@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/check-authoring-canvas-reference-authority.mjs"
+            ],
+            "reason": "Preserve the existing checker CLI entry point and caller-visible DOM and canonical canvas identity API spellings while adding source-governance coverage; internal helper identifiers retain repository camelCase."
+        }
+    ]
+}

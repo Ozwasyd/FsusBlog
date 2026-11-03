@@ -143,3 +143,394 @@ export const canvasReference = references.filter(reference => reference.permissi
 
     assert.match(violations(repositoryRoot), /client-side canvas reference permission filtering is forbidden/u);
 });
+
+const domAuthorityViolation = /DOM-derived canvas reference identity or selection authority is forbidden/u;
+
+for (const [name, field, expression] of [
+    ['article attribute', 'targetArticleId', 'Number(document.querySelector("[data-article-id]")?.getAttribute("data-article-id"))'],
+    ['heading DOM id', 'targetHeadingIdentity', 'document.querySelector("[data-anchor]")?.id'],
+    ['block dataset', 'targetBlockIdentity', 'document.getElementById("block")?.dataset.blockIdentity'],
+    ['selection anchor', 'targetHeadingIdentity', 'window.getSelection()?.anchorNode?.parentElement?.id'],
+    ['range container', 'targetBlockIdentity', 'document.createRange().startContainer.parentElement?.id']
+])
+{
+    test(`rejects frontend DOM-derived ${name} assigned as target identity`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export const canvasReferenceTarget = {
+    ${field}: ${expression}
+};
+`);
+
+        assert.match(violations(repositoryRoot), domAuthorityViolation);
+    });
+}
+
+test('rejects the original frontend DOM identity probe independently of payload and permission gates', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export const canvasReferenceTarget = {
+    targetArticleId: Number(document.querySelector("[data-article-id]")?.getAttribute("data-article-id")),
+    targetHeadingIdentity: document.querySelector("[data-anchor]")?.id
+};
+`);
+
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+    assert.equal(checkAuthoringCanvasReferenceAuthority(repositoryRoot).length, 1);
+});
+
+test('rejects a DOM alias written through a typed frontend identity declaration', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+const observed = document.getElementById("heading")?.id ?? "";
+export const targetHeadingIdentity: string = observed;
+`);
+
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+});
+
+test('rejects frontend DOM aliases used for reference selection', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+type Reference = { targetHeadingIdentity: string };
+export function canvasReference(references: Reference[]) {
+    const element = document.querySelector("[data-anchor]");
+    const observed = element?.id;
+    const copied = observed;
+    return references.find(reference => reference.targetHeadingIdentity === copied);
+}
+`);
+
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+});
+
+for (const comparison of [
+    'candidate.TargetHeadingIdentity == observed',
+    'observed == candidate.TargetHeadingIdentity',
+    'candidate.TargetHeadingIdentity.Equals(observed)',
+    'string.Equals(candidate.TargetHeadingIdentity, observed, StringComparison.Ordinal)'
+])
+{
+    test(`rejects backend DOM selection via ${comparison}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, 'src/backend/Services/Authoring/AuthoringCanvasReferenceDomSelection.cs', `
+public sealed class AuthoringCanvasReferenceDomSelection
+{
+    public object Find(System.Xml.XmlDocument document, IEnumerable<AuthoringCanvasReferenceTarget> candidates)
+    {
+        var element = document.SelectSingleNode("//*[@id]");
+        var observed = element?.Attributes?["id"]?.Value;
+        return candidates.FirstOrDefault(candidate => ${comparison});
+    }
+}
+`);
+
+        assert.match(violations(repositoryRoot), domAuthorityViolation);
+        assert.equal(checkAuthoringCanvasReferenceAuthority(repositoryRoot).length, 1);
+    });
+}
+
+test('rejects backend DOM identity in a reference object initializer', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/backend/Services/Authoring/AuthoringCanvasReferenceDomIdentity.cs', `
+public sealed class AuthoringCanvasReferenceDomIdentity
+{
+    public object Create(System.Xml.XmlDocument document, AuthoringCanvasReferenceTarget target)
+        => target with { TargetBlockIdentity = document.SelectSingleNode("//*[@id]")?.Attributes?["id"]?.Value };
+}
+`);
+
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+});
+
+test('rejects backend expression-bodied DOM target identity', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/backend/Services/Authoring/AuthoringCanvasReferenceDomIdentity.cs', `
+public sealed class AuthoringCanvasReferenceDomIdentity(System.Xml.XmlDocument document)
+{
+    public string TargetBlockIdentity => document.SelectSingleNode("//*[@id]")?.Attributes?["id"]?.Value;
+}
+`);
+
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+});
+
+test('rejects backend DOM identity passed through positional target constructor arguments', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/backend/Services/Authoring/AuthoringCanvasReferenceDomIdentity.cs', `
+public sealed class AuthoringCanvasReferenceDomIdentity
+{
+    public object Create(System.Xml.XmlElement element, AuthoringCanvasReferenceTarget target)
+    {
+        var observed = element.GetAttribute("id");
+        return new AuthoringCanvasReferenceTarget(
+            target.NodeId, target.NodeType, target.TargetArticleId, observed, null, null, null);
+    }
+}
+`);
+
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+});
+
+test('rejects frontend identity derived from a DOM attribute without a selector call', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export function canvasReference(element: HTMLElement) {
+    return { targetArticleId: Number(element.getAttribute("data-article-id")) };
+}
+`);
+
+    assert.match(violations(repositoryRoot), domAuthorityViolation);
+});
+
+test('accepts canonical backend identity selection and bounded display facts', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/backend/Services/Authoring/AuthoringCanvasReferenceCanonical.cs', `
+public sealed class AuthoringCanvasReferenceCanonical
+{
+    public object Find(AuthoringCanvasReferenceTarget target, IEnumerable<AuthoringCanvasReferenceTarget> candidates)
+    {
+        if (!BlockAnchorId.IsCanonical(target.TargetHeadingIdentity)) { return null; }
+        var selected = candidates.SingleOrDefault(candidate => candidate.TargetHeadingIdentity == target.TargetHeadingIdentity);
+        return new { target.TargetArticleId, target.TargetHeadingIdentity, Title = "bounded title", ContextSnippet = "bounded snippet" };
+    }
+}
+`);
+
+    assert.equal(violations(repositoryRoot), '');
+});
+
+test('accepts frontend canonical identities alongside DOM rendering and visual measurements', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+type Reference = { targetArticleId: number; targetHeadingIdentity: string };
+export function canvasReference(target: Reference, references: Reference[]) {
+    const element = document.getElementById(target.targetHeadingIdentity);
+    const bounds = element?.getBoundingClientRect();
+    const measured = document.querySelector("[data-reference]")?.getBoundingClientRect();
+    const elements = references.map(({ targetHeadingIdentity }) => document.getElementById(targetHeadingIdentity));
+    const paint = (targetHeadingIdentity: string) => document.getElementById(targetHeadingIdentity);
+    const selected = references.find(reference => reference.targetArticleId === target.targetArticleId);
+    return {
+        targetArticleId: target.targetArticleId,
+        targetHeadingIdentity: target.targetHeadingIdentity,
+        height: bounds?.height,
+        width: measured?.width,
+        label: element?.textContent,
+        selected, elements, paint
+    };
+}
+`);
+    write(repositoryRoot, 'tests/frontend/canvas-reference.visual.ts', `
+const canvasReferenceMeasurement = document.querySelector("[data-article-id]")?.getBoundingClientRect();
+`);
+
+    assert.equal(violations(repositoryRoot), '');
+});
+
+test('accepts DOM examples in comments and strings and independent local alias scopes', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+// targetHeadingIdentity = document.querySelector("[data-anchor]")?.id;
+/* references.find(reference => reference.targetHeadingIdentity === document.getElementById("block")?.id); */
+export const canvasReferenceExample = 'targetArticleId: Number(document.querySelector("article")?.id)';
+export function measure() {
+    const observed = document.querySelector("article")?.id;
+    return observed;
+}
+export function canonical(target: { targetHeadingIdentity: string }) {
+    const observed = target.targetHeadingIdentity;
+    return { targetHeadingIdentity: observed };
+}
+`);
+
+    assert.equal(violations(repositoryRoot), '');
+});
+
+test('accepts canonical selection with a separate DOM presence guard and rendering assertions', (t) =>
+{
+    const repositoryRoot = fixture(t);
+    write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+type Reference = { targetHeadingIdentity: string };
+export function canvasReference(target: Reference, references: Reference[]) {
+    const element = document.getElementById(target.targetHeadingIdentity);
+    const selected = references.find(reference => reference.targetHeadingIdentity === target.targetHeadingIdentity && element !== null);
+    console.assert(element?.id === target.targetHeadingIdentity);
+    return { targetHeadingIdentity: selected?.targetHeadingIdentity };
+}
+`);
+
+    assert.equal(violations(repositoryRoot), '');
+});
+
+const reviewedLocalFlows = [
+    ['canonical Equals with a separate DOM presence guard', 'cs', false, `
+public sealed class AuthoringCanvasReferenceLocalFlow
+{
+    public object Find(System.Xml.XmlDocument document, AuthoringCanvasReferenceTarget target, IEnumerable<AuthoringCanvasReferenceTarget> candidates)
+    {
+        var observed = document.SelectSingleNode("//*[@id]");
+        return candidates.FirstOrDefault(candidate => string.Equals(candidate.TargetHeadingIdentity, target.TargetHeadingIdentity, StringComparison.Ordinal) && observed != null);
+    }
+}
+`],
+    ['DOM-derived instance Equals receiver', 'cs', true, `
+public sealed class AuthoringCanvasReferenceLocalFlow
+{
+    public object Find(System.Xml.XmlDocument document, IEnumerable<AuthoringCanvasReferenceTarget> candidates)
+    {
+        var element = document.SelectSingleNode("//*[@id]");
+        var observed = element?.Attributes?["id"]?.Value;
+        return candidates.FirstOrDefault(candidate => observed.Equals(candidate.TargetHeadingIdentity));
+    }
+}
+`],
+    ['DOM-derived conditional second branch in a scalar alias', 'ts', true, `
+export function canvasReference(element: HTMLElement, allow: boolean) {
+    const observed = allow ? "" : element.getAttribute("id");
+    return { targetHeadingIdentity: observed };
+}
+`],
+    ['DOM-derived conditional second branch in an identity write', 'ts', true, `
+export function canvasReference(element: HTMLElement, allow: boolean) {
+    const observed = element.getAttribute("id");
+    return { targetHeadingIdentity: allow ? "" : observed };
+}
+`],
+    ['backend DOM-derived conditional second branch', 'cs', true, `
+public sealed class AuthoringCanvasReferenceLocalFlow
+{
+    public object Create(System.Xml.XmlElement element, bool allow, AuthoringCanvasReferenceTarget target)
+    {
+        var observed = allow ? "" : element.GetAttribute("id");
+        return target with { TargetHeadingIdentity = observed };
+    }
+}
+`],
+    ['nested-block reassignment introducing DOM identity', 'ts', true, `
+export function canvasReference(element: HTMLElement) {
+    let observed = "";
+    { observed = element.getAttribute("id") ?? ""; }
+    return { targetHeadingIdentity: observed };
+}
+`],
+    ['nested-block reassignment restoring canonical identity', 'ts', false, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }) {
+    let observed = element.getAttribute("id") ?? "";
+    { observed = target.targetHeadingIdentity; }
+    return { targetHeadingIdentity: observed };
+}
+`],
+    ['true block-local declaration preserving the outer canonical binding', 'ts', false, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }) {
+    const observed = target.targetHeadingIdentity;
+    { const observed = element.getAttribute("id"); console.log(observed); }
+    return { targetHeadingIdentity: observed };
+}
+`]
+];
+
+for (const [name, extension, rejected, source] of reviewedLocalFlows)
+{
+    test(`reviewed local flow: ${name}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, extension === 'cs'
+            ? 'src/backend/Services/Authoring/AuthoringCanvasReferenceLocalFlow.cs'
+            : 'src/frontend/canvas-reference.ts', source);
+
+        const result = checkAuthoringCanvasReferenceAuthority(repositoryRoot);
+        if (rejected)
+        {
+            assert.equal(result.length, 1);
+            assert.match(result[0], domAuthorityViolation);
+        }
+        else
+        {
+            assert.deepEqual(result, []);
+        }
+    });
+}
+
+for (const [name, initial, replacement, rejected] of [
+    ['introduces DOM identity', 'target.targetHeadingIdentity', 'element.getAttribute("id") ?? ""', true],
+    ['restores canonical identity', 'element.getAttribute("id") ?? ""', 'target.targetHeadingIdentity', false]
+])
+{
+    test(`frontend var redeclaration in a nested block ${name}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, 'src/frontend/canvas-reference.ts', `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }) {
+    var observed = ${initial};
+    { var observed = ${replacement}; }
+    return { targetHeadingIdentity: observed };
+}
+`);
+
+        const result = checkAuthoringCanvasReferenceAuthority(repositoryRoot);
+        if (rejected)
+        {
+            assert.equal(result.length, 1);
+            assert.match(result[0], domAuthorityViolation);
+        }
+        else
+        {
+            assert.deepEqual(result, []);
+        }
+    });
+}
+
+for (const [name, rejected, source] of [
+    ['a conditional canonical write cannot erase the unexecuted DOM path', true, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }, allow: boolean) {
+    let observed = element.getAttribute("id");
+    if (allow) { observed = target.targetHeadingIdentity; }
+    return { targetHeadingIdentity: observed };
+}
+`],
+    ['an uncalled function cannot erase the outer DOM binding', true, `
+let observed = document.querySelector("article")?.id;
+function paint(target: { targetHeadingIdentity: string }) { observed = target.targetHeadingIdentity; }
+export const canvasReferenceTarget = { targetHeadingIdentity: observed };
+`],
+    ['a canonical write is visible within its conditional block', false, `
+export function canvasReference(element: HTMLElement, target: { targetHeadingIdentity: string }, allow: boolean) {
+    let observed = element.getAttribute("id");
+    if (allow) {
+        observed = target.targetHeadingIdentity;
+        return { targetHeadingIdentity: observed };
+    }
+    return null;
+}
+`]
+])
+{
+    test(`binding flow preserves refusal boundaries: ${name}`, (t) =>
+    {
+        const repositoryRoot = fixture(t);
+        write(repositoryRoot, 'src/frontend/canvas-reference.ts', source);
+        const result = checkAuthoringCanvasReferenceAuthority(repositoryRoot);
+        if (rejected)
+        {
+            assert.equal(result.length, 1);
+            assert.match(result[0], domAuthorityViolation);
+        }
+        else
+        {
+            assert.deepEqual(result, []);
+        }
+    });
+}
