@@ -1,0 +1,8 @@
+{
+  "stage": "fully qualified roster comparison",
+  "exitCode": 1,
+  "reason": "Vitest interpolates $label string values with quotes; seven expected names lacked those quotes",
+  "casesCollected": 34,
+  "testBodiesExecuted": 0,
+  "heldCasesExecuted": 0
+}

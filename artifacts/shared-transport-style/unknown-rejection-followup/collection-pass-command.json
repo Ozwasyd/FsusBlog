@@ -1,0 +1,9 @@
+{
+  "mode": "collection only; no test body/hook execution",
+  "runner": "Vitest4.1.11 / Node24.16.0",
+  "files": [
+    "../../tests/frontend/unit/api/binaryApiClient.test.ts",
+    "../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts"
+  ],
+  "exitCode": 0
+}

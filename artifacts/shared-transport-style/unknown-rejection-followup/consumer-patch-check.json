@@ -1,0 +1,10 @@
+{
+  "kind": "ordinary exact supplied consumer blob patch check; no sibling integration",
+  "baseCommit": "7b374e71f89433cf04e5e315fdd1d43816728f85",
+  "targetTestedSourceCommit": "d61f0977e1f8a45873ac33122c028461d22e5a80",
+  "productPath": "src/frontend/src/api/binaryApiClient.ts",
+  "patchCheckExit": 0,
+  "disposableCopyApplyExit": 0,
+  "resultMatchesTestedBlob": true,
+  "consumer419TestsReexecuted": false
+}

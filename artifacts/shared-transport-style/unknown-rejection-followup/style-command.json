@@ -1,0 +1,5 @@
+{
+  "command": "node tools/frontend/check-frontend-style.mjs --mode changed --base a281fb6e9802471c3a44569c3ccab84f88c8d816 --file src/frontend/src/api/binaryApiClient.ts",
+  "node": "24.16.0",
+  "exitCode": 0
+}
