@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/temporal-source-observation-contract.mjs",
+                "tools/test/verify-temporal-producers.mjs"
+            ],
+            "reason": "Preserve the existing temporal process ingress field names, runtime observation kinds and reason codes consumed from environment-bound producer observations; adapt only observed transport aliases through the existing temporal contract owner."
+        }
+    ]
+}
