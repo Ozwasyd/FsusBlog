@@ -1,0 +1,815 @@
+{
+    "schema": "fsusblog.issue-3534-cpp-lookup-verification.v1",
+    "runIdentity": "issue-3534-cpp-lookup-e97d55cb-6a6b-47d4-b983-e1685c4d8bda",
+    "evidenceCollectedAtUtc": "2026-10-09T05:58:04.131764+00:00",
+    "issue": 3534,
+    "candidate": "3a742340d585b175e3f7203c620085512bdc1932",
+    "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+    "branch": "codex/issue-3534-cpp-lookup-correction-20261009",
+    "sourceScope": {
+        "completeCurrentBaseTwoFileImplementation": true,
+        "requiresPriorFailedCandidateCherryPick": false,
+        "base": [
+            {
+                "path": "tools/style/check-native-tooling-style.mjs",
+                "blob": "60fc3b7d9020fd2cd6b87c6dd08fde71584c6757",
+                "sha256": "603947a4065f7fb617a157dc3ffac7f5b7a9ff59819c8c9fb625a786e7a7fb68"
+            },
+            {
+                "path": "tests/tools/native-tooling-style.test.mjs",
+                "blob": "c3560ee7012786b7c5b7f4b838c91cb754bd9b99",
+                "sha256": "fa0ad3f836d8496f92449ef1a515e95f32b54bd4820b610d90c3914e9ca59bfd"
+            }
+        ],
+        "candidate": [
+            {
+                "path": "tools/style/check-native-tooling-style.mjs",
+                "blob": "2eef0ef1eef1fe479c5287ba3a3e93e91553c17e",
+                "sha256": "481f978ed4342c03c9037e5281946b3982ef9da17f51e2837394b5f3a979d104"
+            },
+            {
+                "path": "tests/tools/native-tooling-style.test.mjs",
+                "blob": "dbe6cf4c21728abf554abf3bc84b0247213ead6d",
+                "sha256": "5db29f80917ff54e85c18184e9406ffbd2e24604538b26828e91afaf056932ea"
+            }
+        ],
+        "priorCandidate": [
+            {
+                "path": "tools/style/check-native-tooling-style.mjs",
+                "blob": "3ae939260a0eb7568c4a2e03bcbaacbf36aca0ae",
+                "sha256": "fdf3dc04da47f4e7db2f2d151a92ffbf8cf502b073423d4c8749fa2ab430b601"
+            },
+            {
+                "path": "tests/tools/native-tooling-style.test.mjs",
+                "blob": "713a326df12dce3d1382d77574aa298283c4c67c",
+                "sha256": "9082e920c1a75b414d88d0eb7923c5b69dc5e16eb4cdbc25f9de2f7985781f00"
+            }
+        ],
+        "priorSourceBytesVerifiedAgainstActualReproductionWorktree": true
+    },
+    "fixes": [
+        "Comment recognition follows escaped-newline splicing; physical source offsets and original raw literal contents retained",
+        "Complete-class type declarations prebound for inline method lookup, including aliases declared later",
+        "Inherited names remain unproved; strict lookup barrier preserves proven local and parameter values",
+        "Elaborated function return syntax is not treated as a complete-class context"
+    ],
+    "tests": {
+        "status": "passed",
+        "selectedTopLevel": 13,
+        "passed": 13,
+        "skipped": 0,
+        "unselected": 29,
+        "original11ControlsPreserved": true,
+        "exactSelection": {
+            "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+            "file": "tests/tools/native-tooling-style.test.mjs",
+            "expectedTopLevelTests": 13,
+            "exactPositiveAllowlist": [
+                "native tooling style governance preserves registered C ABI spelling but rejects leakage into internal C++",
+                "native tooling style governance does not classify direct-initialized C++ locals as functions",
+                "native tooling style governance portable C++ fallback accepts formatter continuations but rejects block indentation debt",
+                "native tooling style governance accepts header objects initialized from visible values",
+                "native tooling style governance rejects incorrectly named real C++ declarations",
+                "native tooling style governance keeps ambiguous C++ parameter syntax strict",
+                "native tooling style governance header classification retains required external tools",
+                "native tooling style governance rejects unnamed C++ parameter type facts",
+                "native tooling style governance records typedef and imported type shadows",
+                "native tooling style governance recognizes commented preprocessor boundaries",
+                "native tooling style governance preserves quoted constructor argument tokens",
+                "native tooling style governance ignores spliced logical comments before admitting values",
+                "native tooling style governance sees later class type declarations inside inline methods"
+            ],
+            "pattern": "^(?:native tooling style governance preserves registered C ABI spelling but rejects leakage into internal C\\+\\+|native tooling style governance does not classify direct-initialized C\\+\\+ locals as functions|native tooling style governance portable C\\+\\+ fallback accepts formatter continuations but rejects block indentation debt|native tooling style governance accepts header objects initialized from visible values|native tooling style governance rejects incorrectly named real C\\+\\+ declarations|native tooling style governance keeps ambiguous C\\+\\+ parameter syntax strict|native tooling style governance header classification retains required external tools|native tooling style governance rejects unnamed C\\+\\+ parameter type facts|native tooling style governance records typedef and imported type shadows|native tooling style governance recognizes commented preprocessor boundaries|native tooling style governance preserves quoted constructor argument tokens|native tooling style governance ignores spliced logical comments before admitting values|native tooling style governance sees later class type declarations inside inline methods)$",
+            "inspectedBeforeExecution": true,
+            "unselectedTopLevelTests": 29,
+            "excluded": "All held ProjectXML/Git-replace/receipt/cohort/race/TOCTOU/substitution and other unrelated tests; no entire suite invocation.",
+            "expectedCppFixtureRows": 34,
+            "exactFixtureAllowlist": [
+                {
+                    "test": "native tooling style governance rejects unnamed C++ parameter type facts",
+                    "extension": "hpp",
+                    "accepted": false,
+                    "sourceSha256": "ea2267e86d4772841e3bc845a69e3779e405645ace03d6646fab77356401e74e"
+                },
+                {
+                    "test": "native tooling style governance rejects unnamed C++ parameter type facts",
+                    "extension": "cpp",
+                    "accepted": false,
+                    "sourceSha256": "ea2267e86d4772841e3bc845a69e3779e405645ace03d6646fab77356401e74e"
+                },
+                {
+                    "test": "native tooling style governance rejects unnamed C++ parameter type facts",
+                    "extension": "hpp",
+                    "accepted": false,
+                    "sourceSha256": "ef4d3a2fa160bfe34e7aa067195abc6c0ba29ed6451903a674ca612db0663bcb"
+                },
+                {
+                    "test": "native tooling style governance rejects unnamed C++ parameter type facts",
+                    "extension": "cpp",
+                    "accepted": false,
+                    "sourceSha256": "ef4d3a2fa160bfe34e7aa067195abc6c0ba29ed6451903a674ca612db0663bcb"
+                },
+                {
+                    "test": "native tooling style governance rejects unnamed C++ parameter type facts",
+                    "extension": "hpp",
+                    "accepted": true,
+                    "sourceSha256": "e2f246c4fbaf9d00e049b956ed824d89d183ece86790904f25bf659ad70e7b2a"
+                },
+                {
+                    "test": "native tooling style governance rejects unnamed C++ parameter type facts",
+                    "extension": "cpp",
+                    "accepted": true,
+                    "sourceSha256": "e2f246c4fbaf9d00e049b956ed824d89d183ece86790904f25bf659ad70e7b2a"
+                },
+                {
+                    "test": "native tooling style governance rejects unnamed C++ parameter type facts",
+                    "extension": "hpp",
+                    "accepted": true,
+                    "sourceSha256": "e403d4cc04ec3d0d11600425fb24b73217c76544dd90386128b9f38fc9f439b9"
+                },
+                {
+                    "test": "native tooling style governance rejects unnamed C++ parameter type facts",
+                    "extension": "cpp",
+                    "accepted": true,
+                    "sourceSha256": "e403d4cc04ec3d0d11600425fb24b73217c76544dd90386128b9f38fc9f439b9"
+                },
+                {
+                    "test": "native tooling style governance records typedef and imported type shadows",
+                    "extension": "hpp",
+                    "accepted": false,
+                    "sourceSha256": "31da89f0b8d904589512074c0663a891f545648a91e6dbffd3955e18ed861ff5"
+                },
+                {
+                    "test": "native tooling style governance records typedef and imported type shadows",
+                    "extension": "cpp",
+                    "accepted": false,
+                    "sourceSha256": "31da89f0b8d904589512074c0663a891f545648a91e6dbffd3955e18ed861ff5"
+                },
+                {
+                    "test": "native tooling style governance records typedef and imported type shadows",
+                    "extension": "hpp",
+                    "accepted": false,
+                    "sourceSha256": "026fbd862b2b90f599808e3832198d8d5d13310282692931c36923c332ce794c"
+                },
+                {
+                    "test": "native tooling style governance records typedef and imported type shadows",
+                    "extension": "cpp",
+                    "accepted": false,
+                    "sourceSha256": "026fbd862b2b90f599808e3832198d8d5d13310282692931c36923c332ce794c"
+                },
+                {
+                    "test": "native tooling style governance records typedef and imported type shadows",
+                    "extension": "hpp",
+                    "accepted": false,
+                    "sourceSha256": "76083c2a042d6c62c9818d71eddc75ba791195f3597db5caab75aa9d6ba4c926"
+                },
+                {
+                    "test": "native tooling style governance records typedef and imported type shadows",
+                    "extension": "cpp",
+                    "accepted": false,
+                    "sourceSha256": "76083c2a042d6c62c9818d71eddc75ba791195f3597db5caab75aa9d6ba4c926"
+                },
+                {
+                    "test": "native tooling style governance recognizes commented preprocessor boundaries",
+                    "extension": "hpp",
+                    "accepted": false,
+                    "sourceSha256": "5d6a528ee8a3bfa4d8615450e6880ee96b03feb49dc6dca88a6202c4d7fb024a"
+                },
+                {
+                    "test": "native tooling style governance recognizes commented preprocessor boundaries",
+                    "extension": "cpp",
+                    "accepted": false,
+                    "sourceSha256": "5d6a528ee8a3bfa4d8615450e6880ee96b03feb49dc6dca88a6202c4d7fb024a"
+                },
+                {
+                    "test": "native tooling style governance preserves quoted constructor argument tokens",
+                    "extension": "hpp",
+                    "accepted": true,
+                    "sourceSha256": "585fe4abcc6d23031caa3d16ca1139ced218b83fb4e74e000c0380737af294c2"
+                },
+                {
+                    "test": "native tooling style governance preserves quoted constructor argument tokens",
+                    "extension": "cpp",
+                    "accepted": true,
+                    "sourceSha256": "585fe4abcc6d23031caa3d16ca1139ced218b83fb4e74e000c0380737af294c2"
+                },
+                {
+                    "test": "native tooling style governance preserves quoted constructor argument tokens",
+                    "extension": "hpp",
+                    "accepted": true,
+                    "sourceSha256": "c8f68f44680fba75ab4fe4eb52dc17ea94af80a3b1e5dd01a6c7895c6748af16"
+                },
+                {
+                    "test": "native tooling style governance preserves quoted constructor argument tokens",
+                    "extension": "cpp",
+                    "accepted": true,
+                    "sourceSha256": "c8f68f44680fba75ab4fe4eb52dc17ea94af80a3b1e5dd01a6c7895c6748af16"
+                },
+                {
+                    "test": "native tooling style governance ignores spliced logical comments before admitting values",
+                    "extension": "hpp",
+                    "accepted": false,
+                    "sourceSha256": "87a7f37cca6fca27300a28d5eb241b4892c1c7e104b30c20e4472875b3638dc9"
+                },
+                {
+                    "test": "native tooling style governance ignores spliced logical comments before admitting values",
+                    "extension": "cpp",
+                    "accepted": false,
+                    "sourceSha256": "87a7f37cca6fca27300a28d5eb241b4892c1c7e104b30c20e4472875b3638dc9"
+                },
+                {
+                    "test": "native tooling style governance ignores spliced logical comments before admitting values",
+                    "extension": "hpp",
+                    "accepted": true,
+                    "sourceSha256": "d11bd54723a879eaf4f177283050bd5b30da549bdca5270c6d2f3ec32ac12608"
+                },
+                {
+                    "test": "native tooling style governance ignores spliced logical comments before admitting values",
+                    "extension": "cpp",
+                    "accepted": true,
+                    "sourceSha256": "d11bd54723a879eaf4f177283050bd5b30da549bdca5270c6d2f3ec32ac12608"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "hpp",
+                    "accepted": false,
+                    "sourceSha256": "f87582fa95e60d09a9ccdd3e6f5b09457edde0926d9f8d160a2efb860a107a56"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "cpp",
+                    "accepted": false,
+                    "sourceSha256": "f87582fa95e60d09a9ccdd3e6f5b09457edde0926d9f8d160a2efb860a107a56"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "hpp",
+                    "accepted": true,
+                    "sourceSha256": "c2630f82db1ab0cbee08cdc1806e08c42ea7df1a66fba3077e87a8966bf037aa"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "cpp",
+                    "accepted": true,
+                    "sourceSha256": "c2630f82db1ab0cbee08cdc1806e08c42ea7df1a66fba3077e87a8966bf037aa"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "hpp",
+                    "accepted": false,
+                    "sourceSha256": "02940a2bb7efb2e993d4cc87cad1940357f108318dc14d7796ec93c6c492d6e0"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "cpp",
+                    "accepted": false,
+                    "sourceSha256": "02940a2bb7efb2e993d4cc87cad1940357f108318dc14d7796ec93c6c492d6e0"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "hpp",
+                    "accepted": true,
+                    "sourceSha256": "acafc3b0c7a82621149c72f2aa8bd5552a0c6e7f647b1aeee0f51907be88e8ef"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "cpp",
+                    "accepted": true,
+                    "sourceSha256": "acafc3b0c7a82621149c72f2aa8bd5552a0c6e7f647b1aeee0f51907be88e8ef"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "hpp",
+                    "accepted": true,
+                    "sourceSha256": "4180e6d059dda2f0654aae7b3ed722639309ede7f00051fa27db42768f6bbe88"
+                },
+                {
+                    "test": "native tooling style governance sees later class type declarations inside inline methods",
+                    "extension": "cpp",
+                    "accepted": true,
+                    "sourceSha256": "4180e6d059dda2f0654aae7b3ed722639309ede7f00051fa27db42768f6bbe88"
+                }
+            ]
+        },
+        "requiredToolControl": "Original forced-portable --require-tools negative control retained; it is not a claim that the real formatter is missing"
+    },
+    "cpp23": {
+        "status": "passed-syntax-and-classification",
+        "compiler": "g++ (Debian 14.2.0-19) 14.2.0",
+        "translationUnits": 34,
+        "extensions": [
+            "hpp",
+            "cpp"
+        ],
+        "positiveObjectRows": 16,
+        "realFunctionNegativeRows": 18,
+        "correctedClassifications": 34,
+        "original20CasesPreservedAndPassed": true,
+        "requestedAdjacentRows": 8,
+        "requestedOldFalseAccepts": 4,
+        "additionalInheritedLookupAndElaboratedReturnRows": 6,
+        "additionalOldInheritedFalseAccepts": 2,
+        "fixtureCleanup": "Every disposable root removed in finally",
+        "linkingRuntimeProductQualification": "not run"
+    },
+    "sourceStyle": {
+        "status": "passed-source-diff",
+        "files": 2,
+        "rawDiagnostics": 28,
+        "newDiagnostics": 0,
+        "persistentBaselineChanged": false,
+        "strictFullStyleQualification": "not claimed"
+    },
+    "commands": [
+        {
+            "name": "candidate-checker-syntax",
+            "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+            "candidate": "3a742340d585b175e3f7203c620085512bdc1932",
+            "argv": [
+                "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64/bin/node",
+                "--check",
+                "tools/style/check-native-tooling-style.mjs"
+            ],
+            "exitCode": 0,
+            "expectedExitCode": 0,
+            "startedAtUtc": "2026-10-09T05:54:31.051396+00:00",
+            "completedAtUtc": "2026-10-09T05:54:31.077448+00:00"
+        },
+        {
+            "name": "candidate-controls",
+            "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+            "candidate": "3a742340d585b175e3f7203c620085512bdc1932",
+            "argv": [
+                "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64/bin/node",
+                "--test",
+                "--test-name-pattern=^(?:native tooling style governance preserves registered C ABI spelling but rejects leakage into internal C\\+\\+|native tooling style governance does not classify direct-initialized C\\+\\+ locals as functions|native tooling style governance portable C\\+\\+ fallback accepts formatter continuations but rejects block indentation debt|native tooling style governance accepts header objects initialized from visible values|native tooling style governance rejects incorrectly named real C\\+\\+ declarations|native tooling style governance keeps ambiguous C\\+\\+ parameter syntax strict|native tooling style governance header classification retains required external tools|native tooling style governance rejects unnamed C\\+\\+ parameter type facts|native tooling style governance records typedef and imported type shadows|native tooling style governance recognizes commented preprocessor boundaries|native tooling style governance preserves quoted constructor argument tokens|native tooling style governance ignores spliced logical comments before admitting values|native tooling style governance sees later class type declarations inside inline methods)$",
+                "tests/tools/native-tooling-style.test.mjs"
+            ],
+            "exitCode": 0,
+            "expectedExitCode": 0,
+            "startedAtUtc": "2026-10-09T05:54:31.042674+00:00",
+            "completedAtUtc": "2026-10-09T05:54:33.992803+00:00"
+        },
+        {
+            "name": "candidate-matrix",
+            "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+            "candidate": "3a742340d585b175e3f7203c620085512bdc1932",
+            "argv": [
+                "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64/bin/node",
+                "/workspace/issue-3534-handoffs/cpp-lookup-correction/verify.mjs"
+            ],
+            "exitCode": 0,
+            "expectedExitCode": 0,
+            "startedAtUtc": "2026-10-09T05:54:31.054466+00:00",
+            "completedAtUtc": "2026-10-09T05:54:34.436771+00:00"
+        },
+        {
+            "name": "candidate-range-contract",
+            "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+            "candidate": "3a742340d585b175e3f7203c620085512bdc1932",
+            "argv": [
+                "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64/bin/node",
+                "tools/governance/check-change-contract.mjs",
+                "--range",
+                "720d9948087cf176eccf7bdd5cc0be85f8cab606..HEAD"
+            ],
+            "exitCode": 0,
+            "expectedExitCode": 0,
+            "startedAtUtc": "2026-10-09T05:54:31.135747+00:00",
+            "completedAtUtc": "2026-10-09T05:54:32.582886+00:00"
+        },
+        {
+            "name": "candidate-source-diff",
+            "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+            "candidate": "3a742340d585b175e3f7203c620085512bdc1932",
+            "argv": [
+                "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64/bin/node",
+                "tools/frontend/check-frontend-style.mjs",
+                "--mode",
+                "source-diff",
+                "--base",
+                "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+                "--file",
+                "tools/style/check-native-tooling-style.mjs",
+                "--file",
+                "tests/tools/native-tooling-style.test.mjs"
+            ],
+            "exitCode": 0,
+            "expectedExitCode": 0,
+            "startedAtUtc": "2026-10-09T05:54:31.038690+00:00",
+            "completedAtUtc": "2026-10-09T05:54:38.661118+00:00"
+        },
+        {
+            "name": "candidate-test-syntax",
+            "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+            "candidate": "3a742340d585b175e3f7203c620085512bdc1932",
+            "argv": [
+                "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64/bin/node",
+                "--check",
+                "tests/tools/native-tooling-style.test.mjs"
+            ],
+            "exitCode": 0,
+            "expectedExitCode": 0,
+            "startedAtUtc": "2026-10-09T05:54:31.159332+00:00",
+            "completedAtUtc": "2026-10-09T05:54:31.185416+00:00"
+        },
+        {
+            "name": "candidate-whitespace",
+            "base": "720d9948087cf176eccf7bdd5cc0be85f8cab606",
+            "candidate": "3a742340d585b175e3f7203c620085512bdc1932",
+            "argv": [
+                "git",
+                "diff",
+                "--check",
+                "720d9948087cf176eccf7bdd5cc0be85f8cab606..HEAD"
+            ],
+            "exitCode": 0,
+            "expectedExitCode": 0,
+            "startedAtUtc": "2026-10-09T05:54:31.167019+00:00",
+            "completedAtUtc": "2026-10-09T05:54:31.179110+00:00"
+        }
+    ],
+    "policyAndToolchain": [
+        {
+            "path": "config/development/native-tooling-style-policy.json",
+            "blob": "37ec38a661ba5257b5a42c17bc1d486e8a6671a5",
+            "sha256": "17ef12cad465acc82cbd1e07f0204d34a1dbdc913bfd53df7bce906a52237822"
+        },
+        {
+            "path": "config/development/native-tooling-style-exceptions.json",
+            "blob": "f65a0111e707d3950b3f0b4bd8f24f0a8cba56fa",
+            "sha256": "aa788845ecdf0cda4f29e1e6b556f8d8a1d78f209e99648d8c80faf7281770e0"
+        },
+        {
+            "path": ".clang-format",
+            "blob": "ee943540565bf160685095239987d9059f81beeb",
+            "sha256": "b7c29b7917ba44ff530d240a226e6e3f1e5597507976de501ba2b2b98e0a12b4"
+        },
+        {
+            "path": ".clang-tidy",
+            "blob": "1749ea955a3f84292344c315b5356b659b853db9",
+            "sha256": "87be37c76d667a7ece0d2e718be576cbf65d347bbff77b8b7b90b989e0119526"
+        },
+        {
+            "path": "tools/frontend/check-frontend-style.mjs",
+            "blob": "fa55a556c43b4caca707138f367f85421789e5fc",
+            "sha256": "5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2"
+        },
+        {
+            "path": "tools/frontend/style-toolchain/package.json",
+            "blob": "c1271b1f11feabd7d35c1efb5e287d094d956694",
+            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+        },
+        {
+            "path": "tools/frontend/style-toolchain/package-lock.json",
+            "blob": "cda087663517c681f64ea2a6facdeae13e3df98d",
+            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+        }
+    ],
+    "executorSetup": {
+        "date": "2026-10-09",
+        "commands": [
+            {
+                "argv": [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--location",
+                    "https://nodejs.org/dist/v24.16.0/SHASUMS256.txt",
+                    "--output",
+                    "/workspace/.task-tools/issue-3534-node24/SHASUMS256.txt"
+                ],
+                "exitCode": 0,
+                "output": ""
+            },
+            {
+                "argv": [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--location",
+                    "https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.xz",
+                    "--output",
+                    "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64.tar.xz"
+                ],
+                "exitCode": 0,
+                "output": ""
+            }
+        ],
+        "archiveSha256": "d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9",
+        "officialManifestMatch": true,
+        "version": "v24.16.0",
+        "firstActualCommand": "date -u; pwd; git status; old temporary Node path version probe failed with No such file or directory; g++ 14.2 available; fetch origin/master verified 720d9948087cf176eccf7bdd5cc0be85f8cab606",
+        "node": "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64/bin/node",
+        "compiler": "g++ (Debian 14.2.0-19) 14.2.0",
+        "noHostPermissionsChanged": true
+    },
+    "lockedToolchainInstall": {
+        "argv": [
+            "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64/bin/node",
+            "/workspace/.task-tools/issue-3534-node24/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+            "ci",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--cache",
+            "/workspace/.task-tools/issue-3534-npm-cache",
+            "--prefix",
+            "tools/frontend/style-toolchain"
+        ],
+        "exitCode": 0
+    },
+    "masterDrift": {
+        "latestFetchedBeforeFinalPublication": "5dcd62096f97ccb2297781f2fcebf04fa8dbedd6",
+        "changedPaths": [
+            "artifacts/change-contract/query-producer-intake-external-naming.json",
+            "artifacts/style/query-producer-role-intake-shfmt-idempotence.json",
+            "tools/data-scale/expected-query-case-catalog.md",
+            "tools/data-scale/query-producer-role-intake/QueryPostgresProducerIntake.cs",
+            "tools/data-scale/query-producer-role-intake/QueryProducerRoleIntake.cs",
+            "tools/data-scale/query-producer-role-intake/QueryProducerRoleIntakeControls.cs",
+            "tools/data-scale/query-producer-role-intake/check.sh"
+        ],
+        "twoOwnersAndRelevantPoliciesAndLockedToolchainUnchanged": true,
+        "newMasterIncorporated": false,
+        "newMasterQualificationClaimed": false
+    },
+    "priorFailures": {
+        "previousEvidenceHeadUnchanged": "cb87649f5768d89f94846c77724807e333e2ba5c",
+        "previousBranch": "codex/issue-3534-cpp-object-correction-20261008",
+        "independentReview": "Original four findings fixed in 6fe5 per same reviewer; logical-comment and later-class-type P2 findings remained open. This candidate has not yet been independently re-reviewed.",
+        "developmentInheritedLookup": "Two real function rows falsely accepted by preliminary dirty development implementation; exact raw command, failure and compiler rows preserved. Development logs are not frozen-commit qualification."
+    },
+    "externalOwners": {
+        "fontFormatting": {
+            "owner": 2575,
+            "sourceCommitSuppliedByCoordinator": "4fa48cacb1def74e963dd2feb03beb6440e67472",
+            "fullHeadSuppliedByCoordinator": "e032196eaf5e155b336618d867c221b662704981",
+            "headerEditedOrTestedHere": false,
+            "missingToolBlockerCarriedForward": false
+        },
+        "sourceRouting": {
+            "owner": 1686,
+            "editedOrReimplementedHere": false
+        }
+    },
+    "notRun": [
+        "Held #3759 ProjectXML/Git replacement, receipt/cohort, race/TOCTOU, substitution audits",
+        "Whole native tooling test suite or broad repository audit",
+        "SOURCE routing/source-governance changes or acceptance",
+        "Font header formatting/acceptance owned by #2575",
+        "Native linking/runtime/product qualification",
+        "GitHub CI, disabled by coordinating owner",
+        "Independent re-review by original reviewer 01a11c13-3e71-7071-a4eb-8b6e2058103a"
+    ],
+    "acceptanceLimits": "Finite ordinary lexical classifier evidence, not a complete C++ semantic parser or a runtime/product acceptance receipt; unresolved inherited lookup is deliberately strict.",
+    "publication": {
+        "sourceCommitPushedAndRemoteVerified": "3a742340d585b175e3f7203c620085512bdc1932",
+        "githubContentWriter": "Coordinator only; no PR/comment/label/issue write by this worker",
+        "masterPushMergeCloseDeploy": false
+    },
+    "assignment": {
+        "ownedExecutionIssues": [
+            3534
+        ],
+        "trackingOnlyIssues": [],
+        "status": "WIP: ordinary classifier correction implemented and locally verified; original scanner style-admission acceptance not completed",
+        "remainingGates": [
+            "Same original reviewer must recheck this exact current-base candidate",
+            "Original full-style/baseline and shared generated-history gates remain with canonical owners; historical failures not relabeled",
+            "Original independent acceptance, authorized later integration and current-master recheck remain under the global barrier"
+        ]
+    },
+    "rawEvidence": [
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-checker-syntax-command.json.gz",
+            "sha256": "9429631de3a06bb7c50a7ad35296c7166ddf2424fb36e1f3ce6e6b364c079206",
+            "uncompressedSha256": "0b8c52f2d9a274ce4e5f0e785b520cf9aec6967f08d9e3f8e885430ea391bcc8",
+            "uncompressedBytes": 468
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-checker-syntax.log.gz",
+            "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "uncompressedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "uncompressedBytes": 0
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-controls-command.json.gz",
+            "sha256": "fc312c4a9afd4687084ceea56b114ce485143a343b181b35b9eb2f77d525ee2a",
+            "uncompressedSha256": "706594800525ddbb10bbf9a04feb66e61f01eb2b144125cf52f0c062dd003124",
+            "uncompressedBytes": 1645
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-controls.log.gz",
+            "sha256": "594e95410e2613cec14ff7ab332bc05afbaac20daa3e413795987e46dde2aec2",
+            "uncompressedSha256": "cd7dedf48cbd52059c0159caf90d8d991cebf676e3c2fabd995f1efb921a69dd",
+            "uncompressedBytes": 1488
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-matrix-command.json.gz",
+            "sha256": "a0ff40b9dac9200d322dfa9158d3b838a8ebed65015b53edad2e250fccc52514",
+            "uncompressedSha256": "c8d86102c88c02cd82750e384643fcb5e2d1cdaa580701cbb335fffe0afec745",
+            "uncompressedBytes": 466
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-matrix.log.gz",
+            "sha256": "f4633f8758cdd68138bcac080d109525e6e476fb35c77d57d8226d15f2ec53b8",
+            "uncompressedSha256": "92c146823d52538dc479ddee869a91a4904d7cd6b308dd17dbd93ed6f5b91e8b",
+            "uncompressedBytes": 393
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-range-contract-command.json.gz",
+            "sha256": "9aae4f8fccadc22bdc0da5f9543f65c67ab0010ac3b8e24421113d8d9f6e0fe1",
+            "uncompressedSha256": "f417c36d389fe06c0f17813b886dd5504ad1c8cdcbde8848cb5e256dee839610",
+            "uncompressedBytes": 522
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-range-contract.log.gz",
+            "sha256": "49a980be3b1079d7984b39ae9c02672ec59dfe7e746c501ced474c4f13259c45",
+            "uncompressedSha256": "1e9ce114dc8173d86218f8db363277ce859211e97ae57ae906b28db54db2aa34",
+            "uncompressedBytes": 81
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-source-diff-command.json.gz",
+            "sha256": "940ab134379d953896441e634d4ff1a2b01166e36fbdf03b9cf61235344db2b1",
+            "uncompressedSha256": "5371cfc34b00f0bcc86fa5675ffc4de01980b5819f8f81928fa247a78c5959d8",
+            "uncompressedBytes": 669
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-source-diff.log.gz",
+            "sha256": "ec983ee27f8a2fa469c3a44974c794a26f6e240c26339bcc6dfb0d7a241d5ac0",
+            "uncompressedSha256": "c8e6b7517ccff3852715550fde63aa9522f95b1b768f9f544d7b20ea12265ed5",
+            "uncompressedBytes": 69
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-test-syntax-command.json.gz",
+            "sha256": "2278f09f6ed77e0500861bec8af99f53047031d0050fa75df4abad8e0331d998",
+            "uncompressedSha256": "ae59058ae2e25d790a21d37342740ce36e3aca1633943f5ef985f5bf09c5bcba",
+            "uncompressedBytes": 464
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-test-syntax.log.gz",
+            "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "uncompressedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "uncompressedBytes": 0
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-whitespace-command.json.gz",
+            "sha256": "1165c69db34413351b882edffe787eedfb2f8a67634061ac7469fd1abad9bb75",
+            "uncompressedSha256": "3813955254927a1d8cd5b4c3a7ecdc7609e77095612acd148b2861ecc45a931b",
+            "uncompressedBytes": 410
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/candidate-whitespace.log.gz",
+            "sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "uncompressedSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "uncompressedBytes": 0
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/commit-message.txt.gz",
+            "sha256": "5af0d777cf696638acccc0be0958b01a0c9215858379dd44318f32f5e795f5ab",
+            "uncompressedSha256": "f4c944af506b466540a128c1a677e197adfeaa5770bc74d15e379a29da48ee7b",
+            "uncompressedBytes": 464
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/development-controls-command.json.gz",
+            "sha256": "2c9d5ccad36d2c494ec130355c5df589d25e859f97409becb42e923d91914e81",
+            "uncompressedSha256": "d855896f52ffff63fed61b90fa00becb237515216e8b7749e63cb2f826d3e298",
+            "uncompressedBytes": 1365
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/development-controls.log.gz",
+            "sha256": "1b3a2d247388efa2ee6733a52e3a2314b6b343b3f4c261c8ed5ceaafe2f3498d",
+            "uncompressedSha256": "5678391c29b17e50d72b88ee2bfa7d7e15c2fdbeece86c8fa53d4e7f1366bf10",
+            "uncompressedBytes": 1488
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/development-matrix-command.json.gz",
+            "sha256": "f35ce5ad0feef8e652a5d4c8fae8204318ab0451a1d714fc528d2fa9fc153010",
+            "uncompressedSha256": "9702252b47c8bb820a9d4941e74f989237cde7dbba95b79b5ea9968c9967a6e9",
+            "uncompressedBytes": 188
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/development-matrix.log.gz",
+            "sha256": "25af7195991315d775b454043d5b3db5df88ee7c90c054a4597fca664c87c0d3",
+            "uncompressedSha256": "80e8c562b5d60b31f8766d07bd2cf3ff2de74b560fa490f784f5e2d20facaa53",
+            "uncompressedBytes": 262
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/development-source-diff-command.json.gz",
+            "sha256": "79ed0dc1d341e7b1c91c018676614d5538c335b476def64352b5ec8b6913cad9",
+            "uncompressedSha256": "ee36bd88af009ab0fbe725093d1225eff64756c7dd6df7d2df2643a07d7ce51e",
+            "uncompressedBytes": 386
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/development-source-diff.log.gz",
+            "sha256": "ec983ee27f8a2fa469c3a44974c794a26f6e240c26339bcc6dfb0d7a241d5ac0",
+            "uncompressedSha256": "c8e6b7517ccff3852715550fde63aa9522f95b1b768f9f544d7b20ea12265ed5",
+            "uncompressedBytes": 69
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/executor-setup.json.gz",
+            "sha256": "0a74f35a39b2559a3765351f8a12c528fd0c5430fe16b7fa75ce9688d24bbf52",
+            "uncompressedSha256": "0d4246f6dbbe05dbb91d97a278f98cb6ef48298561b53db6af23cf7741aedc8c",
+            "uncompressedBytes": 1260
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/first28-development-controls-command.json.gz",
+            "sha256": "2c9d5ccad36d2c494ec130355c5df589d25e859f97409becb42e923d91914e81",
+            "uncompressedSha256": "d855896f52ffff63fed61b90fa00becb237515216e8b7749e63cb2f826d3e298",
+            "uncompressedBytes": 1365
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/first28-development-controls.log.gz",
+            "sha256": "1b3a2d247388efa2ee6733a52e3a2314b6b343b3f4c261c8ed5ceaafe2f3498d",
+            "uncompressedSha256": "5678391c29b17e50d72b88ee2bfa7d7e15c2fdbeece86c8fa53d4e7f1366bf10",
+            "uncompressedBytes": 1488
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/first28-development-matrix-command.json.gz",
+            "sha256": "f35ce5ad0feef8e652a5d4c8fae8204318ab0451a1d714fc528d2fa9fc153010",
+            "uncompressedSha256": "9702252b47c8bb820a9d4941e74f989237cde7dbba95b79b5ea9968c9967a6e9",
+            "uncompressedBytes": 188
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/first28-development-matrix.log.gz",
+            "sha256": "25af7195991315d775b454043d5b3db5df88ee7c90c054a4597fca664c87c0d3",
+            "uncompressedSha256": "80e8c562b5d60b31f8766d07bd2cf3ff2de74b560fa490f784f5e2d20facaa53",
+            "uncompressedBytes": 262
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/first28-development-source-diff-command.json.gz",
+            "sha256": "79ed0dc1d341e7b1c91c018676614d5538c335b476def64352b5ec8b6913cad9",
+            "uncompressedSha256": "ee36bd88af009ab0fbe725093d1225eff64756c7dd6df7d2df2643a07d7ce51e",
+            "uncompressedBytes": 386
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/first28-development-source-diff.log.gz",
+            "sha256": "ec983ee27f8a2fa469c3a44974c794a26f6e240c26339bcc6dfb0d7a241d5ac0",
+            "uncompressedSha256": "c8e6b7517ccff3852715550fde63aa9522f95b1b768f9f544d7b20ea12265ed5",
+            "uncompressedBytes": 69
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/first28-matrix.json.gz",
+            "sha256": "7fa2cb6b7482b5b456dcdffcce8e722788e4aa33c25f378b9ddde6dd79f9062f",
+            "uncompressedSha256": "647ca691afe5fb01bda4af037e0bfac494ab6bfff78cde17c15c98e185f5c2d0",
+            "uncompressedBytes": 62611
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/inheritance-initial-failure-command.json.gz",
+            "sha256": "194db150809a857d674c7731681a8ad8e4c1471284a0b233a8c1f94969410f65",
+            "uncompressedSha256": "119637a0308039073e6f138355cbe10f4f77932a6a84619b2c80869281e9063a",
+            "uncompressedBytes": 213
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/inheritance-initial-failure-matrix.json.gz",
+            "sha256": "6650d102b5156bcba4bee69adb6db2e0c37eb272e1306ee5ec112f12308499d0",
+            "uncompressedSha256": "4c6f0b9d3208960839b01d1c4d39cf96918e8ad827c5b5af3f7092252c40035a",
+            "uncompressedBytes": 71309
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/inheritance-initial-failure.log.gz",
+            "sha256": "12ff20f38badc9df05d20642ae536709690f508390f4b751e019b89155109c5c",
+            "uncompressedSha256": "1f07fb82675859ce8ce9baf663f900f5291e397896fa20e371c74de6ceb9449f",
+            "uncompressedBytes": 3874
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/matrix.json.gz",
+            "sha256": "f36049592534d357d83e082464b165dd09638bfe433724180e768ec366eaf4dd",
+            "uncompressedSha256": "18698fe259d3f6fd4b8842c522a007734f68d8859d76f2c3b3e9066140775be0",
+            "uncompressedBytes": 75827
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/npm-ci-command.json.gz",
+            "sha256": "b86a53d032da6c402cef69c21738894a70f4b3177fd2af49aca1a4d0336f7f6e",
+            "uncompressedSha256": "b802cb66b21875bec7c7e46b231d8e80b4026b304b054b825751a57ce8d16533",
+            "uncompressedBytes": 414
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/npm-ci.log.gz",
+            "sha256": "018c5359a1f53f083de074be41246aa66c6283de49aac2714fb7b17bf91a9631",
+            "uncompressedSha256": "64c4fffd506151dcb283b5d7b7aed275187df338eee5845f005eb81c3b8dfcaf",
+            "uncompressedBytes": 26
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/run-check.py.gz",
+            "sha256": "4990338429e8055c1351fb588da6764fbf89efda686180b91592b83fee4b09dd",
+            "uncompressedSha256": "514c118bee4145c0f38a8cc70b3b0c3268374f54f9aacf372bdfc171c4c1d773",
+            "uncompressedBytes": 1687
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/test-selection.json.gz",
+            "sha256": "0600bedf40fcd9e576a6cea7ff37f7e6c519e77f2ab12e82c6e793ee1c06b46c",
+            "uncompressedSha256": "9b51eae1fe3771f993999288c698fa499da8a0f5e3bec61140451eb72b4578c6",
+            "uncompressedBytes": 11348
+        },
+        {
+            "path": "artifacts/style/issue-3534-cpp-lookup-correction-raw/verify.mjs.gz",
+            "sha256": "b24103aa0cf621cf66ec21f68471d95fc76fbca5ee641b7c304ffc69770bd579",
+            "uncompressedSha256": "5926cc1fe2204b631aaa0160455023af80579ecd899f5e1f5ace91f374b192d9",
+            "uncompressedBytes": 7318
+        }
+    ]
+}
