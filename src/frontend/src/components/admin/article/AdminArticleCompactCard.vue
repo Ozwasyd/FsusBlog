@@ -39,11 +39,15 @@
         </div>
 
         <div class="article-compact-tags">
-            <ElTag size="small">
-                <span class="article-compact-tag-text">{{ row.categoryName }}</span>
+            <ElTag
+                size="small"
+                multiline
+            >
+                {{ row.categoryName }}
             </ElTag>
             <ElTag
                 size="small"
+                multiline
                 :type="row.statusTagType"
             >
                 {{ row.statusText }}
@@ -156,21 +160,6 @@ defineEmits<{
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
-
-.article-compact-tags :deep(.el-tag)
- {
-    max-width: 100%;
-}
-
-.article-compact-tag-text
- {
-    display: inline-block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    vertical-align: middle;
 }
 
 .article-compact-actions
