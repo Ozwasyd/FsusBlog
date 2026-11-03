@@ -69,13 +69,13 @@ function trustedRuntimeIdentity(source, { executable = false, exact = false, sys
 {
     const resolved = fs.realpathSync(source);
     requireValue(!exact || resolved === source, `trusted executable path was replaced or redirected: ${source}`);
-    const stat = fs.lstatSync(resolved);
-    requireValue(stat.isFile() && (!systemOwned || stat.uid === 0) && (stat.mode & 0o022) === 0
-        && (!executable || (stat.mode & 0o111) !== 0), `runtime file is not system-owned and immutable to the task: ${source}`);
+    const stat = fs.lstatSync(resolved, { bigint: true });
+    requireValue(stat.isFile() && (!systemOwned || stat.uid === 0n) && (stat.mode & 0o022n) === 0n
+        && (!executable || (stat.mode & 0o111n) !== 0n), `runtime file is not system-owned and immutable to the task: ${source}`);
     for (let directory = path.dirname(resolved); systemOwned; directory = path.dirname(directory))
     {
-        const ancestor = fs.lstatSync(directory);
-        requireValue(ancestor.isDirectory() && ancestor.uid === 0 && (ancestor.mode & 0o022) === 0,
+        const ancestor = fs.lstatSync(directory, { bigint: true });
+        requireValue(ancestor.isDirectory() && ancestor.uid === 0n && (ancestor.mode & 0o022n) === 0n,
             `runtime ancestor is writable outside system ownership: ${directory}`);
         if (directory === '/')
         {
@@ -83,7 +83,7 @@ function trustedRuntimeIdentity(source, { executable = false, exact = false, sys
         }
     }
     return { source, resolved, executable, exact, systemOwned, dev: stat.dev, ino: stat.ino, mode: stat.mode,
-        uid: stat.uid, gid: stat.gid, size: stat.size, mtimeMs: stat.mtimeMs, ctimeMs: stat.ctimeMs,
+        uid: stat.uid, gid: stat.gid, size: stat.size, mtimeNs: stat.mtimeNs, ctimeNs: stat.ctimeNs,
         sha256: hash(fs.readFileSync(resolved)) };
 }
 
