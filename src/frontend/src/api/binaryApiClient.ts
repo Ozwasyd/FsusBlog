@@ -76,7 +76,7 @@ export function resolveBinaryTransportUrl(url: string): string
 {
     if (typeof globalThis.location !== 'undefined')
     {
-        return new URL(url, globalThis.location).toString();
+        return new URL(url, globalThis.location.href).toString();
     }
 
     return new URL(url, 'http://localhost').toString();
@@ -422,6 +422,7 @@ async function binaryRequestResultFresh(url: string, options?: BinaryRequestOpti
         onResponseHeaders,
         ...fetchOptions
     } = options ?? {};
+    void _riskChallengeProof;
     let response: Response;
     try
     {

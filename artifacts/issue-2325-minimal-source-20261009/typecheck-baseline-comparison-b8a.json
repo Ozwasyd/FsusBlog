@@ -1,0 +1,15 @@
+{
+  "base": "537bb3fa2f9ef54e0a2e93a925a4ce6fa335ceea",
+  "candidate": "b8aece6cc6feeee508591cc8382c13c689a90e0c",
+  "beforeCount": 208,
+  "afterCount": 202,
+  "new": [],
+  "removed": [
+    "src/adapters/binary/fontThemeAdminAdapter.ts(154,17): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+    "src/adapters/binary/fontThemeAdminAdapter.ts(317,17): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.",
+    "src/api/binaryApiClient.ts(79,29): error TS2345: Argument of type 'Location' is not assignable to parameter of type 'string | URL | undefined'.",
+    "src/services/authoring/articleDocumentContext.ts(391,21): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ArticleDocumentContext' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.",
+    "src/services/authoring/articleDocumentContext.ts(454,22): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ArticleDocumentTaskEnvelope' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.",
+    "src/services/authoring/articleDocumentContext.ts(497,21): error TS2352: Conversion of type 'Record<string, unknown>' to type 'ArticleDocumentEpochReceipt' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first."
+  ]
+}

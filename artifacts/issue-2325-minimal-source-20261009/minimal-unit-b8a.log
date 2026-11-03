@@ -1,0 +1,25 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog-2325-minimal-master/src/frontend
+
+ ✓ ../../tests/frontend/unit/api/binaryApiClient.test.ts (24 tests) 1115ms
+ ✓ ../../tests/frontend/unit/api/binaryApiClientTransportStyle.test.ts (6 tests) 1208ms
+ ✓ ../../tests/frontend/unit/authoring/openArticleDocumentRegistry.test.ts (21 tests) 228ms
+ ✓ ../../tests/frontend/unit/components/admin/ArticleMetadataRead.test.ts (24 tests) 283ms
+ ✓ ../../tests/frontend/unit/adapters/binary/fontThemeAdminAdapter.test.ts (15 tests) 166ms
+ ✓ ../../tests/frontend/unit/authoring/articlePropertyValuesApi.test.ts (52 tests) 189ms
+ ✓ ../../tests/frontend/unit/authoring/articleDocumentContext.test.ts (14 tests) 140ms
+ ✓ ../../tests/frontend/unit/authoring/articleDocumentContextDisposal.test.ts (3 tests) 159ms
+ ✓ ../../tests/frontend/unit/components/admin/articleMetadataExactEdit.test.ts (78 tests) 359ms
+ ✓ ../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts (13 tests) 167ms
+ ✓ ../../tests/frontend/unit/api/fontThemeAdmin.test.ts (2 tests) 80ms
+ ✓ ../../tests/frontend/unit/components/admin/ArticleMetadataPropertyList.test.ts (22 tests) 759ms
+ ✓ ../../tests/frontend/unit/components/admin/ArticleMetadataField.test.ts (145 tests) 9996ms
+     ✓ preserves false, empty text and empty option sets across presence round trips  398ms
+
+ Test Files  13 passed (13)
+      Tests  419 passed (419)
+   Start at  06:58:30
+   Duration  20.19s (transform 17.93s, setup 2.77s, import 19.02s, tests 14.85s, environment 707ms)
+
+JSON report written to /workspace/FsusBlog-2325-minimal-master/.tmp/test-results/vitest/unit/unsharded.json
+JUNIT report written to /workspace/FsusBlog-2325-minimal-master/.tmp/test-results/vitest/unit/unsharded.xml

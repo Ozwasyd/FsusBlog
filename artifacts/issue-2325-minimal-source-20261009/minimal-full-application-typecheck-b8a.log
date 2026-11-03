@@ -1,0 +1,337 @@
+[fsusui-typecheck] local root: /workspace/FsusUI-2325-review-83036006
+src/api/comment.ts(11,5): error TS6196: 'AnonymousPrivacyStateSnapshot' is declared but never used.
+src/api/comment.ts(13,5): error TS6196: 'BlindCredentialIssueResponse' is declared but never used.
+src/api/comment.ts(15,5): error TS6196: 'CommentAuthorMode' is declared but never used.
+src/api/comment.ts(18,5): error TS6196: 'CommentAuthorView' is declared but never used.
+src/api/comment.ts(19,5): error TS6196: 'CommentAuthorViewMode' is declared but never used.
+src/api/comment.ts(22,5): error TS6196: 'CommentDisplayLanguage' is declared but never used.
+src/api/comment.ts(24,5): error TS6196: 'CommentPermalinkStatus' is declared but never used.
+src/api/comment.ts(28,5): error TS6196: 'CommentReplyPreviewItem' is declared but never used.
+src/api/comment.ts(29,5): error TS6196: 'CommentThreadItem' is declared but never used.
+src/api/message.ts(8,5): error TS6196: 'ConversationMessagePreviewResponse' is declared but never used.
+src/api/stats.ts(3,5): error TS6196: 'AdminStatsOverview' is declared but never used.
+src/api/stats.ts(7,5): error TS6196: 'StatsSummary' is declared but never used.
+src/api/stats.ts(8,5): error TS6196: 'TrashClearResponse' is declared but never used.
+src/components/admin/AdminTaxonomyManageView.vue(244,22): error TS2322: Type 'TaxonomyFormRules' is not assignable to type 'Partial<Record<string, Arrayable<FormItemRule>>>'.
+  Index signature for type 'string' is missing in type 'TaxonomyFormRules'.
+src/components/admin/article/ArticlePrivatePreviewPanel.vue(66,26): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/components/admin/article/ArticleWorkspaceTabStrip.vue(24,70): error TS2345: Argument of type 'Element | ComponentPublicInstance<{}, {}, {}, {}, {}, {}, {}, {}, false, ComponentOptionsBase<any, any, any, any, any, any, any, any, any, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>, ... 4 more ..., any> | null' is not assignable to parameter of type 'Element | null'.
+  Type 'ComponentPublicInstance<{}, {}, {}, {}, {}, {}, {}, {}, false, ComponentOptionsBase<any, any, any, any, any, any, any, any, any, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>, ... 4 more ..., any>' is not assignable to type 'Element | null'.
+src/components/admin/article/ArticleWriteOutlineRail.vue(246,79): error TS2345: Argument of type 'Element | ComponentPublicInstance<{}, {}, {}, {}, {}, {}, {}, {}, false, ComponentOptionsBase<any, any, any, any, any, any, any, any, any, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>, ... 4 more ..., any> | null' is not assignable to parameter of type 'Element | null'.
+  Type 'ComponentPublicInstance<{}, {}, {}, {}, {}, {}, {}, {}, false, ComponentOptionsBase<any, any, any, any, any, any, any, any, any, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>, ... 4 more ..., any>' is not assignable to type 'Element | null'.
+src/components/admin/comment-moderation/CommentModerationAdvancedFilters.vue(119,26): error TS2322: Type '[string, string] | null' is not assignable to type 'EpPropMergeType<(new (...args: any[]) => string | number | Date | [DateModelType, DateModelType]) | (() => ModelValueType) | (PropConstructor<ModelValueType> | null)[], unknown, unknown> | undefined'.
+  Type 'null' is not assignable to type 'EpPropMergeType<(new (...args: any[]) => string | number | Date | [DateModelType, DateModelType]) | (() => ModelValueType) | (PropConstructor<ModelValueType> | null)[], unknown, unknown> | undefined'.
+src/components/admin/comment-moderation/CommentModerationQueue.vue(12,14): error TS4104: The type 'readonly CommentModerationViewItem[]' is 'readonly' and cannot be assigned to the mutable type 'unknown[]'.
+src/components/admin/comment-moderation/CommentModerationQueue.vue(13,14): error TS2322: Type '(row: CommentModerationViewItem) => string' is not assignable to type 'ResponsiveCollectionRowKey | undefined'.
+  Type '(row: CommentModerationViewItem) => string' is not assignable to type '(item: unknown, index: number) => string | number'.
+    Types of parameters 'row' and 'item' are incompatible.
+      Type 'unknown' is not assignable to type 'CommentModerationViewItem'.
+src/components/admin/comment-moderation/CommentModerationQueue.vue(195,26): error TS4104: The type 'readonly CommentModerationViewItem[]' is 'readonly' and cannot be assigned to the mutable type 'any[]'.
+src/components/admin/users/UserManageTable.vue(17,14): error TS4104: The type 'readonly UserListViewItem[]' is 'readonly' and cannot be assigned to the mutable type 'unknown[]'.
+src/components/admin/users/UserManageTable.vue(23,30): error TS2345: Argument of type '(_: { item: UserListViewItem; }) => any' is not assignable to parameter of type '(props: { item: unknown; index: number; compact: boolean; }) => any'.
+  Types of parameters '_' and 'props' are incompatible.
+    Type '{ item: unknown; index: number; compact: boolean; }' is not assignable to type '{ item: UserListViewItem; }'.
+      Types of property 'item' are incompatible.
+        Type 'unknown' is not assignable to type 'UserListViewItem'.
+src/components/admin/users/UserManageTable.vue(26,44): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(28,30): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(28,45): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(28,64): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(28,76): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(28,106): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(33,36): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(39,40): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(42,40): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(49,41): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(54,41): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(56,36): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(64,37): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(65,36): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(67,39): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(68,34): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(73,32): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(76,36): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(77,36): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(78,72): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(79,54): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(80,37): error TS2769: No overload matches this call.
+  Overload 1 of 5, '(evt: "update:current-page", value: number): void', gave the following error.
+    Argument of type '"toggle-status"' is not assignable to parameter of type '"update:current-page"'.
+  Overload 2 of 5, '(evt: "update:page-size", value: number): void', gave the following error.
+    Argument of type '"toggle-status"' is not assignable to parameter of type '"update:page-size"'.
+  Overload 3 of 5, '(evt: "toggle-status", row: UserListViewItem): void', gave the following error.
+    Argument of type 'unknown' is not assignable to parameter of type 'UserListViewItem'.
+src/components/admin/users/UserManageTable.vue(82,32): error TS18046: 'row' is of type 'unknown'.
+src/components/admin/users/UserManageTable.vue(114,34): error TS2322: Type 'TableV2Column<UserListViewItem>[]' is not assignable to type 'AnyColumn[]'.
+  Type 'TableV2Column<UserListViewItem>' is not assignable to type 'AnyColumn'.
+    Types of property 'fixed' are incompatible.
+      Type 'true | "left" | "right" | undefined' is not assignable to type 'true | FixedDir | undefined'.
+        Type '"left"' is not assignable to type 'true | FixedDir | undefined'.
+src/components/admin/users/UserManageTable.vue(115,34): error TS4104: The type 'readonly UserListViewItem[]' is 'readonly' and cannot be assigned to the mutable type 'any[]'.
+src/components/article/ArticleCommentTreeNode.vue(113,35): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"load-more"' is not assignable to parameter of type '"reply"'.
+src/components/article/ArticleCommentTreeNode.vue(122,31): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type '"load-more"' is not assignable to parameter of type '"reply"'.
+src/components/security/FsusPoSpaceChallenge.vue(85,17): error TS2304: Cannot find name 'SecurityChallengeAssignment'.
+src/components/security/FsusPoSpaceChallenge.vue(86,22): error TS2304: Cannot find name 'SecurityChallengeProviderPayload'.
+src/components/security/FsusPoSpaceChallenge.vue(87,14): error TS2304: Cannot find name 'SecurityChallengeContext'.
+src/components/security/FsusPoSpaceChallenge.vue(97,23): error TS2304: Cannot find name 'SecurityChallengeProof'.
+src/components/security/FsusPoSpaceChallenge.vue(97,48): error TS2304: Cannot find name 'SecurityChallengeVerifyResponse'.
+src/components/ui/ImageUploadOptionsPanel.vue(50,22): error TS2322: Type '(value: string | number | boolean) => void' is not assignable to type '(value: Arrayable<number>) => any'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'Arrayable<number>' is not assignable to type 'string | number | boolean'.
+      Type 'number[]' is not assignable to type 'string | number | boolean'.
+src/components/ui/ImageUploadOptionsPanel.vue(61,22): error TS2322: Type '(value: string | number | boolean) => void' is not assignable to type '(value: Arrayable<number>) => any'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'Arrayable<number>' is not assignable to type 'string | number | boolean'.
+      Type 'number[]' is not assignable to type 'string | number | boolean'.
+src/components/ui/ImageUploadOptionsPanel.vue(72,22): error TS2322: Type '(value: string | number | boolean) => void' is not assignable to type '(value: Arrayable<number>) => any'.
+  Types of parameters 'value' and 'value' are incompatible.
+    Type 'Arrayable<number>' is not assignable to type 'string | number | boolean'.
+      Type 'number[]' is not assignable to type 'string | number | boolean'.
+src/composables/useAdminArticleWrite.ts(1388,41): error TS2322: Type 'ArticleDocumentTaskEnvelope' is not assignable to type 'void'.
+src/composables/useAdminArticleWrite.ts(1823,41): error TS2322: Type 'ArticleDocumentTaskEnvelope' is not assignable to type 'void'.
+src/composables/useArticleDetailView.ts(272,11): error TS6133: 'commentChallengeRouteKey' is declared but its value is never read.
+src/composables/useHomeView.ts(55,9): error TS2345: Argument of type 'readonly FeaturedArticleItem[] | undefined' is not assignable to parameter of type 'FeaturedArticleItem[] | null | undefined'.
+  The type 'readonly FeaturedArticleItem[]' is 'readonly' and cannot be assigned to the mutable type 'FeaturedArticleItem[]'.
+src/composables/useHomeView.ts(59,9): error TS2345: Argument of type 'readonly PopularArticleSummaryResponse[] | undefined' is not assignable to parameter of type 'PopularArticleSummaryResponse[] | null | undefined'.
+  The type 'readonly PopularArticleSummaryResponse[]' is 'readonly' and cannot be assigned to the mutable type 'PopularArticleSummaryResponse[]'.
+src/composables/useNotification.ts(630,23): error TS7022: 'nextMode' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
+src/fsusui/motion.ts(41,5): error TS2322: Type '"fade-in"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(42,5): error TS2322: Type '"fade-in"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(43,5): error TS2322: Type '"scale-fade"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(44,5): error TS2322: Type '"slide-right"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(45,5): error TS2322: Type '"slide-up"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(46,5): error TS2322: Type '"slide-up"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(47,5): error TS2322: Type '"fade-in"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(48,5): error TS2322: Type '"scale-fade"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(49,5): error TS2322: Type '"scale-fade"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(50,5): error TS2322: Type '"fade-in"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/fsusui/motion.ts(56,5): error TS2322: Type '"fade-down"' is not assignable to type '"surface-settle" | "paper-settle" | "route-settle" | "ownership-transfer-snapshot" | "overlay-settle" | "dialog-settle" | "sheet-settle" | "lightbox-focus" | "dock-settle" | ... 13 more ... | "copy-confirm"'.
+src/layouts/accountWorkspaceContext.ts(6,10): error TS6133: 'AccountArea' is declared but its value is never read.
+src/locales/index.ts(29,5): error TS6196: 'PluralCategory' is declared but never used.
+src/locales/localeDomainBundleStore.ts(278,17): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/locales/runtime/localeRuntimeComposition.ts(22,36): error TS6133: 'LocaleFontWeight' is declared but its value is never read.
+src/privacy/commentPrivacyAdapter.ts(98,66): error TS2345: Argument of type '{ articleId: number; rootId: string | null; circuitNumericId: number; publicInputLayoutVersion: number; actionContext: string; anonymousScope: string; circuitId: string; verifyingKeyHash: string; ... 8 more ...; publicInputs: Uint8Array<...>; }' is not assignable to parameter of type 'AnonymousCommentTicketRequestDto'.
+  Property 'credentialEpoch' is missing in type '{ articleId: number; rootId: string | null; circuitNumericId: number; publicInputLayoutVersion: number; actionContext: string; anonymousScope: string; circuitId: string; verifyingKeyHash: string; ... 8 more ...; publicInputs: Uint8Array<...>; }' but required in type 'AnonymousCommentTicketRequestDto'.
+src/privacy/commentPrivacyBlindRsaSuite.ts(134,21): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(algorithm: AlgorithmIdentifier | RsaPssParams | EcdsaParams, key: CryptoKey, signature: BufferSource, data: BufferSource): Promise<...>', gave the following error.
+    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.
+      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+        Types of property 'buffer' are incompatible.
+          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+              Types of property '[Symbol.toStringTag]' are incompatible.
+                Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+  Overload 2 of 2, '(algorithm: AlgorithmIdentifier | RsaPssParams | EcdsaParams, key: CryptoKey, signature: BufferSource, data: BufferSource): Promise<...>', gave the following error.
+    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.
+      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+        Types of property 'buffer' are incompatible.
+          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+              Types of property '[Symbol.toStringTag]' are incompatible.
+                Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/privacy/commentPrivacyBlindRsaSuite.ts(247,13): error TS2769: No overload matches this call.
+  The last overload gave the following error.
+    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.
+      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+        Types of property 'buffer' are incompatible.
+          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+              Types of property '[Symbol.toStringTag]' are incompatible.
+                Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/privacy/commentPrivacyCredentialProvider.ts(215,82): error TS2551: Property 'rootExpiresAtUnixMs' does not exist on type 'CommentPrivacyCredentialIssueResponse'. Did you mean 'expiresAtUnixMs'?
+src/privacy/commentPrivacyCredentialProvider.ts(302,95): error TS2551: Property 'rootExpiresAtUnixMs' does not exist on type 'CommentPrivacyCredentialIssueResponse'. Did you mean 'expiresAtUnixMs'?
+src/privacy/commentPrivacyRevocationLocal.ts(318,65): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(algorithm: AlgorithmIdentifier, data: BufferSource): Promise<ArrayBuffer>', gave the following error.
+    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.
+      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+        Types of property 'buffer' are incompatible.
+          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+              Types of property '[Symbol.toStringTag]' are incompatible.
+                Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+  Overload 2 of 2, '(algorithm: AlgorithmIdentifier, data: BufferSource): Promise<ArrayBuffer>', gave the following error.
+    Argument of type 'Uint8Array<ArrayBufferLike>' is not assignable to parameter of type 'BufferSource'.
+      Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+        Types of property 'buffer' are incompatible.
+          Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+            Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+              Types of property '[Symbol.toStringTag]' are incompatible.
+                Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/privacy/commentPrivacyWasmProver.ts(594,10): error TS6133: 'writeInt64' is declared but its value is never read.
+src/public-renderers/PublicArticleCommentsIsland.vue(88,5): error TS2322: Type '(CommentTreeRoot | { id: string; content: string; createTime: string; author: { mode: CommentAuthorViewMode; displayName: string; displayLanguage: CommentDisplayLanguage; badge?: string | ... 1 more ... | undefined; scopeLabel?: string | ... 1 more ... | undefined; }; ... 5 more ...; repliesPreview: { ...; }[]; })[]' is not assignable to type 'CommentThreadItem[] | { id: string; content: string; createTime: string; author: { mode: CommentAuthorViewMode; displayName: string; displayLanguage: CommentDisplayLanguage; badge?: string | ... 1 more ... | undefined; scopeLabel?: string | ... 1 more ... | undefined; }; ... 5 more ...; repliesPreview: { ...; }[]; }[]'.
+  Type '(CommentTreeRoot | { id: string; content: string; createTime: string; author: { mode: CommentAuthorViewMode; displayName: string; displayLanguage: CommentDisplayLanguage; badge?: string | ... 1 more ... | undefined; scopeLabel?: string | ... 1 more ... | undefined; }; ... 5 more ...; repliesPreview: { ...; }[]; })[]' is not assignable to type 'CommentThreadItem[]'.
+    Type 'CommentTreeRoot | { id: string; content: string; createTime: string; author: { mode: CommentAuthorViewMode; displayName: string; displayLanguage: CommentDisplayLanguage; badge?: string | ... 1 more ... | undefined; scopeLabel?: string | ... 1 more ... | undefined; }; ... 5 more ...; repliesPreview: { ...; }[]; }' is not assignable to type 'CommentThreadItem'.
+      Type 'CommentTreeRoot' is missing the following properties from type 'CommentThreadItem': id, content, createTime, author, and 6 more.
+src/public-renderers/publicRouteSeedStore.ts(3,1): error TS6133: 'PublicAotBootstrapKind' is declared but its value is never read.
+src/router/index.ts(8,10): error TS6133: 'RouteRecordRaw' is declared but its value is never read.
+src/router/index.ts(23,10): error TS6133: 'ManageMetaOptions' is declared but its value is never read.
+src/router/index.ts(24,10): error TS6133: 'SelfMetaOptions' is declared but its value is never read.
+src/router/publicRoutePreload.ts(631,42): error TS2339: Property 'stage' does not exist on type 'never'.
+src/router/publicRoutePreload.ts(633,99): error TS2339: Property 'error' does not exist on type 'never'.
+src/router/publicRoutePreload.ts(635,42): error TS2339: Property 'stage' does not exist on type 'never'.
+src/router/publicRoutePreload.ts(637,98): error TS2339: Property 'error' does not exist on type 'never'.
+src/security/privateNavigationPolicy.ts(227,52): error TS2345: Argument of type 'RouteLocationResolvedGeneric' is not assignable to parameter of type 'Pick<RouteLocationNormalizedLoadedGeneric, "meta" | "path" | "name" | "query">'.
+  Types of property 'name' are incompatible.
+    Type 'RouteRecordNameGeneric | null' is not assignable to type 'RouteRecordNameGeneric'.
+      Type 'null' is not assignable to type 'RouteRecordNameGeneric'.
+src/services/articleRecoveryJournal.ts(821,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/articleDocumentContext.ts(557,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/articleDocumentContext.ts(558,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/articleDocumentContext.ts(559,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/authoringSessionHost.ts(80,14): error TS2322: Type 'Readonly<{ schema: "fsusblog.authoring-session-resource-policy.v1"; maxOpenSessions: 100; maxActiveSessions: 1; maxBackgroundRetainedSessions: 7; maxSuspendedSessions: 8; maxLiveEditorInstances: 16; ... 7 more ...; prohibitedFacts: string[]; }>' is not assignable to type 'AuthoringSessionResourcePolicy'.
+  Types of property 'priorityFacts' are incompatible.
+    Type 'string[]' is not assignable to type 'readonly ["active", "recovery", "conflict", "pending-attachment", "saving", "dirty", "nearby", "recently-used"]'.
+      Target requires 8 element(s) but source may have fewer.
+src/services/authoring/authoringSessionHost.ts(589,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/authoring/authoringSessionHost.ts(590,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/services/binaryTransport.ts(433,27): error TS6133: 'T' is declared but its value is never read.
+src/services/binaryTransport.ts(1003,45): error TS2367: This comparison appears to be unintentional because the types '"anonymous"' and '"optional"' have no overlap.
+src/services/binaryTransport.ts(1006,41): error TS2367: This comparison appears to be unintentional because the types '"anonymous" | "admin" | "user"' and '"optional"' have no overlap.
+src/services/localSearch.ts(606,6): error TS6196: 'SearchIdleWindow' is declared but never used.
+src/services/notificationStreamTypes.ts(8,1): error TS6133: 'PowParams' is declared but its value is never read.
+src/services/privateStorageRegistry.ts(425,48): error TS2345: Argument of type 'Readonly<{ id: string; medium: "local-storage" | "session-storage"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; matcher: Readonly<...>; }> | Readonly<...>' is not assignable to parameter of type 'Readonly<{ id: string; medium: "runtime"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; }>'.
+  Type 'Readonly<{ id: string; medium: "local-storage" | "session-storage"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; matcher: Readonly<...>; }>' is not assignable to type 'Readonly<{ id: string; medium: "runtime"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; }>'.
+    Types of property 'medium' are incompatible.
+      Type '"local-storage" | "session-storage"' is not assignable to type '"runtime"'.
+        Type '"local-storage"' is not assignable to type '"runtime"'.
+src/services/privateSurfaceRuntime.ts(103,41): error TS2454: Variable 'currentTransition' is used before being assigned.
+src/services/securityPerceptionChallengeFlow.ts(175,43): error TS2339: Property 'ContractViolation' does not exist on type '{ readonly Validation: "Validation"; readonly Unauthorized: "Unauthorized"; readonly Forbidden: "Forbidden"; readonly NotFound: "NotFound"; readonly Conflict: "Conflict"; readonly PreconditionRequired: "PreconditionRequired"; ... 5 more ...; readonly Unknown: "Unknown"; }'.
+src/services/securityPerceptionChallengeFlow.ts(214,39): error TS2339: Property 'ContractViolation' does not exist on type '{ readonly Validation: "Validation"; readonly Unauthorized: "Unauthorized"; readonly Forbidden: "Forbidden"; readonly NotFound: "NotFound"; readonly Conflict: "Conflict"; readonly PreconditionRequired: "PreconditionRequired"; ... 5 more ...; readonly Unknown: "Unknown"; }'.
+src/services/serviceWorkerRuntime.ts(11,10): error TS6133: 'PrivateStateCleanupTrigger' is declared but its value is never read.
+src/services/themeAssetRuntime.ts(52,9): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/store/site.ts(65,9): error TS1117: An object literal cannot have multiple properties with the same name.
+src/utils/brandIconGenerator.ts(123,35): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/views/admin/Analytics.vue(99,33): error TS6133: 'regionChartRef' is declared but its value is never read.
+src/views/admin/Assets.vue(183,38): error TS2322: Type 'TableV2Column<AssetLibraryItemResponse>[]' is not assignable to type 'AnyColumn[]'.
+  Type 'TableV2Column<AssetLibraryItemResponse>' is not assignable to type 'AnyColumn'.
+    Types of property 'fixed' are incompatible.
+      Type 'true | "left" | "right" | undefined' is not assignable to type 'true | FixedDir | undefined'.
+        Type '"left"' is not assignable to type 'true | FixedDir | undefined'.
+src/views/admin/Assets.vue(189,38): error TS2322: Type 'Record<string, AssetTableSortOrder>' is not assignable to type 'SortState'.
+  'string' index signatures are incompatible.
+    Type 'AssetTableSortOrder' is not assignable to type 'SortOrder'.
+      Type '"desc"' is not assignable to type 'SortOrder'.
+src/views/admin/AuditLog.vue(28,26): error TS2322: Type '(targetPage?: number) => Promise<void>' is not assignable to type '(evt: MouseEvent) => any'.
+  Types of parameters 'targetPage' and 'evt' are incompatible.
+    Type 'MouseEvent' is not assignable to type 'number'.
+src/views/admin/AuditLog.vue(123,25): error TS2322: Type 'AuditDateRange' is not assignable to type 'EpPropMergeType<(new (...args: any[]) => string | number | Date | [DateModelType, DateModelType]) | (() => ModelValueType) | (PropConstructor<ModelValueType> | null)[], unknown, unknown> | undefined'.
+  Type 'null' is not assignable to type 'EpPropMergeType<(new (...args: any[]) => string | number | Date | [DateModelType, DateModelType]) | (() => ModelValueType) | (PropConstructor<ModelValueType> | null)[], unknown, unknown> | undefined'.
+src/views/admin/AuditLog.vue(259,47): error TS2367: This comparison appears to be unintentional because the types 'number | null' and 'string' have no overlap.
+src/views/admin/AuditLog.vue(293,34): error TS2322: Type '(targetPage?: number) => Promise<void>' is not assignable to type '(evt: MouseEvent) => any'.
+  Types of parameters 'targetPage' and 'evt' are incompatible.
+    Type 'MouseEvent' is not assignable to type 'number'.
+src/views/admin/AuditLog.vue(304,38): error TS2322: Type 'TableV2Column<AuditLogItemResponse>[]' is not assignable to type 'AnyColumn[]'.
+  Type 'TableV2Column<AuditLogItemResponse>' is not assignable to type 'AnyColumn'.
+    Types of property 'fixed' are incompatible.
+      Type 'true | "left" | "right" | undefined' is not assignable to type 'true | FixedDir | undefined'.
+        Type '"left"' is not assignable to type 'true | FixedDir | undefined'.
+src/views/admin/AuditLog.vue(371,59): error TS2367: This comparison appears to be unintentional because the types 'number | null' and 'string' have no overlap.
+src/views/admin/AuditLog.vue(405,54): error TS2322: Type '(targetPage?: number) => Promise<void>' is not assignable to type '(evt: MouseEvent) => any'.
+  Types of parameters 'targetPage' and 'evt' are incompatible.
+    Type 'MouseEvent' is not assignable to type 'number'.
+src/views/admin/AuditLog.vue(769,5): error TS2322: Type 'string' is not assignable to type 'number'.
+src/views/admin/ClusterRuntime.vue(230,87): error TS2345: Argument of type 'string' is not assignable to parameter of type '"alive" | "draining" | "suspect" | "dead" | "maintenance"'.
+src/views/admin/PluginAdmin.vue(253,50): error TS2322: Type 'unknown' is not assignable to type 'string | number | boolean | Record<string, any>'.
+src/views/admin/Settings.vue(602,49): error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  Type 'null' is not assignable to type 'number | undefined'.
+src/views/admin/article/Write.vue(775,10): error TS2459: Module '"@/services/authoring/articleWorkspaceTabRouter"' declares 'ArticleWorkspaceStatusSummary' locally, but it is not exported.
+src/views/admin/article/Write.vue(1195,44): error TS2339: Property 'fields' does not exist on type '{ $: ComponentInternalInstance; $data: {}; $props: Partial<{ readonly inline: boolean; readonly disabled: boolean; readonly labelWidth: EpPropMergeType<readonly [StringConstructor, NumberConstructor], unknown, unknown>; ... 8 more ...; readonly scrollToError: boolean; }> & Omit<...>; ... 11 more ...; $watch<T extend...'.
+src/views/admin/article/Write.vue(1195,57): error TS7006: Parameter 'field' implicitly has an 'any' type.
+src/views/admin/moderation/ModerationRegions.vue(22,18): error TS2322: Type 'ModerationRegionDefinition[]' is not assignable to type 'DataListRow[]'.
+  Type 'ModerationRegionDefinition' is not assignable to type 'DataListRow'.
+    Index signature for type 'string' is missing in type 'ModerationRegionDefinition'.
+src/views/admin/moderation/ModerationRegions.vue(40,33): error TS2352: Conversion of type 'DataListRow' to type 'ModerationRegionDefinition' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'DataListRow' is missing the following properties from type 'ModerationRegionDefinition': regionCode, displayName, parentRegion, primaryGroup, and 4 more.
+src/views/admin/moderation/ModerationRegions.vue(55,58): error TS2352: Conversion of type 'DataListRow' to type 'ModerationRegionDefinition' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'DataListRow' is missing the following properties from type 'ModerationRegionDefinition': regionCode, displayName, parentRegion, primaryGroup, and 4 more.
+src/views/admin/moderation/ModerationRegions.vue(57,53): error TS2352: Conversion of type 'DataListRow' to type 'ModerationRegionDefinition' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'DataListRow' is missing the following properties from type 'ModerationRegionDefinition': regionCode, displayName, parentRegion, primaryGroup, and 4 more.
+src/views/admin/security/SecuritySimulator.vue(24,29): error TS2322: Type 'string | null' is not assignable to type 'string | number | boolean | unknown[] | Record<string, any> | undefined'.
+  Type 'null' is not assignable to type 'string | number | boolean | unknown[] | Record<string, any> | undefined'.
+src/views/admin/security/SecuritySimulator.vue(41,29): error TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  Type 'null' is not assignable to type 'number | undefined'.
+src/views/admin/security/SecuritySimulator.vue(72,29): error TS2322: Type 'string | null' is not assignable to type 'string | number | boolean | unknown[] | Record<string, any> | undefined'.
+  Type 'null' is not assignable to type 'string | number | boolean | unknown[] | Record<string, any> | undefined'.
+src/views/admin/security/SecuritySimulator.vue(193,51): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/views/admin/security/SecuritySimulator.vue(245,64): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/views/admin/security/SecuritySimulator.vue(261,63): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/views/user/IdentityCenter.vue(9,35): error TS2345: Argument of type '"UserIdentityOverview"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(95,34): error TS2345: Argument of type '"UserIdentityPasskeys"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(231,34): error TS2345: Argument of type '"UserIdentityRecoveryKey"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(279,34): error TS2345: Argument of type '"UserIdentityMfa"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(332,34): error TS2345: Argument of type '"UserIdentityAnonymous"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(344,34): error TS2345: Argument of type '"UserIdentityPublicProfile"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(403,34): error TS2345: Argument of type '"UserIdentitySessions"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(520,34): error TS2345: Argument of type '"UserIdentityCommentRecords"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(623,10): error TS6133: 'MfaChallengeResult' is declared but its value is never read.
+src/views/user/IdentityCenter.vue(625,10): error TS6133: 'MfaSetupStart' is declared but its value is never read.
+src/views/user/IdentityCenter.vue(626,10): error TS6133: 'MfaSetupVerify' is declared but its value is never read.
+src/views/user/IdentityCenter.vue(628,10): error TS6133: 'PasskeyLoginBeginResponse' is declared but its value is never read.
+src/views/user/IdentityCenter.vue(860,54): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(getter: ComputedGetter<keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }>>, debugOptions?: DebuggerOptions | undefined): ComputedRef<...>', gave the following error.
+    Argument of type '() => keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }> | "UserIdentityOverview"' is not assignable to parameter of type 'ComputedGetter<keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }>>'.
+      Type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }> | "UserIdentityOverview"' is not assignable to type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+        Type '"UserIdentityOverview"' is not assignable to type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+  Overload 2 of 2, '(options: WritableComputedOptions<keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }>, keyof ComputedRef<...>>, debugOptions?: DebuggerOptions | undefined): WritableComputedRef<...>', gave the following error.
+    Argument of type '() => keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }> | "UserIdentityOverview"' is not assignable to parameter of type 'WritableComputedOptions<keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; ... 5 more ...; readonly UserIdentityCommentRecords: { ...; }; }>, keyof ComputedRef<...>>'.
+src/views/user/IdentityCenter.vue(866,36): error TS7053: Element implicitly has an 'any' type because expression of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>' can't be used to index type '{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.
+  Property 'value' does not exist on type '{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }'.
+src/views/user/IdentityCenter.vue(871,20): error TS2345: Argument of type '"UserIdentityCommentRecords"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+src/views/user/IdentityCenter.vue(1352,52): error TS2345: Argument of type '"UserIdentityOverview"' is not assignable to parameter of type 'keyof ComputedRef<{ readonly UserIdentityOverview: { readonly title: "身份总览"; readonly description: ""; }; readonly UserIdentityPasskeys: { readonly title: "通行密钥"; readonly description: ""; }; readonly UserIdentityRecoveryKey: { ...; }; ... 4 more ...; readonly UserIdentityCommentRecords: { ...; }; }>'.
+../../../FsusUI-2325-review-83036006/vue/packages/components/breadcrumb/src/breadcrumb.vue(25,7): error TS6133: 'breadcrumb' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/carousel/src/carousel-item.vue(41,3): error TS6133: 'carouselItemRef' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/carousel/src/carousel.vue(96,3): error TS6133: 'root' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/date-picker/src/date-picker-com/basic-date-table.vue(64,3): error TS6133: 'tbodyRef' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/date-picker/src/date-picker-com/panel-date-range.vue(662,27): error TS6133: 'value' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/input/src/input.vue(251,9): error TS6133: 'wrapperRef' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/markdown-editor/src/markdown-editor-attachment-lifecycle.ts(78,3): error TS6133: 'source' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/markdown-editor/src/markdown-editor-attachment-lifecycle.ts(169,3): error TS6133: 'source' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/markdown-editor/src/markdown-editor-attachment-lifecycle.ts(250,3): error TS6133: 'source' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/markdown-editor/src/markdown-editor-caption.ts(49,3): error TS6133: 'source' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/markdown-editor/src/markdown-editor-caption.ts(71,3): error TS6133: 'source' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/markdown-editor/src/markdown-editor-link-image.ts(356,3): error TS6133: 'source' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/markdown-editor/src/markdown-editor-live-reveal.ts(581,3): error TS6133: 'selection' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/perception-challenge/src/localization-challenge.vue(71,7): error TS6133: 'targetRef' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/radio/src/radio-button.vue(50,9): error TS6133: 'radioRef' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/radio/src/radio.vue(56,9): error TS6133: 'radioRef' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/responsive-collection/src/responsive-collection.vue(129,7): error TS6133: 'getItemKey' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/slider/src/button.vue(65,3): error TS6133: 'button' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/slider/src/button.vue(66,3): error TS6133: 'tooltip' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/slider/src/slider.vue(131,3): error TS6133: 'slider' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/slider/src/slider.vue(132,3): error TS6133: 'firstButton' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/slider/src/slider.vue(133,3): error TS6133: 'secondButton' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/slider/src/slider.vue(242,7): error TS6133: 'sliderWrapper' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/switch/src/switch.vue(147,7): error TS6133: 'core' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/table-v2/src/constants.ts(1,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/components/table-v2/src/constants.ts(6,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/components/table-v2/src/constants.ts(11,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/components/table/src/composables/use-wasm-sort.ts(42,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/components/table/src/composables/use-wasm-sort.ts(43,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tabs/src/tab-nav.tsx(59,14): error TS6133: 'tab' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tabs/src/tab-nav.tsx(59,36): error TS6133: 'tabName' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tabs/src/tab-nav.tsx(61,15): error TS6133: 'tab' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tabs/src/tabs.tsx(73,14): error TS6133: 'pane' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tabs/src/tabs.tsx(75,10): error TS6133: 'paneName' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tooltip-v2/src/arrow.vue(22,7): error TS6133: 'arrowRef' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tooltip-v2/src/common.ts(14,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tooltip-v2/src/content.vue(42,23): error TS6133: 'contentRef' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tree-v2/src/virtual-tree.ts(29,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/components/tree-v2/src/virtual-tree.ts(36,19): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/motion/runtime.ts(228,3): error TS6133: 'properties' is declared but its value is never read.
+../../../FsusUI-2325-review-83036006/vue/packages/utils/vue/vnode.ts(22,13): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/wasm/index.ts(357,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+../../../FsusUI-2325-review-83036006/vue/packages/wasm/markdown-directive-syntax.ts(45,3): error TS6133: 'lineStart' is declared but its value is never read.
