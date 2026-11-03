@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/article-vault/linux/LinuxVaultWatcherSession.cs"
+            ],
+            "reason": "Preserve caller-visible Linux inotify mask and stable reason-code spelling in this existing registered source surface while internal C# members retain repository naming. The acknowledgement repair adds no external names."
+        }
+    ]
+}

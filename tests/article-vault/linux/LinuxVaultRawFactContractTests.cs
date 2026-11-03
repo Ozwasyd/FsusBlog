@@ -1,5 +1,7 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 using FsusBlog.ArticleVault.Linux;
@@ -29,8 +31,112 @@ public sealed class LinuxVaultRawFactContractTests
         Assert.False(session.Watermark.IsValid);
 
         LinuxVaultWatermark acknowledged = session.AcknowledgeRescan(LinuxVaultTestRoot.DigestA);
-        Assert.True(acknowledged.IsValid);
-        Assert.Equal(LinuxVaultTestRoot.DigestA, acknowledged.RescanReceiptSha256);
+        Assert.False(acknowledged.IsValid);
+        Assert.Null(acknowledged.RescanReceiptSha256);
+        Assert.Equal("linux_vault_watcher_restart", acknowledged.InvalidatedReasonCode);
+    }
+
+    [Theory]
+    [InlineData('0', "linux_vault_watcher_restart")]
+    [InlineData('a', "linux_vault_inotify_queue_overflow")]
+    [InlineData('F', "linux_vault_watch_descriptor_unknown")]
+    [InlineData('c', "linux_vault_path_permission_blocked")]
+    public void DigestAcknowledgement_ManagedBoundaryPreservesInvalidWatermark(char digit, string reason)
+    {
+        // Exercise only the actual acknowledgement method; this fixture proves no native scan or event coverage.
+        var session = (LinuxVaultWatcherSession)RuntimeHelpers.GetUninitializedObject(typeof(LinuxVaultWatcherSession));
+        var before = new LinuxVaultWatermark("managed-watch-instance", 8, false, reason, null);
+        typeof(LinuxVaultWatcherSession).GetProperty(nameof(LinuxVaultWatcherSession.Watermark))!.SetValue(session, before);
+        typeof(LinuxVaultWatcherSession).GetField("_nextSequence", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(session, 9L);
+
+        LinuxVaultWatermark acknowledged = session.AcknowledgeRescan(new string(digit, 64));
+
+        Assert.Equal(before, acknowledged);
+        Assert.Equal(before, session.Watermark);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("abc")]
+    [InlineData("gggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggggg")]
+    public void DigestAcknowledgement_ManagedBoundaryRetainsArgumentValidation(string digest)
+    {
+        var session = (LinuxVaultWatcherSession)RuntimeHelpers.GetUninitializedObject(typeof(LinuxVaultWatcherSession));
+
+        Assert.Throws<ArgumentException>(() => session.AcknowledgeRescan(digest));
+    }
+
+    [Fact]
+    public void DigestAcknowledgement_ManagedBoundaryRetainsDisposedGuard()
+    {
+        var session = (LinuxVaultWatcherSession)RuntimeHelpers.GetUninitializedObject(typeof(LinuxVaultWatcherSession));
+        typeof(LinuxVaultWatcherSession).GetField("_disposed", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(session, true);
+
+        Assert.Throws<ObjectDisposedException>(() => session.AcknowledgeRescan(LinuxVaultTestRoot.DigestA));
+    }
+
+    [Fact]
+    public void DigestAcknowledgement_ArbitraryAndStaleDigestsCannotClearNativeRestart()
+    {
+        using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
+        string staleDigest;
+        string firstWatch;
+        using (LinuxVaultWatcherSession first = root.Open())
+        {
+            firstWatch = first.Identity.WatchInstanceIdentity;
+            staleDigest = Assert.Single(first.ReadAvailable(), item => item.FactClass == LinuxVaultFactClass.WatcherRestarted).ContentSha256;
+        }
+
+        using LinuxVaultWatcherSession session = root.Open();
+        _ = session.ReadAvailable();
+        Assert.NotEqual(firstWatch, session.Identity.WatchInstanceIdentity);
+        LinuxVaultWatermark before = session.Watermark;
+
+        foreach (string digest in new[] { new string('c', 64), staleDigest })
+        {
+            Assert.Equal(before, session.AcknowledgeRescan(digest));
+        }
+    }
+
+    [Fact]
+    public void DigestAcknowledgement_PartialInventoryCannotCoverPendingNativeEvents()
+    {
+        using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
+        using LinuxVaultWatcherSession session = root.Open();
+        _ = session.ReadAvailable();
+        string included = Path.Combine(root.Path, "included.md");
+        File.WriteAllText(included, "included\n");
+        File.WriteAllText(Path.Combine(root.Path, "omitted.md"), "omitted\n");
+        string partialDigest = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(included)));
+        LinuxVaultWatermark before = session.Watermark;
+
+        Assert.Equal(before, session.AcknowledgeRescan(partialDigest));
+        IReadOnlyList<LinuxVaultRawFact> facts = LinuxVaultTestRoot.WaitFor(
+            session, item => item.RawNewRelativePath == "omitted.md" && item.FactClass == LinuxVaultFactClass.ClosedAfterWrite);
+        Assert.All(facts, static fact => Assert.False(fact.WatermarkValid));
+        Assert.Equal(session.Watermark, session.AcknowledgeRescan(partialDigest));
+        Assert.False(session.Watermark.IsValid);
+    }
+
+    [Fact]
+    public void DigestAcknowledgement_FailedInventoryReadCannotClearNativeLoss()
+    {
+        using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
+        using LinuxVaultWatcherSession session = root.Open();
+        _ = session.ReadAvailable();
+        string source = Path.Combine(root.Path, "removed.md");
+        File.WriteAllText(source, "previous inventory\n");
+        string staleDigest = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(source)));
+        File.Delete(source);
+        Assert.Throws<FileNotFoundException>(() => File.ReadAllBytes(source));
+        _ = LinuxVaultTestRoot.WaitFor(session, item => item.FactClass == LinuxVaultFactClass.Deleted);
+        LinuxVaultWatermark before = session.Watermark;
+
+        Assert.Equal(before, session.AcknowledgeRescan(staleDigest));
+        Assert.False(session.Watermark.IsValid);
+        Assert.Null(session.Watermark.RescanReceiptSha256);
     }
 
     [Fact]
