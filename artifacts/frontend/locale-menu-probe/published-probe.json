@@ -1,0 +1,25 @@
+{
+    "schema": "fsusblog.locale-menu-api-probe.v1",
+    "runId": "locale-menu-published-2026-10-08T02:47:35.051Z",
+    "mode": "published",
+    "blogCommit": "a84a77f3655664c4567b5e00152126f0fd28bb57",
+    "blogStatus": "",
+    "localRoot": null,
+    "localCommit": null,
+    "localTree": null,
+    "localStatus": null,
+    "nodeVersion": "v24.19.0",
+    "harnessDigests": {
+        "tests/frontend/fixtures/localeMenuProbe/App.vue": "005e478c20f667152d58aa1c17726185bc7ed8db31a55bb7fea8f5068fc5a046",
+        "tests/frontend/fixtures/localeMenuProbe/main.ts": "e295dd61fbd7e3c13ec4de264607f090240f918dfe9dc3b56cd6e8ce667eaf80",
+        "tests/frontend/fixtures/localeMenuProbe/index.html": "52f5c8e6b05020c7461fdf72535610a26b98cb6d3f2f73c1419e7ad7d9e372eb",
+        "tests/frontend/checks/runtime/probe-locale-menu.mjs": "4701806957e425f63c9bc7bd0fd53a38efce2f5cab4a60f81ddc0ed052223257"
+    },
+    "authorityDigests": {},
+    "observations": {},
+    "errors": [
+        "Error: ENOENT: no such file or directory, open '/workspace/FsusBlog/src/frontend/node_modules/@ozwasyd/element-plus/package.json'\n    at async open (node:internal/fs/promises:697:25)\n    at async Object.readFile (node:internal/fs/promises:1348:14)\n    at async file:///workspace/FsusBlog/tests/frontend/checks/runtime/probe-locale-menu.mjs:72:40"
+    ],
+    "qualification": false,
+    "status": "blocked"
+}

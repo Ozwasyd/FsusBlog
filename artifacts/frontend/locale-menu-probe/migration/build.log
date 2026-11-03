@@ -1,0 +1,79 @@
+
+> fsusblog-client@0.0.0 prebuild
+> npm run generate:public-page-manifest && npm run generate:public-shell-emergency
+
+
+> fsusblog-client@0.0.0 generate:public-page-manifest
+> node ../../tools/frontend/generate-public-page-manifest.mjs
+
+[generate-public-page-manifest] wrote /workspace/FsusBlog/src/frontend/src/public-renderers/generated/publicPageManifest.ts
+
+> fsusblog-client@0.0.0 generate:public-shell-emergency
+> node ../../tools/frontend/generate-public-shell-emergency.mjs
+
+[generate-public-shell-emergency] wrote src/frontend/public/public-shell-emergency.css
+[generate-public-shell-emergency] wrote src/frontend/dist/server/public-shell-emergency.css
+
+> fsusblog-client@0.0.0 build
+> npm run build:release
+
+
+> fsusblog-client@0.0.0 build:release
+> node ../../tools/frontend/build.mjs
+
+[client-build] execution deadline=9600000ms source=direct-grant-capacity
+[client-build] production build identity=20261008033704-b8b886fc25e4
+[client-build] starting ensure-wasm
+[client-build] starting generate-public-page-manifest
+[client-build] starting generate-public-shell-emergency
+[generate-public-shell-emergency] wrote src/frontend/public/public-shell-emergency.css
+[generate-public-page-manifest] wrote /workspace/FsusBlog/src/frontend/src/public-renderers/generated/publicPageManifest.ts
+[client-build] finished generate-public-page-manifest
+[client-build] finished generate-public-shell-emergency
+[client-build] starting vue-tsc
+[client-build] starting vite-public-ssr-build
+[ensure-wasm] receipt fallback=run-canonical-producer: WASM build receipt source identity mismatch: commit
+[ensure-wasm] artifacts are up to date; sealed wasm-build-receipt.json
+[client-build] finished ensure-wasm
+[client-build] starting vite-build
+failed to load config from /workspace/FsusBlog/src/frontend/vite.config.ts
+error during build:
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@tailwindcss/vite' imported from /workspace/FsusBlog/src/frontend/node_modules/.vite-temp/vite.config.ts.timestamp-1791430624820-9bb302e72b0268.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:859:18)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+    at #resolve (node:internal/modules/esm/loader:683:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
+[client-build] finished vue-tsc
+[public-ssr-build] fatal: vite public SSR build failed with exit code 1
+failed to load config from /workspace/FsusBlog/src/frontend/vite.config.ts
+error during build:
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@tailwindcss/vite' imported from /workspace/FsusBlog/src/frontend/node_modules/.vite-temp/vite.config.ts.timestamp-1791430624858-9b56110fd82118.mjs
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:859:18)
+    at defaultResolve (node:internal/modules/esm/resolve:992:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:701:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:721:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:759:56)
+    at #resolve (node:internal/modules/esm/loader:683:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:603:35)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:163:33)
+[client-build] fatal: 2 weighted command manifest entries failed:
+- vite-public-ssr-build: vite-public-ssr-build failed with exit code 1
+- vite-build: vite-build failed with exit code 1
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
