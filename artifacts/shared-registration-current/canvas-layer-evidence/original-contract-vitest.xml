@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="13" failures="0" errors="0" time="1.246272643">
+    <testsuite name="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" timestamp="2026-10-09T05:53:08.278Z" hostname="0e33985bbc57" tests="13" failures="0" errors="0" skipped="0" time="1.246272643">
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; defines exact closed node, edge, and reference status types" time="0.004514893">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasNode &gt; validates a valid article-reference node" time="0.000506423">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasNode &gt; rejects an article reference node that tries to store markdown or HTML copy" time="0.001433833">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasNode &gt; validates a valid plain-text note within budget" time="0.000646921">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasNode &gt; rejects plain-text note exceeding size budget" time="0.0003849">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasNode &gt; rejects plain-text note containing forbidden script injection" time="0.000452166">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasNode &gt; validates a valid group frame node" time="0.00024514">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasEdge &gt; validates a valid edge" time="0.000578435">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasEdge &gt; rejects self-referencing edge" time="0.00049703">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasDocument &gt; validates a complete valid canvas document" time="0.002291853">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasDocument &gt; rejects document with missing edge target node" time="0.002105123">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasDocument &gt; rejects document with invalid revision (&lt; 1)" time="0.000723701">
+        </testcase>
+        <testcase classname="../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts" name="Authoring Canvas Contract (#2482, #2484) &gt; validateAuthoringCanvasDocument &gt; computes deterministic digest for identical content regardless of key ordering" time="0.002643409">
+        </testcase>
+    </testsuite>
+</testsuites>

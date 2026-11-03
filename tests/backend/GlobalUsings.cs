@@ -20,3 +20,5 @@ global using Xunit;
 
 global using AedsFrameHeader = FsusBlog.Shared.AedsFrameHeader;
 global using IArticleService = FsusBlog.Core.Services.Abstractions.IArticleCoreService;
+
+global using FsusBlog.Shared.Contracts.AuthoringCanvas;

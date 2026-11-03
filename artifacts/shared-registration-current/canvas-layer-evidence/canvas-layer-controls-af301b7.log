@@ -1,0 +1,44 @@
+(node:18145) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ canonical generated client budgets remain immutable and equal the original wire limits (90.9316ms)
+✔ client budget producer refuses missing duplicate reversed markers and invalid owners (3.292456ms)
+✔ original contracts-layer rule accepts the actual canonical contract and cleans its scoped input (75.22243ms)
+✔ original contracts-layer rule rejects the exact old runtime import and cleans its scoped input (103.745816ms)
+(node:18146) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all thirteen roots match frozen cross-stack bytes and refuse the frozen malformed controls (14.890943ms)
+✔ generated AuthoringCanvasCreateRequest round-trips and refuses every truncation, schema and trailing bytes (5.815689ms)
+✔ generated AuthoringCanvasDocumentHeader round-trips and refuses every truncation, schema and trailing bytes (4.651316ms)
+✔ generated AuthoringCanvasListResponse round-trips and refuses every truncation, schema and trailing bytes (1.683406ms)
+✔ generated AuthoringCanvasNodesResponse round-trips and refuses every truncation, schema and trailing bytes (2.625813ms)
+✔ generated AuthoringCanvasEdgesResponse round-trips and refuses every truncation, schema and trailing bytes (3.984373ms)
+✔ generated AuthoringCanvasApplyRequest round-trips and refuses every truncation, schema and trailing bytes (35.819557ms)
+✔ generated AuthoringCanvasOperationReceipt round-trips and refuses every truncation, schema and trailing bytes (25.237336ms)
+✔ generated AuthoringCanvasUndoRedoRequest round-trips and refuses every truncation, schema and trailing bytes (7.187965ms)
+✔ generated AuthoringCanvasHistoryResponse round-trips and refuses every truncation, schema and trailing bytes (6.016573ms)
+✔ generated AuthoringCanvasDeleteRequest round-trips and refuses every truncation, schema and trailing bytes (0.86921ms)
+✔ generated AuthoringCanvasWriteReceipt round-trips and refuses every truncation, schema and trailing bytes (10.033995ms)
+✔ generated AuthoringCanvasResolveRequest round-trips and refuses every truncation, schema and trailing bytes (4.069892ms)
+✔ generated AuthoringCanvasReferenceResolutionBatch round-trips and refuses every truncation, schema and trailing bytes (140.855195ms)
+✔ create request matches independent network-Guid / little-endian scalar golden bytes (5.278503ms)
+✔ UTF8 decoding is fatal and preserves BOM and paired supplementary scalars (2.470805ms)
+✔ string lengths check UTF16 characters and declared byte bounds before slicing (1.388353ms)
+✔ Int64 stays exact above Number.MAX_SAFE_INTEGER and refuses noncanonical/out-of-range strings (2.166489ms)
+✔ DateTime wire bounds exactly match existing UnixMs POD timestamps (1.470464ms)
+✔ geometry and viewport refuse nonfinite and out-of-bound doubles during encode and decode (4.024735ms)
+✔ closed enums and strict nullable / boolean markers reject substituted values (0.871026ms)
+✔ digest bytes are lowercase 64-byte hexadecimal rather than arbitrary text (0.370159ms)
+✔ array count and physical element widths refuse claimed allocation before reading members (2.225406ms)
+✔ fact payload preserves optional typed branches and omits untrusted content digests (1.568364ms)
+✔ aggregate Before plus After facts are bounded across commands, on both encoding and decoding (1115.220685ms)
+✔ 8 MiB global payload cap refuses excessive valid bounded nested nodes (145.586094ms)
+✔ resolution receipt nested coordinate, open intent, projection reference and UTF8 context are preserved (1.421187ms)
+✔ generator binds current frame, enum, constructor and domain budgets and refuses owner drift (43.140188ms)
+ℹ tests 32
+ℹ suites 0
+ℹ pass 32
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2055.858542

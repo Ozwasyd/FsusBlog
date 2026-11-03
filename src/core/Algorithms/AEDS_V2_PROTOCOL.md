@@ -301,3 +301,49 @@ Notification payload values use a small tagged binary representation so the WebS
 3. Read payload block of `PayloadLength`.
 4. Recompute and compare `PayloadCrc16`.
 5. Decode payload using corresponding compact POD schema by `FrameType`.
+
+
+## Bounded private authoring registrations
+
+The active manifest contains 273 roots. The original 244 registrations through
+value 252 retain their exact identities, families and golden order. Values
+253–281 use the canonical typed owners and producers below; golden order remains
+244–272. The manifest does not require a `reservedFrameValues` property when
+all allocated roots are active.
+
+| Values | Canonical wire owner | Native refusal |
+| --- | --- | --- |
+| 253–265 | `authoring-canvas-wire.json` | 11 |
+| 266–268 | `article-canvas-link-wire.json` | 12 |
+| 269 | `article-property-value-read-wire.json` (payload v2) | 13 |
+| 270–271 | `authoring-workspace-snapshot-wire.json` | 14 |
+| 272–274 | `writing-aid-preference-wire.json` | 15 |
+| 275 | `UploadAssetPreviewDto` and `UploadAssetPreviewPod` | 16 |
+| 276–277 | `author-article-selection-wire.json` | 17 |
+| 278–281 | `document-export-wire.json` | 18 |
+
+Wire schemas live in `src/shared/Contracts/Validation`. Their original producers
+retain the typed Shared/domain owners, bounded C# codecs, TypeScript products and
+production C++ validators. Canvas domain types move unchanged from Server to
+Shared; the existing Server document store and operation engine remain the
+only implementations. Response registration uses the existing
+`binaryDecoderRegistry`, with no request roots registered as response decoders.
+
+Document Export requires exact active IDs and golden families. Missing roots
+without reservations report controlled registration drift. Its complete frame
+budgets are 16,384 / 1,024 / 32,784 / 2,097,168 bytes for request / task request /
+job response / page response; nonzero flags and oversize refuse before CRC,
+while in-budget invalid CRC retains error 6. Inner validation retains error 18.
+Existing header, retired/unknown, CRC and other family guards remain in order.
+
+Registration and codec verification grant no authenticated HTTP, storage/CAS,
+provider/native product or rendered UX acceptance. Real session/scope authority,
+source freezer ports and independent runtime/CI qualification remain required.
+
+
+The Canvas wire producer also owns the marked client-budget section in
+`src/frontend/src/contracts/authoringCanvas.ts`. The client contract has no
+runtime imports; its budget literals and the existing wire limits derive from
+the same Shared domain constants. Missing/duplicate generation markers refuse,
+and `--check` verifies the section. This preserves the original contracts-layer
+rule and does not change any managed, TypeScript or C++ payload bytes.

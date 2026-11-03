@@ -4,7 +4,11 @@
   "defaultEvidence": [
     "tests/backend/Unit/BackendGoldenCatalogTests.cs",
     "tests/backend/Unit/PodBinaryCodecTests.cs",
-    "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
+    "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
+    "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
+    "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
+    "tests/backend/Unit/WritingAidPreferenceWireTests.cs",
+    "tests/backend/Unit/UploadAssetPreviewCodecTests.cs"
   ],
   "retiredFrameValues": [
     { "value": 40, "reason": "legacy-admin-password-reset" },
@@ -259,6 +263,35 @@
     { "name": "ThemeRegistryDetail", "value": 248, "family": "theme-registry-response" },
     { "name": "ThemeActivationList", "value": 249, "family": "theme-activation-response" },
     { "name": "ThemeActivation", "value": 250, "family": "theme-activation-response" },
-    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" }
+    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" },
+    { "name": "AuthoringCanvasCreateRequest", "value": 253, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasDocumentHeader", "value": 254, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasListResponse", "value": 255, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasNodesResponse", "value": 256, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasEdgesResponse", "value": 257, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasApplyRequest", "value": 258, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasOperationReceipt", "value": 259, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasUndoRedoRequest", "value": 260, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasHistoryResponse", "value": 261, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasDeleteRequest", "value": 262, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasWriteReceipt", "value": 263, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasResolveRequest", "value": 264, "family": "authoring-canvas" },
+    { "name": "AuthoringCanvasReferenceResolutionBatch", "value": 265, "family": "authoring-canvas" },
+    { "name": "ArticleCanvasLinkRequest", "value": 266, "family": "article-canvas-link" },
+    { "name": "ArticleCanvasLinkReceipt", "value": 267, "family": "article-canvas-link" },
+    { "name": "ArticleCanvasLinkHistoryResponse", "value": 268, "family": "article-canvas-link" },
+    { "name": "ArticlePropertyValueReadResponse", "value": 269, "family": "article-property-value-read" },
+    { "name": "AuthoringWorkspaceSnapshotRequest", "value": 270, "family": "authoring-workspace-snapshot" },
+    { "name": "AuthoringWorkspaceSnapshotResponse", "value": 271, "family": "authoring-workspace-snapshot" },
+    { "name": "WritingAidPreferenceSnapshotResponse", "value": 272, "family": "writing-aid-preference" },
+    { "name": "WritingAidPreferenceUpdateRequest", "value": 273, "family": "writing-aid-preference" },
+    { "name": "WritingAidPreferenceReceiptResponse", "value": 274, "family": "writing-aid-preference" },
+    { "name": "UploadAssetPreview", "value": 275, "family": "upload-response" },
+    { "name": "AuthorArticleSelectionRevalidateRequest", "value": 276, "family": "author-article-selection" },
+    { "name": "AuthorArticleSelectionRevalidateResponse", "value": 277, "family": "author-article-selection" },
+    { "name": "DocumentExportRequest", "value": 278, "family": "document-export-request" },
+    { "name": "DocumentExportTaskRequest", "value": 279, "family": "document-export-task-request" },
+    { "name": "DocumentExportJobResponse", "value": 280, "family": "document-export-job-response" },
+    { "name": "DocumentExportPageResponse", "value": 281, "family": "document-export-page-response" }
   ]
 }

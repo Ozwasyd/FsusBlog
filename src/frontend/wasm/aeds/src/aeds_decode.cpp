@@ -2,6 +2,14 @@
 
 #include "aeds_crc32.hpp"
 #include "aeds_frame.hpp"
+#include "authoring_canvas_wire.generated.hpp"
+#include "article_canvas_link_wire.generated.hpp"
+#include "property_value_read.generated.hpp"
+#include "authoring_workspace_snapshot_wire.generated.hpp"
+#include "writing_aid_preference_wire.generated.hpp"
+#include "upload_asset_preview_pod.hpp"
+#include "author_article_selection_wire.generated.hpp"
+#include "document_export_wire.generated.hpp"
 #include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
@@ -54,6 +62,22 @@ const char* ToErrorString(ErrorCode errorCode)
             return "header_length_mismatch";
         case ErrorCode::PayloadCrcMismatch:
             return "payload_crc_mismatch";
+        case ErrorCode::ArticleCanvasLinkPayloadInvalid:
+            return "article_canvas_link_payload_invalid";
+        case ErrorCode::ArticlePropertyValueReadPayloadInvalid:
+            return "article_property_value_read_payload_invalid";
+        case ErrorCode::AuthoringWorkspaceSnapshotPayloadInvalid:
+            return "authoring_workspace_snapshot_payload_invalid";
+        case ErrorCode::WritingAidPreferencePayloadInvalid:
+            return "writing_aid_preference_payload_invalid";
+        case ErrorCode::UploadAssetPreviewPayloadInvalid:
+            return "upload_asset_preview_payload_invalid";
+        case ErrorCode::AuthorArticleSelectionPayloadInvalid:
+            return "author_article_selection_payload_invalid";
+        case ErrorCode::DocumentExportPayloadInvalid:
+            return "document_export_payload_invalid";
+        case ErrorCode::AuthoringCanvasPayloadInvalid:
+            return "authoring_canvas_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
             return "article_payload_invalid";
         case ErrorCode::FrameTypeUnsupported:
@@ -111,6 +135,13 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         return MakeError(ErrorCode::FrameTypeUnsupported);
     }
 
+    const std::size_t ExportBudget = DocumentExportWire::PayloadBudget(FrameType);
+    if (ExportBudget != 0 && (ReadU16Le(frame + 6) != 0
+        || PayloadLength > ExportBudget || frameLen > ExportBudget + kHeaderSize))
+    {
+        return MakeError(ErrorCode::DocumentExportPayloadInvalid);
+    }
+
     const std::uint8_t* payload = frame + kHeaderSize;
     const std::uint16_t PayloadCrc = ComputeCrc16(payload, PayloadLength);
     if (PayloadCrc != PayloadCrc16)
@@ -131,6 +162,51 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         && !FsusBlog::Pod::FontTheme::ParsePayload(FrameType, payload, PayloadLength, nullptr))
     {
         return MakeError(ErrorCode::FontThemePayloadInvalid);
+    }
+
+    if (FrameType >= 253 && FrameType <= 265
+        && !ValidateAuthoringCanvasPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::AuthoringCanvasPayloadInvalid);
+    }
+
+    if (FrameType >= 266 && FrameType <= 268
+        && !ValidateArticleCanvasLinkPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::ArticleCanvasLinkPayloadInvalid);
+    }
+
+    if (FrameType == 269 && !ValidateArticlePropertyValueReadPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::ArticlePropertyValueReadPayloadInvalid);
+    }
+
+    if (FrameType >= 270 && FrameType <= 271
+        && !ValidateAuthoringWorkspaceSnapshotPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::AuthoringWorkspaceSnapshotPayloadInvalid);
+    }
+
+    if (FrameType >= 272 && FrameType <= 274
+        && !ValidateWritingAidPreferencePayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::WritingAidPreferencePayloadInvalid);
+    }
+
+    if (FrameType == 275 && !FsusBlog::Pod::UploadPreview::Parse(payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::UploadAssetPreviewPayloadInvalid);
+    }
+
+    if (FrameType >= 276 && FrameType <= 277
+        && !ValidateAuthorArticleSelectionPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::AuthorArticleSelectionPayloadInvalid);
+    }
+
+    if (ExportBudget != 0 && !DocumentExportWire::Validate(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::DocumentExportPayloadInvalid);
     }
 
     DecodeResult ok{};

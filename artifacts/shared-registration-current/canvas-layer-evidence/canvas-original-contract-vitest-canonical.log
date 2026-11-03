@@ -1,0 +1,26 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog-registration-current/src/frontend
+
+ ❯ ../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  ../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts [ ../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts ]
+Error: Cannot find package 'happy-dom' imported from /workspace/FsusBlog-registration-current/tests/frontend/support/unit/setup.ts
+ ❯ ../../tests/frontend/support/unit/setup.ts:2:1
+      1| import { appendFileSync } from 'node:fs'
+      2| import { Window } from 'happy-dom'
+       | ^
+      3| import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest'
+      4| import { FrameType } from '@wasm/protocol/frame'
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  05:48:25
+   Duration  262ms (transform 59ms, setup 0ms, import 0ms, tests 0ms, environment 0ms)
+
+JSON report written to /workspace/FsusBlog-registration-current/.tmp/test-results/vitest/unit/shared-canvas-contract-layer-canonical.json
+JUNIT report written to /workspace/FsusBlog-registration-current/.tmp/test-results/vitest/unit/shared-canvas-contract-layer-canonical.xml

@@ -1,0 +1,11 @@
+
+ RUN  v4.1.5 /workspace/FsusBlog-registration-current/src/frontend
+
+No test files found, exiting with code 1
+
+filter: ../../tests/frontend/unit/contracts/authoringCanvasContract.test.ts
+include: ../../tests/frontend/unit/**/*.test.ts
+exclude:  **/node_modules/**, **/.git/**
+
+JSON report written to /workspace/FsusBlog-registration-current/.tmp/test-results/vitest/unit/shared-canvas-contract-layer.json
+JUNIT report written to /workspace/FsusBlog-registration-current/.tmp/test-results/vitest/unit/shared-canvas-contract-layer.xml

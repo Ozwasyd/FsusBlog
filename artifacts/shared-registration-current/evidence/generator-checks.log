@@ -1,0 +1,22 @@
+tools/frontend/generate-aeds-protocol.mjs: exit=0
+[aeds-protocol] generated files are in sync
+tools/contracts/generate-authoring-canvas-wire.mjs: exit=0
+[authoring-canvas-wire] checked 13 bounded C#/TypeScript/C++ payload codecs
+tools/contracts/generate-article-canvas-link-wire.mjs: exit=0
+[article-canvas-link-wire] checked 3 closed roots using shared Canvas scalar substrate
+tools/contracts/generate-article-property-value-read-wire.mjs: exit=0
+tools/contracts/generate-authoring-workspace-snapshot-wire.mjs: exit=0
+tools/contracts/generate-writing-aid-preference-wire.mjs: exit=0
+{"mode":"check","ownerIdentity":"553bd0f9619b88d97822fb1431dbb97e3fdfbd680d621194a4a4b6a7eb66015a","sourceOwnerCommit":"983957a68ff9ed55fc00ec0c70ffd3ee7233aa9d","inputs":[{"path":"src/shared/Contracts/Validation/writing-aid-preference-wire.json","sha256":"f4d20e60dc5b06fa91a1f02116f880905b9f027e4177438bc768756f13169d60"},{"path":"src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceContracts.cs","sha256":"20f0a6044486dd73197ce2f07b7a25699be4459f37ab1f99fcc6fdada4f249f3"},{"path":"src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceValidator.cs","sha256":"0adbf08462290b90f78fd8963e4d73f2740add891bb6efe596d86e3a448dd8b3"},{"path":"src/shared/Contracts/AuthoringPreferences/WritingAidPreferenceReceiptValidator.cs","sha256":"d706651aeca0556b028774894c49537ca586b97cc954d920e7a4547927539818"},{"path":"src/shared/Contracts/Models/WritingAidPreferencePods.cs","sha256":"54b3509e33b198909f04b23c859e4c567350505f8aecddab63a447f96b9b598d"},{"path":"src/core/Cache/PodBinaryCodec.WritingAidPreference.cs","sha256":"6c765f0dff9e01a88ba0693fcc0766c900985ac17efe7f54c89b0e2ffff06ba4"},{"path":"src/shared/Contracts/Validation/aeds-protocol.json","sha256":"67950e40f90107ac6e38fb2f6b4e067b0b9c1772c06aa55708c49cf4887b3095"},{"path":"tools/contracts/writing-aid-preference-wire-templates/receipt.cs.inc","sha256":"5da222b728611c45ebd7b6ac94752fd1481b2e147415580a839c3948dd60cdaf"},{"path":"tools/contracts/writing-aid-preference-wire-templates/wire.ts.inc","sha256":"12a0c4911f9013363c20a7a8f368db000b160c19bcef0c2b0e712895882f7b41"},{"path":"tools/contracts/writing-aid-preference-wire-templates/wire.hpp.inc","sha256":"f11cab62a4dc335da424527edcb03c33131f04eaddab0c579aa15ac2e93b6fc1"},{"path":"tools/contracts/generate-writing-aid-preference-wire.mjs","sha256":"9333e4e00c68e1773bce57e8a59ab8adf21ff8a2c358401d92a53a3f6fdf2fb3"},{"path":"tools/contracts/format-generated-property-value-read-typescript.mjs","sha256":"390bc09aac25da3f2bc293f50e87a8aef89ebb599a767b9b1e006654bc0fb7fa"}],"outputs":[{"path":"src/core/Cache/PodBinaryCodec.WritingAidPreferenceReceipt.Generated.cs","sha256":"e44ec25019a7c31d11674b1a2a0a722351134e96bee02d358b686f43cd3416a9"},{"path":"src/frontend/src/codecs/binary/writingAidPreferenceWire.generated.ts","sha256":"b0a14f932036497d2dc44264675b471202061f2dc6109e12a477af99367893ba"},{"path":"src/frontend/wasm/aeds/include/writing_aid_preference_wire.generated.hpp","sha256":"73d59b0f1fc541b3085d86dc4647d8ff9981ff8fa8d6fcc11de9a040bb6d303c"}]}
+tools/contracts/generate-author-article-selection-wire.mjs: exit=0
+tools/contracts/generate-document-export-wire.mjs: exit=0
+tools/contracts/generate-article-canvas-link-golden.mjs: exit=0
+[article-canvas-link-golden] 23 wire cases
+(node:7840) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+tools/contracts/generate-article-property-value-read-golden.mjs: exit=0
+(node:7848) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+tools/contracts/generate-authoring-workspace-snapshot-golden.mjs: exit=0
+tools/contracts/generate-writing-aid-preference-golden.mjs: exit=0
+{"mode":"check","cases":106,"valid":41,"malformed":65,"sha256":"d3654d4d0a2310590848f19b43043caf4aafda4d0b6d8b96511640ebdc4fdafb"}

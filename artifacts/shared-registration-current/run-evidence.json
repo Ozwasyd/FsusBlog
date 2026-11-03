@@ -1,0 +1,150 @@
+{
+  "runIdentity": "shared-registration-current-20261009T053844Z",
+  "recordedAtUtc": "2026-10-09T05:44:10.413115+00:00",
+  "candidateCommit": "71179da783bae459b665b1ca168a97b718b4b01b",
+  "baseCommit": "be7c53d99b64342925ca63d061bacde34d22ba4c",
+  "ordinaryNode": {
+    "protocolExportRegistration": {
+      "passed": 71,
+      "failed": 0,
+      "nativeInputs": 940
+    },
+    "prerequisiteWire": {
+      "passed": 90,
+      "failed": 0
+    },
+    "propertyPureCodec": {
+      "passed": 8,
+      "failed": 0
+    }
+  },
+  "managed": {
+    "total": "374",
+    "executed": "374",
+    "passed": "374",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "generation": {
+    "passedChecks": 12,
+    "failed": 0,
+    "inputStage": "precommit working source subsequently captured by 71179da; twelve unchanged source/output checks"
+  },
+  "standaloneWireTypeScript": {
+    "files": 7,
+    "exitCode": 0
+  },
+  "compilation": {
+    "coreShared": {
+      "exitCode": 0,
+      "warnings": 191
+    },
+    "server": {
+      "exitCode": 0,
+      "warnings": 135
+    },
+    "inputStage": "precommit working source subsequently captured by 71179da; successful ordinary compilation, no frozen-build qualification"
+  },
+  "historicalFailuresRetained": [
+    "read-only default CLI home (two attempts)",
+    "missing Vue tsconfig generator setup",
+    "WritingAid malformed error18 negative control",
+    "partial copied Server domain input in initial managed harness"
+  ],
+  "nativeInputArtifact": {
+    "path": "/tmp/chain-3735-current-registration/native-cases.txt",
+    "sha256": "93bd548f3013a1e664852ebf82e698ef90cb77771f5813e151fc42e9a75de08e",
+    "rows": 940
+  },
+  "qualification": "source WIP / ordinary codec controls only; HTTP/Postgres/provider/UX/full frontend and canonical CI OPEN",
+  "artifacts": [
+    {
+      "path": "evidence/backend-build.log",
+      "sha256": "0b3828421b574c55126a4981db1ba1454e6c6d6b90e83dc52c117f3f974fbe9f"
+    },
+    {
+      "path": "evidence/core-build-no-restore.log",
+      "sha256": "e6b4fe4bbc8756af2b281804af6dd31981931c33d7f7b821422f70762930df4f"
+    },
+    {
+      "path": "evidence/core-build.log",
+      "sha256": "e5c3ac03785e53f424d55787c69239304ecdeac6650ca4c97ecdc2c7bab65ade"
+    },
+    {
+      "path": "evidence/core-restore.log",
+      "sha256": "e6b4fe4bbc8756af2b281804af6dd31981931c33d7f7b821422f70762930df4f"
+    },
+    {
+      "path": "evidence/generator-checks.log",
+      "sha256": "cf8f61b6b6c9092018acdade4f0c4d5e6df246d7d2a05dcfd97ff483737fc918"
+    },
+    {
+      "path": "evidence/ordinary-managed-build-real-owner.log",
+      "sha256": "66f27dc6acf1a0c2752c511c95add48506721337d68208dd917414a7b3487613"
+    },
+    {
+      "path": "evidence/ordinary-managed-build.log",
+      "sha256": "bca97d7a35b9b49b6cae33b325d84811ce56dfd1b95b829b958b7add2fd0f772"
+    },
+    {
+      "path": "evidence/ordinary-managed-locked-restore.log",
+      "sha256": "ec6bf94626be075c8c9b839fc272059e5c9582b9f1d3e3c23188fb2c9d20b6fc"
+    },
+    {
+      "path": "evidence/ordinary-managed-test.log",
+      "sha256": "ca9cf2feb68658c2deff8d31815d610b907905fca8a30277a0987695a1555884"
+    },
+    {
+      "path": "evidence/ordinary-managed.trx",
+      "sha256": "9bae8cd864a8d28f4c8869ea880ff7faa0c16957f30ddf394943b75d16284c33"
+    },
+    {
+      "path": "evidence/prerequisite-wire-node-71179da.log",
+      "sha256": "54eb0dc50d416368c3d75d929f4261b865966cfa5da2bc2ffb433371fa4d8fce"
+    },
+    {
+      "path": "evidence/prerequisite-wire-node.log",
+      "sha256": "cf594fdef7d067e2196075d1fe1ed1015afcf5131866b8053a3a4343a13a51ec"
+    },
+    {
+      "path": "evidence/property-eight-pure-node-71179da.log",
+      "sha256": "d2cfe1851e0eff99dc3d3a4a4e60093a662af962020db2fd4a4c2777eab5010e"
+    },
+    {
+      "path": "evidence/property-eight-pure-node.log",
+      "sha256": "55b1e4b513850907e8c48732e6f3ec45f0677017af2ef54acc1397e787a54936"
+    },
+    {
+      "path": "evidence/protocol-export-node-71179da.log",
+      "sha256": "bd039437c1e01402b149a4cb529a9be717ae99d0d5a4fa324462e94ac3a285bc"
+    },
+    {
+      "path": "evidence/wire-typescript.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "evidence/writing-aid-corrected-control.log",
+      "sha256": "329bc1fc603ed846946016cd4ab6451ef7817b66f7cf491a3640ba890fedb5d0"
+    }
+  ],
+  "commands": {
+    "protocolExport": "FSUSBLOG_EXPORT_WIRE_EVIDENCE=/tmp/chain-3735-current-registration node --test tests/tools/aeds-protocol-generation.test.mjs tests/tools/document-export-registration.test.mjs tests/tools/document-export-wire.test.mjs",
+    "prerequisiteWire": "node --test tests/tools/authoring-canvas-wire.test.mjs tests/tools/article-canvas-link-wire.test.mjs tests/tools/authoring-workspace-snapshot-wire.test.mjs tests/tools/writing-aid-preference-wire.test.mjs tests/tools/author-article-selection-wire.test.mjs tests/tools/article-property-value-read-native.test.mjs tests/tools/authoring-workspace-snapshot-native.test.mjs",
+    "propertyCodec": "node --test --test-name-pattern='^(all current typed cross-stack witnesses|independent empty root proves|eight union tags retain|zero/one/thousand definitions|every small witness truncation|primitive lower-case digests|v2 empty scope is|v2 scope must match)' tests/tools/article-property-value-read-wire.test.mjs",
+    "managed": "DOTNET_CLI_HOME=/tmp/chain-3735-tooling/cli NUGET_PACKAGES=/tmp/chain-3735-tooling/nuget FSUSBLOG_REPO_ROOT=/workspace/FsusBlog-registration-current /tmp/chain-3735-tooling/dotnet/dotnet test artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj -c Release --no-build --no-restore --logger trx;LogFileName=ordinary-managed.trx --results-directory /tmp/chain-3735-current-registration/managed-results",
+    "build": "DOTNET_CLI_HOME=/tmp/chain-3735-tooling/cli NUGET_PACKAGES=/tmp/chain-3735-tooling/nuget /tmp/chain-3735-tooling/dotnet/dotnet build <src/core/FsusBlog.Core.csproj | src/backend/FsusBlog.Server.csproj | artifacts/shared-registration-current/ordinary-managed/OrdinaryManaged.csproj> -c Release --no-restore",
+    "producers": "Each of the twelve explicit producer paths in evidence/generator-checks.log was invoked as node <path> --check",
+    "standaloneTypes": "node tools/frontend/style-toolchain/node_modules/typescript/bin/tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler --lib ES2022,DOM src/frontend/src/codecs/binary/{authoringCanvas,articleCanvasLink,articlePropertyValueRead,authoringWorkspaceSnapshot,writingAidPreference,authorArticleSelection,documentExport}Wire.generated.ts"
+  }
+}

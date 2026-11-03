@@ -1,0 +1,18 @@
+(node:13039) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ all current typed cross-stack witnesses round-trip or reject actual malformed bytes (85.096067ms)
+✔ independent empty root proves LE int64 beyondJS precision and absent persisted snapshot (0.291645ms)
+✔ eight union tags retain decimal96bits, UTC100ns ticks, false and stable identities (1.063808ms)
+✔ zero/one/thousand definitions and values use bounded real generated array codecs (183.982468ms)
+✔ every small witness truncation, malformed long, decimal and lone surrogate fails closed (21.141117ms)
+✔ primitive lower-case digests, closed enums, null/default provenance and coordinates refuse ambiguity (3.532535ms)
+✔ v2 empty scope is authoritative for user/site ownership without actor or host substitution (0.85157ms)
+✔ v2 scope must match every definition and current coordinates; all v1 bytes remain rejected (1.939647ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 489.330148

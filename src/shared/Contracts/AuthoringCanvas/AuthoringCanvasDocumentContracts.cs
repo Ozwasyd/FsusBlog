@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace FsusBlog.Server.Services.Authoring;
+namespace FsusBlog.Shared.Contracts.AuthoringCanvas;
 
 /// <summary>
 /// Closed server-side contract for one private authoring canvas document.

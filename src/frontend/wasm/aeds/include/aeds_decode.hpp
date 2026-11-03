@@ -18,6 +18,14 @@ enum class ErrorCode : std::uint8_t
     ArticlePayloadInvalid = 7,
     FrameTypeUnsupported = 8,
     FrameTypeRetired = 9,
+    AuthoringCanvasPayloadInvalid = 11,
+    ArticleCanvasLinkPayloadInvalid = 12,
+    ArticlePropertyValueReadPayloadInvalid = 13,
+    AuthoringWorkspaceSnapshotPayloadInvalid = 14,
+    WritingAidPreferencePayloadInvalid = 15,
+    UploadAssetPreviewPayloadInvalid = 16,
+    AuthorArticleSelectionPayloadInvalid = 17,
+    DocumentExportPayloadInvalid = 18,
     FontThemePayloadInvalid = 10
 };
 
