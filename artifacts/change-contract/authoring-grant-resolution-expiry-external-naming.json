@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceBroker.cs"
+            ],
+            "reason": "Preserve existing external environment naming and internal adapters on this registered source path while changing only grant-validator expiry and cancellation checks. No environment names or adapters are renamed."
+        }
+    ]
+}
