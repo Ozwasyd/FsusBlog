@@ -317,6 +317,384 @@ test('native tooling style governance does not classify direct-initialized C++ l
     });
 });
 
+test('native tooling style governance accepts header objects initialized from visible values', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const source = `struct Input
+{
+    int Value;
+};
+struct Reader
+{
+    explicit Reader(const Input&);
+};
+void Build(const Input& argument)
+{
+    const Input view{argument.Value};
+    Reader reader(view);
+    Reader fromArgument(argument);
+    const Input& borrowed = argument;
+    Reader fromReference(borrowed);
+}
+`;
+        for (const extension of ['hpp', 'cpp'])
+        {
+            const file = `sample/Objects.${extension}`;
+            WriteFile(fixtureRoot, file, source);
+            const result = RunChecker(fixtureRoot, [file]);
+            assert.equal(result.status, 0, Output(result));
+            assert.doesNotMatch(Output(result), /cpp-function-name/u);
+        }
+    });
+});
+
+test('native tooling style governance rejects incorrectly named real C++ declarations', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const declarations = [
+            'int bad_name(int value);',
+            'int bad_name();',
+            'int bad_name(int);',
+            'int bad_name(int value)\n{\n    return value;\n}',
+            'void Build()\n{\n    int bad_name(int value);\n}'
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const source of declarations)
+            {
+                const file = `sample/Declarations.${extension}`;
+                WriteFile(fixtureRoot, file, `${source}\n`);
+                const result = RunChecker(fixtureRoot, [file]);
+                assert.notEqual(result.status, 0, Output(result));
+                assert.match(Output(result), /cpp-function-name: bad_name/u);
+            }
+        }
+    });
+});
+
+test('native tooling style governance keeps ambiguous C++ parameter syntax strict', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const declarations = [
+            'Reader bad_name(Unknown);',
+            'Reader bad_name(Input());',
+            'void Build(int input)\n{\n    {\n        using input = int;\n        Reader bad_name(input);\n    }\n}',
+            'void Build()\n{\n    {\n        const int Input = 1;\n    }\n    Reader bad_name(Input);\n}',
+            'const int Input = 1;\ntemplate<typename Input>\nvoid Build()\n{\n    Reader bad_name(Input);\n}',
+            'const int Input = 1;\ntemplate<typename Input>\nReader bad_name(Input);',
+            'const int Input = 1;\ntemplate<typename Input> Reader bad_name(Input);',
+            'const int Input = 1;\ntemplate<\n    typename Input\n>\nReader bad_name(Input);',
+            'const int Input = 1;\nvoid Build()\n{\n    typedef int (*Input)();\n    Reader bad_name(Input);\n}',
+            'const int Input = 1;\n#define Input int\nReader bad_name(Input);',
+            '#if 0\nconst int input = 1;\n#endif\nReader bad_name(input);',
+            '#define DECLARE_VALUE \\\n    const int input = 1;\nReader bad_name(input);',
+            '/* const int input = 1; */\nReader bad_name(input);',
+            'const char* text = R"raw(\nconst int input = 1;\n)raw";\nReader bad_name(input);'
+        ];
+        for (const source of declarations)
+        {
+            const file = 'sample/Ambiguous.hpp';
+            WriteFile(fixtureRoot, file, `struct Input;\nstruct Reader;\nstruct Unknown;\nusing input = int;\n${source}\n`);
+            const result = RunChecker(fixtureRoot, [file]);
+            assert.notEqual(result.status, 0, Output(result));
+            assert.match(Output(result), /cpp-function-name: bad_name/u);
+        }
+    });
+});
+
+test('native tooling style governance header classification retains required external tools', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const file = 'sample/Required.hpp';
+        WriteFile(fixtureRoot, file, 'int ResolveValue();\n');
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools']);
+        assert.notEqual(result.status, 0, Output(result));
+        assert.match(Output(result), /missing-tool: clang-format is required/u);
+    });
+});
+
+test('native tooling style governance rejects unnamed C++ parameter type facts', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const fixtures = [
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nvoid Build(unsigned int)\n{\n    Reader bad_name(int);\n}\n", accepted: false },
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nvoid Build(const Input)\n{\n    Reader bad_name(Input);\n}\n", accepted: false },
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nvoid Build(unsigned int argument)\n{\n    Reader reader(argument);\n}\n", accepted: true },
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nvoid Build(const Input argument)\n{\n    Reader reader(argument);\n}\n", accepted: true }
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const fixture of fixtures)
+            {
+                const file = `sample/Classification.${extension}`;
+                WriteFile(fixtureRoot, file, fixture.source);
+                const result = RunChecker(fixtureRoot, [file]);
+                if (fixture.accepted)
+                {
+                    assert.equal(result.status, 0, Output(result));
+                    assert.doesNotMatch(Output(result), /cpp-function-name/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, Output(result));
+                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                }
+            }
+        }
+    });
+});
+
+test('native tooling style governance records typedef and imported type shadows', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const fixtures = [
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nconst int Input = 1;\nvoid Build()\n{\n    typedef int Input[2];\n    Reader bad_name(Input);\n}\n", accepted: false },
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nconst int Input = 1;\nvoid Build()\n{\n    typedef int Input();\n    Reader bad_name(Input);\n}\n", accepted: false },
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nnamespace Types\n{\n    using Input = int;\n}\nconst int Input = 1;\nvoid Build()\n{\n    using Types::Input;\n    Reader bad_name(Input);\n}\n", accepted: false }
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const fixture of fixtures)
+            {
+                const file = `sample/Classification.${extension}`;
+                WriteFile(fixtureRoot, file, fixture.source);
+                const result = RunChecker(fixtureRoot, [file]);
+                if (fixture.accepted)
+                {
+                    assert.equal(result.status, 0, Output(result));
+                    assert.doesNotMatch(Output(result), /cpp-function-name/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, Output(result));
+                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                }
+            }
+        }
+    });
+});
+
+test('native tooling style governance recognizes commented preprocessor boundaries', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const fixtures = [
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nconst int Input = 1;\n/* boundary */ #define Input int\nReader bad_name(Input);\n", accepted: false }
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const fixture of fixtures)
+            {
+                const file = `sample/Classification.${extension}`;
+                WriteFile(fixtureRoot, file, fixture.source);
+                const result = RunChecker(fixtureRoot, [file]);
+                if (fixture.accepted)
+                {
+                    assert.equal(result.status, 0, Output(result));
+                    assert.doesNotMatch(Output(result), /cpp-function-name/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, Output(result));
+                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                }
+            }
+        }
+    });
+});
+
+test('native tooling style governance preserves quoted constructor argument tokens', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const fixtures = [
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nvoid Build()\n{\n    Reader reader(\"value\");\n}\n", accepted: true },
+            { source: "struct Input\n{\n    int Value;\n};\nstruct Reader\n{\n    Reader(unsigned int);\n    Reader(const Input&);\n    Reader(const char*);\n    Reader(char);\n};\nvoid Build()\n{\n    Reader reader('v');\n}\n", accepted: true }
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const fixture of fixtures)
+            {
+                const file = `sample/Classification.${extension}`;
+                WriteFile(fixtureRoot, file, fixture.source);
+                const result = RunChecker(fixtureRoot, [file]);
+                if (fixture.accepted)
+                {
+                    assert.equal(result.status, 0, Output(result));
+                    assert.doesNotMatch(Output(result), /cpp-function-name/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, Output(result));
+                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                }
+            }
+        }
+    });
+});
+
+test('native tooling style governance ignores spliced logical comments before admitting values', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const fixtures = [
+            { source: "struct Reader\n{\n    Reader(int);\n};\nusing input = int;\n// comment \\\nconst int input = 1;\nReader bad_name(input);\n", accepted: false },
+            { source: "struct Reader\n{\n    Reader(int);\n};\nusing input = int;\n// ordinary comment\nvoid Build()\n{\n    const int input = 1;\n    Reader reader(input);\n}\n", accepted: true }
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const fixture of fixtures)
+            {
+                const file = `sample/LogicalScope.${extension}`;
+                WriteFile(fixtureRoot, file, fixture.source);
+                const result = RunChecker(fixtureRoot, [file]);
+                if (fixture.accepted)
+                {
+                    assert.equal(result.status, 0, Output(result));
+                    assert.doesNotMatch(Output(result), /cpp-function-name/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, Output(result));
+                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                }
+            }
+        }
+    });
+});
+
+test('native tooling style governance sees later class type declarations inside inline methods', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const fixtures = [
+            { source: "struct Reader\n{\n    Reader(int);\n};\nconst int Input = 1;\nstruct Host\n{\n    void Build()\n    {\n        Reader bad_name(Input);\n    }\n    using Input = int;\n};\n", accepted: false },
+            { source: "struct Reader\n{\n    Reader(int);\n};\nconst int Input = 1;\nstruct Host\n{\n    void Build(int argument)\n    {\n        Reader fromOuter(Input);\n        const int view = argument;\n        Reader fromLocal(view);\n        Reader fromArgument(argument);\n    }\n    using Other = int;\n};\n", accepted: true },
+            { source: "struct Reader\n{\n    Reader(int);\n};\nstruct Base\n{\n    using Input = int;\n};\nconst int Input = 1;\nstruct Host : Base\n{\n    void Build()\n    {\n        Reader bad_name(Input);\n    }\n};\n", accepted: false },
+            { source: "struct Reader\n{\n    Reader(int);\n};\nstruct Base\n{\n    using Input = int;\n};\nconst int Input = 1;\nstruct Host : Base\n{\n    void Build(int argument)\n    {\n        const int view = argument;\n        Reader fromLocal(view);\n        Reader fromArgument(argument);\n    }\n};\n", accepted: true },
+            { source: "struct Reader\n{\n    Reader(int);\n};\nconst int Input = 1;\nstruct Reader Build()\n{\n    Reader fromOuter(Input);\n    using Input = int;\n    return fromOuter;\n}\n", accepted: true }
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const fixture of fixtures)
+            {
+                const file = `sample/LogicalScope.${extension}`;
+                WriteFile(fixtureRoot, file, fixture.source);
+                const result = RunChecker(fixtureRoot, [file]);
+                if (fixture.accepted)
+                {
+                    assert.equal(result.status, 0, Output(result));
+                    assert.doesNotMatch(Output(result), /cpp-function-name/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, Output(result));
+                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                }
+            }
+        }
+    });
+});
+
+test('native tooling style governance keeps decorated class lookup strict without admitting tagged functions', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const fixtures = [
+            { source: "struct Reader\n{\n    Reader(int);\n};\n#define API\nconst int Input = 1;\nstruct API Host\n{\n    void Build()\n    {\n        Reader bad_name(Input);\n    }\n    using Input = int;\n};\n", accepted: false },
+            { source: "struct Reader\n{\n    Reader(int);\n};\n#define API\nconst int Input = 1;\nstruct API Host\n{\n    void Build(int argument)\n    {\n        const int view = argument;\n        Reader fromLocal(view);\n        Reader fromArgument(argument);\n    }\n    using Input = int;\n};\n", accepted: true },
+            { source: "struct Reader\n{\n    Reader(int);\n};\nstruct Reader bad_name(int argument)\n{\n    return Reader(argument);\n}\n", accepted: false }
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const fixture of fixtures)
+            {
+                const file = `sample/DecoratedClass.${extension}`;
+                WriteFile(fixtureRoot, file, fixture.source);
+                const result = RunChecker(fixtureRoot, [file]);
+                if (fixture.accepted)
+                {
+                    assert.equal(result.status, 0, Output(result));
+                    assert.doesNotMatch(Output(result), /cpp-function-name/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, Output(result));
+                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                }
+            }
+        }
+    });
+});
+
+test('native tooling style governance records union type shadows without manufacturing parameter values', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const fixtures = [
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nstruct Host\n{\n    void Build()\n    {\n        Reader bad_name(Input);\n    }\n    union Input\n    {\n        int Value;\n    };\n};\n", accepted: false },
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nstruct Host\n{\n    void Build(int argument)\n    {\n        const int view = argument;\n        Reader fromLocal(view);\n        Reader fromArgument(argument);\n    }\n    union Input\n    {\n        int Value;\n    };\n};\n", accepted: true },
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nunion Input\n{\n    int Value;\n};\nvoid Build(union Input)\n{\n    Reader bad_name(Input);\n}\n", accepted: false },
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nunion Input\n{\n    int Value;\n};\nvoid Build(union Input argument)\n{\n    Reader fromArgument(argument);\n}\n", accepted: true }
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const fixture of fixtures)
+            {
+                const file = `sample/UnionShadow.${extension}`;
+                WriteFile(fixtureRoot, file, fixture.source);
+                const result = RunChecker(fixtureRoot, [file]);
+                if (fixture.accepted)
+                {
+                    assert.equal(result.status, 0, Output(result));
+                    assert.doesNotMatch(Output(result), /cpp-function-name/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, Output(result));
+                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                }
+            }
+        }
+    });
+});
+
+test('native tooling style governance records attributed class type shadows inside inline methods', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const fixtures = [
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nstruct Host\n{\n    void Build()\n    {\n        Reader bad_name(Input);\n    }\n    struct [[maybe_unused]] Input\n    {\n        int Value;\n    };\n};\n", accepted: false },
+            { source: "struct Reader\n{\n    template<typename T>\n    Reader(const T&);\n};\nconst int Input = 1;\nstruct Host\n{\n    void Build(int argument)\n    {\n        const int view = argument;\n        Reader fromLocal(view);\n        Reader fromArgument(argument);\n    }\n    struct [[maybe_unused]] Input\n    {\n        int Value;\n    };\n};\n", accepted: true }
+        ];
+        for (const extension of ['hpp', 'cpp'])
+        {
+            for (const fixture of fixtures)
+            {
+                const file = `sample/AttributedTypeShadow.${extension}`;
+                WriteFile(fixtureRoot, file, fixture.source);
+                const result = RunChecker(fixtureRoot, [file]);
+                if (fixture.accepted)
+                {
+                    assert.equal(result.status, 0, Output(result));
+                    assert.doesNotMatch(Output(result), /cpp-function-name/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, Output(result));
+                    assert.match(Output(result), /cpp-function-name: bad_name/u);
+                }
+            }
+        }
+    });
+});
+
 test('native tooling style governance formatter normalizes CRLF JSON and remains idempotent', () =>
 {
     WithFixture((fixtureRoot) =>
