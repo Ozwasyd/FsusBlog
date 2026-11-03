@@ -102,3 +102,41 @@ render: key-value-table
 | operations | ["created","deleted","edited"] |
 | softDeleteProjectsAsHiddenNextStatus | true |
 <!-- FSUSBLOG-GENERATED:END content.comment.edit-delete-version -->
+
+## Production initial outbox construction
+
+`CommentCommandService.ResolveInitialOutboxEventTypes(status, replyToAccountId)`
+returns the production create transaction's ordered obligations: created and
+visibility-changed, followed by reply-notification-requested only for an approved
+comment with an observed positive recipient. The transaction consumes this same
+selection and retains its original enqueue order and cancellation behavior.
+
+`CommentCommandService.BuildOutboxEvent(eventType, comment, commentId, occurredAt,
+previousStatus, nextStatus)` exposes the existing production envelope constructor.
+The caller supplies an already normalized authoritative comment, its allocated ID
+and explicit business time. The method preserves the normalized root/parent and
+account/recipient facts; a top-level root falls back to the allocated comment ID.
+It does not resolve an actor, validate a persisted thread, enforce an event kind or
+qualify those inputs. In-memory envelopes retain existing entity defaults, including
+a fresh event GUID; they are not deterministic persisted identities or receipts.
+Persistence and delivery fields remain the outbox writer and worker's responsibility.
+The envelope still has no exact comment-revision field. These APIs do not reserve a
+nullifier, create rows, prove atomicity or satisfy transaction/derived-edge acceptance.
+
+## Production-shared revision construction
+
+`CommentCommandService.BuildRevision(commentId, version, operation, normalizedContent,
+createdAtUtc, actorMode, actorAccountId, actorAdminPrincipalId)` returns the same
+unpersisted revision used by production create, author edit and author delete.
+The caller supplies the allocated comment ID, explicit version, operation, time
+and admitted actor facts. The constructor retains the exact content bytes and the
+existing lowercase SHA-256 of their UTF-8 encoding. It does not normalize again:
+create retains its original trim behavior, while author edit still converts CRLF
+to LF and trims before calling the shared constructor.
+
+The returned revision ID remains zero; the native persistence writer allocates
+the revision row ID. This constructor creates no row, authenticates no actor and
+signs no receipt. Article-policy premoderation still maps create to `Pending`
+with `article_policy_premoderated`; revision extraction does not change that
+transaction decision. Native atomicity and exact persisted revision observation
+remain separate acceptance requirements.

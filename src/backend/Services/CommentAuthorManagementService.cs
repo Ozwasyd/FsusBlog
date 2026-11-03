@@ -526,18 +526,15 @@ public sealed class CommentAuthorManagementService(
                 throw new CommentMutationConcurrencyException();
             }
 
-            await db.Insertable(new CommentRevision
-            {
-                CommentId = commentId,
-                Version = nextVersion,
-                Content = content,
-                ContentSha256 = ComputeContentSha256(content),
-                Operation = CommentRevisionOperations.Edited,
-                CreatedAtUtc = now,
-                ActorAccountId = accountId,
-                ActorAdminPrincipalId = null,
-                ActorMode = comment.AuthorMode
-            }).ExecuteCommandAsync(cancellationToken);
+            await db.Insertable(CommentCommandService.BuildRevision(
+                commentId,
+                nextVersion,
+                CommentRevisionOperations.Edited,
+                content,
+                now,
+                comment.AuthorMode,
+                accountId,
+                null)).ExecuteCommandAsync(cancellationToken);
             if (next.Status != comment.ModerationStatus)
             {
                 await db.Insertable(new CommentModerationEvent
@@ -643,18 +640,15 @@ public sealed class CommentAuthorManagementService(
         DateTime now,
         int? actorAccountId,
         CancellationToken cancellationToken)
-        => db.Insertable(new CommentRevision
-        {
-            CommentId = comment.Id,
-            Version = version,
-            Content = comment.Content,
-            ContentSha256 = ComputeContentSha256(comment.Content),
-            Operation = operation,
-            CreatedAtUtc = now,
-            ActorAccountId = actorAccountId,
-            ActorAdminPrincipalId = null,
-            ActorMode = comment.AuthorMode
-        }).ExecuteCommandAsync(cancellationToken);
+        => db.Insertable(CommentCommandService.BuildRevision(
+            comment.Id,
+            version,
+            operation,
+            comment.Content,
+            now,
+            comment.AuthorMode,
+            actorAccountId,
+            null)).ExecuteCommandAsync(cancellationToken);
 
     private CommentMutationOutboxEvent BuildOutbox(
         string eventType,
@@ -681,9 +675,6 @@ public sealed class CommentAuthorManagementService(
 
     private static string NormalizeContent(string? value)
         => (value ?? string.Empty).Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
-
-    private static string ComputeContentSha256(string content)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content))).ToLowerInvariant();
 
     private sealed class CommentMutationConcurrencyException : Exception;
 }
