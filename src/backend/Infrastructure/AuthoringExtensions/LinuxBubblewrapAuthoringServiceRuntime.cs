@@ -51,6 +51,7 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
             throw;
         }
 
+        Process? sandboxProcess = null;
         try
         {
             Task stderrDrain = process.StandardError.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
@@ -59,12 +60,16 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
             string? readyLine = await ReadClosedLineAsync(process.StandardOutput, 4096, startup.Token);
             AuthoringServiceHealthReport health = ParseHealth(readyLine);
             int serviceProcessId = FindSandboxProcessId(process.Id);
+            sandboxProcess = Process.GetProcessById(serviceProcessId);
+            ulong processStartTicks = AuthoringRuntimeIncarnationLease.ReadStartTicks(serviceProcessId);
             string namespaceIdentity = ObserveNamespaceIsolation(serviceProcessId);
             ObserveOwnedSession(serviceProcessId);
             string isolationIdentity = ComputeProfileIdentity(descriptor, namespaceIdentity);
-            return new LinuxBubblewrapServiceProcess(
+            var instance = new LinuxBubblewrapServiceProcess(
                 process,
                 serviceProcessId,
+                sandboxProcess,
+                processStartTicks,
                 instanceRoot,
                 descriptor,
                 health,
@@ -74,10 +79,13 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
                     true,
                     isolationIdentity),
                 stderrDrain);
+            instance.IssueIncarnation();
+            return instance;
         }
         catch
         {
             await TerminateProcessTreeAsync(process);
+            sandboxProcess?.Dispose();
             process.Dispose();
             TryDeleteInstanceRoot(instanceRoot);
             throw;
@@ -409,7 +417,7 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
                 await process.WaitForExitAsync();
             }
         }
-        catch (InvalidOperationException)
+        catch (InvalidOperationException) when (process.HasExited)
         {
         }
     }
@@ -431,9 +439,22 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
         }
     }
 
+    internal static bool OwnsNativeCustody(
+        object owner,
+        object descriptor,
+        object authority,
+        Process custody,
+        Process sandbox,
+        ulong startTicks,
+        string profileIdentity) =>
+        owner is LinuxBubblewrapServiceProcess native &&
+        native.OwnsNativeCustody(descriptor, authority, custody, sandbox, startTicks, profileIdentity);
+
     private sealed class LinuxBubblewrapServiceProcess(
         Process process,
         int serviceProcessId,
+        Process sandboxProcess,
+        ulong processStartTicks,
         string instanceRoot,
         AuthoringServiceLaunchDescriptor descriptor,
         AuthoringServiceHealthReport health,
@@ -445,6 +466,27 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
     {
         private readonly SemaphoreSlim _transportLock = new(1, 1);
         private bool _terminated;
+        private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+        private readonly object _incarnationOwner = new();
+        private AuthoringRuntimeIncarnationLease? _incarnation;
+        private bool _disposed;
+
+        public void IssueIncarnation() =>
+            _incarnation = AuthoringRuntimeIncarnationLease.Issue(
+                this, descriptor, _incarnationOwner, process, sandboxProcess, processStartTicks, ownership.IsolationIdentity);
+
+        public bool OwnsNativeCustody(
+            object candidateDescriptor,
+            object authority,
+            Process custody,
+            Process sandbox,
+            ulong startTicks,
+            string profileIdentity) =>
+            _incarnation is null && ReferenceEquals(_incarnationOwner, authority) &&
+            ReferenceEquals(descriptor, candidateDescriptor) && ReferenceEquals(process, custody) &&
+            ReferenceEquals(sandboxProcess, sandbox) && processStartTicks == startTicks &&
+            FindSandboxProcessId(process.Id) == serviceProcessId &&
+            string.Equals(profileIdentity, ownership.IsolationIdentity, StringComparison.Ordinal);
 
         public AuthoringProcessOwnershipReport Ownership { get; } = ownership;
 
@@ -453,7 +495,7 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
         public int ProcessId => serviceProcessId;
 
         public ValueTask<AuthoringServiceHealthReport> GetHealthAsync(CancellationToken cancellationToken) =>
-            _terminated || process.HasExited
+            _terminated || _incarnation is null || !_incarnation.IsCurrentOwner(this)
                 ? ValueTask.FromResult(health with
                 {
                     ProtocolHandshakeComplete = false
@@ -467,7 +509,7 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
             await _transportLock.WaitAsync(cancellationToken);
             try
             {
-                if (_terminated || process.HasExited)
+                if (_terminated || _incarnation is null || !_incarnation.IsCurrentOwner(this))
                 {
                     throw new AuthoringExtensionContractException("Authoring service process is terminated.");
                 }
@@ -490,17 +532,61 @@ public sealed class LinuxBubblewrapAuthoringServiceRuntime : IAuthoringServicePr
 
         public async ValueTask TerminateTreeAsync(string reason, CancellationToken cancellationToken)
         {
+            // Revocation precedes every await, including failed or cancelled cleanup attempts.
+            _incarnation?.Revoke(this, _incarnationOwner);
             _terminated = true;
-            await TerminateProcessTreeAsync(process);
+            await _lifecycleLock.WaitAsync(CancellationToken.None);
+            try
+            {
+                if (!_disposed)
+                {
+                    await TerminateProcessTreeAsync(process);
+                    _incarnation?.ConfirmProcessExited(this, _incarnationOwner);
+                }
+            }
+            finally
+            {
+                _lifecycleLock.Release();
+            }
         }
 
         public async ValueTask DisposeAsync()
         {
-            await TerminateTreeAsync("dispose", CancellationToken.None);
-            await stderrDrain;
-            process.Dispose();
-            _transportLock.Dispose();
-            TryDeleteInstanceRoot(instanceRoot);
+            _incarnation?.Revoke(this, _incarnationOwner);
+            _terminated = true;
+            await _lifecycleLock.WaitAsync(CancellationToken.None);
+            try
+            {
+                if (_disposed)
+                {
+                    return;
+                }
+
+                await TerminateProcessTreeAsync(process);
+                _incarnation?.ConfirmProcessExited(this, _incarnationOwner);
+                await stderrDrain;
+                await _transportLock.WaitAsync(CancellationToken.None);
+                try
+                {
+                    TryDeleteInstanceRoot(instanceRoot);
+                    if (Directory.Exists(instanceRoot))
+                    {
+                        throw new IOException("Native runtime working root cleanup has not settled.");
+                    }
+
+                    process.Dispose();
+                    _incarnation?.ReleaseCustody(this, _incarnationOwner);
+                    _disposed = true;
+                }
+                finally
+                {
+                    _transportLock.Release();
+                }
+            }
+            finally
+            {
+                _lifecycleLock.Release();
+            }
         }
     }
 }

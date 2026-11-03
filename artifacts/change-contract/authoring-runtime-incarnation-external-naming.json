@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve the existing authoring boundary document path and externally named wire identities while describing process-local native incarnation custody."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRuntimeMeasurements.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringServiceRuntime.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs"
+            ],
+            "reason": "Preserve existing process profile and wire spellings while native runtime owners issue and revoke process-local incarnation capabilities."
+        }
+    ]
+}
