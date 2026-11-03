@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+const require = createRequire(new URL('../../src/frontend/package.json', import.meta.url));
+const ts = require('typescript');
+const source = execFileSync('git', ['show', '92bdc374b00a2d65fcb0e91b873b5413f04f3464:src/frontend/src/generated/fsusBinaryRoutes.ts'], { encoding: 'utf8' });
+const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+const { buildFsusBinaryRoute: build } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+assert.throws(() => build('not_an_operation'), TypeError);
+assert.throws(() => build('binary_get_article_id_aeds'), /fsus_binary_route_param_missing/);
+assert.throws(() => build('binary_get_article_id_aeds', { id: null }), /fsus_binary_route_param_missing/);
+assert.ok(build('binary_get_article_id_aeds', { id: '11/?secret=1' }).includes('11%2F%3Fsecret%3D1'));
+assert.equal(build('binary_get_category_aeds'), '/api/binary/category.aeds');
+console.log(JSON.stringify({ candidate: '92bdc374b00a2d65fcb0e91b873b5413f04f3464', node: process.version, typescript: ts.version, controlsPassed: 5 }));

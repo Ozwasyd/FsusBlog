@@ -840,7 +840,8 @@ export function buildFsusBinaryRoute(
   query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>
 ): string {
   const descriptor = fsusBinaryRouteDescriptors[operationId]
-  let path = descriptor.path.replace(/\{([^}:]+)(?::[^}]+)?\}/g, (_token, key: string) => {
+  let path: string = descriptor.path
+  if (path.includes("{")) path = path.replace(/\{([^}:]+)(?::[^}]+)?\}/g, (_token, key: string) => {
     const value = params[key]
     if (value === undefined || value === null) {
       throw new Error(`fsus_binary_route_param_missing:${String(operationId)}:${key}`)

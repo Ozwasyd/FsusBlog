@@ -224,7 +224,8 @@ export function generateFrontendRoutes(openapi = loadOpenApi())
     lines.push('  query?: URLSearchParams | Record<string, string | number | boolean | null | undefined>');
     lines.push('): string {');
     lines.push('  const descriptor = fsusBinaryRouteDescriptors[operationId]');
-    lines.push('  let path = descriptor.path.replace(/\\{([^}:]+)(?::[^}]+)?\\}/g, (_token, key: string) => {');
+    lines.push('  let path: string = descriptor.path');
+    lines.push('  if (path.includes("{")) path = path.replace(/\\{([^}:]+)(?::[^}]+)?\\}/g, (_token, key: string) => {');
     lines.push('    const value = params[key]');
     lines.push('    if (value === undefined || value === null) {');
     lines.push('      throw new Error(`fsus_binary_route_param_missing:${String(operationId)}:${key}`)');

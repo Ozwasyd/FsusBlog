@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/contracts/lib/openapi-contracts.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "sha256": "5f1974be487a3aeff1a67a96cd8445d25968ace83376e14925c1c00dccba83ce"
+        }
+    ]
+}
