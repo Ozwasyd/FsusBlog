@@ -279,6 +279,12 @@ test('OpenAPI requires the runner canonical digest and seals its exact provider 
     assert.equal(missing.status, 'failed');
     assert.match(missing.failureReasons.join('\n'), /runner-owned canonical digest/u);
     assert.deepEqual(missing.observations, {});
+    for (const canonicalDigest of [null, 42, () => undefined, () => '0'.repeat(64)])
+    {
+        const incompatible = extractOpenApi({ ...context, canonicalDigest });
+        assert.equal(incompatible.status, 'failed');
+        assert.deepEqual(incompatible.observations, {});
+    }
     assert.equal(digestValue(loadCatalog()), digestCatalog(loadCatalog()));
     for (const relative of ['tools/fact-extractors/runner.mjs', 'tools/fact-extractors/lib/canonicalize.mjs'])
     {
@@ -290,6 +296,62 @@ test('OpenAPI requires the runner canonical digest and seals its exact provider 
         assert.match(changed.failureReasons.join('\n'), /source digest mismatch/u);
         assert.deepEqual(changed.observations, {});
         writeFileSync(path.join(directory, relative), original);
+    }
+});
+
+test('OpenAPI refuses changed runner import resolution and resealed incomplete provider closure', (t) =>
+{
+    for (const mutation of ['runner-import', 'missing-runner', 'missing-canonicalizer', 'extra-provider'])
+    {
+        const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-provider-closure-')));
+        t.after(() => rmSync(directory, { recursive: true, force: true }));
+        writeObservation(directory, sampleObservation());
+        const runnerRelative = 'tools/fact-extractors/runner.mjs';
+        const canonicalizerRelative = 'tools/fact-extractors/lib/canonicalize.mjs';
+        for (const relative of [runnerRelative, canonicalizerRelative])
+        {
+            cpSync(path.join(root, relative), path.join(directory, relative));
+        }
+        const buildIdentity = rewriteReceipt(directory, (receipt) =>
+        {
+            for (const relative of [runnerRelative, canonicalizerRelative])
+            {
+                receipt.sourceDigests[relative] = sha256(readFileSync(path.join(directory, relative)));
+            }
+            receipt.sourceDigest = digestValue(receipt.sourceDigests);
+        });
+        const context = { repositoryRoot: directory, buildIdentity, canonicalDigest: digestValue };
+        assert.equal(extractOpenApi(context).status, 'ok', mutation);
+        if (mutation === 'runner-import')
+        {
+            const runnerPath = path.join(directory, runnerRelative);
+            const original = readFileSync(runnerPath, 'utf8');
+            const changed = original.replace("from './lib/canonicalize.mjs'", "from './lib/alternate.mjs'");
+            assert.notEqual(changed, original);
+            cpSync(path.join(directory, canonicalizerRelative), path.join(directory, 'tools/fact-extractors/lib/alternate.mjs'));
+            writeFileSync(runnerPath, changed);
+        }
+        else
+        {
+            context.buildIdentity = rewriteReceipt(directory, (receipt) =>
+            {
+                if (mutation === 'extra-provider')
+                {
+                    receipt.sourceDigests['tools/fact-extractors/lib/alternate.mjs'] = '0'.repeat(64);
+                }
+                else
+                {
+                    delete receipt.sourceDigests[mutation === 'missing-runner' ? runnerRelative : canonicalizerRelative];
+                }
+                receipt.sourceDigest = digestValue(receipt.sourceDigests);
+            });
+        }
+        const result = extractOpenApi(context);
+        assert.equal(result.status, 'failed', mutation);
+        assert.match(result.failureReasons.join('\n'), mutation === 'runner-import' ? /source digest mismatch/u : /source set is invalid/u);
+        assert.deepEqual(result.observations, {}, mutation);
+        // Repeated consumption must preserve the refusal without accepting partial observations.
+        assert.deepEqual(extractOpenApi(context), result, mutation);
     }
 });
 
