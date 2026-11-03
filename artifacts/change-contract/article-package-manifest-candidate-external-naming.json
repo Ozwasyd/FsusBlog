@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs",
+                "src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs",
+                "src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs",
+                "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs"
+            ],
+            "reason": "Register the exact additive source-byte and finite manifest candidate paths within the existing process-spelling closure. No process/environment spelling, alternate provider or trusted style policy is changed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve caller-visible contract and digest-domain spellings in the maintained API document."
+        }
+    ]
+}

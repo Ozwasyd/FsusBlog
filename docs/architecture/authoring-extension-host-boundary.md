@@ -470,3 +470,36 @@ or registry identities remain rejected; compatibility never falls back to the
 generic plugin system or a less isolated class. Package rollback restores the last
 verified pointer and retains content-addressed evidence; it does not activate a
 runtime or restore any permission.
+
+
+## Import provider candidate adapter
+
+`AuthoringImportProviderCandidateAdapter` accepts one explicitly selected manifest
+import contribution and finite, already-read file or ZIP bytes. It delegates byte
+validation to `ArticlePackageImportCandidateBytes`, classic ZIP intake to
+`ArticlePackageImportZipCandidateReader`, and immutable planning to
+`ArticlePackageImportCandidatePlanner`. The ZIP API is supplied by prerequisite
+commit `4068caadabbc8e5e229a3a22cb00cd405d124314`; its bounded reader and directory
+guard are consumed without a second archive implementation.
+
+The handoff binds extension contract identity, provider, request, attempt,
+caller-declared runtime/grant assertions, actual package bytes digest, optional
+actual archive SHA and original immutable plan digest. Metadata uses closed JSON
+schemas. Unsupported streaming, unknown providers and schemas, stale intervals,
+input drift and cancellation cannot produce a handoff. Retrying requires a new
+attempt identity; a previous handoff cannot match changed request assertions.
+Caller storage and requested targets are frozen by the original candidate owners.
+
+This is a candidate-stage source adapter, not a registered RPC dispatch or runtime
+receipt. Contract verification does not prove a signed installed package, observed
+runtime, current permission or production composition. Request-binding comparisons
+likewise cannot turn caller assertions into those facts. The original import plan
+and ZIP candidate retain their unconditional execution/archive authority refusals.
+No filesystem, extraction, store, network, permission issuer or writer is injected.
+
+Issue #2513 remains partial: production grant/host composition, host-owned bounded
+stream and runroot lifetimes, complete package validation and explicit resolution,
+media/asset authority, worker qualification, zero-write runtime receipts, cleanup
+and interrupted/repeated runtime flows still require their canonical owners and
+actual execution evidence. The finite ZIP reader supplies byte intake only; it
+does not satisfy archive safety, staging or import execution authority.

@@ -2891,3 +2891,326 @@ render: key-value-table
 | UserCommentCursorVersion | {"class":"blog","domain":"blog","id":"UserCommentCursorVersion","l1Ttl":{"unit":"minutes","value":1},"l2Ttl":{"unit":"days","value":7},"negativeTtl":{"state":"null"},"resource":"user-comment-cursor-version","securityCritical":false} |
 | VisitLock | {"class":"security-critical","domain":"sec","id":"VisitLock","l1Ttl":{"unit":"seconds","value":0},"l2Ttl":{"unit":"minutes","value":30},"negativeTtl":{"state":"null"},"resource":"visit-lock","securityCritical":true} |
 <!-- FSUSBLOG-GENERATED:END api.security-cache-policies -->
+
+## Portable typed-property mapping candidate
+
+The shared article-package owner supplies the bounded typed-property subset for
+issues #2398 and #2408, using the canonical #2323 typed source from #3735. The canonical
+`ArticlePropertyValueValidator` provides read-only validation, `BindSnapshot`,
+and `ValidateSnapshotCandidate`; these APIs establish candidates rather than
+actual persisted observations. Its existing eight value types remain the sole
+property catalog.
+
+`ArticlePackageIdentity` parses explicit typed portable identities; it generates
+none. Article identities reuse the canonical article-embed UUID codec. Definition
+and option identities use `portable-definition:<lowercase-uuid>` and
+`portable-option:<lowercase-uuid>`. Local source IDs remain separate facts, and
+identity syntax does not prove origin or authority.
+
+`ArticlePackagePropertyMapper.TryMapCandidate` provides the bounded property
+subset for shared package consumers. It uses the existing eight typed values and
+`ValidateSnapshotCandidate`; it does not register another type catalog. The
+caller supplies immutable `ArticlePackagePropertyMappingBindings` with the exact
+source snapshot coordinates and digest, explicit definition source ID/schema
+revision/digest to portable-definition pairs, definition-scoped option pairs,
+and article-reference pairs carrying canonical `ArticleRelationTargetFacts`.
+The mapper never generates portable IDs or derives them from local GUIDs,
+labels, routes, filenames, or array positions. Exact binding closure is required:
+missing, duplicate, aliased, unused, wrong-epoch, or wrong-snapshot bindings fail.
+Reference target facts must match the explicit portable article identity, pass
+the canonical relation validator, have allowed permission, and carry neither
+deleted nor archived lifecycle. These are shape-checked caller assertions;
+they do not replace the canonical reference authority's actual observation.
+
+The immutable candidate preserves source definition/value digests, presence,
+`DefaultApplied`, and unchanged primitive values. Option/reference sets sort by
+ordinal portable identity; properties sort by ordinal portable definition.
+Missing, null, false, zero, empty text, and empty sets remain distinct. Source
+IDs and source digests are retained separately from the portable projection.
+Limits are 1,000 properties, 1,000 IDs per value, 20,000 option bindings and total
+projected identities, and 10,000 article bindings. The canonical text/URL length
+bounds also apply before source digest recomputation; exceeded limits fail
+without truncation. Projection hashing rejects malformed UTF-16 through strict
+UTF-8 encoding and performs no Unicode or content normalization.
+
+Portable value and mapping digests use separate SHA-256 domains
+`fsusblog.article-package.portable-property-value.v1` and
+`fsusblog.article-package.property-mapping-candidate.v1`. Framing uses little-endian
+Int32 counts and UTF-8 byte lengths, little-endian Int64 coordinates/ticks, and
+an Int32 presence flag before optional Int64 coordinates. Strings contain exact
+strict UTF-8 bytes. The portable value digest binds portable definition,
+presence, default provenance and a tagged projection. Primitive tags are the
+canonical type names; decimal spelling uses the canonical invariant exact
+decimal format, booleans use Int32 zero/one, and dates use UTC ticks. Option and
+article sets bind their tag, count and sorted portable IDs; absent payloads bind
+`absent-payload`. The mapping digest additionally binds version, exact source
+coordinates/snapshot digest, sorted option/source pairs, sorted reference/source
+pairs and frozen revision/lifecycle/permission facts, then sorted property rows
+including every source field, portable value digest and actual projection.
+`ValidateCandidate` recomputes that content, rejecting altered rows even when
+the claimed mapping digest was copied. Neither digest is the full package
+semantic digest or an import/authorization receipt.
+
+The remaining canonical upstream requirement is an actor/site-bound read of an
+actually persisted snapshot at exact draft/revision/publication coordinates,
+with stale/denied/unavailable failures and command/audit provenance, plus a real
+implementation of `IArticlePropertyReferenceValueAuthority.RequireAllowedAsync`
+and observed frozen relation facts. Pure self-consistent candidates cannot
+satisfy those gates. Title, summary, taxonomy, rights/responsibility and complete
+manifest/privacy/version-migration policy remain outside this property subset.
+
+## Article package title and summary candidate
+
+`ArticlePackageTitleSummaryMapper` is the package owner's bounded title/summary
+projection alongside the typed-property mapper. It accepts the existing
+`FsusBlog.Contracts.Articles.ArticleCanonicalInput`; its source hash is computed
+only by `ArticleCanonicalHashV1`, the owner used by `ArticleRightsSnapshotBuilder`
+and the integrity pipeline. It does not introduce another article canonicalizer,
+manifest schema, snapshot reader, or identity catalog.
+
+`TryMapCandidate(source, binding, out candidate)` returns `IsValid` and a fixed,
+content-free `ReasonCode`. The explicit `ArticlePackageTitleSummaryBinding` supplies
+positive source article/revision/revision-number coordinates, the exact lowercase
+64-hex canonical hash, and an existing `ArticlePackageIdentity` of Article kind.
+All coordinates must match the supplied source; the mapper recomputes the entire
+canonical input hash. It never derives portable identity from a database ID,
+route, title, URL, or array position. Missing revision coordinates are rejected.
+
+The component rejects null mandatory canonical inputs, more than 1000 tag IDs,
+and more than 1048576 aggregate UTF-16 code units across title, summary, public
+route, cover URL, and Markdown before canonical hashing. All five strings must
+encode as strict UTF-8. Optional timestamps must be UTC when present: implicit
+local-time conversion is not admitted. These are projection-local resource and
+determinism limits, not changes to the canonical article contract. The bounded
+tag list is copied by index before invoking the existing hash owner.
+
+The closed, get-only candidate contains schema version 1, the explicit portable
+article pairing, source coordinates/hash, exact title, nullable summary, and an
+independent mapping digest. Title and summary are not trimmed, normalized,
+truncated, parsed as YAML, or replaced by defaults. Null, empty, whitespace,
+CRLF/LF, decomposed Unicode, and trailing/final newlines remain distinct.
+The canonical source hash retains its owner's NFC/LF semantics; it is not an
+exact-text or raw-Markdown byte receipt.
+
+The mapping digest uses SHA-256 with domain
+`fsusblog.article-package.title-summary-candidate.v1`. Its ordered inputs are
+length-framed domain, Int32 schema version, Int32 source article ID, Int64 source
+revision ID, Int32 source revision number, source canonical hash, portable article
+identity, title, and summary. Integers are little-endian; strings use strict UTF-8
+with an Int32 byte length, and null uses length -1. The output is lowercase
+64-hex. `ValidateCandidate` reprojects the source and compares every candidate
+field and exact text, so copying an old digest cannot hide a modified projection.
+
+Only title and summary are projected. Lifecycle, taxonomy, rights/responsibility,
+assets, syntax/media dependencies, publication authority, and permission facts
+have no fields in this candidate and cannot be admitted through extensions.
+Coordinates, portable pairs, and self-consistent canonical hashes remain supplied
+facts. Authorized actor/site-bound persisted exact reads, immutable snapshot
+provenance, privacy admission, and full package/schema acceptance remain separate
+canonical-owner gates before export or import. This API reads no stores, grants
+no permissions, emits no audit receipt, changes no business state, and is not a
+wire endpoint or executable import plan.
+
+## Closed article-package manifest candidate
+
+`ArticlePackageManifestCandidateCodec` owns the finite candidate envelope used by
+issues #2398 and #2408 while the complete package authorities remain unavailable. This
+is a pure intermediate contract, not an accepted `manifest.json`, a replacement
+property catalog, an exporter or an executable import plan. It cannot authorize
+an archive, a persisted read, a target transition, a permission decision or a write.
+
+The closed envelope requires `schemaVersion`, `canonicalHashVersion`,
+`propertySchemaVersion`, `articles` and `semanticDigest`. Only the exact current
+version tuple is supported: candidate `1`, `ArticleCanonicalHashV1.HashVersion`
+`1` and `ArticlePropertyValueSnapshot.CurrentSchemaVersion` `1`. No lossless
+migration has been registered; missing, legacy and future versions are rejected.
+Adding a version or a migration requires its own closed source/target mapping,
+unsupported-field policy and independent proof; unknown fields do not become a
+compatibility union.
+
+Each article requires an explicit `portableArticle`, closed `source` coordinates,
+exact `title` and required nullable `summary`, `titleSummaryDigest`,
+`propertySnapshotDigest`, `propertyMappingDigest`, `sourceBytes` and `lifecycle`.
+Source article/revision IDs, revision number, canonical hash, site scope, property
+revision and nullable draft/server-revision/publication coordinates remain source
+facts, never portable identity generators. Draft coordinates are paired and
+cannot coexist with publication coordinates. Local definition-owner IDs and
+private store paths are not serialized. Portable and source article IDs are
+unique within the frozen set; source filenames, titles, labels and routes confer
+no identity authority.
+
+Lifecycle preserves the defined source status and exact nullable UTC publication
+and schedule instants. It reuses `ArticleStatusTransitionPolicy.IsDefined` and
+does not call target/transition admission against the current clock. A historical
+Scheduled or Deleted source remains a source fact, not permission to recreate
+that target. Taxonomy existence, portable taxonomy mapping and names still
+require their actual canonical provider.
+
+Byte metadata uses the sole `ArticlePackageSourceBytes` owner: exact original
+length, SHA-256, BOM, LF/CRLF/bare-CR counts, final newline and trailing spaces/tabs.
+The planner inspects the actual owned bytes and matches their strict decoded
+Markdown to the canonical input without normalization. A BOM is preserved in
+raw-byte metadata and omitted only while decoding its content. Canonical text
+normalization cannot substitute for raw-byte equality. Title and summary preserve
+raw text and null versus empty, through `ArticlePackageTitleSummaryMapper`.
+Property projections reuse `ArticlePackagePropertyMapper` and its eight-type
+owner; their source article/revision must equal the text source coordinates.
+Within one plan, site and definition-owner assertions must agree, and source
+Definition/schema/digest and definition-scoped Option pairs must retain a global
+bijection to their explicit portable identities. Aliases and epoch drift fail.
+The codec can retain closed draft/publication coordinate shapes, but the planner
+refuses either kind with a fixed authority-unavailable result: the current
+canonical text input cannot establish an exact draft or publication observation.
+
+Parsing rejects duplicate, unknown and missing keys at every object level, wrong
+JSON types, malformed UTF-8/UTF-16, comments, trailing commas, invalid identities,
+invalid UTC spellings and budget overflow. Supported budgets are 1..1,000 articles,
+16 MiB candidate JSON, the existing bounded text and property inputs, 32 MiB per
+source byte input and 64 MiB total planned source bytes. Before invoking any
+mapper, the planner checks aggregate 16 Mi UTF-16 code units, 20,000 property
+values, 20,000 property binding rows and 20,000 projected identities. Individually
+valid rows cannot bypass these whole-plan budgets. Collections are copied
+with a single bounded count and indexed traversal; overflow is never truncated.
+A semantic digest sorts articles by ordinal portable identity and frames every
+field and exact raw string independently of input JSON key order or archive
+bytes, under `fsusblog.article-package.manifest-candidate.v1`. Framing starts
+with the strict UTF-8 domain string, three version Int32 values and an Int32
+article count. Each sorted row follows the documented JSON field order: source
+IDs/counts/enums/booleans use little-endian Int32, revision/property coordinates
+use little-endian Int64, and strings use an Int32 byte length plus exact UTF-8.
+Nullable strings and Int64 coordinates have an Int32 zero/one presence flag
+before any payload. Lifecycle dates are nullable strings in exact
+`yyyy-MM-ddTHH:mm:ss.fffffffZ` UTC spelling. The semantic digest itself is omitted
+from its payload; raw byte length/hash and every byte metadata field are bound.
+
+`ArticlePackageManifestCandidatePlanner.TryCreateCandidatePlan` freezes verified
+pure projections and owned bytes. `TryBindCandidatePlan` revalidates the manifest
+and reprojects every supplied canonical source, comparing recomputed digests;
+a copied digest cannot bless changed fields or source bytes. Plans contain no
+target resolution or mutation actions. Returned source byte copies are detached;
+mutating input arrays, caller collections or returned copies cannot rewrite an
+already frozen plan. Repeated calls have no persistence or ambient state.
+
+Fields requiring assets, syntax dependencies, references, rights,
+responsibility, taxonomy, privacy or source-metadata authority are explicitly
+rejected, including empty and null assertions. The planner rejects supplied
+ArticleReference values, including empty sets, instead of inventing an observed
+reference provider. All candidate plans refuse `RequirePackageAuthority()` with
+`article_package_manifest_authority_unavailable`. Complete package acceptance
+still requires the exact persisted/source reads, real FsusUI parser diagnostics
+and provider-backed dependency, asset, privacy and rights policies, frozen full
+metadata, archive/checksum binding and independent end-to-end evidence. A valid
+component candidate satisfies none of those unavailable authority gates.
+
+## Pure import candidate validation and request plans
+
+`ArticlePackageImportCandidateBytes.Validate` is a shared, pure intermediate
+component for #2402 and #2411. Its inputs are already-read file bytes and supplied
+inventory records. It does not open a ZIP, claim archive-reader safety, create a
+temporary resource or replace the complete package schema. Both collections are
+copied by one bounded count and indexed traversal. It admits at most 1,002 files,
+1,000 articles and 64 MiB of actual aggregate bytes; overflow is rejected before
+copying byte buffers. Inventory descriptors, actual byte lengths and the total
+budget are checked before copying. Checksum verification, manifest parsing and
+raw metadata checks use only owned byte copies. Invalid input, cancellation or one
+invalid article leaves the whole candidate absent; no valid subset escapes.
+
+The exact manifest article set must equal the Markdown file set using each
+explicit portable identity's filename token. Every original source byte metadata
+field is verified against those same bytes. Asset entries are refused until their
+actual authority exists. Source coordinates, lifecycle, canonical/property hashes
+and asserted metadata remain untrusted source claims; matching their finite schema
+and bytes does not establish persisted provenance or parse Markdown. Complete
+schema fields requiring syntax, references, assets, rights, taxonomy or privacy
+remain rejected by the existing closed candidate codec, including empty assertions.
+
+The checksum component excludes `checksums.json` from its rows to avoid circular
+hashing. The separate package-bytes digest includes that document's exact bytes,
+the manifest and every article. Under
+`fsusblog.article-package.import-candidate.bytes.v1`, framing uses a UInt32
+big-endian UTF-8 domain frame and file count, ordinal paths with UInt32 big-endian
+UTF-8 lengths, and UInt64 big-endian data lengths with exact byte payloads. It is a
+finite byte-set digest, never the accepted full package semantic digest. Returned
+file bytes are detached copies. Mutating caller storage or returned copies cannot
+rewrite the frozen candidate.
+
+`ArticlePackageImportCandidatePlanner.TryCreatePlan` freezes that candidate with
+the existing `ArticleRelationActorContext`, explicit mode, policy digest and UTC
+creation/expiry interval. These are caller assertions, not observed permission
+facts. Default `CreateNew` accepts no requested targets and records a new identity
+requirement for every article; it neither generates an identity nor copies a source
+database ID. `UpdateRequested` requires exactly one explicit positive target ID and
+expected revision per portable article, with no duplicate target ID or missing row.
+These remain requested hints, never resolved targets or permission to update.
+
+The plan digest under `fsusblog.article-package.import-candidate.plan.v1` binds the
+package-bytes, checksum and finite-manifest digests, actor/site/permission assertion,
+mode, policy, exact UTC ticks and the sorted whole target requirement set. Values
+are framed as strict UTF-8 strings preceded by big-endian Int64 byte lengths; scalar
+values and counts are big-endian Int64. Create requirements use zero numeric payloads
+and an explicit new-identity flag, while update coordinates must be positive.
+No source title, slug, article ID or publication status resolves a target.
+
+`ValidateRequestBinding` compares only supplied current assertions with the frozen
+request and byte-set digest. It rejects drift, non-UTC times, times before creation
+and the inclusive expiry boundary. It never refreshes a plan or reads current
+permissions, target revisions, schema, assets or retention. A successful comparison
+is not an execution or freshness receipt. All plans always reject
+`RequireExecutionAuthority()` with `article_package_import_authority_unavailable`.
+The immutable required-authority list retains archive intake, complete schema,
+persisted canonical sources, real FsusUI syntax, persisted relations/embed plans,
+frozen public projection retention, asset/dependency and rights/privacy policies,
+current target and actor permissions, and independent execution qualification.
+The original provider, zero-write runtime, cleanup, interruption and integration
+acceptance gates remain outstanding; this component supplies no synthetic receipt.
+
+## Finite ZIP input for import candidates
+
+`ArticlePackageImportZipCandidateReader.TryReadCandidate` reads actual supplied ZIP
+bytes through the existing official `System.IO.Compression.ZipArchive` library,
+then calls the sole `ArticlePackageImportCandidateBytes` validator. It reuses the
+current Inventory paths, regular-file-only rule, compression ratio `100` and size
+limits. The candidate input ceiling is 128 MiB of archive bytes, 1,002 entries,
+1,000 articles and 64 MiB of decompressed files; assets remain unavailable.
+These are finite intermediate component limits, not a new package schema or a
+replacement for complete large-asset streaming and task-owned staging.
+
+Caller archive storage is copied before inspection. A bounded standard ZIP header
+guard runs before the official reader materializes its Entries collection. It
+checks the actual central-record count and extent, every local/central filename,
+method, flags, size and CRC coordinate, and contiguous nonoverlapping local ranges.
+The nearest end-of-central-directory signature must end exactly at the archive
+boundary. An ambiguous signature inside an archive comment is refused before
+the official reader can select a different directory.
+The guard follows PKWARE APPNOTE sections 4.3.7, 4.3.9, 4.3.12 and 4.3.16; it does
+not implement decompression or a second article-package schema. Only the finite
+classic single-disk stored/deflate profile is currently supported. Standard
+12-byte and signature-prefixed 16-byte data descriptors are checked against their
+central coordinates. Directory, reparse and nonregular UNIX entries are refused.
+
+No package-level acceptance rule exists here for arbitrary ZIP extra fields,
+hardlink metadata, ZIP64, encryption, split archives, other compression methods,
+creator profiles, prefixed executables or unsupported directory records. These
+shapes are refused with `article_package_zip_metadata_unsupported` rather than
+silently ignored, normalized, extracted or accepted as a new format version.
+Both local and central extra fields are refused, including alternate filenames
+and link metadata. Supported timestamps and bounded entry/archive comments remain
+wire metadata only; they cannot supply article lifecycle or permission facts.
+
+The official library reads each supported entry in bounded chunks. Actual length,
+EOF and independently recomputed standard ZIP CRC-32 must match the guarded
+coordinates. Every manifest, checksum and Markdown raw metadata check then uses
+the actual decompressed bytes through the existing sole owners. Any invalid entry
+or cancellation leaves the whole ZIP candidate absent. No file is extracted or
+written. The wrapper exposes only the owned file `Candidate`, actual archive
+`ArchiveByteLength` and `ArchiveSha256`; caller mutations cannot change them.
+Compression, entry order, timestamps or comments may change the archive hash
+without changing the finite file-set digest. This distinction does not qualify a
+full package semantic digest or persistent provenance.
+
+`RequireArchiveAuthority()` always returns
+`article_package_zip_authority_unavailable`. An existing request plan built from
+its file candidate still always refuses execution. This reader supplies no
+permission, zero-write runtime, staging/cleanup, timeout, interrupted-flow or
+independent original-project qualification receipt. The complete authority list
+and all original #2402/#2411 acceptance gates remain required.
