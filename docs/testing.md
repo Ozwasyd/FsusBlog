@@ -156,6 +156,85 @@ The eight types of cases are fixed as missing, corrupt header, truncated, MIME-e
 
 The end-to-end test selects `png-alpha` from MediaShapeCatalog, obtains verified receipt/bytes through the canonical generator and AssetId store, then derives all eight types of negative cases, and verifies that the positive ledger and bytes root are completely unchanged before and after running. The remaining unit tests still target a single rejection condition with minimal sealed receipt, but not as an end-to-end acceptance replacement.
 
+## Continuous managed socket handoff
+
+The existing Production Fresh port allocator exposes an explicit development
+`continuousHandoff` mode. Its native launch operation asks the original Python
+reservation process to pass its already-bound, non-reusable socket descriptor to
+one managed child. The reservation retains its IPv4 duplicate and IPv6 guard
+through the attempt; `release-before-bind` is refused in this mode. Completion
+checks the authorized child's PID start identity, actual inherited socket inode
+and listening port. A supplied PID discovered on a port cannot replace this
+authorization. Failed or canceled pending attempts drain their own child before
+releasing reservations; successful completion retains the application's socket
+when the reservation duplicates are closed.
+
+In the same opt-in mode, PostgreSQL and Redis use their admitted, digest-pinned
+final container as the IPv4 reservation owner. The allocator first holds the
+IPv6 guard, starts the final Docker publisher with explicit CPU, memory and PID
+limits, and seals its exact container, publisher process and socket identities.
+The image's business entrypoint waits on a task-private activation gate. All
+requested roles must finish allocation before any native launch or container
+activation is permitted. Activation and completion reobserve the sealed owner;
+they do not recreate the container or retry a failed publication on another port.
+The CLI receives these admitted settings through a private
+`--container-reservations` JSON file with `--continuous-handoff 1`.
+
+Normal release preserves successfully transferred runtimes. Abort uses
+`releaseAll(reason, {cancelBound: true})` to stop the owned runtimes as well.
+Crash recovery skips bound runtimes, records individual verified container
+cleanup observations, and writes a failed terminal receipt for unverified
+cleanup. Native launches retain child custody in a subprocess of the same port
+owner. Control EOF cancels even a completed handoff; only an explicit normal
+release transfers the application to runtime ownership. The custody process
+uses Linux subreaper and pidfd APIs, observes its actual descendants (including
+new sessions), drains them and reaps them before sealing a private cleanup
+receipt. Recovery verifies its boot, nonce, control-directory inode, exact
+application identity, receipt digest and current absence of each observed
+member. A missing/tampered receipt or still-live member fails closed. This is
+not host containment against killing the custody process itself; upper runtime
+containment and qualification remain required. A non-reaping host PID 1 can
+retain an exited orphan custody process as a zombie after its parent is killed;
+this is not claimed as zero-residual full-runtime acceptance. No application
+member or listener may be certified clean while still present. Focused crash
+checks are `node --test tests/tools/production-fresh-native-owner-recovery.test.mjs`.
+This source capability does not supply a readiness or qualification receipt.
+
+Bootstrap binary probing reuses the canonical release reliability AEDS frame
+validator and the SEO/PoW route catalog. It requires exact status, Content-Type,
+complete bounded frames, CRC and the route's cache policy. Managed probes verify
+the declared process/listener before and after the request; probes with a bound
+manifest additionally reobserve the exact run/namespace/lease/attempt/socket.
+An explicitly supplied payload digest can reject another generation, but wire
+and listener diagnostics always return `qualifiedReadiness: false`.
+
+Production Fresh uses its existing `FSUSBLOG_PRODUCTION_FRESH_OUTPUT_ROOT`
+selector to refuse occupied listener reuse or termination without current-run
+authority and to guard environment-ready publication. The manifest path is an
+explicit `FSUSBLOG_PORT_LEASE_MANIFEST_FILE` runtime environment input; the bundle
+verifier requires a private regular file and reobserves listeners before a
+consumer, while it runs and at completion. `verify-listeners` observes lifecycle
+bindings only. `verify-readiness` deliberately fails closed: host-native roles
+currently have no genuine universal OCI `imageDigest`, and protected exact
+product identity endpoints, frontend asset/backend-target receipts and sealed
+same-attempt business canaries remain unavailable. No diagnostic manifest or
+executable/build digest substitutes for those contracts. A fresh full product
+run therefore remains blocked before an environment-ready receipt or consumer
+can be accepted. `node --test tests/tools/production-fresh-bootstrap-readiness.test.mjs`
+checks real HTTP negatives, native listener drift, private manifest admission,
+the canonical consumer's zero-spawn refusal and another run's real Vite HTTP 200
+refusal, including reproduction of the old bootstrap's unsafe reuse. These
+source/component tests do not qualify all-five product readiness or continuous
+drift cancellation after an accepted product readiness receipt.
+
+Focused checks are `node --test tests/tools/production-fresh-continuous-handoff.test.mjs`.
+These checks exercise real subprocesses and sockets. They do not establish a
+five-role bootstrap, business AEDS canary, sealed readiness receipt, current-run
+consumer admission, or runtime qualification. Legacy allocation callers remain
+unchanged until the bootstrap integrates the admitted final Docker publisher
+and native listener adapters. Neither HTTP success nor this development socket
+proof may be promoted to Production Fresh readiness.
+
 ## Runtime state-domain catalog
 
 `config/testing/runtime-state-domain-catalog.json` is the sole runtime-state access authority. Domains must come from `config/testing/runtime-state-domain-registry.json`; executable runtime steps declare reads, writes, deletes, invalidations, creates, resets, predecessors, postconditions, and machine-verifiable source/test evidence. Coordination-only steps use `stateAccess: none`. The catalog is exact in both directions against `runtimeSteps()` and its validator runs as matrix governance; neither scheduler, lane scripts, nor documentation may keep a second conflict table. Runtime bundle producers write source/run-bound reset receipts after observing their real postconditions, and every `resetBefore`/`resetAfter` consumer verifies the receipt identity plus observation digests before proceeding.
@@ -1366,6 +1445,12 @@ Core Agreement:
 3. **No real IO in unit test**: database, Redis, file system access all through interface Mock
 4. **Test isolation**: `fast` layer testing does not depend on any running services
 5. **Stop on failure**: The failure of any layer in CI will block the downstream layer; the downstream skipped will be classified as downstream fan-out by `production-summary` and will not be regarded as a success.
+
+Managed native listeners use `tools/test-runtime/inherited-vite-listener.mjs` for Vite dev/preview and `FsusManagedTestListener` through the existing Kestrel composition owner. The launcher must inherit the already reserved Linux socket and supply `FSUSBLOG_MANAGED_TEST_LISTENER=1`, `FSUSBLOG_RUNTIME_LISTEN_FD`, `FSUSBLOG_RUNTIME_LISTEN_SOCKET` (`socket:[inode]`), `FSUSBLOG_RUNTIME_LISTEN_PORT`, `FSUSBLOG_RUNTIME_PORT_LEASE_ID`, `FSUSBLOG_RUNTIME_LISTEN_ATTEMPT_ID`, `FSUSBLOG_TEST_RUN_ID`, and `FSUSBLOG_TEST_NAMESPACE`. Admission verifies an exclusive, nonlistening IPv4 TCP socket bound to the declared `127.0.0.1` port. Kestrel additionally requires exactly that HTTP URL and no additional endpoints or HTTP/3 listener. Missing identity, changed inode/address, unsupported platform, and Vite repeated adoption fail closed. Ordinary backend startup keeps its existing configuration.
+
+Run the isolated native socket/runtime checks with `FSUSBLOG_NATIVE_LISTENER_DOTNET=/path/to/dotnet FSUSBLOG_NATIVE_LISTENER_FRONTEND=/path/to/installed/frontend node --test tests/tools/inherited-listener-adapters.test.mjs` (Node 24.19, .NET 10, locked Vite 8.0.16, Python 3). The test retains its temporary evidence directory and checks socket continuity, IPv4/IPv6 competitor rejection, real HTTP canaries, repeated launches, cancellation, partial failure, and complete cleanup. These adapter checks do not qualify the bootstrap run, Docker publisher, candidate/build identity, AEDS canary, or full production matrix; those receipts remain separate acceptance gates. The launcher retains the IPv6 reservation guard and its own socket duplicate until application adoption is verified, then releases only its duplicate. Vite restart requires a new managed attempt; the consumed descriptor cannot authorize a numeric rebind.
+
+`tests/tools/inherited-listener-allocator-integration.test.mjs` additionally executes the actual continuous allocator's `launchNative` path against Vite dev/preview and Kestrel. It verifies that the owner supplies `FSUSBLOG_TEST_RUN_ID` and `FSUSBLOG_TEST_NAMESPACE` and overrides untrusted launch specification values; the noncanonical `FSUS_TEST_RUN_ID` / `TEST_NAMESPACE` names cannot authorize admission. The test binds the loaded allocator bytes to an exact Git commit and retains its socket, identity, canary and terminal cleanup evidence. For a supplied prerequisite checkout or immutable snapshot, explicitly select `FSUSBLOG_NATIVE_LISTENER_ALLOCATOR_ROOT` and `FSUSBLOG_NATIVE_LISTENER_ALLOCATOR_COMMIT`; missing capability or mismatched source fails, with no source-only substitute. Run it with the same SDK/frontend variables after the continuous allocator capability is present in the candidate.
 
 ---
 

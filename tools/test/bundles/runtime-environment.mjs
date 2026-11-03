@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+const {verifyBoundRuntimeListeners} = await import(new URL('../../test-matrix/production-fresh-port-lease.mjs', import.meta.url));
+
 const allowedRuntimeEnvironmentKeys = new Set([
     'FSUSBLOG_TEST_NAMESPACE',
     'FSUSBLOG_POSTGRES_PORT',
@@ -17,6 +19,7 @@ const allowedRuntimeEnvironmentKeys = new Set([
     // so a later bootstrap resume can reattach to the same reservation daemon.
     'FSUSBLOG_PORT_LEASED_ROLES',
     'FSUSBLOG_PORT_LEASE_DAEMON_PID',
+    'FSUSBLOG_PORT_LEASE_MANIFEST_FILE',
     'FSUSBLOG_NOTIFICATION_DRILL_SECRET',
     'FSUSBLOG_DATA_ROOT',
     'FSUSBLOG_RELEASE_DERIVED_ROOT',
@@ -203,4 +206,30 @@ export function readRuntimeEnvironment(root, expectedNamespace)
         throw new Error(`runtime environment file must be a regular non-symlink file: .tmp/env/${namespace}.env`);
     }
     return parseRuntimeEnvironment(fs.readFileSync(resolvedFile, 'utf8'), namespace);
+}
+
+export async function assertProductionFreshReadiness({environment, runId, namespace})
+{
+    const file = environment.FSUSBLOG_PORT_LEASE_MANIFEST_FILE;
+    if (!file || !path.isAbsolute(file))
+    {
+        throw new Error('Production Fresh consumer requires its explicit current-run port lease manifest');
+    }
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    let manifest;
+    try
+    {
+        const stat = fs.fstatSync(descriptor);
+        if (!stat.isFile() || stat.nlink !== 1 || stat.uid !== process.getuid() ||
+            (stat.mode & 0o777) !== 0o600 || stat.size > 1024 * 1024)
+        {
+            throw new Error('Production Fresh consumer manifest must be a bounded task-private regular file');
+        }
+        manifest = JSON.parse(fs.readFileSync(descriptor, 'utf8'));
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+    return verifyBoundRuntimeListeners({manifest, runId, namespace, requireReadiness: true});
 }

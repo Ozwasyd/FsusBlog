@@ -16,6 +16,7 @@ public static class WebApplicationBuilderCompositionExtensions
 {
     public static WebApplicationBuilder ConfigureFsusKestrelSingleProcessRuntime(this WebApplicationBuilder builder)
     {
+        FsusManagedTestListener.Configure(builder);
         FsusHttp3Transport.Configure(builder);
         builder.WebHost.ConfigureKestrel(options =>
         {

@@ -5,12 +5,16 @@ import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { observeReservedContainerPublisher, recoverReleaseContainerPublisher, reserveContainerPublisher, validateContainerReservationOptions } from './production-fresh-container-reservation.mjs';
 
 export const portLeaseReservationEngine = 'python-bind-without-listen';
 
+const nativeGuardianFile = fileURLToPath(new URL('./production-fresh-native-reservation-guardian.py', import.meta.url));
+
 const reservationPythonScript = String.raw`
-import socket, sys
+import json, os, socket, subprocess, sys
 port = int(sys.argv[1])
 mode = sys.argv[2] if len(sys.argv) > 2 else 'both'
 sockets = []
@@ -40,10 +44,83 @@ except Exception as exc:
             pass
     print('bind-failed: %s' % (exc,), file=sys.stderr, flush=True)
     sys.exit(1)
+guardian = None
+application_identity = None
+guardian_directory = None
+retained = False
+explicit_close = False
+
+def guardian_response():
+    response = json.loads(guardian.stdout.readline())
+    if not response['ok']:
+        raise RuntimeError(response['error'])
+    return response['result']
+
+def guardian_command(command):
+    guardian.stdin.write(json.dumps({'command': command}) + '\n')
+    guardian.stdin.flush()
+    return guardian_response()
+
+def stop_guardian():
+    if guardian is None:
+        return
+    if guardian.poll() is None:
+        try:
+            guardian.stdin.write(json.dumps({'command': 'cancel'}) + '\n')
+            guardian.stdin.flush()
+        except BrokenPipeError:
+            pass
+        guardian.wait(timeout=6)
+    with open(os.path.join(guardian_directory, 'cleanup.json'), encoding='utf-8') as source:
+        observation = json.load(source)
+    if not observation['verified']:
+        raise RuntimeError('native guardian cleanup was not verified')
+
 print('ready', flush=True)
 try:
-    sys.stdin.read()
+    for line in sys.stdin:
+        request = json.loads(line)
+        try:
+            if request['command'] == 'launch-native':
+                if guardian is not None or mode != 'v4':
+                    raise ValueError('native socket handoff is not available')
+                specification = request['specification']
+                argv = specification['argv']
+                if not isinstance(argv, list) or not argv or not all(isinstance(arg, str) for arg in argv):
+                    raise ValueError('native launch argv is invalid')
+                fd = sockets[0].fileno()
+                guardian_directory = specification['logFile'] + '.guardian'
+                guardian = subprocess.Popen([sys.executable, '-I', '-B', sys.argv[3]],
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr,
+                    pass_fds=(fd,), text=True)
+                guardian.stdin.write(json.dumps({'specification': specification, 'descriptor': fd,
+                    'token': os.urandom(32).hex()}) + '\n')
+                guardian.stdin.flush()
+                application_identity = guardian_response()
+                result = application_identity
+            elif request['command'] == 'retain-native':
+                if guardian is None or not guardian_command('observe')['live']:
+                    raise ValueError('native handoff child is not live')
+                retained = True
+                result = {'retained': True}
+            elif request['command'] == 'cancel-native':
+                retained = False
+                stop_guardian()
+                result = {'canceled': True}
+            elif request['command'] == 'close':
+                explicit_close = True
+                break
+            else:
+                raise ValueError('unsupported reservation command')
+            print(json.dumps({'id': request['id'], 'ok': True, 'result': result}), flush=True)
+        except Exception as exc:
+            print(json.dumps({'id': request['id'], 'ok': False, 'error': str(exc)}), flush=True)
 finally:
+    if guardian is not None:
+        if retained and explicit_close:
+            guardian_command('transfer')
+        else:
+            stop_guardian()
     for sock in sockets:
         try:
             sock.close()
@@ -240,6 +317,70 @@ function readJsonFile(file)
     return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
+export async function verifyNativeReservationCleanup(identity, {timeoutMs = 6500} = {})
+{
+    const guardian = identity?.guardian;
+    if (!guardian || !path.isAbsolute(guardian.directory ?? '') ||
+        !Number.isInteger(identity.pid) || !/^\d+$/u.test(identity.processStartIdentity ?? '') ||
+        !/^[a-f0-9]{64}$/u.test(guardian.token ?? '') ||
+        guardian.bootId !== fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim())
+    {
+        throw new Error('native cleanup requires its exact guardian and application identity');
+    }
+    const deadline = Date.now() + timeoutMs;
+    while (true)
+    {
+        const directory = fs.lstatSync(guardian.directory);
+        if (!directory.isDirectory() || directory.isSymbolicLink() || (directory.mode & 0o777) !== 0o700 ||
+            directory.uid !== process.getuid() || directory.dev !== guardian.device || directory.ino !== guardian.inode)
+        {
+            throw new Error('native guardian cleanup directory identity drift');
+        }
+        let observation;
+        try
+        {
+            observation = JSON.parse(readPrivateFile(path.join(guardian.directory, 'cleanup.json')));
+        }
+        catch (error)
+        {
+            if ((error.code === 'ENOENT' || error instanceof SyntaxError) && Date.now() < deadline)
+            {
+                await new Promise((resolve) => setTimeout(resolve, 20));
+                continue;
+            }
+            throw new Error('native guardian cleanup receipt unavailable', {cause: error});
+        }
+        const {contentDigest, ...payload} = observation;
+        if (observation.schema !== 'fsusblog.native-reservation-cleanup.v1' || observation.verified !== true ||
+            contentDigest !== digest(JSON.stringify(canonicalize(payload))) ||
+            JSON.stringify(canonicalize(observation.guardian)) !== JSON.stringify(canonicalize(guardian)) ||
+            JSON.stringify(canonicalize(observation.application)) !== JSON.stringify(canonicalize(identity)) ||
+            !Array.isArray(observation.members))
+        {
+            throw new Error('native guardian cleanup receipt does not match its exact application');
+        }
+        for (const member of [identity, ...observation.members])
+        {
+            try
+            {
+                const stat = fs.readFileSync(`/proc/${member.pid}/stat`, 'utf8');
+                if (stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u)[19] === member.processStartIdentity)
+                {
+                    throw new Error(`native application member was not reaped: ${member.pid}`);
+                }
+            }
+            catch (error)
+            {
+                if (!['ENOENT', 'ESRCH'].includes(error.code))
+                {
+                    throw error;
+                }
+            }
+        }
+        return observation;
+    }
+}
+
 function shuffledPorts(minPort, maxPort, random = Math.random)
 {
     if (!Number.isInteger(minPort) || !Number.isInteger(maxPort) || minPort < 1 || maxPort > 65535 || minPort > maxPort)
@@ -264,7 +405,7 @@ function isAddressInUse(error)
     return error?.code === 'EADDRINUSE' || error?.code === 'EACCES' || error?.code === 'EADDRNOTAVAIL';
 }
 
-export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs = 2000, python = null })
+export function bindReservationServer({ host, port, timeoutMs = 2000, python = null })
 {
     return new Promise((resolve, reject) =>
     {
@@ -273,9 +414,27 @@ export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs 
         let settled = false;
         let stderr = '';
         let child;
+        let nativeIdentity;
+        let nativeRetained = false;
+        let stdout = '';
+        const pending = new Map();
+        function request(command, specification)
+        {
+            return new Promise((resolveRequest, rejectRequest) =>
+            {
+                const id = randomUUID();
+                const deadline = setTimeout(() =>
+                {
+                    pending.delete(id);
+                    rejectRequest(new Error(`reservation ${command} timed out`));
+                }, 5000);
+                pending.set(id, { resolve: resolveRequest, reject: rejectRequest, deadline });
+                child.stdin.write(`${JSON.stringify({ id, command, specification })}\n`);
+            });
+        }
         try
         {
-            child = spawn(pythonBin, ['-c', reservationPythonScript, String(port), mode], {
+            child = spawn(pythonBin, ['-c', reservationPythonScript, String(port), mode, nativeGuardianFile], {
                 stdio: ['pipe', 'pipe', 'pipe']
             });
         }
@@ -303,23 +462,130 @@ export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs 
         }, timeoutMs);
         child.stdout.setEncoding('utf8');
         child.stderr.setEncoding('utf8');
+        child.stdin.on('error', (error) =>
+        {
+            for (const entry of pending.values())
+            {
+                clearTimeout(entry.deadline);
+                entry.reject(error);
+            }
+            pending.clear();
+        });
         child.stderr.on('data', (chunk) =>
         {
             stderr += chunk;
         });
         child.stdout.on('data', (chunk) =>
         {
-            if (!chunk.includes('ready') || settled)
+            stdout += chunk;
+            while (stdout.includes('\n'))
             {
-                return;
+                const newline = stdout.indexOf('\n');
+                const line = stdout.slice(0, newline);
+                stdout = stdout.slice(newline + 1);
+                if (line === 'ready' && !settled)
+                {
+                    settled = true;
+                    clearTimeout(timer);
+                    resolve({
+                        host,
+                        port,
+                        launchNative: async (specification) =>
+                        {
+                            nativeIdentity = await request('launch-native', specification);
+                            return nativeIdentity;
+                        },
+                        retainNative: async () =>
+                        {
+                            const result = await request('retain-native');
+                            nativeRetained = true;
+                            return result;
+                        },
+                        cancelNative: async () =>
+                        {
+                            try
+                            {
+                                if (child.exitCode === null && child.signalCode === null)
+                                {
+                                    const result = await request('cancel-native');
+                                    nativeRetained = false;
+                                    if (nativeIdentity)
+                                    {
+                                        await verifyNativeReservationCleanup(nativeIdentity);
+                                    }
+                                    return result;
+                                }
+                            }
+                            catch (error)
+                            {
+                                if (!nativeIdentity)
+                                {
+                                    throw error;
+                                }
+                                // EPIPE can arrive before Node publishes the owner's exit.
+                                // Only the independently verified guardian receipt and actual
+                                // member absence may prove cancellation across that race.
+                                const [verification] = await Promise.allSettled([
+                                    verifyNativeReservationCleanup(nativeIdentity)
+                                ]);
+                                if (verification.status === 'rejected')
+                                {
+                                    throw new AggregateError([error, verification.reason],
+                                        'native cancellation cleanup was not verified', {cause: error});
+                                }
+                                nativeRetained = false;
+                                return {canceled: true};
+                            }
+                            await verifyNativeReservationCleanup(nativeIdentity);
+                            nativeRetained = false;
+                            return {canceled: true};
+                        },
+                        close: async () =>
+                        {
+                            try
+                            {
+                                await closeReservationChild(child, () => stderr.trim());
+                                if (nativeIdentity && !nativeRetained)
+                                {
+                                    return verifyNativeReservationCleanup(nativeIdentity);
+                                }
+                            }
+                            catch (error)
+                            {
+                                if (!nativeIdentity)
+                                {
+                                    throw error;
+                                }
+                                return verifyNativeReservationCleanup(nativeIdentity);
+                            }
+                        }
+                    });
+                    continue;
+                }
+                let response;
+                try
+                {
+                    response = JSON.parse(line);
+                }
+                catch
+                {
+                    continue;
+                }
+                const entry = pending.get(response.id);
+                if (entry)
+                {
+                    clearTimeout(entry.deadline);
+                    pending.delete(response.id);
+                    if (response.ok)
+                    {
+                        entry.resolve(response.result);
+                    }
+                    else
+                    {
+                        entry.reject(new Error(response.error));
+                    }
+                }
             }
-            settled = true;
-            clearTimeout(timer);
-            resolve({
-                host,
-                port,
-                close: () => closeReservationChild(child)
-            });
         });
         child.once('error', (error) =>
         {
@@ -333,6 +599,12 @@ export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs 
         });
         child.once('exit', (code) =>
         {
+            for (const entry of pending.values())
+            {
+                clearTimeout(entry.deadline);
+                entry.reject(new Error('reservation owner exited during handoff'));
+            }
+            pending.clear();
             if (settled)
             {
                 return;
@@ -344,13 +616,20 @@ export function bindReservationServer({ host, port, ipv6Only = false, timeoutMs 
     });
 }
 
-function closeReservationChild(child)
+function closeReservationChild(child, diagnostics = () => '')
 {
-    return new Promise((resolve) =>
+    return new Promise((resolve, reject) =>
     {
         if (child.exitCode !== null || child.signalCode !== null)
         {
-            resolve();
+            if (child.exitCode === 0)
+            {
+                resolve();
+            }
+            else
+            {
+                reject(new Error(`reservation owner exited without verified cleanup (code=${child.exitCode}, signal=${child.signalCode}): ${diagnostics()}`));
+            }
             return;
         }
         const timer = setTimeout(() =>
@@ -363,15 +642,22 @@ function closeReservationChild(child)
             {
                 // already exited
             }
-        }, 500);
-        child.once('exit', () =>
+        }, 5000);
+        child.once('exit', (code) =>
         {
             clearTimeout(timer);
-            resolve();
+            if (code === 0)
+            {
+                resolve();
+            }
+            else
+            {
+                reject(new Error(`reservation owner exited without verified cleanup (code=${code}, signal=${child.signalCode}): ${diagnostics()}`));
+            }
         });
         try
         {
-            child.stdin.end();
+            child.stdin.end(`${JSON.stringify({ command: 'close' })}\n`);
         }
         catch
         {
@@ -385,12 +671,6 @@ function closeReservationChild(child)
             }
         }
     });
-}
-
-function sealOwner(owner)
-{
-    const payload = canonicalize(owner);
-    return { ...owner, contentDigest: digest(JSON.stringify(payload)) };
 }
 
 function ownerIsComplete(owner)
@@ -408,7 +688,8 @@ function ownerIsComplete(owner)
 
 function leasePayload(lease)
 {
-    const { contentDigest: _contentDigest, ...payload } = lease;
+    const payload = { ...lease };
+    delete payload.contentDigest;
     return payload;
 }
 
@@ -558,7 +839,7 @@ function readSealedManifest(manifestPath)
     return verifySealedPortLeaseManifest(readJsonFile(manifestPath));
 }
 
-export function createPortLeaseAllocator({ runId, namespace, roles = defaultRoleCatalog(), now = () => new Date().toISOString(), random = Math.random, owner = null, reservationToken = null, pins = {} })
+export function createPortLeaseAllocator({ runId, namespace, roles = defaultRoleCatalog(), now = () => new Date().toISOString(), random = Math.random, owner = null, reservationToken = null, pins = {}, continuousHandoff = false, containerReservations = {} })
 {
     const instanceId = randomUUID();
     const reservationOwnerIdentity = owner ?? {
@@ -572,6 +853,40 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
     const leases = new Map();
     const reservations = new Map();
     const tokens = new Map();
+    const roleOperations = new Map();
+    let allocationStarted = false;
+    let allocationCompleted = false;
+    if (continuousHandoff)
+    {
+        for (const role of roles.filter((entry) => entry.containerPort !== null))
+        {
+            validateContainerReservationOptions({
+                ...containerReservations[role.role], role: role.role, runId, namespace,
+                port: role.minPort, containerPort: role.containerPort
+            });
+        }
+    }
+    function serializeRole(role, operation)
+    {
+        const previous = roleOperations.get(role) ?? Promise.resolve();
+        const pending = previous.catch(() =>
+        {}).then(operation);
+        roleOperations.set(role, pending);
+        pending.then(() =>
+        {
+            if (roleOperations.get(role) === pending)
+            {
+                roleOperations.delete(role);
+            }
+        }, () =>
+        {
+            if (roleOperations.get(role) === pending)
+            {
+                roleOperations.delete(role);
+            }
+        });
+        return pending;
+    }
 
     function currentProcessStartIdentity()
     {
@@ -590,6 +905,38 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
     function roleByName(role)
     {
         return roles.find((candidate) => candidate.role === role);
+    }
+
+    async function reserveRoleSockets(definition, port, held)
+    {
+        if (continuousHandoff && definition.containerPort !== null)
+        {
+            // Check and retain the other address family before Docker becomes
+            // the real IPv4 reservation owner. A publish failure aborts this
+            // allocation; it is never retried on another port.
+            held.push(await bindReservationServer({ host: '::1', port, ipv6Only: true }));
+            const publisher = await reserveContainerPublisher({
+                ...containerReservations[definition.role], role: definition.role, runId, namespace,
+                port, containerPort: definition.containerPort
+            });
+            held.push({ host: '127.0.0.1', port, publisher, close: () => publisher.close() });
+        }
+        else
+        {
+            held.push(await bindReservationServer({ host: '127.0.0.1', port }));
+            held.push(await bindReservationServer({ host: '::1', port, ipv6Only: true }));
+        }
+    }
+
+    function reservationBinding(held)
+    {
+        const publisher = held.find((entry) => entry.publisher)?.publisher;
+        return {
+            reservationKind: continuousHandoff ? publisher ? 'final-docker-publisher' : 'inherited-native-socket' : 'legacy-bind-reservation',
+            ...(publisher ? { containerReservation: {
+                ownerIdentity: publisher.ownerIdentity, gateDirectory: publisher.gateDirectory
+            } } : {})
+        };
     }
 
     async function allocateRole(role)
@@ -615,8 +962,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
             const held = [];
             try
             {
-                held.push(await bindReservationServer({ host: '127.0.0.1', port: pinned }));
-                held.push(await bindReservationServer({ host: '::1', port: pinned, ipv6Only: true }));
+                await reserveRoleSockets(definition, pinned, held);
             }
             catch (error)
             {
@@ -640,6 +986,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
                 containerPort: definition.containerPort ?? null,
                 outputBindingKey: definition.outputBindingKey,
                 reservationOwnerIdentity,
+                ...reservationBinding(held),
                 reservationTokenDigest: digest(sharedToken),
                 createdAt,
                 handoffState: 'reserved',
@@ -657,13 +1004,12 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
             const held = [];
             try
             {
-                held.push(await bindReservationServer({ host: '127.0.0.1', port }));
-                held.push(await bindReservationServer({ host: '::1', port, ipv6Only: true }));
+                await reserveRoleSockets(definition, port, held);
             }
             catch (error)
             {
                 await Promise.all(held.map((reservation) => reservation.close()));
-                if (isAddressInUse(error))
+                if (isAddressInUse(error) && !(continuousHandoff && definition.containerPort !== null && held.length > 0))
                 {
                     continue;
                 }
@@ -682,6 +1028,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
                 containerPort: definition.containerPort ?? null,
                 outputBindingKey: definition.outputBindingKey,
                 reservationOwnerIdentity,
+                ...reservationBinding(held),
                 reservationTokenDigest: digest(sharedToken),
                 createdAt,
                 handoffState: 'reserved',
@@ -702,6 +1049,11 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
 
     async function allocate()
     {
+        if (allocationStarted)
+        {
+            throw new Error('port lease allocation is single-attempt');
+        }
+        allocationStarted = true;
         const allocated = [];
         try
         {
@@ -709,6 +1061,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
             {
                 allocated.push(await allocateRole(role.role));
             }
+            allocationCompleted = true;
             return snapshot();
         }
         catch (error)
@@ -718,10 +1071,12 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
         }
     }
 
-    async function closeRoleReservations(role)
+    async function closeRoleReservations(role, { preserveRuntime = false } = {})
     {
-        await Promise.all((reservations.get(role) ?? []).map((reservation) => reservation.close()));
+        const observations = await Promise.all((reservations.get(role) ?? []).map((reservation) =>
+            preserveRuntime && reservation.publisher ? Promise.resolve() : reservation.close()));
         reservations.delete(role);
+        return observations.filter((observation) => observation?.verified === true);
     }
 
     function updateLease(role, patch)
@@ -751,8 +1106,63 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
         {
             throw new Error(`port lease ${role} cannot begin handoff from ${lease.handoffState}`);
         }
+        if (continuousHandoff)
+        {
+            throw new Error(`port lease ${role} requires continuous socket handoff; release-before-bind is forbidden`);
+        }
         await closeRoleReservations(role);
         return updateLease(role, { handoffState: 'handing-off', handedOffAt: now() });
+    }
+
+    async function launchNative(role, specification)
+    {
+        const lease = leases.get(role);
+        if (!allocationCompleted || !continuousHandoff || !lease || lease.containerPort !== null || lease.handoffState !== 'reserved')
+        {
+            throw new Error(`port lease ${role} cannot launch an inherited native socket`);
+        }
+        if (!specification || !Array.isArray(specification.argv) || specification.argv.length === 0 ||
+            !specification.argv.every((argument) => typeof argument === 'string') ||
+            !path.isAbsolute(specification.cwd ?? '') || !path.isAbsolute(specification.logFile ?? '') ||
+            !specification.env || typeof specification.env !== 'object' || Array.isArray(specification.env) ||
+            !Object.values(specification.env).every((value) => typeof value === 'string'))
+        {
+            throw new Error('native launch requires argv, absolute cwd/logFile, and string environment');
+        }
+        const attemptId = randomUUID();
+        // Reserve the state before awaiting the owner: concurrent control requests
+        // must never launch two consumers of one application socket.
+        updateLease(role, { handoffState: 'handing-off', handedOffAt: now(), handoffAttemptId: attemptId });
+        try
+        {
+            const reservation = reservations.get(role)?.find((entry) => entry.host === '127.0.0.1');
+            const identity = await reservation.launchNative({
+                ...specification,
+                env: {
+                    ...specification.env,
+                    FSUSBLOG_TEST_RUN_ID: runId,
+                    FSUSBLOG_TEST_NAMESPACE: namespace,
+                    FSUSBLOG_RUNTIME_PORT_LEASE_ID: lease.portLeaseId,
+                    FSUSBLOG_RUNTIME_LISTEN_ATTEMPT_ID: attemptId,
+                    FSUSBLOG_RUNTIME_LISTEN_PORT: String(lease.port),
+                    FSUSBLOG_MANAGED_TEST_LISTENER: '1'
+                }
+            });
+            if (leases.get(role).handoffState !== 'handing-off' || leases.get(role).handoffAttemptId !== attemptId)
+            {
+                throw new Error('native handoff was canceled during launch');
+            }
+            updateLease(role, {
+                handoffOwnerIdentity: { ...identity, runId, namespace, role, portLeaseId: lease.portLeaseId, attemptId },
+                launchSpecificationDigest: digest(JSON.stringify(canonicalize(specification)))
+            });
+            return leases.get(role);
+        }
+        catch (error)
+        {
+            await failHandoff(role, 'native-launch-failed');
+            throw error;
+        }
     }
 
     async function completeHandoff(role, listenerIdentityRef)
@@ -770,12 +1180,74 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
         {
             throw new Error(`port lease ${role} cannot complete from ${lease.handoffState}`);
         }
+        if (continuousHandoff)
+        {
+            if (lease.containerPort !== null)
+            {
+                const publisher = reservations.get(role)?.find((entry) => entry.publisher)?.publisher;
+                const expected = lease.containerReservation?.ownerIdentity;
+                if (lease.handoffState !== 'handing-off' || !publisher || !expected ||
+                    listenerIdentityRef !== `container:${expected.containerId}` ||
+                    JSON.stringify(canonicalize(await publisher.observe())) !== JSON.stringify(canonicalize(expected)))
+                {
+                    throw new Error(`port lease ${role} listener is not its authorized continuous publisher`);
+                }
+                await publisher.transferToRuntime();
+                return updateLease(role, {
+                    handoffState: 'bound', boundListenerIdentityRef: listenerIdentityRef, handedOffAt: now()
+                });
+            }
+            const expected = lease.handoffOwnerIdentity;
+            if (!expected || listenerIdentityRef !== `pid:${expected.pid}` ||
+                !nativeSocketOwnerMatches(expected, lease.port))
+            {
+                throw new Error(`port lease ${role} listener is not the authorized same-attempt socket owner`);
+            }
+            const reservation = reservations.get(role)?.find((entry) => entry.host === '127.0.0.1');
+            await reservation.retainNative();
+            if (!nativeSocketOwnerMatches(expected, lease.port))
+            {
+                await failHandoff(role, 'native-completion-drift');
+                throw new Error(`port lease ${role} listener drifted during completion`);
+            }
+            // Retain both reservations through the bootstrap attempt. Completion
+            // is an ownership transition, never a close-then-rebind window.
+            return updateLease(role, {
+                handoffState: 'bound', boundListenerIdentityRef: listenerIdentityRef, handedOffAt: now()
+            });
+        }
         await closeRoleReservations(role);
         return updateLease(role, {
             handoffState: 'bound',
             boundListenerIdentityRef: listenerIdentityRef,
             handedOffAt: now()
         });
+    }
+
+    async function activateContainer(role)
+    {
+        const lease = leases.get(role);
+        const publisher = reservations.get(role)?.find((entry) => entry.publisher)?.publisher;
+        if (!allocationCompleted || !continuousHandoff || !lease || !publisher ||
+            lease.handoffState !== 'reserved' || lease.containerPort === null)
+        {
+            throw new Error(`port lease ${role} cannot activate a final publisher`);
+        }
+        updateLease(role, { handoffState: 'handing-off', handedOffAt: now() });
+        try
+        {
+            const observed = await publisher.activate();
+            if (JSON.stringify(canonicalize(observed)) !== JSON.stringify(canonicalize(lease.containerReservation.ownerIdentity)))
+            {
+                throw new Error(`port lease ${role} publisher drifted during activation`);
+            }
+            return leases.get(role);
+        }
+        catch (error)
+        {
+            await failHandoff(role, 'container-activation-failed');
+            throw error;
+        }
     }
 
     async function failHandoff(role, reason)
@@ -788,6 +1260,10 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
         {
             throw new Error(`port lease role is not allocated: ${role}`);
         }
+        if (continuousHandoff)
+        {
+            await reservations.get(role)?.find((entry) => entry.host === '127.0.0.1')?.cancelNative?.();
+        }
         await closeRoleReservations(role);
         return updateLease(role, {
             handoffState: 'failed',
@@ -796,19 +1272,38 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
         });
     }
 
-    async function releaseAll(reason = 'release')
+    async function releaseAll(reason = 'release', { cancelBound = false } = {})
     {
         const released = [];
+        const cleanupFailures = [];
         for (const role of leases.keys())
         {
-            await closeRoleReservations(role);
-            const lease = leases.get(role);
-            if (lease.handoffState === 'bound' || lease.handoffState === 'released' || lease.handoffState === 'failed')
+            try
             {
-                released.push(lease);
-                continue;
+                await serializeRole(role, async () =>
+                {
+                    const lease = leases.get(role);
+                    if (continuousHandoff && cancelBound && lease.handoffState === 'bound')
+                    {
+                        await reservations.get(role)?.find((entry) => entry.host === '127.0.0.1')?.cancelNative?.();
+                    }
+                    const cleanup = await closeRoleReservations(role, { preserveRuntime: lease.handoffState === 'bound' && !cancelBound });
+                    if ((lease.handoffState === 'bound' && !cancelBound && cleanup.length === 0) || lease.handoffState === 'released' || lease.handoffState === 'failed')
+                    {
+                        released.push(lease);
+                        return;
+                    }
+                    released.push(updateLease(role, { handoffState: 'released', handedOffAt: now(), failedReason: null }));
+                });
             }
-            released.push(updateLease(role, { handoffState: 'released', handedOffAt: now(), failedReason: null }));
+            catch (error)
+            {
+                cleanupFailures.push(error);
+            }
+        }
+        if (cleanupFailures.length > 0)
+        {
+            throw new AggregateError(cleanupFailures, `port lease ${reason} cleanup was not verified`, { cause: cleanupFailures[0] });
         }
         return released;
     }
@@ -838,9 +1333,11 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
     return {
         allocate,
         snapshot,
-        beginHandoff,
-        completeHandoff,
-        failHandoff,
+        beginHandoff: (role) => serializeRole(role, () => beginHandoff(role)),
+        launchNative: (role, specification) => serializeRole(role, () => launchNative(role, specification)),
+        activateContainer: (role) => serializeRole(role, () => activateContainer(role)),
+        completeHandoff: (role, identity) => serializeRole(role, () => completeHandoff(role, identity)),
+        failHandoff: (role, reason) => serializeRole(role, () => failHandoff(role, reason)),
         releaseAll,
         tokenFor,
         verifyToken,
@@ -848,7 +1345,7 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
     };
 }
 
-export function writePortLeaseTerminalReceipt({ terminalReceiptPath, runId, namespace, reservationOwnerIdentity, terminalState, reason, manifestDigest, leases = [], now = () => new Date().toISOString() })
+export function writePortLeaseTerminalReceipt({ terminalReceiptPath, runId, namespace, reservationOwnerIdentity, terminalState, reason, manifestDigest, leases = [], cleanupObservations = [], now = () => new Date().toISOString() })
 {
     if (!['released', 'failed'].includes(terminalState))
     {
@@ -864,6 +1361,7 @@ export function writePortLeaseTerminalReceipt({ terminalReceiptPath, runId, name
         reason,
         manifestDigest,
         leases,
+        cleanupObservations,
         terminalAt: now()
     };
     atomicWriteJson(terminalReceiptPath, { ...payload, contentDigest: digest(JSON.stringify(canonicalize(payload))) });
@@ -905,7 +1403,7 @@ function connectControl(controlSocketPath, payload, timeoutMs = 5000)
             }
             catch (error)
             {
-                reject(new Error(`port lease control response is not JSON: ${line}`));
+                reject(new Error(`port lease control response is not JSON: ${line}`, {cause: error}));
             }
         });
         socket.write(`${JSON.stringify(payload)}\n`);
@@ -1026,6 +1524,38 @@ async function handleControlRequest({ request, allocator, token, persist, onRele
                     }
                     return { ok: true, lease };
                 }
+            case 'launch-native':
+                if (typeof request.role !== 'string' || !request.specification)
+                {
+                    return { ok: false, error: 'role and native launch specification are required' };
+                }
+                {
+                    try
+                    {
+                        const lease = await allocator.launchNative(request.role, request.specification);
+                        return { ok: true, lease };
+                    }
+                    finally
+                    {
+                        persist?.();
+                    }
+                }
+            case 'activate-container':
+                if (typeof request.role !== 'string')
+                {
+                    return { ok: false, error: 'role is required' };
+                }
+                {
+                    try
+                    {
+                        const lease = await allocator.activateContainer(request.role);
+                        return { ok: true, lease };
+                    }
+                    finally
+                    {
+                        persist?.();
+                    }
+                }
             case 'complete-handoff':
                 if (typeof request.role !== 'string' || typeof request.listenerIdentityRef !== 'string')
                 {
@@ -1081,7 +1611,9 @@ async function handleControlRequest({ request, allocator, token, persist, onRele
                     return { ok: true, lease };
                 }
             case 'release-all': {
-                const leases = await allocator.releaseAll(typeof request.reason === 'string' ? request.reason : 'release');
+                const leases = await allocator.releaseAll(typeof request.reason === 'string' ? request.reason : 'release', {
+                    cancelBound: request.cancelBound === true
+                });
                 if (persist)
                 {
                     persist();
@@ -1111,6 +1643,90 @@ function verifyDaemonToken(expected, candidate)
     const a = Buffer.from(expected);
     const b = Buffer.from(candidate);
     return a.length === b.length && timingSafeEqual(a, b);
+}
+
+function nativeSocketOwnerMatches(expected, port)
+{
+    try
+    {
+        const stat = fs.readFileSync(`/proc/${expected.pid}/stat`, 'utf8');
+        if (stat.slice(stat.lastIndexOf(')') + 2).trim().split(/\s+/u)[19] !== expected.processStartIdentity)
+        {
+            return false;
+        }
+        const descriptors = fs.readdirSync(`/proc/${expected.pid}/fd`);
+        const ownsSocket = descriptors.some((fd) =>
+        {
+            try
+            {
+                return fs.readlinkSync(`/proc/${expected.pid}/fd/${fd}`) === expected.socketIdentity;
+            }
+            catch
+            {
+                return false;
+            }
+        });
+        return ownsSocket && pidListeningOnPort(expected.pid, port);
+    }
+    catch
+    {
+        return false;
+    }
+}
+
+export async function observeBoundPortLease({manifest, role, runId, namespace})
+{
+    verifySealedPortLeaseManifest(manifest);
+    if (!runId || !namespace || manifest.runId !== runId || manifest.namespace !== namespace)
+    {
+        throw new Error('bound listener manifest does not match the current run and namespace');
+    }
+    const lease = manifest.leases.find((entry) => entry.role === role);
+    if (!lease || lease.handoffState !== 'bound')
+    {
+        throw new Error(`bound listener receipt is missing for ${role}`);
+    }
+    if (lease.reservationKind === 'inherited-native-socket')
+    {
+        const identity = lease.handoffOwnerIdentity;
+        if (!identity || identity.runId !== runId || identity.namespace !== namespace || identity.role !== role ||
+            identity.portLeaseId !== lease.portLeaseId || identity.attemptId !== lease.handoffAttemptId ||
+            lease.boundListenerIdentityRef !== `pid:${identity.pid}` || !nativeSocketOwnerMatches(identity, lease.port))
+        {
+            throw new Error(`current-run bound native listener drift: ${role}`);
+        }
+        return {role, port: lease.port, portLeaseId: lease.portLeaseId, listenerIdentityRef: lease.boundListenerIdentityRef,
+            identity, manifestDigest: manifest.contentDigest};
+    }
+    if (lease.reservationKind === 'final-docker-publisher')
+    {
+        const identity = await observeReservedContainerPublisher(lease.containerReservation);
+        if (identity.runId !== runId || identity.namespace !== namespace ||
+            lease.boundListenerIdentityRef !== `container:${identity.containerId}`)
+        {
+            throw new Error(`current-run bound container listener drift: ${role}`);
+        }
+        return {role, port: lease.port, portLeaseId: lease.portLeaseId, listenerIdentityRef: lease.boundListenerIdentityRef,
+            identity, manifestDigest: manifest.contentDigest};
+    }
+    throw new Error(`continuous bound listener authority is missing for ${role}`);
+}
+
+export async function verifyBoundRuntimeListeners({manifest, runId, namespace, requireReadiness = false})
+{
+    const observations = [];
+    for (const role of defaultRoleCatalog())
+    {
+        observations.push(await observeBoundPortLease({manifest, role: role.role, runId, namespace}));
+    }
+    if (requireReadiness)
+    {
+        // The active issue contract requires genuine imageDigest for every role.
+        // Socket/process/build digests cannot supply OCI authority for these host
+        // native listeners. Never promote this lifecycle observation to readiness.
+        throw new Error('Production Fresh readiness is unavailable: native backend/debug-frontend/release-preview have no verified OCI imageDigest authority; protected exact runtime identity and business canary receipts are also required');
+    }
+    return observations;
 }
 
 function pidListeningOnPort(pid, port)
@@ -1161,7 +1777,7 @@ function containerHasHostPort(containerRef, port)
     }
 }
 
-export async function verifyListenerIdentityRef({ role, port, listenerIdentityRef })
+export async function verifyListenerIdentityRef({ port, listenerIdentityRef })
 {
     if (typeof listenerIdentityRef !== 'string' || listenerIdentityRef.length === 0)
     {
@@ -1290,7 +1906,12 @@ async function runServe(options)
     }
 
     const token = randomBytes(32).toString('hex');
-    const allocator = createPortLeaseAllocator({ runId, namespace, roles, reservationToken: token, pins });
+    const allocator = createPortLeaseAllocator({
+        runId, namespace, roles, reservationToken: token, pins,
+        continuousHandoff: options['continuous-handoff'] === '1',
+        containerReservations: options['container-reservations'] ?
+            JSON.parse(readPrivateFile(path.resolve(options['container-reservations']))) : {}
+    });
     const leases = await allocator.allocate();
 
     fs.writeFileSync(tokenFilePath, `${token}\n`, { mode: 0o600 });
@@ -1360,7 +1981,7 @@ async function runServe(options)
             return;
         }
         shuttingDown = true;
-        await allocator.releaseAll(reason);
+        await allocator.releaseAll(reason, { cancelBound: true });
         persist();
         try
         {
@@ -1421,13 +2042,17 @@ async function runControlCommand(commandName, options)
     const manifest = readSealedManifest(path.resolve(options.manifest));
     const token = readTokenFile(path.resolve(options['token-file']));
     const request = { command: commandName, token };
-    if (commandName === 'release-before-bind' || commandName === 'complete-handoff' || commandName === 'fail-handoff')
+    if (['release-before-bind', 'complete-handoff', 'fail-handoff', 'launch-native', 'activate-container'].includes(commandName))
     {
         if (!options.role)
         {
             throw new Error(`${commandName} requires --role`);
         }
         request.role = options.role;
+    }
+    if (commandName === 'launch-native')
+    {
+        request.specification = JSON.parse(readPrivateFile(path.resolve(options.specification)));
     }
     if (commandName === 'complete-handoff')
     {
@@ -1441,12 +2066,20 @@ async function runControlCommand(commandName, options)
     {
         request.reason = options.reason ?? 'run-failure';
     }
+    if (commandName === 'release-all')
+    {
+        request.cancelBound = options['cancel-bound'] === '1';
+    }
     const response = await connectControl(requireControl(manifest), request);
     if (!response.ok)
     {
         throw new Error(`port lease ${commandName} failed: ${response.error ?? 'unknown'}`);
     }
-    if (commandName === 'ping' || commandName === 'status')
+    if (commandName === 'launch-native')
+    {
+        process.stdout.write(`${response.lease.handoffOwnerIdentity.pid}\n`);
+    }
+    else if (commandName === 'ping' || commandName === 'status')
     {
         process.stdout.write(`${JSON.stringify(response, null, 2)}\n`);
     }
@@ -1456,7 +2089,7 @@ async function runControlCommand(commandName, options)
     }
 }
 
-function runRecover(manifestPath)
+async function runRecover(manifestPath)
 {
     const resolved = path.resolve(manifestPath);
     let manifest;
@@ -1466,7 +2099,7 @@ function runRecover(manifestPath)
     }
     catch (error)
     {
-        throw new Error(`recover cannot validate stale manifest: ${error.message}`);
+        throw new Error(`recover cannot validate stale manifest: ${error.message}`, {cause: error});
     }
     const pidFile = manifest.pidFilePath;
     let alive = false;
@@ -1494,21 +2127,53 @@ function runRecover(manifestPath)
     {
         throw new Error(`port lease reservation owner is still alive; refusing recovery: ${manifest.reservationOwnerIdentity.instanceId}`);
     }
+    const cleanupObservations = [];
+    const recoveredLeases = [];
+    const cleanupFailures = [];
+    for (const lease of manifest.leases)
+    {
+        if (lease.handoffState === 'bound' || lease.handoffState === 'released')
+        {
+            recoveredLeases.push(lease);
+            continue;
+        }
+        try
+        {
+            if (lease.containerReservation)
+            {
+                cleanupObservations.push({ role: lease.role, observation: await recoverReleaseContainerPublisher(lease.containerReservation) });
+            }
+            else if (lease.handoffOwnerIdentity)
+            {
+                const {pid, processStartIdentity, socketIdentity, guardian} = lease.handoffOwnerIdentity;
+                cleanupObservations.push({role: lease.role,
+                    observation: await verifyNativeReservationCleanup({pid, processStartIdentity, socketIdentity, guardian})});
+            }
+            recoveredLeases.push({ ...lease, handoffState: 'released',
+                handedOffAt: new Date().toISOString(), failedReason: 'owner-crashed' });
+        }
+        catch (error)
+        {
+            cleanupFailures.push(`${lease.role}: ${error.message}`);
+            cleanupObservations.push({ role: lease.role, verified: false, error: error.message });
+            recoveredLeases.push(lease);
+        }
+    }
     writePortLeaseTerminalReceipt({
         terminalReceiptPath: manifest.terminalReceiptPath,
         runId: manifest.runId,
         namespace: manifest.namespace,
         reservationOwnerIdentity: manifest.reservationOwnerIdentity,
-        terminalState: 'released',
-        reason: 'owner-crashed',
+        terminalState: cleanupFailures.length > 0 ? 'failed' : 'released',
+        reason: cleanupFailures.length > 0 ? 'owner-crashed-cleanup-unverified' : 'owner-crashed',
         manifestDigest: manifest.contentDigest,
-        leases: manifest.leases.map((lease) => ({
-            ...lease,
-            handoffState: 'released',
-            handedOffAt: lease.handedOffAt ?? new Date().toISOString(),
-            failedReason: 'owner-crashed'
-        }))
+        leases: recoveredLeases,
+        cleanupObservations
     });
+    if (cleanupFailures.length > 0)
+    {
+        throw new Error(`port lease recovery cleanup was not verified: ${cleanupFailures.join('; ')}`);
+    }
     process.stdout.write(`[port-lease] recovered stale manifest ${resolved}\n`);
 }
 
@@ -1520,9 +2185,12 @@ async function main()
         process.stdout.write(`Usage:
   node tools/test-matrix/production-fresh-port-lease.mjs serve --run-id <id> --namespace <ns> --roles <postgres,redis,...> --manifest <path> --control-socket <path> --token-file <path> --pid-file <path> --terminal-receipt <path> [--pin role:port,...] [--ttl-ms <ms>]
   node tools/test-matrix/production-fresh-port-lease.mjs verify --manifest <path>
+  node tools/test-matrix/production-fresh-port-lease.mjs verify-listeners --manifest <path> --run-id <id> --namespace <ns>
+  node tools/test-matrix/production-fresh-port-lease.mjs verify-readiness --manifest <path> --run-id <id> --namespace <ns>
   node tools/test-matrix/production-fresh-port-lease.mjs get-port --manifest <path> --role <role>
   node tools/test-matrix/production-fresh-port-lease.mjs roles --manifest <path>
   node tools/test-matrix/production-fresh-port-lease.mjs status --manifest <path> --token-file <path>
+  node tools/test-matrix/production-fresh-port-lease.mjs launch-native --manifest <path> --token-file <path> --role <role> --specification <0600-json-path>
   node tools/test-matrix/production-fresh-port-lease.mjs release-before-bind --manifest <path> --token-file <path> --role <role>
   node tools/test-matrix/production-fresh-port-lease.mjs complete-handoff --manifest <path> --token-file <path> --role <role> --listener-identity-ref <ref>
   node tools/test-matrix/production-fresh-port-lease.mjs fail-handoff --manifest <path> --token-file <path> --role <role> --reason <reason>
@@ -1540,6 +2208,16 @@ async function main()
     {
         readSealedManifest(path.resolve(options.manifest));
         process.stdout.write(`[port-lease] manifest ok ${options.manifest}\n`);
+        return;
+    }
+    if (command === 'verify-listeners' || command === 'verify-readiness')
+    {
+        const observations = await verifyBoundRuntimeListeners({
+            manifest: readSealedManifest(path.resolve(options.manifest)),
+            runId: options['run-id'], namespace: options.namespace,
+            requireReadiness: command === 'verify-readiness'
+        });
+        process.stdout.write(`${JSON.stringify(observations)}\n`);
         return;
     }
     if (command === 'get-port')
@@ -1561,10 +2239,10 @@ async function main()
     }
     if (command === 'recover')
     {
-        runRecover(options.manifest);
+        await runRecover(options.manifest);
         return;
     }
-    if (['status', 'release-before-bind', 'complete-handoff', 'fail-handoff', 'release-all', 'ping'].includes(command))
+    if (['status', 'release-before-bind', 'complete-handoff', 'fail-handoff', 'release-all', 'ping', 'launch-native', 'activate-container'].includes(command))
     {
         await runControlCommand(command, options);
         return;

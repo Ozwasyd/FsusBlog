@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Bootstrap/FsusManagedTestListener.cs",
+                "src/backend/Infrastructure/Bootstrap/WebApplicationBuilderCompositionExtensions.cs",
+                "tools/test-matrix/production-fresh-container-reservation.mjs",
+                "tools/test-matrix/production-fresh-port-lease.mjs",
+                "tools/test-runtime/inherited-vite-listener.mjs",
+                "tools/test/bundles/run-bundle.mjs",
+                "tools/test/probe-release-reliability-runtime-smoke.mjs"
+            ],
+            "reason": "Preserve caller-visible UPPER_SNAKE_CASE process and container environment spellings for the managed listener FD/socket/port/run/namespace/lease/attempt bindings, Node and Kestrel launch admission, and the final Docker publisher activation gate. The canonical port allocator, container reservation owner, Vite adapter and backend composition consume these bindings through existing internal camelCase/PascalCase options and members. This declaration does not authorize extra listeners, alternate owners, image qualification or readiness acceptance."
+        },
+        {
+            "id": "acceptance-secret-runtime-environment",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh",
+                "tools/test/bundles/runtime-environment.mjs"
+            ],
+            "reason": "Preserve the established caller-visible FSUSBLOG bootstrap runtime environment spellings across the canonical shell writer and its bundle consumer. The explicit task-private port lease manifest input and current run/namespace admission use that same registered projection; internal verifier options remain camelCase. Existing acceptance secret policy is preserved and does not confer readiness or image authority."
+        }
+    ]
+}
