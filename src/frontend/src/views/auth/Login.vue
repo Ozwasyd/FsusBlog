@@ -30,7 +30,7 @@
                         :disabled="passkeyLoading"
                         class="login-remember-checkbox"
                     >
-                        {{ copy.rememberMe }}
+                        <span class="login-remember-label">{{ copy.rememberMe }}</span>
                     </ElCheckbox>
                     <ElButton
                         type="primary"
@@ -188,6 +188,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AuthLoginView' });
 import { computed } from 'vue';
 
 import { useAuthLogin } from '@/composables/useAuthLogin';
@@ -224,11 +225,16 @@ const handlePasskeyLogin = () => loginWithPasskey(rememberMe.value);
 .login-remember-checkbox
  {
     align-items: flex-start;
+    height: auto;
+    min-height: var(--fsus-control-height);
+    min-width: 0;
 }
 
-.login-remember-checkbox :deep(.el-checkbox__label)
+.login-remember-label
  {
+    display: block;
     white-space: normal;
+    overflow-wrap: anywhere;
     line-height: 1.5;
 }
 
