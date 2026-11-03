@@ -1,0 +1,16 @@
+{
+  "producer": "exact Main src/frontend/scripts/run-local-fsusui-typecheck.mjs --application",
+  "mainSource": "bbed9ae73cc790abf7ff32b28abbd271add08ec3",
+  "uiSource": "59b9a1facc1862e590604973703ffc3d92fb85f9",
+  "scope": "static compiler configuration only; no runtime qualification",
+  "resolvedCompilerOptions": {
+    "erasableSyntaxOnly": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedSideEffectImports": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler"
+  }
+}

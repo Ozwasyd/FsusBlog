@@ -1,0 +1,8 @@
+../journal-baseline/src/frontend/src/services/privateStorageRegistry.ts(425,48): error TS2345: Argument of type 'Readonly<{ id: string; medium: "local-storage" | "session-storage"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; matcher: Readonly<...>; }> | Readonly<...>' is not assignable to parameter of type 'Readonly<{ id: string; medium: "runtime"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; }>'.
+  Type 'Readonly<{ id: string; medium: "local-storage" | "session-storage"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; matcher: Readonly<...>; }>' is not assignable to type 'Readonly<{ id: string; medium: "runtime"; dataScope: PrivateStorageDataScope; dataClass: string; clearOn: readonly PrivateStateCleanupTrigger[]; }>'.
+    Types of property 'medium' are incompatible.
+      Type '"local-storage" | "session-storage"' is not assignable to type '"runtime"'.
+        Type '"local-storage"' is not assignable to type '"runtime"'.
+../journal-baseline/tests/frontend/unit/services/articleRecoveryJournal.test.ts(431,27): error TS6133: 'input' is declared but its value is never read.
+../journal-baseline/tests/frontend/unit/services/articleRecoveryJournal.test.ts(578,5): error TS2349: This expression is not callable.
+  Type 'never' has no call signatures.

@@ -1,0 +1,2 @@
+[frontend-style] src/frontend/src/services/articleRecoveryJournal.ts:656:37 eslint/@stylistic/brace-style: Opening curly brace appears on the same line as controlling statement.
+[frontend-style] src/frontend/src/services/articleRecoveryJournal.ts:656:37 eslint/@typescript-eslint/no-empty-function: Unexpected empty arrow function.

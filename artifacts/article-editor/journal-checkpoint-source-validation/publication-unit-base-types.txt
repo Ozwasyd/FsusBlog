@@ -1,0 +1,4 @@
+../journal-publication-owner-base/tests/frontend/unit/services/articleRecoveryJournal.test.ts(432,27): error TS6133: 'input' is declared but its value is never read.
+../journal-publication-owner-base/tests/frontend/unit/services/articleRecoveryJournal.test.ts(579,5): error TS2349: This expression is not callable.
+  Type 'never' has no call signatures.
+../journal-publication-owner-base/tests/frontend/unit/services/articleRecoveryJournal.test.ts(600,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
