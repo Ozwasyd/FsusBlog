@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/risk/vault-graph-authority/observations.json",
+                "tests/risk/vault-graph-authority/external-naming.json"
+            ],
+            "reason": "Retain the exact diagnostic JSON trace field spellings and canonical external naming manifest schema. These finite evidence files confer no execution, host authority, qualification or test waiver."
+        }
+    ]
+}

@@ -1,0 +1,375 @@
+{
+    "kind": "bounded-diagnostic-observations",
+    "qualification": false,
+    "sources": {
+        "graphEarly": "80a2736711edff3a711ec854d55c65433a127a5f",
+        "graphStrict": "00eeaf705dcc03a5412b36002df0b166e7442f3a",
+        "linkEarly": "bc05768dc1e2b6dc7495889295f2e86273855ec0",
+        "linkCurrent": "7117889cec02509f14099f28477f673a8cf5795b",
+        "originalRoot": "c0c32cb168fbe59125b942b5964edd7263247338",
+        "linkRequestedRebind": "339f6bdd14621045f35523fbcb0b4fe99c98ed17",
+        "graphRegressionInspected": "08034e84edfca42c6fcf14fcc629110adc20906c"
+    },
+    "runs": [
+        {
+            "name": "strict-graph-with-fresh-pullupdate-control",
+            "processExit": 0,
+            "observations": [
+                {
+                    "name": "mixed_asset_link_anchor_frozen_graph",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "name": "asset_id_substitution_between_plan_and_use",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_authority_drift",
+                    "passed": true
+                },
+                {
+                    "name": "asset_owner_substitution_between_plan_and_use",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_authority_drift",
+                    "passed": true
+                },
+                {
+                    "name": "rights_revocation_between_plan_and_use",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_permission_or_rights_invalid",
+                    "passed": true
+                },
+                {
+                    "name": "cached_frozen_revision_refresh_between_plan_and_use",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_authority_drift",
+                    "passed": true
+                },
+                {
+                    "name": "cross_vault_target_substitution",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_node_invalid",
+                    "passed": true
+                },
+                {
+                    "name": "partial_current_edge_set",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_relation_edges_drift",
+                    "passed": true
+                },
+                {
+                    "name": "mixed_graph_cycle",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_cycle",
+                    "passed": true
+                },
+                {
+                    "name": "mixed_graph_combined_bytes_over_budget",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_size_exceeded",
+                    "passed": true
+                },
+                {
+                    "name": "same_target_different_frozen_revisions_remain_distinct",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "name": "two_distinct_link_targets_same_anchor_remain_distinct",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "name": "mixed_plan_current_authority",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "name": "fresh_server_pullupdate_freezes_fresh_mixed_graph",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "name": "fresh_server_pullupdate_frozen_extension_verifies",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "trace": "fresh-pullupdate-stale-input",
+                    "status": "Ready",
+                    "decision": "PullUpdate",
+                    "storedRevision": 8,
+                    "observedRevision": 9,
+                    "buildAccepted": false,
+                    "buildReason": "portable_dependency_article_or_relation_drift",
+                    "verifyAccepted": false,
+                    "verifyReason": "portable_dependency_article_or_relation_drift"
+                },
+                {
+                    "name": "fresh_server_pullupdate_refuses_old_saved_server_graph_and_bytes",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_article_or_relation_drift",
+                    "passed": true
+                },
+                {
+                    "name": "sealed_plan_mutable_backing_array_tamper",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_extension_invalid",
+                    "passed": true
+                },
+                {
+                    "name": "unsealed_input_collection_mutation_does_not_mutate_frozen_plan",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "name": "authority_drift_after_freeze_refuses_whole_extension",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "portable_dependency_authority_drift",
+                    "passed": true
+                },
+                {
+                    "summary": true,
+                    "failures": 0
+                }
+            ],
+            "rawLogSha256": "07c5c02a8e9c163e14b7b648b4b91070a3f438c85e0076ac9fe72e579867aad0"
+        },
+        {
+            "name": "early-composite",
+            "processExit": 1,
+            "observations": [
+                {
+                    "name": "composite_live_link_projection_control",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "trace": "fenced-occurrence",
+                    "fencedOffset": 42,
+                    "Start": 42,
+                    "End": 70,
+                    "ExpectedText": "[display](/posts/old#stable)",
+                    "Replacement": "[display](/posts/new#stable)",
+                    "verifierAccepted": true
+                },
+                {
+                    "name": "forged_code_fence_occurrence_with_live_link_authority",
+                    "expectedAccepted": false,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": false
+                },
+                {
+                    "trace": "route-collision",
+                    "targetA": "article:01991e72-a611-7d16-9fd4-38f7d2e65498",
+                    "targetB": "article:cccccccc-cccc-cccc-cccc-cccccccccccc",
+                    "rawOccurrence": "[display](/posts/old#stable)",
+                    "Target": {
+                        "ArticleIdentity": "article:cccccccc-cccc-cccc-cccc-cccccccccccc",
+                        "AnchorId": {
+                            "Value": "stable"
+                        }
+                    },
+                    "verifierAccepted": true
+                },
+                {
+                    "name": "two_portable_identities_collide_on_one_route_projection",
+                    "expectedAccepted": false,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": false
+                },
+                {
+                    "name": "composite_published_coordinate_with_newer_target_control",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "name": "cancellation_between_resolution_and_admission",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "vault_embed_authority_invalid",
+                    "passed": true
+                },
+                {
+                    "name": "actor_substitution_reusing_resolved_authority",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "vault_embed_authority_invalid",
+                    "passed": true
+                },
+                {
+                    "summary": true,
+                    "failures": 2
+                }
+            ],
+            "rawLogSha256": "7d9482ea316ba15426033c17c405bbafcb08a90cbedd329562cbdd089d46165d"
+        },
+        {
+            "name": "current-strict-composite",
+            "processExit": 1,
+            "observations": [
+                {
+                    "name": "composite_live_link_projection_control",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "trace": "fenced-occurrence",
+                    "fencedOffset": 42,
+                    "Start": 42,
+                    "End": 70,
+                    "ExpectedText": "[display](/posts/old#stable)",
+                    "Replacement": "[display](/posts/new#stable)",
+                    "verifierAccepted": true
+                },
+                {
+                    "name": "forged_code_fence_occurrence_with_live_link_authority",
+                    "expectedAccepted": false,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": false
+                },
+                {
+                    "trace": "route-collision",
+                    "targetA": "article:01991e72-a611-7d16-9fd4-38f7d2e65498",
+                    "targetB": "article:cccccccc-cccc-cccc-cccc-cccccccccccc",
+                    "rawOccurrence": "[display](/posts/old#stable)",
+                    "Target": {
+                        "ArticleIdentity": "article:cccccccc-cccc-cccc-cccc-cccccccccccc",
+                        "AnchorId": {
+                            "Value": "stable"
+                        }
+                    },
+                    "verifierAccepted": true
+                },
+                {
+                    "name": "two_portable_identities_collide_on_one_route_projection",
+                    "expectedAccepted": false,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": false
+                },
+                {
+                    "name": "composite_published_coordinate_with_newer_target_control",
+                    "expectedAccepted": true,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": true
+                },
+                {
+                    "name": "cancellation_between_resolution_and_admission",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "vault_embed_authority_invalid",
+                    "passed": true
+                },
+                {
+                    "name": "actor_substitution_reusing_resolved_authority",
+                    "expectedAccepted": false,
+                    "observedAccepted": false,
+                    "reason": "vault_embed_authority_invalid",
+                    "passed": true
+                },
+                {
+                    "summary": true,
+                    "failures": 2
+                }
+            ],
+            "rawLogSha256": "b84c808069833a7af83c51f359fbc6197f9aa85a8eb3f819b2c450bba3bf4cac"
+        },
+        {
+            "name": "occurrence-only-339f6bdd-rebind",
+            "sourceBinding": {
+                "graph": "00eeaf705dcc03a5412b36002df0b166e7442f3a",
+                "link": "339f6bdd14621045f35523fbcb0b4fe99c98ed17",
+                "refactorGitBlob": "d7ee31b440195a48ea3370d6b99a8bf0773b9867"
+            },
+            "command": "source /workspace/.setup/activate.sh && dotnet run --project tests/risk/vault-graph-authority/VaultGraphAuthorityRisk.csproj -c Release -p:Compose=true -p:GraphSource=/workspace/vault-graph-authority-qa/source-00eeaf7 -p:LinkSource=/workspace/vault-graph-authority-qa/link-339f6bd -- --occurrence-only",
+            "processExit": 1,
+            "selectedCases": 2,
+            "observations": [
+                {
+                    "trace": "fenced-occurrence",
+                    "fencedOffset": 42,
+                    "Start": 42,
+                    "End": 70,
+                    "ExpectedText": "[display](/posts/old#stable)",
+                    "Replacement": "[display](/posts/new#stable)",
+                    "verifierAccepted": true
+                },
+                {
+                    "name": "forged_code_fence_occurrence_with_live_link_authority",
+                    "expectedAccepted": false,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": false
+                },
+                {
+                    "trace": "route-collision",
+                    "targetA": "article:01991e72-a611-7d16-9fd4-38f7d2e65498",
+                    "targetB": "article:cccccccc-cccc-cccc-cccc-cccccccccccc",
+                    "rawOccurrence": "[display](/posts/old#stable)",
+                    "Target": {
+                        "ArticleIdentity": "article:cccccccc-cccc-cccc-cccc-cccccccccccc",
+                        "AnchorId": {
+                            "Value": "stable"
+                        }
+                    },
+                    "verifierAccepted": true
+                },
+                {
+                    "name": "two_portable_identities_collide_on_one_route_projection",
+                    "expectedAccepted": false,
+                    "observedAccepted": true,
+                    "reason": null,
+                    "passed": false
+                },
+                {
+                    "summary": true,
+                    "failures": 2
+                }
+            ],
+            "rawLogSha256": "9a04d21c1773a7e468b1b4560e2b0b850e9d283227d47e8f628f7cd237bff2f8",
+            "qualification": false
+        }
+    ],
+    "limits": [
+        "Synthetic finite projection fixtures; no real host authority",
+        "No business writes, asset transaction or native materialization",
+        "No canonical backend/whole-DAG/scale/roundtrip acceptance",
+        "Production source analyzers retained; no warnings=0 claim",
+        "Coordinator-reported 50068eb predecessor is not fetchable; its defect is not independently reproduced here"
+    ]
+}

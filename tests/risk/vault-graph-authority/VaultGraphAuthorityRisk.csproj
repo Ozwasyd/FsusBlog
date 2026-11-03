@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
+    <GraphSource Condition="'$(GraphSource)' == ''">../source-00eeaf7</GraphSource>
+    <LinkSource Condition="'$(LinkSource)' == ''">../link-7117889</LinkSource>
+    <StrictApi Condition="'$(StrictApi)' == ''">true</StrictApi>
+    <DefineConstants Condition="'$(Compose)' == 'true'">$(DefineConstants);COMPOSE</DefineConstants>
+    <DefineConstants Condition="'$(StrictApi)' == 'true'">$(DefineConstants);STRICT_API</DefineConstants>
+    <OutputType Condition="'$(ProbeCompatibility)' == 'true'">Library</OutputType>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(Compose)' != 'true'">
+    <ProjectReference Include="$(GraphSource)/src/shared/FsusBlog.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Compose)' == 'true'">
+    <Compile Include="$(GraphSource)/src/shared/**/*.cs" Exclude="$(GraphSource)/src/shared/obj/**;$(GraphSource)/src/shared/bin/**" LinkBase="Production/Shared" />
+    <Compile Include="$(LinkSource)/src/shared/Contracts/ArticleVault/ArticleVaultBlockLinkRefactor.cs" Link="Production/ArticleVaultBlockLinkRefactor.cs" />
+    <Compile Include="$(LinkSource)/src/shared/Contracts/ArticleVault/ArticleVaultFrozenEmbedAdmission.cs" Link="Production/ArticleVaultFrozenEmbedAdmission.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(ProbeCompatibility)' == 'true'">
+    <Compile Remove="Program.cs;CompositeChecks.cs" />
+  </ItemGroup>
+</Project>
