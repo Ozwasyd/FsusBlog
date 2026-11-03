@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/scheduler.mjs",
+                "tools/release/test-evidence-receipts-cli.mjs",
+                "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+                "tools/test-matrix/correctness-input-manifest.mjs"
+            ],
+            "reason": "Preserve the existing environment transport convention while binding aggregate provisional publication to its explicit scheduler attempt. No policy waiver or runtime sampler override is introduced."
+        }
+    ]
+}

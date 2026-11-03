@@ -12,6 +12,7 @@ import { readVerifiedSecurityCleanupReceipt } from './security-cleanup-barrier.m
 
 const execFileAsync = promisify(execFile);
 const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
+let activeDispatchSession = null;
 export const repositoryRoot = path.resolve(moduleDirectory, '../..');
 export const defaultCatalogPath = path.join(repositoryRoot, 'config/testing/runtime-scenario-catalog.json');
 
@@ -164,6 +165,26 @@ function serializeError(error)
     };
 }
 
+/** Original result evidence projection shared by grouped and atomic dispatch. */
+export function writeRuntimeScenarioResultEvidence({ scenario, result, identity, evidenceRoot })
+{
+    const document = {
+        schema: 'fsusblog.runtime-scenario-result-evidence.v1',
+        source: { commit: identity.commit, worktreeFingerprint: identity.worktreeFingerprint },
+        runId: identity.runId,
+        phase: scenario.phase,
+        scenario: {
+            id: scenario.id, identity: scenario.identity, fixture: scenario.fixture,
+            resetBarrier: scenario.resetBarrier,
+            expectedAssertions: scenario.expectedAssertions, coverageIds: scenario.coverageIds
+        },
+        result
+    };
+    const file = path.join(evidenceRoot, scenario.evidencePath);
+    atomicJson(file, document);
+    return { file, document };
+}
+
 function waitForScenario(promise, signal)
 {
     if (!signal)
@@ -299,6 +320,151 @@ function applyScenarioEnvironment(scenario)
     };
 }
 
+/**
+ * A resident service seam for atomic producers. Admission and reset belong to
+ * the caller's canonical owners; this session never runs a grouped phase or a
+ * hidden reset. Process-global scenario environment requires exclusive dispatch.
+ */
+export function createRuntimeScenarioDispatchSession({
+    catalog = readCatalog(),
+    identity,
+    admitScenario,
+    loadRunner = defaultLoadRunner,
+    initializeRuntime = initializeSharedRuntime
+} = {})
+{
+    const errors = validateRuntimeScenarioCatalog(catalog);
+    if (errors.length > 0)
+    {
+        throw new Error(errors.join('; '));
+    }
+    if (!identity || !/^[0-9a-f]{40}$/u.test(identity.commit)
+        || !identity.worktreeFingerprint || !identity.runId
+        || typeof admitScenario !== 'function')
+    {
+        throw new Error('dispatch requires explicit source/run identity and canonical admission');
+    }
+    // Keep the selected source stable even if a caller later mutates its input.
+    const selectedCatalog = structuredClone(catalog);
+    const source = Object.freeze({ ...identity });
+    const attempts = new Map();
+    let runtime;
+    let active = false;
+    let closed = false;
+    const lease = Symbol('runtime-scenario-dispatch');
+    const snapshot = () => Object.freeze([...attempts.values()]);
+
+    return Object.freeze({
+        identity: source,
+        attempts: snapshot,
+        writeResult({ scenarioId, evidenceRoot })
+        {
+            const scenario = selectedCatalog.scenarios.find((item) => item.id === scenarioId);
+            const attempt = attempts.get(scenarioId);
+            if (!attempt?.scenarioResult || typeof evidenceRoot !== 'string' || !evidenceRoot)
+            {
+                throw new Error('original result output requires a settled dispatched scenario and owned evidence root');
+            }
+            return writeRuntimeScenarioResultEvidence({ scenario, result: attempt.scenarioResult,
+                identity: source, evidenceRoot });
+        },
+        close()
+        {
+            if (active)
+            {
+                throw new Error('cannot close a dispatch session with an active producer');
+            }
+            closed = true;
+        },
+        async dispatch({ scenarioId, attemptNumber, signal } = {})
+        {
+            if (closed || active || activeDispatchSession !== null)
+            {
+                throw new Error('resident dispatch requires an open exclusive host lease');
+            }
+            const scenario = selectedCatalog.scenarios.find((item) => item.id === scenarioId);
+            if (!scenario || scenario.executor !== 'resident' || attemptNumber !== 1
+                || attempts.has(scenarioId))
+            {
+                throw new Error('dispatch requires one catalog resident scenario and exact-one attempt');
+            }
+            active = true;
+            activeDispatchSession = lease;
+            let restoreEnvironment;
+            const originalFetch = globalThis.fetch;
+            let startedAt;
+            let startedNs;
+            const scenarioResult = (status, fields) => ({
+                schema: 'fsusblog.runtime-scenario-result.v1', scenarioId: scenario.id, status,
+                identity: scenario.identity, fixture: scenario.fixture,
+                assertions: scenario.expectedAssertions, coverageIds: scenario.coverageIds,
+                startedAt: startedAt.toISOString(), finishedAt: new Date().toISOString(),
+                diagnostics: { durationMs: Number(process.hrtime.bigint() - startedNs) / 1e6,
+                    timingAffectsCorrectness: false, ...(status === 'pass' ? { runner: fields ?? null } : {}) },
+                ...(status === 'pass' ? {} : { error: serializeError(fields) })
+            });
+            try
+            {
+                signal?.throwIfAborted();
+                // The full local ledger is always supplied. A failed attempt
+                // cannot be hidden by an empty caller-provided failure list.
+                if (await admitScenario({ scenario: structuredClone(scenario), identity: source,
+                    attemptNumber, previousAttempts: snapshot(), signal }) !== scenario.id)
+                {
+                    throw new Error('canonical scenario admission rejected dispatch');
+                }
+                signal?.throwIfAborted();
+                startedAt = new Date();
+                startedNs = process.hrtime.bigint();
+                attempts.set(scenarioId, Object.freeze({ scenarioId, attemptNumber, status: 'running' }));
+                // A rejected initialization stays rejected; no implicit host restart.
+                runtime ??= Promise.resolve().then(initializeRuntime);
+                const sharedRuntime = await runtime;
+                const runner = await loadRunner(scenario);
+                if (typeof runner !== 'function')
+                {
+                    throw new Error(`${scenario.id} runner is unavailable`);
+                }
+                signal?.throwIfAborted();
+                restoreEnvironment = applyScenarioEnvironment(scenario);
+                if (signal && typeof originalFetch === 'function')
+                {
+                    globalThis.fetch = (input, init = {}) => originalFetch(input, {
+                        ...init,
+                        signal: init.signal ? AbortSignal.any([signal, init.signal]) : signal
+                    });
+                }
+                // Await actual settlement before restoring process globals or
+                // releasing the lease, including when the signal is aborted.
+                const result = await runner({ scenarioId: scenario.id, identity: scenario.identity,
+                    fixture: scenario.fixture, signal,
+                    shared: { ...sharedRuntime, fetch: globalThis.fetch, processId: process.pid, source } });
+                signal?.throwIfAborted();
+                attempts.set(scenarioId, Object.freeze({ scenarioId, attemptNumber, status: 'success', result,
+                    scenarioResult: scenarioResult('pass', result) }));
+                return result;
+            }
+            catch (error)
+            {
+                if (attempts.has(scenarioId))
+                {
+                    attempts.set(scenarioId, Object.freeze({ scenarioId, attemptNumber,
+                        status: signal?.aborted ? 'cancelled' : 'failed', error,
+                        scenarioResult: scenarioResult(signal?.aborted ? 'cancelled' : 'failure', error) }));
+                }
+                throw error;
+            }
+            finally
+            {
+                restoreEnvironment?.();
+                globalThis.fetch = originalFetch;
+                active = false;
+                activeDispatchSession = null;
+            }
+        }
+    });
+}
+
 export async function executeRuntimeScenarioHost({
     phase,
     catalog = readCatalog(),
@@ -386,26 +552,7 @@ export async function executeRuntimeScenarioHost({
     };
     const writeScenarioResult = (scenario, result) =>
     {
-        const resultFile = path.join(evidenceBase, scenario.evidencePath);
-        atomicJson(resultFile, {
-            schema: 'fsusblog.runtime-scenario-result-evidence.v1',
-            source: {
-                commit: identity.commit,
-                worktreeFingerprint: identity.worktreeFingerprint
-            },
-            runId: identity.runId,
-            phase,
-            scenario: {
-                id: scenario.id,
-                identity: scenario.identity,
-                fixture: scenario.fixture,
-                resetBarrier: scenario.resetBarrier,
-                expectedAssertions: scenario.expectedAssertions,
-                coverageIds: scenario.coverageIds
-            },
-            result
-        });
-        return resultFile;
+        return writeRuntimeScenarioResultEvidence({ scenario, result, identity, evidenceRoot: evidenceBase }).file;
     };
     writeProgress('running');
 

@@ -281,7 +281,9 @@ function loadPlaywrightRequestApi() {
 
 async function writeSummary(outputDirectory, summary) {
   await mkdir(outputDirectory, { recursive: true })
-  await writeFile(path.join(outputDirectory, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`, 'utf8')
+  const outputFile = path.join(outputDirectory, 'summary.json')
+  await writeFile(outputFile, `${JSON.stringify(summary, null, 2)}\n`, 'utf8')
+  return Object.freeze([outputFile])
 }
 
 export async function runAuthenticatedDast({
@@ -289,7 +291,8 @@ export async function runAuthenticatedDast({
   requestApi = null,
   prepareFixtures = runFreshFixturePreparation,
   outputDirectory = defaultOutputDirectory,
-  now = () => Date.now()
+  now = () => Date.now(),
+  resultOutlet = null
 } = {}) {
   env = resolveAuthenticatedDastEnvironment(env)
   const startedAtMs = now()
@@ -387,7 +390,8 @@ export async function runAuthenticatedDast({
     asvs: ['V1', 'V2', 'V3', 'V4', 'V5', 'V7', 'V10'],
     wstg: ['WSTG-ATHN', 'WSTG-ATHZ', 'WSTG-SESS', 'WSTG-INPV']
   }
-  await writeSummary(outputDirectory, summary)
+  const artifactPaths = await writeSummary(outputDirectory, summary)
+  await resultOutlet?.({ summary, artifactPaths })
   return summary
 }
 

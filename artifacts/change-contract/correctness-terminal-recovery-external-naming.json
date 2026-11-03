@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release/correctness-terminal-seal-journal.mjs"
+            ],
+            "reason": "Preserve the registered tooling naming surface while writing attempt-bound seal transitions; no environment-based resume, fallback or qualification override is introduced."
+        }
+    ]
+}

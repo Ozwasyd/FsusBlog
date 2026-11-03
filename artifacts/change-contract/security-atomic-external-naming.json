@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/security-atomic/barriers.mjs",
+                "tools/test/security-atomic/contract.mjs",
+                "tools/test/security-atomic/execution.mjs",
+                "tools/test/security-atomic/external-boundaries.mjs",
+                "tools/test/security-atomic/fixture-lifecycle.mjs",
+                "tools/test/security-atomic/scenarios.mjs",
+                "tools/test/security-atomic/weighted-projection.mjs"
+            ],
+            "reason": "Preserve existing external process environment spellings at the registered tooling boundary; consumer admission receives explicit context and internal options remain camelCase."
+        }
+    ]
+}
