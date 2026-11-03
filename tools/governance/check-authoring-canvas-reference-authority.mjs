@@ -56,6 +56,151 @@ function count(source, pattern)
     return (source.match(pattern) ?? []).length;
 }
 
+function hasDomReferenceAuthority(source)
+{
+    // A finite lexical guard, not a language/type checker: follow forward local aliases
+    // from explicit DOM reads into named identity writes or selection predicates.
+    // Keep literals/comments opaque and analyze each expression separately so a DOM
+    // measurement beside a canonical target does not turn that target into DOM identity.
+    const tokens = [...source.matchAll(
+        /\/\*[\s\S]*?\*\/|\/\/[^\n]*|@?"(?:""|\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|[A-Za-z_$][\w$]*|===|!==|==|!=|=>|&&|\|\||\?\?|\?\.|[^\s]/gu
+    )].filter(([token]) => !token.startsWith('//') && !token.startsWith('/*'))
+        .map(([token]) => /^(?:@?"|'|`)/u.test(token) ? '<literal>' : token);
+    const identity = /^(?:Target)?(?:ArticleId|HeadingIdentity|BlockIdentity|AnchorId)$/iu;
+    const domRead = /^(?:querySelector(?:All)?|getElementById|getElementsBy(?:Name|ClassName|TagName)|elements?FromPoint|getSelection|getRangeAt|createRange|getAttribute(?:NS)?|SelectSingleNode|SelectNodes|GetElementById|QuerySelector(?:All)?|GetAttribute(?:Value|Node)?)$/u;
+    const selection = /^(?:find|filter|some|every|First|Single|FirstOrDefault|SingleOrDefault|Find|FindAll|Where|Any|All)$/u;
+    const scopes = [new Map()];
+    const alias = (name) =>
+    {
+        for (let index = scopes.length - 1; index >= 0; index--)
+        {
+            if (scopes[index].has(name))
+            {
+                return scopes[index].get(name);
+            }
+        }
+        return false;
+    };
+    const domDerived = (expression) => expression.some((token, index) =>
+        (domRead.test(token) && expression[index + 1] === '(')
+        || (alias(token) && !['.', '?.'].includes(expression[index - 1])));
+    const hasIdentity = (expression) => expression.some((token) => identity.test(token));
+    const expressionAt = (start, direction = 1, comparison = false) =>
+    {
+        let depth = 0;
+        const expression = [];
+        const opening = direction === 1 ? ['(', '[', '{'] : [')', ']', '}'];
+        const closing = direction === 1 ? [')', ']', '}'] : ['(', '[', '{'];
+        for (let index = start; index >= 0 && index < tokens.length; index += direction)
+        {
+            const token = tokens[index];
+            if (depth === 0 && (closing.includes(token) || [',', ';', '=', '=>', ':'].includes(token)
+                || (comparison && ['&&', '||', '==', '===', '!=', '!=='].includes(token))))
+            {
+                break;
+            }
+            if (opening.includes(token))
+            {
+                depth++;
+            }
+            if (closing.includes(token))
+            {
+                depth--;
+            }
+            expression.push(token);
+        }
+        return direction === 1 ? expression : expression.reverse();
+    };
+    const selections = tokens.flatMap((token, index) => selection.test(token) && tokens[index + 1] === '('
+        ? [[index, index + expressionAt(index + 1).length]] : []);
+
+    for (let index = 0; index < tokens.length; index++)
+    {
+        const token = tokens[index];
+        if (token === '{')
+        {
+            scopes.push(new Map());
+        }
+        else if (token === '}' && scopes.length > 1)
+        {
+            scopes.pop();
+        }
+        else if (token === 'AuthoringCanvasReferenceTarget' && tokens[index - 1] === 'new'
+            && tokens[index + 1] === '(')
+        {
+            // This existing record's positional identity slots are article/heading/block;
+            // display projection data is not an identity slot.
+            const argumentsList = [[]];
+            let depth = 0;
+            for (const argumentToken of expressionAt(index + 1).slice(1, -1))
+            {
+                if (argumentToken === ',' && depth === 0)
+                {
+                    argumentsList.push([]);
+                    continue;
+                }
+                if (['(', '[', '{'].includes(argumentToken))
+                {
+                    depth++;
+                }
+                if ([')', ']', '}'].includes(argumentToken))
+                {
+                    depth--;
+                }
+                argumentsList.at(-1).push(argumentToken);
+            }
+            if ([2, 3, 4].some((slot) => domDerived(argumentsList[slot] ?? [])))
+            {
+                return true;
+            }
+        }
+        else if (token === '=' || token === ':'
+            || (token === '=>' && (tokens[index - 2] === 'string'
+                || (tokens[index - 2] === '?' && tokens[index - 3] === 'string'))))
+        {
+            // Include simple TS scalar annotations, e.g. const targetArticleId: number = ... .
+            const typed = token === '=' && tokens[index - 2] === ':';
+            const nameIndex = typed ? index - 3 : index - 1;
+            const name = tokens[nameIndex];
+            const expression = expressionAt(index + 1);
+            const derived = domDerived(expression);
+            if (identity.test(name) && derived)
+            {
+                return true;
+            }
+            if (token === '=' && /^[A-Za-z_$][\w$]*$/u.test(name)
+                && !['.', '?.'].includes(tokens[nameIndex - 1]))
+            {
+                // Object fields are checked individually; do not taint the whole
+                // container because one unrelated display/geometry field reads DOM.
+                scopes.at(-1).set(name, !expression.includes('{') && !expression.includes('=>') && derived);
+            }
+        }
+        else if (['==', '===', '!=', '!=='].includes(token)
+            && selections.some(([start, end]) => index > start && index <= end))
+        {
+            const left = expressionAt(index - 1, -1, true);
+            const right = expressionAt(index + 1, 1, true);
+            if ((hasIdentity(left) && domDerived(right)) || (hasIdentity(right) && domDerived(left)))
+            {
+                return true;
+            }
+        }
+        else if (token === 'Equals' && tokens[index + 1] === '('
+            && selections.some(([start, end]) => index > start && index <= end))
+        {
+            const receiver = expressionAt(index - 2, -1);
+            const argumentsList = expressionAt(index + 1);
+            if ((hasIdentity(receiver) && domDerived(argumentsList))
+                || (hasIdentity(argumentsList) && domDerived(argumentsList)))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 export function checkAuthoringCanvasReferenceAuthority(repositoryRoot = root)
 {
     const violations = [];
@@ -125,16 +270,32 @@ export function checkAuthoringCanvasReferenceAuthority(repositoryRoot = root)
         violations.push('pinned references must not be silently replaced with the latest revision');
     }
 
+    for (const [relative, source] of sources)
+    {
+        if ((relative.includes('AuthoringCanvasReference') || /\bPinnedTargetRevision\b/u.test(source)
+            || /\bAuthoringCanvasReference\w*/u.test(source))
+            && hasDomReferenceAuthority(source))
+        {
+            violations.push(`${relative}: DOM-derived canvas reference identity or selection authority is forbidden`);
+        }
+    }
+
     const clientFiles = walk(path.join(repositoryRoot, 'src/frontend'), ['.ts', '.tsx', '.js', '.vue']);
     for (const absolute of clientFiles)
     {
         const relative = path.relative(repositoryRoot, absolute);
-        const source = codeOnly(readFileSync(absolute, 'utf8'));
+        const rawSource = readFileSync(absolute, 'utf8');
+        const source = codeOnly(rawSource);
         if (/(?:AuthoringCanvasReference|canvasReference|canvas[-_ ]reference)/iu.test(source)
             && /(?:\.filter|\.find|\.some|\.every)\s*\([^)]*permission|permission[^\n]{0,120}(?:filter|allow|deny)/iu
                 .test(source))
         {
             violations.push(`${relative}: client-side canvas reference permission filtering is forbidden`);
+        }
+        if (/(?:AuthoringCanvasReference|canvasReference|canvas[-_ ]reference)/iu.test(`${relative}\n${source}`)
+            && hasDomReferenceAuthority(rawSource))
+        {
+            violations.push(`${relative}: DOM-derived canvas reference identity or selection authority is forbidden`);
         }
     }
 
