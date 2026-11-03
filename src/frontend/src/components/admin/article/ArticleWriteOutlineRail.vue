@@ -137,7 +137,7 @@ const OutlinePanelContent = defineComponent({
             return hasHeadings.value ? 'ready' : 'empty';
         });
 
-        const registerNodeButton = (nodeId: string, element: Element | null): void =>
+        const registerNodeButton = (nodeId: string, element: unknown): void =>
         {
             if (element instanceof HTMLButtonElement)
             {
