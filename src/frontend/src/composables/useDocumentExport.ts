@@ -36,6 +36,7 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
     let querySequence = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let downloadController: AbortController | undefined;
+    let unsubscribePermissionRevoked = (): void => undefined;
 
     const views = computed(() => snapshots.value.map(inspect));
     const selectedView = computed(() => selected.value === null ? null : inspect(selected.value));
@@ -95,8 +96,10 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
 
     function revoke(): void
     {
+        unsubscribePermissionRevoked();
         permitted.value = false;
         invalidate();
+        port.dispose?.();
         queryFailure.value = 'permission-revoked';
     }
 
@@ -227,6 +230,12 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
 
     function changeIdentity(): void
     {
+        if (port.dispose)
+        {
+            // The host must supply a fresh authorized port for the new identity.
+            revoke();
+            return;
+        }
         invalidate();
         permitted.value = true;
         if (open.value)
@@ -249,7 +258,24 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
             submission.value = { phase: 'rejected' };
             return;
         }
-        await submitCall.start(port.prepareRequest(Object.freeze({ ...selection })));
+        const callEpoch = epoch;
+        try
+        {
+            await submitCall.start(port.prepareRequest(Object.freeze({ ...selection })));
+        }
+        catch (error: unknown)
+        {
+            if (epoch !== callEpoch)
+            {
+                return;
+            }
+            const failure = port.classifyFailure(error);
+            if (failure === 'permission-revoked')
+            {
+                revoke();
+            }
+            submission.value = { phase: failure };
+        }
     }
 
     function select(taskId: string): void
@@ -360,8 +386,10 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
 
     function dispose(): void
     {
+        unsubscribePermissionRevoked();
         open.value = false;
         invalidate();
+        port.dispose?.();
     }
 
     async function retrySubmission(): Promise<void>
@@ -379,6 +407,8 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
             await actionCall?.retry();
         }
     }
+
+    unsubscribePermissionRevoked = port.subscribePermissionRevoked?.(revoke) ?? unsubscribePermissionRevoked;
 
     return {
         views, selectedView, offset, pageSize, open, permitted, loading, queryFailure,

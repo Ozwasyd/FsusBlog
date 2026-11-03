@@ -1,0 +1,59 @@
+{
+    "schemaVersion": 1,
+    "encoding": "literal little-endian POD oracle; independent of managed/TS/native encoder",
+    "vectors": [
+        {
+            "name": "capture-revision",
+            "root": "DocumentExportSourceCaptureRequest",
+            "model": {
+                "sources": [
+                    {
+                        "kind": 2,
+                        "articleId": 42,
+                        "draftKey": null,
+                        "revisionId": "17",
+                        "publicationId": null
+                    }
+                ]
+            },
+            "hex": "0100000001000000020000002a0000000001110000000000000000"
+        },
+        {
+            "name": "revision-choices",
+            "root": "DocumentExportRevisionChoicesRequest",
+            "model": {
+                "articleId": 42
+            },
+            "hex": "010000002a000000"
+        },
+        {
+            "name": "empty-choices",
+            "root": "DocumentExportSourceChoicesResponse",
+            "model": {
+                "choices": []
+            },
+            "hex": "0100000000000000"
+        },
+        {
+            "name": "exact-version-choices",
+            "root": "DocumentExportSourceChoicesResponse",
+            "model": {
+                "choices": [
+                    {
+                        "choiceId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "label": "原始标题 🌍",
+                        "coordinate": {
+                            "kind": 2,
+                            "articleId": "42",
+                            "draftKey": null,
+                            "revisionId": "17",
+                            "publicationId": null,
+                            "sourceVersion": "9007199254740993"
+                        }
+                    }
+                ]
+            },
+            "hex": "0100000001000000400000006161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616111000000e58e9fe5a78be6a087e9a29820f09f8c8d020000002a0000000000000000011100000000000000000100000000002000"
+        }
+    ]
+}

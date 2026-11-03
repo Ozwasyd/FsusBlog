@@ -92,6 +92,10 @@
                     </ElFormItem>
 
                     <ElFormItem class="article-list-toolbar-item article-list-toolbar-buttons !m-0">
+                        <DocumentExportHost
+                            :articles="articleListView"
+                            :disabled="isBusy"
+                        />
                         <ElButton
                             type="primary"
                             :loading="isBusy"
@@ -380,6 +384,8 @@ import {
     type FsusUiSegmentedControlItem,
     type FsusUiSegmentedControlValue
 } from '@/fsusui/segmentedControl';
+
+import DocumentExportHost from './DocumentExportHost.vue';
 
 const ALL_ARTICLES = 'all' as const satisfies FsusUiSegmentedControlValue;
 

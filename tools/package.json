@@ -3,6 +3,7 @@
     "version": "0.0.0",
     "private": true,
     "exports": {
+        "./frontend/aeds-protocol": "./frontend/generate-aeds-protocol.mjs",
         "./test-convergence/audit": "./test-convergence/audit.mjs",
         "./test-convergence/post-baseline-history": "./test-convergence/post-baseline-history.mjs",
         "./test-retention/audit": "./test-retention/audit.mjs",

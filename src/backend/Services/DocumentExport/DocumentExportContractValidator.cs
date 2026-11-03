@@ -29,7 +29,8 @@ public static partial class DocumentExportContractValidator
             MarkdownUtf8 = input.MarkdownUtf8.AsSpan().ToArray().ToImmutableArray(),
             Assets = input.Assets
                 .Select(asset => asset with { Bytes = asset.Bytes.AsSpan().ToArray().ToImmutableArray() })
-                .ToImmutableArray()
+                .ToImmutableArray(),
+            FrozenEmbeds = DocumentExportFrozenEmbedContract.Own(input.FrozenEmbeds)
         };
         DocumentExportFrozenInput unsigned = owned with
         {
@@ -194,6 +195,7 @@ public static partial class DocumentExportContractValidator
             throw new InvalidDataException("Document export reading style authority or presentation profile drifted.");
         }
         ValidateAssets(input.Assets, input.AssetManifestDigest, input.FontManifestDigest);
+        DocumentExportFrozenEmbedContract.Validate(input.FrozenEmbeds, input.MarkdownUtf8.Length);
 
         DocumentExportFrozenInput unsigned = input with
         {
@@ -206,6 +208,7 @@ public static partial class DocumentExportContractValidator
     {
         ArgumentNullException.ThrowIfNull(task);
         Validate(input);
+        DocumentExportFrozenEmbedContract.RequireMaterializer(input.FrozenEmbeds);
         RequireExact(task.Schema, DocumentExportContractCatalog.TaskSchema, nameof(task));
         RequireIdentifier(task.TaskId, nameof(task.TaskId));
         RequireIdentifier(task.RequestId, nameof(task.RequestId));
@@ -389,7 +392,7 @@ public static partial class DocumentExportContractValidator
         }
     }
 
-    private static void ValidateCoordinate(DocumentExportArticleCoordinate coordinate)
+    internal static void ValidateCoordinate(DocumentExportArticleCoordinate coordinate)
     {
         ArgumentNullException.ThrowIfNull(coordinate);
         if (!Enum.IsDefined(coordinate.Kind) || coordinate.ArticleId <= 0 || coordinate.SourceVersion <= 0)

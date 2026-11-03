@@ -2,14 +2,17 @@ using System.Collections.Immutable;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
+using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
+using FsusBlog.Server.Services.DocumentExport.Sources;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
@@ -24,6 +27,10 @@ public interface IDocumentExportEndpointBinding
     Task<DocumentExportJobActor> ResolveActorAsync(HttpContext context, CancellationToken cancellationToken);
     Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeRequestAsync(
         HttpContext context, DocumentExportJobActor actor, CancellationToken cancellationToken);
+    /// <summary>Freeze a previously decoded request without reading the HTTP body again.</summary>
+    Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeDecodedRequestAsync(
+        HttpContext context, DocumentExportJobActor actor, DocumentExportRequestCoreModel request,
+        CancellationToken cancellationToken);
     Task<string> ReadTaskIdAsync(HttpContext context, CancellationToken cancellationToken);
     BinaryFrameResult WriteSnapshot(DocumentExportJobSnapshot snapshot, IAedsEncoder encoder);
     BinaryFrameResult WritePage(ImmutableArray<DocumentExportJobSnapshot> snapshots,
@@ -33,11 +40,43 @@ public interface IDocumentExportEndpointBinding
 public static partial class BinaryEndpoints
 {
     /// <summary>
+    /// Explicit host mapping after canonical transport composition. The general
+    /// route bootstrap leaves this entry uncalled until real source/permission
+    /// authorities are supplied. Registration is not runtime qualification.
+    /// </summary>
+    public static void MapDocumentExportEndpoints(this IEndpointRouteBuilder app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        IServiceProviderIsService registered = app.ServiceProvider.GetRequiredService<IServiceProviderIsService>();
+        Type[] required =
+        [
+            typeof(IDocumentExportFrozenSourceReader),
+            typeof(IDocumentExportJobAuthorization),
+            typeof(IDocumentExportRequestFreezer),
+            typeof(IDocumentExportJobs),
+            typeof(IDocumentExportEndpointBinding),
+            typeof(IDocumentExportSourceCatalog),
+            typeof(DocumentExportSourceSelectionAdapter),
+            typeof(FsusBlog.Server.Infrastructure.Binary.IBinaryEndpointRequestContext),
+            typeof(IAedsEncoder)
+        ];
+        if (required.Any(type => !registered.IsService(type)))
+        {
+            throw new InvalidOperationException("document_export_required_authority_unregistered");
+        }
+        var group = app.MapGroup("api/binary")
+            .WithTags("Binary-POD")
+            .WithMetadata(new FsusRouteKindMetadata("binary"));
+        MapBinaryDocumentExportEndpoints(group);
+    }
+
+    /// <summary>
     /// The generic endpoint-registration owner activates this domain only after
     /// its Shared frame codecs, binding and durable job authority are registered.
     /// </summary>
     private static void MapBinaryDocumentExportEndpoints(IEndpointRouteBuilder group)
     {
+        MapBinaryDocumentExportSourceOptionsEndpoints(group);
         group.MapPost("/document-export/request", HandleDocumentExportRequestAsync)
             .RequireAdminPermission(AdminPermissions.ArticleWrite)
             .AddEndpointFilterWithMetadata<RequiresPowFilter>();
@@ -64,8 +103,16 @@ public static partial class BinaryEndpoints
         CancellationToken cancellationToken)
         => ExecuteDocumentExportAsync(context, binding, encoder, async actor =>
         {
+            DocumentExportSourceSelectionAdapter selection = context.RequestServices
+                .GetService<DocumentExportSourceSelectionAdapter>() ?? throw new DocumentExportJobDeniedException();
+            DocumentExportSourceSelectionAdmission admission = await selection.ReadAsync(context, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (admission.Actor != actor)
+            {
+                throw new DocumentExportJobDeniedException();
+            }
             (DocumentExportTask task, DocumentExportFrozenInput input) =
-                await binding.FreezeRequestAsync(context, actor, cancellationToken);
+                await binding.FreezeDecodedRequestAsync(context, admission.Actor, admission.Request, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (task.UserId != actor.UserId || !string.Equals(task.SiteScope, actor.SiteScope, StringComparison.Ordinal)
                 || input.UserId != actor.UserId || !string.Equals(input.SiteScope, actor.SiteScope, StringComparison.Ordinal)

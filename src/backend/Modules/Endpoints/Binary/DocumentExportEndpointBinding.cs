@@ -10,14 +10,15 @@ using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
+using FsusBlog.Server.Services.DocumentExport.Sources;
 
 namespace FsusBlog.Server.Modules.Endpoints.Binary;
 
 /// <summary>
 /// Existing compiled-input/frozen-source owner implements this admission port.
 /// It must recheck the exact source permission and produce canonical sealed task
-/// and input through the original builder. No implementation or fallback is
-/// supplied here; this transport never parses Markdown or allocates job storage.
+/// and input through the export builder. This transport never parses Markdown
+/// or allocates job storage.
 /// </summary>
 public interface IDocumentExportRequestFreezer
 {
@@ -39,9 +40,15 @@ internal sealed class DocumentExportEndpointBinding(
 {
     internal static AedsFrameType RequireRegisteredFrame(string name)
     {
-        if (name is not ("DocumentExportRequest" or "DocumentExportTaskRequest"
-                or "DocumentExportJobResponse" or "DocumentExportPageResponse")
-            || !Enum.TryParse(name, false, out AedsFrameType frame) || !Enum.IsDefined(frame)
+        AedsFrameType frame = name switch
+        {
+            nameof(AedsFrameType.DocumentExportRequest) => AedsFrameType.DocumentExportRequest,
+            nameof(AedsFrameType.DocumentExportTaskRequest) => AedsFrameType.DocumentExportTaskRequest,
+            nameof(AedsFrameType.DocumentExportJobResponse) => AedsFrameType.DocumentExportJobResponse,
+            nameof(AedsFrameType.DocumentExportPageResponse) => AedsFrameType.DocumentExportPageResponse,
+            _ => throw new InvalidDataException("document_export_shared_frame_unregistered")
+        };
+        if (!Enum.IsDefined(frame)
             || !string.Equals(frame.ToString(), name, StringComparison.Ordinal))
         {
             throw new InvalidDataException("document_export_shared_frame_unregistered");
@@ -65,29 +72,65 @@ internal sealed class DocumentExportEndpointBinding(
         return Task.FromResult(new DocumentExportJobActor(principal.AdminPrincipalId, siteScope, sessionId));
     }
 
+    /// <summary>
+    /// Authenticated declaration projection for the future canonical catalog
+    /// transport. This does not allocate a wire frame or activate a provider.
+    /// </summary>
+    internal async Task<DocumentExportCatalogMetadata> ReadCatalogMetadataAsync(
+        HttpContext context, CancellationToken cancellationToken)
+    {
+        await ResolveActorAsync(context, cancellationToken);
+        if (!context.User.HasClaim(AdminPermissions.PermissionClaimType, AdminPermissions.ArticleWrite))
+        {
+            throw new DocumentExportJobDeniedException();
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return DocumentExportCatalogMetadataProjection.Read();
+    }
+
     public async Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeRequestAsync(
         HttpContext context, DocumentExportJobActor actor, CancellationToken cancellationToken)
     {
         using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(context,
             context.RequestServices.GetRequiredService<IAedsEncoder>(),
-            RequireRegisteredFrame("DocumentExportRequest"), cancellationToken, PodBinaryCodec.MaximumDocumentExportRequestFrameBytes);
+            RequireRegisteredFrame("DocumentExportRequest"), cancellationToken,
+            PodBinaryCodec.MaximumDocumentExportRequestFrameBytes);
         if (!payload.IsSuccess || !PodBinaryCodec.TryDecodeDocumentExportRequest(payload.Payload, out var request))
         {
             throw new DocumentExportJobDeniedException();
         }
+        return await FreezeDecodedRequestAsync(context, actor, request, cancellationToken);
+    }
+
+    public async Task<(DocumentExportTask Task, DocumentExportFrozenInput Input)> FreezeDecodedRequestAsync(
+        HttpContext context, DocumentExportJobActor actor, DocumentExportRequestCoreModel request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(actor);
+        ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
-        (DocumentExportTask task, DocumentExportFrozenInput input) =
-            await freezer.FreezeAsync(context, actor, request, cancellationToken);
+        (DocumentExportTask Task, DocumentExportFrozenInput Input) frozen;
+        try
+        {
+            frozen = await freezer.FreezeAsync(context, actor, request, cancellationToken);
+        }
+        catch (Exception exception) when (exception is DocumentExportSourceDeniedException
+            or DocumentExportSourceCapacityException)
+        {
+            throw new DocumentExportJobDeniedException();
+        }
         cancellationToken.ThrowIfCancellationRequested();
-        RequireFrozenRequestMatch(request, actor, task, input);
-        return (task, input);
+        RequireFrozenRequestMatch(request, actor, frozen.Task, frozen.Input);
+        return frozen;
     }
 
     public async Task<string> ReadTaskIdAsync(HttpContext context, CancellationToken cancellationToken)
     {
         using BinaryRequestPayload payload = await requestContext.ReadFrameAsync(context,
             context.RequestServices.GetRequiredService<IAedsEncoder>(),
-            RequireRegisteredFrame("DocumentExportTaskRequest"), cancellationToken, PodBinaryCodec.MaximumDocumentExportTaskRequestFrameBytes);
+            RequireRegisteredFrame("DocumentExportTaskRequest"), cancellationToken,
+            PodBinaryCodec.MaximumDocumentExportTaskRequestFrameBytes);
         if (!payload.IsSuccess || !PodBinaryCodec.TryDecodeDocumentExportTaskRequest(payload.Payload, out var request))
         {
             throw new DocumentExportJobDeniedException();

@@ -1,0 +1,95 @@
+#pragma once
+#include <cstddef>
+#include <cstdint>
+#include <set>
+#include <string>
+#include <vector>
+#include "document_export_wire_primitives.hpp"
+namespace FsusBlog::Aeds::DocumentExportSourceOptionsWire
+{
+inline std::size_t PayloadBudget(std::uint16_t frameType)
+{
+    switch(frameType)
+    {
+@@BUDGET_CASES@@
+        default:return 0;
+    }
+}
+class Reader
+{
+    const std::uint8_t* data;
+    std::size_t length;
+    std::size_t offset=0;
+public:
+    Reader(const std::uint8_t* bytes,std::size_t count):data(bytes),length(count){}
+    bool Consumed() const{return offset==length;}
+    bool Unsigned(std::size_t width,std::uint64_t& value)
+    {
+        if(width>length-offset)return false;
+        value=0;for(std::size_t i=0;i<width;i++)value|=std::uint64_t(data[offset++])<<(i*8);
+        return true;
+    }
+    bool Int32(std::int32_t& value)
+    {
+        std::uint64_t raw;if(!Unsigned(4,raw))return false;
+        value=raw<=2147483647ULL?static_cast<std::int32_t>(raw):-1-static_cast<std::int32_t>(4294967295ULL-raw);
+        return true;
+    }
+    bool Positive64(){std::uint64_t raw;return Unsigned(8,raw)&&raw>0&&raw<=9223372036854775807ULL;}
+    bool Positive32(){std::int32_t value;return Int32(value)&&value>0;}
+    bool Boolean(bool& value){std::uint64_t raw;if(!Unsigned(1,raw)||raw>1)return false;value=raw==1;return true;}
+    bool Text(std::size_t maximum,std::string& value,bool draft=false)
+    {
+        std::int32_t count;
+        if(!Int32(count)||count<0||static_cast<std::size_t>(count)>maximum*4||static_cast<std::size_t>(count)>length-offset)return false;
+        value.assign(reinterpret_cast<const char*>(data+offset),static_cast<std::size_t>(count));offset+=static_cast<std::size_t>(count);
+        std::vector<std::uint32_t> codes;if(!DocumentExportWirePrimitives::Scalars(value,codes))return false;
+        std::size_t units=0;for(auto code:codes)units+=code>65535?2:1;
+        if(units>maximum)return false;
+        auto whitespace=[](std::uint32_t code){return (code>=9&&code<=13)||DocumentExportWirePrimitives::Whitespace(code);};
+        return !draft||(!codes.empty()&&!whitespace(codes.front())&&!whitespace(codes.back()));
+    }
+    bool Tail(std::int32_t kind)
+    {
+        bool draft,revision,publication;std::string value;
+        return Boolean(draft)&&(!draft||Text(96,value,true))&&Boolean(revision)&&(!revision||Positive64())
+            &&Boolean(publication)&&(!publication||Positive64())
+            &&(kind==1?draft&&!revision&&!publication:kind==2?!draft&&revision&&!publication:kind==3&&!draft&&revision&&publication);
+    }
+    bool Selector(std::string& key)
+    {
+        auto start=offset;std::int32_t kind;
+        if(!Int32(kind)||!Positive32()||!Tail(kind))return false;
+        key.assign(reinterpret_cast<const char*>(data+start),offset-start);return true;
+    }
+    bool Coordinate(){std::int32_t kind;return Int32(kind)&&Positive64()&&Tail(kind)&&Positive64();}
+    bool Capture()
+    {
+        std::int32_t count;if(!Int32(count)||count<0||count>50)return false;
+        std::set<std::string> keys;
+        for(std::int32_t i=0;i<count;i++){std::string key;if(!Selector(key)||!keys.insert(key).second)return false;}
+        return true;
+    }
+    bool Choices()
+    {
+        std::int32_t count;if(!Int32(count)||count<0||count>50)return false;
+        std::set<std::string> ids;
+        for(std::int32_t i=0;i<count;i++)
+        {
+            std::string id,label;
+            if(!Text(64,id)||!DocumentExportWirePrimitives::Digest(id)||!ids.insert(id).second
+                ||!Text(256,label)||!Coordinate())return false;
+        }
+        return true;
+    }
+};
+inline bool Validate(std::uint16_t frameType,const std::uint8_t* data,std::uint32_t length)
+{
+    const auto budget=PayloadBudget(frameType);
+    if(!data||budget==0||length<4||length>budget)return false;
+    Reader reader(data,length);std::int32_t revision;
+    if(!reader.Int32(revision)||revision!=1)return false;
+    bool valid=frameType==282?reader.Capture():frameType==283?reader.Positive32():frameType==284&&reader.Choices();
+    return valid&&reader.Consumed();
+}
+}

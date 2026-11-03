@@ -248,5 +248,12 @@ public enum AedsFrameType : ushort
     ThemeActivationList = 249,
     ThemeActivation = 250,
     ApiError = 251,
-    ThemeActivationHistory = 252
+    ThemeActivationHistory = 252,
+    DocumentExportRequest = 278,
+    DocumentExportTaskRequest = 279,
+    DocumentExportJobResponse = 280,
+    DocumentExportPageResponse = 281,
+    DocumentExportSourceCaptureRequest = 282,
+    DocumentExportRevisionChoicesRequest = 283,
+    DocumentExportSourceChoicesResponse = 284
 }
