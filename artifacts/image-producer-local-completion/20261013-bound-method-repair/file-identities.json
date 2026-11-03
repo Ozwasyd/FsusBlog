@@ -1,0 +1,70 @@
+{
+    "sourceRevision": "4b2111211a7bb74193b564d7fb474b767ad7ff7b",
+    "files": [
+        {
+            "path": "authoritative-docs.log",
+            "bytes": 88,
+            "sha256": "277fdd680ae010ac19d1b34a29ad04abd1ad673d47b9c5457984d550672b9535"
+        },
+        {
+            "path": "baseline-typecheck.log",
+            "bytes": 45056,
+            "sha256": "90f213596331f03f542780161300ea257f95467dbb475285a4d37a86138e4017"
+        },
+        {
+            "path": "code-intent.log",
+            "bytes": 203,
+            "sha256": "73608e315d9a2459fa2e0233f59d14c461e73cab8242ff622bb959bc90651ed1"
+        },
+        {
+            "path": "diff.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "path": "document-lifecycle.log",
+            "bytes": 38,
+            "sha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6"
+        },
+        {
+            "path": "owner-lint-coordination.json",
+            "bytes": 3268,
+            "sha256": "a91be1fd1e3a3ae6fd4f2c34cffead61a10ad60cf349df0c0ef7a19b3e15797f"
+        },
+        {
+            "path": "repair-typecheck.log",
+            "bytes": 45056,
+            "sha256": "90f213596331f03f542780161300ea257f95467dbb475285a4d37a86138e4017"
+        },
+        {
+            "path": "result-boundaries.log",
+            "bytes": 421,
+            "sha256": "637b964aa0af5a89cad8c6d09a34439d4a92336c9d31f3f43fe6aa61670ba1e3"
+        },
+        {
+            "path": "source-pr-contract.log",
+            "bytes": 43,
+            "sha256": "5856bdd7634323dddf2acd4b1ed7aa4b82f9ab156ec20bb626b8ac8ff299a574"
+        },
+        {
+            "path": "source-range.log",
+            "bytes": 81,
+            "sha256": "30ed8ad55ff7dc9a5831df18284fd16e853b731391d2bb1ed97c1d2f4cb4a3f4"
+        },
+        {
+            "path": "source-review-notes.json",
+            "bytes": 3533,
+            "sha256": "3e8c6b6d614b6f66c0d324aaf032f60a04c86d3109aabf2390c7f888d7618e52"
+        },
+        {
+            "path": "static-observations.json",
+            "bytes": 12431,
+            "sha256": "d66deb93dc416c7a4476229f2b16c3fa23b2116efd27c71a961a1ffdf9a3ec94"
+        },
+        {
+            "path": "style.log",
+            "bytes": 227,
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+        }
+    ]
+}

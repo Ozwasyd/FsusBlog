@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve the existing caller-visible CSS/token and Markdown contract spellings in unchanged architecture sections while documenting finite original image producer ownership. New TypeScript API identifiers retain repository internal naming; no CSS, protocol, wire or native contract is renamed."
+        }
+    ]
+}

@@ -1,0 +1,3 @@
+[change-contract] PR body requires checked checklist field: [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+[change-contract] feat cannot use release note category none
+[change-contract] changes to registered external naming surfaces require External naming exception classification: docs/architecture/overview.md

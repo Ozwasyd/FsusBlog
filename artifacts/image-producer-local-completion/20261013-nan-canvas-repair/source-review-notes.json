@@ -1,0 +1,38 @@
+{
+    "sourceRevision": "8b03b61ca03a8ecc9559f7329d808007b44c5c6c",
+    "predecessorPublicationRevision": "6192593880d7f53b13bba2d9a3ce24565eeb42da",
+    "reviewProvenance": "Delegating owner supplied independent619259 review: original cleanupP1 and encode/toBlob-specificP2 closed; two remaining P2 source findings requested. No independent acceptance is asserted for this successor.",
+    "inspectionOnly": true,
+    "sameValueReason": {
+        "repair": "Object.is compares the thrown value with the actual retained cancellation reason; NaN is recognized and re-thrown rather than converted into WasmEncodeError.",
+        "adjacentReasonSelection": "Only undefined receives the default AbortError; defined null and other legal unknown reason values are retained unchanged.",
+        "providerFailure": "Actual provider exceptions still exit their call before any post-call cancellation check; native codec errors still follow original metadata/cause handling unless they are the exact original cancellation value."
+    },
+    "boundedCanvasTransitions": [
+        "Capability function returns before its post-return cancellation check",
+        "Canvas is adopted before checking after createElement and before setting dimensions",
+        "Width and height setters are followed by checks before the next platform action",
+        "Actual 2d context is adopted after getContext before cancellation/clearRect",
+        "Actual clearRect is captured/bound before admission; return is checked before fill/draw",
+        "fillStyle setter return is checked before reading the actual fillRect method",
+        "Actual fillRect is captured/bound before admission; return is checked before draw",
+        "Bitmap/image argument and actual five-argument drawImage method are captured before admission",
+        "drawImage return is checked before bitmap release; release return is checked before subsequent work",
+        "Actual returned image-data resource is adopted before checking after getImageData",
+        "Actual constructed encoded Blob is adopted before checking after construction",
+        "Fallback toBlob is still awaited to its actual callback before adoption/check",
+        "Actual constructed output File is adopted before post-constructor cancellation"
+    ],
+    "asyncCompletion": "No post-start check replaces the actual pending FileReader event, bitmap/codec Promise, toBlob callback, arrayBuffer Promise or digest Promise. Started work still retains original handles and awaits actual completion/failure.",
+    "census": "Encoded WASM Blob is registered at construction; the common path registers only the actual fallback Blob, avoiding duplicate custody entries. Output File has a temporary local reference entry; successful result still returns that same actual File and transfers caller custody without claiming heap reclamation.",
+    "preserved": [
+        "Previously reviewed cleanup/cancellation callback reentry guards and settlement debt barriers",
+        "Previously reviewed encode/toBlob argument/method getter cancellation checks",
+        "Finite natural hash completion and original File identity",
+        "Early bitmap cleanup custody and same-handle cleanup retry",
+        "Legacy same-invocation result delegation",
+        "External codec unknowns and no whole-upload/application/native readiness claim"
+    ],
+    "runtimeTestsDiscoveryQualification": "HOLD/UNRUN",
+    "independentSuccessorRereview": "PENDING"
+}

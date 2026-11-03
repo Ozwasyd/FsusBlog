@@ -1,0 +1,40 @@
+{
+    "sourceRevision": "4b2111211a7bb74193b564d7fb474b767ad7ff7b",
+    "predecessorPublicationRevision": "3b3b0970a5af82b595b89f21b180e24cc0b73c53",
+    "scope": "Only two native receiver method extraction expressions in imageCompression.ts; no helper, document, provider or consumer source changes.",
+    "methodBindingRepair": {
+        "getContext": "Bind directly at canvas.getContext's single property read; checked bind type arguments select the original native 2d overload and declare its real HTMLCanvasElement receiver.",
+        "drawImage": "Bind directly at context.drawImage's single property read; checked bind type arguments select the original native five-argument overload and real CanvasRenderingContext2D receiver.",
+        "semanticSequence": "Receiver property getter once, same native function.bind once, same actual receiver, existing original cancellation check, same actual invocation arguments. Type arguments erase; no new wrapper, second method lookup or changed reentry boundary.",
+        "notUsed": "No this:void, type assertion, declaration shim, lint disable, rule/baseline/config change or replacement provider."
+    },
+    "rawRejectionPolicyConflict": {
+        "source": "imageCompression.ts:81 reject(error)",
+        "status": "Explicit WIP, unchanged",
+        "reason": "Original cancellation reason is unknown and may legally be NaN, null, primitive or object. Wrapping/narrowing it to Error changes the original invocation result. Moving the throw into another promise/event wrapper changes rejection and reentry ordering. The actual original reject callback is retained without semantic or rule bypass.",
+        "originalBaseline": "imageCompression.ts:71 no-base-to-string retained unchanged"
+    },
+    "installedLintBefore": {
+        "provenance": "Delegating owner report and actual original PR4151 body",
+        "consumerIntakeRevision": "fc7ff58d221830dd8ef1350354fe215b5e5cdf57",
+        "consumerBaselineStage": "e322",
+        "status": "FAIL4 vs baseline FAIL1",
+        "introduced": ["prefer-promise-reject-errors:81", "unbound-method:299", "unbound-method:329"],
+        "environment": "Original installed Node24.16.0/ESLint10.8.0/localFsusUI0e5c; not producer Node24.19.0/UI8db0 environment"
+    },
+    "installedLintAfter": {
+        "status": "PENDING actual owner verification; no local installed lint pass or observed 4-to-2 reduction claimed",
+        "requestedExactSource": "4b2111211a7bb74193b564d7fb474b767ad7ff7b",
+        "expectedResidualOnly": "raw prefer-promise-reject-errors and original no-base-to-string; expectation is not an executed result"
+    },
+    "ownerCoordination": {
+        "authoritativeTarget": "Original upload-owner PR4151, author Ozwasyd, actual body identifies exact fc7 intake and matching three new findings",
+        "requestUrl": "https://github.com/Ozwasyd/FsusBlog/pull/4151#issuecomment-6136003697",
+        "requestUtc": "2026-10-13T01:21:10Z",
+        "requested": "Original configured installed two-file strict-full lint; command, exit, every finding and checked exact blobs/SHA256. No installation/substitution/relaxation, and all runtime/test holds preserved.",
+        "lastReadback": "Only coordination request returned; no owner result observed yet"
+    },
+    "productionLint": "Original configured ESLint/Stylelint paths absent; invocation FAIL before inspection, inspection UNRUN; no install or alternate runner",
+    "runtimeTestsDiscoveryQualification": "HOLD/UNRUN",
+    "independentSuccessorReview": "PENDING"
+}

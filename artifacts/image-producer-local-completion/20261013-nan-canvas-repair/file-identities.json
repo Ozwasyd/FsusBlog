@@ -1,0 +1,65 @@
+{
+    "sourceRevision": "8b03b61ca03a8ecc9559f7329d808007b44c5c6c",
+    "files": [
+        {
+            "path": "authoritative-docs.log",
+            "bytes": 88,
+            "sha256": "e6cd4b86bf2861d3669f009434674813821df1f15453dc4715e0184b63b0f366"
+        },
+        {
+            "path": "baseline-typecheck.log",
+            "bytes": 45056,
+            "sha256": "90f213596331f03f542780161300ea257f95467dbb475285a4d37a86138e4017"
+        },
+        {
+            "path": "code-intent.log",
+            "bytes": 203,
+            "sha256": "73608e315d9a2459fa2e0233f59d14c461e73cab8242ff622bb959bc90651ed1"
+        },
+        {
+            "path": "diff.log",
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "path": "document-lifecycle.log",
+            "bytes": 38,
+            "sha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6"
+        },
+        {
+            "path": "repair-typecheck.log",
+            "bytes": 45056,
+            "sha256": "90f213596331f03f542780161300ea257f95467dbb475285a4d37a86138e4017"
+        },
+        {
+            "path": "result-boundaries.log",
+            "bytes": 421,
+            "sha256": "637b964aa0af5a89cad8c6d09a34439d4a92336c9d31f3f43fe6aa61670ba1e3"
+        },
+        {
+            "path": "source-pr-contract.log",
+            "bytes": 43,
+            "sha256": "b695894ac5c430f49ad5ed1aac610a8dc3581c94961014f65ac9803d36a64f53"
+        },
+        {
+            "path": "source-range.log",
+            "bytes": 81,
+            "sha256": "015dead8e72e763fc2c340f3aee26f2105409f729382c7b849d94830acd41843"
+        },
+        {
+            "path": "source-review-notes.json",
+            "bytes": 3461,
+            "sha256": "413c7d315dde360ecf5be79c5c8d373229242634717365f71dac1e1ddb91d46a"
+        },
+        {
+            "path": "static-observations.json",
+            "bytes": 13187,
+            "sha256": "962b417bdc238e8138cf29fa6399f8250b3c8f733eb76761a400eac64e3b4f7f"
+        },
+        {
+            "path": "style.log",
+            "bytes": 227,
+            "sha256": "2465fa06dd0a14c78f5a0eadf423b33a8dc7b43ebae5ba240a015e59d585ebf0"
+        }
+    ]
+}

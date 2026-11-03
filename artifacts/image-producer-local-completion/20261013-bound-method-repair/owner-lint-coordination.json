@@ -1,0 +1,23 @@
+{
+    "explicitUserAuthorization": "Coordinate actual installed strict lint with original4151 owner",
+    "resolvedTarget": "Original upload-owner PR4151; actual PR metadata authorOzwasyd and matching exact fc7 intake/rules",
+    "recipientResolution": "Resolve Recipients workflow, using explicit project/PR anchor and authoritative current PR ownership/intake record; no broad recipient or guessed cross-surface identity",
+    "commentId": 6136003697,
+    "commentUrl": "https://github.com/Ozwasyd/FsusBlog/pull/4151#issuecomment-6136003697",
+    "createdUtc": "2026-10-13T01:21:10Z",
+    "requestBody": "PR4239 producer 最小 lint 修复已正常 push，完整 source SHA `4b2111211a7bb74193b564d7fb474b767ad7ff7b`，直接 parent `3b3b0970a5af82b595b89f21b180e24cc0b73c53`。仅 imageCompression.ts 两处方法绑定改动，原 source8b03 已由 fc7 精确 intake；本次不消费或改写本 PR 的 runtime/Flow/API/transport。\n\ngetContext 和 drawImage 现在直接在实际 receiver 属性读取处 `.bind`，经 TypeScript 检查的 bind 泛型参数选择原 DOM 2d/五参数重载；各属性仍读取一次、原 this 正确、同一 getter 后取消检查仍位于实际调用前。无 this:void、类型断言、lint disable、新 wrapper 或重查 method。原 `reject(error)` 必须保留实际 unknown/NaN/null 取消原因，明确保留 prefer-promise-reject-errors WIP，不包装 Error；旧 no-base-to-string 也不改。\n\n请原 4151 owner 在已有安装且同锁的原 strict lint 环境（此前 Node24.16.0 / ESLint10.8.0 / localUI0e5c）对这个 exact 两文件 postimage 做原命令静态验证，并回传 command、exit、每条 rule/path/line 和 checked blob/SHA256，确认两个 unbound-method 是否消失及剩余原/new diagnostics。只做静态 source/type/lint；全部 runtime/tests/import/discovery/native/qualification HOLD。不安装替代工具、不改 rule/config/baseline，不把原理由转为 Error。生产侧本地原配置 ESLint/Stylelint 仍缺失，不能替代您实际 installed lint 的证据。预期残留 raw-reject 与旧 no-base-to-string 并非已观测 PASS。\n\n原验证命令：\n```sh\nnode tools/frontend/check-frontend-style.mjs --mode strict-full \\\n    --file src/frontend/src/utils/imageCompression.ts \\\n    --file src/frontend/src/utils/imageProducerOperation.ts\n```\n\n完整应用 compiler 与精确 source evidence 正在原生产环境保存；该阶段与消费者534/535结果分开记录。本请求只协调 actual installed static lint，不宣称 source/native/wholeupload/fullsettled acceptance。\n",
+    "readbackVerified": true,
+    "ownerResponseStatus": "PENDING; last read only returned this request",
+    "actualInstalledLintBefore": {
+        "consumerIntake": "fc7ff58d221830dd8ef1350354fe215b5e5cdf57",
+        "status": "FAIL4 vs e322 baseline FAIL1",
+        "introduced": [
+            "prefer-promise-reject-errors:81",
+            "unbound-method:299",
+            "unbound-method:329"
+        ],
+        "original": "no-base-to-string:71",
+        "provenance": "Delegating owner and actual PR4151 body"
+    },
+    "actualInstalledLintAfter": "UNRUN here / PENDING actual owner evidence; no observed 4-to-2 reduction or installed PASS asserted"
+}
