@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/fixture-profile-contract.mjs"
+            ],
+            "reason": "Preserve the existing Node tooling and process environment identifiers while recognizing the two already declared coordination tiers."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/fixture-profile-matrix.generated.json",
+                "tests/fixtures/governance/change-contract/fixture-profile-source-coordination-binding.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing generated inventory, execution authority and change-contract binding JSON schemas and external field names."
+        }
+    ]
+}
