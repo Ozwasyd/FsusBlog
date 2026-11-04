@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tools/test-matrix/fixture-profile-contract.mjs",
+        "tools/testing/generate-fixture-catalog-artifacts.mjs",
+        "config/testing/release-final-execution-authority-index.json",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/fixture-profile-matrix.generated.json",
+            "sha256": "25894e315ea042b54da3536a87cab5c2c42aaac3ac4f1aa13e05fc277951fc5f"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "d37dd625dba547f97ec0175ddd1fbd717b2648bc86e112a898a70cfadbbdb225"
+        }
+    ]
+}
