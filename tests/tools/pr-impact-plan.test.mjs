@@ -50,7 +50,10 @@ test('matrix workflow jobs install the indexed Node runtime and locked validator
     {
         const steps = value.steps ?? [];
         const firstUse = steps.findIndex((step) => /tools\/test\.sh|tools\/run-test-matrix\.mjs/u.test(String(step.run ?? '')));
-        if (firstUse < 0) continue;
+        if (firstUse < 0)
+        {
+            continue;
+        }
         const setup = steps.findIndex((step) => String(step.uses ?? '').startsWith('actions/setup-node@'));
         const install = steps.findIndex((step) => step.run === 'npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false');
         assert.ok(setup >= 0 && setup < install && install < firstUse, `${job} must install the locked matrix validator before use`);
