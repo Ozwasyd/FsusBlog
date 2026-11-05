@@ -351,6 +351,7 @@
                 "redis.session"
             ],
             "creates": [
+                "fixture.public-content",
                 "fixture.security-state"
             ],
             "resetBefore": [
@@ -373,6 +374,14 @@
                 "receipt"
             ],
             "operationOverlaps": [
+                {
+                    "domain": "fixture.public-content",
+                    "operations": [
+                        "creates",
+                        "reads"
+                    ],
+                    "testId": "security-runtime-core"
+                },
                 {
                     "domain": "postgres.security",
                     "operations": [
@@ -399,6 +408,13 @@
                     "domain": "all-declared-access",
                     "assertionId": "security-runtime-core",
                     "verifier": "tools/test/bundles/bundle-steps.mjs"
+                },
+                {
+                    "proofKind": "static-analyzer",
+                    "operation": "creates",
+                    "domain": "fixture.public-content",
+                    "source": "tools/test/lanes/_suite-support.sh#InvokeLaneFixtureOrchestrator",
+                    "ruleId": "fixture.public-content.creates"
                 }
             ]
         },
@@ -820,7 +836,9 @@
                 "redis.rate-limit"
             ],
             "invalidates": [],
-            "creates": [],
+            "creates": [
+                "fixture.public-content"
+            ],
             "resetBefore": [
                 {
                     "producer": "bootstrap",
@@ -847,9 +865,24 @@
                     "domain": "all-declared-access",
                     "assertionId": "resilience",
                     "verifier": "tools/test/bundles/bundle-steps.mjs"
+                },
+                {
+                    "proofKind": "static-analyzer",
+                    "operation": "creates",
+                    "domain": "fixture.public-content",
+                    "source": "tools/test/lanes/_suite-support.sh#InvokeLaneFixtureOrchestrator",
+                    "ruleId": "fixture.public-content.creates"
                 }
             ],
             "operationOverlaps": [
+                {
+                    "domain": "fixture.public-content",
+                    "operations": [
+                        "creates",
+                        "reads"
+                    ],
+                    "testId": "resilience"
+                },
                 {
                     "domain": "postgres.security",
                     "operations": [
