@@ -27,6 +27,21 @@ test('quality gate Node installations match the indexed execution parser identit
     }
 });
 
+test('source governance installs the locked Markdown checker before execution', () =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    const workflow = parseYamlDocument(readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8'));
+    const manifest = JSON.parse(readFileSync(path.join(root, 'tools/style/markdownlint-toolchain/package.json'), 'utf8'));
+    const lock = JSON.parse(readFileSync(path.join(root, 'tools/style/markdownlint-toolchain/package-lock.json'), 'utf8'));
+    assert.equal(manifest.devDependencies['markdownlint-cli2'], '0.23.1');
+    assert.equal(lock.packages['node_modules/markdownlint-cli2'].version, '0.23.1');
+    const steps = workflow.jobs['source-governance'].steps;
+    const install = steps.findIndex((step) => step.run === 'npm --prefix tools/style/markdownlint-toolchain ci --ignore-scripts --no-audit --progress=false');
+    const expose = steps.findIndex((step) => step.run === 'echo "$GITHUB_WORKSPACE/tools/style/markdownlint-toolchain/node_modules/.bin" >> "$GITHUB_PATH"');
+    const execute = steps.findIndex((step) => step.run === 'node tools/test-matrix/source-governance.mjs');
+    assert.ok(install >= 0 && install < expose && expose < execute, 'locked Markdown checker must be installed and exposed before source governance');
+});
+
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });
 const matrix = () => ({ tiers: [

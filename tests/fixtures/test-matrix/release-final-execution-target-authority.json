@@ -2180,8 +2180,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:002c4aab84f7c4d1b5c493f6706c3b10beb6900dc175e7c0bfb118ef61d3ac29",
-            "indexDigest": "sha256:002c4aab84f7c4d1b5c493f6706c3b10beb6900dc175e7c0bfb118ef61d3ac29"
+            "contentDigest": "sha256:6b5335e079d1eb18429e4a8b0cd89f4b0af6fa030fe6680c0829c1eb9d2ce7bd",
+            "indexDigest": "sha256:6b5335e079d1eb18429e4a8b0cd89f4b0af6fa030fe6680c0829c1eb9d2ce7bd"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
