@@ -127,6 +127,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -172,6 +173,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -249,6 +251,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - name: Generate source-bound PR plan
               id: smart
               env:
@@ -329,6 +332,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -374,6 +378,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -430,6 +435,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -473,6 +479,10 @@ jobs:
               with:
                   name: quality-gate-pr-smart-gate-plan
                   path: .tmp
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -511,6 +521,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: wasm-build-artifacts
@@ -579,6 +590,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -624,6 +636,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -665,6 +678,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -737,6 +751,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: wasm-build-artifacts
@@ -794,6 +809,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -852,6 +868,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: wasm-build-artifacts
@@ -1023,6 +1040,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1092,6 +1110,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1143,6 +1162,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1208,6 +1228,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1263,6 +1284,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1316,6 +1338,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1374,6 +1397,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1429,6 +1453,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1513,6 +1538,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1607,6 +1633,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1662,6 +1689,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1720,6 +1748,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1765,6 +1794,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1815,6 +1845,7 @@ jobs:
                   node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1879,6 +1910,7 @@ jobs:
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.16.0
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}

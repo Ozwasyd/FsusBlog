@@ -42,6 +42,21 @@ test('source governance installs the locked Markdown checker before execution', 
     assert.ok(install >= 0 && install < expose && expose < execute, 'locked Markdown checker must be installed and exposed before source governance');
 });
 
+test('matrix workflow jobs install the indexed Node runtime and locked validator before use', () =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    const workflow = parseYamlDocument(readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8'));
+    for (const [job, value] of Object.entries(workflow.jobs))
+    {
+        const steps = value.steps ?? [];
+        const firstUse = steps.findIndex((step) => /tools\/test\.sh|tools\/run-test-matrix\.mjs/u.test(String(step.run ?? '')));
+        if (firstUse < 0) continue;
+        const setup = steps.findIndex((step) => String(step.uses ?? '').startsWith('actions/setup-node@'));
+        const install = steps.findIndex((step) => step.run === 'npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false');
+        assert.ok(setup >= 0 && setup < install && install < firstUse, `${job} must install the locked matrix validator before use`);
+    }
+});
+
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });
 const matrix = () => ({ tiers: [
