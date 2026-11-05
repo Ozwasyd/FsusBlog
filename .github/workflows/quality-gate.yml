@@ -36,7 +36,7 @@ jobs:
                   fetch-depth: 0
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: node tools/run-test-matrix.mjs validate-declarations
 
@@ -62,7 +62,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -126,7 +126,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -171,7 +171,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -248,7 +248,7 @@ jobs:
                   fetch-depth: 0
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - name: Generate source-bound PR plan
               id: smart
               env:
@@ -292,7 +292,7 @@ jobs:
                   fetch-depth: 0
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
               with:
                   name: quality-gate-pr-smart-gate-plan
@@ -326,7 +326,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -371,7 +371,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -427,7 +427,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -506,7 +506,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
@@ -576,7 +576,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -621,7 +621,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -662,7 +662,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -732,7 +732,7 @@ jobs:
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
@@ -789,7 +789,7 @@ jobs:
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -847,7 +847,7 @@ jobs:
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
@@ -902,7 +902,7 @@ jobs:
                   path: .tmp/local-fsusui
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -953,7 +953,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1020,7 +1020,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1087,7 +1087,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1138,7 +1138,7 @@ jobs:
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1205,7 +1205,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1258,7 +1258,7 @@ jobs:
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1311,7 +1311,7 @@ jobs:
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1369,7 +1369,7 @@ jobs:
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1426,7 +1426,7 @@ jobs:
                   dotnet-version: 10.0.x
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1508,7 +1508,7 @@ jobs:
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1602,7 +1602,7 @@ jobs:
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1657,7 +1657,7 @@ jobs:
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1715,7 +1715,7 @@ jobs:
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1762,7 +1762,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1810,7 +1810,7 @@ jobs:
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
                   cache: npm
                   cache-dependency-path: src/frontend/package-lock.json
             - uses: ./.github/actions/consume-behavior-doc-admission
@@ -1876,7 +1876,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -1967,7 +1967,7 @@ jobs:
                   path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
-                  node-version: 24.x
+                  node-version: 24.16.0
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}

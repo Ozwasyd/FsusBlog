@@ -8,6 +8,24 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceFrontendDataInputs, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration, sourceStageInspectionFiles } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+const { parseYamlDocument } = await import(new URL('../../tools/yaml/parse-document.mjs', import.meta.url));
+
+test('quality gate Node installations match the indexed execution parser identity', () =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    const index = JSON.parse(readFileSync(path.join(root, 'config/testing/release-final-execution-authority-index.json'), 'utf8'));
+    const workflow = parseYamlDocument(readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8'));
+    const expectedVersion = index.nodeParserIdentity.nodeVersion.replace(/^v/u, '');
+    const setups = Object.entries(workflow.jobs).flatMap(([job, value]) =>
+        (value.steps ?? []).filter((step) => String(step.uses ?? '').startsWith('actions/setup-node@'))
+            .map((step) => ({ job, options: step.with ?? {} })));
+    assert.ok(setups.length > 0, 'quality gate must install the indexed Node runtime');
+    for (const { job, options } of setups)
+    {
+        assert.equal(options['node-version'], expectedVersion, `${job} must use the indexed Node runtime`);
+        assert.equal(Object.hasOwn(options, 'node-version-file'), false, `${job} must not select a second Node version`);
+    }
+});
 
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });

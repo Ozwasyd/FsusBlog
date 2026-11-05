@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "github-actions-schema",
+            "paths": [".github/workflows/quality-gate.yml"],
+            "reason": "Preserve the GitHub Actions setup-node input and workflow schema while selecting the exact indexed runtime."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": ["docs/testing.md"],
+            "reason": "Preserve the existing external document and tooling identifiers while documenting the quality gate runtime binding."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": ["tests/fixtures/test-matrix/release-final-execution-target-authority.json"],
+            "reason": "Preserve the existing generated execution authority JSON schema and external field names."
+        }
+    ]
+}
