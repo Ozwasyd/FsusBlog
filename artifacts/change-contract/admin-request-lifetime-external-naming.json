@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                "src/backend/Infrastructure/Security/AdminAuthenticatedRequestLifetime.cs",
+                "src/backend/Infrastructure/Security/AdminRequestSqlFence.cs",
+                "src/backend/Infrastructure/Security/AdminSessionProjection.cs",
+                "src/backend/Infrastructure/Security/AdminSessionProjectionRequestLifetimes.cs",
+                "src/backend/Services/Security/AdminSessionValidationService.cs"
+            ],
+            "reason": "The trusted registry broadly governs all managed src files as process-environment surfaces. This original admin lifetime producer preserves existing claim, database, token and environment spellings and introduces no process key or internal naming exemption."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/security.md"
+            ],
+            "reason": "The existing trusted auth-security documentation authority explicitly includes docs/security.md. The producer description preserves its existing claim identifiers, configuration spellings and generated-section ownership; it does not alter fact-extractor inputs, policy identifiers or naming rules."
+        }
+    ]
+}

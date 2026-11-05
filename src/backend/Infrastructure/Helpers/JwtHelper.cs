@@ -7,6 +7,7 @@ using System.Text;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -321,6 +322,7 @@ public static class JwtServiceExtensions
                 },
                 OnTokenValidated = async context =>
                 {
+                    context.HttpContext.Features.Set<IAdminAuthenticatedRequestFeature>(null);
                     if (context.Principal?.IsAdminPrincipal() == true)
                     {
                         string accessToken = context.SecurityToken switch
@@ -345,6 +347,21 @@ public static class JwtServiceExtensions
                         {
                             context.HttpContext.RequestServices.GetRequiredService<AuthCookieService>().ClearAdminSessionCookies(context.HttpContext);
                             context.Fail(adminResult.Reason);
+                        }
+                        else if (adminResult.RequestLifetime is { } lifetime)
+                        {
+                            lifetime.RestrictToTokenExpiry(new DateTimeOffset(
+                                DateTime.SpecifyKind(context.SecurityToken.ValidTo, DateTimeKind.Utc)));
+                            lifetime.BindRequest(context.HttpContext.RequestAborted);
+                            context.HttpContext.Response.RegisterForDispose(lifetime);
+                            if (!lifetime.IsCurrent)
+                            {
+                                lifetime.Dispose();
+                                context.Fail("admin_request_lifetime_invalid");
+                                return;
+                            }
+                            context.HttpContext.Features.Set<IAdminAuthenticatedRequestFeature>(
+                                new AdminAuthenticatedRequestFeature(lifetime));
                         }
                         return;
                     }
