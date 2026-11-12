@@ -8,6 +8,57 @@ import test from 'node:test';
 import vm from 'node:vm';
 
 const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceFrontendDataInputs, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration, sourceStageInspectionFiles } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+const { parseYamlDocument } = await import(new URL('../../tools/yaml/parse-document.mjs', import.meta.url));
+
+test('quality gate Node installations match the indexed execution parser identity', () =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    const index = JSON.parse(readFileSync(path.join(root, 'config/testing/release-final-execution-authority-index.json'), 'utf8'));
+    const workflow = parseYamlDocument(readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8'));
+    const expectedVersion = index.nodeParserIdentity.nodeVersion.replace(/^v/u, '');
+    const setups = Object.entries(workflow.jobs).flatMap(([job, value]) =>
+        (value.steps ?? []).filter((step) => String(step.uses ?? '').startsWith('actions/setup-node@'))
+            .map((step) => ({ job, options: step.with ?? {} })));
+    assert.ok(setups.length > 0, 'quality gate must install the indexed Node runtime');
+    for (const { job, options } of setups)
+    {
+        assert.equal(options['node-version'], expectedVersion, `${job} must use the indexed Node runtime`);
+        assert.equal(Object.hasOwn(options, 'node-version-file'), false, `${job} must not select a second Node version`);
+    }
+});
+
+test('source governance installs the locked Markdown checker before execution', () =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    const workflow = parseYamlDocument(readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8'));
+    const manifest = JSON.parse(readFileSync(path.join(root, 'tools/style/markdownlint-toolchain/package.json'), 'utf8'));
+    const lock = JSON.parse(readFileSync(path.join(root, 'tools/style/markdownlint-toolchain/package-lock.json'), 'utf8'));
+    assert.equal(manifest.devDependencies['markdownlint-cli2'], '0.23.1');
+    assert.equal(lock.packages['node_modules/markdownlint-cli2'].version, '0.23.1');
+    const steps = workflow.jobs['source-governance'].steps;
+    const install = steps.findIndex((step) => step.run === 'npm --prefix tools/style/markdownlint-toolchain ci --ignore-scripts --no-audit --progress=false');
+    const expose = steps.findIndex((step) => step.run === 'echo "$GITHUB_WORKSPACE/tools/style/markdownlint-toolchain/node_modules/.bin" >> "$GITHUB_PATH"');
+    const execute = steps.findIndex((step) => step.run === 'node tools/test-matrix/source-governance.mjs');
+    assert.ok(install >= 0 && install < expose && expose < execute, 'locked Markdown checker must be installed and exposed before source governance');
+});
+
+test('matrix workflow jobs install the indexed Node runtime and locked validator before use', () =>
+{
+    const root = path.resolve(import.meta.dirname, '../..');
+    const workflow = parseYamlDocument(readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8'));
+    for (const [job, value] of Object.entries(workflow.jobs))
+    {
+        const steps = value.steps ?? [];
+        const firstUse = steps.findIndex((step) => /tools\/test\.sh|tools\/run-test-matrix\.mjs/u.test(String(step.run ?? '')));
+        if (firstUse < 0)
+        {
+            continue;
+        }
+        const setup = steps.findIndex((step) => String(step.uses ?? '').startsWith('actions/setup-node@'));
+        const install = steps.findIndex((step) => step.run === 'npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false');
+        assert.ok(setup >= 0 && setup < install && install < firstUse, `${job} must install the locked matrix validator before use`);
+    }
+});
 
 const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
     ciJob: id, executionDependsOn: [], ...extra });

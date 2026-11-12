@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tools/style/markdownlint-toolchain/package.json",
+        "tools/test/behavior-doc-nuget-preparation.mjs",
+        "tools/test/execution-envelope-directories.mjs",
+        "tools/test/run-deterministic-command.mjs",
+        "tools/test/run-matrix-governance-once.sh",
+        "tools/testing/content-shape-catalog.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "0561b3db3857e3ca7e1f82f1a8fb25e5888995dae465e5fcfd2326c87e4e8ac4"
+        },
+        {
+            "path": "tools/style/markdownlint-toolchain/package-lock.json",
+            "sha256": "7e39ce8824e6fcd61aebb1ee2d95bbbf556a581a2b43f96a6707c1ff43d321c8"
+        }
+    ]
+}
