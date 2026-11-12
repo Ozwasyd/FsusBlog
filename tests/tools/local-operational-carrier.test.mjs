@@ -65,13 +65,15 @@ function simpleClosure()
     const fixture = fs.mkdtempSync(path.join(root, 'closure-'));
     const base = image(`base-${path.basename(fixture).toLowerCase()}`);
     const boot = {};
-    const inputs = ['qemuImg', 'qemuSystem', 'seed', 'firmware'].map(key => {
+    const inputs = ['qemuImg', 'qemuSystem', 'seed', 'firmware'].map(key =>
+    {
         const file = path.join(fixture, key);
         fs.writeFileSync(file, key);
         boot[key] = file;
         return { file, sha256: sha256(fs.readFileSync(file)) };
     });
-    const dirs = ['firmwareDirectory', 'libraryDirectory', 'moduleDirectory'].map(key => {
+    const dirs = ['firmwareDirectory', 'libraryDirectory', 'moduleDirectory'].map(key =>
+    {
         const file = path.join(fixture, key);
         fs.mkdirSync(file);
         boot[key] = file;
@@ -80,11 +82,13 @@ function simpleClosure()
     return currentFixtureClosure([base], inputs, [], dirs, boot);
 }
 
-test('held image custody preserves ordered backing graph, raw SHA and physical epochs', () => {
+test('held image custody preserves ordered backing graph, raw SHA and physical epochs', () =>
+{
     const base = image('base');
     const images = [base, image('failed', base.file, 'base')];
     const custody = holdImageCustody(images, root);
-    try {
+    try
+    {
         const args = readOnlyBlockArguments(custody.held);
         const blocks = args.filter((_, index) => index % 2 === 1).map(JSON.parse);
         assert.ok(blocks.every(block => block['read-only']));
@@ -92,10 +96,15 @@ test('held image custody preserves ordered backing graph, raw SHA and physical e
         custody.seal();
         fs.writeFileSync(images[1].file, Buffer.alloc(256));
         assert.throws(custody.verify, /epoch drift/);
-    } finally { custody.close(); }
+    }
+    finally
+    {
+        custody.close();
+    }
 });
 
-test('QCOW invalid header, pending incompatible feature and wrong ancestry refuse', () => {
+test('QCOW invalid header, pending incompatible feature and wrong ancestry refuse', () =>
+{
     const clean = image('ancestry-base');
     const broken = image('broken', clean.file, 'ancestry-base');
     broken.backing = 'unexpected';
@@ -111,7 +120,8 @@ test('QCOW invalid header, pending incompatible feature and wrong ancestry refus
     assert.throws(() => holdImageCustody([dirty], root), /clean header/);
 });
 
-test('exact failed receipt ancestry refuses resume, unbound parent and absent closure', () => {
+test('exact failed receipt ancestry refuses resume, unbound parent and absent closure', () =>
+{
     const file = path.join(root, 'parent.json');
     const receipt = failedReceipt(simpleClosure());
     fs.writeFileSync(file, JSON.stringify(receipt));
@@ -123,7 +133,8 @@ test('exact failed receipt ancestry refuses resume, unbound parent and absent cl
     assert.throws(() => inspectAncestry([{ ...item, sha256: sha256(fs.readFileSync(file)) }], root), /terminal refusal/);
 });
 
-test('raw argv/status are retained and bounded stdout causes owned child terminal cleanup', async () => {
+test('raw argv/status are retained and bounded stdout causes owned child terminal cleanup', async () =>
+{
     const runRoot = fs.mkdtempSync(path.join(root, 'raw-'));
     const executions = [];
     const signals = [];
@@ -135,29 +146,38 @@ test('raw argv/status are retained and bounded stdout causes owned child termina
     assert.throws(() => process.kill(executions[0].pid, 0), { code: 'ESRCH' });
 });
 
-test('original singlecall child nonzero and callback failure remain observable', async () => {
+test('original singlecall child nonzero and callback failure remain observable', async () =>
+{
     const runRoot = fs.mkdtempSync(path.join(root, 'terminal-'));
     const executions = [];
     await assert.rejects(runObserved(process.execPath, ['-e', 'process.exit(7)'], { runRoot, env: {}, limits: { logBytes: 128, deadlineMs: 3000, killGraceMs: 50, pollIntervalMs: 10 }, executions, signals: [] }), /terminal 7/);
     assert.equal(executions[0].status, 7);
     const callbackExecutions = [];
     const callbackRoot = fs.mkdtempSync(path.join(root, 'callback-'));
-    await assert.rejects(runObserved(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { runRoot: callbackRoot, env: {}, limits: { logBytes: 128, deadlineMs: 3000, killGraceMs: 50, pollIntervalMs: 10 }, executions: callbackExecutions, signals: [], onSpawn() { throw new Error('identity fixture failure'); } }), /identity fixture failure/);
+    await assert.rejects(runObserved(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { runRoot: callbackRoot, env: {}, limits: { logBytes: 128, deadlineMs: 3000, killGraceMs: 50, pollIntervalMs: 10 }, executions: callbackExecutions, signals: [], onSpawn()
+    {
+        throw new Error('identity fixture failure');
+    } }), /identity fixture failure/);
     assert.equal(callbackExecutions[0].terminal, true);
 });
 
-test('original caller SIGINT reaches the owned child and primary signal failure is retained', async () => {
+test('original caller SIGINT reaches the owned child and primary signal failure is retained', async () =>
+{
     const runRoot = fs.mkdtempSync(path.join(root, 'operator-signal-'));
     const executions = [];
     const signals = [];
-    await assert.rejects(runObserved(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { runRoot, env: {}, limits: { logBytes: 128, deadlineMs: 3000, killGraceMs: 1000, pollIntervalMs: 10 }, executions, signals, onSpawn() { setTimeout(() => process.emit('SIGINT'), 100); } }), /caller SIGINT/);
+    await assert.rejects(runObserved(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { runRoot, env: {}, limits: { logBytes: 128, deadlineMs: 3000, killGraceMs: 1000, pollIntervalMs: 10 }, executions, signals, onSpawn()
+    {
+        setTimeout(() => process.emit('SIGINT'), 100);
+    } }), /caller SIGINT/);
     assert.equal(executions.length, 1);
     assert.equal(executions[0].terminal, true);
     assert.equal(executions[0].signal, 'SIGINT');
     assert.ok(signals.includes('SIGINT'));
 });
 
-test('read-only exporter retains old-boot raw/log/descriptor scopes and rejects arbitrary modes', () => {
+test('read-only exporter retains old-boot raw/log/descriptor scopes and rejects arbitrary modes', () =>
+{
     const guest = { taskRoot: '/task/guest', runId: 'current-run', bootId: 'a'.repeat(32), uid: 1234, head: 'b'.repeat(40), tree: 'c'.repeat(40) };
     const captures = buildCaptures(guest);
     assert.equal(captures.length, 8);
@@ -188,19 +208,26 @@ test('original caller builds one original owner argv with current explicit guest
 test('carrier default inspect holds current closure without any execution or disk effects; helper drift refuses', async () =>
 {
     const fixture = fs.mkdtempSync(path.join(root, 'inspect-'));
-    const move = item => {
+    const move = item =>
+    {
         const file = path.join(fixture, path.basename(item.file));
         fs.renameSync(item.file, file);
         return { ...item, file, identity: identity(fs.statSync(file, { bigint: true })) };
     };
     const base = move(image('inspect-base'));
     const toolNames = ['qemu-img', 'qemu-system', 'seed', 'firmware'];
-    const inputs = toolNames.map(name => {
+    const inputs = toolNames.map(name =>
+    {
         const file = path.join(fixture, name);
         fs.writeFileSync(file, name);
         return { file, sha256: sha256(fs.readFileSync(file)) };
     });
-    const dirs = ['firmware-dir', 'library-dir', 'module-dir'].map(name => { const dir = path.join(fixture, name); fs.mkdirSync(dir); return dir; });
+    const dirs = ['firmware-dir', 'library-dir', 'module-dir'].map(name =>
+    {
+        const dir = path.join(fixture, name);
+        fs.mkdirSync(dir);
+        return dir;
+    });
     const libraryFile = path.join(dirs[1], 'library.bin');
     fs.writeFileSync(libraryFile, 'owned-library');
     inputs.push({ file: libraryFile, sha256: sha256(fs.readFileSync(libraryFile)) });
@@ -291,7 +318,8 @@ test('carrier default inspect holds current closure without any execution or dis
     }
 });
 
-test('exclusive raw log setup refuses an existing symlink and closes earlier descriptor', async () => {
+test('exclusive raw log setup refuses an existing symlink and closes earlier descriptor', async () =>
+{
     const runRoot = fs.mkdtempSync(path.join(root, 'log-alias-'));
     const protectedFile = path.join(runRoot, 'protected');
     fs.writeFileSync(protectedFile, 'unchanged');
@@ -305,18 +333,35 @@ test('exclusive raw log setup refuses an existing symlink and closes earlier des
 });
 
 
-test('failed parent binds current seed/toolchain/share/image closure and only its exact output overlay may extend it', () => {
+test('failed parent binds current seed/toolchain/share/image closure and only its exact output overlay may extend it', () =>
+{
     const closure = simpleClosure();
     const actual = failedReceipt(closure);
     const ancestry = [{ actual }];
     requireParentClosure(ancestry, closure, root);
     for (const mutate of [
-        value => { value.seed.sha256 = '0'.repeat(64); },
-        value => { value.toolchain.inputs[0].sha256 = '0'.repeat(64); },
-        value => { value.images[0].sha256 = '0'.repeat(64); },
-        value => { value.toolchain.aliases = [{ file: path.join(root, 'alias'), target: 'x', resolved: value.toolchain.inputs[0].file, identity: value.toolchain.inputs[0].identity }]; },
-        value => { value.shares.push({ tag: 'unrelated', directory: path.join(root, 'unrelated-share'), identity: value.seed.identity }); }
-    ]) {
+        value =>
+        {
+            value.seed.sha256 = '0'.repeat(64);
+        },
+        value =>
+        {
+            value.toolchain.inputs[0].sha256 = '0'.repeat(64);
+        },
+        value =>
+        {
+            value.images[0].sha256 = '0'.repeat(64);
+        },
+        value =>
+        {
+            value.toolchain.aliases = [{ file: path.join(root, 'alias'), target: 'x', resolved: value.toolchain.inputs[0].file, identity: value.toolchain.inputs[0].identity }];
+        },
+        value =>
+        {
+            value.shares.push({ tag: 'unrelated', directory: path.join(root, 'unrelated-share'), identity: value.seed.identity });
+        }
+    ])
+    {
         const current = structuredClone(closure);
         mutate(current);
         assert.throws(() => requireParentClosure(ancestry, current, root), /parent actual closure/);
@@ -345,10 +390,12 @@ test('failed parent binds current seed/toolchain/share/image closure and only it
     assert.throws(() => inspectAncestry([{ file: second, sha256: sha256(fs.readFileSync(second)), parentSha256: null }], root), /closed carrier/);
 });
 
-test('guest readonly mount coverage requires exactly the selected SDK and feed without substitution or duplicates', () => {
+test('guest readonly mount coverage requires exactly the selected SDK and feed without substitution or duplicates', () =>
+{
     const plan = { tool: { sdk: '/owned/sdk', feed: '/owned/feed' }, mounts: [{ directory: '/owned/sdk', source: 'sdk-source', type: '9p' }, { directory: '/owned/feed', source: 'feed-source', type: '9p' }] };
     validateInputMounts(plan);
-    for (const mounts of [[], [plan.mounts[0]], [plan.mounts[0], plan.mounts[0]], [plan.mounts[0], { ...plan.mounts[1], directory: '/owned/unrelated' }], [...plan.mounts, { directory: '/owned/unrelated', source: 'other', type: '9p' }]]) {
+    for (const mounts of [[], [plan.mounts[0]], [plan.mounts[0], plan.mounts[0]], [plan.mounts[0], { ...plan.mounts[1], directory: '/owned/unrelated' }], [...plan.mounts, { directory: '/owned/unrelated', source: 'other', type: '9p' }]])
+    {
         assert.throws(() => validateInputMounts({ ...plan, mounts }), /SDK\/feed/);
     }
 });

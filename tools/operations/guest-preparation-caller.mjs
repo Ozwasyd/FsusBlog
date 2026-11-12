@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
+
 import { parsePlanCli, readFrozenPlan, readRegular, requireCanonicalOwnedPath, requireHeldTaskLock, requireInside, runBounded, taskEnvironment, writeNewJson } from './local-task-plan.mjs';
 import { runObserved } from './recover-failed-run-carrier.mjs';
 
@@ -271,5 +272,12 @@ export async function main(argv)
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    main(process.argv.slice(2)).then(status => { process.exitCode = status; }).catch(error => { console.error(error.message); process.exitCode = 1; });
+    main(process.argv.slice(2)).then(status =>
+    {
+        process.exitCode = status;
+    }).catch(error =>
+    {
+        console.error(error.message);
+        process.exitCode = 1;
+    });
 }

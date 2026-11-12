@@ -5720,8 +5720,8 @@
         },
         {
             "path": "tools/testing/content-shape-catalog.mjs",
-            "contentDigest": "sha256:0411c6e1e47c3434938ceca524e79c1065df5a7a03a9854465e59f8cccdd4ed2",
-            "indexDigest": "sha256:0411c6e1e47c3434938ceca524e79c1065df5a7a03a9854465e59f8cccdd4ed2"
+            "contentDigest": "sha256:8656a12695943878ae708958bfad2dad80efdb6d4b0e4248c5adf8f66c4d5887",
+            "indexDigest": "sha256:8656a12695943878ae708958bfad2dad80efdb6d4b0e4248c5adf8f66c4d5887"
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
