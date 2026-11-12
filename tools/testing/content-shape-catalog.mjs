@@ -72,9 +72,13 @@ function readJson(file)
 let extractorBuilt = false;
 const extractionCache = new Map();
 const projectionCache = new WeakMap();
-const extractorProject = path.join(repositoryRoot, 'tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj');
+export const matrixNativeProjects = Object.freeze({
+    extractor: 'tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj',
+    backend: 'src/backend/FsusBlog.Server.csproj'
+});
+const extractorProject = path.join(repositoryRoot, matrixNativeProjects.extractor);
 const extractorTargets = path.join(repositoryRoot, 'tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets');
-const backendProject = path.join(repositoryRoot, 'src/backend/FsusBlog.Server.csproj');
+const backendProject = path.join(repositoryRoot, matrixNativeProjects.backend);
 const extractionProcessRoot = path.join(repositoryRoot, '.tmp/content-field-contract-extractor', `process-${process.pid}`);
 const extractorArtifacts = path.join(extractionProcessRoot, 'extractor-artifacts');
 const backendArtifacts = path.join(extractionProcessRoot, 'backend-artifacts');
@@ -122,7 +126,10 @@ function dotnetEnvironment()
     ]);
     for (const name of Object.keys(environment))
     {
-        if (ambientOverrides.has(name.toLowerCase())) delete environment[name];
+        if (ambientOverrides.has(name.toLowerCase()))
+        {
+            delete environment[name];
+        }
     }
     return environment;
 }
@@ -181,7 +188,10 @@ export function validateConfiguredDotnetHost(configuredCandidate, expectedSdk, {
     })
 } = {})
 {
-    if (configuredCandidate === undefined) return null;
+    if (configuredCandidate === undefined)
+    {
+        return null;
+    }
     if (configuredCandidate.length === 0
         || !path.isAbsolute(configuredCandidate)
         || !exists(configuredCandidate))
@@ -231,11 +241,17 @@ export function selectCanonicalDotnet(candidates, expectedSdk, inspectVersion = 
 
 function resolveCanonicalDotnet()
 {
-    if (canonicalDotnet) return;
+    if (canonicalDotnet)
+    {
+        return;
+    }
     const dockerfile = fs.readFileSync(path.join(repositoryRoot, 'ops/docker/FsusBlog.Server.Dockerfile'), 'utf8');
     const expectedSdk = dockerfile.match(/^ARG DOTNET_SDK_VERSION=([^\r\n]+)$/mu)?.[1];
     const expectedRuntime = dockerfile.match(/^ARG DOTNET_RUNTIME_VERSION=([^\r\n]+)$/mu)?.[1];
-    if (!expectedSdk || !expectedRuntime) throw new Error('[content-shape] pinned dotnet SDK/runtime version is missing');
+    if (!expectedSdk || !expectedRuntime)
+    {
+        throw new Error('[content-shape] pinned dotnet SDK/runtime version is missing');
+    }
     const configuredCandidate = validateConfiguredDotnetHost(
         process.env.FSUSBLOG_CONTENT_FIELD_DOTNET,
         expectedSdk
@@ -247,10 +263,16 @@ function resolveCanonicalDotnet()
     const sdkBase = path.dirname(canonicalDotnet);
     const sdkDirectory = path.join(sdkBase, 'sdk', expectedSdk);
     const compiler = path.join(sdkDirectory, 'Roslyn/bincore/csc.dll');
-    if (!fs.existsSync(compiler)) throw new Error('[content-shape] canonical Roslyn compiler is missing');
+    if (!fs.existsSync(compiler))
+    {
+        throw new Error('[content-shape] canonical Roslyn compiler is missing');
+    }
     const dotnetInfo = runDotnet(['--info'], 'dotnet identity inspection');
     const sdkCommit = dotnetInfo.match(/\.NET SDK:\s+[\s\S]*?Commit:\s+([^\r\n]+)/u)?.[1]?.trim();
-    if (!sdkCommit) throw new Error('[content-shape] canonical dotnet SDK commit is missing');
+    if (!sdkCommit)
+    {
+        throw new Error('[content-shape] canonical dotnet SDK commit is missing');
+    }
     const installedRuntimes = runDotnet(['--list-runtimes'], 'dotnet runtime inspection').split(/\r?\n/u)
         .map((line) => line.match(/^(\S+)\s+(\S+)\s+\[/u))
         .filter(Boolean)
@@ -258,7 +280,10 @@ function resolveCanonicalDotnet()
     const requiredRuntimes = [`Microsoft.AspNetCore.App@${expectedRuntime}`, `Microsoft.NETCore.App@${expectedRuntime}`];
     for (const runtime of requiredRuntimes)
     {
-        if (!installedRuntimes.includes(runtime)) throw new Error(`[content-shape] pinned runtime is unavailable: ${runtime}`);
+        if (!installedRuntimes.includes(runtime))
+        {
+            throw new Error(`[content-shape] pinned runtime is unavailable: ${runtime}`);
+        }
     }
     assertDotnetHostDigest(canonicalDotnet, dotnetHostSha256);
     producerIdentity = {
@@ -287,7 +312,10 @@ function extractContentFieldContracts(root, sourcePaths)
 {
     resolveCanonicalDotnet();
     const sourceDigest = sha256Json(sourcePaths.map((relative) => [relative, fs.readFileSync(path.join(root, relative), 'utf8')]));
-    if (extractionCache.has(sourceDigest)) return extractionCache.get(sourceDigest);
+    if (extractionCache.has(sourceDigest))
+    {
+        return extractionCache.get(sourceDigest);
+    }
     if (!extractorBuilt)
     {
         runDotnet([
@@ -311,7 +339,10 @@ function extractContentFieldContracts(root, sourcePaths)
         extractorArtifacts,
         'bin/FsusBlog.ContentFieldContractExtractor/release/FsusBlog.ContentFieldContractExtractor.dll'
     );
-    if (!fs.existsSync(analyzer)) throw new Error('[content-shape] Roslyn extractor binary is missing after build');
+    if (!fs.existsSync(analyzer))
+    {
+        throw new Error('[content-shape] Roslyn extractor binary is missing after build');
+    }
     const outputDirectory = path.join(extractionProcessRoot, 'output');
     const output = path.join(outputDirectory, `${sourceDigest.slice('sha256:'.length)}.json`);
     fs.mkdirSync(outputDirectory, { recursive: true });
@@ -329,7 +360,10 @@ function extractContentFieldContracts(root, sourcePaths)
         '-p:ContinuousIntegrationBuild=true',
         `-p:PathMap=${deterministicPathMap}`
     ], 'production backend semantic extraction');
-    if (!fs.existsSync(output)) throw new Error('[content-shape] production backend build did not produce semantic extraction');
+    if (!fs.existsSync(output))
+    {
+        throw new Error('[content-shape] production backend build did not produce semantic extraction');
+    }
     const extraction = JSON.parse(fs.readFileSync(output, 'utf8'));
     if (extraction.schema !== 'fsusblog.content-field-roslyn-extraction.v2')
     {
@@ -345,15 +379,27 @@ function extractContentFieldContracts(root, sourcePaths)
 
 function invalidUpperBound(operator, value)
 {
-    if (operator === '>') return value;
-    if (operator === '>=') return value - 1;
+    if (operator === '>')
+    {
+        return value;
+    }
+    if (operator === '>=')
+    {
+        return value - 1;
+    }
     throw new Error(`[content-shape] unsupported invalid upper-bound operator ${operator}`);
 }
 
 function validUpperBound(operator, value)
 {
-    if (operator === '<=') return value;
-    if (operator === '<') return value - 1;
+    if (operator === '<=')
+    {
+        return value;
+    }
+    if (operator === '<')
+    {
+        return value - 1;
+    }
     throw new Error(`[content-shape] unsupported valid upper-bound operator ${operator}`);
 }
 
@@ -382,7 +428,10 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
     const sourcePaths = [articlePath, commentPath, commentEndpointPath, commentPartialPath];
     const extraction = extractContentFieldContracts(root, sourcePaths);
     const cachedProjection = projectionCache.get(extraction);
-    if (cachedProjection) return cachedProjection;
+    if (cachedProjection)
+    {
+        return cachedProjection;
+    }
     const articleContracts = extraction.article.fields;
     const articleFields = [
         ...articleContracts.map((contract) => ({
@@ -412,7 +461,10 @@ export function projectContentFieldContracts({ root = repositoryRoot } = {})
         && dataAnnotationsAssembly.test(attribute.assembly));
     const characterMaximum = Object.values(commentConstants)
         .find((constant) => constant.symbol === maxLengthAttribute?.firstArgument);
-    if (!characterMaximum) throw new Error('[content-shape] CommentDto.Content MaxLength constant is missing or unknown');
+    if (!characterMaximum)
+    {
+        throw new Error('[content-shape] CommentDto.Content MaxLength constant is missing or unknown');
+    }
     const commentField = {
         id: 'comment.content', owner: 'CommentLimits', sourceRef: `${commentPath}#ContentMaxChars+ContentMaxUtf8Bytes`,
         nullable: !(predicate.nonWhitespace && (requiredAttribute || commentProperty.requiredKeyword) && !commentProperty.nullable),

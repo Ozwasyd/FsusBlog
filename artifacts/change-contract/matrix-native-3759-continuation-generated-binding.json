@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/behavior-doc-nuget-preparation.mjs",
+        "tools/test/execution-envelope-directories.mjs",
+        "tools/test/run-deterministic-command.mjs",
+        "tools/test/run-matrix-governance-once.sh",
+        "tools/testing/content-shape-catalog.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "36e2281519b659932692824571b2ce2805ec41ed3ef52b61427b7414c0fa2ec5"
+        }
+    ]
+}

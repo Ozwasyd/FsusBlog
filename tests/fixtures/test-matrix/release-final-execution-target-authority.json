@@ -4900,8 +4900,8 @@
         },
         {
             "path": "tools/test/behavior-doc-nuget-preparation.mjs",
-            "contentDigest": "sha256:9de98df6773155c3cc6086ee0453549ed5a6c8d601cd4c0daaaf539132afff33",
-            "indexDigest": "sha256:9de98df6773155c3cc6086ee0453549ed5a6c8d601cd4c0daaaf539132afff33"
+            "contentDigest": "sha256:78c162353279a343c6cf928a9c7d55d617822baae41353c994417bc6698fbf3c",
+            "indexDigest": "sha256:78c162353279a343c6cf928a9c7d55d617822baae41353c994417bc6698fbf3c"
         },
         {
             "path": "tools/test/build-migration-tests.mjs",
@@ -5080,8 +5080,8 @@
         },
         {
             "path": "tools/test/execution-envelope-directories.mjs",
-            "contentDigest": "sha256:edf30afadffc6712d50a15785baeca384f143bdceedd62c5bec10e1f834a1a6d",
-            "indexDigest": "sha256:edf30afadffc6712d50a15785baeca384f143bdceedd62c5bec10e1f834a1a6d"
+            "contentDigest": "sha256:25414e4ee3f0f17351150102b9c4f19e31094ad63de4f5bc6d88be929cc9adfa",
+            "indexDigest": "sha256:25414e4ee3f0f17351150102b9c4f19e31094ad63de4f5bc6d88be929cc9adfa"
         },
         {
             "path": "tools/test/execution-envelope-environment.mjs",
@@ -5450,8 +5450,8 @@
         },
         {
             "path": "tools/test/run-deterministic-command.mjs",
-            "contentDigest": "sha256:cef2a0012b006db64d361a0de5db475eda98f1b6db5e73ab87841adf0de4f9d7",
-            "indexDigest": "sha256:cef2a0012b006db64d361a0de5db475eda98f1b6db5e73ab87841adf0de4f9d7"
+            "contentDigest": "sha256:8587a212ad41037e33abc48c3bae5a390e410887c3f56f30180e013b9072eca2",
+            "indexDigest": "sha256:8587a212ad41037e33abc48c3bae5a390e410887c3f56f30180e013b9072eca2"
         },
         {
             "path": "tools/test/run-frontend-vitest-rolling-shards.mjs",
@@ -5465,8 +5465,8 @@
         },
         {
             "path": "tools/test/run-matrix-governance-once.sh",
-            "contentDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
-            "indexDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42"
+            "contentDigest": "sha256:ff31185abad2abb23b9be4d919400fa2a6c671c5cc22d307cbab45e4020f32e4",
+            "indexDigest": "sha256:ff31185abad2abb23b9be4d919400fa2a6c671c5cc22d307cbab45e4020f32e4"
         },
         {
             "path": "tools/test/run-migration-tests.mjs",
@@ -5720,8 +5720,8 @@
         },
         {
             "path": "tools/testing/content-shape-catalog.mjs",
-            "contentDigest": "sha256:c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d",
-            "indexDigest": "sha256:c706173c39ad5f453cc98bd467c2334889be5f18e023d3d737b4fd6697d8430d"
+            "contentDigest": "sha256:0411c6e1e47c3434938ceca524e79c1065df5a7a03a9854465e59f8cccdd4ed2",
+            "indexDigest": "sha256:0411c6e1e47c3434938ceca524e79c1065df5a7a03a9854465e59f8cccdd4ed2"
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
@@ -45676,8 +45676,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
-            "indexDigest": "sha256:c0e2ccc6ab1682baca6bc29064314e844ff9617a040f4eb2bb0b61d8deaf1b42",
+            "contentDigest": "sha256:ff31185abad2abb23b9be4d919400fa2a6c671c5cc22d307cbab45e4020f32e4",
+            "indexDigest": "sha256:ff31185abad2abb23b9be4d919400fa2a6c671c5cc22d307cbab45e4020f32e4",
             "dependencyClosure": [
                 "tools/ci/production-build-artifacts.mjs",
                 "tools/contracts/behavior-contract-catalog.mjs",

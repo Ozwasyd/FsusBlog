@@ -10,6 +10,115 @@ const { finalizeRunOwnedDirectoriesAfterPhysical } = await import(new URL('../..
 const { inventoryNugetOfflineFeed, inventoryPreparedNuget, seedPreparedNuget, validatePreparedNugetPackages } = await import(new URL('../../tools/test/behavior-doc-nuget-preparation.mjs', import.meta.url));
 const { bindBehaviorDocNugetPreparationDiskDemand, bindBehaviorDocNugetDiskDemand, defaultProductionDiskRoots, readProductionDiskDemandCatalog } = await import(new URL('../../tools/test-matrix/production-disk-demand.mjs', import.meta.url));
 const { runProtectedBehaviorDocAdmission } = await import(new URL('../../tools/test-matrix/protected-behavior-doc-admission.mjs', import.meta.url));
+const { behaviorDocNugetClosure, matrixNativeNugetClosure, nugetPreparationCommand, observeMatrixNativeNugetToolInputs, readPreparedMatrixNativeNuget } = await import(new URL('../../tools/test/behavior-doc-nuget-preparation.mjs', import.meta.url));
+const repositoryRoot = path.resolve(import.meta.dirname, '../..');
+
+test('matrix native closure binds the actual extractor/backend and complete current project locks', (context) =>
+{
+    const closure = matrixNativeNugetClosure(repositoryRoot);
+    assert.deepEqual(closure.projects, [
+        'src/backend/FsusBlog.Server.csproj',
+        'tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj'
+    ]);
+    assert.equal(closure.purpose, 'matrix-native');
+    assert.notDeepEqual(closure, behaviorDocNugetClosure(repositoryRoot));
+    assert.ok(closure.packages.length > 0);
+    for (const project of closure.sourceClosureDigests.filter((entry) => entry.path.endsWith('.csproj')))
+    {
+        assert.ok(closure.sourceClosureDigests.some((entry) => entry.path === path.posix.join(path.posix.dirname(project.path), 'packages.lock.json')));
+    }
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'matrix-nuget-closure-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    for (const entry of closure.sourceClosureDigests)
+    {
+        const destination = path.join(root, entry.path);
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        fs.copyFileSync(path.join(repositoryRoot, entry.path), destination);
+    }
+    assert.deepEqual(matrixNativeNugetClosure(root), closure);
+    const lock = path.join(root, 'src/backend/packages.lock.json');
+    const bytes = fs.readFileSync(lock);
+    fs.rmSync(lock);
+    assert.throws(() => matrixNativeNugetClosure(root), /every referenced project lock/u);
+    fs.writeFileSync(lock, bytes);
+    const source = path.join(root, closure.projects[0]);
+    fs.appendFileSync(source, '\n<!-- controlled source mutation -->\n');
+    assert.notDeepEqual(matrixNativeNugetClosure(root), closure);
+    const solution = path.join(root, 'FsusBlog.MatrixNativeRestore.slnx');
+    fs.appendFileSync(solution, '<!-- controlled foreign solution -->\n');
+    assert.throws(() => matrixNativeNugetClosure(root), /actual project owners/u);
+});
+
+test('matrix preparation command uses the separate original restore solution and exact ordered offline arguments', () =>
+{
+    const inputs = { packagesRoot: '/owned/packages', artifactsRoot: '/owned/artifacts', feedRoot: '/sealed/feed', configFile: '/owned/NuGet.Config' };
+    assert.deepEqual(nugetPreparationCommand({ ...inputs, purpose: 'matrix-native' }), [
+        'dotnet', 'restore', 'FsusBlog.MatrixNativeRestore.slnx', '--locked-mode', '--packages', '/owned/packages',
+        '--artifacts-path', '/owned/artifacts', '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel',
+        '--source', '/sealed/feed', '--configfile', '/owned/NuGet.Config'
+    ]);
+    assert.equal(nugetPreparationCommand(inputs)[2], 'tools/contracts/BehaviorDocRestore.slnx');
+    assert.throws(() => nugetPreparationCommand({ ...inputs, purpose: 'foreign' }), /Unknown/u);
+});
+
+test('matrix ingress refuses missing and current-source BehaviorDoc descriptors before receipt/native launch', async (context) =>
+{
+    await assert.rejects(readPreparedMatrixNativeNuget({ repositoryRoot, runId: 'matrix-run' }), /explicit offline/u);
+    const parent = path.join(repositoryRoot, '.tmp/behavior-doc-nuget-preparation');
+    fs.mkdirSync(parent, { recursive: true });
+    const attempt = fs.mkdtempSync(path.join(parent, 'transfer-controls-'));
+    context.after(() => fs.rmSync(attempt, { recursive: true, force: true }));
+    const file = path.join(attempt, 'descriptor.json');
+    const { sealSourceIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
+    fs.writeFileSync(file, JSON.stringify({ source: sealSourceIdentity(repositoryRoot), closure: behaviorDocNugetClosure(repositoryRoot),
+        root: path.join(attempt, 'packages'), artifactsRoot: path.join(attempt, 'artifacts'),
+        feedRoot: path.join(attempt, 'feed'), configFile: path.join(attempt, 'NuGet.Config') }));
+    await assert.rejects(readPreparedMatrixNativeNuget({ repositoryRoot, runId: 'matrix-run', file }), /source or locked graph/u);
+});
+
+test('matrix tool binding detects compiler mutation, foreign SDK and aliased SDK files without executing tools', (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'matrix-sdk-controls-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const sdk = '10.0.302';
+    const runtime = '10.0.10';
+    const files = ['dotnet', `sdk/${sdk}/Roslyn/bincore/csc.dll`, `sdk/${sdk}/Roslyn/bincore/Microsoft.CodeAnalysis.CSharp.dll`,
+        `shared/Microsoft.NETCore.App/${runtime}/System.Private.CoreLib.dll`,
+        `shared/Microsoft.AspNetCore.App/${runtime}/Microsoft.AspNetCore.dll`];
+    for (const file of files)
+    {
+        const destination = path.join(root, file);
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        fs.writeFileSync(destination, 'controlled inert tool bytes', { mode: 0o700 });
+    }
+    const previous = Object.fromEntries(['PATH', 'DOTNET_ROOT', 'FSUSBLOG_CONTENT_FIELD_DOTNET'].map((name) => [name, process.env[name]]));
+    context.after(() =>
+    {
+        for (const [name, value] of Object.entries(previous))
+        {
+            if (value === undefined)
+            {
+                delete process.env[name];
+            }
+            else
+            {
+                process.env[name] = value;
+            }
+        }
+    });
+    process.env.PATH = root;
+    process.env.DOTNET_ROOT = root;
+    process.env.FSUSBLOG_CONTENT_FIELD_DOTNET = path.join(root, 'dotnet');
+    const before = observeMatrixNativeNugetToolInputs(repositoryRoot);
+    const compiler = path.join(root, files[1]);
+    fs.appendFileSync(compiler, 'mutation');
+    assert.notEqual(observeMatrixNativeNugetToolInputs(repositoryRoot).treeDigest, before.treeDigest);
+    fs.mkdirSync(path.join(root, 'sdk/foreign'));
+    assert.throws(() => observeMatrixNativeNugetToolInputs(repositoryRoot), /single pinned/u);
+    fs.rmSync(path.join(root, 'sdk/foreign'), { recursive: true });
+    fs.symlinkSync(compiler, path.join(root, 'alias'));
+    assert.throws(() => observeMatrixNativeNugetToolInputs(repositoryRoot), /physical alias/u);
+});
 test('HOME, TMP, npm, NuGet, and tool caches are unique run-attempt owned roots', (context) =>
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-directories-'));
@@ -246,6 +355,47 @@ test('preseed failure cleans only the new attempt and preserves first failure', 
     assert.equal(fs.readFileSync(path.join(authority, 'retained'), 'utf8'), 'evidence');
     assert.equal(fs.existsSync(seed), true);
 });
+
+for (const reason of [Object.freeze(new Error('interrupted copy')), 0, false, null])
+{
+    test('interrupted preseed retains an immutable or primitive first reason during cleanup refusal', (context) =>
+    {
+        const { root, seed } = fixture(context);
+        const input = inventoryPreparedNuget(seed);
+        const destination = path.join(root, 'interrupted-copy');
+        fs.mkdirSync(destination);
+        context.mock.method(fs, 'writeFileSync', (file) =>
+        {
+            if (String(file).startsWith(destination + path.sep))
+            {
+                throw reason;
+            }
+            throw new Error('unexpected write outside task destination');
+        });
+        const chmod = fs.chmodSync;
+        context.mock.method(fs, 'chmodSync', (file, mode) =>
+        {
+            if (String(file).startsWith(destination + path.sep))
+            {
+                throw new Error('cleanup refusal');
+            }
+            return chmod(file, mode);
+        });
+        let failed = false;
+        try
+        {
+            seedPreparedNuget(input, destination);
+        }
+        catch (error)
+        {
+            failed = true;
+            assert.equal(error, reason);
+        }
+        assert.equal(failed, true);
+        assert.equal(fs.existsSync(seed), true);
+        context.mock.restoreAll();
+    });
+}
 
 test('offline ingress cannot be assigned to another producer', (context) =>
 {
