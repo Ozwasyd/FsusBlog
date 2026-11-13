@@ -22,6 +22,12 @@ function closed(value, keys)
     }
 }
 
+/** The pinned Linux Node distribution exceeds the generic 64 MiB input bound. */
+export function readOriginalNode(file)
+{
+    return readRegular(file, 128 * 1024 * 1024);
+}
+
 /** Read-only evidence must cover the selected SDK and feed, not an unrelated mount. */
 export function validateInputMounts(plan)
 {
@@ -104,7 +110,7 @@ export async function main(argv)
         requireCanonicalOwnedPath(file, { directory: true, insideRoot: plan.taskRoot });
     }
     requireInside(plan.taskRoot, call.module);
-    if (readRegular(call.module).sha256 !== plan.tool.moduleSha256 || readRegular(plan.tool.node).sha256 !== plan.tool.nodeSha256)
+    if (readRegular(call.module).sha256 !== plan.tool.moduleSha256 || readOriginalNode(plan.tool.node).sha256 !== plan.tool.nodeSha256)
     {
         throw new Error('original Node/module bytes drift');
     }

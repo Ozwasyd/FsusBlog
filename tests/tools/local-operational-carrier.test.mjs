@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const { identity, sha256 } = await import(new URL('../../tools/operations/local-task-plan.mjs', import.meta.url));
 const { holdImageCustody, inspectAncestry, readOnlyBlockArguments, runObserved, requireParentClosure, expectedChildClosure, main: carrierMain } = await import(new URL('../../tools/operations/recover-failed-run-carrier.mjs', import.meta.url));
 const { buildCaptures, buildSshArguments, quoteShell } = await import(new URL('../../tools/operations/export-failed-run-evidence.mjs', import.meta.url));
-const { buildOriginalCall, validateInputMounts } = await import(new URL('../../tools/operations/guest-preparation-caller.mjs', import.meta.url));
+const { buildOriginalCall, readOriginalNode, validateInputMounts } = await import(new URL('../../tools/operations/guest-preparation-caller.mjs', import.meta.url));
 
 const repo = fileURLToPath(new URL('../..', import.meta.url));
 const tempParent = process.env.FSUSBLOG_OPERATIONS_FIXTURE_ROOT ?? os.tmpdir();
@@ -203,6 +203,25 @@ test('original caller builds one original owner argv with current explicit guest
     assert.deepEqual(matrix.args.slice(-2), ['--purpose', 'matrix-native']);
     assert.equal(matrix.env.FSUSBLOG_CONTENT_FIELD_DOTNET, '/task/sdk/dotnet');
     assert.throws(() => buildOriginalCall({ ...plan, tool: { ...plan.tool, purpose: 'foreign' } }), /Unknown/u);
+});
+
+test('original Node inspection admits a large pinned binary and rejects oversized input', () =>
+{
+    const file = path.join(root, 'large-node-fixture');
+    const fd = fs.openSync(file, 'wx', 0o600);
+    try
+    {
+        fs.ftruncateSync(fd, 64 * 1024 * 1024 + 1);
+    }
+    finally
+    {
+        fs.closeSync(fd);
+    }
+    const result = readOriginalNode(file);
+    assert.equal(result.bytes.length, 64 * 1024 * 1024 + 1);
+    assert.equal(result.sha256, sha256(result.bytes));
+    fs.truncateSync(file, 128 * 1024 * 1024 + 1);
+    assert.throws(() => readOriginalNode(file), /regular read bound refused/u);
 });
 
 test('carrier default inspect holds current closure without any execution or disk effects; helper drift refuses', async () =>
