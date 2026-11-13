@@ -211,6 +211,19 @@ export function observeMatrixNativeNugetToolInputs(repositoryRoot)
     return { root, executable, sdkVersion, runtimeVersion, entries, treeDigest: digest(JSON.stringify(entries)) };
 }
 
+/** Bind the owned restore environment and prevent idle MSBuild nodes from surviving. */
+export function nugetPreparationEnvironment({ directories, packagesRoot, runId, source })
+{
+    return {
+        ...directories.environment,
+        NUGET_PACKAGES: packagesRoot,
+        MSBUILDDISABLENODEREUSE: '1',
+        FSUSBLOG_TEST_RUN_ID: runId,
+        FSUSBLOG_TEST_SOURCE_COMMIT: source.sourceCommit,
+        FSUSBLOG_TEST_SOURCE_FINGERPRINT: source.worktreeFingerprint
+    };
+}
+
 /** One ordered restore command shared by the producer and strict ingress. */
 export function nugetPreparationCommand({ purpose = 'behavior-doc', packagesRoot, artifactsRoot, feedRoot, configFile })
 {

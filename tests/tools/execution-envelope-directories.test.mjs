@@ -10,7 +10,9 @@ const { finalizeRunOwnedDirectoriesAfterPhysical } = await import(new URL('../..
 const { inventoryNugetOfflineFeed, inventoryPreparedNuget, seedPreparedNuget, validatePreparedNugetPackages } = await import(new URL('../../tools/test/behavior-doc-nuget-preparation.mjs', import.meta.url));
 const { bindBehaviorDocNugetPreparationDiskDemand, bindBehaviorDocNugetDiskDemand, defaultProductionDiskRoots, readProductionDiskDemandCatalog } = await import(new URL('../../tools/test-matrix/production-disk-demand.mjs', import.meta.url));
 const { runProtectedBehaviorDocAdmission } = await import(new URL('../../tools/test-matrix/protected-behavior-doc-admission.mjs', import.meta.url));
-const { behaviorDocNugetClosure, matrixNativeNugetClosure, nugetPreparationCommand, observeMatrixNativeNugetToolInputs, readPreparedMatrixNativeNuget } = await import(new URL('../../tools/test/behavior-doc-nuget-preparation.mjs', import.meta.url));
+const { behaviorDocNugetClosure, matrixNativeNugetClosure, nugetPreparationCommand, nugetPreparationEnvironment, observeMatrixNativeNugetToolInputs, readPreparedMatrixNativeNuget } = await import(new URL('../../tools/test/behavior-doc-nuget-preparation.mjs', import.meta.url));
+const { createMinimalCorrectnessEnvironment } = await import(new URL('../../tools/test/execution-envelope-environment.mjs', import.meta.url));
+const { loadExecutionEnvelopePolicy } = await import(new URL('../../tools/test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 
 test('matrix native closure binds the actual extractor/backend and complete current project locks', (context) =>
@@ -47,6 +49,23 @@ test('matrix native closure binds the actual extractor/backend and complete curr
     const solution = path.join(root, 'FsusBlog.MatrixNativeRestore.slnx');
     fs.appendFileSync(solution, '<!-- controlled foreign solution -->\n');
     assert.throws(() => matrixNativeNugetClosure(root), /actual project owners/u);
+});
+
+test('offline preparation fixes MSBuild reuse while binding the minimal environment', () =>
+{
+    const injected = nugetPreparationEnvironment({
+        directories: { environment: { HOME: '/owned/home', TMPDIR: '/owned/tmp' } },
+        packagesRoot: '/owned/packages', runId: 'run-1',
+        source: { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
+    });
+    const result = createMinimalCorrectnessEnvironment({
+        parentEnvironment: { PATH: '/usr/bin', MSBUILDDISABLENODEREUSE: '0', UNRELATED: 'forbidden' },
+        producerAllowlist: ['PATH'], injectedEnvironment: injected, policy: loadExecutionEnvelopePolicy()
+    });
+    assert.equal(result.childEnvironment.MSBUILDDISABLENODEREUSE, '1');
+    assert.equal(result.childEnvironment.NUGET_PACKAGES, '/owned/packages');
+    assert.equal(result.childEnvironment.UNRELATED, undefined);
+    assert.ok(result.observation.variables.some((entry) => entry.name === 'MSBUILDDISABLENODEREUSE'));
 });
 
 test('matrix preparation command uses the separate original restore solution and exact ordered offline arguments', () =>

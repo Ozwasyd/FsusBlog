@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const { behaviorDocNugetClosure, behaviorDocNugetFeedConfiguration, inventoryNugetOfflineFeed, inventoryPreparedNuget, matrixNativeNugetClosure, nugetPreparationCommand, observeMatrixNativeNugetToolInputs, validatePreparedNugetPackages } = await import(new URL('../test/behavior-doc-nuget-preparation.mjs', import.meta.url));
+const { behaviorDocNugetClosure, behaviorDocNugetFeedConfiguration, inventoryNugetOfflineFeed, inventoryPreparedNuget, matrixNativeNugetClosure, nugetPreparationCommand, nugetPreparationEnvironment, observeMatrixNativeNugetToolInputs, validatePreparedNugetPackages } = await import(new URL('../test/behavior-doc-nuget-preparation.mjs', import.meta.url));
 const { finalizeRunOwnedDirectories, prepareRunOwnedDirectories } = await import(new URL('../test/execution-envelope-directories.mjs', import.meta.url));
 const { observeExecutableIdentity, prepareCorrectnessEnvironment, verifyExecutableIdentity } = await import(new URL('../test/execution-envelope-environment.mjs', import.meta.url));
 const { finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox } = await import(new URL('../test/execution-envelope-network.mjs', import.meta.url));
@@ -140,9 +140,7 @@ export async function prepareBehaviorDocNuget({ repositoryRoot, runId, outputFil
             producerId: 'behavior-doc-static-admission', attemptId: key, outputs: [packagesRoot, artifactsRoot] });
         const environment = prepareCorrectnessEnvironment({ command, parentEnvironment: process.env,
             producerAllowlist: ['DOTNET_ROOT', 'PATH'],
-            injectedEnvironment: { ...directories.environment, NUGET_PACKAGES: packagesRoot,
-                FSUSBLOG_TEST_RUN_ID: runId, FSUSBLOG_TEST_SOURCE_COMMIT: source.sourceCommit,
-                FSUSBLOG_TEST_SOURCE_FINGERPRINT: source.worktreeFingerprint },
+            injectedEnvironment: nugetPreparationEnvironment({ directories, packagesRoot, runId, source }),
             policy: loadExecutionEnvelopePolicy(), catalog: loadExecutionEnvelopeApplicability() });
         const network = prepareNetworkSandbox({ command: environment.command, cwd: root,
             ownedDirectoryEnvelope: directories,

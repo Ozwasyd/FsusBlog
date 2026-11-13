@@ -12,7 +12,7 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "1ed095fdc9f20ebd64a5752405473120faea92b50eb48c5ea9e8cdb3afe1efa5"
+            "sha256": "4bf51ea346a0273c0f4db1d256ed478d9c3f562c761b807bae2173fec6e9e84d"
         },
         {
             "path": "tools/style/markdownlint-toolchain/package-lock.json",

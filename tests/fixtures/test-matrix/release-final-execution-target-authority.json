@@ -4900,8 +4900,8 @@
         },
         {
             "path": "tools/test/behavior-doc-nuget-preparation.mjs",
-            "contentDigest": "sha256:78c162353279a343c6cf928a9c7d55d617822baae41353c994417bc6698fbf3c",
-            "indexDigest": "sha256:78c162353279a343c6cf928a9c7d55d617822baae41353c994417bc6698fbf3c"
+            "contentDigest": "sha256:97113aeda1ef3ab224ab4e1df6652b27aa0d8f8190a5c303c22f29c2737fdd49",
+            "indexDigest": "sha256:97113aeda1ef3ab224ab4e1df6652b27aa0d8f8190a5c303c22f29c2737fdd49"
         },
         {
             "path": "tools/test/build-migration-tests.mjs",
