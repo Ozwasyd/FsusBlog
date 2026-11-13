@@ -5725,8 +5725,8 @@
         },
         {
             "path": "tools/testing/fixture-catalog.mjs",
-            "contentDigest": "sha256:82f5f7ea7a9ee31702f7ce08046094ae06020684782813b3676fc9fb8c5e55a9",
-            "indexDigest": "sha256:82f5f7ea7a9ee31702f7ce08046094ae06020684782813b3676fc9fb8c5e55a9"
+            "contentDigest": "sha256:dd8834d7241317a1b3071506026db67156016c9f51c0ecd0ab18921f43e858be",
+            "indexDigest": "sha256:dd8834d7241317a1b3071506026db67156016c9f51c0ecd0ab18921f43e858be"
         },
         {
             "path": "tools/ux/release-preview-readiness.mjs",

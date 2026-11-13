@@ -406,7 +406,7 @@
             "source": "tools/test/lanes/data-scale.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.m",
             "implicitSource": "tests/matrix.yml tier data-scale-m; command tools/test/lanes/data-scale.sh",
-            "currentFallback": "scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-m",
             "profileIds": [
                 "scale-m"
@@ -430,7 +430,7 @@
             "source": "tools/test/lanes/data-scale.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.l",
             "implicitSource": "tests/matrix.yml tier data-scale-nightly; command tools/test/lanes/data-scale.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-l-nightly",
             "profileIds": [
                 "scale-l-nightly"
@@ -454,7 +454,7 @@
             "source": "tools/test/lanes/data-scale.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.s",
             "implicitSource": "tests/matrix.yml tier data-scale-s; command tools/test/lanes/data-scale.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-s",
             "profileIds": [
                 "scale-s"
@@ -478,7 +478,7 @@
             "source": "tools/test/lanes/data-scale.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.xs",
             "implicitSource": "tests/matrix.yml tier data-scale-xs; command tools/test/lanes/data-scale.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-xs",
             "profileIds": [
                 "scale-xs"
@@ -686,7 +686,7 @@
             "source": "tools/test/lanes/load-smoke.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.xs",
             "implicitSource": "tests/matrix.yml tier load; command tools/test/lanes/load-smoke.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-xs",
             "profileIds": [
                 "scale-xs"
@@ -710,7 +710,7 @@
             "source": "tools/test/lanes/load-profile.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.m",
             "implicitSource": "tests/matrix.yml tier load-2x-peak; command tools/test/lanes/load-profile.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-m",
             "profileIds": [
                 "scale-m"
@@ -734,7 +734,7 @@
             "source": "tools/test/lanes/load-profile.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.xs",
             "implicitSource": "tests/matrix.yml tier load-baseline; command tools/test/lanes/load-profile.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-xs",
             "profileIds": [
                 "scale-xs"
@@ -758,7 +758,7 @@
             "source": "tools/test/lanes/load-profile.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.m",
             "implicitSource": "tests/matrix.yml tier load-burst; command tools/test/lanes/load-profile.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-m",
             "profileIds": [
                 "scale-m"
@@ -782,7 +782,7 @@
             "source": "tools/test/lanes/load-profile.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.s",
             "implicitSource": "tests/matrix.yml tier load-peak; command tools/test/lanes/load-profile.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-s",
             "profileIds": [
                 "scale-s"
@@ -1736,7 +1736,7 @@
             "source": "tools/test/lanes/soak.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.s",
             "implicitSource": "tests/matrix.yml tier soak-short-runtime; command tools/test/lanes/soak.sh",
-            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan",
+            "currentFallback": "bootstrap prepares fixtures through the unique FixtureOrchestrator / sealed profile plan; sealed profile plans scale data through the scale-data producer",
             "profileId": "scale-s",
             "profileIds": [
                 "scale-s"
@@ -2317,7 +2317,7 @@
             "source": "tools/test/lanes/data-scale.sh",
             "requiredBusinessFact": "public.article.published, scale.article-comment.l, scale.article-comment.m, scale.article-comment.s, scale.article-comment.xs",
             "implicitSource": "fixture-catalog consumer declaration in tools/test/lanes/data-scale.sh",
-            "currentFallback": "scale data is produced by the scale-data generator for the selected scale profile only",
+            "currentFallback": "observed source references a scale-data execution path; sealed profile plans scale data through the scale-data producer",
             "profileId": null,
             "profileIds": [
                 "scale-l-nightly",
