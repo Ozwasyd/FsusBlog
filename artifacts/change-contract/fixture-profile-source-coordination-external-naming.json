@@ -19,6 +19,13 @@
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Preserve the existing generated inventory, execution authority and change-contract binding JSON schemas and external field names."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/static-governance.sh"
+            ],
+            "reason": "Preserve existing shell environment names while registering the focused fixture inventory tests."
         }
     ]
 }

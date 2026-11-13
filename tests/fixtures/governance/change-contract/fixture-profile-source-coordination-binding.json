@@ -1,7 +1,9 @@
 {
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
+        "tests/tools/fixture-scale-inventory-truth.test.mjs",
         "tools/test-matrix/fixture-profile-contract.mjs",
+        "tools/test/lanes/static-governance.sh",
         "tools/testing/fixture-catalog.mjs",
         "tools/testing/generate-fixture-catalog-artifacts.mjs"
     ],
@@ -16,7 +18,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "67cb992adae6489c9cc3cfd64b62283cdb37183262c7ea5ba32c793e9cd0b42e"
+            "sha256": "8b13d9dea025ed59348e9f7b0c3e3a5c17c23e7abfbc5e99ecb49b472714a3de"
         }
     ]
 }

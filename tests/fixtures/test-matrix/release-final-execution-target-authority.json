@@ -2104,6 +2104,11 @@
             "indexDigest": "sha256:118310f935b458d0e958fd064c68621c9467e770c1e96440ef39bea42f9b4ee4"
         },
         {
+            "path": "tests/tools/fixture-scale-inventory-truth.test.mjs",
+            "contentDigest": "sha256:158094aad6098a83c4e63d5bba4278dd9a408839dece0f7ef7c4c89f079c871a",
+            "indexDigest": "sha256:158094aad6098a83c4e63d5bba4278dd9a408839dece0f7ef7c4c89f079c871a"
+        },
+        {
             "path": "tests/tools/fixtures/release-runtime-matrix.mjs",
             "contentDigest": "sha256:9116e6ec088a64518ad4073b1478515628b3090f5220af5fcbe3f90e273e03fe",
             "indexDigest": "sha256:9116e6ec088a64518ad4073b1478515628b3090f5220af5fcbe3f90e273e03fe"
@@ -5727,6 +5732,11 @@
             "path": "tools/testing/fixture-catalog.mjs",
             "contentDigest": "sha256:dd8834d7241317a1b3071506026db67156016c9f51c0ecd0ab18921f43e858be",
             "indexDigest": "sha256:dd8834d7241317a1b3071506026db67156016c9f51c0ecd0ab18921f43e858be"
+        },
+        {
+            "path": "tools/testing/generate-fixture-catalog-artifacts.mjs",
+            "contentDigest": "sha256:7c61bb7ac1bfe5e6aca6661109926d9fa4a45854a82ee72fd03faa09e858a64a",
+            "indexDigest": "sha256:7c61bb7ac1bfe5e6aca6661109926d9fa4a45854a82ee72fd03faa09e858a64a"
         },
         {
             "path": "tools/ux/release-preview-readiness.mjs",
@@ -40138,8 +40148,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:83d812bb556bc315b46084600a6d754263ff778174323ff112b0d69981eaa3a1",
-            "indexDigest": "sha256:83d812bb556bc315b46084600a6d754263ff778174323ff112b0d69981eaa3a1",
+            "contentDigest": "sha256:b2daa6970fdf93d8a5645b76503d8bfdad610e99ac2bdceaeeaf8ceee5d99158",
+            "indexDigest": "sha256:b2daa6970fdf93d8a5645b76503d8bfdad610e99ac2bdceaeeaf8ceee5d99158",
             "dependencyClosure": [
                 "src/backend/FsusBlog.Server.csproj",
                 "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
@@ -40537,6 +40547,7 @@
                 "tests/tools/evidence-location-contract.test.mjs",
                 "tests/tools/evidence-location-governance.test.mjs",
                 "tests/tools/fixture-mutation-recovery.test.mjs",
+                "tests/tools/fixture-scale-inventory-truth.test.mjs",
                 "tests/tools/frontend-vitest-rolling-shards.test.mjs",
                 "tests/tools/fsusui-candidate.test.mjs",
                 "tests/tools/fsusui-release-event.test.mjs",
@@ -41103,6 +41114,7 @@
                 "tools/test/write-temporal-context.mjs",
                 "tools/testing/content-shape-catalog.mjs",
                 "tools/testing/fixture-catalog.mjs",
+                "tools/testing/generate-fixture-catalog-artifacts.mjs",
                 "tools/ux/release-preview-readiness.mjs",
                 "tools/yaml/parse-document.mjs",
                 "tools/yaml/workflow-structure.mjs"
