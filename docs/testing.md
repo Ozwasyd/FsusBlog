@@ -177,6 +177,10 @@ observation checks.
 Both purposes use the original independent per-transfer capacity reservation,
 candidate lease, owned directories, sealed finite archive feed, ordered locked
 offline restore, private temporary directory and protected physical execution.
+The bound minimal environment disables MSBuild node reuse, .NET CLI telemetry,
+and background workload advertising downloads so the offline restore can reach
+its zero-member terminal without unplanned network attempts. The original
+network observation still rejects every unplanned endpoint.
 The `matrix-governance` and `validate-matrix` callers require an explicit
 `FSUSBLOG_MATRIX_NATIVE_NUGET_PREPARATION` descriptor. Their original deterministic
 runner checks it through the strict matrix reader before seeding the current

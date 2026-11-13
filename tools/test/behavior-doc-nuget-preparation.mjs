@@ -218,6 +218,8 @@ export function nugetPreparationEnvironment({ directories, packagesRoot, runId, 
         ...directories.environment,
         NUGET_PACKAGES: packagesRoot,
         MSBUILDDISABLENODEREUSE: '1',
+        DOTNET_CLI_TELEMETRY_OPTOUT: '1',
+        DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'true',
         FSUSBLOG_TEST_RUN_ID: runId,
         FSUSBLOG_TEST_SOURCE_COMMIT: source.sourceCommit,
         FSUSBLOG_TEST_SOURCE_FINGERPRINT: source.worktreeFingerprint

@@ -51,7 +51,7 @@ test('matrix native closure binds the actual extractor/backend and complete curr
     assert.throws(() => matrixNativeNugetClosure(root), /actual project owners/u);
 });
 
-test('offline preparation fixes MSBuild reuse while binding the minimal environment', () =>
+test('offline preparation binds MSBuild reuse and background network settings', () =>
 {
     const injected = nugetPreparationEnvironment({
         directories: { environment: { HOME: '/owned/home', TMPDIR: '/owned/tmp' } },
@@ -59,13 +59,18 @@ test('offline preparation fixes MSBuild reuse while binding the minimal environm
         source: { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
     });
     const result = createMinimalCorrectnessEnvironment({
-        parentEnvironment: { PATH: '/usr/bin', MSBUILDDISABLENODEREUSE: '0', UNRELATED: 'forbidden' },
+        parentEnvironment: { PATH: '/usr/bin', MSBUILDDISABLENODEREUSE: '0', DOTNET_CLI_TELEMETRY_OPTOUT: '0',
+            DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 'false', UNRELATED: 'forbidden' },
         producerAllowlist: ['PATH'], injectedEnvironment: injected, policy: loadExecutionEnvelopePolicy()
     });
     assert.equal(result.childEnvironment.MSBUILDDISABLENODEREUSE, '1');
+    assert.equal(result.childEnvironment.DOTNET_CLI_TELEMETRY_OPTOUT, '1');
+    assert.equal(result.childEnvironment.DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE, 'true');
     assert.equal(result.childEnvironment.NUGET_PACKAGES, '/owned/packages');
     assert.equal(result.childEnvironment.UNRELATED, undefined);
     assert.ok(result.observation.variables.some((entry) => entry.name === 'MSBUILDDISABLENODEREUSE'));
+    assert.ok(result.observation.variables.some((entry) => entry.name === 'DOTNET_CLI_TELEMETRY_OPTOUT'));
+    assert.ok(result.observation.variables.some((entry) => entry.name === 'DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE'));
 });
 
 test('matrix preparation command uses the separate original restore solution and exact ordered offline arguments', () =>
