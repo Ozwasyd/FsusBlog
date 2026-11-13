@@ -4,13 +4,16 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test-matrix/fixture-profile-contract.mjs"
+                "tools/test-matrix/fixture-profile-contract.mjs",
+                "tools/testing/fixture-catalog.mjs",
+                "tools/testing/generate-fixture-catalog-artifacts.mjs"
             ],
             "reason": "Preserve the existing Node tooling and process environment identifiers while recognizing the two already declared coordination tiers."
         },
         {
             "id": "json-wire-key",
             "paths": [
+                "config/testing/fixture-consumer-inventory.generated.json",
                 "config/testing/fixture-profile-matrix.generated.json",
                 "tests/fixtures/governance/change-contract/fixture-profile-source-coordination-binding.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
