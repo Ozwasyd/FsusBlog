@@ -647,63 +647,6 @@ test("catalog field shape and source inventory bindings fail closed", () =>
     }, /source auth-smoke-fixture and generated inventory profile binding differ/);
 });
 
-test("inventory cannot forge scale source or matrix-derived profile", () =>
-{
-    rejects((data) =>
-    {
-        const consumer = data.inventory.consumers.find(
-            (item) => item.consumerId === "matrix:acceptance"
-        );
-        consumer.source = "tools/test/lanes/data-scale.sh";
-    }, /matrix tier acceptance and generated inventory source differ/);
-    rejects((data) =>
-    {
-        const consumer = data.inventory.consumers.find(
-            (item) => item.consumerId === "source:data-scale-lane"
-        );
-        consumer.profileIds = ["none"];
-        consumer.profileId = "none";
-    }, /fixture source data-scale-lane and generated inventory profile binding differ/);
-    rejects((data) =>
-    {
-        const consumer = data.inventory.consumers.find(
-            (item) => item.consumerId === "matrix:acceptance"
-        );
-        consumer.producerOwners = ["scale-data"];
-    }, /matrix tier acceptance and generated inventory producer owners differ/);
-    rejects((data) =>
-    {
-        const consumer = data.inventory.consumers.find(
-            (item) => item.consumerId === "matrix:acceptance"
-        );
-        consumer.profileIds = ["acceptance-representative", "auth-basic"];
-    }, /matrix tier acceptance and generated inventory declaration differ/);
-    rejects((data) =>
-    {
-        const consumer = data.inventory.consumers.find(
-            (item) => item.consumerId === "source:acceptance-bootstrap"
-        );
-        consumer.executionClass = "runtime";
-    }, /fixture source acceptance-bootstrap and generated inventory profile binding differ/);
-    rejects((data) =>
-    {
-        const consumer = data.inventory.consumers.find(
-            (item) => item.consumerId === "matrix:acceptance"
-        );
-        consumer.executionClass = "runtime";
-    }, /matrix tier acceptance and generated inventory declaration differ/);
-    for (const field of ["implicitSource", "requiredBusinessFact"])
-    {
-        rejects((data) =>
-        {
-            const consumer = data.inventory.consumers.find(
-                (item) => item.consumerId === "matrix:acceptance"
-            );
-            consumer[field] = "forged";
-        }, /matrix tier acceptance and generated inventory facts differ/);
-    }
-});
-
 test("none profile rejects hidden fixture preparation and security reset", () =>
 {
     const tier = {

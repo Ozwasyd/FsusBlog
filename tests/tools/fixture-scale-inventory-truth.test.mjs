@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 const { generateFixtureInventory } = await import(new URL('../../tools/testing/generate-fixture-catalog-artifacts.mjs', import.meta.url));
-const { observeFixtureConsumerSource } = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
+const { fixtureCatalogFiles, validateFixtureCatalogs, observeFixtureConsumerSource } = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 
 const scaleObservation = /(?:observed source references a scale-data execution path|sealed profile plans scale data through the scale-data producer)/u;
 
@@ -67,5 +70,84 @@ test('scale profile and direct scale lane retain scale-data attribution', () =>
         const consumer = consumers.find((item) => item.consumerId === id);
         assert.ok(consumer, id);
         assert.match(consumer.currentFallback, scaleObservation, id);
+    }
+});
+
+
+function rejects(change, pattern)
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fixture-inventory-negative-'));
+    try
+    {
+        const names = ['capability', 'profile', 'producer', 'inventory', 'variant'];
+        const files = Object.fromEntries(names.map((name) => [name, path.join(directory, `${name}.json`)]));
+        const data = Object.fromEntries(names.map((name) => [name, JSON.parse(fs.readFileSync(fixtureCatalogFiles[name], 'utf8'))]));
+        change(data);
+        for (const name of names)
+        {
+            fs.writeFileSync(files[name], JSON.stringify(data[name]));
+        }
+        assert.match(validateFixtureCatalogs({ files, validateRepositoryAuthority: false }).join('\n'), pattern);
+    }
+    finally
+    {
+        fs.rmSync(directory, { recursive: true, force: true });
+    }
+}
+
+test('inventory cannot forge scale source or matrix-derived profile', () =>
+{
+    rejects((data) =>
+    {
+        const consumer = data.inventory.consumers.find(
+            (item) => item.consumerId === 'matrix:acceptance'
+        );
+        consumer.source = 'tools/test/lanes/data-scale.sh';
+    }, /matrix tier acceptance and generated inventory source differ/);
+    rejects((data) =>
+    {
+        const consumer = data.inventory.consumers.find(
+            (item) => item.consumerId === 'source:data-scale-lane'
+        );
+        consumer.profileIds = ['none'];
+        consumer.profileId = 'none';
+    }, /fixture source data-scale-lane and generated inventory profile binding differ/);
+    rejects((data) =>
+    {
+        const consumer = data.inventory.consumers.find(
+            (item) => item.consumerId === 'matrix:acceptance'
+        );
+        consumer.producerOwners = ['scale-data'];
+    }, /matrix tier acceptance and generated inventory producer owners differ/);
+    rejects((data) =>
+    {
+        const consumer = data.inventory.consumers.find(
+            (item) => item.consumerId === 'matrix:acceptance'
+        );
+        consumer.profileIds = ['acceptance-representative', 'auth-basic'];
+    }, /matrix tier acceptance and generated inventory declaration differ/);
+    rejects((data) =>
+    {
+        const consumer = data.inventory.consumers.find(
+            (item) => item.consumerId === 'source:acceptance-bootstrap'
+        );
+        consumer.executionClass = 'runtime';
+    }, /fixture source acceptance-bootstrap and generated inventory profile binding differ/);
+    rejects((data) =>
+    {
+        const consumer = data.inventory.consumers.find(
+            (item) => item.consumerId === 'matrix:acceptance'
+        );
+        consumer.executionClass = 'runtime';
+    }, /matrix tier acceptance and generated inventory declaration differ/);
+    for (const field of ['implicitSource', 'requiredBusinessFact'])
+    {
+        rejects((data) =>
+        {
+            const consumer = data.inventory.consumers.find(
+                (item) => item.consumerId === 'matrix:acceptance'
+            );
+            consumer[field] = 'forged';
+        }, /matrix tier acceptance and generated inventory facts differ/);
     }
 });
