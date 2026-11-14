@@ -110,22 +110,31 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     internal bool LeaseCurrent => lease?.IsCurrent is not false;
 
     internal async Task<(ArticleState Article, bool Changed)> Command(Store store, string? token,
-        ArticleAction action, Edit edit, CancellationToken ct)
+        ArticleAction action, Edit edit, CancellationToken ct) =>
+        await Change(action is ArticleAction.Publish or ArticleAction.Retract or ArticleAction.Delete,
+            invalidate => store.WithSession(token, true, async (connection, tx, actor) =>
+            {
+                var update = await Store.Execute(connection, tx, actor, action, edit, ct);
+                if (update.Changed) invalidate();
+                return update;
+            }, ct), ct);
+
+    internal Task<T> AdministrativePublication<T>(Func<Action, Task<T>> transact, CancellationToken ct) =>
+        Change(invalidate: true, transact, ct);
+
+    private async Task<T> Change<T>(bool invalidate, Func<Action, Task<T>> transact, CancellationToken ct)
     {
         lease?.RequireCurrent();
         if (!await _writers.WaitAsync(TimeSpan.FromSeconds(5), ct)) throw new PublicUnavailableException();
         try
         {
             lease?.RequireCurrent();
-            var invalidate = action is ArticleAction.Publish or ArticleAction.Retract or ArticleAction.Delete;
-            var result = await store.WithSession(token, true, async (connection, tx, actor) =>
+            var result = await transact(() =>
             {
                 // After an ambiguous commit or interruption, the old public bytes remain unservable.
                 // The worker rebuilds from the committed durable state.
-                var update = await Store.Execute(connection, tx, actor, action, edit, ct);
-                if (invalidate && update.Changed) Volatile.Write(ref _snapshot, null);
-                return update;
-            }, ct);
+                if (invalidate) Volatile.Write(ref _snapshot, null);
+            });
 
             if (invalidate && Snapshot is null)
             {

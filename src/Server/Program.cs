@@ -17,6 +17,10 @@ const string Html = "text/html; charset=utf-8";
 var builder = WebApplication.CreateBuilder(args);
 var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
 var adminIdentity = FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.ReadConfiguration(builder.Configuration);
+var adminArticleRollback = builder.Configuration.GetValue(
+    FsusBlog.V2.Server.Administration.AdminArticleRollbackEndpoints.Setting, false);
+if (adminArticleRollback && adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps)
+    throw new InvalidOperationException("Published article rollback requires a dedicated HTTPS administrator origin.");
 var sitePageEditor = builder.Configuration.GetValue(SitePages.EditorSetting, false);
 var recoveryKey = FsusBlog.V2.Server.Passkeys.RecoveryKeySecret.Read(builder.Configuration);
 var persistentSite = FsusBlog.V2.Server.Passkeys.SiteRefreshStore.ReadConfiguration(builder.Configuration);
@@ -110,7 +114,8 @@ var lease = app.Services.GetRequiredService<InstanceLease>();
 using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
 await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscription: subscription is null ? null : true,
     requireRecoveryKey: recoveryKey is null ? null : true,
-    requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null);
+    requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null,
+    requireAdminArticleRollback: adminArticleRollback ? true : null);
 var publications = app.Services.GetRequiredService<Publications>();
 app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
 await publications.Refresh(CancellationToken.None);

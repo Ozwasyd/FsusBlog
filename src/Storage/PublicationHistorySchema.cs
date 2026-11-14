@@ -26,4 +26,15 @@ internal static partial class CurrentSchema
         "article_publication_history c supersedes_id,publication_id supersedes_idISNULLORsupersedes_idISDISTINCTFROMpublication_id",
         "article_publication_history c kind kind=ANY(ARRAY['retained-active'::text,'retained-hidden'::text,'publish'::text,'replace'::text,'retract'::text,'delete'::text])"
     ];
+
+    private static string[] PublicationHistoryColumnsForAdminRollback =>
+        [PublicationHistoryColumns[0] + " admin_actor_id:uuid? admin_command_id:uuid?"];
+
+    private static readonly string[] PublicationHistoryAdminRollbackConstraints =
+    [
+        "article_publication_history f admin_actor_id,admin_command_id public.admin_article_rollback:principal_id,command_id",
+        "article_publication_history u admin_actor_id,admin_command_id",
+        "article_publication_history c admin_actor_id,admin_command_id (admin_actor_idISNULL)=(admin_command_idISNULL)",
+        "article_publication_history c actor_id,admin_actor_id actor_idISNULLORadmin_actor_idISNULL"
+    ];
 }

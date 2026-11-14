@@ -10,7 +10,7 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
-    private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2 }
+    private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3 }
     private const short StepUpChallenge = 1;
     private const short StepUpProof = 2;
 
@@ -53,18 +53,37 @@ internal sealed partial class AdminPasskeyStore
                 returning options,body_digest
                 """, ChallengeDigest(request.Token, null), admin.Id, admin.Digest, admin.Snapshot.Generation, StepUpChallenge, (int)action);
             await using var row = await consume.ExecuteReaderAsync(ct);
-            if (!await row.ReadAsync(ct)) throw Denied();
+            if (!await row.ReadAsync(ct))
+            {
+                if (action == StepUpAction.PublishArticleRollback)
+                    throw new BusinessException(Rejection.Forbidden, "The published rollback challenge expired or does not match this session.");
+                throw Denied();
+            }
             return (Options: row.GetString(0), Digest: row.GetFieldValue<byte[]>(1));
         }, ct);
-        RequireCredentialId(request.CredentialId, request.RawId);
-        if (request.RememberMe) throw Denied();
+        try
+        {
+            RequireCredentialId(request.CredentialId, request.RawId);
+            if (request.RememberMe) throw Denied();
+        }
+        catch (BusinessException ex) when (action == StepUpAction.PublishArticleRollback && ex.Rejection == Rejection.Unauthorized)
+        {
+            throw new BusinessException(Rejection.Forbidden, "The published rollback requires a verified administrator Passkey.");
+        }
 
         return await WithLiveAdmin(session, permission, async (db, tx, admin) =>
         {
             await using var user = Store.Sql(db, tx, "select user_handle from public.admin_principal where id=$1", admin.Id);
             var handle = (await user.ExecuteScalarAsync(ct) as byte[]) ?? throw Denied();
-            await VerifyCredential(db, tx, admin.Id, handle, request, AssertionOptions.FromJson(challenge.Options), ct,
-                requireHandle: false);
+            try
+            {
+                await VerifyCredential(db, tx, admin.Id, handle, request, AssertionOptions.FromJson(challenge.Options), ct,
+                    requireHandle: false);
+            }
+            catch (BusinessException ex) when (action == StepUpAction.PublishArticleRollback && ex.Rejection == Rejection.Unauthorized)
+            {
+                throw new BusinessException(Rejection.Forbidden, "The published rollback requires a verified administrator Passkey.");
+            }
             var proof = Token();
             await SaveStepUp(db, tx, admin, proof, action, StepUpProof, challenge.Digest, null, 45, ct);
             return MfaWire.EncodeChallenge(true, "admin-sensitive", proof);
@@ -120,6 +139,7 @@ internal sealed partial class AdminPasskeyStore
     {
         StepUpAction.ModerateComment => "public.admin_step_up",
         StepUpAction.PublishSitePage => "public.admin_site_page_step_up",
+        StepUpAction.PublishArticleRollback => "public.admin_article_rollback_step_up",
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 
@@ -127,6 +147,7 @@ internal sealed partial class AdminPasskeyStore
     {
         StepUpAction.ModerateComment => CurrentSchema.CommentModeratePermission,
         StepUpAction.PublishSitePage => CurrentSchema.SystemConfigPermission,
+        StepUpAction.PublishArticleRollback => CurrentSchema.ArticleWritePermission,
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 }

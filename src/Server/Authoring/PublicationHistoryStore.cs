@@ -85,6 +85,64 @@ internal static class PublicationHistoryStore
         }
     }
 
+    internal static async Task<AdminArticleRelease> ReplaceByAdministrator(NpgsqlConnection db, NpgsqlTransaction tx,
+        int article, long priorPublication, long sourceRevision, long revision, long previousRevision,
+        long sourcePublication, long sourceResponsibility, Guid administrator, Guid command, byte[] fingerprint, string reason,
+        CancellationToken ct)
+    {
+        await using var tail = Store.Sql(db, tx, """
+            select h.event_no
+            from public.article_publication_history h join public.article_publication p using(article_id)
+            join public.article a on a.id=p.article_id
+            where h.article_id=$1 and h.publication_id=$2 and p.publication_id=$2 and h.revision=p.revision
+                and h.publication_no=p.publication_no and p.publication_no=a.publication_count
+                and h.event_no=(select max(event_no) from public.article_publication_history where article_id=$1)
+            """, article, priorPublication);
+        if (await tail.ExecuteScalarAsync(ct) is not int eventNo)
+            throw new BusinessException(Rejection.Conflict, "The current publication requires a verified historical boundary.");
+
+        await PublicationRightsStore.Require(db, tx, article, revision, ct);
+        var release = await Publish(db, tx, article, revision, ct);
+        await PublicationRightsStore.Attach(db, tx, article, revision, release.Id, ct);
+        await using var rights = Store.Sql(db, tx,
+            "select id from public.article_publication_rights where publication_id=$1", release.Id);
+        var rightsSnapshot = (long)(await rights.ExecuteScalarAsync(ct))!;
+
+        // Copy the explicit historical evidence and record its exact immutable source.
+        await using var responsibility = Store.Sql(db, tx, """
+            insert into public.article_revision_responsibility(article_id,revision,responsible_party,basis,reference,recorded_by,source_snapshot_id)
+            select article_id,$2,responsible_party,basis,reference,recorded_by,id
+            from public.article_revision_responsibility where article_id=$1 and revision=$3 and id=$4
+            returning id
+            """, article, revision, sourceRevision, sourceResponsibility);
+        if (await responsibility.ExecuteScalarAsync(ct) is not long responsibilitySnapshot)
+            throw new BusinessException(Rejection.Conflict, "The historical responsibility snapshot is unavailable.");
+        await using var responsibilityLink = Store.Sql(db, tx, """
+            insert into public.article_publication_responsibility(publication_id,article_id,revision,snapshot_id)
+            values($1,$2,$3,$4)
+            """, release.Id, article, revision, responsibilitySnapshot);
+        await responsibilityLink.ExecuteNonQueryAsync(ct);
+
+        await using var retainCommand = Store.Sql(db, tx, """
+            insert into public.admin_article_rollback(principal_id,command_id,fingerprint,article_id,previous_revision,
+                source_revision,revision,source_publication_id,previous_publication_id,publication_id,publication_no,
+                published_at,rights_snapshot_id,responsibility_snapshot_id,reason)
+            values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+            """, administrator, command, fingerprint, article, previousRevision, sourceRevision, revision, sourcePublication,
+            priorPublication, release.Id, release.Number, release.PublishedAt, rightsSnapshot, responsibilitySnapshot, reason);
+        await retainCommand.ExecuteNonQueryAsync(ct);
+        await using var append = Store.Sql(db, tx, """
+            insert into public.article_publication_history(article_id,event_no,revision,publication_no,publication_id,supersedes_id,
+                kind,reason,happened_at,admin_actor_id,admin_command_id)
+            values($1,$2,$3,$4,$5,$6,'replace','administrator-rollback-replaced',$7,$8,$9)
+            """, article, checked(eventNo + 1), revision, release.Number, release.Id, priorPublication, release.PublishedAt,
+            administrator, command);
+        await append.ExecuteNonQueryAsync(ct);
+        return new AdminArticleRelease(release.Id, release.Number, release.PublishedAt, rightsSnapshot, responsibilitySnapshot);
+    }
+
+    internal sealed record AdminArticleRelease(long Id, int Number, DateTime PublishedAt, long RightsSnapshot, long ResponsibilitySnapshot);
+
     private static async Task<ActivePublication> Publish(NpgsqlConnection db, NpgsqlTransaction tx, int articleId, long revision, CancellationToken ct)
     {
         await using var publish = Store.Sql(db, tx, """

@@ -58,6 +58,9 @@
     "AdminSessionSnapshot": 32830,
     "AdminOperationsStatus": 32850,
     "AdminSitePages": 32905,
+    "AdminArticleRollbackIntent": 32924,
+    "AdminArticleRollbackPreview": 32925,
+    "AdminArticleRollbackReceipt": 32926,
     "AdminSitePageRevision": 32915,
     "AdminSitePagePublish": 32916,
     "AdminTaxonomyPage": 32864,
@@ -195,6 +198,11 @@
     "AdminStepUpBegin": "/api/v2/admin/identity/step-up/passkey/begin.aeds",
     "AdminStepUpComplete": "/api/v2/admin/identity/step-up/passkey/complete.aeds",
     "AdminOperationsStatus": "/api/v2/admin/identity/operations/status.aeds",
+    "AdminArticleRollbackAvailability": "/api/v2/admin/identity/articles/rollback/available.aeds",
+    "AdminArticleRollbackPreview": "/api/v2/admin/identity/articles/rollback/preview.aeds",
+    "AdminArticleRollbackStepUpBegin": "/api/v2/admin/identity/articles/rollback/step-up/begin.aeds",
+    "AdminArticleRollbackStepUpComplete": "/api/v2/admin/identity/articles/rollback/step-up/complete.aeds",
+    "AdminArticleRollbackExecute": "/api/v2/admin/identity/articles/rollback/execute.aeds",
     "AdminSitePages": "/api/v2/admin/identity/site-pages.aeds",
     "AdminSitePage": "/api/v2/admin/identity/site-pages/{slug}.aeds",
     "AdminSitePageRevision": "/api/v2/admin/identity/site-pages/{slug}/revision.aeds",
@@ -354,6 +362,7 @@
     "RevisionHistoryCursorChars": 54,
     "RollbackReasonBytes": 2000,
     "MaxDraftRollbackFrameBytes": 2056,
+    "MaxAdminArticleRollbackFrameBytes": 2064,
     "ArticleRightsTokenBytes": 48,
     "ArticleRightsHolderBytes": 1024,
     "ArticleRightsTextBytes": 16000,
@@ -604,6 +613,18 @@
     "AdminOperationsStatus": {
       "frame": "AdminOperationsStatus",
       "fields": [["SnapshotReady", "bool"], ["PublicationWatermark", "i64"], ["PendingPublicationEvents", "i64"], ["OldestPendingAt", "i64"]]
+    },
+    "AdminArticleRollbackIntent": {
+      "frame": "AdminArticleRollbackIntent",
+      "fields": [["ArticleId", "i32"], ["ExpectedRevision", "i64"], ["ExpectedPublicationId", "i64"], ["SourceRevision", "i64"], ["IdempotencyKey", "uuid"], ["Reason", "text", "RollbackReasonBytes"]]
+    },
+    "AdminArticleRollbackPreview": {
+      "frame": "AdminArticleRollbackPreview",
+      "fields": [["ArticleId", "i32"], ["CurrentRevision", "i64"], ["CurrentPublicationId", "i64"], ["SourceRevision", "i64"], ["SourcePublicationId", "i64"], ["SourceTitle", "text", "TitleBytes"], ["PackageComplete", "bool"], ["BlockingReason", "i32"]]
+    },
+    "AdminArticleRollbackReceipt": {
+      "frame": "AdminArticleRollbackReceipt",
+      "fields": [["ArticleId", "i32"], ["Revision", "i64"], ["SourceRevision", "i64"], ["PreviousPublicationId", "i64"], ["PublicationId", "i64"], ["PublicationNo", "i32"], ["PublishedUnixMs", "i64"], ["RightsSnapshotId", "i64"], ["ResponsibilitySnapshotId", "i64"]]
     },
     "AdminSitePages": {
       "frame": "AdminSitePages",

@@ -246,6 +246,17 @@ exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 \
   -d "$FSUSBLOG_TEST_SITE_REFRESH_DATABASE" -Atc "$statement"
 EOF
   chmod 700 "$FSUSBLOG_TEST_SITE_REFRESH_PROBE"
+elif [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 ]]; then
+  unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
+  export FSUSBLOG_ADMIN_ARTICLE_ROLLBACK=true
+  export FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT="$scratch/grant-article-rollback"
+  permission_fixture "$FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK_GRANT" grant article.write
+  "$dotnet" "$migrate" admin-article-rollback schema > "$evidence/admin-article-rollback-migration.log"
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -f tests/EndToEnd/admin-article-rollback-fixture.sql > "$evidence/admin-article-rollback-fixture.log"
+  printf '%s\n' '{"responsibleParty":"Historical publisher","basis":"Recorded original publication approval","reference":"fixture-review-2026-001"}' |
+    "$dotnet" "$migrate" article-responsibility record 1 1 >> "$evidence/admin-article-rollback-migration.log"
+  "$dotnet" "$migrate" verify >> "$evidence/admin-article-rollback-migration.log"
+  shasum -a 256 tests/EndToEnd/admin-article-rollback-fixture.sql >> "$evidence/run.txt"
 elif [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGES:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   export FSUSBLOG_TEST_ADMIN_SITE_PAGES_GRANT="$scratch/grant-system-config" FSUSBLOG_TEST_ADMIN_SITE_PAGES_REVOKE="$scratch/revoke-system-config"
@@ -389,6 +400,26 @@ if [[ ${FSUSBLOG_SITE_PAGE_EDITOR:-false} == true ]]; then
     sleep 0.2
   done
   grep -Fq 'Published by authorized editor' "$evidence/restarted-site-page.html"
+fi
+if [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 ]]; then
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+    select 'exact_admin_rollback=' || count(*) from public.admin_article_rollback r
+      join public.admin_principal p on p.id=r.principal_id
+      join public.article a on a.id=r.article_id and a.revision=r.revision and a.published_revision=r.revision
+      join public.blog_user u on u.id=a.owner_id
+      join public.article_publication_history h on h.article_id=r.article_id and h.revision=r.revision
+      join public.article_revision_responsibility n on n.id=r.responsibility_snapshot_id
+      join public.article_revision_responsibility s on s.id=n.source_snapshot_id
+      join public.article_revision source on source.article_id=r.article_id and source.revision=r.source_revision
+      where p.handle='tls-admin-fixture' and u.name='tls-site-fixture'
+        and h.admin_actor_id=p.id and h.admin_command_id=r.command_id and h.actor_id is null
+        and n.responsible_party=s.responsible_party and n.basis=s.basis and n.reference=s.reference
+        and r.source_revision=1 and r.previous_revision=2 and r.revision=3 and a.body=source.body
+    union all
+    select 'one_publish_event=' || count(*) from public.blog_outbox where article_id=1 and revision=3 and kind='publish'
+  " > "$evidence/admin-article-rollback-counts.txt"
+  grep -Fxq 'exact_admin_rollback=1' "$evidence/admin-article-rollback-counts.txt"
+  grep -Fxq 'one_publish_event=1' "$evidence/admin-article-rollback-counts.txt"
 fi
 "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
   select 'admin_sessions=' || count(*) from public.admin_session

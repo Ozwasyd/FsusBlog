@@ -46,9 +46,62 @@ internal static partial class Migration
     {
         var scheduleJoin = hasArticleSchedule ? "public.article_schedule_receipt" :
             "(select null::uuid actor_id,null::uuid command_id,null::timestamptz due_at where false)";
+        bool hasAdminRollback = await CurrentSchema.HasAdminArticleRollbackSchemaAsync(connection, tx, ct);
+        var adminFields = hasAdminRollback ? "" : ", null::uuid admin_actor_id, null::uuid admin_command_id";
+        var adminJoin = hasAdminRollback ? """
+            left join public.admin_article_rollback b on b.principal_id=h.admin_actor_id and b.command_id=h.admin_command_id
+            left join public.article_publication_rights source_rights on source_rights.article_id=h.article_id
+                and source_rights.revision=b.source_revision and source_rights.publication_id=b.source_publication_id
+            left join public.article_publication_rights next_rights on next_rights.article_id=h.article_id
+                and next_rights.revision=h.revision and next_rights.publication_id=h.publication_id
+            left join public.article_revision_rights source_policy on source_policy.article_id=source_rights.article_id
+                and source_policy.revision=source_rights.revision
+            left join public.article_revision_rights next_policy on next_policy.article_id=next_rights.article_id
+                and next_policy.revision=next_rights.revision
+            left join public.article_revision source_content on source_content.article_id=b.article_id and source_content.revision=b.source_revision
+            left join public.article_revision next_content on next_content.article_id=b.article_id and next_content.revision=b.revision
+            left join public.article_publication_history source_release on source_release.article_id=h.article_id
+                and source_release.publication_id=b.source_publication_id and source_release.revision=b.source_revision
+            left join public.article_publication_responsibility source_evidence on source_evidence.article_id=h.article_id
+                and source_evidence.revision=b.source_revision and source_evidence.publication_id=b.source_publication_id
+            left join public.article_publication_responsibility next_evidence on next_evidence.article_id=h.article_id
+                and next_evidence.revision=h.revision and next_evidence.publication_id=h.publication_id
+            left join public.article_revision_responsibility derived on derived.id=next_evidence.snapshot_id
+            left join public.article_revision_responsibility original on original.id=source_evidence.snapshot_id
+            """ : "";
+        var adminVerification = hasAdminRollback ? """
+                 when h.admin_actor_id is not null then
+                    h.actor_id is not null or h.command_id is not null or h.kind<>'replace'
+                    or h.reason<>'administrator-rollback-replaced' or h.happened_at is null or h.previous_active is null
+                    or h.publication_no<>h.previous_count+1 or h.publication_id is null
+                    or b.article_id is distinct from h.article_id or b.revision is distinct from h.revision
+                    or b.previous_publication_id is distinct from h.previous_active
+                    or b.publication_id is distinct from h.publication_id or b.publication_no is distinct from h.publication_no
+                    or b.published_at is distinct from h.happened_at or b.source_publication_id is null
+                    or source_release.event_no is null or source_release.event_no>=h.event_no
+                    or source_rights.id is null or next_rights.id is distinct from b.rights_snapshot_id
+                    or (source_content.title,source_content.body) is distinct from (next_content.title,next_content.body)
+                    or (to_jsonb(source_policy)-'revision') is distinct from (to_jsonb(next_policy)-'revision')
+                    or (select category_id from public.article_revision_category where article_id=b.article_id and revision=b.source_revision)
+                        is distinct from (select category_id from public.article_revision_category where article_id=b.article_id and revision=b.revision)
+                    or array(select tag_id from public.article_revision_tag where article_id=b.article_id and revision=b.source_revision order by tag_id)
+                        is distinct from array(select tag_id from public.article_revision_tag where article_id=b.article_id and revision=b.revision order by tag_id)
+                    or next_evidence.snapshot_id is distinct from b.responsibility_snapshot_id
+                    or source_evidence.snapshot_id is null or derived.source_snapshot_id is distinct from source_evidence.snapshot_id
+                    or (derived.responsible_party,derived.basis,derived.reference,derived.recorded_by) is distinct from
+                        (original.responsible_party,original.basis,original.reference,original.recorded_by)
+                    or not exists (select from public.blog_outbox e where e.article_id=h.article_id and e.revision=h.revision
+                        and e.kind='publish')
+            """ : "";
+        var adminOrphans = hasAdminRollback ? """
+            union all
+            select b.article_id from public.admin_article_rollback b where not exists (
+                select from public.article_publication_history h where h.admin_actor_id=b.principal_id and h.admin_command_id=b.command_id
+            )
+            """ : "";
         await using var command = new NpgsqlCommand($"""
             with links as (
-                select h.*,
+                select h.*{adminFields},
                        coalesce(lag(event_no) over w,0) as previous_event,
                        coalesce(lag(publication_no) over w,0) as previous_count,
                        lag(publication_id) over w as previous_active,
@@ -62,6 +115,7 @@ internal static partial class Migration
             left join public.article_publication p on p.article_id=h.article_id
             left join public.article_command c on c.actor_id=h.actor_id and c.command_id=h.command_id
             left join {scheduleJoin} s on s.actor_id=h.actor_id and s.command_id=h.command_id
+            {adminJoin}
             where h.event_no<>h.previous_event+1 or h.revision<=h.previous_revision
                or h.revision>a.revision
                 or h.supersedes_id is distinct from h.previous_active
@@ -75,10 +129,11 @@ internal static partial class Migration
                or case
                  when h.kind='retained-active' then
                     h.event_no<>1 or h.actor_id is not null or h.publication_id is null
-                    or h.publication_no<=0 or h.happened_at is null or h.reason<>'pre-history'
+                    or h.admin_actor_id is not null or h.publication_no<=0 or h.happened_at is null or h.reason<>'pre-history'
                  when h.kind='retained-hidden' then
                     h.event_no<>1 or h.actor_id is not null or h.publication_id is not null
-                    or h.publication_no<=0 or h.happened_at is not null or h.reason<>'pre-history'
+                    or h.admin_actor_id is not null or h.publication_no<=0 or h.happened_at is not null or h.reason<>'pre-history'
+                 {adminVerification}
                  else
                     h.actor_id is distinct from a.owner_id or c.article_id is distinct from h.article_id
                     or c.revision is distinct from h.revision or h.happened_at is null
@@ -105,6 +160,7 @@ internal static partial class Migration
               and not exists (select from public.article_publication_history h
                    where h.article_id=e.article_id and h.revision=e.revision
                      and e.kind=case h.kind when 'replace' then 'publish' else h.kind end)
+            {adminOrphans}
             limit 1
             """, connection, tx);
         if (await command.ExecuteScalarAsync(ct) is int id)

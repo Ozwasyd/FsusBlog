@@ -47,6 +47,9 @@ public enum FrameType : ushort
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
     AdminSitePages = 32905,
+    AdminArticleRollbackIntent = 32924,
+    AdminArticleRollbackPreview = 32925,
+    AdminArticleRollbackReceipt = 32926,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
     AdminTaxonomyPage = 32864,
@@ -192,6 +195,7 @@ public static class WireLimits
     public const int RevisionHistoryCursorChars = 54;
     public const int RollbackReasonBytes = 2000;
     public const int MaxDraftRollbackFrameBytes = 2056;
+    public const int MaxAdminArticleRollbackFrameBytes = 2064;
     public const int ArticleRightsTokenBytes = 48;
     public const int ArticleRightsHolderBytes = 1024;
     public const int ArticleRightsTextBytes = 16000;
@@ -475,6 +479,11 @@ public static class WireRoutes
     public const string AdminStepUpBegin = "/api/v2/admin/identity/step-up/passkey/begin.aeds";
     public const string AdminStepUpComplete = "/api/v2/admin/identity/step-up/passkey/complete.aeds";
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
+    public const string AdminArticleRollbackAvailability = "/api/v2/admin/identity/articles/rollback/available.aeds";
+    public const string AdminArticleRollbackPreview = "/api/v2/admin/identity/articles/rollback/preview.aeds";
+    public const string AdminArticleRollbackStepUpBegin = "/api/v2/admin/identity/articles/rollback/step-up/begin.aeds";
+    public const string AdminArticleRollbackStepUpComplete = "/api/v2/admin/identity/articles/rollback/step-up/complete.aeds";
+    public const string AdminArticleRollbackExecute = "/api/v2/admin/identity/articles/rollback/execute.aeds";
     public const string AdminSitePages = "/api/v2/admin/identity/site-pages.aeds";
     public const string AdminSitePage = "/api/v2/admin/identity/site-pages/{slug}.aeds";
     public const string AdminSitePageRevision = "/api/v2/admin/identity/site-pages/{slug}/revision.aeds";
@@ -587,6 +596,9 @@ public sealed record AdminModerationDecision(int ArticleId, long CommentId, int 
 public sealed record AdminModerationIntent(int ArticleId, long CommentId, int ExpectedStatus, int Decision, string Reason);
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
+public sealed record AdminArticleRollbackIntent(int ArticleId, long ExpectedRevision, long ExpectedPublicationId, long SourceRevision, Guid IdempotencyKey, string Reason);
+public sealed record AdminArticleRollbackPreview(int ArticleId, long CurrentRevision, long CurrentPublicationId, long SourceRevision, long SourcePublicationId, string SourceTitle, bool PackageComplete, int BlockingReason);
+public sealed record AdminArticleRollbackReceipt(int ArticleId, long Revision, long SourceRevision, long PreviousPublicationId, long PublicationId, int PublicationNo, long PublishedUnixMs, long RightsSnapshotId, long ResponsibilitySnapshotId);
 public sealed record AdminSitePages(int ConfiguredMask);
 public sealed record AdminSitePageRevision(string Slug, long Revision, string Digest, string Markdown);
 public sealed record AdminSitePagePublish(string Slug, long ExpectedRevision, string ExpectedDigest, string Markdown);
@@ -816,6 +828,77 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminOperationsStatus));
         var value = new AdminOperationsStatus(reader.Bool(), reader.I64(), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminArticleRollbackIntent(AdminArticleRollbackIntent value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.ExpectedRevision);
+        writer.I64(value.ExpectedPublicationId);
+        writer.I64(value.SourceRevision);
+        writer.Uuid(value.IdempotencyKey);
+        writer.Text(value.Reason, WireLimits.RollbackReasonBytes);
+        return Aeds.Encode(FrameType.AdminArticleRollbackIntent, writer.Written);
+    }
+
+    public static AdminArticleRollbackIntent DecodeAdminArticleRollbackIntent(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleRollbackIntent));
+        var value = new AdminArticleRollbackIntent(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Uuid(), reader.Text(WireLimits.RollbackReasonBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminArticleRollbackPreview(AdminArticleRollbackPreview value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.CurrentRevision);
+        writer.I64(value.CurrentPublicationId);
+        writer.I64(value.SourceRevision);
+        writer.I64(value.SourcePublicationId);
+        writer.Text(value.SourceTitle, WireLimits.TitleBytes);
+        writer.Bool(value.PackageComplete);
+        writer.I32(value.BlockingReason);
+        return Aeds.Encode(FrameType.AdminArticleRollbackPreview, writer.Written);
+    }
+
+    public static AdminArticleRollbackPreview DecodeAdminArticleRollbackPreview(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleRollbackPreview));
+        var value = new AdminArticleRollbackPreview(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.Text(WireLimits.TitleBytes), reader.Bool(), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminArticleRollbackReceipt(AdminArticleRollbackReceipt value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.Revision);
+        writer.I64(value.SourceRevision);
+        writer.I64(value.PreviousPublicationId);
+        writer.I64(value.PublicationId);
+        writer.I32(value.PublicationNo);
+        writer.I64(value.PublishedUnixMs);
+        writer.I64(value.RightsSnapshotId);
+        writer.I64(value.ResponsibilitySnapshotId);
+        return Aeds.Encode(FrameType.AdminArticleRollbackReceipt, writer.Written);
+    }
+
+    public static AdminArticleRollbackReceipt DecodeAdminArticleRollbackReceipt(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminArticleRollbackReceipt));
+        var value = new AdminArticleRollbackReceipt(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.I64(), reader.I32(), reader.I64(), reader.I64(), reader.I64());
         reader.Finish();
         Validate(value);
         return value;

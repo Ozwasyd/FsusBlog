@@ -42,6 +42,10 @@ internal static partial class Migration
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
                   publication-history   Retain current publication coordinates and add event history with the server stopped
                   publication-rights    Add rights storage while leaving missing publication rights private
+                  admin-article-rollback schema
+                                        Add independent published rollback storage with the server stopped
+                  article-responsibility record ARTICLE REVISION
+                                        Record explicit historical responsibility JSON from stdin
                   article-schedule      Add pending publication and command receipts with the server stopped
                   private-media-upload schema
                                         Add private resumable upload staging with the server stopped
@@ -202,6 +206,12 @@ internal static partial class Migration
                 case ["publication-rights"]:
                     await InitializePublicationRightsAsync(connection, token);
                     break;
+                case ["admin-article-rollback", "schema"]:
+                    await InitializeAdminArticleRollbackAsync(connection, token);
+                    break;
+                case ["article-responsibility", "record", var responsibilityArticle, var responsibilityRevision]:
+                    await RecordArticleResponsibilityAsync(connection, responsibilityArticle, responsibilityRevision, token);
+                    break;
                 case ["article-schedule"]:
                     await InitializeArticleScheduleAsync(connection, token);
                     break;
@@ -313,7 +323,7 @@ internal static partial class Migration
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireSiteRefresh: true,
-            requireSitePageEditor: true);
+            requireSitePageEditor: true, requireAdminArticleRollback: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

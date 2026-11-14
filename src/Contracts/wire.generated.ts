@@ -46,6 +46,9 @@ export const FrameType = {
   AdminSessionSnapshot: 32830,
   AdminOperationsStatus: 32850,
   AdminSitePages: 32905,
+  AdminArticleRollbackIntent: 32924,
+  AdminArticleRollbackPreview: 32925,
+  AdminArticleRollbackReceipt: 32926,
   AdminSitePageRevision: 32915,
   AdminSitePagePublish: 32916,
   AdminTaxonomyPage: 32864,
@@ -189,6 +192,7 @@ export const WireLimits = {
   RevisionHistoryCursorChars: 54,
   RollbackReasonBytes: 2000,
   MaxDraftRollbackFrameBytes: 2056,
+  MaxAdminArticleRollbackFrameBytes: 2064,
   ArticleRightsTokenBytes: 48,
   ArticleRightsHolderBytes: 1024,
   ArticleRightsTextBytes: 16000,
@@ -470,6 +474,11 @@ export const WireRoutes = {
   AdminStepUpBegin: "/api/v2/admin/identity/step-up/passkey/begin.aeds",
   AdminStepUpComplete: "/api/v2/admin/identity/step-up/passkey/complete.aeds",
   AdminOperationsStatus: "/api/v2/admin/identity/operations/status.aeds",
+  AdminArticleRollbackAvailability: "/api/v2/admin/identity/articles/rollback/available.aeds",
+  AdminArticleRollbackPreview: "/api/v2/admin/identity/articles/rollback/preview.aeds",
+  AdminArticleRollbackStepUpBegin: "/api/v2/admin/identity/articles/rollback/step-up/begin.aeds",
+  AdminArticleRollbackStepUpComplete: "/api/v2/admin/identity/articles/rollback/step-up/complete.aeds",
+  AdminArticleRollbackExecute: "/api/v2/admin/identity/articles/rollback/execute.aeds",
   AdminSitePages: "/api/v2/admin/identity/site-pages.aeds",
   AdminSitePage: "/api/v2/admin/identity/site-pages/{slug}.aeds",
   AdminSitePageRevision: "/api/v2/admin/identity/site-pages/{slug}/revision.aeds",
@@ -836,6 +845,123 @@ export function decodeAdminOperationsStatus(payload: Uint8Array): AdminOperation
     publicationWatermark: reader.i64(),
     pendingPublicationEvents: reader.i64(),
     oldestPendingAt: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminArticleRollbackIntent {
+  articleId: number;
+  expectedRevision: bigint;
+  expectedPublicationId: bigint;
+  sourceRevision: bigint;
+  idempotencyKey: string;
+  reason: string;
+}
+
+export function encodeAdminArticleRollbackIntent(value: AdminArticleRollbackIntent): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.expectedRevision);
+  writer.i64(value.expectedPublicationId);
+  writer.i64(value.sourceRevision);
+  writer.uuid(value.idempotencyKey);
+  writer.text(value.reason, WireLimits.RollbackReasonBytes);
+  return writer.finish();
+}
+
+export function decodeAdminArticleRollbackIntent(payload: Uint8Array): AdminArticleRollbackIntent {
+  const reader = new PodReader(payload);
+  const value: AdminArticleRollbackIntent = {
+    articleId: reader.i32(),
+    expectedRevision: reader.i64(),
+    expectedPublicationId: reader.i64(),
+    sourceRevision: reader.i64(),
+    idempotencyKey: reader.uuid(),
+    reason: reader.text(WireLimits.RollbackReasonBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminArticleRollbackPreview {
+  articleId: number;
+  currentRevision: bigint;
+  currentPublicationId: bigint;
+  sourceRevision: bigint;
+  sourcePublicationId: bigint;
+  sourceTitle: string;
+  packageComplete: boolean;
+  blockingReason: number;
+}
+
+export function encodeAdminArticleRollbackPreview(value: AdminArticleRollbackPreview): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.currentRevision);
+  writer.i64(value.currentPublicationId);
+  writer.i64(value.sourceRevision);
+  writer.i64(value.sourcePublicationId);
+  writer.text(value.sourceTitle, WireLimits.TitleBytes);
+  writer.bool(value.packageComplete);
+  writer.i32(value.blockingReason);
+  return writer.finish();
+}
+
+export function decodeAdminArticleRollbackPreview(payload: Uint8Array): AdminArticleRollbackPreview {
+  const reader = new PodReader(payload);
+  const value: AdminArticleRollbackPreview = {
+    articleId: reader.i32(),
+    currentRevision: reader.i64(),
+    currentPublicationId: reader.i64(),
+    sourceRevision: reader.i64(),
+    sourcePublicationId: reader.i64(),
+    sourceTitle: reader.text(WireLimits.TitleBytes),
+    packageComplete: reader.bool(),
+    blockingReason: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminArticleRollbackReceipt {
+  articleId: number;
+  revision: bigint;
+  sourceRevision: bigint;
+  previousPublicationId: bigint;
+  publicationId: bigint;
+  publicationNo: number;
+  publishedUnixMs: bigint;
+  rightsSnapshotId: bigint;
+  responsibilitySnapshotId: bigint;
+}
+
+export function encodeAdminArticleRollbackReceipt(value: AdminArticleRollbackReceipt): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.revision);
+  writer.i64(value.sourceRevision);
+  writer.i64(value.previousPublicationId);
+  writer.i64(value.publicationId);
+  writer.i32(value.publicationNo);
+  writer.i64(value.publishedUnixMs);
+  writer.i64(value.rightsSnapshotId);
+  writer.i64(value.responsibilitySnapshotId);
+  return writer.finish();
+}
+
+export function decodeAdminArticleRollbackReceipt(payload: Uint8Array): AdminArticleRollbackReceipt {
+  const reader = new PodReader(payload);
+  const value: AdminArticleRollbackReceipt = {
+    articleId: reader.i32(),
+    revision: reader.i64(),
+    sourceRevision: reader.i64(),
+    previousPublicationId: reader.i64(),
+    publicationId: reader.i64(),
+    publicationNo: reader.i32(),
+    publishedUnixMs: reader.i64(),
+    rightsSnapshotId: reader.i64(),
+    responsibilitySnapshotId: reader.i64(),
   };
   reader.finish();
   return value;
