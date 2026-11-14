@@ -2,7 +2,7 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "tests/tools/pr-impact-plan.test.mjs",
-        "tools/style/markdownlint-toolchain/package.json"
+        "tools/style/markdown-toolchain/package.json"
     ],
     "outputs": [
         {
@@ -10,8 +10,8 @@
             "sha256": "70f6f4ee826e7355aaf900c78f32cb361107964c34a915efbabae97c77046a86"
         },
         {
-            "path": "tools/style/markdownlint-toolchain/package-lock.json",
-            "sha256": "7e39ce8824e6fcd61aebb1ee2d95bbbf556a581a2b43f96a6707c1ff43d321c8"
+            "path": "tools/style/markdown-toolchain/package-lock.json",
+            "sha256": "e5788f85561bae3d249a6167ed81a56849d5896c61e23862c9509fc1c6b9f312"
         }
     ]
 }

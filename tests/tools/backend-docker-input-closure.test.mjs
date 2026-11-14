@@ -153,6 +153,8 @@ test('Redis budget embedded resource has an exact backend input binding', () =>
     assert.equal(inventory.allowedExternalItemFiles.filter(input => input === file).length, 1);
     assert.ok(!inventory.allowedExternalItemRoots.some(prefix => file.startsWith(`${prefix}/`)));
     assert.match(project, /<EmbeddedResource Include="\.\.\\\.\.\\config\\runtime\\redis-operation-budgets\.json"/u);
+    const workflow = fs.readFileSync(path.join(root, '.github/workflows/production-image-verification.yml'), 'utf8');
+    assert.match(workflow, /^\s+- config\/runtime\/redis-operation-budgets\.json$/mu);
 });
 
 test('backend evaluation uses synthetic identity and a closed mount/environment map', () =>

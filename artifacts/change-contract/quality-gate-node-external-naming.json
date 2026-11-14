@@ -16,7 +16,7 @@
                 "config/dependencies/update-surface.json",
                 "config/build/backend-docker-inputs.json"
             ],
-            "reason": "Preserve the existing generated execution authority JSON schema and external field names."
+            "reason": "Preserve the existing execution authority, dependency catalog and backend input inventory JSON schemas and field names."
         }
     ]
 }

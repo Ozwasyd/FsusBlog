@@ -301,8 +301,8 @@ jobs:
                   name: quality-gate-pr-smart-gate-plan
                   path: .tmp
             - run: npm --prefix tools/frontend/style-toolchain ci --ignore-scripts --no-audit --progress=false
-            - run: npm --prefix tools/style/markdownlint-toolchain ci --ignore-scripts --no-audit --progress=false
-            - run: echo "$GITHUB_WORKSPACE/tools/style/markdownlint-toolchain/node_modules/.bin" >> "$GITHUB_PATH"
+            - run: npm --prefix tools/style/markdown-toolchain ci --ignore-scripts --no-audit --progress=false
+            - run: echo "$GITHUB_WORKSPACE/tools/style/markdown-toolchain/node_modules/.bin" >> "$GITHUB_PATH"
             - run: node tools/test-matrix/source-governance.mjs
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               if: always()
