@@ -8,6 +8,7 @@ import gzip
 import hashlib
 import json
 import re
+from collections import Counter
 from pathlib import Path
 
 
@@ -133,6 +134,9 @@ def route(issue):
 
 
 DECISIONS = {"采用", "合并采用", "仅吸收教训", "旧工程限定，不适用", "待决冲突"}
+PRIORITY_ISSUES = {1950, 2218, 2295, 2322, 3665, 3738, 4234, 4537, 4750}
+COMMENT_HEADER = ("sourceIssue", "sourceComment", "sourceUpdatedAt", "decision", "note", "acceptanceLinks")
+REQUIREMENT_REFERENCE = re.compile(r"\b(?:V2S-\d+|R-\d+-[A-Z]?\d+)\b")
 
 
 def dispositions(folder, issues):
@@ -162,6 +166,56 @@ def dispositions(folder, issues):
                 requirement_ids.add(req)
                 coverage.setdefault(n, []).append((file, row))
     return coverage
+
+
+def comment_progress(folder, issues, coverage):
+    frozen = {}
+    for issue in issues:
+        for comment in issue["comments"]:
+            url = comment["url"]
+            if url in frozen:
+                raise ValueError(f"duplicate frozen comment URL: {url}")
+            frozen[url] = (issue, comment)
+    requirements = {row["requirementId"] for entries in coverage.values() for _, row in entries}
+    classified = set()
+    decisions, methods = Counter(), Counter()
+    file_counts = {}
+    for path in sorted(folder.glob("comments-*.tsv")):
+        count = 0
+        with path.open(encoding="utf-8", newline="") as stream:
+            reader = csv.DictReader(stream, delimiter="\t")
+            if tuple(reader.fieldnames or ()) not in (COMMENT_HEADER, COMMENT_HEADER + ("reviewMethod",)):
+                raise ValueError(f"unexpected comment review header in {path.name}")
+            for row in reader:
+                url = row["sourceComment"]
+                if url in classified or url not in frozen:
+                    raise ValueError(f"duplicate or unknown comment in {path.name}: {url}")
+                issue, comment = frozen[url]
+                if (row["sourceIssue"] not in (issue["url"], f"#{issue['number']}")
+                        or row["sourceUpdatedAt"] != comment["updatedAt"]
+                        or row["decision"] not in DECISIONS or not row["note"].strip()
+                        or (row["decision"] != "旧工程限定，不适用" and not row["acceptanceLinks"].strip())):
+                    raise ValueError(f"invalid comment review in {path.name}: {url}")
+                unknown = set(REQUIREMENT_REFERENCE.findall(row["acceptanceLinks"])) - requirements
+                if unknown:
+                    raise ValueError(f"unknown acceptance reference in {path.name}: {url}: {sorted(unknown)}")
+                classified.add(url)
+                decisions[row["decision"]] += 1
+                methods[row.get("reviewMethod") or "内容摘要或明确注明的证据复用"] += 1
+                count += 1
+        file_counts[path.name] = count
+    pending = Counter(issue["number"] for url, (issue, _) in frozen.items() if url not in classified)
+    return {
+        "totalFrozenComments": len(frozen),
+        "classifiedComments": len(classified),
+        "unclassifiedComments": sum(pending.values()),
+        "priorityCommentsClassified": sum(frozen[url][0]["number"] in PRIORITY_ISSUES for url in classified),
+        "classificationCountsByFile": file_counts,
+        "decisionCounts": dict(decisions),
+        "reviewMethodCounts": dict(methods),
+        "pendingCountsByIssue": dict(sorted(pending.items())),
+        "allCommentsSubstantivelyReviewed": False,
+    }
 
 
 def review_queue(issues, edges, coverage):
@@ -195,6 +249,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     repository, issues = verify(args.input, args.independent_rest)
     coverage = dispositions(args.input, issues)
+    comment_review = comment_progress(args.input, issues, coverage)
     edges = [edge for issue in issues for edge in references(repository, issue)]
     tsv(args.input / "text-reference-candidates.tsv",
         ("sourceIssue", "sourceDocument", "line", "marker", "targetRepository", "targetNumber"), edges)
@@ -208,5 +263,8 @@ if __name__ == "__main__":
         "fullClauseAdjudicationComplete": False,
     }
     (args.input / "review-progress.json").write_text(json.dumps(result, indent=2) + "\n")
+    (args.input / "comment-progress.json").write_text(json.dumps(comment_review, ensure_ascii=False, indent=2) + "\n")
     print(f"Validated {len(issues)} frozen issues; {len(coverage)} have disposition rows; "
           f"{len(missing)} are queued; indexed {len(edges)} explicit-text reference candidates.")
+    print(f"Validated {comment_review['classifiedComments']} distinct comment dispositions; "
+          f"{comment_review['unclassifiedComments']} comments are queued.")
