@@ -9,7 +9,7 @@ export type AdminInboxFilter = '' | 'open' | 'pending' | 'closed';
 export type AdminInboxStatus = 0 | 1 | 2;
 export type AdminInboxRow = { id: bigint; account: string; subject: string; status: AdminInboxStatus; system: boolean; updated: number };
 export type AdminInboxMessage = { id: bigint; sender: 0 | 1 | 2; internal: boolean; at: number; body: string };
-export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null };
+export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null; noticesEnabled: boolean };
 export type AdminInboxThread = { conversation: AdminInboxRow; messages: AdminInboxMessage[]; previous: string | null; repliesEnabled: boolean;
   version: string | null };
 
@@ -17,13 +17,15 @@ export function adminInbox(filter: AdminInboxFilter, next: string | null, signal
   const query = new URLSearchParams();
   if (filter) query.set('status', filter);
   if (next) query.set('cursor', next);
-  return request(`${WireRoutes.AdminInboxQueue}?${query}`, FrameType.AdminInboxPage, payload => {
+  return request(`${WireRoutes.AdminInboxQueue}?${query}`, FrameType.AdminInboxPage, (payload, headers) => {
     const reader = new PodReader(payload);
     const following = cursor(reader);
     const rows = Array.from({ length: count(reader, following) }, () => row(reader));
     if (rows.some((item, index) => index > 0 && item.id >= rows[index - 1].id)) throw invalid();
     reader.finish();
-    return { rows, next: following };
+    const flag = headers.get(WireHeaders.AdminInboxNoticeEnabled);
+    if (flag !== null && flag !== '1') throw invalid();
+    return { rows, next: following, noticesEnabled: flag === '1' };
   }, signal);
 }
 

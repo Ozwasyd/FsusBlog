@@ -361,6 +361,7 @@ enum class FrameType : uint16_t {
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
     AdminInboxThread = 32897,
+    AdminInboxNotice = 32942,
     AdminModerationIntent = 32866,
     AdminModerationClaimRequest = 32867,
     AdminModerationClaim = 32868,
@@ -493,6 +494,7 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminCommentQueue:
         case FrameType::AdminInboxPage:
         case FrameType::AdminInboxThread:
+        case FrameType::AdminInboxNotice:
         case FrameType::AdminModerationIntent:
         case FrameType::AdminModerationClaimRequest:
         case FrameType::AdminModerationClaim:

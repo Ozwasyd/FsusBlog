@@ -54,6 +54,7 @@ internal static partial class Migration
                   saved-views          Add private author saved views with the server stopped
                   admin-inbox-replies   Add administrator reply attribution with the server stopped
                   admin-inbox-status    Add administrator status auditing with the server stopped
+                  admin-inbox-notice    Add targeted administrator notice auditing with the server stopped
                   site-subscription schema
                                         Add optional subscription storage with the server stopped
                   site-subscription issue-cancel rss|email
@@ -242,6 +243,9 @@ internal static partial class Migration
                 case ["admin-inbox-status"]:
                     await InitializeAdminInboxStatusAsync(connection, token);
                     break;
+                case ["admin-inbox-notice"]:
+                    await InitializeAdminInboxNoticeAsync(connection, token);
+                    break;
                 case ["site-subscription", "schema"]:
                     await InitializeSiteSubscriptionAsync(connection, token);
                     break;
@@ -342,7 +346,7 @@ internal static partial class Migration
         if (!await CurrentSchema.HasAuthoringWorkspaceLayoutAsync(connection, transaction, token))
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
-            requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireSiteRefresh: true,
+            requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireSiteRefresh: true,
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);

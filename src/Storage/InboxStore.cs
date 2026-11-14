@@ -130,10 +130,22 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
 
     internal async Task<InboxMutation> SendNoticeAsync(string producerEventId, string subject, string body, CancellationToken cancellationToken)
     {
-        await using var recipient = Command("SELECT id FROM public.blog_user WHERE id = @account AND enabled FOR SHARE");
-        if (await recipient.ExecuteScalarAsync(cancellationToken) is null)
-            throw new BusinessException(Rejection.NotFound, "Inbox account not found.");
+        await RequireNoticeRecipient(cancellationToken);
         return await StartAsync(InboxRules.CommandId(producerEventId), subject, body, InboxSender.System, cancellationToken);
+    }
+
+    internal async Task<InboxMessage> SendAdministratorNotice(string subject, string body, CancellationToken ct)
+    {
+        await RequireNoticeRecipient(ct);
+        await LockDeliveryAsync(ct);
+        return await StartConversation(InboxRules.Subject(subject, system: true), InboxRules.Body(body), InboxSender.System, ct);
+    }
+
+    private async Task RequireNoticeRecipient(CancellationToken ct)
+    {
+        await using var recipient = Command("SELECT id FROM public.blog_user WHERE id = @account AND enabled FOR SHARE");
+        if (await recipient.ExecuteScalarAsync(ct) is null)
+            throw new BusinessException(Rejection.NotFound, "Inbox account not found.");
     }
 
     private async Task<InboxMutation> StartAsync(string commandId, string subject, string body, InboxSender sender, CancellationToken cancellationToken)
@@ -146,6 +158,14 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         var replay = await FindCommandAsync(commandId, system, fingerprint, cancellationToken);
         if (replay is not null) return replay;
 
+        var message = await StartConversation(subject, body, sender, cancellationToken);
+        await RecordCommandAsync(commandId, system, fingerprint, message, cancellationToken);
+        return new InboxMutation(message, Replayed: false);
+    }
+
+    private async Task<InboxMessage> StartConversation(string subject, string body, InboxSender sender, CancellationToken cancellationToken)
+    {
+        var system = sender == InboxSender.System;
         await using var insert = Command("""
             INSERT INTO public.inbox_conversation (account_id, subject, status, is_system, last_message_at)
             VALUES (@account, @subject, 0, @system, clock_timestamp()) RETURNING id
@@ -154,11 +174,10 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         var message = await AppendAsync(conversationId, sender, body, cancellationToken);
         if (!system)
             await SetReadAsync(conversationId, message.Id, cancellationToken);
-        await RecordCommandAsync(commandId, system, fingerprint, message, cancellationToken);
         await RecordEventAsync(InboxEventKind.ConversationUpsert, message.ConversationId, message.Id, cancellationToken);
         if (system)
             await RecordEventAsync(InboxEventKind.MessageAppend, message.ConversationId, message.Id, cancellationToken);
-        return new InboxMutation(message, Replayed: false);
+        return message;
     }
 
     public async Task<InboxMutation> ReplyAsync(long conversationId, long readThrough, string commandId, string body, CancellationToken cancellationToken)

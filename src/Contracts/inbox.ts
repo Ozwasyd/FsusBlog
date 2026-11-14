@@ -181,7 +181,11 @@ export function decodeInboxCreated(payload: Uint8Array): InboxThread {
   return decodeThread(payload, true);
 }
 
-function decodeThread(payload: Uint8Array, created: boolean): InboxThread {
+export function decodeSystemNoticeSent(payload: Uint8Array) {
+  return decodeThread(payload, true, true);
+}
+
+function decodeThread(payload: Uint8Array, created: boolean, systemNotice = false): InboxThread & { readonly replayed: boolean } {
   const packet = new Packet(payload);
   const id = packet.position(0);
   const state = knownValue(packet, 8);
@@ -195,7 +199,7 @@ function decodeThread(payload: Uint8Array, created: boolean): InboxThread {
   if (previous < 0n || canReply !== (state !== 2) || (!created && hasPreviousOrReplayed !== (previous > 0n))) invalid();
   packet.reserved(flags + 3, 1);
   const count = packet.i32(header);
-  if (count < (created ? 1 : 0) || count > 50 || (created && isSystem)) invalid();
+  if (count < (created ? 1 : 0) || count > 50 || (created && isSystem !== systemNotice)) invalid();
   const first = header + 4;
   packet.setArena(first + count * messageRecordBytes);
   const messages: InboxMessage[] = [];
@@ -208,7 +212,8 @@ function decodeThread(payload: Uint8Array, created: boolean): InboxThread {
   }
   if (count > 0 && lastMessage !== readThrough) invalid();
   return { id, status: state, unreadCount: unread(packet, 12), lastMessageAt: packet.time(16), readThrough,
-    previous: previous === 0n ? null : previous, isSystem, subject: packet.text(flags + 4, subjectBytes), messages };
+    previous: previous === 0n ? null : previous, isSystem, subject: packet.text(flags + 4, subjectBytes), messages,
+    replayed: created && hasPreviousOrReplayed };
 }
 
 export function decodeInboxReplied(payload: Uint8Array, conversation: bigint, expectedSender: InboxSender = 0): InboxMessage {

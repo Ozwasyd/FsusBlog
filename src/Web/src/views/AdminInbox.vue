@@ -2,6 +2,7 @@
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
+import { adminSendNotice, isNoticeRecipient, newNoticeEventId } from '../../../Contracts/admin-inbox-notice'
 import { adminChangeStatus, adminInbox, adminInboxThread, adminReply, type AdminInboxFilter, type AdminInboxRow,
   type AdminInboxStatus, type AdminInboxThread } from '../../../Contracts/admin-inbox'
 
@@ -20,6 +21,11 @@ const notice = ref('')
 const destination = ref<AdminInboxStatus>()
 const reason = ref('')
 const needsRefresh = ref(false)
+const noticesEnabled = ref(false)
+const composeNotice = ref(false)
+const recipient = ref('')
+const noticeSubject = ref('')
+const noticeBody = ref('')
 const statuses = ['Open', 'Pending', 'Closed'] as const
 const statusFilters = ['open', 'pending', 'closed'] as const
 const transitions: readonly (readonly AdminInboxStatus[])[] = [[1, 2], [0, 2], [0]]
@@ -27,6 +33,7 @@ const senders = ['Account', 'Administrator', 'System'] as const
 let operation = new AbortController()
 let opener: HTMLElement | undefined
 let attempt: { conversation: bigint; body: string; key: string } | undefined
+let noticeAttempt: { account: string; subject: string; body: string; eventId: bigint } | undefined
 
 function reset() {
   operation.abort()
@@ -39,6 +46,8 @@ function reset() {
   opener = undefined
   clearReply()
   clearStatus()
+  clearNotice()
+  noticesEnabled.value = false
 }
 
 function closeThread() {
@@ -67,6 +76,7 @@ function loadQueue(cursor: string | null = null) {
     if (signal.aborted) return
     rows.value = cursor ? [...rows.value, ...page.rows] : page.rows
     next.value = page.next
+    noticesEnabled.value = page.noticesEnabled
   })
 }
 
@@ -94,6 +104,37 @@ function clearStatus() {
   destination.value = undefined
   reason.value = ''
   needsRefresh.value = false
+}
+
+function clearNotice() {
+  composeNotice.value = false
+  recipient.value = ''
+  noticeSubject.value = ''
+  noticeBody.value = ''
+  noticeAttempt = undefined
+}
+
+function sendNotice() {
+  const account = recipient.value.trim().toLowerCase()
+  const subject = noticeSubject.value
+  const body = noticeBody.value
+  if (!noticesEnabled.value || !isNoticeRecipient(account) || !body.trim() || pending.value) return
+  if (noticeAttempt?.account !== account || noticeAttempt.subject !== subject || noticeAttempt.body !== body)
+    noticeAttempt = { account, subject, body, eventId: newNoticeEventId() }
+  const eventId = noticeAttempt.eventId
+  notice.value = ''
+  void read(async signal => {
+    await adminSendNotice(account, subject, body, eventId, signal)
+    if (signal.aborted) return
+    clearNotice()
+    notice.value = 'System notice sent to the account.'
+    const page = await adminInbox(filter.value, null, signal)
+    if (!signal.aborted) {
+      rows.value = page.rows
+      next.value = page.next
+      noticesEnabled.value = page.noticesEnabled
+    }
+  }, 'Could not complete the system notice request. Retry the same form to keep its source event.')
 }
 
 async function refreshThread(id: bigint, signal: AbortSignal) {
@@ -185,6 +226,21 @@ onBeforeUnmount(() => operation.abort())
           <ElOption label="Closed" value="closed" />
         </ElSelect>
         <ElButton native-type="button" text :loading="pending" @click="loadQueue()">Refresh conversations</ElButton>
+        <ElButton v-if="noticesEnabled && !composeNotice" native-type="button" :disabled="pending"
+          @click="composeNotice = true">Compose system notice</ElButton>
+        <form v-if="noticesEnabled && composeNotice" class="inbox-admin-reply" @submit.prevent="sendNotice">
+          <label for="admin-notice-account">Recipient account UUID</label>
+          <ElInput id="admin-notice-account" v-model="recipient" :disabled="pending" />
+          <label for="admin-notice-subject">Notice subject</label>
+          <ElInput id="admin-notice-subject" v-model="noticeSubject" :disabled="pending" />
+          <label for="admin-notice-body">Notice message</label>
+          <ElInput id="admin-notice-body" v-model="noticeBody" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :disabled="pending" />
+          <div class="inbox-admin-notice-actions">
+            <ElButton native-type="submit" type="primary" :loading="pending"
+              :disabled="!isNoticeRecipient(recipient.trim()) || !noticeBody.trim()">Send system notice</ElButton>
+            <ElButton native-type="button" :disabled="pending" @click="clearNotice">Cancel notice</ElButton>
+          </div>
+        </form>
         <p v-if="!pending && !failed && rows.length === 0">No conversations.</p>
         <ul v-if="rows.length" class="inbox-admin-list">
           <li v-for="item in rows" :key="String(item.id)">
@@ -223,8 +279,8 @@ onBeforeUnmount(() => operation.abort())
           <ElButton native-type="submit" :loading="pending"
             :disabled="destination === undefined || !reason.trim() || reason.trim().length > 256">Save status</ElButton>
         </form>
-        <p v-if="notice" role="status">{{ notice }}</p>
       </section>
+      <p v-if="notice" role="status">{{ notice }}</p>
     </template>
   </section>
 </template>
@@ -241,4 +297,6 @@ onBeforeUnmount(() => operation.abort())
 .inbox-admin-body { white-space: pre-wrap; }
 .inbox-admin-reply { display: grid; gap: var(--fsus-space-2); padding-block: var(--fsus-space-3); }
 .inbox-admin-reply > button { justify-self: start; }
+.inbox-admin-notice-actions { display: flex; flex-wrap: wrap; gap: var(--fsus-space-2); }
+.inbox-admin-notice-actions :deep(.el-button + .el-button) { margin-inline-start: 0; }
 </style>

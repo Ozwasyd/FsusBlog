@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { PodReader } from '../../src/Contracts/binary.ts'
 
 export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, siteCookie, adminCookieName, probe, evidence) {
   const queue = adminOrigin + WireRoutes.AdminInboxQueue
@@ -15,6 +16,41 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   const closed = panel.getByRole('button', { name: 'Inbox QA closed case' })
   await subject.waitFor()
   await closed.waitFor()
+  if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_NOTICE === '1') {
+    const list = await context.request.get(queue)
+    assert.equal(list.status(), 200)
+    const queueRows = new PodReader(decodeFrame(await list.body(), FrameType.AdminInboxPage).payload)
+    queueRows.text(100)
+    assert.equal(queueRows.i32(), 2)
+    queueRows.i64()
+    const accountId = queueRows.uuid()
+    const title = 'QA targeted system notice'
+    const content = 'This is a system notice visible to its specified account.'
+    const reader = await context.newPage()
+    try {
+      await reader.goto(`${siteOrigin}/user/messagebox`)
+      await reader.getByRole('button', { name: /Inbox QA support case/ }).waitFor()
+      await page.bringToFront()
+      await panel.getByRole('button', { name: 'Compose system notice', exact: true }).click()
+      const submit = panel.getByRole('button', { name: 'Send system notice', exact: true })
+      assert.equal(await submit.isEnabled(), false)
+      await panel.getByLabel('Recipient account UUID').fill(accountId)
+      await panel.getByLabel('Notice subject').fill(title)
+      await panel.getByLabel('Notice message').fill(content)
+      const challenge = page.waitForResponse(response => response.url().endsWith('/system-send-pow.aeds'))
+      const send = page.waitForResponse(response => response.url().endsWith('/system-send.aeds'))
+      await submit.click()
+      assert.equal((await challenge).status(), 200)
+      assert.equal((await send).status(), 200)
+      await panel.getByText('System notice sent to the account.', { exact: true }).waitFor()
+      await reader.bringToFront()
+      await reader.getByRole('button', { name: new RegExp(title) }).click()
+      await reader.getByText(content, { exact: true }).last().waitFor()
+      await reader.screenshot({ path: join(evidence, 'admin-inbox-account-notice.png'), animations: 'disabled' })
+    } finally { await reader.close() }
+  } else {
+    assert.equal(await panel.getByRole('button', { name: 'Compose system notice', exact: true }).count(), 0)
+  }
   const filter = panel.getByRole('combobox', { name: 'Filter support inbox' })
   await filter.click()
   await page.getByRole('option', { name: 'Open', exact: true }).click()
