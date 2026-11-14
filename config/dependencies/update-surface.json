@@ -818,6 +818,22 @@
       ]
     },
     {
+      "id": "npm-markdownlint-cli2-style-toolchain",
+      "datasource": "npm",
+      "packageName": "markdownlint-cli2",
+      "manager": "npm",
+      "files": [
+        "tools/style/markdownlint-toolchain/package.json",
+        "tools/style/markdownlint-toolchain/package-lock.json"
+      ],
+      "versioning": "npm",
+      "group": "frontend-test-tooling",
+      "stabilityPolicy": "stable-only",
+      "fieldPaths": [
+        "/devDependencies/markdownlint-cli2"
+      ]
+    },
+    {
       "id": "npm-eslint-style-toolchain",
       "datasource": "npm",
       "packageName": "eslint",
@@ -2624,7 +2640,9 @@
         "tools/test-inventory/ts-ast-adapter/package.json",
         "tools/test-inventory/ts-ast-adapter/package-lock.json",
         "tools/test-matrix/schema-validator/package.json",
-        "tools/test-matrix/schema-validator/package-lock.json"
+        "tools/test-matrix/schema-validator/package-lock.json",
+        "tools/style/markdownlint-toolchain/package.json",
+        "tools/style/markdownlint-toolchain/package-lock.json"
       ],
       "versioning": "npm",
       "group": "container-toolchain",
