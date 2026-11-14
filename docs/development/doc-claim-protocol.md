@@ -192,6 +192,8 @@ dependency-graph-table
 
 Renderers format only. They do not import business source, extractors, or tests. Business facts enter as sealed `FactObservationReceipt` values via the public receipt reader.
 
+With `emptyPolicy: render-empty`, empty enum and ordered sets render the plain paragraph `Empty set.`. The marker remains ordinary Markdown text so the generated section follows the same heading and emphasis rules as authored documentation.
+
 ### Determinism and `--check`
 
 - Fixed Unicode NFC, LF newlines, and ordinal sorting for unordered sets; ordered sets preserve observation order.

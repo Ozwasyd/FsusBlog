@@ -95,6 +95,7 @@ commandGroups:
               reason: "Runs the baseline-aware AST ESLint, Vue template and Stylelint gate over every governed frontend and Node source before other frontend governance checks."
               consumedInputs:
                   - "config/development/frontend-style-*.json"
+                  - "config/development/canonical-digest-edge.json"
                   - "config/schemas/frontend-style-reviewed-residual.schema.json"
                   - "eslint.config.mjs"
                   - "stylelint.config.mjs"
@@ -111,21 +112,35 @@ commandGroups:
               dependsOn: []
               resources: {cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1, exclusiveResources: ["frontend-style-cache"]}
             - id: "frontend-style-fixtures"
-              command: ["node", "../../tests/tools/frontend-style.test.mjs"]
+              command: ["node", "--test", "../../tests/tools/frontend-style.test.mjs", "../../tests/tools/canonical-digest-edge.test.mjs"]
               access: "write"
               stage: "concurrent"
-              reason: "Exercises positive and negative AST style fixtures, reviewed residual admission, baseline invalidation, fixer idempotency and locale-stable diagnostics in isolated temporary repositories."
+              reason: "Exercises original AST style fixtures and closed canonical digest edge authority, ownership, capability and drift refusals in isolated temporary repositories."
               consumedInputs:
+                  - ".editorconfig"
                   - "config/development/frontend-style-*.json"
+                  - "config/development/canonical-digest-edge.json"
                   - "config/schemas/frontend-style-reviewed-residual.schema.json"
                   - "eslint.config.mjs"
                   - "stylelint.config.mjs"
                   - "src/frontend/package.json"
+                  - "src/frontend/eslint.config.mjs"
+                  - "src/frontend/stylelint.config.mjs"
                   - "tests/tools/frontend-style.test.mjs"
+                  - "tests/tools/canonical-digest-edge.test.mjs"
+                  - "tests/tools/fixtures/canonical-digest-edge/v3-contract.mjs"
                   - "tools/frontend/check-frontend-style.mjs"
+                  - "src/frontend/scripts/run-local-fsusui-typecheck.mjs"
+                  - "src/frontend/scripts/fsusui-root.mjs"
+                  - "src/frontend/tsconfig.node.json"
                   - "tools/frontend/reviewed-residual-classification.mjs"
                   - "tools/frontend/style-toolchain"
-              ownedOutputs: ["os-temp://fsusblog-frontend-style-unique"]
+                  - "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs"
+                  - "tools/fact-extractors/lib/canonicalize.mjs"
+                  - "tools/test-matrix/schema-validator"
+                  - "tools/governance/change-contract-registry.mjs"
+                  - "tools/governance/change-contract.mjs"
+              ownedOutputs: ["os-temp://fsusblog-frontend-style-unique", "os-temp://fsusblog-canonical-edge-unique", "os-temp://fsusblog-edge-authority-unique"]
               dependsOn: ["frontend-style-full"]
               resources: {cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1, exclusiveResources: []}
             - id: "frontend-test-governance"
