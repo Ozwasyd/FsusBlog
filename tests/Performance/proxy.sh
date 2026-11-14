@@ -14,6 +14,13 @@ start_proxy() {
   export FSUSBLOG_UPSTREAM_PORT="${origin##*:}"
   export FSUSBLOG_TLS_CERTIFICATE="$run/leaf.pem" FSUSBLOG_TLS_KEY="$run/leaf.key"
   export XDG_DATA_HOME="$run/caddy-data" XDG_CONFIG_HOME="$run/caddy-config"
+  cat > "$run/leaf.cnf" <<'EOF'
+[req]
+distinguished_name = dn
+prompt = no
+[dn]
+CN = FsusBlogV2 benchmark endpoint
+EOF
   cat > "$run/cert.cnf" <<'EOF'
 [req]
 distinguished_name = dn
@@ -33,12 +40,11 @@ EOF
     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$run/ca.key"
     openssl req -new -x509 -key "$run/ca.key" -days 1 -sha256 -config "$run/cert.cnf" -extensions ca -out "$proxy_ca"
     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$FSUSBLOG_TLS_KEY"
-    openssl req -new -key "$FSUSBLOG_TLS_KEY" -config "$run/cert.cnf" \
-      -subj '/CN=FsusBlogV2 benchmark endpoint' -out "$run/leaf.csr"
+    openssl req -new -key "$FSUSBLOG_TLS_KEY" -config "$run/leaf.cnf" -out "$run/leaf.csr"
     openssl x509 -req -in "$run/leaf.csr" -CA "$proxy_ca" -CAkey "$run/ca.key" -CAcreateserial \
       -days 1 -sha256 -extfile "$run/cert.cnf" -extensions leaf -out "$FSUSBLOG_TLS_CERTIFICATE"
     openssl verify -CAfile "$proxy_ca" "$FSUSBLOG_TLS_CERTIFICATE"
-    openssl x509 -in "$FSUSBLOG_TLS_CERTIFICATE" -noout -fingerprint -sha256
+    openssl x509 -in "$FSUSBLOG_TLS_CERTIFICATE" -noout -subject -issuer -fingerprint -sha256
   } > "$evidence/proxy-certificate.log" 2>&1
   curl_flags+=(--cacert "$proxy_ca" --http1.1)
   load_flags+=(-ca "$proxy_ca")
