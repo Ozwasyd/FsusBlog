@@ -147,7 +147,7 @@ trap 'exit 143' TERM
 
 # Capture the exact files used by the build, including tracked changes and new candidate code.
 source_hash() {
-  git ls-files -c -o --exclude-standard -z -- src tests/Performance deploy 'Directory.Build.*' NuGet.Config global.json | python3 -c '
+  git ls-files -c -o --exclude-standard -z -- src tests/Performance tests/Fixtures/publication-rights.sql deploy 'Directory.Build.*' NuGet.Config global.json | python3 -c '
 import hashlib, os, sys
 from pathlib import Path
 h = hashlib.sha256()
@@ -203,10 +203,11 @@ ui_inputs() {
 ui_inputs > "$evidence/fsusui-inputs.sha256"
 
 stage=build
-mkdir -p "$run/source/src" "$run/source/tests/Performance" "$run/source/deploy"
+mkdir -p "$run/source/src" "$run/source/tests/Performance" "$run/source/tests/Fixtures" "$run/source/deploy"
 rsync -a --exclude bin --exclude obj --exclude dist --exclude node_modules --exclude .DS_Store src/ "$run/source/src/"
 cp Directory.Build.* NuGet.Config global.json "$run/source/"
 cp tests/Performance/{seed.py,load.go,cold.go,proxy-boundary.mjs,proxy.sh,runtime.py,runtime.sh} "$run/source/tests/Performance/"
+cp tests/Fixtures/publication-rights.sql "$run/source/tests/Fixtures/"
 cp deploy/Caddyfile "$run/source/deploy/"
 shasum -a 256 "$run/source/deploy/Caddyfile" > "$evidence/caddyfile.sha256"
 ln -s "$repo/src/Web/node_modules" "$run/source/src/Web/node_modules"
