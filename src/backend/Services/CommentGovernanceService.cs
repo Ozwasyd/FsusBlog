@@ -117,7 +117,8 @@ public sealed class CommentGovernanceService(
             {
                 return;
             }
-            CommentModerationStatus resulting = comment.ModerationStatus;
+            CommentModerationStatus previous = comment.ModerationStatus;
+            CommentModerationStatus resulting = previous;
             if (decision == "granted" && comment.ModerationStatus is CommentModerationStatus.Hidden or CommentModerationStatus.Rejected)
             {
                 resulting = CommentModerationStatus.Approved;
@@ -129,7 +130,7 @@ public sealed class CommentGovernanceService(
                     .Where(item => item.Id == comment.Id && item.ModerationStatus == comment.ModerationStatus)
                     .ExecuteCommandAsync(cancellationToken);
             }
-            await db.Insertable(Event(comment.Id, CommentModerationEventTypes.AppealDecision, resulting, resulting, "admin", $"appeal_{decision}", now, reviewerAdminPrincipalId, appealId))
+            await db.Insertable(Event(comment.Id, CommentModerationEventTypes.AppealDecision, previous, resulting, "admin", $"appeal_{decision}", now, reviewerAdminPrincipalId, appealId))
                 .ExecuteCommandAsync(cancellationToken);
             completed = true;
         });

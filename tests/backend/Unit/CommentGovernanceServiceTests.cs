@@ -109,6 +109,137 @@ public sealed class CommentGovernanceServiceTests(PostgresSchemaMigrationFixture
         Assert.Equal(CommentModerationStatus.Hidden, timeline.ProjectedStatus);
     }
 
+    [Theory]
+    [InlineData(CommentModerationStatus.Hidden, "granted")]
+    [InlineData(CommentModerationStatus.Rejected, "granted")]
+    [InlineData(CommentModerationStatus.Hidden, "denied")]
+    [InlineData(CommentModerationStatus.Rejected, "denied")]
+    public async Task Review_PreservesContinuousHistoryAndRejectsReplay(CommentModerationStatus previous, string decision)
+    {
+        await using TestContext context = await CreateContextAsync();
+        long appealId = await context.SubmitAppealAsync(previous);
+        CommentModerationTimelineResult before = (await context.Service.ReadTimelineAsync(601, default))!;
+        Assert.True(before.Consistent);
+        string history = System.Text.Json.JsonSerializer.Serialize(before.Events);
+
+        CommentAppealResult reviewed = await context.Service.ReviewAppealAsync(appealId, 52, new(decision, "The decision was independently reviewed."), default);
+
+        Assert.True(reviewed.Success);
+        CommentModerationTimelineResult after = (await context.Service.ReadTimelineAsync(601, default))!;
+        CommentModerationStatus expected = decision == "granted" ? CommentModerationStatus.Approved : previous;
+        CommentModerationEvent appended = after.Events[^1];
+        Assert.Equal(previous, appended.PreviousStatus);
+        Assert.Equal(expected, appended.NextStatus);
+        Assert.Equal(CommentModerationEventTypes.AppealDecision, appended.EventType);
+        Assert.Equal(appealId, appended.AppealId);
+        Assert.Equal(52, appended.AdminPrincipalId);
+        Assert.Equal($"appeal_{decision}", appended.ReasonCode);
+        Assert.Equal(context.Clock.Now, appended.OccurredAtUtc);
+        Assert.Equal(before.Events.Count + 1, after.Events.Count);
+        Assert.Equal(history, System.Text.Json.JsonSerializer.Serialize(after.Events.Take(before.Events.Count)));
+        Assert.True(after.Consistent);
+        Assert.Equal(expected, after.ProjectedStatus);
+        Assert.Equal(expected, after.CurrentStatus);
+        CommentAuthorAppeal appeal = await context.Db.Queryable<CommentAuthorAppeal>().InSingleAsync(appealId);
+        Assert.Equal("decided", appeal.Status);
+        Assert.Equal(decision, appeal.Decision);
+
+        CommentAppealResult replay = await context.Service.ReviewAppealAsync(appealId, 53, new(decision, "The repeated command must not append history."), default);
+
+        Assert.Equal("comment_appeal_not_found", replay.Code);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(after.Events),
+            System.Text.Json.JsonSerializer.Serialize((await context.Service.ReadTimelineAsync(601, default))!.Events));
+    }
+
+    [Theory]
+    [InlineData(CommentModerationStatus.Hidden)]
+    [InlineData(CommentModerationStatus.Rejected)]
+    public async Task Review_EventFailureRollsBackDecisionAndComment(CommentModerationStatus previous)
+    {
+        await using TestContext context = await CreateContextAsync();
+        long appealId = await context.SubmitAppealAsync(previous);
+        string history = System.Text.Json.JsonSerializer.Serialize((await context.Service.ReadTimelineAsync(601, default))!.Events);
+        await context.Db.Ado.ExecuteCommandAsync("""
+            ALTER TABLE comment_moderation_event
+            ADD CONSTRAINT reject_appeal_decision CHECK (event_type <> 'appeal_decision');
+            """);
+
+        CommentAppealResult failed = await context.Service.ReviewAppealAsync(appealId, 52, new("granted", "This event write is forced to fail."), default);
+
+        Assert.Equal("comment_appeal_conflict", failed.Code);
+        CommentAuthorAppeal appeal = await context.Db.Queryable<CommentAuthorAppeal>().InSingleAsync(appealId);
+        Assert.Equal("pending", appeal.Status);
+        Assert.Null(appeal.Decision);
+        Assert.Null(appeal.DecidedAtUtc);
+        Assert.Null(appeal.ReviewerAdminPrincipalId);
+        Comment comment = await context.Db.Queryable<Comment>().InSingleAsync(601);
+        Assert.Equal(previous, comment.ModerationStatus);
+        Assert.Null(comment.ModerationReason);
+        Assert.Null(comment.ModeratedByAdminPrincipalId);
+        Assert.Null(comment.ModeratedAt);
+        CommentModerationTimelineResult timeline = (await context.Service.ReadTimelineAsync(601, default))!;
+        Assert.True(timeline.Consistent);
+        Assert.Equal(history, System.Text.Json.JsonSerializer.Serialize(timeline.Events));
+    }
+
+    [Theory]
+    [InlineData(CommentModerationStatus.Hidden)]
+    [InlineData(CommentModerationStatus.Rejected)]
+    public async Task Review_ReviewerConflictDoesNotAppendOrDecide(CommentModerationStatus previous)
+    {
+        await using TestContext context = await CreateContextAsync();
+        long appealId = await context.SubmitAppealAsync(previous);
+        string history = System.Text.Json.JsonSerializer.Serialize((await context.Service.ReadTimelineAsync(601, default))!.Events);
+
+        CommentAppealResult failed = await context.Service.ReviewAppealAsync(appealId, 51, new("granted", "The original reviewer cannot decide this appeal."), default);
+
+        Assert.Equal("comment_appeal_reviewer_conflict", failed.Code);
+        Assert.Equal("pending", (await context.Db.Queryable<CommentAuthorAppeal>().InSingleAsync(appealId)).Status);
+        Assert.Equal(previous, (await context.Db.Queryable<Comment>().InSingleAsync(601)).ModerationStatus);
+        Assert.Equal(history, System.Text.Json.JsonSerializer.Serialize((await context.Service.ReadTimelineAsync(601, default))!.Events));
+    }
+
+    [Fact]
+    public async Task Appeal_WrongAuthorOrCapabilityDoesNotAppend()
+    {
+        await using TestContext context = await CreateContextAsync();
+        await context.SubmitAppealAsync(CommentModerationStatus.Hidden);
+        int count = await context.Db.Queryable<CommentModerationEvent>().CountAsync();
+        string challenge = await context.InsertChallengeAsync(601);
+
+        CommentAppealResult account = await context.Service.AppealAsAccountAsync(601, 18, new("A different author cannot appeal this comment.", challenge), default);
+        CommentAppealResult anonymous = await context.Service.AppealAsAnonymousAsync(601, "incorrect-capability", new("An invalid capability cannot appeal this comment.", challenge), default);
+
+        Assert.Equal("comment_management_not_found", account.Code);
+        Assert.Equal("comment_management_capability_invalid", anonymous.Code);
+        Assert.Equal(count, await context.Db.Queryable<CommentModerationEvent>().CountAsync());
+        Assert.Single(await context.Db.Queryable<CommentAuthorAppeal>().ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(CommentModerationStatus.Hidden)]
+    [InlineData(CommentModerationStatus.Rejected)]
+    public async Task Timeline_RejectsExistingGrantedAppealGapWithoutRepair(CommentModerationStatus previous)
+    {
+        await using TestContext context = await CreateContextAsync();
+        await context.InsertCommentAsync(701, CommentModerationStatus.Approved);
+        await context.Db.Insertable(new[]
+        {
+            context.Event(701, CommentModerationEventTypes.Create, null, CommentModerationStatus.Pending),
+            context.Event(701, previous == CommentModerationStatus.Hidden ? CommentModerationEventTypes.Hide : CommentModerationEventTypes.Reject,
+                CommentModerationStatus.Pending, previous),
+            context.Event(701, CommentModerationEventTypes.AppealDecision, CommentModerationStatus.Approved, CommentModerationStatus.Approved)
+        }).ExecuteCommandAsync();
+        string history = System.Text.Json.JsonSerializer.Serialize(await context.Db.Queryable<CommentModerationEvent>().OrderBy(item => item.Id).ToListAsync());
+
+        CommentModerationTimelineResult timeline = (await context.Service.ReadTimelineAsync(701, default))!;
+
+        Assert.False(timeline.Consistent);
+        Assert.Equal(CommentModerationStatus.Approved, timeline.ProjectedStatus);
+        Assert.Equal(CommentModerationStatus.Approved, timeline.CurrentStatus);
+        Assert.Equal(history, System.Text.Json.JsonSerializer.Serialize(await context.Db.Queryable<CommentModerationEvent>().OrderBy(item => item.Id).ToListAsync()));
+    }
+
     private async Task<TestContext> CreateContextAsync()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -122,14 +253,16 @@ public sealed class CommentGovernanceServiceTests(PostgresSchemaMigrationFixture
         public TestContext(SqlSugarClient db)
         {
             Db = db;
-            Capabilities = new(db, new FixedTimeProvider());
+            Capabilities = new(db, Clock);
             Service = new(db, Capabilities, Substitute.For<IAuditEventService>(),
                 new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["Moderation:ReportPepper"] = "test-report-pepper-that-is-at-least-32-characters",
                     ["Moderation:Appeals:RequireDifferentReviewer"] = "true"
-                }).Build(), new FixedTimeProvider());
+                }).Build(), Clock);
         }
+
+        public FixedTimeProvider Clock { get; } = new();
 
         public SqlSugarClient Db
         {
@@ -183,6 +316,19 @@ public sealed class CommentGovernanceServiceTests(PostgresSchemaMigrationFixture
             return challenge;
         }
 
+        public async Task<long> SubmitAppealAsync(CommentModerationStatus status)
+        {
+            await InsertCommentAsync(601, status, userId: 17);
+            await Db.Insertable(Event(601, CommentModerationEventTypes.Create, null, CommentModerationStatus.Pending)).ExecuteCommandAsync();
+            await InsertDecisionAsync(601, status, 51);
+            Clock.Now = s_now.AddMinutes(2);
+            string challenge = await InsertChallengeAsync(601);
+            CommentAppealResult submitted = await Service.AppealAsAccountAsync(601, 17, new("Please independently review this decision.", challenge), default);
+            Assert.True(submitted.Success);
+            Clock.Now = s_now.AddMinutes(3);
+            return submitted.AppealId!.Value;
+        }
+
         public ValueTask DisposeAsync()
         {
             Db.Dispose();
@@ -192,6 +338,8 @@ public sealed class CommentGovernanceServiceTests(PostgresSchemaMigrationFixture
 
     private sealed class FixedTimeProvider : TimeProvider
     {
-        public override DateTimeOffset GetUtcNow() => new(s_now);
+        public DateTime Now { get; set; } = s_now;
+
+        public override DateTimeOffset GetUtcNow() => new(Now);
     }
 }
