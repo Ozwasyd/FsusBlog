@@ -27,6 +27,7 @@ var persistentSite = FsusBlog.V2.Server.Passkeys.SiteRefreshStore.ReadConfigurat
 var subscription = SubscriptionIdentity.Read(builder.Configuration[SubscriptionIdentity.KeySetting]);
 var evidenceDirectory = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"];
 var connectionString = builder.Configuration["FSUSBLOG_DB"] ?? throw new InvalidOperationException("FSUSBLOG_DB is required.");
+var integrityKeys = new IntegrityKeys(builder.Configuration);
 var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/Web/dist");
 var template = await File.ReadAllTextAsync(Path.Combine(dist, "index.html"));
 if (!template.Contains("<!--fsus-public-content-->", StringComparison.Ordinal))
@@ -206,6 +207,7 @@ if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null
     FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, RequireCurrentSnapshot, Query, ReadListCursor, Cookie, ReadFrame);
 app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
+integrityKeys.Map(app);
 publicSite.Map(app);
 if (subscription is not null) SubscriptionEndpoints.Map(app, subscription, publicSite.Origin!, ReadFrame);
 FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,
