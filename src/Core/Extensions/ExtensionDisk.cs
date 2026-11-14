@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace FsusBlog.V2.Core.Extensions;
 
@@ -22,14 +23,24 @@ internal static class ExtensionDisk
 
     internal static byte[] Read(string root, string name, int limit, CancellationToken cancellationToken)
     {
-        if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
+        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()))
+            throw new PlatformNotSupportedException();
         cancellationToken.ThrowIfCancellationRequested();
         var path = Path.Combine(root, name);
         if ((File.GetAttributes(path) & (FileAttributes.ReparsePoint | FileAttributes.Directory | FileAttributes.Device)) != 0 ||
             File.GetUnixFileMode(path) != ImmutableFile) throw Reject("installed-file-shape");
 
-        using var file = File.OpenRead(path);
-        if (file.Length is < 1 || file.Length > limit) throw Reject("installed-file-size");
+        const int macFlags = 0x1000000 | 0x100 | 0x4; // O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
+        const int linuxFlags = 0x80000 | 0x20000 | 0x800;
+        var descriptor = Open(path, OperatingSystem.IsMacOS() ? macFlags : linuxFlags);
+        if (descriptor < 0)
+        {
+            if (Marshal.GetLastPInvokeError() == 2) throw new FileNotFoundException("The installed file is unavailable.", path);
+            throw Reject("installed-file-shape");
+        }
+        using var handle = new SafeFileHandle(descriptor, ownsHandle: true);
+        using var file = new FileStream(handle, FileAccess.Read);
+        if (!file.CanSeek || file.Length is < 1 || file.Length > limit) throw Reject("installed-file-size");
         var bytes = new byte[checked((int)file.Length)];
         for (var offset = 0; offset < bytes.Length;)
         {
@@ -87,7 +98,7 @@ internal static class ExtensionDisk
         if (Close(descriptor) != 0 || synced != 0) throw Reject("extension-directory-flush");
     }
 
-    [DllImport("libc", EntryPoint = "open")]
+    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
     private static extern int Open([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
 
     [DllImport("libc", EntryPoint = "fsync")]

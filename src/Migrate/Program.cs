@@ -7,7 +7,7 @@ using FsusBlogV2.Storage;
 using FsusBlogV2.Migrate;
 using Npgsql;
 
-return await Migration.RunAsync(args);
+return await (PlatformPluginCommand.IsWorker(args) ? PlatformPluginCommand.Worker() : Migration.RunAsync(args));
 
 internal static partial class Migration
 {
@@ -67,6 +67,8 @@ internal static partial class Migration
                   comment moderate ARTICLE_ID COMMENT_ID EXPECTED_STATUS approve|reject|hide REASON
                                         Change comment status and append the trusted database role audit event
                   extension --help      Manage an offline signed authoring extension store
+                  platform-plugin --help
+                                        Invoke one approved pure Markdown hook in an offline worker
                   backup measure        Fingerprint an offline v2 PostgreSQL site and its media metadata
                   legacy inventory postgres|mysql|sqlite
                                         Inspect the v1 article catalog and exact table counts
@@ -94,6 +96,8 @@ internal static partial class Migration
         Console.CancelKeyPress += cancel;
         try
         {
+            if (arguments is ["platform-plugin", .. var pluginArguments])
+                return await PlatformPluginCommand.RunAsync(pluginArguments, cancelled.Token);
             if (arguments is ["legacy", "assets", var assetProvider, var publicAssets, var privateAssets])
                 return await VerifyLegacyAssetsAsync(assetProvider, publicAssets, privateAssets, cancelled.Token);
             if (arguments is ["legacy", "identity", var identityProvider])

@@ -105,16 +105,20 @@ public sealed class ExtensionPackageVerifier
 
     internal SignedArchiveTrust VerifyArchive(string sourceReference, ReadOnlySpan<byte> data, ReadOnlySpan<byte> signed,
         CancellationToken cancellationToken, bool requireCurrent = true)
+        => VerifyApprovedPayload(sourceReference, data, data, signed, cancellationToken, requireCurrent);
+
+    internal SignedArchiveTrust VerifyApprovedPayload(string sourceReference, ReadOnlySpan<byte> archive, ReadOnlySpan<byte> payload,
+        ReadOnlySpan<byte> signed, CancellationToken cancellationToken, bool requireCurrent = true)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!_sources.TryGetValue(sourceReference, out var source)) throw new ExtensionRejectedException("source-not-approved");
-        RequirePackageSize(data.Length, signed.Length);
+        RequirePackageSize(archive.Length, signed.Length);
         var checkedAt = _clock.GetUtcNow();
         var key = _keys[(source.Publisher, source.KeyId)];
         var validUntil = key.RevokedAt is { } cutoff && cutoff < key.ValidUntil ? cutoff : key.ValidUntil;
         if (requireCurrent && (checkedAt < key.ValidFrom || checkedAt >= validUntil)) throw new ExtensionRejectedException("publisher-key-not-current");
-        RequireDigest(SHA256.HashData(data), source.ArchiveSha256, "archive-digest");
-        VerifySignature(key, data, signed);
+        RequireDigest(SHA256.HashData(archive), source.ArchiveSha256, "archive-digest");
+        VerifySignature(key, payload, signed);
         return new(source, checkedAt, key.ValidFrom, validUntil);
     }
 
