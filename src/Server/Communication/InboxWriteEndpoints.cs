@@ -3,6 +3,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Communication;
 using FsusBlog.V2.Server.Security;
+using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Communication;
@@ -53,6 +54,8 @@ internal static class InboxWriteEndpoints
 
                 return await store.WithSession(session, false, async (db, tx, actor) =>
                 {
+                    if (ctx.Request.Headers.TryGetValue(WireHeaders.CurrentSession, out var expected))
+                        SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(session)!, expected.Count == 1 ? expected[0] : null);
                     var input = Read(bytes, conversation);
                     var inbox = new InboxStore(db, tx, actor.Id);
                     if (issue)

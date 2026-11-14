@@ -8,15 +8,17 @@ PostgreSQL 事务同时提交消息、可见活动位置、已读状态和通知
 
 站内信页面 `/user/messagebox` 使用本地 FsusUI 的任务标题、筛选、空态、载入状态和操作控件。桌面显示会话列表和阅读区，窄屏在两者切换，返回时恢复原选项焦点。页面支持筛选、加载更早记录、标记已读和私有通知刷新。
 
-v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话列表给出与数据读取一致的 `X-Fsus-Inbox-Replay-Cursor`，后续请求用 `after` 传递该值。游标只在签发它的登录会话有效。每个回放请求重新检查账号状态、会话有效期和代次。事件缺口要求重新读取列表取得新游标，浏览器仅在数据读取成功后推进游标。回放不缓存，当前保留所有事件，尚未定义自动清理窗口。该入口补充账号侧回放，v1 的公开和管理员 WebSocket 协议仍待迁移。
+v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话列表给出与数据读取一致的 `X-Fsus-Inbox-Replay-Cursor`，后续请求用 `after` 传递该值。游标只在签发它的登录会话有效。每个回放请求重新检查账号状态、会话有效期和代次。页面的列表、详情、回放、已读和写入请求均携带当前登录会话标识。当 Cookie 在另一标签页切换时，服务会拒绝旧页面的请求并要求重新确认身份。事件缺口要求重新读取列表取得新游标，浏览器仅在数据读取成功后推进游标。回放不缓存，当前保留所有事件，尚未定义自动清理窗口。
+
+`/api/v2/notifications/inbox/wake` 接受同源、带当前站点 Cookie 的 WebSocket，子协议为 `fsus-inbox-wake.v2`。HTTPS 流量走交付的 Caddy 路由。明文只用于直连回环开发。服务最多同时接受 32 条连接，无等待队列。消息事务通过 PostgreSQL `NOTIFY` 唤醒服务的共享监听连接。每条连接重新验证原会话和所属账号的位置，只发送固定 AEDS 成功帧。客户端收到唤醒后调用私有回放。连接中断后按退避重连，打开新连接即检查未应用事件。连接可用时仍周期性检查回放，连接不可用时改用短周期 HTTP 回放。服务定期复核账号状态、会话有效期和代次，撤销后关闭连接。 [PostgreSQL LISTEN](https://www.postgresql.org/docs/18/sql-listen.html) · [ASP.NET Core WebSockets](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/websockets?view=aspnetcore-10.0)
 
 受控运维进程可使用离线工具 `notify ACCOUNT_ID EVENT_ID` 给一个启用账号发系统通知。命令从标准输入读取 UTF-8 JSON 对象 `{"subject":"…","body":"…"}`，用配置中的数据库身份完成当前结构校验和写入。`ACCOUNT_ID` 是明确给出的 v2 账号 UUID，`EVENT_ID` 在该收件人范围内用于幂等。重复提交相同通知返回原会话和消息坐标，修改内容后重用事件键会失败。命令输出坐标和是否重放，正文由账号会话授权读取。
 
 设置 `FSUSBLOG_PRIVATE_INBOX_WRITES=true` 可开放账号提交工单和回复。部署前应确定实际处理工单的运维流程。现有 v1 创建和回复路径保留 AEDS 请求及响应帧，并要求 `X-Fsus-Client-Mutation-Id`。客户端先向 `/api/v2/notifications/inbox/pow-create.aeds` 或 `/api/v2/notifications/inbox/{id}/pow-reply.aeds` 提交原始请求取得 v2 随机挑战，再通过浏览器 Worker 完成 Classic PoW。证明绑定当前会话、来源、命令键、操作、会话编号和原始请求字节，在写入消息的同一事务中消费，失败后可用新的证明和原命令键重试。v1 自适应风险规则和 PoW 策略仍待迁移。
 
-通知 WebSocket 握手、公开和管理事件、广播、管理队列、会话状态变更、历史迁移和自动生产者仍待接入。
+v1 公开及管理员事件、握手 PoW 与签发授权、广播、管理队列、会话状态变更、历史迁移和自动生产者仍待接入。
 
-协议测试使用 v1 固定列表、工单请求和消息样本，以及独立构造的当前详情和回放帧。四项原生 PostgreSQL 18 测试覆盖默认关闭、证明缺失、跨账号和跨会话拒绝、一次性消费、换证明幂等重试、并发写入、请求冲突、内部注记、已读校验、列表分页、回滚、断线续读、事件缺口、会话撤销和错误帧。`FSUSBLOG_TEST_DB` 指向允许创建临时数据库的 PostgreSQL。浏览器脚本 `tests/EndToEnd/run-inbox-native.sh` 使用各自的临时数据库和实际 Kestrel，配置见脚本。
+协议测试使用 v1 固定列表、工单请求和消息样本，以及独立构造的当前详情和回放帧。五项原生 PostgreSQL 18 测试覆盖默认关闭、证明缺失、跨账号和跨会话拒绝、一次性消费、换证明幂等重试、并发写入、请求冲突、内部注记、已读校验、列表分页、回滚、断线续读、事件缺口、会话撤销和错误帧。WebSocket 测试实际拒绝跨源与匿名连接，检查只有目标账号的已提交事件产生唤醒，并验证撤销后返回策略关闭。`FSUSBLOG_TEST_DB` 指向允许创建临时数据库的 PostgreSQL。浏览器通过 `bash tests/EndToEnd/run-inbox-native.sh` 使用临时数据库和实际 Kestrel，验证桌面及 375px 页面在断开后获取期间提交的消息。
 
 界面按 FsusUI 消费契约归为 `bounded-composition`，验收范围为 `ux-path`。采用固定 v1 的 `Messages.vue`、会话列表和详情源码定位产品结构，参考的明暗截图只有列表工具栏裁切。组件契约绑定 FsusUI `f2d929a5d045439c35e93b4771f912ce50ec2337`。页面覆盖登录隔离、桌面及窄屏、头部筛选、会话阅读、回放、已读状态及焦点。启用账号写入时显示工单和回复表单，输入和重试键会随登录账号变更清空。产品行的状态文字直接展示来源和未读数量。完整账户外壳仍待接入。
 

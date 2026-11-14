@@ -29,6 +29,12 @@ export function validSiteSessionId(value: string): boolean {
   return value.length === WireLimits.SiteSessionIdBytes && /^[0-9a-f]+$/.test(value);
 }
 
+function inboxSession(session?: string): HeadersInit | undefined {
+  if (session === undefined) return;
+  if (!validSiteSessionId(session)) throw new ProtocolError('Invalid inbox session');
+  return { [WireHeaders.CurrentSession]: session };
+}
+
 export async function request<T>(
   path: string,
   expected: FrameType,
@@ -186,29 +192,30 @@ export const api = {
     return { items, total: items.length, generation: first.generation };
   },
 
-  inboxReplay(after?: string, signal?: AbortSignal) {
+  inboxReplay(after?: string, signal?: AbortSignal, session?: string) {
     if (after !== undefined && !validReplayCursor(after)) throw new ProtocolError('Invalid inbox replay cursor');
     const path = after === undefined ? WireRoutes.InboxReplay : `${WireRoutes.InboxReplay}?${new URLSearchParams({ after })}`;
-    return request(path, FrameType.InboxReplay, decodeInboxReplay, signal);
+    return request(path, FrameType.InboxReplay, decodeInboxReplay, signal, 'GET', undefined, inboxSession(session));
   },
 
-  inboxList(filter: InboxFilter, cursor?: string, signal?: AbortSignal) {
+  inboxList(filter: InboxFilter, cursor?: string, signal?: AbortSignal, session?: string) {
     const query = new URLSearchParams({ size: '20', filter });
     if (cursor) query.set('cursor', cursor);
-    return request(`${WireRoutes.InboxList}?${query}`, FrameType.ConversationList, decodeInboxList, signal);
+    return request(`${WireRoutes.InboxList}?${query}`, FrameType.ConversationList, decodeInboxList, signal, 'GET', undefined, inboxSession(session));
   },
 
-  inboxThread(id: bigint, before?: bigint, signal?: AbortSignal) {
+  inboxThread(id: bigint, before?: bigint, signal?: AbortSignal, session?: string) {
     const path = WireRoutes.InboxDetail.replace('{id:long}', String(id));
-    return request(before ? `${path}?beforeMessageId=${before}` : path, FrameType.ConversationDetailV3, decodeInboxThread, signal);
+    return request(before ? `${path}?beforeMessageId=${before}` : path, FrameType.ConversationDetailV3, decodeInboxThread,
+      signal, 'GET', undefined, inboxSession(session));
   },
 
-  inboxRead(id: bigint, through: bigint, signal?: AbortSignal) {
+  inboxRead(id: bigint, through: bigint, signal?: AbortSignal, session?: string) {
     const path = WireRoutes.InboxRead.replace('{id:long}', String(id));
     const fields = new PodWriter();
     fields.i64(through);
     return request(path, FrameType.EmptySuccess, decodeSuccess, signal, 'POST',
-      encodeFrame(FrameType.ConversationReadRequest, fields.finish()));
+      encodeFrame(FrameType.ConversationReadRequest, fields.finish()), inboxSession(session));
   },
 
   signIn(ticket: string, signal?: AbortSignal): Promise<Session> {

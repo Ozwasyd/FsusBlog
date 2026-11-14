@@ -374,6 +374,7 @@ export const WireRoutes = {
   InboxReplyPowChallenge: "/api/v2/notifications/inbox/{id:long}/pow-reply.aeds",
   InboxRead: "/api/binary/messages/conversations/{id:long}/read",
   InboxReplay: "/api/v2/notifications/private.aeds",
+  InboxStream: "/api/v2/notifications/inbox/wake",
   PrivateMediaList: "/api/v2/media/list.aeds",
   PrivateMediaUpload: "/api/v2/media/upload.aeds",
   PrivateMediaUploadBegin: "/api/v2/media/resumable/begin.aeds",

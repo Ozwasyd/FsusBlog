@@ -206,6 +206,12 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         return new InboxReadState(readThrough, (long)(await count.ExecuteScalarAsync(cancellationToken))!);
     }
 
+    internal async Task<long> ReplayPositionAsync(CancellationToken ct)
+    {
+        await using var read = Command("select coalesce((select last_sequence from public.inbox_delivery where account_id=@account),0)");
+        return (long)(await read.ExecuteScalarAsync(ct))!;
+    }
+
     public async Task<InboxReplay> ReplayAsync(long after, int size, CancellationToken cancellationToken)
     {
         if (after < 0) throw Invalid("Invalid notification position.");
@@ -343,9 +349,12 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
             WITH head AS (
                 UPDATE public.inbox_delivery SET last_sequence = last_sequence + 1
                 WHERE account_id = @account RETURNING last_sequence
+            ), written AS (
+                INSERT INTO public.inbox_event (account_id, sequence, kind, conversation_id, message_id, occurred_at)
+                SELECT @account, last_sequence, @kind, @conversation, @message, clock_timestamp() FROM head
+                RETURNING 1
             )
-            INSERT INTO public.inbox_event (account_id, sequence, kind, conversation_id, message_id, occurred_at)
-            SELECT @account, last_sequence, @kind, @conversation, @message, clock_timestamp() FROM head
+            SELECT pg_catalog.pg_notify('fsus_v2_inbox', '') FROM written
             """, ("kind", (short)kind), ("conversation", conversationId), ("message", messageId));
         await record.ExecuteNonQueryAsync(cancellationToken);
     }

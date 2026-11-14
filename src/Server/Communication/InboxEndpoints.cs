@@ -2,6 +2,7 @@ using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Communication;
+using FsusBlog.V2.Server.Sessions;
 using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Server.Communication;
@@ -81,6 +82,8 @@ internal static class InboxEndpoints
         var token = ctx.Request.Cookies[cookie];
         var (response, expiresAt) = await store.WithSession(token, false, async (connection, transaction, actor) =>
         {
+            if (ctx.Request.Headers.TryGetValue(WireHeaders.CurrentSession, out var expected))
+                SiteSessions.RequireCurrent(actor.Id, Store.TokenDigest(token)!, expected.Count == 1 ? expected[0] : null);
             var frame = await operation(new InboxStore(connection, transaction, actor.Id));
             return (frame, actor.ExpiresAt);
         }, cancellationToken);

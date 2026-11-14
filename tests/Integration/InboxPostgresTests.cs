@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Net;
+using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
@@ -96,6 +97,74 @@ public sealed class InboxPostgresTests
     }
 
     private const string ClientNonce = "253ad5c923194c56b9d7e6622ffabeab";
+
+    [PostgresFact]
+    public async Task InboxSocketOnlyWakesForOwnedCommitAndClosesOnRevocation()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        var ct = timeout.Token;
+        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var alice = await AddUser(db.DataSource, "alice", ct);
+        var bob = await AddUser(db.DataSource, "bob", ct);
+        var aliceSession = await SignIn(db.DataSource, alice, ct);
+        var bobSession = await SignIn(db.DataSource, bob, ct);
+        await using var server = await ServerProcess.Start(db.ConnectionString, ct);
+        var origin = server.Client.BaseAddress!.GetLeftPart(UriPartial.Authority);
+        var address = new UriBuilder(origin) { Scheme = "ws", Path = WireRoutes.InboxStream }.Uri;
+
+        foreach (var (source, token, expected) in new[]
+        {
+            ("https://another.invalid", (string?)aliceSession, HttpStatusCode.Forbidden),
+            (origin, (string?)null, HttpStatusCode.Unauthorized)
+        })
+        {
+            using var denied = Client(source, token);
+            await Assert.ThrowsAsync<WebSocketException>(() => denied.ConnectAsync(address, ct));
+            Assert.Equal(expected, denied.HttpStatusCode);
+        }
+
+        using var own = Client(origin, aliceSession);
+        using var other = Client(origin, bobSession);
+        await own.ConnectAsync(address, ct);
+        await other.ConnectAsync(address, ct);
+        var payload = new byte[64];
+        var ownFrame = own.ReceiveAsync(new ArraySegment<byte>(payload), ct);
+        var unrelated = other.ReceiveAsync(new ArraySegment<byte>(new byte[64]), ct);
+        await using (var connection = await db.DataSource.OpenConnectionAsync(ct))
+        await using (var tx = await connection.BeginTransactionAsync(ct))
+        {
+            await new InboxStore(connection, tx, alice).SendNoticeAsync("will-rollback", "Rolled back", "No event", ct);
+            await tx.RollbackAsync(ct);
+        }
+        Assert.False(ownFrame.IsCompleted);
+        await InTransaction(db.DataSource, alice, inbox => inbox.SendNoticeAsync("committed", "A notice", "Private body", ct), ct);
+        var frame = await ownFrame.WaitAsync(TimeSpan.FromSeconds(8), ct);
+        Assert.Equal(WebSocketMessageType.Binary, frame.MessageType);
+        Assert.True(frame.EndOfMessage);
+        Assert.Equal(Wire.EncodeEmptySuccess(), payload[..frame.Count]);
+        Assert.False(unrelated.IsCompleted);
+
+        await using (var revoke = db.DataSource.CreateCommand("update public.blog_user set generation=generation+1 where id=$1"))
+        {
+            revoke.Parameters.AddWithValue(alice);
+            Assert.Equal(1, await revoke.ExecuteNonQueryAsync(ct));
+        }
+        var closed = await own.ReceiveAsync(new ArraySegment<byte>(payload), ct).WaitAsync(TimeSpan.FromSeconds(8), ct);
+        Assert.Equal(WebSocketCloseStatus.PolicyViolation, closed.CloseStatus);
+        Assert.False(unrelated.IsCompleted);
+        other.Abort();
+        await Assert.ThrowsAnyAsync<Exception>(async () => await unrelated);
+
+        static ClientWebSocket Client(string source, string? token)
+        {
+            var socket = new ClientWebSocket();
+            socket.Options.CollectHttpResponseDetails = true;
+            socket.Options.AddSubProtocol("fsus-inbox-wake.v2");
+            socket.Options.SetRequestHeader("Origin", source);
+            if (token is not null) socket.Options.SetRequestHeader("Cookie", $"fsus-v2-session={token}");
+            return socket;
+        }
+    }
 
     [PostgresFact]
     public async Task HttpReplayRechecksSessionAndRejectsAnotherSessionsCursor()

@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElEmptyState, ElInput, ElOption, ElSelect, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
 import { api, ApiError, ProtocolError, type InboxFilter, type InboxListItem, type InboxThread } from '../../../Contracts/client'
 import { createInboxConversation, inboxComposeEnabled, replyInboxConversation } from '../../../Contracts/inbox-write'
+import { watchInboxWake } from '../../../Contracts/inbox-wake'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 
 const filters: ReadonlyArray<{ value: InboxFilter; label: string }> = [
@@ -42,30 +43,37 @@ let listRequest = 0
 let threadRequest = 0
 let cursor: string | undefined
 let pollTimer: ReturnType<typeof setTimeout> | undefined
+let polling = false
+let wakePending = false
+let streamOpen = false
 let opener: HTMLButtonElement | undefined
 let createAttempt: { subject: string; body: string; key: string } | undefined
 const replies = new Map<bigint, { body: string; snapshot?: bigint; key?: string }>()
 
 function current(signal: AbortSignal, identity: number) {
   const session = currentSession.value
-  return !signal.aborted && identity === identityEpoch.value && session && session.expiresAt > Date.now()
+  return !signal.aborted && identity === identityEpoch.value && !!session?.siteSessionId && session.expiresAt > Date.now()
 }
 
 function report(failure: unknown, signal: AbortSignal, identity: number, fallback: string) {
   if (!current(signal, identity)) return
   if (failure instanceof ApiError && failure.status === 401 && !failure.details.startsWith('pow_')) invalidateSession()
-  else error.value = fallback
+  else {
+    if (failure instanceof ApiError && failure.status === 409) void refreshSession(signal).catch(() => {})
+    error.value = fallback
+  }
 }
 
 async function loadList(append = false): Promise<boolean> {
   const identity = identityEpoch.value
   const signal = scope.signal
+  const session = currentSession.value?.siteSessionId
   const page = append ? nextPage.value : null
-  if (!current(signal, identity) || (append && !page)) return false
+  if (!session || !current(signal, identity) || (append && !page)) return false
   const request = ++listRequest
   listPending.value = true
   try {
-    const result = await api.inboxList(filter.value, page ?? undefined, signal)
+    const result = await api.inboxList(filter.value, page ?? undefined, signal, session)
     if (!current(signal, identity) || request !== listRequest) return false
     if (!append && !result.replayCursor) throw new ProtocolError('Missing inbox replay baseline')
     const existing = new Set(append ? rows.value.map(row => row.id) : [])
@@ -85,11 +93,12 @@ async function loadList(append = false): Promise<boolean> {
 async function loadThread(id: bigint, older?: bigint): Promise<boolean> {
   const signal = scope.signal
   const identity = identityEpoch.value
-  if (!current(signal, identity)) return false
+  const session = currentSession.value?.siteSessionId
+  if (!session || !current(signal, identity)) return false
   const request = ++threadRequest
   threadPending.value = true
   try {
-    const result = await api.inboxThread(id, older, signal)
+    const result = await api.inboxThread(id, older, signal, session)
     if (!current(signal, identity) || request !== threadRequest || selected.value !== id) return false
     if (result.id !== id) throw new ProtocolError('Inbox response changed conversation')
     const previous = thread.value
@@ -136,14 +145,15 @@ watch(reply, body => {
 async function sendTicket() {
   const signal = scope.signal
   const identity = identityEpoch.value
-  if (!current(signal, identity) || !writable.value || sending.value || !ticket.value.trim()) return
+  const session = currentSession.value?.siteSessionId
+  if (!session || !current(signal, identity) || !writable.value || sending.value || !ticket.value.trim()) return
   const input = { subject: subject.value, body: ticket.value }
   if (!createAttempt || createAttempt.body !== input.body || createAttempt.subject !== input.subject)
     createAttempt = { ...input, key: crypto.randomUUID() }
   sending.value = true
   error.value = ''
   try {
-    const id = await createInboxConversation(input.subject, input.body, createAttempt.key, signal)
+    const id = await createInboxConversation(input.subject, input.body, createAttempt.key, signal, session)
     if (!current(signal, identity)) return
     createAttempt = undefined
     subject.value = ''
@@ -164,7 +174,9 @@ async function sendReply() {
   const detail = thread.value
   const signal = scope.signal
   const identity = identityEpoch.value
-  if (!detail || selected.value !== detail.id || !current(signal, identity) || !writable.value || sending.value || !reply.value.trim()) return
+  const session = currentSession.value?.siteSessionId
+  if (!session || !detail || selected.value !== detail.id || !current(signal, identity) ||
+      !writable.value || sending.value || !reply.value.trim()) return
   const saved = replies.get(detail.id)
   const body = reply.value
   const snapshot = saved?.body === body && saved.snapshot ? saved.snapshot : detail.readThrough
@@ -173,7 +185,7 @@ async function sendReply() {
   sending.value = true
   error.value = ''
   try {
-    await replyInboxConversation(detail.id, snapshot, body, key, signal)
+    await replyInboxConversation(detail.id, snapshot, body, key, signal, session)
     if (!current(signal, identity)) return
     replies.delete(detail.id)
     if (selected.value === detail.id) {
@@ -197,10 +209,11 @@ async function markRead() {
   if (!detail || markPending.value) return
   const signal = scope.signal
   const identity = identityEpoch.value
-  if (!current(signal, identity)) return
+  const session = currentSession.value?.siteSessionId
+  if (!session || !current(signal, identity)) return
   markPending.value = true
   try {
-    await api.inboxRead(detail.id, detail.readThrough, signal)
+    await api.inboxRead(detail.id, detail.readThrough, signal, session)
     if (!current(signal, identity)) return
     await Promise.all([loadList(), selected.value === detail.id ? loadThread(detail.id) : undefined])
   } catch (failure) {
@@ -221,7 +234,11 @@ async function reloadInbox(fallback?: string) {
 }
 
 async function poll(signal: AbortSignal, identity: number) {
-  if (!current(signal, identity)) return
+  const session = currentSession.value?.siteSessionId
+  if (!session || !current(signal, identity) || polling) return
+  clearTimeout(pollTimer)
+  polling = true
+  wakePending = false
   try {
     if (document.visibilityState !== 'visible' || listPending.value || markPending.value || sending.value) return
     if (!cursor) {
@@ -229,7 +246,7 @@ async function poll(signal: AbortSignal, identity: number) {
       return
     }
     const previous = cursor
-    const page = await api.inboxReplay(previous, signal)
+    const page = await api.inboxReplay(previous, signal, session)
     if (!current(signal, identity) || cursor !== previous) return
     if (page.requiresResync || page.events.length > 0) {
       // Refetch the authoritative list to apply all events through its returned baseline.
@@ -242,14 +259,30 @@ async function poll(signal: AbortSignal, identity: number) {
       await reloadInbox()
     } else report(failure, signal, identity, '实时消息暂时无法更新。')
   } finally {
-    if (current(signal, identity)) pollTimer = setTimeout(() => { void poll(signal, identity) }, 4000)
+    if (current(signal, identity)) {
+      polling = false
+      pollTimer = setTimeout(() => { void poll(signal, identity) }, wakePending ? 250 : streamOpen ? 15_000 : 4000)
+    }
   }
+}
+
+function wake(signal: AbortSignal, identity: number) {
+  if (!current(signal, identity)) return
+  if (polling) wakePending = true
+  else if (!listPending.value && !markPending.value && !sending.value) void poll(signal, identity)
+}
+
+function resume() {
+  if (document.visibilityState === 'visible') wake(scope.signal, identityEpoch.value)
 }
 
 watch(identityEpoch, identity => {
   scope.abort()
   scope = new AbortController()
   clearTimeout(pollTimer)
+  polling = false
+  wakePending = false
+  streamOpen = false
   selected.value = null
   thread.value = null
   rows.value = []
@@ -274,7 +307,19 @@ watch(identityEpoch, identity => {
     void inboxComposeEnabled(signal).then(enabled => {
       if (current(signal, identity)) writable.value = enabled
     }).catch(() => {})
-    void loadList().then(() => poll(signal, identity))
+    void loadList().then(() => {
+      if (!current(signal, identity)) return
+      watchInboxWake(signal, () => wake(signal, identity), connected => {
+        if (!current(signal, identity)) return
+        streamOpen = connected
+        if (connected) wake(signal, identity)
+        else if (!polling) {
+          clearTimeout(pollTimer)
+          pollTimer = setTimeout(() => { void poll(signal, identity) }, 4000)
+        }
+      }, () => { if (current(signal, identity)) invalidateSession() })
+      void poll(signal, identity)
+    })
   }
 }, { immediate: true, flush: 'sync' })
 
@@ -286,6 +331,8 @@ watch(filter, () => {
 
 onMounted(async () => {
   width.addEventListener('change', onWidth)
+  document.addEventListener('visibilitychange', resume)
+  window.addEventListener('online', resume)
   const signal = scope.signal
   try { if (!currentSession.value) await refreshSession(signal) }
   catch { if (!signal.aborted) error.value = '暂时无法确认登录状态。' }
@@ -296,6 +343,8 @@ onBeforeUnmount(() => {
   scope.abort()
   clearTimeout(pollTimer)
   width.removeEventListener('change', onWidth)
+  document.removeEventListener('visibilitychange', resume)
+  window.removeEventListener('online', resume)
 })
 </script>
 

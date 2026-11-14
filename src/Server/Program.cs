@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Communication;
 using FsusBlog.V2.Server.Operations;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
@@ -42,6 +43,8 @@ builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.Distrib
     services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().ConfiguredPaths));
 builder.Services.AddSingleton<Store>();
 builder.Services.AddSingleton<Publications>();
+builder.Services.AddSingleton<InboxWake>();
+builder.Services.AddHostedService(services => services.GetRequiredService<InboxWake>());
 builder.Services.AddSingleton<FsusBlog.V2.Server.Comments.CommentReadStore>();
 builder.Services.AddSingleton(_ => new FsusBlog.V2.Server.Security.ScopedPow(TimeProvider.System));
 if (builder.Configuration[FsusBlog.V2.Server.Content.MediaEndpoints.StorageSetting] is { Length: > 0 } mediaRoot)
@@ -66,6 +69,7 @@ builder.Services.AddRateLimiter(options =>
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
     FsusBlog.V2.Server.Content.MediaEndpoints.AddRateLimits(options);
 });
@@ -165,12 +169,17 @@ foreach (var asset in new[] { "assets", "dist" })
     if (Directory.Exists(assetDir))
         app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(assetDir), RequestPath = "/" + asset });
 }
+app.UseWhen(ctx => ctx.Request.Path == WireRoutes.InboxStream, branch => branch.UseWebSockets(new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromSeconds(20), KeepAliveTimeout = TimeSpan.FromSeconds(10)
+}));
 app.UseRateLimiter();
 appearance?.Map(app);
 FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame);
 FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
+InboxStreamEndpoints.Map(app, Cookie);
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
     FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor, Cookie, ReadFrame);

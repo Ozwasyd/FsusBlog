@@ -379,6 +379,7 @@ public static class WireRoutes
     public const string InboxReplyPowChallenge = "/api/v2/notifications/inbox/{id:long}/pow-reply.aeds";
     public const string InboxRead = "/api/binary/messages/conversations/{id:long}/read";
     public const string InboxReplay = "/api/v2/notifications/private.aeds";
+    public const string InboxStream = "/api/v2/notifications/inbox/wake";
     public const string PrivateMediaList = "/api/v2/media/list.aeds";
     public const string PrivateMediaUpload = "/api/v2/media/upload.aeds";
     public const string PrivateMediaUploadBegin = "/api/v2/media/resumable/begin.aeds";

@@ -32,6 +32,15 @@ try {
     try { await api.signIn(tickets[index]) } finally { globalThis.fetch = fetchAt }
     assert(session)
     const context = await browser.newContext({ viewport, colorScheme: index === 0 ? 'light' : 'dark' })
+    await context.addInitScript(() => {
+      const NativeSocket = window.WebSocket
+      window.WebSocket = class extends NativeSocket {
+        constructor(url, protocols) {
+          super(url, protocols)
+          if (protocols === 'fsus-inbox-wake.v2') window.fsusTestInboxSocket = this
+        }
+      }
+    })
     try {
       const page = await context.newPage()
       const ready = page.getByRole('heading', { name: '我的站内信' })
@@ -51,7 +60,12 @@ try {
         if (path.includes('/pow-') && response.request().method() === 'POST') challenges.push([path, response.status()])
       })
       await context.addCookies([{ name: 'fsus-v2-session', value: session, url: origin, httpOnly: true, sameSite: 'Strict' }])
+      const wakePath = '/api/v2/notifications/inbox/wake'
+      const socketOpening = page.waitForEvent('websocket', { predicate: socket => new URL(socket.url()).pathname === wakePath })
       await page.reload()
+      const socket = await socketOpening
+      const wakeFrame = socket.waitForEvent('framereceived')
+      await page.waitForFunction(() => window.fsusTestInboxSocket?.readyState === WebSocket.OPEN)
       const row = page.getByRole('button', { name: /Integration fixture notice/ })
       await row.waitFor()
       assert.match(await page.title(), /我的站内信/)
@@ -80,8 +94,19 @@ try {
         await page.getByRole('link', { name: 'Account security' }).waitFor()
       }
       appendFixtureNotice(recipients[index])
+      const { payload } = await wakeFrame
+      assert(Buffer.isBuffer(payload) && payload.length < 32)
       const update = page.getByRole('button', { name: /New notification after opening/ })
       await update.waitFor({ timeout: 15_000 })
+      const closing = socket.waitForEvent('close')
+      const reconnect = page.waitForEvent('websocket', { predicate: ws => new URL(ws.url()).pathname === wakePath })
+      const recovered = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v2/notifications/private.aeds')
+      await page.evaluate(() => window.fsusTestInboxSocket.close(4001))
+      await closing
+      appendFixtureNotice(recipients[index], 'during-reconnect', 'Recovered notification after reconnect')
+      await reconnect
+      assert.equal((await recovered).status(), 200)
+      await page.getByRole('button', { name: /Recovered notification after reconnect/ }).waitFor({ timeout: 15_000 })
       await row.focus()
       await page.keyboard.press('Enter')
       const heading = page.getByRole('heading', { name: 'Integration fixture notice' })
@@ -116,7 +141,8 @@ try {
       await page.screenshot({ path: join(evidence, `inbox-${name}-write.png`) })
       assert.deepEqual(browserErrors, [])
       observations.push({ name, viewport, url: page.url(), title: await page.title(), anonymous: 'private list hidden',
-        replay: 'a new notice appeared without navigating or reloading',
+        replay: 'a WebSocket wake led to a new notice without navigating or reloading',
+        reconnect: 'fresh socket and authorized HTTP replay recovered a committed notice after the previous connection closed',
         keyboard: 'Enter opened the thread and moved focus', markedRead: true, focusRestored: index === 1, challenges,
         accountMenu: index === 1 ? 'opens with Enter and closes with Escape, returning focus' : 'direct desktop actions visible' })
     } catch (error) {
@@ -135,11 +161,11 @@ try {
 if (failure) throw failure
 console.log('Native PostgreSQL communication flow passed in desktop and narrow Chrome.')
 
-function appendFixtureNotice(recipient) {
+function appendFixtureNotice(recipient, event = 'while-open', subject = 'New notification after opening') {
   const printed = execFileSync(process.env.FSUSBLOG_INBOX_DOTNET,
-    [process.env.FSUSBLOG_INBOX_MIGRATE_DLL, 'notify', recipient, 'while-open'], {
+    [process.env.FSUSBLOG_INBOX_MIGRATE_DLL, 'notify', recipient, event], {
       encoding: 'utf8',
-      input: JSON.stringify({ subject: 'New notification after opening', body: 'This update came from PostgreSQL.' }),
+      input: JSON.stringify({ subject, body: 'This update came from PostgreSQL.' }),
     })
   const result = JSON.parse(printed)
   assert.equal(result.accountId, recipient)
