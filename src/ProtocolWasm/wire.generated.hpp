@@ -324,6 +324,7 @@ enum class FrameType : uint16_t {
     ConversationMessage = 58,
     ConversationCreateRequest = 59,
     ConversationReplyRequest = 60,
+    ConversationStatusRequest = 61,
     PasskeyRegisterBegin = 63,
     PasskeyLoginBegin = 64,
     PasskeyRegisterCompleteRequest = 66,
@@ -332,6 +333,7 @@ enum class FrameType : uint16_t {
     AccountConversationReplyRequest = 202,
     ConversationDetailV2 = 203,
     ConversationDetailV3 = 204,
+    ConversationStatusMutationResult = 211,
     EmptySuccess = 240,
     TaxonomyExactMetadata = 243,
     ApiError = 251,
@@ -446,6 +448,7 @@ constexpr bool known(FrameType type) {
         case FrameType::ConversationMessage:
         case FrameType::ConversationCreateRequest:
         case FrameType::ConversationReplyRequest:
+        case FrameType::ConversationStatusRequest:
         case FrameType::PasskeyRegisterBegin:
         case FrameType::PasskeyLoginBegin:
         case FrameType::PasskeyRegisterCompleteRequest:
@@ -454,6 +457,7 @@ constexpr bool known(FrameType type) {
         case FrameType::AccountConversationReplyRequest:
         case FrameType::ConversationDetailV2:
         case FrameType::ConversationDetailV3:
+        case FrameType::ConversationStatusMutationResult:
         case FrameType::EmptySuccess:
         case FrameType::TaxonomyExactMetadata:
         case FrameType::ApiError:

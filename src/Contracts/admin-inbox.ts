@@ -6,10 +6,12 @@ import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 export type AdminInboxFilter = '' | 'open' | 'pending' | 'closed';
-export type AdminInboxRow = { id: bigint; account: string; subject: string; status: 0 | 1 | 2; system: boolean; updated: number };
+export type AdminInboxStatus = 0 | 1 | 2;
+export type AdminInboxRow = { id: bigint; account: string; subject: string; status: AdminInboxStatus; system: boolean; updated: number };
 export type AdminInboxMessage = { id: bigint; sender: 0 | 1 | 2; internal: boolean; at: number; body: string };
 export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null };
-export type AdminInboxThread = { conversation: AdminInboxRow; messages: AdminInboxMessage[]; previous: string | null; repliesEnabled: boolean };
+export type AdminInboxThread = { conversation: AdminInboxRow; messages: AdminInboxMessage[]; previous: string | null; repliesEnabled: boolean;
+  version: string | null };
 
 export function adminInbox(filter: AdminInboxFilter, next: string | null, signal: AbortSignal): Promise<AdminInboxPage> {
   const query = new URLSearchParams();
@@ -37,8 +39,9 @@ export function adminInboxThread(id: bigint, before: string | null, signal: Abor
       !item.body || index > 0 && item.id <= messages[index - 1].id)) throw invalid();
     reader.finish();
     const flag = headers.get(WireHeaders.AdminInboxReplyEnabled);
-    if (flag !== null && flag !== '1') throw invalid();
-    return { conversation, previous, messages, repliesEnabled: flag === '1' };
+    const version = headers.get(WireHeaders.AdminInboxVersion);
+    if (flag !== null && flag !== '1' || version !== null && !validVersion(version)) throw invalid();
+    return { conversation, previous, messages, repliesEnabled: flag === '1', version };
   }, signal);
 }
 
@@ -68,6 +71,46 @@ export async function adminReply(id: bigint, body: string, key: string, signal: 
     if (message.body !== body) throw invalid();
     return message;
   }, signal, 'POST', frame, { [WireHeaders.ClientMutationId]: key, [WireHeaders.PowProof]: proof });
+}
+
+export function adminStatusFrame(status: AdminInboxStatus, reason: string) {
+  kind(status);
+  if (!reason.trim() || reason.trim().length > 256 || reason.includes('\0')) throw invalid();
+  const bytes = new TextEncoder().encode(reason);
+  if (bytes.length > 1024 || new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes) !== reason) throw invalid();
+  const payload = new Uint8Array(16 + bytes.length);
+  const view = new DataView(payload.buffer);
+  view.setInt32(0, status, true);
+  view.setInt32(8, bytes.length, true);
+  view.setInt32(12, bytes.length, true);
+  payload.set(bytes, 16);
+  return encodeFrame(FrameType.ConversationStatusRequest, payload);
+}
+
+export function decodeAdminStatusResult(payload: Uint8Array, target: AdminInboxStatus) {
+  if (payload.byteLength !== 12) throw invalid();
+  const reader = new PodReader(payload);
+  const previous = kind(reader.i32());
+  const current = kind(reader.i32());
+  if (current !== target || reader.i32() !== (previous === current ? 1 : 0)) throw invalid();
+  return { previous, current, changed: previous !== current };
+}
+
+export async function adminChangeStatus(id: bigint, version: string, target: AdminInboxStatus, reason: string, signal: AbortSignal) {
+  if (id <= 0n || BigInt.asIntN(64, id) !== id || !validVersion(version)) throw invalid();
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+  const frame = adminStatusFrame(target, reason);
+  const at = (route: string) => route.replace('{id:long}', String(id));
+  const additional = { [WireHeaders.AdminInboxVersion]: version };
+  const challenge = await request(at(WireRoutes.AdminInboxStatusPow), FrameType.PowChallenge, decodePowChallenge, signal, 'POST', frame,
+    { ...additional, [WireHeaders.PowClientNonce]: nonce });
+  const proof = encodePowProof(challenge, await solveScopedPow(challenge, nonce, signal), nonce);
+  return request(at(WireRoutes.AdminInboxStatus), FrameType.ConversationStatusMutationResult,
+    payload => decodeAdminStatusResult(payload, target), signal, 'POST', frame, { ...additional, [WireHeaders.PowProof]: proof });
+}
+
+function validVersion(value: string) {
+  return /^[1-9][0-9]{0,9}$/.test(value) && Number(value) <= 0xffffffff;
 }
 
 function row(reader: PodReader): AdminInboxRow {

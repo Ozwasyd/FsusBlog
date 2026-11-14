@@ -1,5 +1,6 @@
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlogV2.Storage;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Administration;
@@ -11,8 +12,8 @@ internal sealed partial class AdminPasskeyStore
         {
             var scope = checked((byte)(filter + 1));
             var position = InboxPosition(next, admin.Digest, scope);
-            await using var query = Store.Sql(db, tx, """
-                SELECT c.id,c.account_id,c.subject,c.status,c.is_system,c.last_message_at
+            await using var query = Store.Sql(db, tx, $"""
+                SELECT c.id,c.account_id,c.subject,c.status,c.is_system,{InboxStore.ConversationActivity}
                 FROM public.inbox_conversation c WHERE ($1=0 OR c.id<$1) AND ($2<0 OR c.status=$2)
                     AND c.last_message_id IS NOT NULL
                 ORDER BY c.id DESC LIMIT $3
@@ -38,8 +39,8 @@ internal sealed partial class AdminPasskeyStore
             const byte scope = 8;
             var position = InboxPosition(older, admin.Digest, scope);
             if (position is { } boundary && boundary.First != id) throw InvalidInboxCursor();
-            await using var query = Store.Sql(db, tx, """
-                SELECT c.id,c.account_id,c.subject,c.status,c.is_system,c.last_message_at,m.id,m.sender,m.is_internal,m.sent_at,m.body
+            await using var query = Store.Sql(db, tx, $"""
+                SELECT c.id,c.account_id,c.subject,c.status,c.is_system,{InboxStore.ConversationActivity},m.id,m.sender,m.is_internal,m.sent_at,m.body,c.xmin::text
                 FROM public.inbox_conversation c
                 JOIN LATERAL (
                     SELECT id,sender,is_internal,sent_at,body FROM public.inbox_message WHERE conversation_id=c.id AND ($2=0 OR id<$2)
@@ -48,11 +49,13 @@ internal sealed partial class AdminPasskeyStore
                 """, id, position?.Second ?? 0L, Wire.AdminInboxThreadSize + 1);
             await using var rows = await query.ExecuteReaderAsync(ct);
             AdminInboxRow? conversation = null;
+            string? version = null;
             List<AdminInboxMessage> items = [];
             string? previous = null;
             while (await rows.ReadAsync(ct))
             {
                 conversation ??= InboxRow(rows);
+                version ??= rows.GetString(11);
                 if (items.Count == Wire.AdminInboxThreadSize)
                 {
                     previous = new AdminInboxCursor(id, items[^1].Id).Encode(admin.Digest, scope);
@@ -63,7 +66,7 @@ internal sealed partial class AdminPasskeyStore
             }
             if (conversation is null) throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
             items.Reverse();
-            return new AdminInboxThread(conversation, items, previous);
+            return new AdminInboxThread(conversation, items, previous, version);
         }, ct);
 
     private static AdminInboxRow InboxRow(NpgsqlDataReader row) => new(row.GetInt64(0), row.GetGuid(1), row.GetString(2),

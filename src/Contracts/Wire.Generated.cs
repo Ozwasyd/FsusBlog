@@ -30,6 +30,7 @@ public enum FrameType : ushort
     ConversationMessage = 58,
     ConversationCreateRequest = 59,
     ConversationReplyRequest = 60,
+    ConversationStatusRequest = 61,
     PasskeyRegisterBegin = 63,
     PasskeyLoginBegin = 64,
     PasskeyRegisterCompleteRequest = 66,
@@ -38,6 +39,7 @@ public enum FrameType : ushort
     AccountConversationReplyRequest = 202,
     ConversationDetailV2 = 203,
     ConversationDetailV3 = 204,
+    ConversationStatusMutationResult = 211,
     EmptySuccess = 240,
     TaxonomyExactMetadata = 243,
     ApiError = 251,
@@ -507,6 +509,8 @@ public static class WireRoutes
     public const string AdminInboxThread = "/api/v2/admin/identity/inbox/{id:long}.aeds";
     public const string AdminInboxReplyPow = "/api/v2/admin/identity/inbox/{id:long}/reply-pow.aeds";
     public const string AdminInboxReply = "/api/v2/admin/identity/inbox/{id:long}/reply.aeds";
+    public const string AdminInboxStatusPow = "/api/v2/admin/identity/inbox/{id:long}/status-pow.aeds";
+    public const string AdminInboxStatus = "/api/v2/admin/identity/inbox/{id:long}/status.aeds";
     public const string AdminModerationClaim = "/api/v2/admin/identity/comments/claim.aeds";
     public const string AdminModerationRenew = "/api/v2/admin/identity/comments/claim/renew.aeds";
     public const string AdminModerationRelease = "/api/v2/admin/identity/comments/claim/release.aeds";
@@ -588,6 +592,7 @@ public static class WireHeaders
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
     public const string InboxWriteEnabled = "X-Fsus-Inbox-Write-Enabled";
     public const string AdminInboxReplyEnabled = "X-Fsus-Admin-Inbox-Reply-Enabled";
+    public const string AdminInboxVersion = "X-Fsus-Admin-Inbox-Version";
     public const string PrivateMediaDigest = "X-Fsus-Private-Media-SHA256";
     public const string PrivateMediaResumable = "X-Fsus-Private-Media-Resumable";
     public const string MfaProof = "X-Fsus-Mfa-Proof";

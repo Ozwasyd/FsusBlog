@@ -26,6 +26,7 @@ public static class InboxWire
     private static readonly UTF8Encoding Utf8 = new(false, true);
 
     public const int MaxRequestFrameBytes = 20 * 1024;
+    public const int MaxAdminStatusFrameBytes = Aeds.HeaderSize + 16 + 1024;
 
     public static byte[] EncodeCreate(string subject, string body)
     {
@@ -55,6 +56,41 @@ public static class InboxWire
     {
         var payload = DecodeRequest(frame, FrameType.ConversationReplyRequest);
         return ReadText(payload, ReadArena(payload, 8), BodyBytes);
+    }
+
+    public static byte[] EncodeAdminStatus(int target, string reason)
+    {
+        CheckStatus(target);
+        var writer = new PodWriter();
+        writer.Int32(target);
+        writer.Text(reason, 1024);
+        return writer.Frame(FrameType.ConversationStatusRequest);
+    }
+
+    public static (int Target, string Reason) DecodeAdminStatus(ReadOnlySpan<byte> frame)
+    {
+        if (frame.Length > MaxAdminStatusFrameBytes) throw Invalid();
+        var payload = DecodeRequest(frame, FrameType.ConversationStatusRequest);
+        var arena = ReadArena(payload, 12);
+        int target = ReadInt32(payload);
+        CheckStatus(target);
+        return (target, ReadText(payload[4..], arena, 1024));
+    }
+
+    public static byte[] EncodeAdminStatusResult(int previous, int current)
+    {
+        CheckStatus(previous);
+        CheckStatus(current);
+        var payload = new byte[12];
+        BinaryPrimitives.WriteInt32LittleEndian(payload, previous);
+        BinaryPrimitives.WriteInt32LittleEndian(payload.AsSpan(4), current);
+        payload[8] = previous == current ? (byte)1 : (byte)0;
+        return Aeds.Encode(FrameType.ConversationStatusMutationResult, payload);
+    }
+
+    private static void CheckStatus(int state)
+    {
+        if (state is < 0 or > 2) throw Invalid();
     }
 
     public static (string Subject, string Body) DecodeCreate(ReadOnlySpan<byte> frame)

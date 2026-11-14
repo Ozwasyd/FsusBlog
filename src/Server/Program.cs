@@ -114,6 +114,7 @@ var lease = app.Services.GetRequiredService<InstanceLease>();
 using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
 await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscription: subscription is null ? null : true,
     requireRecoveryKey: recoveryKey is null ? null : true,
+    requireAdminInboxStatus: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.StatusSetting, false) ? true : null,
     requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null,
     requireAdminArticleRollback: adminArticleRollback ? true : null);
 var publications = app.Services.GetRequiredService<Publications>();

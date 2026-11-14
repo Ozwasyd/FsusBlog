@@ -3,7 +3,8 @@ namespace FsusBlog.V2.Contracts;
 public sealed record AdminInboxRow(long Id, Guid Account, string Subject, int Status, bool System, long UpdatedAt);
 public sealed record AdminInboxPage(IReadOnlyList<AdminInboxRow> Rows, string? Next);
 public sealed record AdminInboxMessage(long Id, int Sender, bool Internal, long At, string Body);
-public sealed record AdminInboxThread(AdminInboxRow Conversation, IReadOnlyList<AdminInboxMessage> Messages, string? Previous);
+public sealed record AdminInboxThread(AdminInboxRow Conversation, IReadOnlyList<AdminInboxMessage> Messages, string? Previous,
+    string? Version = null);
 
 public static partial class Wire
 {

@@ -8,6 +8,10 @@ namespace FsusBlogV2.Storage;
 /// <summary>Account inbox. Call account methods after verifying the current session in this transaction.</summary>
 internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction transaction, Guid accountId)
 {
+    internal const string ConversationActivity = """
+        greatest(c.last_message_at, (SELECT e.occurred_at FROM public.inbox_event e
+            WHERE e.account_id=c.account_id AND e.conversation_id=c.id AND e.kind=12 ORDER BY e.sequence DESC LIMIT 1))
+        """;
     private const string Unread = """
         (SELECT count(*) FROM public.inbox_message unread
          WHERE unread.conversation_id = c.id AND NOT unread.is_internal AND unread.sender <> 0
@@ -32,7 +36,7 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
                 SELECT coalesce(nullif(@snapshot, 0), max(last_message_id), 0) AS snapshot
                 FROM public.inbox_conversation WHERE account_id = @account
             ), selected AS MATERIALIZED (
-                SELECT c.id, c.subject, c.status, c.is_system, {Unread} AS unread_count, c.last_message_at AS updated_at,
+                SELECT c.id, c.subject, c.status, c.is_system, {Unread} AS unread_count,
                        m.id AS message_id, m.sent_at
                 FROM public.inbox_conversation c
                 CROSS JOIN position pos
@@ -46,13 +50,14 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
                 SELECT * FROM selected WHERE {selected}
             )
             SELECT coalesce(h.last_sequence, 0), pos.snapshot, (SELECT count(*) FROM filtered),
-                   p.id, p.subject, p.status, p.is_system, p.unread_count, p.updated_at, p.sent_at, m.sender, m.body
+                   p.id, p.subject, p.status, p.is_system, p.unread_count, {ConversationActivity}, p.sent_at, m.sender, m.body
             FROM position pos
             LEFT JOIN public.inbox_delivery h ON h.account_id = @account
             LEFT JOIN LATERAL (
                 SELECT * FROM filtered WHERE @before_id = 0 OR (sent_at, id) < (@before_time, @before_id)
                 ORDER BY sent_at DESC, id DESC LIMIT @take
             ) p ON true
+            LEFT JOIN public.inbox_conversation c ON (c.account_id,c.id)=(@account,p.id)
             LEFT JOIN public.inbox_message m ON (m.conversation_id, m.id) = (p.id, p.message_id)
             ORDER BY p.sent_at DESC, p.id DESC
             """, ("snapshot", cursor?.SnapshotMessageId ?? 0L), ("before_time", cursor?.LastMessageAt ?? DateTimeOffset.UnixEpoch),
@@ -202,6 +207,35 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         await RecordEventAsync(InboxEventKind.ConversationUpsert, conversationId, message.Id, ct);
         await RecordEventAsync(InboxEventKind.MessageAppend, conversationId, message.Id, ct);
         return message;
+    }
+
+    internal async Task<(ConversationStatus Previous, bool Changed)> ChangeAdministratorStatus(long conversationId,
+        string expected, ConversationStatus target, CancellationToken ct)
+    {
+        await LockDeliveryAsync(ct);
+        await using var query = Command("""
+            SELECT c.status,c.xmin::text,
+                (SELECT m.id FROM public.inbox_message m WHERE m.conversation_id=c.id AND NOT m.is_internal ORDER BY m.id DESC LIMIT 1)
+            FROM public.inbox_conversation c WHERE c.id=@id AND c.account_id=@account FOR UPDATE OF c
+            """, ("id", conversationId));
+        ConversationStatus before;
+        long message;
+        await using (var row = await query.ExecuteReaderAsync(ct))
+        {
+            if (!await row.ReadAsync(ct)) throw new BusinessException(Rejection.NotFound, "Conversation not found.");
+            before = (ConversationStatus)row.GetInt16(0);
+            if (before == target) return (before, false);
+            if (row.GetString(1) != expected) throw new BusinessException(Rejection.Conflict, "The conversation changed. Reload it.");
+            if (before == ConversationStatus.Closed && target != ConversationStatus.Open)
+                throw new BusinessException(Rejection.Conflict, "This conversation status transition is not allowed.");
+            if (row.IsDBNull(2)) throw new BusinessException(Rejection.NotFound, "Conversation not found.");
+            message = row.GetInt64(2);
+        }
+        await using var change = Command("UPDATE public.inbox_conversation SET status=@status WHERE id=@id AND account_id=@account",
+            ("status", (short)target), ("id", conversationId));
+        await change.ExecuteNonQueryAsync(ct);
+        await RecordEventAsync(InboxEventKind.ConversationUpsert, conversationId, message, ct);
+        return (before, true);
     }
 
     public async Task<InboxReadState> MarkReadAsync(long conversationId, long readThrough, CancellationToken cancellationToken)

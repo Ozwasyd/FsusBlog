@@ -12,7 +12,7 @@ namespace FsusBlog.V2.Integration.Tests;
 public sealed class AdminInboxPostgresTests
 {
     [PostgresFact]
-    public async Task CurrentIndependentAdministratorCanPageWithoutMutatingAccountVisibility()
+    public async Task CurrentIndependentAdministratorCanPageReplyAndUpdateStatusWithPrivateAccountDelivery()
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
         var ct = deadline.Token;
@@ -46,7 +46,7 @@ public sealed class AdminInboxPostgresTests
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
             ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost",
-            [AdminInboxEndpoints.ReplySetting] = "true"
+            [AdminInboxEndpoints.ReplySetting] = "true", [AdminInboxEndpoints.StatusSetting] = "true"
         });
         await Get(WireRoutes.AdminInboxQueue, HttpStatusCode.NotFound, adminToken, host: false);
         await Get(WireRoutes.AdminInboxQueue, HttpStatusCode.Unauthorized, siteToken, site: true);
@@ -123,16 +123,120 @@ public sealed class AdminInboxPostgresTests
             Assert.Equal(new short[] { 12, 13 }, (short[])(await delivery.ExecuteScalarAsync(ct))!);
         await using (var stored = Store.Sql(db, null, "select read_through from public.inbox_conversation where id=26"))
             Assert.Equal(26L, await stored.ExecuteScalarAsync(ct));
+
+        const string privateReason = " Awaiting private evidence 🐈 ";
+        var statusPath = WireRoutes.AdminInboxStatus.Replace("{id:long}", "26", StringComparison.Ordinal);
+        var statusPow = WireRoutes.AdminInboxStatusPow.Replace("{id:long}", "26", StringComparison.Ordinal);
+        var accountPath = WireRoutes.InboxDetail.Replace("{id:long}", "26", StringComparison.Ordinal);
+        string original = await Version();
+        var pending = InboxWire.EncodeAdminStatus(1, privateReason);
+        await Status(statusPow, HttpStatusCode.Unauthorized, siteToken, original, pending, nonce);
+        await Status(statusPow, HttpStatusCode.BadRequest, adminToken, "0" + original, pending, nonce);
+        await Status(statusPow, HttpStatusCode.BadRequest, adminToken, original, InboxWire.EncodeAdminStatus(1, "   "), nonce);
+        await Status(statusPow, HttpStatusCode.BadRequest, adminToken, original, InboxWire.EncodeAdminStatus(1, new string('x', 257)), nonce);
+        var statusProof = await StatusWork(original, pending);
+        var staleClose = InboxWire.EncodeAdminStatus(2, "Old thread version");
+        var staleProof = await StatusWork(original, staleClose, otherToken);
+        await Status(statusPath, HttpStatusCode.Unauthorized, otherToken, original, pending, statusProof);
+        await Status(statusPath.Replace("/26/", "/25/", StringComparison.Ordinal), HttpStatusCode.Unauthorized, adminToken, original, pending, statusProof);
+        await Status(statusPath, HttpStatusCode.Unauthorized, adminToken, original == "1" ? "2" : "1", pending, statusProof);
+        await Status(statusPath, HttpStatusCode.Unauthorized, adminToken, original, InboxWire.EncodeAdminStatus(1, "Changed reason"), statusProof);
+        await CheckStatus(original, pending, statusProof, 0, 1, false);
+        await Status(statusPath, HttpStatusCode.Unauthorized, adminToken, original, pending, statusProof);
+        await CheckStatus(original, pending, await StatusWork(original, pending), 1, 1, true);
+        var afterPending = await Get(accountPath, HttpStatusCode.OK, siteToken, host: false, site: true);
+        Assert.Equal(1, BinaryPrimitives.ReadInt32LittleEndian(Aeds.Decode(afterPending, FrameType.ConversationDetailV3)[8..]));
+        Assert.DoesNotContain(privateReason.Trim(), Encoding.UTF8.GetString(afterPending));
+
+        string pendingVersion = await Version();
+        var reopen = InboxWire.EncodeAdminStatus(0, "Ready to review");
+        const string goodCloseReason = "Case outcome was confirmed";
+        var close = InboxWire.EncodeAdminStatus(2, goodCloseReason);
+        await CheckStatus(pendingVersion, reopen, await StatusWork(pendingVersion, reopen), 1, 0, false);
+        // This proof was issued before the state made the Open -> Pending -> Open cycle.
+        await Status(statusPath, HttpStatusCode.Conflict, otherToken, original, staleClose, staleProof);
+        await Status(statusPow, HttpStatusCode.Conflict, adminToken, original, staleClose, nonce);
+        var restoredVersion = await Version();
+        Assert.NotEqual(original, restoredVersion);
+        await CheckStatus(restoredVersion, close, await StatusWork(restoredVersion, close), 0, 2, false);
+        var closedVersion = await Version();
+        await Status(statusPath, HttpStatusCode.Conflict, adminToken, closedVersion, pending, await StatusWork(closedVersion, pending));
+        await CheckStatus(closedVersion, reopen, await StatusWork(closedVersion, reopen), 2, 0, false);
+
+        await using (var audit = Store.Sql(db, null, """
+            select principal_id,session_reference,previous_status,current_status,reason from public.inbox_admin_status order by id
+            """))
+        await using (var statuses = await audit.ExecuteReaderAsync(ct))
+        {
+            foreach (var (before, after, reason) in new[] { (0, 1, privateReason.Trim()), (1, 0, "Ready to review"),
+                         (0, 2, goodCloseReason), (2, 0, "Ready to review") })
+            {
+                Assert.True(await statuses.ReadAsync(ct));
+                Assert.Equal(admin, statuses.GetGuid(0));
+                Assert.Equal(SHA256.HashData(Store.TokenDigest(adminToken)!), statuses.GetFieldValue<byte[]>(1));
+                Assert.Equal(before, statuses.GetInt16(2));
+                Assert.Equal(after, statuses.GetInt16(3));
+                Assert.Equal(reason, statuses.GetString(4));
+            }
+            Assert.False(await statuses.ReadAsync(ct));
+        }
+        await using (var delivery = Store.Sql(db, null, """
+            select array_agg(kind order by sequence) from public.inbox_event
+            where account_id=$1 and conversation_id=26 and message_id=$2
+            """, user, replyId))
+            Assert.Equal(new short[] { 12, 13, 12, 12, 12, 12 }, (short[])(await delivery.ExecuteScalarAsync(ct))!);
+        await using (var remaining = Store.Sql(db, null, "select count(*) from public.inbox_message where conversation_id=26"))
+            Assert.Equal(27L, await remaining.ExecuteScalarAsync(ct));
+        await using (var stored = Store.Sql(db, null, "select read_through from public.inbox_conversation where id=26"))
+            Assert.Equal(26L, await stored.ExecuteScalarAsync(ct));
         await Sql("update public.admin_principal set generation=generation+1 where id=$1", admin);
         await Get(thread, HttpStatusCode.Unauthorized, adminToken);
+        await Status(statusPow, HttpStatusCode.Unauthorized, adminToken, await Version(otherToken), close, nonce);
 
-        async Task<string> Work()
+        async Task<string> Version(string? token = null)
         {
-            var result = Aeds.Decode(await Post(challenge, HttpStatusCode.OK, adminToken, command, frame, nonce), FrameType.PowChallenge).ToArray();
-            return CommentReadPostgresTests.Solve(Encoding.UTF8.GetString(result.AsSpan(0, WireLayouts.PowChallengeSaltBytes)).TrimEnd('\0'),
-                Encoding.UTF8.GetString(result.AsSpan(WireLayouts.PowChallengeSignatureOffset)).TrimEnd('\0'),
-                BinaryPrimitives.ReadInt32LittleEndian(result.AsSpan(WireLayouts.PowChallengeSaltBytes)),
-                BinaryPrimitives.ReadInt64LittleEndian(result.AsSpan(WireLayouts.PowChallengeTimestampOffset)), nonce);
+            using var request = new HttpRequestMessage(HttpMethod.Get, thread);
+            request.Headers.Host = "localhost";
+            request.Headers.Add("Cookie", $"fsus-v2-admin-session={token ?? adminToken}");
+            using var response = await server.Client.SendAsync(request, ct);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            return Assert.Single(response.Headers.GetValues(WireHeaders.AdminInboxVersion));
+        }
+
+        async Task CheckStatus(string version, byte[] data, string work, int before, int after, bool same)
+        {
+            var body = await Status(statusPath, HttpStatusCode.OK, adminToken, version, data, work);
+            var result = Aeds.Decode(body, FrameType.ConversationStatusMutationResult).ToArray();
+            Assert.Equal(before, BinaryPrimitives.ReadInt32LittleEndian(result));
+            Assert.Equal(after, BinaryPrimitives.ReadInt32LittleEndian(result.AsSpan(4)));
+            Assert.Equal(same ? 1 : 0, BinaryPrimitives.ReadInt32LittleEndian(result.AsSpan(8)));
+        }
+
+        async Task<string> StatusWork(string version, byte[] data, string? token = null) =>
+            Solve(await Status(statusPow, HttpStatusCode.OK, token ?? adminToken, version, data, nonce));
+
+        async Task<byte[]> Status(string route, HttpStatusCode expected, string token, string version, byte[] data, string value)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, route) { Content = new ByteArrayContent(data) };
+            request.Headers.Host = "localhost";
+            request.Headers.Add("Cookie", $"fsus-v2-admin-session={token}");
+            request.Headers.Add(WireHeaders.AdminInboxVersion, version);
+            request.Headers.Add(route.EndsWith("-pow.aeds", StringComparison.Ordinal) ? WireHeaders.PowClientNonce : WireHeaders.PowProof, value);
+            request.Content.Headers.ContentType = new(Aeds.ContentType);
+            using var response = await server.Client.SendAsync(request, ct);
+            Assert.Equal(expected, response.StatusCode);
+            return await response.Content.ReadAsByteArrayAsync(ct);
+        }
+
+        async Task<string> Work() => Solve(await Post(challenge, HttpStatusCode.OK, adminToken, command, frame, nonce));
+
+        string Solve(byte[] body)
+        {
+            var result = Aeds.Decode(body, FrameType.PowChallenge);
+            return CommentReadPostgresTests.Solve(Encoding.UTF8.GetString(result[..WireLayouts.PowChallengeSaltBytes]).TrimEnd('\0'),
+                Encoding.UTF8.GetString(result[WireLayouts.PowChallengeSignatureOffset..]).TrimEnd('\0'),
+                BinaryPrimitives.ReadInt32LittleEndian(result[WireLayouts.PowChallengeSaltBytes..]),
+                BinaryPrimitives.ReadInt64LittleEndian(result[WireLayouts.PowChallengeTimestampOffset..]), nonce);
         }
 
         async Task<byte[]> Post(string path, HttpStatusCode expected, string secret, string key, byte[] data, string? nonce = null,

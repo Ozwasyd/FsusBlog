@@ -5,7 +5,7 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts';
 import { inboxCreateFrame, inboxReplyFrame } from '../../src/Contracts/inbox-write.ts';
 import { decodeInboxCreated, decodeInboxReplied } from '../../src/Contracts/inbox.ts';
 import { FrameType } from '../../src/Contracts/wire.generated.ts';
-import { adminReplyFrame } from '../../src/Contracts/admin-inbox.ts';
+import { adminReplyFrame, adminStatusFrame, decodeAdminStatusResult } from '../../src/Contracts/admin-inbox.ts';
 
 const fixture = (name: string) => Uint8Array.from(Buffer.from(readFileSync(new URL(`./fixtures/${name}.hex`, import.meta.url), 'utf8').replace(/\s/g, ''), 'hex'));
 
@@ -27,4 +27,16 @@ test('admin reply uses v1 packed string coordinates and multibyte UTF-8', () => 
   const bytes = decodeFrame(adminReplyFrame('A café 🐈'), FrameType.ConversationReplyRequest);
   assert.deepEqual(bytes.payload, Uint8Array.from(Buffer.from('000000000c0000000c0000004120636166c3a920f09f9088', 'hex')));
   assert.throws(() => adminReplyFrame('\ud800'));
+});
+
+test('administrator status preserves the fixed state, reason and result layouts', () => {
+  const request = decodeFrame(adminStatusFrame(2, '待查 🐈'), FrameType.ConversationStatusRequest);
+  assert.deepEqual(request.payload, Uint8Array.from(Buffer.from('02000000000000000b0000000b000000e5be85e69fa520f09f9088', 'hex')));
+  const result = (hex: string) => Uint8Array.from(Buffer.from(hex, 'hex'));
+  assert.deepEqual(decodeAdminStatusResult(result('000000000200000000000000'), 2), { previous: 0, current: 2, changed: true });
+  assert.deepEqual(decodeAdminStatusResult(result('020000000200000001000000'), 2), { previous: 2, current: 2, changed: false });
+  assert.throws(() => decodeAdminStatusResult(result('020000000200000001010000'), 2));
+  assert.throws(() => decodeAdminStatusResult(result('000000000200000000000000'), 1));
+  assert.throws(() => adminStatusFrame(1, ' 🐈 '.repeat(100)));
+  assert.throws(() => adminStatusFrame(1, '\ud800'));
 });

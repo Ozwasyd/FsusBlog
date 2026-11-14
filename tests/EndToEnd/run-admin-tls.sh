@@ -166,6 +166,11 @@ if [[ ${FSUSBLOG_TEST_ADMIN_INBOX:-0} == 1 ]]; then
   else
     export FSUSBLOG_ADMIN_INBOX_REPLIES=false
   fi
+  if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_STATUS:-0} == 1 ]]; then
+    export FSUSBLOG_ADMIN_INBOX_STATUS=true
+  else
+    export FSUSBLOG_ADMIN_INBOX_STATUS=false
+  fi
 fi
 FSUSBLOG_TEST_ADMIN_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-admin-fixture admin.manage)
 export FSUSBLOG_TEST_SITE_TICKET FSUSBLOG_TEST_ADMIN_TICKET

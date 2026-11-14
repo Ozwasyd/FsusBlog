@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { join } from 'node:path'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
-import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
 export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, siteCookie, adminCookieName, probe, evidence) {
   const queue = adminOrigin + WireRoutes.AdminInboxQueue
@@ -66,6 +66,32 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   } else {
     assert.equal(await panel.getByRole('button', { name: 'Send reply', exact: true }).count(), 0)
   }
+  if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_STATUS === '1') {
+    assert.match(await detail.headerValue(WireHeaders.AdminInboxVersion), /^[1-9][0-9]{0,9}$/)
+    const reason = 'Customer has yet to provide the private receipt.'
+    const reader = await context.newPage()
+    try {
+      await reader.goto(`${siteOrigin}/user/messagebox`)
+      await reader.getByRole('button', { name: /Inbox QA support case/ }).click()
+      const accountThread = reader.getByRole('region', { name: 'Inbox QA support case' })
+      await accountThread.getByText('进行中', { exact: true }).waitFor()
+      await panel.getByRole('combobox', { name: 'New conversation status' }).click()
+      await page.getByRole('option', { name: 'Pending', exact: true }).click()
+      await panel.getByLabel('Reason for changing status', { exact: true }).fill(reason)
+      const proof = page.waitForResponse(response => response.url().endsWith('/status-pow.aeds') && response.request().method() === 'POST')
+      const saved = page.waitForResponse(response => response.url().endsWith('/status.aeds') && response.request().method() === 'POST')
+      await panel.getByRole('button', { name: 'Save status', exact: true }).click()
+      assert.equal((await proof).status(), 200)
+      assert.equal((await saved).status(), 200)
+      await panel.getByText('Conversation status saved.', { exact: true }).waitFor()
+      await accountThread.getByText('待处理', { exact: true }).waitFor()
+      assert.equal(await accountThread.getByText(reason, { exact: true }).count(), 0)
+      await reader.screenshot({ path: join(evidence, 'admin-inbox-account-status.png'), animations: 'disabled' })
+    } finally { await reader.close() }
+  } else {
+    assert.equal(await detail.headerValue(WireHeaders.AdminInboxVersion), null)
+    assert.equal(await panel.getByRole('button', { name: 'Save status', exact: true }).count(), 0)
+  }
   for (const [name, viewport] of Object.entries({ desktop: { width: 1280, height: 800 }, mobile: { width: 375, height: 812 } })) {
     await page.setViewportSize(viewport)
     await panel.getByRole('heading', { name: 'Support inbox' }).evaluate(node => node.scrollIntoView({ block: 'start' }))
@@ -73,8 +99,14 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
     await page.screenshot({ path: join(evidence, `admin-inbox-${name}.png`), animations: 'disabled' })
   }
   await panel.getByRole('button', { name: 'Back to conversations' }).click()
+  if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_STATUS === '1') {
+    await subject.waitFor({ state: 'hidden' })
+    await filter.click()
+    await page.getByRole('option', { name: 'Pending', exact: true }).click()
+  }
   await subject.waitFor()
-  assert(await subject.evaluate(node => document.activeElement === node))
+  if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_STATUS !== '1')
+    assert(await subject.evaluate(node => document.activeElement === node))
   await panel.getByRole('button', { name: 'Close support inbox' }).click()
   assert.equal(await panel.getByText(marker, { exact: true }).count(), 0)
 }
