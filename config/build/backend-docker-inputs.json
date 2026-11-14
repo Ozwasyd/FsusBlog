@@ -63,6 +63,7 @@
     ],
     "allowedExternalItemFiles": [
         ".editorconfig",
+        "config/runtime/redis-operation-budgets.json",
         "config/testing/bounded-channel-delivery-contracts.json"
     ],
     "optionalPublishRoots": [

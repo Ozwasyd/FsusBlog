@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/production-image-verification.yml"
+            ],
+            "reason": "Preserve the GitHub Actions production-image workflow schema while selecting the exact indexed runtime and exact Redis input trigger."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/build/backend-docker-inputs.json"
+            ],
+            "reason": "Preserve the existing execution authority and backend input inventory JSON schemas and field names."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/production-build-artifacts.sh"
+            ],
+            "reason": "Preserve the external build source identity environment variable while binding Migration metadata."
+        }
+    ]
+}
