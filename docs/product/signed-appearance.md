@@ -1,6 +1,6 @@
 # 签名主题与字体
 
-v2 站点可以在部署时选择签名的主题和字体。功能默认关闭，关闭时使用 FsusUI 随发布包提供的样式。用于管理 Passkey 的独立管理员页面继续使用内置样式。
+v2 站点可以在部署时选择签名的主题和字体。未配置签名目录时使用 FsusUI 随发布包提供的样式。用于管理 Passkey 的独立管理员页面继续使用内置样式。
 
 将 `FSUSBLOG_APPEARANCE_ROOT` 设为主机受信运维账号提供的绝对路径。目录应为 `0700`，文件为 `0400`，路径须解析到非符号链接的实际位置。它需要与静态发布目录及作者媒体目录分开。服务启动时只读该目录，分别验证已批准来源、原始归档摘要、ECDSA P1363 SHA-256 签名、公钥信任期限和声明的内容。错误配置或损坏归档会使启动失败。服务不会解压到磁盘，也不会装载包内程序。运维通过更换完整的只读目录并重启来发布或撤除外观。
 
@@ -13,4 +13,8 @@ v2 站点可以在部署时选择签名的主题和字体。功能默认关闭�
 
 启用后，HTML 只链接由服务器生成的同源样式表。公开接口只输出配置选中的 CSS 和 WOFF2，路径绑定实际响应的 SHA-256，响应 `no-store`。任一启用包的信任期限结束或发现时钟回退会停止提供本次部署的外观资源。新打开的页面恢复内置外观。已经载入的浏览器标签需重新加载才能恢复。
 
-固定 v1 的 `ThemeAdminEndpoints` 和 `FontAdminEndpoints` 注册了受管理员权限保护的只读 AEDS 登记与启用视图。v1 `.fstheme` 和 `.fsfont` 有不同的清单、资源和应用配置。当前 v2 格式提供部署启用，后续仍需 v1 包迁移、在线管理员界面、数据库启用历史与更完整的 FsusUI 扩展审查。
+在线启用可在停服运行 `appearance schema` 后通过 `FSUSBLOG_APPEARANCE_ACTIVATION=true` 开启。新库由 `apply` 安装对应表结构。开关要求配置签名目录和两套独立 HTTPS 来源。初始版本 0 读取部署文件中的主题与字体。拥有独立 `system.config` 权限的管理员可以在 **Site appearance** 查看可用签名包、选择主题和字体或恢复上一组配置。每次保存绑定当前版本、当前包摘要、指定的下一组包摘要和回滚动作，并要求管理员 Passkey 用户验证和一次性 PoW。版本冲突返回 409。事务递增版本并记录管理员、时间、回滚标记和包摘要。只有仍受信的原始归档可以恢复。管理员选择仅修改数据库。
+
+启用此模式时，公开 HTML 链接同源 `/site-appearance/current.css`，该路径转向当前版本及字节 SHA-256 对应的样式。字体路径同样包含启用版本和字节摘要。新的启用或回滚均使用新的版本。过期的路径返回 404，即使当前包的内容曾在该版本启用。样式和字体响应设为 `no-store` 和 `Cross-Origin-Resource-Policy: same-origin`，请求用一秒预算取得当前版本并在响应前释放数据库事务。已经获准的响应可以传完，浏览器已加载的样式在重载后更新。密钥到期、检测到时钟回退或部署者更新撤销并重启时，站点恢复内置外观。发布者密钥撤销由运维更新独立批准材料。关闭在线开关后，重启恢复使用部署选定的主题和字体，数据库启用记录保留。
+
+固定 v1 的 `ThemeAdminEndpoints` 和 `FontAdminEndpoints` 注册了受 `system.config` 保护的 5 个及 3 个只读 AEDS 路由。v1 `ThemeLifecycleService` 核对原包后执行启用、停用和回滚。v2 在线管理使用独立的 `/api/v2/admin/identity/appearance*` AEDS 路由，公开 FsusUI 自动根据浅色和深色状态选择已核验 token。v1 `.fstheme` 和 `.fsfont` 包格式、管理响应及独立启用作用域仍待迁移。 [v1 主题端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/ThemeAdminEndpoints.cs) · [v1 字体端点](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/FontAdminEndpoints.cs) · [v1 主题生命周期](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Infrastructure/Themes/ThemeLifecycleService.cs)

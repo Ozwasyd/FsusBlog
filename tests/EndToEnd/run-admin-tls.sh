@@ -267,6 +267,18 @@ elif [[ ${FSUSBLOG_TEST_ADMIN_ARTICLE_ROLLBACK:-0} == 1 ]]; then
     "$dotnet" "$migrate" article-responsibility record 1 1 >> "$evidence/admin-article-rollback-migration.log"
   "$dotnet" "$migrate" verify >> "$evidence/admin-article-rollback-migration.log"
   shasum -a 256 tests/EndToEnd/admin-article-rollback-fixture.sql >> "$evidence/run.txt"
+elif [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
+  unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
+  export FSUSBLOG_TEST_APPEARANCE_GRANT="$scratch/grant-appearance" FSUSBLOG_TEST_APPEARANCE_REVOKE="$scratch/revoke-appearance"
+  permission_fixture "$FSUSBLOG_TEST_APPEARANCE_GRANT" grant system.config
+  permission_fixture "$FSUSBLOG_TEST_APPEARANCE_REVOKE" revoke system.config
+  export FSUSBLOG_APPEARANCE_ROOT=$(cd "$scratch" && pwd -P)/appearance FSUSBLOG_APPEARANCE_ACTIVATION=true
+  fontsource=src/Web/node_modules/@fontsource/google-sans
+  font_fixture="$fontsource/files/google-sans-latin-400-normal.woff2"
+  python3 tests/EndToEnd/appearance-fixture.py "$FSUSBLOG_APPEARANCE_ROOT" "$font_fixture" "$fontsource/LICENSE" online > "$evidence/appearance-baseline.log"
+  "$dotnet" "$migrate" appearance schema > "$evidence/appearance-schema.log"
+  "$dotnet" "$migrate" appearance schema >> "$evidence/appearance-schema.log"
+  appearance_before=$(shasum -a 256 "$FSUSBLOG_APPEARANCE_ROOT/appearance.json")
 elif [[ ${FSUSBLOG_TEST_ADMIN_SITE_PAGES:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   export FSUSBLOG_TEST_ADMIN_SITE_PAGES_GRANT="$scratch/grant-system-config" FSUSBLOG_TEST_ADMIN_SITE_PAGES_REVOKE="$scratch/revoke-system-config"
@@ -387,6 +399,59 @@ elif [[ ${FSUSBLOG_TEST_SITE_REFRESH:-0} == 1 ]]; then
   node tests/EndToEnd/site-refresh-flow.mjs
 else
   node tests/EndToEnd/admin-identity-flow.mjs
+fi
+if [[ ${FSUSBLOG_TEST_ADMIN_APPEARANCE:-0} == 1 ]]; then
+  [[ "$appearance_before" == "$(shasum -a 256 "$FSUSBLOG_APPEARANCE_ROOT/appearance.json")" ]]
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+    select 'attributed_changes=' || count(*) from public.appearance_activation_audit a
+      join public.admin_principal p on p.id=a.principal_id where p.handle='tls-admin-fixture'
+    union all select 'exact_rollback=' || count(*) from public.appearance_activation_audit restore
+      join public.appearance_activation_audit change on change.revision=1
+      join public.appearance_activation active on active.revision=restore.revision
+      where restore.rollback and restore.revision=2 and active.theme_digest=change.previous_theme_digest
+        and active.font_digest=change.previous_font_digest and restore.previous_theme_digest=change.theme_digest
+  " > "$evidence/appearance-counts.txt"
+  grep -Fxq 'attributed_changes=2' "$evidence/appearance-counts.txt"
+  grep -Fxq 'exact_rollback=1' "$evidence/appearance-counts.txt"
+  kill "$server_pid"
+  wait "$server_pid" 2>/dev/null || true
+  restart_appearance() {
+    "$dotnet" "$server" --urls "http://127.0.0.1:$upstream_port" > "$evidence/$1.log" 2>&1 &
+    server_pid=$!
+    for (( attempt=0; attempt<120; attempt++ )); do
+      if curl --silent --fail --cacert "$scratch/ca.pem" "$FSUSBLOG_PUBLIC_ADDRESS/health/ready" >/dev/null; then return; fi
+      kill -0 "$server_pid"
+      sleep 0.2
+    done
+    return 1
+  }
+  restart_appearance appearance-restart
+  css="$FSUSBLOG_PUBLIC_ADDRESS/site-appearance/current.css"
+  curl --silent --fail --location --cacert "$scratch/ca.pem" "$css" > "$evidence/appearance-restarted.css"
+  grep -Fq '#225533' "$evidence/appearance-restarted.css"
+  kill "$server_pid"
+  wait "$server_pid" 2>/dev/null || true
+  python3 - "$FSUSBLOG_APPEARANCE_ROOT/appearance.json" <<'PY'
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import json
+import os
+import sys
+
+config = Path(sys.argv[1])
+value = json.loads(config.read_text())
+value['Keys'][0]['RevokedAt'] = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+temporary = config.with_name('appearance.next')
+temporary.write_text(json.dumps(value))
+temporary.chmod(0o400)
+os.replace(temporary, config)
+PY
+  restart_appearance appearance-revoked
+  curl --silent --fail --location --cacert "$scratch/ca.pem" "$css" > "$evidence/appearance-revoked.css"
+  [[ ! -s "$evidence/appearance-revoked.css" ]]
+  stale_url=$(cat "$evidence/appearance-rollback-url.txt")
+  [[ "$stale_url" == /site-appearance/2/*.css ]]
+  [[ "$(curl --silent --output /dev/null --write-out '%{http_code}' --cacert "$scratch/ca.pem" +    "$FSUSBLOG_PUBLIC_ADDRESS$stale_url")" == 404 ]]
 fi
 if [[ ${FSUSBLOG_SITE_PAGE_EDITOR:-false} == true ]]; then
   [[ "$sha_before" == "$(shasum -a 256 "$FSUSBLOG_SITE_PAGES/about.md")" ]]

@@ -9,7 +9,7 @@ using Npgsql;
 namespace FsusBlog.V2.Server.Security;
 
 /// <summary>Only explicitly mapped, independently authorized operations may request a proof.</summary>
-internal enum PowScope { PublicCommentSubmit, InboxCreate, InboxReply, SiteRecoveryKey, AdminInboxReply, AdminSitePagePublish, AdminInboxStatus, AdminInboxNotice }
+internal enum PowScope { PublicCommentSubmit, InboxCreate, InboxReply, SiteRecoveryKey, AdminInboxReply, AdminSitePagePublish, AdminInboxStatus, AdminInboxNotice, AdminAppearance }
 
 internal sealed class ScopedPow(TimeProvider time)
 {
@@ -116,6 +116,7 @@ internal sealed class ScopedPow(TimeProvider time)
             PowScope.AdminInboxNotice => "admin-inbox-notice",
             PowScope.SiteRecoveryKey => "site-recovery-key",
             PowScope.AdminSitePagePublish => "admin-site-page-publish",
+            PowScope.AdminAppearance => "admin-appearance",
             _ => throw Refused()
         };
         if (context.Length > 160) throw Refused();

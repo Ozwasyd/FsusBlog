@@ -59,6 +59,9 @@ export const FrameType = {
   AdminArticleRollbackReceipt: 32926,
   AdminSitePageRevision: 32915,
   AdminSitePagePublish: 32916,
+  AdminAppearanceState: 32936,
+  AdminAppearanceCatalog: 32937,
+  AdminAppearanceCommand: 32938,
   AdminTaxonomyPage: 32864,
   AdminCommentQueue: 32862,
   AdminInboxPage: 32896,
@@ -179,6 +182,11 @@ export const WireLimits = {
   AdminSitePageDigestBytes: 64,
   AdminSitePageSlugBytes: 10,
   AdminSitePagePublishFrameBytes: 600110,
+  AdminAppearanceDigestBytes: 64,
+  AdminAppearanceIdBytes: 128,
+  AdminAppearanceVersionBytes: 64,
+  AdminAppearanceMaximumItems: 16,
+  AdminAppearanceCommandFrameBytes: 297,
   SiteConfigBlobBytes: 4096,
   BodyBytes: 1048576,
   MaxPayloadBytes: 4194304,
@@ -512,6 +520,12 @@ export const WireRoutes = {
   AdminSitePageStepUpComplete: "/api/v2/admin/identity/site-pages/step-up/complete.aeds",
   AdminSitePagePow: "/api/v2/admin/identity/site-pages/pow.aeds",
   AdminSitePagePublish: "/api/v2/admin/identity/site-pages/publish.aeds",
+  AdminAppearanceState: "/api/v2/admin/identity/appearance.aeds",
+  AdminAppearanceCatalog: "/api/v2/admin/identity/appearance/catalog.aeds",
+  AdminAppearanceStepUpBegin: "/api/v2/admin/identity/appearance/step-up/begin.aeds",
+  AdminAppearanceStepUpComplete: "/api/v2/admin/identity/appearance/step-up/complete.aeds",
+  AdminAppearancePow: "/api/v2/admin/identity/appearance/pow.aeds",
+  AdminAppearanceApply: "/api/v2/admin/identity/appearance/apply.aeds",
   AdminCategories: "/api/v2/admin/identity/taxonomy/categories.aeds",
   AdminTags: "/api/v2/admin/identity/taxonomy/tags.aeds",
   AdminCommentQueue: "/api/v2/admin/identity/comments/queue.aeds",
@@ -615,6 +629,7 @@ export const WireHeaders = {
   SiteSessionContinuity: "X-Fsus-Site-Session-Continuity",
   AdminBootstrapToken: "X-Fsus-Admin-Bootstrap-Token",
   AdminSitePageEditor: "X-Fsus-Admin-Site-Page-Editor",
+  AdminAppearanceEnabled: "X-Fsus-Admin-Appearance",
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
@@ -1204,6 +1219,77 @@ export function decodeAuthoringWorkspaceLayoutCommand(payload: Uint8Array): Auth
     activeArticleId: reader.i32(),
     tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
     inspectorOpen: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminAppearanceState {
+  revision: bigint;
+  theme: string;
+  font: string;
+  serving: boolean;
+  canRollback: boolean;
+  previousTheme: string;
+  previousFont: string;
+}
+
+export function encodeAdminAppearanceState(value: AdminAppearanceState): Uint8Array {
+  const writer = new PodWriter();
+  writer.i64(value.revision);
+  writer.text(value.theme, WireLimits.AdminAppearanceDigestBytes);
+  writer.text(value.font, WireLimits.AdminAppearanceDigestBytes);
+  writer.bool(value.serving);
+  writer.bool(value.canRollback);
+  writer.text(value.previousTheme, WireLimits.AdminAppearanceDigestBytes);
+  writer.text(value.previousFont, WireLimits.AdminAppearanceDigestBytes);
+  return writer.finish();
+}
+
+export function decodeAdminAppearanceState(payload: Uint8Array): AdminAppearanceState {
+  const reader = new PodReader(payload);
+  const value: AdminAppearanceState = {
+    revision: reader.i64(),
+    theme: reader.text(WireLimits.AdminAppearanceDigestBytes),
+    font: reader.text(WireLimits.AdminAppearanceDigestBytes),
+    serving: reader.bool(),
+    canRollback: reader.bool(),
+    previousTheme: reader.text(WireLimits.AdminAppearanceDigestBytes),
+    previousFont: reader.text(WireLimits.AdminAppearanceDigestBytes),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminAppearanceCommand {
+  expectedRevision: bigint;
+  currentTheme: string;
+  currentFont: string;
+  theme: string;
+  font: string;
+  rollback: boolean;
+}
+
+export function encodeAdminAppearanceCommand(value: AdminAppearanceCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i64(value.expectedRevision);
+  writer.text(value.currentTheme, WireLimits.AdminAppearanceDigestBytes);
+  writer.text(value.currentFont, WireLimits.AdminAppearanceDigestBytes);
+  writer.text(value.theme, WireLimits.AdminAppearanceDigestBytes);
+  writer.text(value.font, WireLimits.AdminAppearanceDigestBytes);
+  writer.bool(value.rollback);
+  return writer.finish();
+}
+
+export function decodeAdminAppearanceCommand(payload: Uint8Array): AdminAppearanceCommand {
+  const reader = new PodReader(payload);
+  const value: AdminAppearanceCommand = {
+    expectedRevision: reader.i64(),
+    currentTheme: reader.text(WireLimits.AdminAppearanceDigestBytes),
+    currentFont: reader.text(WireLimits.AdminAppearanceDigestBytes),
+    theme: reader.text(WireLimits.AdminAppearanceDigestBytes),
+    font: reader.text(WireLimits.AdminAppearanceDigestBytes),
+    rollback: reader.bool(),
   };
   reader.finish();
   return value;

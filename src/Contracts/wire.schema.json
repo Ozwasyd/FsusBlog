@@ -71,6 +71,9 @@
     "AdminArticleRollbackReceipt": 32926,
     "AdminSitePageRevision": 32915,
     "AdminSitePagePublish": 32916,
+    "AdminAppearanceState": 32936,
+    "AdminAppearanceCatalog": 32937,
+    "AdminAppearanceCommand": 32938,
     "AdminTaxonomyPage": 32864,
     "AdminCommentQueue": 32862,
     "AdminInboxPage": 32896,
@@ -228,6 +231,12 @@
     "AdminSitePageStepUpComplete": "/api/v2/admin/identity/site-pages/step-up/complete.aeds",
     "AdminSitePagePow": "/api/v2/admin/identity/site-pages/pow.aeds",
     "AdminSitePagePublish": "/api/v2/admin/identity/site-pages/publish.aeds",
+    "AdminAppearanceState": "/api/v2/admin/identity/appearance.aeds",
+    "AdminAppearanceCatalog": "/api/v2/admin/identity/appearance/catalog.aeds",
+    "AdminAppearanceStepUpBegin": "/api/v2/admin/identity/appearance/step-up/begin.aeds",
+    "AdminAppearanceStepUpComplete": "/api/v2/admin/identity/appearance/step-up/complete.aeds",
+    "AdminAppearancePow": "/api/v2/admin/identity/appearance/pow.aeds",
+    "AdminAppearanceApply": "/api/v2/admin/identity/appearance/apply.aeds",
     "AdminCategories": "/api/v2/admin/identity/taxonomy/categories.aeds",
     "AdminTags": "/api/v2/admin/identity/taxonomy/tags.aeds",
     "AdminCommentQueue": "/api/v2/admin/identity/comments/queue.aeds",
@@ -329,7 +338,8 @@
     "SiteRefresh": "X-Fsus-Site-Refresh",
     "SiteSessionContinuity": "X-Fsus-Site-Session-Continuity",
     "AdminBootstrapToken": "X-Fsus-Admin-Bootstrap-Token",
-    "AdminSitePageEditor": "X-Fsus-Admin-Site-Page-Editor"
+    "AdminSitePageEditor": "X-Fsus-Admin-Site-Page-Editor",
+    "AdminAppearanceEnabled": "X-Fsus-Admin-Appearance"
   },
   "limits": {
     "PowProofHeaderChars": 416,
@@ -363,6 +373,11 @@
     "AdminSitePageDigestBytes": 64,
     "AdminSitePageSlugBytes": 10,
     "AdminSitePagePublishFrameBytes": 600110,
+    "AdminAppearanceDigestBytes": 64,
+    "AdminAppearanceIdBytes": 128,
+    "AdminAppearanceVersionBytes": 64,
+    "AdminAppearanceMaximumItems": 16,
+    "AdminAppearanceCommandFrameBytes": 297,
     "SiteConfigBlobBytes": 4096,
     "BodyBytes": 1048576,
     "MaxPayloadBytes": 4194304,
@@ -690,6 +705,14 @@
     "AuthoringWorkspaceLayoutCommand": {
       "frame": "AuthoringWorkspaceLayoutCommand",
       "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["InspectorOpen", "bool"]]
+    },
+    "AdminAppearanceState": {
+      "frame": "AdminAppearanceState",
+      "fields": [["Revision", "i64"], ["Theme", "text", "AdminAppearanceDigestBytes"], ["Font", "text", "AdminAppearanceDigestBytes"], ["Serving", "bool"], ["CanRollback", "bool"], ["PreviousTheme", "text", "AdminAppearanceDigestBytes"], ["PreviousFont", "text", "AdminAppearanceDigestBytes"]]
+    },
+    "AdminAppearanceCommand": {
+      "frame": "AdminAppearanceCommand",
+      "fields": [["ExpectedRevision", "i64"], ["CurrentTheme", "text", "AdminAppearanceDigestBytes"], ["CurrentFont", "text", "AdminAppearanceDigestBytes"], ["Theme", "text", "AdminAppearanceDigestBytes"], ["Font", "text", "AdminAppearanceDigestBytes"], ["Rollback", "bool"]]
     },
     "DraftRecoveryScope": {
       "frame": "DraftRecoveryScope",

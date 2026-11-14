@@ -64,6 +64,31 @@ public sealed class AppearanceRegistryTests
         Assert.Equal("appearance-active-reference", Assert.Throws<ExtensionRejectedException>(() => AppearanceRegistry.Load(disk.Root, clock)).Code);
     }
 
+    [Fact]
+    public void OnlineSelectionUsesThePublishedArchiveDigestAndNeverRevivesAnExpiredSelection()
+    {
+        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()) return;
+        using var disk = new AppearanceDirectory();
+        using var signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var source = disk.Add(signer, Theme(), "summer");
+        disk.Configure(signer, [source], null);
+        var clock = new TestClock();
+        var registry = AppearanceRegistry.Load(disk.Root, clock);
+        var option = Assert.Single(registry.Available());
+        Assert.Equal(new AppearancePackage("summer", "1.0", source.ArchiveSha256, false), option);
+        Assert.Equal(new AppearanceSelection(), registry.Default);
+        Assert.Empty(registry.SelectedStyle(registry.Default, 0)!);
+        var selection = new AppearanceSelection(option.ArchiveDigest);
+        Assert.Contains("#225533", System.Text.Encoding.UTF8.GetString(registry.SelectedStyle(selection, 1)!));
+        Assert.Null(registry.SelectedStyle(new AppearanceSelection(FontDigest: option.ArchiveDigest), 1));
+        clock.Now = Now.AddHours(2);
+        Assert.Null(registry.SelectedStyle(selection, 1));
+        clock.Now = Now;
+        Assert.False(registry.IsCurrent(selection));
+        Assert.Empty(registry.Available());
+        Assert.True(registry.IsCurrent(registry.Default));
+    }
+
     private static byte[] Theme(string color = "#225533", string? member = null, bool link = false)
     {
         using var result = new MemoryStream();

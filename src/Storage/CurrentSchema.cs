@@ -64,7 +64,7 @@ internal static partial class CurrentSchema
     ];
 
     internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
-        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null)
+        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -89,7 +89,7 @@ internal static partial class CurrentSchema
 
         await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
             requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
-            requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice);
+            requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -111,7 +111,7 @@ internal static partial class CurrentSchema
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
-        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null)
+        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null)
     {
         if (requireArticleMedia is null)
         {
@@ -154,6 +154,9 @@ internal static partial class CurrentSchema
         var hasSitePageEditor = await HasSitePageEditorSchemaAsync(connection, transaction, cancellationToken);
         if (requireSitePageEditor.HasValue && requireSitePageEditor.Value != hasSitePageEditor)
             throw new InvalidOperationException("The site page editor schema presence does not match the requested operation.");
+        var hasAppearanceActivation = await HasAppearanceActivationAsync(connection, transaction, cancellationToken);
+        if (requireAppearanceActivation.HasValue && requireAppearanceActivation.Value != hasAppearanceActivation)
+            throw new InvalidOperationException("The signed appearance schema presence does not match the requested operation.");
         var hasSavedViews = await HasSavedViewsAsync(connection, transaction, cancellationToken);
         if (requireSavedViews.HasValue && requireSavedViews.Value != hasSavedViews)
             throw new InvalidOperationException("The saved views schema presence does not match the requested operation.");
@@ -181,6 +184,7 @@ internal static partial class CurrentSchema
             .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
             .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
             .Concat(hasSitePageEditor ? SitePageEditorColumns : [])
+            .Concat(hasAppearanceActivation ? AppearanceActivationColumns : [])
             .Concat(hasSavedViews ? SavedViewColumns : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementColumns : [])
             .Concat(hasAdminArticleRollback ? AdminArticleRollbackColumns : [])
@@ -205,6 +209,7 @@ internal static partial class CurrentSchema
             .Concat(hasRecoveryKey ? SiteRecoveryKeyConstraints : [])
             .Concat(hasSiteRefresh ? SiteRefreshConstraints : [])
             .Concat(hasSitePageEditor ? SitePageEditorConstraints : [])
+            .Concat(hasAppearanceActivation ? AppearanceActivationConstraints : [])
             .Concat(hasSavedViews ? SavedViewConstraints : [])
             .Concat(hasSavedViewPlacement ? SavedViewPlacementConstraints : [])
             .Concat(hasAdminArticleRollback ? AdminArticleRollbackConstraints : [])
@@ -257,7 +262,8 @@ internal static partial class CurrentSchema
                          CASE WHEN k.confmatchtype <> 's' THEN ' unexpected-action'
                               WHEN k.confdeltype = 'a' AND k.confupdtype = 'a' THEN ''
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'a' AND n.nspname = 'public'
-                                   AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_article_rollback_step_up') AND target.relname = 'admin_session')
+                                   AND ((c.relname IN ('admin_step_up', 'admin_site_page_step_up', 'admin_article_rollback_step_up', 'admin_appearance_step_up')
+                                         AND target.relname = 'admin_session')
                                      OR (c.relname = 'site_session_refresh_tombstone' AND target.relname = 'site_session_refresh'))
                                    THEN ' delete-cascade'
                               WHEN k.confdeltype = 'c' AND k.confupdtype = 'c' AND n.nspname = 'public'
@@ -293,6 +299,7 @@ internal static partial class CurrentSchema
         AssertShape("relation/column", expectedColumns, columns);
         AssertShape("constraint", expectedConstraints, constraints);
         if (hasSitePageEditor) await VerifySitePageCoordinatesAsync(connection, transaction, cancellationToken);
+        if (hasAppearanceActivation) await VerifyAppearanceActivationAsync(connection, transaction, cancellationToken);
     }
 
     private static void AssertShape(string kind, string[] expected, List<string> observed)

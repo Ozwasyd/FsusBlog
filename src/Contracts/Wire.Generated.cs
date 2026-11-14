@@ -60,6 +60,9 @@ public enum FrameType : ushort
     AdminArticleRollbackReceipt = 32926,
     AdminSitePageRevision = 32915,
     AdminSitePagePublish = 32916,
+    AdminAppearanceState = 32936,
+    AdminAppearanceCatalog = 32937,
+    AdminAppearanceCommand = 32938,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
     AdminInboxPage = 32896,
@@ -182,6 +185,11 @@ public static class WireLimits
     public const int AdminSitePageDigestBytes = 64;
     public const int AdminSitePageSlugBytes = 10;
     public const int AdminSitePagePublishFrameBytes = 600110;
+    public const int AdminAppearanceDigestBytes = 64;
+    public const int AdminAppearanceIdBytes = 128;
+    public const int AdminAppearanceVersionBytes = 64;
+    public const int AdminAppearanceMaximumItems = 16;
+    public const int AdminAppearanceCommandFrameBytes = 297;
     public const int SiteConfigBlobBytes = 4096;
     public const int BodyBytes = 1048576;
     public const int MaxPayloadBytes = 4194304;
@@ -517,6 +525,12 @@ public static class WireRoutes
     public const string AdminSitePageStepUpComplete = "/api/v2/admin/identity/site-pages/step-up/complete.aeds";
     public const string AdminSitePagePow = "/api/v2/admin/identity/site-pages/pow.aeds";
     public const string AdminSitePagePublish = "/api/v2/admin/identity/site-pages/publish.aeds";
+    public const string AdminAppearanceState = "/api/v2/admin/identity/appearance.aeds";
+    public const string AdminAppearanceCatalog = "/api/v2/admin/identity/appearance/catalog.aeds";
+    public const string AdminAppearanceStepUpBegin = "/api/v2/admin/identity/appearance/step-up/begin.aeds";
+    public const string AdminAppearanceStepUpComplete = "/api/v2/admin/identity/appearance/step-up/complete.aeds";
+    public const string AdminAppearancePow = "/api/v2/admin/identity/appearance/pow.aeds";
+    public const string AdminAppearanceApply = "/api/v2/admin/identity/appearance/apply.aeds";
     public const string AdminCategories = "/api/v2/admin/identity/taxonomy/categories.aeds";
     public const string AdminTags = "/api/v2/admin/identity/taxonomy/tags.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
@@ -621,6 +635,7 @@ public static class WireHeaders
     public const string SiteSessionContinuity = "X-Fsus-Site-Session-Continuity";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
     public const string AdminSitePageEditor = "X-Fsus-Admin-Site-Page-Editor";
+    public const string AdminAppearanceEnabled = "X-Fsus-Admin-Appearance";
 }
 
 public sealed record RecoveryKeyOperation(int Operation);
@@ -643,6 +658,8 @@ public sealed record AuthoringWorkspaceSnapshot(int SchemaVersion, long Revision
 public sealed record AuthoringWorkspaceCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs);
 public sealed record AuthoringWorkspaceLayout(int SchemaVersion, long Revision, long UpdatedAtUnixMs, int ActiveArticleId, IReadOnlyList<int> Tabs, int Skipped, bool InspectorOpen);
 public sealed record AuthoringWorkspaceLayoutCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs, bool InspectorOpen);
+public sealed record AdminAppearanceState(long Revision, string Theme, string Font, bool Serving, bool CanRollback, string PreviousTheme, string PreviousFont);
+public sealed record AdminAppearanceCommand(long ExpectedRevision, string CurrentTheme, string CurrentFont, string Theme, string Font, bool Rollback);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
 public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
@@ -1079,6 +1096,51 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceLayoutCommand));
         var value = new AuthoringWorkspaceLayoutCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminAppearanceState(AdminAppearanceState value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I64(value.Revision);
+        writer.Text(value.Theme, WireLimits.AdminAppearanceDigestBytes);
+        writer.Text(value.Font, WireLimits.AdminAppearanceDigestBytes);
+        writer.Bool(value.Serving);
+        writer.Bool(value.CanRollback);
+        writer.Text(value.PreviousTheme, WireLimits.AdminAppearanceDigestBytes);
+        writer.Text(value.PreviousFont, WireLimits.AdminAppearanceDigestBytes);
+        return Aeds.Encode(FrameType.AdminAppearanceState, writer.Written);
+    }
+
+    public static AdminAppearanceState DecodeAdminAppearanceState(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminAppearanceState));
+        var value = new AdminAppearanceState(reader.I64(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Bool(), reader.Bool(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminAppearanceCommand(AdminAppearanceCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I64(value.ExpectedRevision);
+        writer.Text(value.CurrentTheme, WireLimits.AdminAppearanceDigestBytes);
+        writer.Text(value.CurrentFont, WireLimits.AdminAppearanceDigestBytes);
+        writer.Text(value.Theme, WireLimits.AdminAppearanceDigestBytes);
+        writer.Text(value.Font, WireLimits.AdminAppearanceDigestBytes);
+        writer.Bool(value.Rollback);
+        return Aeds.Encode(FrameType.AdminAppearanceCommand, writer.Written);
+    }
+
+    public static AdminAppearanceCommand DecodeAdminAppearanceCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminAppearanceCommand));
+        var value = new AdminAppearanceCommand(reader.I64(), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Text(WireLimits.AdminAppearanceDigestBytes), reader.Bool());
         reader.Finish();
         Validate(value);
         return value;

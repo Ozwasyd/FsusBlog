@@ -32,8 +32,9 @@ var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/W
 var template = await File.ReadAllTextAsync(Path.Combine(dist, "index.html"));
 if (!template.Contains("<!--fsus-public-content-->", StringComparison.Ordinal))
     throw new InvalidOperationException("The v2 web build is missing the public content slot.");
-var appearance = FsusBlog.V2.Server.Content.AppearanceAssets.Load(builder.Configuration[FsusBlog.V2.Server.Content.AppearanceAssets.RootSetting],
-    dist, builder.Configuration[FsusBlog.V2.Server.Content.MediaEndpoints.StorageSetting]);
+var onlineAppearance = builder.Configuration.GetValue(AppearanceAssets.OnlineSetting, false);
+var appearance = AppearanceAssets.Load(builder.Configuration[AppearanceAssets.RootSetting],
+    dist, builder.Configuration[MediaEndpoints.StorageSetting], onlineAppearance);
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = WireLimits.MaxCommandFrameBytes);
 builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
@@ -48,6 +49,11 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
         services.GetRequiredService<IHttpContextAccessor>(), slowRequests));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
+if (onlineAppearance && (adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps || publicSite.Origin is null ||
+    Uri.Compare(adminIdentity.Origin, new Uri(publicSite.Origin), UriComponents.SchemeAndServer, UriFormat.SafeUnescaped,
+        StringComparison.OrdinalIgnoreCase) == 0))
+    throw new InvalidOperationException("Online appearance requires independent HTTPS administrator and public origins.");
+if (appearance is not null) builder.Services.AddSingleton(appearance);
 if (sitePageEditor && (adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps || publicSite.Origin is null))
     throw new InvalidOperationException("The site page editor requires independent HTTPS administrator and public origins.");
 if (subscription is not null && publicSite.Origin is null)
@@ -120,7 +126,7 @@ await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscript
     requireAdminInboxStatus: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.StatusSetting, false) ? true : null,
     requireAdminInboxNotice: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.NoticeSetting, false) ? true : null,
     requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null,
-    requireAdminArticleRollback: adminArticleRollback ? true : null);
+    requireAdminArticleRollback: adminArticleRollback ? true : null, requireAppearanceActivation: onlineAppearance ? true : null);
 var publications = app.Services.GetRequiredService<Publications>();
 app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
 await publications.Refresh(CancellationToken.None);

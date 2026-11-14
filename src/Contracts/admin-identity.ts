@@ -12,7 +12,7 @@ import {
   type AdminOperationsStatus as WireAdminOperationsStatus,
 } from './wire.generated.ts';
 
-export type AdminSession = Readonly<{ handle: string; generation: bigint; expiresAt: number }>;
+export type AdminSession = Readonly<{ handle: string; generation: bigint; expiresAt: number; appearanceEnabled: boolean }>;
 export type AdminAuthority = { status: 'unavailable' } | { status: 'signed-out' } | { status: 'active'; session: AdminSession };
 export type AdminOperationsStatus = Readonly<Omit<WireAdminOperationsStatus, 'oldestPendingAt'> & { oldestPendingAt: number | null }>;
 export type AdminCommentCursor = Readonly<{ articleId: number; commentId: bigint }>;
@@ -101,10 +101,10 @@ function readOperationsStatus(payload: Uint8Array): AdminOperationsStatus {
   return { ...status, oldestPendingAt: oldestPendingAt || null };
 }
 
-function readAdminSession(payload: Uint8Array): AdminSession {
+function readAdminSession(payload: Uint8Array, headers: Headers): AdminSession {
   const snapshot = decodeAdminSessionSnapshot(payload);
   const expiresAt = Number(snapshot.expiresAt);
   if (snapshot.handle.length === 0 || snapshot.generation <= 0n || !Number.isSafeInteger(expiresAt) ||
       expiresAt <= 0 || expiresAt > 8.64e15) throw new ProtocolError('Invalid administrator session.');
-  return { ...snapshot, expiresAt };
+  return { ...snapshot, expiresAt, appearanceEnabled: headers.get(WireHeaders.AdminAppearanceEnabled) === '1' };
 }

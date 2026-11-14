@@ -56,6 +56,7 @@ internal static class AdminIdentityEndpoints
         var login = secure ? "__Host-FsusAdminAssertion" : "fsus-v2-admin-assertion";
         var store = new AdminPasskeyStore(app.Services.GetRequiredService<NpgsqlDataSource>(),
             app.Services.GetRequiredService<InstanceLease>(), config);
+        var appearance = app.Services.GetService<FsusBlog.V2.Server.Content.AppearanceAssets>();
 
         app.MapGet(PagePath, (HttpContext ctx) =>
         {
@@ -92,7 +93,9 @@ internal static class AdminIdentityEndpoints
         }).RequireRateLimiting(Limit);
         app.MapGet(WireRoutes.AdminSession, async (HttpContext ctx, CancellationToken ct) =>
         {
-            return Frame(Wire.EncodeAdminSessionSnapshot(await store.Session(ctx.Request.Cookies[session], ct)));
+            var active = await store.Session(ctx.Request.Cookies[session], ct);
+            if (appearance is { Online: true }) ctx.Response.Headers[WireHeaders.AdminAppearanceEnabled] = "1";
+            return Frame(Wire.EncodeAdminSessionSnapshot(active));
         }).RequireRateLimiting("command");
         app.MapPost(WireRoutes.AdminStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
         {
@@ -117,6 +120,8 @@ internal static class AdminIdentityEndpoints
             AdminArticleRollbackEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
         if (app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().EditorEnabled)
             AdminSitePageEditorEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
+        if (appearance is { Online: true })
+            AdminAppearanceEndpoints.Map(app, config.Origin, store, session, Limit, readFrame, appearance.Registry);
         app.MapGet(WireRoutes.AdminCategories, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             Frame(Wire.EncodeAdminTaxonomyPage(await store.Taxonomy(ctx.Request.Cookies[session], false, ctx.Request.Query, publications, ct))))
             .RequireRateLimiting("command");

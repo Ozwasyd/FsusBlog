@@ -1,0 +1,56 @@
+using FsusBlog.V2.Core;
+using FsusBlog.V2.Core.Extensions;
+using Npgsql;
+
+namespace FsusBlog.V2.Server.Content;
+
+internal sealed record AppearanceActivation(long Revision, AppearanceSelection Selected);
+
+internal static class AppearanceActivationStore
+{
+    internal static async Task<AppearanceActivation> Read(NpgsqlConnection db, NpgsqlTransaction tx,
+        AppearanceRegistry registry, CancellationToken ct, bool locked = false)
+    {
+        var sql = "select revision, theme_digest, font_digest from public.appearance_activation where singleton";
+        if (locked) sql += " for update";
+        await using var cmd = Store.Sql(db, tx, sql);
+        await using var row = await cmd.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct)) throw new PublicUnavailableException();
+        var revision = row.GetInt64(0);
+        return new(revision, revision == 0 ? registry.Default : new(row.GetString(1), row.GetString(2)));
+    }
+
+    internal static async Task<AppearanceSelection?> Previous(NpgsqlConnection db, NpgsqlTransaction tx, long revision, CancellationToken ct)
+    {
+        if (revision == 0) return null;
+        await using var cmd = Store.Sql(db, tx, """
+            select previous_theme_digest,previous_font_digest from public.appearance_activation_audit where revision=$1
+            """, revision);
+        await using var row = await cmd.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct)) throw new PublicUnavailableException();
+        return new(row.GetString(0), row.GetString(1));
+    }
+
+    internal static async Task<bool> StillActive(NpgsqlConnection db, NpgsqlTransaction tx, long revision, CancellationToken ct)
+    {
+        await using var cmd = Store.Sql(db, tx, "select revision from public.appearance_activation where singleton for share");
+        return await cmd.ExecuteScalarAsync(ct) is long current && current == revision;
+    }
+
+    internal static async Task Change(NpgsqlConnection db, NpgsqlTransaction tx, AppearanceActivation current,
+        AppearanceSelection next, Guid principal, bool rollback, CancellationToken ct)
+    {
+        await using var cmd = Store.Sql(db, tx, """
+            with changed as (
+                update public.appearance_activation set revision=revision+1, theme_digest=$2, font_digest=$3
+                where singleton and revision=$1 returning revision
+            )
+            insert into public.appearance_activation_audit
+                (revision,principal_id,rollback,previous_theme_digest,previous_font_digest,theme_digest,font_digest,happened_at)
+            select revision,$4,$5,$6,$7,$2,$3,clock_timestamp() from changed
+            """, current.Revision, next.ThemeDigest, next.FontDigest, principal, rollback, current.Selected.ThemeDigest,
+            current.Selected.FontDigest);
+        if (await cmd.ExecuteNonQueryAsync(ct) != 1)
+            throw new BusinessException(Rejection.Conflict, "The active appearance changed. Reload before applying.");
+    }
+}

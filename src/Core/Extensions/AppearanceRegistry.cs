@@ -8,7 +8,7 @@ using static FsusBlog.V2.Core.Extensions.ExtensionPackageVerifier;
 
 namespace FsusBlog.V2.Core.Extensions;
 
-public sealed class AppearanceRegistry
+public sealed partial class AppearanceRegistry
 {
     private const int MaxFont = 1024 * 1024;
     private const int MaxTheme = 4096;
@@ -17,6 +17,8 @@ public sealed class AppearanceRegistry
     private readonly Font? _font;
     private readonly TimeProvider _clock;
     private readonly long _loadedAt;
+    private readonly ImmutableDictionary<string, Entry> _entries;
+    private readonly HashSet<string> _expiredEntries = new(StringComparer.Ordinal);
     private readonly byte[]? _css;
     private int _expired;
     public string? StyleDigest { get; }
@@ -48,15 +50,16 @@ public sealed class AppearanceRegistry
         }
         var theme = Select<Theme>(byId, configuration.ActiveTheme);
         var font = Select<Font>(byId, configuration.ActiveFont);
-        return new(theme, font, clock);
+        return new(theme, font, clock, byId.ToImmutableDictionary(StringComparer.Ordinal));
     }
 
-    private AppearanceRegistry(Theme? theme, Font? font, TimeProvider clock)
+    private AppearanceRegistry(Theme? theme, Font? font, TimeProvider clock, ImmutableDictionary<string, Entry> entries)
     {
         _theme = theme;
         _font = font;
         _clock = clock;
         _loadedAt = clock.GetTimestamp();
+        _entries = entries;
         if (theme is not null || font is not null)
         {
             _css = Encoding.UTF8.GetBytes(ThemeCss(theme) + FontCss(font));
@@ -77,13 +80,22 @@ public sealed class AppearanceRegistry
     private bool Current()
     {
         if (Volatile.Read(ref _expired) != 0) return false;
-        var now = _clock.GetUtcNow();
-        if (!Valid(_theme) || !Valid(_font)) Interlocked.Exchange(ref _expired, 1);
+        if (!Current(_theme) || !Current(_font)) Interlocked.Exchange(ref _expired, 1);
         return Volatile.Read(ref _expired) == 0;
+    }
 
-        bool Valid(Entry? item) => item is null || item.Trust.CheckedAt >= item.Trust.ValidFrom &&
-            now >= item.Trust.CheckedAt && now < item.Trust.ValidUntil &&
-            _clock.GetElapsedTime(_loadedAt) < item.Trust.ValidUntil - item.Trust.CheckedAt;
+    private bool Current(Entry? item)
+    {
+        if (item is null) return true;
+        lock (_expiredEntries)
+        {
+            if (_expiredEntries.Contains(item.Id)) return false;
+            var now = _clock.GetUtcNow();
+            if (item.Trust.CheckedAt >= item.Trust.ValidFrom && now >= item.Trust.CheckedAt && now < item.Trust.ValidUntil &&
+                _clock.GetElapsedTime(_loadedAt) < item.Trust.ValidUntil - item.Trust.CheckedAt) return true;
+            _expiredEntries.Add(item.Id);
+            return false;
+        }
     }
 
     private static T? Select<T>(Dictionary<string, Entry> entries, string? id) where T : Entry
@@ -113,7 +125,7 @@ public sealed class AppearanceRegistry
             if (manifest.Kind == "theme" && entries.Count == 1 && manifest.Theme is { } palette && manifest.Font is null)
             {
                 ValidatePalette(palette);
-                return new Theme(manifest.Id, trust, palette);
+                return new Theme(manifest.Id, manifest.Version, trust, palette);
             }
             if (manifest.Kind != "font" || entries.Count != 3 || manifest.Theme is not null || manifest.Font is not { } font ||
                 font.License is not ("OFL-1.1" or "Apache-2.0") || !IsDigest(font.FontSha256) || !IsDigest(font.LicenseSha256))
@@ -130,7 +142,7 @@ public sealed class AppearanceRegistry
                 BinaryPrimitives.ReadUInt16BigEndian(content.AsSpan(14, 2)) != 0 ||
                 BinaryPrimitives.ReadUInt32BigEndian(content.AsSpan(16, 4)) > 4 * MaxFont)
                 throw Reject("appearance-font-container");
-            return new Font(manifest.Id, trust, font.FontSha256, content);
+            return new Font(manifest.Id, manifest.Version, trust, font.FontSha256, content);
         }
         catch (Exception error) when (error is IOException or InvalidDataException or DecoderFallbackException or NotSupportedException)
         {
@@ -163,8 +175,8 @@ public sealed class AppearanceRegistry
         @media(prefers-color-scheme:dark){html:root:not(.light):not(.dark){--fsus-color-action-primary:{{{theme.Palette.DarkAccent}}};--fsus-color-action-primary-hover:{{{theme.Palette.DarkHover}}}}}
         """;
 
-    private static string FontCss(Font? font) => font is null ? "" : $$"""
-        @font-face{font-family:FsusBlogSiteFont;src:url('/site-appearance/font/{{font.Hash}}.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
+    private static string FontCss(Font? font, string? versionPrefix = null) => font is null ? "" : $$"""
+        @font-face{font-family:FsusBlogSiteFont;src:url('/site-appearance/font/{{versionPrefix}}{{font.Hash}}.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap}
         html:root{--el-font-family:FsusBlogSiteFont,'Google Sans',ui-sans-serif,system-ui,sans-serif}
         html:root .fsus-prose{font-family:var(--el-font-family)}
         """;
@@ -194,7 +206,7 @@ public sealed class AppearanceRegistry
         string TrustPolicyReference, Palette? Theme = null, FontManifest? Font = null);
     private sealed record Palette(string LightAccent, string LightHover, string DarkAccent, string DarkHover);
     private sealed record FontManifest(string License, string FontSha256, string LicenseSha256);
-    private abstract record Entry(string Id, SignedArchiveTrust Trust);
-    private sealed record Theme(string Id, SignedArchiveTrust Trust, Palette Palette) : Entry(Id, Trust);
-    private sealed record Font(string Id, SignedArchiveTrust Trust, string Hash, byte[] Bytes) : Entry(Id, Trust);
+    private abstract record Entry(string Id, string Version, SignedArchiveTrust Trust);
+    private sealed record Theme(string Id, string Version, SignedArchiveTrust Trust, Palette Palette) : Entry(Id, Version, Trust);
+    private sealed record Font(string Id, string Version, SignedArchiveTrust Trust, string Hash, byte[] Bytes) : Entry(Id, Version, Trust);
 }

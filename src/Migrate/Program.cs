@@ -38,6 +38,7 @@ internal static partial class Migration
                   recovery-key schema    Add site Recovery Key storage with the server stopped
                   site-page-editor schema
                                         Add optional site page publication storage with the server stopped
+                  appearance schema      Add signed appearance activation storage with the server stopped
                   site-refresh schema    Add site refresh storage with the server stopped
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
                   publication-history   Retain current publication coordinates and add event history with the server stopped
@@ -201,6 +202,9 @@ internal static partial class Migration
                 case ["recovery-key", "schema"]:
                     await InitializeSiteRecoveryKeyAsync(connection, token);
                     break;
+                case ["appearance", "schema"]:
+                    await InitializeAppearanceActivationAsync(connection, token);
+                    break;
                 case ["site-refresh", "schema"]:
                     await InitializeSiteRefreshAsync(connection, token);
                     break;
@@ -347,7 +351,8 @@ internal static partial class Migration
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireSiteRefresh: true,
-            requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true);
+            requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true,
+            requireAppearanceActivation: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

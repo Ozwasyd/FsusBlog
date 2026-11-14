@@ -11,6 +11,7 @@ import { decodeCommentRoots } from '../../src/Contracts/comment-read.ts'
 import { readMfaProof } from '../../src/Contracts/mfa.ts'
 import { verifyTaxonomy } from './admin-taxonomy-flow.mjs'
 import { verifyAdminSitePages } from './admin-site-pages-flow.mjs'
+import { verifyAppearanceActivation } from './admin-appearance-flow.mjs'
 import { verifyAdminArticleRollback } from './admin-article-rollback-flow.mjs'
 import { verifyAdminInbox } from './admin-inbox-flow.mjs'
 import {
@@ -236,6 +237,14 @@ try {
     checks.taxonomyRequiresIndependentGrant = true
     checks.taxonomyCountersAndCursorUseStoredRevisions = true
     checks.taxonomyGrantAndRevokeInvalidateOldSessions = true
+  }
+
+  if (process.env.FSUSBLOG_TEST_ADMIN_APPEARANCE === '1') {
+    phase = 'appearance-activation'
+    finalCookie = await verifyAppearanceActivation({ page: admin, context, adminOrigin, siteOrigin, adminCookieName, siteCookie,
+      priorCookie: finalCookie, grant: process.env.FSUSBLOG_TEST_APPEARANCE_GRANT, revoke: process.env.FSUSBLOG_TEST_APPEARANCE_REVOKE,
+      logIn, probe: credentialProbe, readCookie, evidence })
+    checks.signedAppearanceActivationAndRollbackEvictSupersededAssets = true
   }
 
   if (sitePagesGrant) {

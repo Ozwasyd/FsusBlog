@@ -10,7 +10,7 @@ namespace FsusBlog.V2.Server.Administration;
 
 internal sealed partial class AdminPasskeyStore
 {
-    private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3 }
+    private enum StepUpAction { ModerateComment = 1, PublishSitePage = 2, PublishArticleRollback = 3, ActivateAppearance = 4 }
     private const short StepUpChallenge = 1;
     private const short StepUpProof = 2;
 
@@ -140,6 +140,7 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction.ModerateComment => "public.admin_step_up",
         StepUpAction.PublishSitePage => "public.admin_site_page_step_up",
         StepUpAction.PublishArticleRollback => "public.admin_article_rollback_step_up",
+        StepUpAction.ActivateAppearance => "public.admin_appearance_step_up",
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 
@@ -148,6 +149,7 @@ internal sealed partial class AdminPasskeyStore
         StepUpAction.ModerateComment => CurrentSchema.CommentModeratePermission,
         StepUpAction.PublishSitePage => CurrentSchema.SystemConfigPermission,
         StepUpAction.PublishArticleRollback => CurrentSchema.ArticleWritePermission,
+        StepUpAction.ActivateAppearance => CurrentSchema.SystemConfigPermission,
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 }
