@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
-import { ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElButton } from '@ozwasyd/element-plus'
+import { ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElButton, ElDrawer } from '@ozwasyd/element-plus'
 import { currentSession, refreshSession, signOut } from './session'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
 import { siteTitle } from './siteBrand'
@@ -19,6 +19,7 @@ function useTheme(mode: ThemeMode) {
   try { writeThemeMode(mode) } catch { /* Theme remains selectable if storage is unavailable. */ }
 }
 const logoutFailure = ref(false)
+const accountMenu = ref(false)
 const navigation = [
   { key: 'home', label: 'Home', href: '/' },
   { key: 'archive', label: 'Archive', href: '/archive' },
@@ -32,6 +33,7 @@ const authLabel = computed(() => currentSession.value?.canAuthor ? 'Write' : 'Lo
 watch(() => route.query.q, value => {
   searchQuery.value = typeof value === 'string' ? value : ''
 }, { immediate: true })
+watch(() => route.fullPath, () => { accountMenu.value = false })
 
 const lifetime = new AbortController()
 const compliance = ref<SiteCompliance>()
@@ -77,6 +79,7 @@ function search(value: string) {
 }
 
 async function leave() {
+  accountMenu.value = false
   logoutFailure.value = false
   try {
     if (route.name !== 'home' && await router.replace('/')) return
@@ -104,15 +107,23 @@ async function leave() {
         <ElButton v-if="currentSession || logoutFailure" text @click="leave">Log out</ElButton>
         <RouterLink v-else to="/login">Log in</RouterLink>
       </template>
-      <template #mobile-primary-actions>
-        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">站内信</RouterLink>
-        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets">资产库</RouterLink>
-        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">Account security</RouterLink>
-        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
-        <ElButton v-if="currentSession || logoutFailure" text @click="leave">Log out</ElButton>
-        <RouterLink v-else to="/login">Log in</RouterLink>
+      <template #mobile-overflow-trigger>
+        <ElButton class="workspace-menu-button" v-bind="{ 'aria-haspopup': 'dialog', 'aria-expanded': accountMenu }" @click="accountMenu = true">
+          Account menu
+        </ElButton>
       </template>
     </ElSiteHeader>
+    <ElDrawer v-model="accountMenu" title="Account menu" direction="rtl" size="min(22rem, 100%)" append-to-body>
+      <nav class="workspace-menu" aria-label="Account navigation">
+        <RouterLink to="/" @click="accountMenu = false">Public site</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox" @click="accountMenu = false">站内信</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets" @click="accountMenu = false">资产库</RouterLink>
+        <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa" @click="accountMenu = false">Account security</RouterLink>
+        <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
+        <ElButton v-if="currentSession || logoutFailure" text @click="leave">Log out</ElButton>
+        <RouterLink v-else to="/login" @click="accountMenu = false">Log in</RouterLink>
+      </nav>
+    </ElDrawer>
     <RouterView />
   </div>
   <template v-else>
@@ -176,6 +187,22 @@ async function leave() {
 </template>
 
 <style scoped>
+.workspace-brand {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.workspace-menu-button { min-height: 44px; }
+.workspace-menu {
+  display: grid;
+  justify-items: start;
+  gap: var(--fsus-space-3);
+}
+.workspace-menu > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
 .site-policy-links {
   display: flex;
   flex-wrap: wrap;

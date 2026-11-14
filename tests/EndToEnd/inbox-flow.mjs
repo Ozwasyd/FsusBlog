@@ -60,6 +60,25 @@ try {
       assert.equal(await row.getByText('1 条未读', { exact: true }).count(), 1)
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
       await page.screenshot({ path: join(evidence, `inbox-${name}-list.png`) })
+      const accountMenu = page.getByRole('button', { name: 'Account menu' })
+      if (index === 1) {
+        const brand = page.getByRole('banner', { name: 'Site header' }).getByRole('link', { name: "Fsu's Blog" })
+        const brandBox = await brand.boundingBox()
+        const menuBox = await accountMenu.boundingBox()
+        assert(brandBox && menuBox && brandBox.x + brandBox.width <= menuBox.x && menuBox.height >= 44)
+        await accountMenu.focus()
+        await page.keyboard.press('Enter')
+        const dialog = page.getByRole('dialog', { name: 'Account menu' })
+        await dialog.getByRole('link', { name: 'Account security' }).waitFor()
+        await dialog.getByRole('button', { name: 'Log out' }).waitFor()
+        await page.screenshot({ path: join(evidence, 'inbox-mobile-account-menu.png'), animations: 'disabled' })
+        await page.keyboard.press('Escape')
+        await dialog.waitFor({ state: 'hidden' })
+        await page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'Account menu')
+      } else {
+        assert.equal(await accountMenu.count(), 0)
+        await page.getByRole('link', { name: 'Account security' }).waitFor()
+      }
       appendFixtureNotice(recipients[index])
       const update = page.getByRole('button', { name: /New notification after opening/ })
       await update.waitFor({ timeout: 15_000 })
@@ -98,7 +117,8 @@ try {
       assert.deepEqual(browserErrors, [])
       observations.push({ name, viewport, url: page.url(), title: await page.title(), anonymous: 'private list hidden',
         replay: 'a new notice appeared without navigating or reloading',
-        keyboard: 'Enter opened the thread and moved focus', markedRead: true, focusRestored: index === 1, challenges })
+        keyboard: 'Enter opened the thread and moved focus', markedRead: true, focusRestored: index === 1, challenges,
+        accountMenu: index === 1 ? 'opens with Enter and closes with Escape, returning focus' : 'direct desktop actions visible' })
     } catch (error) {
       diagnostics.push({ name, error: String(error) })
       throw error
