@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/release-candidate/identity-contract.mjs"
+            ],
+            "reason": "preserve the existing registered tooling naming surface while defining candidate input field spellings and rejecting process metadata; no ambient environment authority is introduced"
+        }
+    ]
+}
