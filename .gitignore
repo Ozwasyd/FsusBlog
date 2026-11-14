@@ -4,7 +4,7 @@
 !.env.example
 **/bin/
 **/obj/
-**/node_modules/
+**/node_modules
 **/dist/
 **/TestResults/
 artifacts/

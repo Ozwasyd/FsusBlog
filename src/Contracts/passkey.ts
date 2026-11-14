@@ -22,12 +22,14 @@ export async function loginWithPasskey(signal?: AbortSignal) {
   const { token, options } = await request(WireRoutes.PasskeyLoginBegin, FrameType.PasskeyLoginBegin,
     decodeLoginBegin, signal, 'POST');
   const result = await navigator.credentials.get({ publicKey: options, ...(signal ? { signal } : {}) });
-  if (!(result instanceof PublicKeyCredential) || !(result.response instanceof AuthenticatorAssertionResponse) || !result.response.userHandle)
+  if (!(result instanceof PublicKeyCredential) || !(result.response instanceof AuthenticatorAssertionResponse))
     throw new ProtocolError('No discoverable Passkey assertion was returned.');
   const response = result.response;
+  const handle = response.userHandle;
+  if (!handle || handle.byteLength !== WireLimits.PasskeyUserHandleBytes) throw new ProtocolError('Invalid Passkey user handle.');
   const payload = complete(WireLayouts.PasskeyLoginCompleteSize, token, [encoder.encode(result.id), new Uint8Array(result.rawId),
     new Uint8Array(response.clientDataJSON), new Uint8Array(response.authenticatorData), new Uint8Array(response.signature),
-    new Uint8Array(response.userHandle)], [], true);
+    new Uint8Array(handle)], [], true);
   await request(WireRoutes.PasskeyLoginComplete, FrameType.AuthLoginFlow, decodeAuthenticated, signal, 'POST',
     encodeFrame(FrameType.PasskeyLoginCompleteRequest, payload));
   return api.session(signal);
