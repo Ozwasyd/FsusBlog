@@ -11,5 +11,11 @@
 | GET `/api/v2/authoring/saved-views.aeds` | SavedViewCatalog (32930) |
 | POST `/api/v2/authoring/saved-views.aeds` | SavedViewCommand (32931) → SavedViewReceipt (32932) |
 | POST `/api/v2/authoring/saved-views/run.aeds` | SavedViewExecute (32933) → PropertyArticlePage (32883) |
+| GET `/api/v2/authoring/saved-views/placement.aeds` | SavedViewPlacement (32935)，包含默认项与按服务端顺序分页的固定项 |
+| POST `/api/v2/authoring/saved-views/placement.aeds` | SavedViewPlacementCommand (32934) → SavedViewReceipt (32932) |
 
-新建数据库包含保存视图表。已有 v2 数据库在服务器停止后可运行迁移工具 `saved-views` 命令安装表和校验目录；命令可重复执行。这个切片兑现属性筛选的个人视图路径。固定、默认、顺序、深链接、其他条件及共享 Rail/Search、旧库迁移和完整规模终验仍按执行依赖单独跟踪。 [#2341](https://github.com/Ozwasyd/FsusBlog/issues/2341) · [#2343](https://github.com/Ozwasyd/FsusBlog/issues/2343) · [#2346](https://github.com/Ozwasyd/FsusBlog/issues/2346) · [#2349](https://github.com/Ozwasyd/FsusBlog/issues/2349) · [#2351](https://github.com/Ozwasyd/FsusBlog/issues/2351) · [#2354](https://github.com/Ozwasyd/FsusBlog/issues/2354)
+固定项按服务器顺序显示在个人保存视图面板，支持取消固定和键盘触发的上移、下移。新固定项追加到末尾。重排在同一事务校验集合及移动对象版本，并批量写入变动的顺序。每个作者和站点至多一个默认项；进入未指定视图的面板时执行其读取。移除默认项前须明确清除或选择替代项。保存视图的固定、排序与默认命令变更集合版本，保留定义版本，并写入幂等审计回执。
+
+文章管理接受 `?view=<UUID>&viewSchema=1` 深链接。服务端按当前会话解析并执行指定视图，重命名保留链接可用。失效、已移除、访问受限及不受支持的链接显示不可用状态，默认项只在没有显式视图的正常面板入口启用。
+
+新建数据库包含保存视图及偏好表。已有 v2 数据库在服务器停止后可运行迁移工具 `saved-views` 命令安装表和校验目录。命令可重复执行，原视图的身份和定义保持不变。其他条件、跨全局搜索的统一入口、旧库迁移与 1,000 个视图 / 10,000 篇文章的完整规模终验仍待交付。 [#2341](https://github.com/Ozwasyd/FsusBlog/issues/2341) · [#2343](https://github.com/Ozwasyd/FsusBlog/issues/2343) · [#2346](https://github.com/Ozwasyd/FsusBlog/issues/2346) · [#2349](https://github.com/Ozwasyd/FsusBlog/issues/2349) · [#2351](https://github.com/Ozwasyd/FsusBlog/issues/2351) · [#2354](https://github.com/Ozwasyd/FsusBlog/issues/2354)

@@ -343,7 +343,7 @@ internal static partial class Migration
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireSiteRefresh: true,
-            requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true);
+            requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

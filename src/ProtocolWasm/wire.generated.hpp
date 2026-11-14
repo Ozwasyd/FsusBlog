@@ -114,6 +114,7 @@ inline constexpr uint32_t SavedViewPageSize = 25;
 inline constexpr uint32_t SavedViewMaxCount = 1000;
 inline constexpr uint32_t SavedViewCommandFrameBytes = 262976;
 inline constexpr uint32_t SavedViewExecuteFrameBytes = 92;
+inline constexpr uint32_t SavedViewPlacementFrameBytes = 84;
 inline constexpr uint32_t PropertyOptionCount = 32;
 inline constexpr uint32_t PropertyDecimalBytes = 64;
 inline constexpr uint32_t PropertyDateBytes = 40;
@@ -411,6 +412,8 @@ enum class FrameType : uint16_t {
     SavedViewCommand = 32931,
     SavedViewReceipt = 32932,
     SavedViewExecute = 32933,
+    SavedViewPlacementCommand = 32934,
+    SavedViewPlacement = 32935,
     DraftRecoveryScope = 32787,
     AuthoringWorkspaceSnapshot = 32910,
     AuthoringWorkspaceCommand = 32911,
@@ -541,6 +544,8 @@ constexpr bool known(FrameType type) {
         case FrameType::SavedViewCommand:
         case FrameType::SavedViewReceipt:
         case FrameType::SavedViewExecute:
+        case FrameType::SavedViewPlacementCommand:
+        case FrameType::SavedViewPlacement:
         case FrameType::DraftRecoveryScope:
         case FrameType::AuthoringWorkspaceSnapshot:
         case FrameType::AuthoringWorkspaceCommand:

@@ -3,11 +3,12 @@ using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Authoring;
+using FsusBlogV2.Storage;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal sealed class SavedViewStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, Guid site)
+internal sealed partial class SavedViewStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, Guid site)
 {
     private static readonly Guid CollectionLock = new("62cdc231-0ad9-4d32-a5d4-5a450125321c");
     private const int RetainedLimit = 4000;
@@ -35,6 +36,8 @@ internal sealed class SavedViewStore(NpgsqlConnection db, NpgsqlTransaction tx, 
         var name = input.Action == SavedViewAction.Retire ? "" : Wire.NormalizeSavedViewName(input.Name);
         var fingerprint = SHA256.HashData(Wire.EncodeSavedViewCommand(input with { Name = name }));
         if (await Replay(input.RequestId, fingerprint, ct) is { } replay) return replay;
+        var placement = await CurrentSchema.HasSavedViewPlacementAsync(db, tx, ct);
+        if (placement) await RejectPlacementKeyReuse(input.RequestId, ct);
         var revision = await CollectionRevision(ct);
         if (revision != input.CollectionRevision) throw Changed();
         if (input.Revision == 0)
@@ -66,6 +69,7 @@ internal sealed class SavedViewStore(NpgsqlConnection db, NpgsqlTransaction tx, 
             try { definition = await new PropertyStore(db, tx, actor).CaptureSavedView(query, ct); }
             catch (PropertyValidationException) { throw PropertyStore.SavedViewDependency(); }
         }
+        if (placement && input.Action == SavedViewAction.Retire) await RemovePlacement(input.Id, ct);
 
         await using var advance = revision == 0
             ? Store.Sql(db, tx, "insert into public.author_saved_view_collection values($1,$2,1) on conflict do nothing", site, actor.Id)

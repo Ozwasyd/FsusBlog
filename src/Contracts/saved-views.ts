@@ -6,11 +6,16 @@ import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated
 
 export type SavedView = Readonly<{ id: string; revision: bigint; name: string }>
 export type SavedViewCatalog = Readonly<{ revision: bigint; nextId: string; views: readonly SavedView[] }>
+export type PlacementAction = 'pin' | 'unpin' | 'default' | 'clear-default' | 'move-before'
+export type PlacementChange = Readonly<{ action: PlacementAction; view: SavedView; revision: bigint; requestId: string; before?: string }>
+export type SavedViewPlacement = Readonly<{ revision: bigint; defaultView?: SavedView; requested?: SavedView;
+  requestedPinned: boolean; offset: number; pins: readonly SavedView[] }>
 export type SavedViewChange = Readonly<{
   id: string; revision: bigint; collectionRevision: bigint; requestId: string
 } & ({ action: 'save'; name: string; query: PropertyQuery } | { action: 'rename'; name: string } | { action: 'retire' })>
 
 const emptyId = '00000000-0000-0000-0000-000000000000'
+const placementActions: readonly PlacementAction[] = ['pin', 'unpin', 'default', 'clear-default', 'move-before']
 
 function sessionHeaders(session: string) {
   if (!validSiteSessionId(session)) throw new ProtocolError('Invalid saved view session')
@@ -66,4 +71,50 @@ export function runSavedView(session: string, view: SavedView, cursor: string, s
   writer.text(cursor, WireLimits.PropertyQueryCursorChars)
   return request(WireRoutes.SavedViewExecute, FrameType.PropertyArticlePage, decodePropertyMatches, signal, 'POST',
     encodeFrame(FrameType.SavedViewExecute, writer.finish()), sessionHeaders(session))
+}
+
+function readSummary(input: PodReader, collectionRevision: bigint): SavedView {
+  const id = input.uuid(), revision = input.i64(), name = input.text(WireLimits.SavedViewNameBytes)
+  if (id === emptyId || revision <= 0n || revision > collectionRevision || !name) throw new ProtocolError('Invalid saved view entry')
+  return { id, revision, name }
+}
+
+export function savedViewPlacement(session: string, at?: { id: string } | { offset: number; revision: bigint }, signal?: AbortSignal) {
+  const params = !at ? '' : new URLSearchParams('id' in at ? { view: at.id, viewSchema: '1' }
+    : { offset: String(at.offset), revision: String(at.revision) }).toString()
+  const path = WireRoutes.SavedViewPlacement + (params ? '?' + params : '')
+  return request<SavedViewPlacement>(path, FrameType.SavedViewPlacement, bytes => {
+    const input = new PodReader(bytes)
+    const revision = input.i64()
+    const defaultView = input.bool() ? readSummary(input, revision) : undefined
+    const requested = input.bool() ? readSummary(input, revision) : undefined
+    const requestedPinned = input.bool()
+    const offset = input.i32(), count = input.i32()
+    if (revision < 0n || requestedPinned && !requested || at && 'revision' in at && revision !== at.revision ||
+        requested?.id !== (at && 'id' in at ? at.id : undefined) ||
+        count < 0 || count > WireLimits.SavedViewPageSize || offset < 0 || offset >= WireLimits.SavedViewMaxCount ||
+        offset !== 0 && (count !== WireLimits.SavedViewPageSize || offset !== (at && 'offset' in at ? at.offset : 0) + count))
+      throw new ProtocolError('Invalid saved view placement')
+    const pins = Array.from({ length: count }, () => readSummary(input, revision))
+    input.finish()
+    if (new Set(pins.map(pin => pin.id)).size !== count) throw new ProtocolError('Invalid saved view pins')
+    return { revision, defaultView, requested, requestedPinned, offset, pins }
+  }, signal, 'GET', undefined, sessionHeaders(session))
+}
+
+export function placeSavedView(session: string, change: PlacementChange, signal?: AbortSignal) {
+  const writer = new PodWriter()
+  writer.i32(4 + placementActions.indexOf(change.action))
+  writer.uuid(change.view.id)
+  writer.i64(change.view.revision)
+  writer.i64(change.revision)
+  writer.uuid(change.requestId)
+  writer.uuid(change.before ?? emptyId)
+  return request(WireRoutes.SavedViewPlacement, FrameType.SavedViewReceipt, bytes => {
+    const input = new PodReader(bytes)
+    const id = input.uuid(), revision = input.i64(), collection = input.i64(), retired = input.bool()
+    input.finish()
+    if (id !== change.view.id || revision !== change.view.revision || collection !== change.revision + 1n || retired)
+      throw new ProtocolError('Invalid saved view placement receipt')
+  }, signal, 'POST', encodeFrame(FrameType.SavedViewPlacementCommand, writer.finish()), sessionHeaders(session))
 }

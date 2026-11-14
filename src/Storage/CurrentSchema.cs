@@ -111,7 +111,7 @@ internal static partial class CurrentSchema
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
-        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null)
+        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null)
     {
         if (requireArticleMedia is null)
         {
@@ -152,6 +152,9 @@ internal static partial class CurrentSchema
         var hasSavedViews = await HasSavedViewsAsync(connection, transaction, cancellationToken);
         if (requireSavedViews.HasValue && requireSavedViews.Value != hasSavedViews)
             throw new InvalidOperationException("The saved views schema presence does not match the requested operation.");
+        var hasSavedViewPlacement = await HasSavedViewPlacementAsync(connection, transaction, cancellationToken);
+        if ((hasSavedViewPlacement && !hasSavedViews) || (requireSavedViewPlacement.HasValue && requireSavedViewPlacement.Value != hasSavedViewPlacement))
+            throw new InvalidOperationException("The saved view placement schema presence does not match the requested operation.");
         var hasAdminArticleRollback = await HasAdminArticleRollbackSchemaAsync(connection, transaction, cancellationToken);
         if (requireAdminArticleRollback.HasValue && requireAdminArticleRollback.Value != hasAdminArticleRollback)
             throw new InvalidOperationException("The administrator article rollback schema presence does not match the requested operation.");
@@ -174,6 +177,7 @@ internal static partial class CurrentSchema
             .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
             .Concat(hasSitePageEditor ? SitePageEditorColumns : [])
             .Concat(hasSavedViews ? SavedViewColumns : [])
+            .Concat(hasSavedViewPlacement ? SavedViewPlacementColumns : [])
             .Concat(hasAdminArticleRollback ? AdminArticleRollbackColumns : [])
             .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout) : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
@@ -196,6 +200,7 @@ internal static partial class CurrentSchema
             .Concat(hasSiteRefresh ? SiteRefreshConstraints : [])
             .Concat(hasSitePageEditor ? SitePageEditorConstraints : [])
             .Concat(hasSavedViews ? SavedViewConstraints : [])
+            .Concat(hasSavedViewPlacement ? SavedViewPlacementConstraints : [])
             .Concat(hasAdminArticleRollback ? AdminArticleRollbackConstraints : [])
             .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])

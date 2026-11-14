@@ -115,6 +115,8 @@ public enum FrameType : ushort
     SavedViewCommand = 32931,
     SavedViewReceipt = 32932,
     SavedViewExecute = 32933,
+    SavedViewPlacementCommand = 32934,
+    SavedViewPlacement = 32935,
     DraftRecoveryScope = 32787,
     AuthoringWorkspaceSnapshot = 32910,
     AuthoringWorkspaceCommand = 32911,
@@ -243,6 +245,7 @@ public static class WireLimits
     public const int SavedViewMaxCount = 1000;
     public const int SavedViewCommandFrameBytes = 262976;
     public const int SavedViewExecuteFrameBytes = 92;
+    public const int SavedViewPlacementFrameBytes = 84;
     public const int PropertyOptionCount = 32;
     public const int PropertyDecimalBytes = 64;
     public const int PropertyDateBytes = 40;
@@ -577,6 +580,7 @@ public static class WireRoutes
     public const string PropertyArticleQuery = "/api/v2/authoring/properties/filter/articles.aeds";
     public const string SavedViews = "/api/v2/authoring/saved-views.aeds";
     public const string SavedViewExecute = "/api/v2/authoring/saved-views/run.aeds";
+    public const string SavedViewPlacement = "/api/v2/authoring/saved-views/placement.aeds";
     public const string DraftRecoveryScope = "/api/v2/authoring/recovery-scope.aeds";
     public const string AuthoringWorkspace = "/api/v2/authoring/workspace.aeds";
     public const string AuthoringWorkspaceLayout = "/api/v2/authoring/workspace/layout.aeds";

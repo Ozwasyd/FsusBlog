@@ -173,9 +173,55 @@ public sealed class PropertyQueryPostgresTests
         await Group([date, lower with { DefinitionRevision = 4 }], status: HttpStatusCode.NotFound);
         await Saved(WireRoutes.SavedViewExecute, currentRun, HttpStatusCode.Conflict);
         var removal = new SavedViewCommand(SavedViewAction.Retire, viewId, 2, 2, Guid.NewGuid(), "", null);
-        Assert.True(Wire.DecodeSavedViewReceipt(await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(removal))).Retired);
+        var secondId = Guid.NewGuid();
+        var secondView = new SavedViewCommand(SavedViewAction.Save, secondId, 0, 2, Guid.NewGuid(), "Date review",
+            new(schema, [date], ""));
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(secondView));
+        var pin = new SavedViewPlacementCommand(SavedViewPlacementAction.Pin, viewId, 2, 3, Guid.NewGuid(), Guid.Empty);
+        var pinPacket = Wire.EncodeSavedViewPlacementCommand(pin);
+        var pinReceipt = await Saved(WireRoutes.SavedViewPlacement, pinPacket);
+        Assert.Equal(pinReceipt, await Saved(WireRoutes.SavedViewPlacement, pinPacket));
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(removal with { RequestId = pin.RequestId, CollectionRevision = 4 }), HttpStatusCode.Conflict);
+        await Saved(WireRoutes.SavedViewPlacement, Wire.EncodeSavedViewPlacementCommand(new(SavedViewPlacementAction.Pin,
+            secondId, 1, 4, Guid.NewGuid(), Guid.Empty)));
+        var reorder = new SavedViewPlacementCommand(SavedViewPlacementAction.MoveBefore, secondId, 1, 5, Guid.NewGuid(), viewId);
+        var changedOrder = Wire.EncodeSavedViewPlacementCommand(reorder);
+        var otherOrder = Wire.EncodeSavedViewPlacementCommand(new(SavedViewPlacementAction.MoveBefore, viewId, 2, 5, Guid.NewGuid(), Guid.Empty));
+        var replies = await Task.WhenAll(
+            Response(WireRoutes.SavedViewPlacement, changedOrder, owner, handle),
+            Response(WireRoutes.SavedViewPlacement, otherOrder, anotherOwnerSession, peerHandle));
+        Assert.Single(replies, reply => reply.Status == HttpStatusCode.OK);
+        Assert.Single(replies, reply => reply.Status == HttpStatusCode.Conflict);
+        var placement = Wire.DecodeSavedViewPlacement(await Saved(WireRoutes.SavedViewPlacement));
+        Assert.Equal(new[] { secondId, viewId }, placement.Pins.Select(item => item.Id));
+        await Saved(WireRoutes.SavedViewPlacement, Wire.EncodeSavedViewPlacementCommand(new(SavedViewPlacementAction.Default,
+            viewId, 2, 6, Guid.NewGuid(), Guid.Empty)));
+        Assert.Equal(viewId, Wire.DecodeSavedViewPlacement(await Saved(WireRoutes.SavedViewPlacement)).Default?.Id);
+        await Saved(WireRoutes.SavedViews, Wire.EncodeSavedViewCommand(removal with { CollectionRevision = 7 }), HttpStatusCode.Conflict);
+        await Saved(WireRoutes.SavedViewPlacement, Wire.EncodeSavedViewPlacementCommand(new(SavedViewPlacementAction.Default,
+            secondId, 1, 7, Guid.NewGuid(), Guid.Empty)));
+        Assert.Equal(secondId, Wire.DecodeSavedViewPlacement(await Saved(WireRoutes.SavedViewPlacement)).Default?.Id);
+        Assert.True(Wire.DecodeSavedViewReceipt(await Saved(WireRoutes.SavedViews,
+            Wire.EncodeSavedViewCommand(removal with { CollectionRevision = 8 }))).Retired);
+        await Saved(WireRoutes.SavedViewPlacement + $"?view={viewId:D}&viewSchema=1", status: HttpStatusCode.NotFound);
+        await Saved(WireRoutes.SavedViewPlacement + $"?view={secondId:D}&viewSchema=1", status: HttpStatusCode.NotFound,
+            session: outsider, sessionId: outsiderHandle);
+        await Saved(WireRoutes.SavedViewPlacement + $"?view={secondId:D}&viewSchema=2", status: HttpStatusCode.BadRequest);
+        var selected = Wire.DecodeSavedViewPlacement(await Saved(WireRoutes.SavedViewPlacement + $"?view={secondId:D}&viewSchema=1"));
+        Assert.Equal(secondId, selected.Requested?.Id);
+        Assert.True(selected.RequestedPinned);
+        Assert.Single(selected.Pins);
+        await Saved(WireRoutes.SavedViewPlacement + "?offset=25&revision=8", status: HttpStatusCode.Conflict);
+        await Saved(WireRoutes.SavedViewPlacement + $"?view={secondId:D}&viewSchema=1&viewSchema=1", status: HttpStatusCode.BadRequest);
+        await Saved(WireRoutes.SavedViewPlacement, Wire.EncodeSavedViewPlacementCommand(new(SavedViewPlacementAction.Unpin,
+            secondId, 1, 9, Guid.NewGuid(), Guid.Empty)));
+        var unpinned = Wire.DecodeSavedViewPlacement(await Saved(WireRoutes.SavedViewPlacement + $"?view={secondId:D}&viewSchema=1"));
+        Assert.True(unpinned.Pins.Count == 0 && !unpinned.RequestedPinned && unpinned.Default?.Id == secondId);
+        await Saved(WireRoutes.SavedViewPlacement, Wire.EncodeSavedViewPlacementCommand(new(SavedViewPlacementAction.ClearDefault,
+            secondId, 1, 10, Guid.NewGuid(), Guid.Empty)));
+        Assert.Null(Wire.DecodeSavedViewPlacement(await Saved(WireRoutes.SavedViewPlacement)).Default);
         await Saved(WireRoutes.SavedViewExecute, currentRun, HttpStatusCode.NotFound);
-        Assert.Empty(Wire.DecodeSavedViewCatalog(await Saved(WireRoutes.SavedViews)).Views);
+        Assert.Equal(secondId, Assert.Single(Wire.DecodeSavedViewCatalog(await Saved(WireRoutes.SavedViews)).Views).Id);
 
         Task<byte[]> Saved(string route, byte[]? frame = null, HttpStatusCode status = HttpStatusCode.OK,
             string? session = null, string? sessionId = null) => Send(route, frame, session ?? owner, status, sessionId ?? handle);
@@ -215,6 +261,12 @@ public sealed class PropertyQueryPostgresTests
         }
         async Task<byte[]> Send(string route, byte[]? packet, string? session, HttpStatusCode status = HttpStatusCode.OK, string? sessionId = null)
         {
+            var response = await Response(route, packet, session, sessionId);
+            Assert.Equal(status, response.Status);
+            return response.Body;
+        }
+        async Task<(HttpStatusCode Status, byte[] Body)> Response(string route, byte[]? packet, string? session, string? sessionId)
+        {
             using var request = new HttpRequestMessage(packet is null ? HttpMethod.Get : HttpMethod.Post, route);
             if (packet is not null)
             {
@@ -224,9 +276,8 @@ public sealed class PropertyQueryPostgresTests
             if (session is not null) request.Headers.Add("Cookie", $"fsus-v2-session={session}");
             if (sessionId is not null) request.Headers.Add(WireHeaders.CurrentSession, sessionId);
             using var result = await server.Client.SendAsync(request, ct);
-            Assert.Equal(status, result.StatusCode);
             Assert.True(result.Headers.CacheControl?.NoStore);
-            return await result.Content.ReadAsByteArrayAsync(ct);
+            return (result.StatusCode, await result.Content.ReadAsByteArrayAsync(ct));
         }
     }
 }
