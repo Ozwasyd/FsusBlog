@@ -2,6 +2,7 @@ using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using Npgsql;
+using FsusBlog.V2.Server.Operations;
 
 namespace FsusBlog.V2.Server.Passkeys;
 
@@ -22,7 +23,8 @@ internal static class PasskeyEndpoints
             return;
         }
         var database = app.Services.GetRequiredService<NpgsqlDataSource>();
-        var passkeys = new PasskeyStore(database, configuration);
+        var lease = app.Services.GetRequiredService<InstanceLease>();
+        var passkeys = new PasskeyStore(database, configuration, lease);
         var expectedOrigin = configuration.Origin.GetLeftPart(UriPartial.Authority);
         var secure = configuration.Origin.Scheme == "https";
 
@@ -73,7 +75,7 @@ internal static class PasskeyEndpoints
         }).RequireRateLimiting("sign-in");
 
         if (secrets is not null)
-            MfaEndpoints.Map(app, new MfaStore(database, secrets), passkeys, sessionCookie, readFrame, RequireHost, IssueSession, Cookie);
+            MfaEndpoints.Map(app, new MfaStore(database, secrets, lease), passkeys, sessionCookie, readFrame, RequireHost, IssueSession, Cookie);
 
         void IssueSession(HttpContext ctx, string token, DateTimeOffset expires)
         {

@@ -2,12 +2,114 @@ using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Server.Operations;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using System.Net;
 
 public sealed class PublishingPostgresTests
 {
+    [PostgresFact]
+    public async Task LostBackendDisablesPublicationAndWritesUntilAReplacementAcquiresOwnership()
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var ct = deadline.Token;
+        await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var store = new Store(fixture.DataSource);
+        var actor = await store.SignIn((await IssueTicket(fixture.DataSource, "lease owner", true, ct)).Token, ct);
+        await using var first = await ServerProcess.Start(fixture.ConnectionString, ct);
+        var deniedStart = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await using var rejected = await ServerProcess.Start(fixture.ConnectionString, ct);
+        });
+        Assert.Contains("already owns this database", deniedStart.Message);
+
+        const string marker = "Visible only while the instance owns the database";
+        var saved = Wire.DecodeDraft(await Write(first.Client, actor.Token, WireRoutes.Save,
+            new(0, 0, Guid.NewGuid(), marker, "lease test"), ct));
+        var published = Wire.DecodeDraft(await Write(first.Client, actor.Token, WireRoutes.Publish,
+            new(saved.Id, saved.Revision, Guid.NewGuid(), "", ""), ct));
+        var article = $"/article/{published.Id}";
+        Assert.Contains(marker, await first.Client.GetStringAsync(article, ct));
+
+        await using var control = await fixture.DataSource.OpenConnectionAsync(ct);
+        await using var inspection = await fixture.DataSource.OpenConnectionAsync(ct);
+        var oldOwner = await OwnerPid();
+        Assert.True(oldOwner > 0);
+        // Hold the transaction barrier an admitted writer keeps until it commits or rolls back.
+        await using var admitted = await inspection.BeginTransactionAsync(ct);
+        await using (var share = Store.Sql(inspection, admitted, "select pg_catalog.pg_advisory_xact_lock_shared($1,$2)",
+            FsusBlogV2.Storage.PublicationLocks.HandoffClass, FsusBlogV2.Storage.PublicationLocks.HandoffObject))
+            await share.ExecuteNonQueryAsync(ct);
+        await using (var terminate = Store.Sql(control, null, "select pg_catalog.pg_terminate_backend($1, 5000)", oldOwner))
+            Assert.True((bool)(await terminate.ExecuteScalarAsync(ct))!);
+
+        using (var duration = CancellationTokenSource.CreateLinkedTokenSource(ct))
+        {
+            duration.CancelAfter(TimeSpan.FromSeconds(3));
+            while (true)
+            {
+                using var readiness = await first.Client.GetAsync("/health/ready", duration.Token);
+                if (readiness.StatusCode == HttpStatusCode.ServiceUnavailable) break;
+                Assert.Equal(HttpStatusCode.NoContent, readiness.StatusCode);
+                await Task.Delay(25, duration.Token);
+            }
+        }
+        var forbidden = new ArticleCommand(0, 0, Guid.NewGuid(), "Old owner cannot write", "private");
+        await VerifyOldOwnerClosed();
+
+        // A replacement on the same primary drains database writers and rebuilds before binding.
+        var replacement = ServerProcess.Start(fixture.ConnectionString, ct);
+        while (!replacement.IsCompleted && !await HandoffBlocked()) await Task.Delay(15, ct);
+        Assert.False(replacement.IsCompleted);
+        await admitted.RollbackAsync(ct);
+        await using var successor = await replacement;
+        Assert.NotEqual(oldOwner, await OwnerPid());
+        Assert.Contains(marker, await successor.Client.GetStringAsync(article, ct));
+        await VerifyOldOwnerClosed();
+        using (var uncommitted = Store.Sql(inspection, null, "select count(*) from public.article_command where command_id=$1", forbidden.IdempotencyKey))
+            Assert.Equal(0L, await uncommitted.ExecuteScalarAsync(ct));
+        await Write(successor.Client, actor.Token, WireRoutes.Retract,
+            new(published.Id, published.Revision, Guid.NewGuid(), "", ""), ct);
+        using var withdrawn = await successor.Client.GetAsync(article, ct);
+        Assert.Equal(HttpStatusCode.NotFound, withdrawn.StatusCode);
+
+        async Task<int> OwnerPid()
+        {
+            await using var ownership = Store.Sql(control, null, """
+                select l.pid from pg_catalog.pg_locks l
+                join pg_catalog.pg_database d on d.oid=l.database
+                where l.locktype='advisory' and d.datname=current_database() and l.objsubid=1
+                    and ((l.classid::bigint << 32) | l.objid::bigint)=$1 and l.mode='ExclusiveLock' and l.granted
+                """, InstanceLease.OwnershipKey);
+            return (int)(await ownership.ExecuteScalarAsync(ct))!;
+        }
+
+        async Task<bool> HandoffBlocked()
+        {
+            await using var waiting = Store.Sql(control, null, """
+                select exists(select from pg_catalog.pg_locks l
+                    join pg_catalog.pg_database d on d.oid=l.database
+                    where l.locktype='advisory' and d.datname=current_database() and l.objsubid=2
+                        and l.classid=$1::oid and l.objid=$2::oid and l.mode='ExclusiveLock' and not l.granted)
+                """, FsusBlogV2.Storage.PublicationLocks.HandoffClass, FsusBlogV2.Storage.PublicationLocks.HandoffObject);
+            return (bool)(await waiting.ExecuteScalarAsync(ct))!;
+        }
+
+        async Task VerifyOldOwnerClosed()
+        {
+            foreach (var route in new[] { "/", article, WireRoutes.PublicIndex, WireRoutes.PublicSearchCorpus })
+            {
+                using var response = await first.Client.GetAsync(route, ct);
+                Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+                Assert.True(response.Headers.CacheControl?.NoStore);
+                Assert.DoesNotContain(marker, await response.Content.ReadAsStringAsync(ct));
+            }
+            var error = await Write(first.Client, actor.Token, WireRoutes.Save, forbidden, ct, HttpStatusCode.ServiceUnavailable);
+            _ = Aeds.Decode(error, FrameType.ApiError).Length;
+        }
+    }
+
     [PostgresFact]
     public async Task ProjectionFailureKeepsAllRepresentationsClosedUntilDurableRecovery()
     {

@@ -5,7 +5,6 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Operations;
-using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
 using Npgsql;
@@ -23,6 +22,7 @@ if (!template.Contains("<!--fsus-public-content-->", StringComparison.Ordinal))
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = WireLimits.MaxCommandFrameBytes);
 builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
+builder.Services.AddSingleton(_ => new InstanceLease(connectionString));
 builder.Services.AddSingleton(new WebPages(template));
 builder.Services.AddSingleton<Store>();
 builder.Services.AddSingleton<Publications>();
@@ -43,11 +43,9 @@ builder.Services.AddRateLimiter(options =>
 });
 
 await using var app = builder.Build();
-var database = app.Services.GetRequiredService<NpgsqlDataSource>();
-await using var lease = await database.OpenConnectionAsync();
-await CurrentSchema.VerifyAsync(lease, CancellationToken.None);
-await using (var acquire = Store.Sql(lease, null, "select pg_try_advisory_lock($1)", Publications.InstanceLock))
-    if (await acquire.ExecuteScalarAsync() is not true) throw new InvalidOperationException("Another v2 server already owns this database.");
+var lease = app.Services.GetRequiredService<InstanceLease>();
+using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
+await lease.Start(app.Logger, app.Lifetime.ApplicationStopping);
 var publications = app.Services.GetRequiredService<Publications>();
 app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
 await publications.Refresh(CancellationToken.None);
@@ -68,6 +66,11 @@ app.Use(async (ctx, next) =>
                 throw new BusinessException(Rejection.Invalid, "Invalid forwarding headers.");
             if (!ctx.Request.IsHttps)
                 throw new BusinessException(Rejection.Forbidden, "Secure transport is required.");
+        }
+        if (!lease.IsCurrent)
+        {
+            NoStore(ctx);
+            throw new PublicUnavailableException();
         }
         if (ctx.Request.Path.StartsWithSegments("/api"))
         {
@@ -93,7 +96,8 @@ app.Use(async (ctx, next) =>
             PublicUnavailableException or NpgsqlException => (503, "This operation is temporarily unavailable."),
             _ => (500, "An internal error occurred.")
         };
-        if (status >= 500) app.Logger.LogError(ex, "Request {TraceId} failed", ctx.TraceIdentifier);
+        if (status >= 500 && (ex is not PublicUnavailableException || lease.IsCurrent))
+            app.Logger.LogError(ex, "Request {TraceId} failed", ctx.TraceIdentifier);
         var result = ctx.Request.Path.StartsWithSegments("/api")
             ? Error(ctx, status, message, (ex as PublicListFailure)?.Details) : Results.Text(message, "text/plain; charset=utf-8", statusCode: status);
         await result.ExecuteAsync(ctx);

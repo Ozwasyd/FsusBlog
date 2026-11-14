@@ -6,6 +6,7 @@ using System.Text.Encodings.Web;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server.Content;
+using FsusBlog.V2.Server.Operations;
 using Npgsql;
 
 namespace FsusBlog.V2.Server;
@@ -91,24 +92,23 @@ internal sealed class PublicSnapshot
 
 }
 
-internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log)
+internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<Publications> log, InstanceLease? lease = null)
 {
     private readonly SemaphoreSlim _writers = new(1, 1);
     private readonly PublicListCursor _listCursor = new(TimeProvider.System);
     private PublicSnapshot? _snapshot;
     private PublicSnapshot? _lastProjection;
-    internal PublicSnapshot? Snapshot => Volatile.Read(ref _snapshot);
-
-    // Admission requires a single v2 server per database. Its publications gate and instance lock
-    // ensure no other server can keep serving a stale in-memory generation after withdrawal.
-    internal const long InstanceLock = 716729109726707501L;
+    internal PublicSnapshot? Snapshot => lease?.IsCurrent is false ? null : Volatile.Read(ref _snapshot);
+    internal bool LeaseCurrent => lease?.IsCurrent is not false;
 
     internal async Task<(ArticleState Article, bool Changed)> Command(Store store, string? token,
         ArticleAction action, Edit edit, CancellationToken ct)
     {
+        lease?.RequireCurrent();
         if (!await _writers.WaitAsync(TimeSpan.FromSeconds(5), ct)) throw new PublicUnavailableException();
         try
         {
+            lease?.RequireCurrent();
             var invalidate = action is ArticleAction.Publish or ArticleAction.Retract or ArticleAction.Delete;
             var result = await store.WithSession(token, true, async (connection, tx, actor) =>
             {
@@ -122,12 +122,17 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
             if (invalidate && Snapshot is null)
             {
                 try { await Rebuild(ct); }
+                catch (OperationCanceledException) when (!LeaseCurrent && !ct.IsCancellationRequested)
+                {
+                    throw new PublicUnavailableException();
+                }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     log.LogError(ex, "The article command committed; public projection awaits durable outbox recovery.");
                     throw new PublicUnavailableException();
                 }
             }
+            lease?.RequireCurrent();
             return result;
         }
         finally { _writers.Release(); }
@@ -135,6 +140,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 
     internal async Task Refresh(CancellationToken ct)
     {
+        lease?.RequireCurrent();
         await _writers.WaitAsync(ct);
         try { await Rebuild(ct); }
         finally { _writers.Release(); }
@@ -142,8 +148,11 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
 
     private async Task Rebuild(CancellationToken ct)
     {
+        lease?.RequireCurrent();
+        using var stop = lease is null ? null : CancellationTokenSource.CreateLinkedTokenSource(ct, lease.Stopped);
+        ct = stop?.Token ?? ct;
         await using var connection = await db.OpenConnectionAsync(ct);
-        await using var tx = await connection.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, ct);
+        await using var tx = await InstanceLease.BeginProtected(connection, lease, ct, System.Data.IsolationLevel.RepeatableRead);
         long maxEvent;
         await using (var watermark = Store.Sql(connection, tx, "select coalesce(max(id),0) from public.blog_outbox where kind in ('publish','retract','delete')"))
             maxEvent = (long)(await watermark.ExecuteScalarAsync(ct))!;
@@ -187,7 +196,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         await using (var advance = Store.Sql(connection, tx, """
             update public.blog_outbox set processed_at=now() where processed_at is null
             """)) await advance.ExecuteNonQueryAsync(ct);
-        await tx.CommitAsync(ct);
+        await InstanceLease.CommitProtected(tx, lease, ct);
         _lastProjection = next;
         Volatile.Write(ref _snapshot, next);
     }
@@ -219,7 +228,9 @@ internal sealed class OutboxWorker(Publications publications, ILogger<OutboxWork
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
+            if (!publications.LeaseCurrent) return;
             try { await publications.Refresh(stoppingToken); }
+            catch (Exception) when (!publications.LeaseCurrent) { return; }
             catch (Exception error) when (!stoppingToken.IsCancellationRequested)
             {
                 log.LogError(error, "Public projection refresh failed; pending work remains durable.");

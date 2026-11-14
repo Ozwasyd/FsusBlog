@@ -2,12 +2,13 @@ using System.Security.Cryptography;
 using System.Buffers.Binary;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Server.Operations;
 using Npgsql;
 using NpgsqlTypes;
 
 namespace FsusBlog.V2.Server;
 
-internal sealed class Store(NpgsqlDataSource source)
+internal sealed class Store(NpgsqlDataSource source, InstanceLease? lease = null)
 {
     internal static NpgsqlCommand Sql(NpgsqlConnection db, NpgsqlTransaction? transaction, string sql, params object[] parameters)
     {
@@ -21,7 +22,7 @@ internal sealed class Store(NpgsqlDataSource source)
     {
         if (TokenDigest(token) is not { } ticket) throw Unauthenticated();
         await using var db = await source.OpenConnectionAsync(ct);
-        await using var tx = await db.BeginTransactionAsync(ct);
+        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         Guid id;
         string name;
         long generation;
@@ -47,7 +48,7 @@ internal sealed class Store(NpgsqlDataSource source)
             values($1,$2,$3,clock_timestamp()+interval '8 hours') returning expires_at
             """, SHA256.HashData(secret), id, generation);
         var expiry = (DateTime)(await add.ExecuteScalarAsync(ct))!;
-        await tx.CommitAsync(ct);
+        await InstanceLease.CommitProtected(tx, lease, ct);
         return (Convert.ToHexStringLower(secret), new(id, name, generation, canAuthor, expiry));
     }
 
@@ -55,7 +56,7 @@ internal sealed class Store(NpgsqlDataSource source)
     {
         if (TokenDigest(token) is not { } digest) throw Unauthenticated();
         await using var db = await source.OpenConnectionAsync(ct);
-        await using var tx = await db.BeginTransactionAsync(ct);
+        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
         Identity actor;
         await using (var cmd = Sql(db, tx, """
             select u.id,u.name,u.generation,u.can_author,s.expires_at
@@ -71,7 +72,7 @@ internal sealed class Store(NpgsqlDataSource source)
         if (author && !actor.CanAuthor) throw new BusinessException(Rejection.Forbidden, "This account cannot write articles.");
         var result = await run(db, tx, actor);
         if (actor.ExpiresAt <= DateTimeOffset.UtcNow) throw Unauthenticated();
-        await tx.CommitAsync(ct);
+        await InstanceLease.CommitProtected(tx, lease, ct);
         return result;
     }
 
@@ -79,8 +80,10 @@ internal sealed class Store(NpgsqlDataSource source)
     {
         if (TokenDigest(token) is not { } digest) return;
         await using var db = await source.OpenConnectionAsync(ct);
-        await using var cmd = Sql(db, null, "delete from public.user_session where digest=$1", digest);
+        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        await using var cmd = Sql(db, tx, "delete from public.user_session where digest=$1", digest);
         await cmd.ExecuteNonQueryAsync(ct);
+        await InstanceLease.CommitProtected(tx, lease, ct);
     }
 
     internal static async Task<ArticleState> Find(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, int id, bool locking, CancellationToken ct)
