@@ -15,23 +15,30 @@ internal static class MarkdownExportEndpoints
 
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query)
     {
-        app.MapGet(Route, async (HttpContext ctx, Store store, int id, CancellationToken ct) =>
-        {
-            var expected = ReadRevision(query(ctx, "revision", 19));
-            var selected = ReadRevision(query(ctx, "sourceRevision", 19));
-            if (id <= 0 || selected > expected)
-                throw new BusinessException(Rejection.Invalid, "A valid source revision is required.");
+        Attach(Route, ContentType, DownloadName, (title, body, revision, _) => Encode(title, body, revision));
+        Attach("/api/v2/authoring/draft/{id:int}/export.docx", WordDocumentExport.ContentType, "article.docx",
+            (title, body, _, ct) => WordDocumentExport.Write(title, body, ct));
 
-            var document = await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+        void Attach(string route, string mediaType, string filename, Func<string, string, long, CancellationToken, byte[]> render)
+        {
+            app.MapGet(route, async (HttpContext ctx, Store store, int id, CancellationToken ct) =>
             {
-                await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
-                var (title, body) = await RevisionHistoryStore.ReadSource(db, tx, id, selected, ct);
-                return Encode(title, body, selected);
-            }, ct);
-            ct.ThrowIfCancellationRequested();
-            ctx.Response.Headers.CacheControl = "private, no-store";
-            return Results.Bytes(document, ContentType, DownloadName);
-        }).RequireRateLimiting("command");
+                var expected = ReadRevision(query(ctx, "revision", 19));
+                var selected = ReadRevision(query(ctx, "sourceRevision", 19));
+                if (id <= 0 || selected > expected)
+                    throw new BusinessException(Rejection.Invalid, "A valid source revision is required.");
+
+                var document = await store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+                {
+                    await RevisionHistoryStore.LockCurrent(db, tx, actor, id, expected, ct);
+                    var (title, body) = await RevisionHistoryStore.ReadSource(db, tx, id, selected, ct);
+                    return render(title, body, selected, ct);
+                }, ct);
+                ct.ThrowIfCancellationRequested();
+                ctx.Response.Headers.CacheControl = "private, no-store";
+                return Results.Bytes(document, mediaType, filename);
+            }).RequireRateLimiting("command");
+        }
     }
 
     private static byte[] Encode(string title, string body, long revision)

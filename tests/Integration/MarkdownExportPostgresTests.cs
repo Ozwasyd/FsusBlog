@@ -32,6 +32,12 @@ public sealed class MarkdownExportPostgresTests
 
         await Read(PathFor(current, current.Revision), owner, HttpStatusCode.OK, currentTitle, currentBody, current.Revision);
         await Read(export, owner, HttpStatusCode.OK, olderTitle, olderBody, older.Revision);
+        var word = export.Replace("export.md", "export.docx", StringComparison.Ordinal);
+        await ReadWord(word, owner, HttpStatusCode.OK, olderTitle, "No trailing newline", "<script>literal document text</script>");
+        await ReadWord(word, outsider, HttpStatusCode.NotFound);
+        await ReadWord(word, null, HttpStatusCode.Unauthorized);
+        await ReadWord(word, reader, HttpStatusCode.Forbidden);
+        await ReadWord(PathFor(older, older.Revision).Replace("export.md", "export.docx", StringComparison.Ordinal), owner, HttpStatusCode.Conflict);
         await Read(export, null, HttpStatusCode.Unauthorized);
         await Read(export, outsider, HttpStatusCode.NotFound);
         await Read(export, reader, HttpStatusCode.Forbidden);
@@ -54,9 +60,32 @@ public sealed class MarkdownExportPostgresTests
             response.EnsureSuccessStatusCode();
         }
         await Read(export, owner, HttpStatusCode.NotFound);
+        await ReadWord(word, owner, HttpStatusCode.NotFound);
 
         await Command("delete from public.user_session where digest=$1", SHA256.HashData(Convert.FromHexString(owner)));
         await Read(export, owner, HttpStatusCode.Unauthorized);
+        await ReadWord(word, owner, HttpStatusCode.Unauthorized);
+
+        async Task ReadWord(string path, string? token, HttpStatusCode status, params string[] expected)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
+            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var response = await server.Client.SendAsync(request, ct);
+            Assert.Equal(status, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            if (status != HttpStatusCode.OK)
+            {
+                Assert.Null(response.Content.Headers.ContentDisposition);
+                Assert.Equal(Aeds.ContentType, response.Content.Headers.ContentType?.MediaType);
+                return;
+            }
+            Assert.True(response.Headers.CacheControl?.Private);
+            Assert.Equal(FsusBlog.V2.Server.Authoring.WordDocumentExport.ContentType, response.Content.Headers.ContentType?.MediaType);
+            Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
+            Assert.Equal("article.docx", response.Content.Headers.ContentDisposition?.FileNameStar);
+            Assert.Equal("nosniff", Assert.Single(response.Headers.GetValues("X-Content-Type-Options")));
+            WordDocumentExportTests.AssertFile(await response.Content.ReadAsByteArrayAsync(ct), expected);
+        }
 
         async Task<Draft> Save(int id, long revision, string title, string body)
         {

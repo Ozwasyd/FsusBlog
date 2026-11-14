@@ -17,7 +17,7 @@ import { exerciseCanvas } from './canvas-flow.mjs'
 import { exerciseCanvasHistory } from './canvas-history-flow.mjs'
 import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { exerciseArticleRights } from './article-rights-flow.mjs'
-import { readMarkdownDownload } from './markdown-export-flow.mjs'
+import { readMarkdownDownload, readWordDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = tools('@playwright/test')
@@ -185,6 +185,9 @@ try {
   await button(publisher, 'Inspector').click()
   const initialExport = await readMarkdownDownload(publisher, button(publisher, 'Download saved Markdown'), body)
   assert.equal(initialExport.title, title)
+  const wordExport = await readWordDownload(publisher, button(publisher, 'Download saved Word'))
+  if (process.env.FSUSBLOG_TEST_DOCX_RENDER_FIXTURE)
+    await wordExport.saveAs(process.env.FSUSBLOG_TEST_DOCX_RENDER_FIXTURE)
   await publisher.getByRole('complementary', { name: 'Article inspector' }).getByRole('button', { name: 'Close', exact: true }).click()
   observations.push('The saved editor produces a real Markdown download with portable title and byte-exact body.')
   assert(!(await api.publicIndex()).items.some(item => item.id === writtenId))

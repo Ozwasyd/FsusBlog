@@ -594,6 +594,8 @@ async function reloadDraft() {
       <EditorInspector v-if="original && original.id > 0" :nested-modal-active="revisionComparisonActive">
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" />
+        <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
+          :disabled="pending || hasConflict" format="docx" />
         <ArticleMedia :article-id="original.id" :revision="original.revision" :identity="identityEpoch"
           :can-change="!!currentSession?.siteSessionId && !dirty && !pending && !recoveryBlocked && !retry && !hasConflict"
           @save="submit('save-attachment', undefined, undefined, undefined, undefined, $event)" />

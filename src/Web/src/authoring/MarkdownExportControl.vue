@@ -2,10 +2,12 @@
 import { onScopeDispose, ref, watch } from 'vue'
 import { ElButton } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
-import { exportMarkdown, markdownDownloadName } from '../../../Contracts/markdown-export'
+import { exportArticleRevision, type ArticleExportFormat } from '../../../Contracts/markdown-export'
 import { currentSession, identityEpoch, invalidateSession } from '../session'
 
-const props = defineProps<{ article: number; revision: bigint; selected: bigint; disabled?: boolean }>()
+const props = withDefaults(defineProps<{ article: number; revision: bigint; selected: bigint; disabled?: boolean; format?: ArticleExportFormat }>(), {
+  format: 'md',
+})
 const failure = ref('')
 const loading = ref(false)
 let request: AbortController | undefined
@@ -22,19 +24,19 @@ async function download() {
   if (!session?.canAuthor || props.disabled || request) return
   const controller = request = new AbortController()
   const epoch = identityEpoch.value
-  const { article, revision, selected } = props
+  const { article, revision, selected, format } = props
   loading.value = true
   failure.value = ''
   try {
-    const data = await exportMarkdown(article, revision, selected, controller.signal)
+    const data = await exportArticleRevision(format, article, revision, selected, controller.signal)
     if (controller.signal.aborted || epoch !== identityEpoch.value || session.expiresAt <= Date.now() ||
         !currentSession.value?.canAuthor || props.disabled || article !== props.article ||
-        revision !== props.revision || selected !== props.selected) return
+        revision !== props.revision || selected !== props.selected || format !== props.format) return
     const url = URL.createObjectURL(data)
     try {
       const link = document.createElement('a')
       link.href = url
-      link.download = markdownDownloadName
+      link.download = `article.${format}`
       link.click()
     } finally {
       // Let the browser begin reading before releasing the attachment URL.
@@ -45,7 +47,7 @@ async function download() {
     if (error instanceof ApiError && error.status === 401) invalidateSession()
     else if (error instanceof ApiError && error.status === 409) failure.value = 'Load the current draft before exporting.'
     else if (error instanceof ApiError && [403, 404].includes(error.status)) failure.value = 'This revision is unavailable.'
-    else failure.value = 'Could not download Markdown. Try again.'
+    else failure.value = format === 'docx' ? 'Could not download Word. Try again.' : 'Could not download Markdown. Try again.'
   } finally {
     if (request === controller) {
       request = undefined
@@ -54,14 +56,14 @@ async function download() {
   }
 }
 
-watch(() => [props.article, props.revision, props.selected, props.disabled, identityEpoch.value], reset, { flush: 'sync' })
+watch(() => [props.article, props.revision, props.selected, props.disabled, props.format, identityEpoch.value], reset, { flush: 'sync' })
 onScopeDispose(reset)
 </script>
 
 <template>
   <span class="markdown-export">
     <ElButton native-type="button" :loading="loading" :disabled="disabled || loading" @click="download">
-      {{ selected === revision ? 'Download saved Markdown' : 'Download revision Markdown' }}
+      Download {{ selected === revision ? 'saved' : 'revision' }} {{ format === 'docx' ? 'Word' : 'Markdown' }}
     </ElButton>
     <span v-if="failure" class="markdown-export-error" role="alert">{{ failure }}</span>
   </span>
