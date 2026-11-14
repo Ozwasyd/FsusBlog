@@ -13,7 +13,8 @@
             "id": "json-wire-key",
             "paths": [
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "config/dependencies/update-surface.json"
+                "config/dependencies/update-surface.json",
+                "config/build/backend-docker-inputs.json"
             ],
             "reason": "Preserve the existing generated execution authority JSON schema and external field names."
         }
