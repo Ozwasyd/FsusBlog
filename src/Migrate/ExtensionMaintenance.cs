@@ -1,10 +1,9 @@
 using System.Collections.Immutable;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using FsusBlog.V2.Core;
 using FsusBlog.V2.Core.Extensions;
-using Microsoft.Win32.SafeHandles;
 
 namespace FsusBlogV2.Migrate;
 
@@ -138,15 +137,15 @@ internal static class ExtensionMaintenance
 
     private static async Task<byte[]> ReadAsync(string path, int limit, bool privateFile, CancellationToken cancellationToken)
     {
-        if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
-        if ((File.GetAttributes(path) & (FileAttributes.ReparsePoint | FileAttributes.Directory | FileAttributes.Device)) != 0 ||
-            (privateFile && File.GetUnixFileMode(path) != UnixFileMode.UserRead)) throw new ExtensionRejectedException("extension-input-mode");
-        // Reject last-component symlinks at open and avoid blocking on a supplied FIFO.
-        const int macOpen = 0x1000000 | 0x100 | 0x4; // O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
-        const int linuxOpen = 0x80000 | 0x20000 | 0x800;
-        var descriptor = OpenInput(path, OperatingSystem.IsMacOS() ? macOpen : linuxOpen);
-        if (descriptor < 0) throw new ExtensionRejectedException("extension-input-open");
-        using var handle = new SafeFileHandle(descriptor, ownsHandle: true);
+        path = Path.GetFullPath(path);
+        using var directory = NativeUnixFile.OpenDirectory(Path.GetDirectoryName(path)!);
+        if (privateFile && !NativeUnixFile.HasMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, owned: true))
+            throw new ExtensionRejectedException("extension-config-parent-mode");
+        using var handle = NativeUnixFile.OpenFile(directory, Path.GetFileName(path), NativeUnixFile.FileReadFlags, out _)
+            ?? throw new ExtensionRejectedException("extension-input-open");
+        if (!NativeUnixFile.IsRegular(handle)) throw new ExtensionRejectedException("extension-input-size");
+        if (privateFile && !NativeUnixFile.HasMode(handle, UnixFileMode.UserRead, owned: true))
+            throw new ExtensionRejectedException("extension-input-mode");
         await using var stream = new FileStream(handle, FileAccess.Read);
         if (!stream.CanSeek || stream.Length < 1 || stream.Length > limit) throw new ExtensionRejectedException("extension-input-size");
         var bytes = new byte[(int)stream.Length];
@@ -155,9 +154,6 @@ internal static class ExtensionMaintenance
         if (await stream.ReadAsync(extra, cancellationToken) != 0) throw new ExtensionRejectedException("extension-input-size");
         return bytes;
     }
-
-    [DllImport("libc", EntryPoint = "open")]
-    private static extern int OpenInput([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
 
     private static void RequirePrivateDirectory(DirectoryInfo directory)
     {

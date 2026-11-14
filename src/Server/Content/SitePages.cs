@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Collections.Frozen;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -65,19 +64,29 @@ internal sealed class SitePages
         this.lease = lease;
         EditorEnabled = editorEnabled;
         var configuredRoot = configuration["FSUSBLOG_SITE_PAGES"];
-        var root = string.IsNullOrWhiteSpace(configuredRoot) ? null : CheckRoot(configuredRoot);
-        if (EditorEnabled && root is null)
-            throw new InvalidOperationException("The site page editor requires the four deployment baseline files.");
-        current = Definitions.ToFrozenDictionary(spec => spec.Slug,
-            spec =>
-            {
-                var markdown = root is null ? Unconfigured : Read(Path.Combine(root, spec.Slug + ".md"));
-                return Build(spec, new(spec.Slug, 0, Digest(markdown), markdown), root is not null);
-            }, StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(configuredRoot))
+        {
+            if (EditorEnabled) throw new InvalidOperationException("The site page editor requires the four deployment baseline files.");
+            current = BuildPages(null, null);
+        }
+        else
+        {
+            var root = CheckRoot(configuredRoot);
+            using var anchored = NativeUnixFile.Supported ? NativeUnixFile.OpenDirectory(root) : null;
+            current = BuildPages(root, anchored);
+        }
         for (var index = 0; index < Definitions.Length; index++)
             if (current[Definitions[index].Slug].Configured) ConfiguredMask |= 1 << index;
         ConfiguredPaths = Definitions.Where(spec => current[spec.Slug].Configured)
             .Select(spec => "/" + spec.Slug).ToArray();
+
+        FrozenDictionary<string, Page> BuildPages(string? root, SafeFileHandle? anchored) => Definitions.ToFrozenDictionary(
+            spec => spec.Slug,
+            spec =>
+            {
+                var markdown = root is null ? Unconfigured : Read(root, anchored, spec.Slug + ".md");
+                return Build(spec, new(spec.Slug, 0, Digest(markdown), markdown), root is not null);
+            }, StringComparer.OrdinalIgnoreCase);
     }
 
     internal void Map(WebApplication app)
@@ -154,11 +163,9 @@ internal sealed class SitePages
         return path;
     }
 
-    private static string Read(string path)
+    private static string Read(string root, SafeFileHandle? anchored, string name)
     {
-        if ((File.GetAttributes(path) & (FileAttributes.ReparsePoint | FileAttributes.Directory)) != 0)
-            throw new InvalidOperationException("Site page inputs must be regular files within the release directory.");
-        using var contents = OpenInput(path);
+        using var contents = OpenInput(root, anchored, name);
         if (!contents.CanSeek || contents.Length > WireLimits.PageContentBytes)
             throw new InvalidOperationException("Site page inputs must be regular and within the byte budget.");
         var buffer = new byte[WireLimits.PageContentBytes + 1];
@@ -174,20 +181,23 @@ internal sealed class SitePages
         return markdown;
     }
 
-    private static FileStream OpenInput(string path)
+    private static FileStream OpenInput(string root, SafeFileHandle? anchored, string name)
     {
-        // O_NONBLOCK avoids waiting on a special file. O_NOFOLLOW checks the final name at open.
-        const int macOpen = 0x1000000 | 0x100 | 0x4; // O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
-        const int linuxOpen = 0x80000 | 0x20000 | 0x800;
-        var flags = OperatingSystem.IsMacOS() ? macOpen : OperatingSystem.IsLinux() ? linuxOpen : 0;
-        if (flags == 0) return File.OpenRead(path);
-        var descriptor = OpenNative(path, flags);
-        if (descriptor < 0) throw new IOException("Could not open a site page input.", Marshal.GetLastPInvokeError());
-        var handle = new SafeFileHandle(descriptor, ownsHandle: true);
-        try { return new FileStream(handle, FileAccess.Read); }
+        if (anchored is null)
+        {
+            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()) throw new PlatformNotSupportedException();
+            var path = Path.Combine(root, name);
+            if ((File.GetAttributes(path) & (FileAttributes.ReparsePoint | FileAttributes.Directory)) != 0)
+                throw new InvalidOperationException("Site page inputs must be regular files within the release directory.");
+            return File.OpenRead(path);
+        }
+        var handle = NativeUnixFile.OpenFile(anchored, name, NativeUnixFile.FileReadFlags, out var error)
+            ?? throw new IOException("Could not open a site page input.", error);
+        try
+        {
+            if (!NativeUnixFile.IsRegular(handle)) throw new InvalidOperationException("Site page inputs must be regular files within the release directory.");
+            return new FileStream(handle, FileAccess.Read);
+        }
         catch { handle.Dispose(); throw; }
     }
-
-    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
-    private static extern int OpenNative([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
 }

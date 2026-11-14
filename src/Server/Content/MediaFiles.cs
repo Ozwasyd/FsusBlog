@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using FsusBlog.V2.Core;
 using Microsoft.Win32.SafeHandles;
 
 namespace FsusBlog.V2.Server.Content;
@@ -9,22 +10,17 @@ internal sealed class MediaFiles : IDisposable
     private const int FileNotFound = 2;
     private const int FileExists = 17;
     private const int WriteOnly = 1;
-    private const int PrivateDirectory = 0x1c0; // 0700
-    private const int ReadOnlyFile = 0x100; // 0400
+    private const UnixFileMode PrivateDirectory = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+    private const UnixFileMode ReadOnlyFile = UnixFileMode.UserRead;
     private const int LockExclusiveNonBlocking = 6;
-    private static int NoFollow => OperatingSystem.IsMacOS() ? 0x100 : 0x20000;
-    private static int DirectoryOnly => OperatingSystem.IsMacOS() ? 0x100000 : 0x10000;
-    private static int CloseOnExec => OperatingSystem.IsMacOS() ? 0x1000000 : 0x80000;
-    private static int NonBlocking => OperatingSystem.IsMacOS() ? 4 : 0x800;
     private static int ExclusiveCreate => OperatingSystem.IsMacOS() ? 0xa00 : 0xc0;
-    private static int OpenDirectory => NoFollow | CloseOnExec | DirectoryOnly;
 
     private readonly SafeFileHandle directory;
     private int Fd => directory.DangerousGetHandle().ToInt32();
 
     internal MediaFiles(string path, string publicRoot)
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux()))
+        if (!NativeUnixFile.Supported)
             throw new PlatformNotSupportedException("Private media requires an anchored Unix storage directory.");
         path = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         if (path == "/" || !string.Equals(path, ResolvedPath(path), StringComparison.Ordinal))
@@ -34,15 +30,15 @@ internal sealed class MediaFiles : IDisposable
             if (ResolvedPath(view) is { } resolved && (Contains(path, resolved) || Contains(resolved, path)))
                 throw new InvalidOperationException("Private media storage must be separate from publicly served files.");
         }
-        if ((int)File.GetUnixFileMode(path) != PrivateDirectory)
-            throw new InvalidOperationException("Private media storage must have Unix mode 0700.");
-
-        directory = OpenRoot(path);
-        if ((int)File.GetUnixFileMode(directory) != PrivateDirectory || Flock(Fd, LockExclusiveNonBlocking) != 0)
+        directory = NativeUnixFile.OpenDirectory(path);
+        try
         {
-            directory.Dispose();
-            throw new InvalidOperationException("Private media storage is already in use or does not support exclusive locking.");
+            if (!NativeUnixFile.HasMode(directory, PrivateDirectory, owned: true))
+                throw new InvalidOperationException("Private media storage must have Unix mode 0700 and be process-owned.");
+            if (Flock(Fd, LockExclusiveNonBlocking) != 0)
+                throw new InvalidOperationException("Private media storage is already in use or does not support exclusive locking.");
         }
+        catch { directory.Dispose(); throw; }
     }
 
     internal async Task<byte[]?> Read(Guid id, int length, byte[] hash, CancellationToken token)
@@ -69,16 +65,16 @@ internal sealed class MediaFiles : IDisposable
 
         token.ThrowIfCancellationRequested();
         var temp = $".{id:N}.{Guid.NewGuid():N}.pending";
-        var flags = WriteOnly | NoFollow | CloseOnExec | ExclusiveCreate;
+        var flags = WriteOnly | NativeUnixFile.NoFollow | NativeUnixFile.CloseOnExec | ExclusiveCreate;
         var fd = OperatingSystem.IsMacOS() && RuntimeInformation.ProcessArchitecture == Architecture.Arm64
-            ? OpenAtDarwinArm64(Fd, temp, flags, 0, 0, 0, 0, 0, ReadOnlyFile)
-            : OpenAt(Fd, temp, flags, ReadOnlyFile);
+            ? OpenAtDarwinArm64(Fd, temp, flags, 0, 0, 0, 0, 0, (uint)ReadOnlyFile)
+            : OpenAt(Fd, temp, flags, (uint)ReadOnlyFile);
         if (fd < 0) throw Failure("Could not reserve a private media file.");
         try
         {
             using (var handle = Handle(fd))
             {
-                if (Chmod(fd, ReadOnlyFile) != 0) throw Failure("Could not restrict the private media file mode.");
+                if (Chmod(fd, (uint)ReadOnlyFile) != 0) throw Failure("Could not restrict the private media file mode.");
                 using var file = new FileStream(handle, FileAccess.Write);
                 await file.WriteAsync(image.Bytes, token);
                 file.Flush(flushToDisk: true);
@@ -117,17 +113,16 @@ internal sealed class MediaFiles : IDisposable
 
     private FileStream? OpenRead(string name)
     {
-        var fd = OpenAt(Fd, name, NoFollow | NonBlocking | CloseOnExec, 0);
-        if (fd < 0)
+        var handle = NativeUnixFile.OpenFile(directory, name, NativeUnixFile.FileReadFlags, out var error);
+        if (handle is null)
         {
-            if (Marshal.GetLastPInvokeError() == FileNotFound) return null;
+            if (error == FileNotFound) return null;
             throw Failure("Private media file is inaccessible.");
         }
 
-        var handle = Handle(fd);
         try
         {
-            if (OperatingSystem.IsWindows() || (int)File.GetUnixFileMode(handle) != ReadOnlyFile)
+            if (!NativeUnixFile.IsRegular(handle, ReadOnlyFile, owned: true))
                 throw Failure("Private media file permissions are unexpected.");
             return new FileStream(handle, FileAccess.Read);
         }
@@ -149,24 +144,6 @@ internal sealed class MediaFiles : IDisposable
     private static SafeFileHandle Handle(int file) => new((nint)file, ownsHandle: true);
     private static IOException Failure(string message) => new(message);
 
-    private static SafeFileHandle OpenRoot(string path)
-    {
-        var current = Handle(Open("/", OpenDirectory));
-        if (current.IsInvalid) { current.Dispose(); throw Failure("Could not open the Unix root."); }
-        try
-        {
-            foreach (var part in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var next = OpenAt(current.DangerousGetHandle().ToInt32(), part, OpenDirectory, 0);
-                if (next < 0) throw Failure("Could not open the anchored private media directory.");
-                current.Dispose();
-                current = Handle(next);
-            }
-            return current;
-        }
-        catch { current.Dispose(); throw; }
-    }
-
     private static bool Contains(string parent, string child)
     {
         var relative = Path.GetRelativePath(parent, child);
@@ -181,8 +158,6 @@ internal sealed class MediaFiles : IDisposable
         finally { Free(pointer); }
     }
 
-    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
-    private static extern int Open([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
     private static extern int OpenAt(int directory, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags, uint mode);
     // Darwin arm64's first variadic argument is on the stack. Fill the unused argument registers so mode is placed there.

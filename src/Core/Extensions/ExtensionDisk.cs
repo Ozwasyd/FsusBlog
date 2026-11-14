@@ -10,35 +10,30 @@ internal static class ExtensionDisk
 
     internal static string ValidatePrivateRoot(DirectoryInfo root)
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()))
-            throw new PlatformNotSupportedException();
+        if (!NativeUnixFile.Supported) throw new PlatformNotSupportedException();
         if (!root.Exists) throw Reject("private-root-unavailable");
         for (DirectoryInfo? component = root; component is not null; component = component.Parent)
         {
             if ((component.Attributes & FileAttributes.ReparsePoint) != 0) throw Reject("private-root-link");
         }
-        if (File.GetUnixFileMode(root.FullName) != PrivateDirectory) throw Reject("private-root-mode");
+        using var directory = NativeUnixFile.OpenDirectory(root.FullName);
+        if (!NativeUnixFile.HasMode(directory, PrivateDirectory, owned: true)) throw Reject("private-root-mode");
         return root.FullName;
     }
 
     internal static byte[] Read(string root, string name, int limit, CancellationToken cancellationToken)
     {
-        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS()))
-            throw new PlatformNotSupportedException();
         cancellationToken.ThrowIfCancellationRequested();
-        var path = Path.Combine(root, name);
-        if ((File.GetAttributes(path) & (FileAttributes.ReparsePoint | FileAttributes.Directory | FileAttributes.Device)) != 0 ||
-            File.GetUnixFileMode(path) != ImmutableFile) throw Reject("installed-file-shape");
-
-        const int macFlags = 0x1000000 | 0x100 | 0x4; // O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK
-        const int linuxFlags = 0x80000 | 0x20000 | 0x800;
-        var descriptor = Open(path, OperatingSystem.IsMacOS() ? macFlags : linuxFlags);
-        if (descriptor < 0)
+        using var directory = NativeUnixFile.OpenDirectory(root);
+        if (!NativeUnixFile.HasMode(directory, PrivateDirectory, owned: true)) throw Reject("private-root-mode");
+        using var handle = NativeUnixFile.OpenFile(directory, name, NativeUnixFile.FileReadFlags, out var error);
+        if (handle is null)
         {
-            if (Marshal.GetLastPInvokeError() == 2) throw new FileNotFoundException("The installed file is unavailable.", path);
+            if (error == NativeUnixFile.NotFound) throw new FileNotFoundException("The installed file is unavailable.", Path.Combine(root, name));
             throw Reject("installed-file-shape");
         }
-        using var handle = new SafeFileHandle(descriptor, ownsHandle: true);
+        if (!NativeUnixFile.IsRegular(handle)) throw Reject("installed-file-size");
+        if (!NativeUnixFile.HasMode(handle, ImmutableFile, owned: true)) throw Reject("installed-file-shape");
         using var file = new FileStream(handle, FileAccess.Read);
         if (!file.CanSeek || file.Length is < 1 || file.Length > limit) throw Reject("installed-file-size");
         var bytes = new byte[checked((int)file.Length)];

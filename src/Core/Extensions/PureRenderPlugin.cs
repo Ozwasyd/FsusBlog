@@ -100,25 +100,20 @@ public sealed class PureRenderPlugin : IDisposable
 
     private static FileStream Acquire(string directory)
     {
-        if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
-        var path = Path.Combine(directory, "runner.lock");
-        if ((File.GetAttributes(path) & (FileAttributes.ReparsePoint | FileAttributes.Directory | FileAttributes.Device)) != 0 ||
-            File.GetUnixFileMode(path) != (UnixFileMode.UserRead | UnixFileMode.UserWrite)) throw Reject("plugin-lock-shape");
-        const int macFlags = 0x1000000 | 0x100 | 0x4 | 0x2; // O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK | O_RDWR
-        const int linuxFlags = 0x80000 | 0x20000 | 0x800 | 0x2;
-        var descriptor = OpenLock(path, OperatingSystem.IsMacOS() ? macFlags : linuxFlags);
-        if (descriptor < 0) throw Reject("plugin-lock-unavailable");
-        var handle = new SafeFileHandle(descriptor, ownsHandle: true);
+        using var root = NativeUnixFile.OpenDirectory(directory);
+        if (!NativeUnixFile.HasMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute, owned: true))
+            throw Reject("plugin-lock-shape");
+        var handle = NativeUnixFile.OpenFile(root, "runner.lock", NativeUnixFile.FileReadFlags | NativeUnixFile.ReadWrite, out _)
+            ?? throw Reject("plugin-lock-unavailable");
         try
         {
+            if (!NativeUnixFile.IsRegular(handle, UnixFileMode.UserRead | UnixFileMode.UserWrite, owned: true))
+                throw Reject("plugin-lock-shape");
             if (Lock(handle, 2 | 4) != 0) throw Reject("plugin-runner-busy"); // LOCK_EX | LOCK_NB
             return new FileStream(handle, FileAccess.ReadWrite);
         }
         catch { handle.Dispose(); throw; }
     }
-
-    [DllImport("libc", EntryPoint = "open")]
-    private static extern int OpenLock([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
 
     [DllImport("libc", EntryPoint = "flock")]
     private static extern int Lock(SafeFileHandle descriptor, int flags);

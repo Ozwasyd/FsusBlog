@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Runtime.InteropServices;
+using FsusBlog.V2.Core;
 using FsusBlogV2.Storage;
 using Microsoft.Win32.SafeHandles;
 using Npgsql;
@@ -46,27 +47,10 @@ internal static partial class Migration
         return backup;
     }
 
-    private static int ImportDirectoryFlags => OperatingSystem.IsMacOS() ? 0x1100100 : 0xB0000;
-    private static int ImportFileFlags => OperatingSystem.IsMacOS() ? 0x1000104 : 0xA0800;
+    private static int ImportDirectoryFlags => NativeUnixFile.DirectoryReadFlags;
+    private static int ImportFileFlags => NativeUnixFile.FileReadFlags;
 
-    private static SafeFileHandle OpenImportBackupDirectory(string path)
-    {
-        var root = new SafeFileHandle((nint)OpenImportPath("/", ImportDirectoryFlags), ownsHandle: true);
-        if (root.IsInvalid) { root.Dispose(); throw new InvalidOperationException("Could not anchor the backup directory."); }
-        try
-        {
-            foreach (var part in path.Split('/', StringSplitOptions.RemoveEmptyEntries))
-            {
-                if (part is "." or "..") throw new InvalidOperationException("Use a canonical import backup directory.");
-                var child = new SafeFileHandle((nint)OpenImportChild(root, part, ImportDirectoryFlags), ownsHandle: true);
-                if (child.IsInvalid) { child.Dispose(); throw new InvalidOperationException("The import backup directory is unavailable or linked."); }
-                root.Dispose();
-                root = child;
-            }
-            return root;
-        }
-        catch { root.Dispose(); throw; }
-    }
+    private static SafeFileHandle OpenImportBackupDirectory(string path) => NativeUnixFile.OpenDirectory(path);
 
     private static FileStream OpenImportBackupFile(SafeFileHandle directory, string name)
     {
@@ -74,8 +58,7 @@ internal static partial class Migration
         if (handle.IsInvalid) { handle.Dispose(); throw new InvalidOperationException("The import backup contains an unavailable or linked file."); }
         try
         {
-            if (OperatingSystem.IsWindows() ||
-                File.GetUnixFileMode(handle) is not (UnixFileMode.UserRead or (UnixFileMode.UserRead | UnixFileMode.UserWrite)))
+            if (NativeUnixFile.RegularMode(handle) is not (UnixFileMode.UserRead or (UnixFileMode.UserRead | UnixFileMode.UserWrite)))
                 throw new InvalidOperationException("The import backup files must use Unix permissions 0400 or 0600.");
             var stream = new FileStream(handle, FileAccess.Read);
             if (!stream.CanSeek) { stream.Dispose(); throw new InvalidOperationException("The import backup files must be seekable."); }
@@ -83,9 +66,6 @@ internal static partial class Migration
         }
         catch { handle.Dispose(); throw; }
     }
-
-    [DllImport("libc", EntryPoint = "open", SetLastError = true)]
-    private static extern int OpenImportPath([MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
 
     [DllImport("libc", EntryPoint = "openat", SetLastError = true)]
     private static extern int OpenImportChild(SafeFileHandle directory, [MarshalAs(UnmanagedType.LPUTF8Str)] string path, int flags);
