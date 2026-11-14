@@ -65,6 +65,7 @@ public enum FrameType : ushort
     CanvasGraphList = 32812,
     CanvasGraphPage = 32813,
     CanvasGraphHistory = 32814,
+    CanvasReferenceResolution = 32815,
     PropertyDefinitionCommand = 32779,
     PropertyWorkspaceRequest = 32780,
     PropertyTextCommand = 32781,
@@ -158,6 +159,7 @@ public static class WireLimits
     public const int CanvasGraphMaxPageNodes = 32;
     public const int CanvasGraphMaxPageNodeBytes = 524288;
     public const int CanvasGraphMaxPageEdges = 64;
+    public const int CanvasReferenceExcerptBytes = 768;
     public const int PropertyKeyBytes = 64;
     public const int PropertyLabelBytes = 1024;
     public const int PropertyValueBytes = 65536;
@@ -432,6 +434,7 @@ public static class WireRoutes
     public const string CanvasGraphList = "/api/v2/authoring/canvas/documents.aeds";
     public const string CanvasGraphPage = "/api/v2/authoring/canvas/documents/{id:guid}.aeds";
     public const string CanvasGraphHistory = "/api/v2/authoring/canvas/documents/{id:guid}/history.aeds";
+    public const string CanvasReference = "/api/v2/authoring/canvas/documents/{id:guid}/references/{nodeId:guid}.aeds";
     public const string PropertyDefinitionCommand = "/api/v2/authoring/properties/definition.aeds";
     public const string PropertyWorkspace = "/api/v2/authoring/properties/workspace.aeds";
     public const string PropertyTextCommand = "/api/v2/authoring/properties/text.aeds";

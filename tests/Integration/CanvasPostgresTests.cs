@@ -75,6 +75,108 @@ public sealed class CanvasPostgresTests
     }
 
     [PostgresFact]
+    public async Task ResolvesOnlyStoredOwnerCoordinatesAndPinsExactSource()
+    {
+        await using var test = await Fixture.Open();
+        var owner = await test.Author("Canvas resolver owner");
+        var outsider = await test.Author("Canvas resolver outsider");
+        var foreign = await test.Save(outsider.Token, "Sensitive foreign title", "Sensitive foreign source");
+        const string initialBody = "Utility 🐈\r\n\r\n# Pinned heading ^overview\r\n\r\nPinned paragraph ^detail";
+        var initial = await test.Save(owner.Token, "Old private title", initialBody);
+        var current = await test.Save(owner.Token, "New private title", "# Latest heading ^overview\n\n" +
+            "First instance ^ambiguous\n\nSecond instance ^ambiguous\n\n" +
+            "```markdown\n# Looks like a heading ^hidden\n```", initial.Id, initial.Revision);
+
+        Guid canvas = Guid.NewGuid();
+        Guid heading = Guid.NewGuid();
+        Guid pin = Guid.NewGuid();
+        Guid article = Guid.NewGuid();
+        Guid ambiguous = Guid.NewGuid();
+        Guid hidden = Guid.NewGuid();
+        Guid mismatchedKind = Guid.NewGuid();
+        Guid wrong = Guid.NewGuid();
+        var input = new CanvasGraphCommand(canvas, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Owned Canvas", new(600, 120, 1000),
+        [
+            Node(heading, 1, current.Id, "overview", null),
+            Node(pin, 2, current.Id, "detail", initial.Revision),
+            Node(article, 0, current.Id, null, null),
+            Node(ambiguous, 2, current.Id, "ambiguous", null),
+            Node(hidden, 1, current.Id, "hidden", null),
+            Node(mismatchedKind, 1, current.Id, "detail", initial.Revision),
+            Node(wrong, 0, current.Id, null, null)
+        ]);
+        await using var server = await ServerProcess.Start(test.ConnectionString, test.Token);
+        var frame = Wire.EncodeCanvasGraphCommand(input);
+        var created = Wire.DecodeCanvasGraphReceipt(await Request(HttpMethod.Post, WireRoutes.CanvasGraphWrite, owner.Token, HttpStatusCode.OK, frame));
+        Assert.Equal(1, created.Revision);
+
+        var live = await Resolve(heading);
+        Assert.Equal((CanvasReferenceState.Resolved, "New private title", current.Id, current.Revision, false, "Latest heading", 17),
+            (live.State, live.Title, live.ArticleId, live.ArticleRevision, live.Pinned, live.Excerpt, live.SourceOffset));
+        var historical = await Resolve(pin);
+        Assert.Equal((CanvasReferenceState.Resolved, "Old private title", current.Id, initial.Revision, true, "Pinned paragraph", initialBody.IndexOf("^detail", StringComparison.Ordinal)),
+            (historical.State, historical.Title, historical.ArticleId, historical.ArticleRevision, historical.Pinned, historical.Excerpt, historical.SourceOffset));
+        var metadata = await Resolve(article);
+        Assert.Equal((CanvasReferenceState.Resolved, "New private title", current.Revision),
+            (metadata.State, metadata.Title, metadata.ArticleRevision));
+        Assert.Null(metadata.Excerpt);
+        Assert.Null(metadata.SourceOffset);
+        foreach (var (node, expected) in new[] {
+            (ambiguous, CanvasReferenceState.DuplicateAnchor), (hidden, CanvasReferenceState.MissingAnchor),
+            (mismatchedKind, CanvasReferenceState.MissingAnchor)
+        })
+        {
+            var missed = await Resolve(node);
+            Assert.Equal(expected, missed.State);
+            Assert.Null(missed.Excerpt);
+            Assert.Null(missed.SourceOffset);
+        }
+
+        // Exercise the endpoint's regression boundary for a corrupted or migrated old reference.
+        await test.Mutate("update public.canvas_node set article_id=$3 where canvas_id=$1 and id=$2", canvas, wrong, foreign.Id);
+        Assert.Equal(new(canvas, wrong, 1, CanvasReferenceState.Unavailable, null, null, false, null, null, null), await Resolve(wrong));
+        await Request(HttpMethod.Get, Route(heading, 1), outsider.Token, HttpStatusCode.NotFound);
+        await Request(HttpMethod.Get, Route(heading, 1), null, HttpStatusCode.Unauthorized);
+        await Request(HttpMethod.Get, Route(heading, 3), owner.Token, HttpStatusCode.Conflict);
+
+        var noWriteCount = await test.Scalar("select count(*) from public.canvas_document_event where canvas_id=$1", canvas);
+        Assert.Equal(1L, noWriteCount);
+        var bodyEdit = await test.Save(owner.Token, "Another private title", "# Latest changed ^overview", current.Id, current.Revision);
+        Assert.Equal(bodyEdit.Revision, (await Resolve(heading)).ArticleRevision);
+        Assert.Equal(initial.Revision, (await Resolve(pin)).ArticleRevision);
+        await test.Mutate("update public.article set deleted=true where id=$1", current.Id);
+        Assert.Equal(CanvasReferenceState.Unavailable, (await Resolve(heading)).State);
+        Assert.Equal(CanvasReferenceState.Unavailable, (await Resolve(pin)).State);
+        await test.Mutate("update public.blog_user set generation=generation+1 where id=$1", owner.User.Id);
+        await Request(HttpMethod.Get, Route(heading, 1), owner.Token, HttpStatusCode.Unauthorized);
+
+        static CanvasChangeFrame Node(Guid id, int kind, int target, string? anchor, long? pinned) =>
+            new CanvasChangeFrame.PutNode(new(id, kind, 0, 0, 12000, 8000, target, anchor, pinned));
+        string Route(Guid id, long revision) =>
+            WireRoutes.CanvasReference.Replace("{id:guid}", canvas.ToString("D")).Replace("{nodeId:guid}", id.ToString("D"))
+            + $"?revision={revision}";
+        async Task<CanvasReferenceResolution> Resolve(Guid id) =>
+            Wire.DecodeCanvasReferenceResolution(await Request(HttpMethod.Get, Route(id, 1), owner.Token, HttpStatusCode.OK));
+
+        async Task<byte[]> Request(HttpMethod method, string path, string? token, HttpStatusCode status, byte[]? body = null)
+        {
+            using var request = new HttpRequestMessage(method, path);
+            if (body is not null)
+            {
+                request.Content = new ByteArrayContent(body);
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
+            }
+            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var response = await server.Client.SendAsync(request, test.Token);
+            Assert.Equal(status, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            var bytes = await response.Content.ReadAsByteArrayAsync(test.Token);
+            if (status != HttpStatusCode.OK) Aeds.Decode(bytes, FrameType.ApiError);
+            return bytes;
+        }
+    }
+
+    [PostgresFact]
     public async Task GraphRoutesApplyOneOrderedRevisionAndKeepPrivateProvenance()
     {
         await using var test = await Fixture.Open();

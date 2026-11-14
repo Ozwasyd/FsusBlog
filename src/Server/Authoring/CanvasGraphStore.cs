@@ -63,6 +63,16 @@ internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx
         return new(current, NextOffset(current, offset, edges.Count), [], edges.Select(ToFrame).ToArray());
     }
 
+    internal async Task<CanvasReferenceResolution> Resolve(Guid id, Guid nodeId, long revision, CancellationToken ct)
+    {
+        if (id == Guid.Empty || nodeId == Guid.Empty || revision <= 0)
+            throw Invalid("A valid Canvas reference coordinate is required.");
+        var current = await Current(id, write: false, ct) ?? throw Missing();
+        if (current.Deleted) throw Missing();
+        if (current.Revision != revision) throw Conflict();
+        return await CanvasReferenceStore.Resolve(db, tx, actor.Id, id, nodeId, current.Revision, ct);
+    }
+
     internal async Task<CanvasGraphHistory> History(Guid id, long revision, CancellationToken ct)
     {
         if (id == Guid.Empty || revision <= 0) throw Invalid("A valid Canvas revision is required.");

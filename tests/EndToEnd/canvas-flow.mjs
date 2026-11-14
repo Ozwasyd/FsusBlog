@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { decodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeCanvasGraphPage } from '../../src/Contracts/canvas-graph.ts'
 import { decodeDraft, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exerciseCanvasReferences } from './canvas-reference-flow.mjs'
 
 export async function exerciseCanvas({ page, origin, targetArticle, createDraft, screenshot, observations, monitor }) {
   const client = await page.context().newPage()
@@ -164,6 +165,7 @@ export async function exerciseCanvas({ page, origin, targetArticle, createDraft,
     await heading('Canvases').waitFor()
     assert.equal(await client.getByRole('link', { name: title, exact: true }).count(), 0)
     assert.equal((await draft()).body, linked.body)
+    await exerciseCanvasReferences({ page: client, origin, createDraft, screenshot, observations })
     observations.push('Canvas saves pointer and keyboard moves, all five node kinds and both edge kinds, previews without writing, confirms the same authoritative link transaction, rejects a stale tab, reloads at 375px, and deletes only the Canvas.')
   } catch (error) {
     await screenshot(client, 'canvas-failed').catch(() => {})

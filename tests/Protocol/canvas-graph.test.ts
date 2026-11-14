@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import {
-  canvasGraph, decodeCanvasGraphHistory, decodeCanvasGraphPage, encodeCanvasGraphCommand, type CanvasGraphCommand,
+  canvasGraph, decodeCanvasGraphHistory, decodeCanvasGraphPage, decodeCanvasReferenceResolution, encodeCanvasGraphCommand, type CanvasGraphCommand,
 } from '../../src/Contracts/canvas-graph.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
@@ -115,4 +115,53 @@ test('history reads exact revision echoes and rejects malformed optional revisio
   assert.throws(() => canvasGraph.history(id(1), 0n, signal), /history revision/)
   assert.throws(() => canvasGraph.history(id(1), 1n << 63n, signal), /history revision/)
   assert.equal(mocked.mock.callCount(), 2)
+})
+
+test('reference resolution preserves authorized metadata, offset zero and redacted states', () => {
+  const payload = (name: string) => decodeFrame(fixture(`canvas-reference-${name}`), FrameType.CanvasReferenceResolution).payload
+  const expected = {
+    canvasId: id(1), nodeId: id(6), canvasRevision: revision, state: 'resolved', articleId: 17, articleRevision: revision + 1n,
+    pinned: true, title: 'Draft title 猫', excerpt: 'Heading\nPlain excerpt', sourceOffset: 0,
+  }
+  const resolved = payload('resolved')
+  assert.deepEqual(decodeCanvasReferenceResolution(resolved), expected)
+  assert.deepEqual(decodeCanvasReferenceResolution(payload('missing')), {
+    ...expected, state: 'missing-anchor', pinned: false, excerpt: null, sourceOffset: null,
+  })
+  const redacted = {
+    ...expected, state: 'unavailable', articleId: null, articleRevision: null, pinned: false, title: null, excerpt: null, sourceOffset: null,
+  }
+  assert.deepEqual(decodeCanvasReferenceResolution(payload('unavailable')), redacted)
+  const stateOffset = 16 + 16 + 8
+  const stale = payload('unavailable').slice()
+  new DataView(stale.buffer).setInt32(stateOffset, 4, true)
+  assert.deepEqual(decodeCanvasReferenceResolution(stale), { ...redacted, state: 'stale-revision' })
+  for (const state of [0, 2, 3, 4, 5]) {
+    const invalid = resolved.slice()
+    new DataView(invalid.buffer).setInt32(stateOffset, state, true)
+    assert.throws(() => decodeCanvasReferenceResolution(invalid), ProtocolError)
+  }
+  assert.throws(() => decodeCanvasReferenceResolution(resolved.subarray(0, -1)), ProtocolError)
+  const noOffset = resolved.slice()
+  new DataView(noOffset.buffer).setInt32(noOffset.length - 4, -1, true)
+  assert.throws(() => decodeCanvasReferenceResolution(noOffset), /reference excerpt or offset/)
+})
+
+test('reference fetch requires exact canvas, node and revision response echoes', async t => {
+  const bytes = fixture('canvas-reference-resolved')
+  const requests: string[] = []
+  const signal = new AbortController().signal
+  t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
+    assert.equal(init.signal, signal)
+    requests.push(path)
+    return new Response(bytes, { headers: { 'content-type': 'application/octet-stream' } })
+  })
+  const path = WireRoutes.CanvasReference.replace('{id:guid}', id(1)).replace('{nodeId:guid}', id(6))
+  assert.equal((await canvasGraph.resolve(id(1), id(6), revision, signal)).title, 'Draft title 猫')
+  assert.equal(requests[0], `${path}?revision=${revision}`)
+  await assert.rejects(canvasGraph.resolve(id(2), id(6), revision, signal), /reference response coordinates/)
+  await assert.rejects(canvasGraph.resolve(id(1), id(7), revision, signal), /reference response coordinates/)
+  await assert.rejects(canvasGraph.resolve(id(1), id(6), revision + 1n, signal), /reference response coordinates/)
+  assert.throws(() => canvasGraph.resolve(id(1), id(6), 0n, signal), /reference revision/)
+  assert.equal(requests.length, 4)
 })

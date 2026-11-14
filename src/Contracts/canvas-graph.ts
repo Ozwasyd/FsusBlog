@@ -63,11 +63,25 @@ export type CanvasGraphHistory = {
   redoRevision: bigint | null
 }
 
+export type CanvasReferenceResolution = {
+  canvasId: string
+  nodeId: string
+  canvasRevision: bigint
+  state: typeof referenceStates[number]
+  articleId: number | null
+  articleRevision: bigint | null
+  pinned: boolean
+  title: string | null
+  excerpt: string | null
+  sourceOffset: number | null
+}
+
 const maxRecords = 10_000
 const maxCoordinate = 1_000_000_000
 const actions = { create: 0, edit: 1, delete: 2, undo: 5, redo: 6 } as const
 const nodeKinds = ['article-reference', 'heading-reference', 'block-reference', 'plain-text-note', 'group-frame'] as const
 const edgeKinds = ['visual-only', 'explicit-reference-note'] as const
+const referenceStates = ['unavailable', 'resolved', 'missing-anchor', 'duplicate-anchor', 'stale-revision'] as const
 const zeroUuid = '00000000-0000-0000-0000-000000000000'
 const controls = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/
 const htmlLike = /<[\s\S]*?>/
@@ -333,6 +347,37 @@ export function decodeCanvasGraphHistory(payload: Uint8Array): CanvasGraphHistor
   return { revision, undoRevision: undo || null, redoRevision: redo || null }
 }
 
+export function decodeCanvasReferenceResolution(payload: Uint8Array): CanvasReferenceResolution {
+  const input = new PodReader(payload)
+  const canvasId = identity(input.uuid())
+  const nodeId = identity(input.uuid())
+  const canvasRevision = input.i64()
+  const state = referenceStates[input.i32()]
+  const article = input.i32()
+  const articleRev = input.i64()
+  const pinned = input.bool()
+  const title = input.text(WireLimits.TitleBytes) || null
+  const excerpt = input.text(WireLimits.CanvasReferenceExcerptBytes) || null
+  const offset = input.i32()
+  const articleId = article === 0 ? null : article
+  const articleRevision = articleRev === 0n ? null : articleRev
+  const sourceOffset = offset === -1 ? null : offset
+  input.finish()
+  check(canvasRevision > 0n && state !== undefined, 'reference coordinates')
+
+  if (state === 'unavailable' || state === 'stale-revision') {
+    check(articleId === null && articleRevision === null && !pinned && title === null && excerpt === null && sourceOffset === null,
+      'unavailable reference shape')
+  } else {
+    check(articleId !== null && articleId > 0 && articleRevision !== null && articleRevision > 0n &&
+      title !== null && !/^\p{White_Space}|\p{White_Space}$/u.test(title) && !/\p{Cc}/u.test(title), 'reference metadata')
+    check(state === 'resolved' || excerpt === null && sourceOffset === null, 'unresolved reference excerpt')
+    check((sourceOffset === null || sourceOffset >= 0) && (excerpt === null || sourceOffset !== null && !controls.test(excerpt)),
+      'reference excerpt or offset')
+  }
+  return { canvasId, nodeId, canvasRevision, state, articleId, articleRevision, pinned, title, excerpt, sourceOffset }
+}
+
 export const canvasGraph = {
   list(signal?: AbortSignal): Promise<CanvasGraphHeader[]> {
     return request(WireRoutes.CanvasGraphList, FrameType.CanvasGraphList, decodeCanvasGraphList, signal)
@@ -360,6 +405,17 @@ export const canvasGraph = {
       const history = decodeCanvasGraphHistory(payload)
       check(history.revision === expectedRevision, 'history revision')
       return history
+    }, signal)
+  },
+  resolve(id: string, nodeId: string, revision: bigint, signal?: AbortSignal): Promise<CanvasReferenceResolution> {
+    const canvas = identity(id)
+    const node = identity(nodeId)
+    check(revision > 0n && BigInt.asIntN(64, revision) === revision, 'reference revision')
+    const path = WireRoutes.CanvasReference.replace('{id:guid}', canvas).replace('{nodeId:guid}', node)
+    return request(`${path}?revision=${revision}`, FrameType.CanvasReferenceResolution, payload => {
+      const resolution = decodeCanvasReferenceResolution(payload)
+      check(resolution.canvasId === canvas && resolution.nodeId === node && resolution.canvasRevision === revision, 'reference response coordinates')
+      return resolution
     }, signal)
   },
   write(command: CanvasGraphCommand, signal?: AbortSignal): Promise<CanvasGraphHeader> {

@@ -22,6 +22,13 @@ internal static class CanvasGraphEndpoints
                 Frame(Wire.EncodeCanvasGraphPage(await new CanvasGraphStore(db, tx, actor).Page(id, revision, offset, ct))), ct);
         }).RequireRateLimiting("command");
 
+        app.MapGet(WireRoutes.CanvasReference, (HttpContext ctx, Store store, Guid id, Guid nodeId, CancellationToken ct) =>
+        {
+            long revision = Coordinate(ctx, "revision", long.MaxValue);
+            return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+                Frame(Wire.EncodeCanvasReferenceResolution(await new CanvasGraphStore(db, tx, actor).Resolve(id, nodeId, revision, ct))), ct);
+        }).RequireRateLimiting("command");
+
         app.MapGet(WireRoutes.CanvasGraphHistory, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
         {
             long revision = Coordinate(ctx, "revision", long.MaxValue);

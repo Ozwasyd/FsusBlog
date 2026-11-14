@@ -26,7 +26,13 @@ Canvas 文档与链接确认共用同一份数据及修订号。站点范围由�
 
 真实 PostgreSQL 测试覆盖会话和作者范围、私有标题不进入预览、方括号等字符的标签转义、围栏代码中的插入拒绝、目标版本变化、两个并发确认及回执持久化失败后的全量回滚。真实 Kestrel 测试覆盖已挂载路由、AEDS 请求与响应、认证、错误帧、CRC 和禁止缓存。C# 与 TypeScript 对照独立构造的预览响应字节向量。
 
-当前链接转换覆盖同作者、已公开普通文章、显式引用边、文末插入及保留边。标题和块引用能保存同作者文章 ID、锚点及可选固定修订，解析和跳转仍待接入。任意文章编辑坐标、关系索引、导入导出和生产规模的 Canvas 性能验收仍待完成。视觉连线能否转换的冲突仍在台账。该版 Canvas 表结构随全新 v2 数据库离线安装。 [#2487](https://github.com/Ozwasyd/FsusBlog/issues/2487) · [#2490](https://github.com/Ozwasyd/FsusBlog/issues/2490) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+当前链接转换覆盖同作者、已公开普通文章、显式引用边、文末插入及保留边。文章、标题和块引用可按作者范围解析标题和确切修订，跨工作区的精确坐标跳转仍待接入。任意文章编辑坐标、关系索引、导入导出和生产规模的 Canvas 性能验收仍待完成。视觉连线能否转换的冲突仍在台账。该版 Canvas 表结构随全新 v2 数据库离线安装。 [#2487](https://github.com/Ozwasyd/FsusBlog/issues/2487) · [#2490](https://github.com/Ozwasyd/FsusBlog/issues/2490) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+
+## 私有引用解析
+
+`GET /api/v2/authoring/canvas/documents/{id}/references/{nodeId}.aeds?revision=...` 接受 Canvas ID、节点 ID 和当前文档修订。服务器在现有作者会话和文档锁下读取节点保存的目标，只查询同一作者未删除的文章。固定引用读取对应不可变修订，未固定引用读取当时的当前草稿修订。普通文章引用只取标题。标题或块引用检查该版本中的唯一 FsusUI `^anchor-id`，并返回最多 256 UTF-16 单元的纯文本上下文和 caret 偏移。标题引用要求 v1 所用的列首 ATX 标题。重复或缺失锚点没有上下文，删除、越权或不可读修订没有文章信息。
+
+该路径最多读取一篇目标修订的 Markdown，受 200,000 UTF-16 单元和 1 MiB 字节上限约束。引用解析请求只读，其结果绑定该时刻的文档、节点与修订。切换选择或图形视图、改变已提交视口、刷新文档及撤销身份会清除预览。全量批处理、接入编辑器的精确跳转和 10,000 节点往返仍待交付。 [v1 固定契约](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/architecture/authoring-canvas-document-boundary.md) · [PostgreSQL 测试](../../artifacts/canvas-reference-evidence/postgres.log)
 
 ## 撤销与重做
 

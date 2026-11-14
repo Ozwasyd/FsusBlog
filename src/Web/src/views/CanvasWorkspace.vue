@@ -6,7 +6,8 @@ import { api, ApiError } from '../../../Contracts/client'
 import {
   canvasGraph, defaultCanvasViewport, encodeCanvasGraphCommand,
   type CanvasGeometry, type CanvasGraphChange, type CanvasGraphCommand,
-  type CanvasGraphEdge, type CanvasGraphHeader, type CanvasGraphHistory, type CanvasNode, type CanvasViewport,
+  type CanvasGraphEdge, type CanvasGraphHeader, type CanvasGraphHistory, type CanvasNode,
+  type CanvasReferenceResolution, type CanvasViewport,
 } from '../../../Contracts/canvas-graph'
 import { confirmCanvasLink, previewCanvasLink } from '../../../Contracts/canvas-links'
 import type { CanvasLinkPlan } from '../../../Contracts/wire.generated'
@@ -45,6 +46,10 @@ const historyLoading = ref(false)
 const tools = ref<HTMLElement>()
 const graph = ref<HTMLElement>()
 let historyRequest: AbortController | undefined
+const reference = shallowRef<CanvasReferenceResolution>()
+const referenceLoading = ref(false)
+const referenceError = ref(false)
+let referenceRequest: AbortController | undefined
 const form = ref<'title' | 'node' | 'edge'>()
 const nodeKind = ref<CanvasNode['kind']>('plain-text-note')
 const note = ref('')
@@ -59,6 +64,10 @@ const edgeKind = ref<CanvasGraphEdge['kind']>('visual-only')
 const label = ref('')
 const selectedNode = computed(() => nodes.value.find(node => node.id === nodeId.value))
 const selectedEdge = computed(() => edges.value.find(edge => edge.id === edgeId.value))
+const selectedReference = computed(() => {
+  const node = selectedNode.value
+  return node && 'articleId' in node ? node : undefined
+})
 const byId = computed(() => new Map(nodes.value.map(node => [node.id, node])))
 const involved = computed(() => selectedEdge.value && {
   from: byId.value.get(selectedEdge.value.sourceNodeId), to: byId.value.get(selectedEdge.value.targetNodeId),
@@ -121,6 +130,7 @@ function reset() {
   historyLoading.value = false
   historyRequest?.abort()
   historyRequest = undefined
+  clearReference()
   linkPending.value = false
   linkUnconfirmed.value = false
   error.value = ''
@@ -256,6 +266,7 @@ onScopeDispose(() => {
   ownerLife.abort()
   scope.abort()
   historyRequest?.abort()
+  clearReference()
   window.removeEventListener('beforeunload', protectUnload)
 })
 function canNavigate() {
@@ -264,6 +275,62 @@ function canNavigate() {
 }
 onBeforeRouteUpdate(canNavigate)
 onBeforeRouteLeave(canNavigate)
+
+function clearReference() {
+  referenceRequest?.abort()
+  referenceRequest = undefined
+  reference.value = undefined
+  referenceLoading.value = false
+  referenceError.value = false
+}
+
+watch([document, selectedReference, view, stale], clearReference, { flush: 'sync' })
+
+const referenceStatus = {
+  unavailable: 'This reference is unavailable.',
+  resolved: 'Reference resolved.',
+  'missing-anchor': 'The anchor does not exist at this revision.',
+  'duplicate-anchor': 'The anchor is ambiguous at this revision.',
+  'stale-revision': 'The referenced revision is unavailable.',
+}
+
+async function resolveReference() {
+  const current = document.value
+  const node = selectedReference.value
+  const signal = scope.signal
+  if (!current || !node || disabled.value || !scoped(signal) || referenceLoading.value) return
+  clearReference()
+  const request = new AbortController()
+  referenceRequest = request
+  referenceLoading.value = true
+  const isLatest = () => scoped(signal) && request === referenceRequest && !request.signal.aborted &&
+    document.value === current && selectedReference.value === node
+
+  try {
+    const result = await canvasGraph.resolve(current.id, node.id, current.revision, request.signal)
+    if (!isLatest()) return
+    if (result.canvasId !== current.id || result.nodeId !== node.id || result.canvasRevision !== current.revision ||
+      (result.articleId !== null && (result.articleId !== node.articleId ||
+        result.pinned !== (node.pinnedRevision !== null) ||
+        (node.pinnedRevision !== null && result.articleRevision !== node.pinnedRevision)))) {
+      referenceError.value = true
+      return
+    }
+    reference.value = result
+  } catch (cause) {
+    if (!isLatest()) return
+    if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
+      recordError(cause, signal, 'Could not resolve the reference.', true)
+    } else {
+      referenceError.value = true
+    }
+  } finally {
+    if (referenceRequest === request) {
+      referenceLoading.value = false
+      referenceRequest = undefined
+    }
+  }
+}
 
 function chooseNode(id: string) { nodeId.value = id; edgeId.value = '' }
 function chooseEdge(id: string) { edgeId.value = id; nodeId.value = '' }
@@ -588,6 +655,21 @@ function edgeLabel(edge: CanvasGraphEdge) {
               <p v-else>Article {{ selectedNode.articleId }}<template v-if="selectedNode.pinnedRevision"> · revision {{ selectedNode.pinnedRevision }}</template></p>
               <p v-if="'anchor' in selectedNode">Anchor {{ selectedNode.anchor }}</p>
               <p v-if="selectedNode.kind === 'group-frame'">{{ selectedNode.memberIds.length }} {{ selectedNode.memberIds.length === 1 ? 'member' : 'members' }}</p>
+              <div v-if="selectedReference" class="canvas-reference-preview" role="region" aria-label="Canvas reference preview">
+                <ElButton native-type="button" :disabled="disabled || referenceLoading" @click="resolveReference">
+                  Resolve reference
+                </ElButton>
+                <p v-if="referenceLoading" role="status">Resolving reference…</p>
+                <p v-if="referenceError" role="alert">Could not resolve the reference. Try again.</p>
+                <template v-if="reference">
+                  <p role="status">{{ referenceStatus[reference.state] }}</p>
+                  <template v-if="reference.articleRevision !== null">
+                    <h3 v-if="reference.title">{{ reference.title }}</h3>
+                    <p>{{ reference.pinned ? 'Pinned revision' : 'Resolved revision' }} {{ reference.articleRevision }}</p>
+                    <p v-if="reference.state === 'resolved' && reference.excerpt" class="canvas-reference-excerpt">{{ reference.excerpt }}</p>
+                  </template>
+                </template>
+              </div>
               <div class="canvas-toolbar">
                 <ElButton v-if="view === 'outline'" :disabled="disabled" @click="showNode">Show on Canvas</ElButton>
                 <ElButton :disabled="disabled" @click="addNode(selectedNode.kind, true)">Edit node</ElButton>
@@ -706,6 +788,8 @@ function edgeLabel(edge: CanvasGraphEdge) {
 .canvas-graph { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: 1rem; }
 .canvas-selection, .canvas-outline { border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-panel); padding: .8rem; min-width: 0; overflow-wrap: anywhere; }
 .canvas-selection p { white-space: pre-wrap; }
+.canvas-reference-preview h3 { margin: .6rem 0 .35rem; }
+.canvas-reference-excerpt { border-inline-start: 2px solid var(--fsus-border); padding-inline-start: .6rem; }
 .canvas-selection h2, .canvas-outline h2 { margin: 0 0 .5rem; font-size: 1.1rem; }
 .canvas-outline ul { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .4rem; }
 .canvas-form { display: grid; gap: .6rem; }
