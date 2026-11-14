@@ -353,7 +353,18 @@
                         "thresholds",
                         "thresholdEvaluation",
                         "metrics",
-                        "releaseReliability"
+                        "releaseReliability",
+                        "schema",
+                        "policyDigest",
+                        "executionPlanDigest",
+                        "sampleCount",
+                        "samplesDigest",
+                        "outcomeCounts",
+                        "statusDistribution",
+                        "resourceObservability",
+                        "resourceSamples",
+                        "runtime",
+                        "contentDigest"
                     ],
                     "passStatusValues": [
                         "ok"
@@ -482,7 +493,18 @@
                         "thresholds",
                         "thresholdEvaluation",
                         "metrics",
-                        "releaseReliability"
+                        "releaseReliability",
+                        "schema",
+                        "policyDigest",
+                        "executionPlanDigest",
+                        "sampleCount",
+                        "samplesDigest",
+                        "outcomeCounts",
+                        "statusDistribution",
+                        "resourceObservability",
+                        "resourceSamples",
+                        "runtime",
+                        "contentDigest"
                     ],
                     "passStatusValues": [
                         "ok"

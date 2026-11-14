@@ -12,6 +12,7 @@ import {
     validateMeasurementNoiseAuthoritySequence,
     validateMeasurementNoiseReceipt
 } from './measurement-noise-envelope.mjs';
+import { digestValue } from './release-reliability-receipt.mjs';
 export const measurementQualificationRequestEnvironment =
     'FSUSBLOG_MEASUREMENT_QUALIFICATION_REQUEST_DIR';
 const measurementEnvelopeOwnerEnvironment = 'FSUSBLOG_MEASUREMENT_ENVELOPE_OWNER';
@@ -88,7 +89,11 @@ function qualifiedSummary(request, product, receipt, authoritySequence)
     };
     if (request.kind === 'load-profile')
     {
-        return {
+        if (product.schema === 'fsusblog.release-load-profile.v2' && product.evidenceClass !== 'correctness')
+        {
+            return infraConclusion(request, receipt, 'diagnostic load evidence cannot qualify');
+        }
+        const summary = {
             ...structuredClone(product),
             ...common,
             schema: 'fsusblog.qualified-load-profile-summary.v1',
@@ -96,6 +101,11 @@ function qualifiedSummary(request, product, receipt, authoritySequence)
             profileName: product.profileName ?? request.profile,
             summary: productReference(request.productFile)
         };
+        if (product.schema === 'fsusblog.release-load-profile.v2')
+        {
+            summary.contentDigest = digestValue(summary);
+        }
+        return summary;
     }
     if (request.kind === 'release-resource-budget')
     {

@@ -8,6 +8,8 @@ import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+const { createLoadExecutionPlan } = await import(new URL('../../tools/test/load-profile-window.mjs', import.meta.url));
+const { calculateLoadSampleMetrics, normalizeLoadResourceObservability } = await import(new URL('../../tools/test/load-sample-metrics.mjs', import.meta.url));
 const { behaviorTest } = await import(new URL('../../tools/contracts/behavior-test.mjs', import.meta.url));
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const {
@@ -1460,62 +1462,81 @@ function passingVerifierEvidence(root, scenario, releaseReliability)
             path.join(root, 'config/testing/runtime-http-route-contracts.json'),
             'utf8'
         ));
-        const metrics = {
-            p95Ms: 1,
-            p99Ms: 1,
-            errorRate: 0,
-            timeoutRate: 0,
-            rps: 100
-        };
-        const check = (metric, operator, threshold) => ({
-            metric,
-            actual: metrics[metric],
-            operator,
-            threshold,
-            status: 'pass'
-        });
-        return {
-            ...common,
-            profile: qualification.profile,
-            profileName: qualification.profile,
-            policy: {
-                file: qualification.policy,
-                fileDigest: bytesDigest(policyBytes),
-                version: 'fsusblog-perf-policy-v1'
-            },
-            declared: qualification.declared,
-            effective: qualification.declared,
-            thresholds: qualification.thresholds,
-            overrideSource: 'env',
-            overrideSources: {
-                concurrency: 'env:FSUSBLOG_LOAD_PROFILE_CONCURRENCY',
-                rounds: 'env:FSUSBLOG_LOAD_PROFILE_ROUNDS',
-                durationMs: 'env:FSUSBLOG_LOAD_PROFILE_DURATION_MS'
-            },
-            sampling: {
-                totalRequests: qualification.declared.concurrency * qualification.declared.rounds,
-                concurrency: qualification.declared.concurrency,
-                rounds: qualification.declared.rounds,
-                durationMs: qualification.declared.durationMs,
-                routeIds: routeCatalog.producers['runtime-load-soak']
-            },
-            thresholdEvaluation: {
-                status: 'pass',
-                checks: [
-                    check('p95Ms', '<=', qualification.thresholds.maxP95Ms),
-                    check('p99Ms', '<=', qualification.thresholds.maxP99Ms),
-                    check('errorRate', '<=', qualification.thresholds.maxErrorRate),
-                    check('timeoutRate', '<=', qualification.thresholds.maxTimeoutRate),
-                    check('rps', '>=', qualification.thresholds.minRps)
-                ]
-            },
-            metrics,
+        // Synthetic verifier unit inputs, never runtime or qualification evidence.
+        const routes = routeCatalog.producers['runtime-load-soak'];
+        const plan = createLoadExecutionPlan(qualification.declared, routes);
+        const samples = [];
+        const dispatches = [];
+        const expectedRequests = [];
+        const workers = Array.from({ length: plan.concurrency }, (_, index) => ({
+            workerId: `worker-${index}`, readyMonotonicMs: 99,
+            dispatched: plan.rounds + 1, completed: plan.rounds + 1
+        }));
+        for (let sequence = 0; sequence <= plan.rounds; sequence += 1)
+        {
+            for (const worker of workers)
+            {
+                const ordinal = dispatches.length;
+                const routeId = routes[ordinal % routes.length];
+                const route = routeCatalog.routes.find((entry) => entry.routeId === routeId);
+                const membership = { sampleId: `${worker.workerId}:${sequence}`,
+                    workerId: worker.workerId, sequence, path: route.pathTemplate };
+                expectedRequests.push(membership);
+                const startedMonotonicMs = 100 + sequence * 2;
+                dispatches.push({ ordinal, routeId, ...membership, startedMonotonicMs });
+                samples.push({ ...membership, startedMonotonicMs,
+                    finishedMonotonicMs: startedMonotonicMs + 1, durationMs: 1,
+                    outcome: 'success', httpStatus: 200, bytes: 32,
+                    contentType: 'application/octet-stream', frameType: route.expectedAedsFrameType,
+                    errorKind: null, errorCode: null, errorDigest: null });
+            }
+        }
+        const calculated = calculateLoadSampleMetrics({ samples, expectedRequests, durationMs: plan.durationMs + 5 });
+        const resources = normalizeLoadResourceObservability();
+        const metrics = { rps: calculated.rps, p50Ms: 1, p95Ms: 1, p99Ms: 1,
+            maxLatencyMs: 1, errorRate: 0, timeoutRate: 0, ...resources };
+        const check = (metric, operator, threshold) => ({ metric, actual: metrics[metric], operator, threshold, status: 'pass' });
+        const identity = { binding: releaseReliability,
+            target: { status: 'ok', kind: 'docker-container', containerId: 'a'.repeat(64), pid: 1 } };
+        const evidence = {
+            ...common, schema: 'fsusblog.release-load-profile.v2', evidenceClass: 'correctness',
+            profile: qualification.profile, profileName: qualification.profile,
+            policy: { file: qualification.policy, fileDigest: bytesDigest(policyBytes), version: 'fsusblog-perf-policy-v1' },
+            policyDigest: bytesDigest(policyBytes), executionPlanDigest: plan.contentDigest,
+            declared: qualification.declared, effective: qualification.declared,
+            thresholds: qualification.thresholds, overrideSource: 'env',
+            overrideSources: { concurrency: 'env:FSUSBLOG_LOAD_PROFILE_CONCURRENCY',
+                rounds: 'env:FSUSBLOG_LOAD_PROFILE_ROUNDS', durationMs: 'env:FSUSBLOG_LOAD_PROFILE_DURATION_MS' },
+            sampling: { totalRequests: samples.length, minimumCompletedRequests: plan.minimumCompletedRequests,
+                concurrency: plan.concurrency, rounds: plan.rounds, durationMs: plan.durationMs, routeIds: routes },
+            thresholdEvaluation: { status: 'pass', checks: [
+                check('p95Ms', '<=', qualification.thresholds.maxP95Ms),
+                check('p99Ms', '<=', qualification.thresholds.maxP99Ms),
+                check('errorRate', '<=', qualification.thresholds.maxErrorRate),
+                check('timeoutRate', '<=', qualification.thresholds.maxTimeoutRate),
+                check('rps', '>=', qualification.thresholds.minRps) ] },
+            metrics, resourceObservability: resources,
+            resourceSamples: [99, 100 + plan.durationMs + 5].map((observedMonotonicMs, index) => ({
+                phase: index === 0 ? 'start' : 'end', observedMonotonicMs, status: 'unavailable', reason: 'unit control, not a resource observation' })),
+            sampleCount: samples.length, samplesDigest: calculated.samplesDigest,
+            outcomeCounts: calculated.outcomeCounts, statusDistribution: calculated.statusDistribution,
+            pathDistribution: routes.map((routeId) => ({ routeId,
+                path: routeCatalog.routes.find((entry) => entry.routeId === routeId).pathTemplate,
+                planned: dispatches.filter((d) => d.routeId === routeId).length,
+                actual: dispatches.filter((d) => d.routeId === routeId).length })),
             runtime: {
-                sampleCount: qualification.declared.concurrency * qualification.declared.rounds,
-                concurrency: qualification.declared.concurrency,
-                routeContractDigest: bytesDigest(Buffer.from(JSON.stringify(routeCatalog)))
+                status: 'ok', plan, dispatches, samples, expectedRequests, calculated,
+                generatorBudget: { maxDispatchedRequests: plan.maximumDispatchedRequests },
+                identityBefore: identity, identityAfter: identity, routeFailures: [], failureReasons: [],
+                sampleCount: samples.length, concurrency: plan.concurrency,
+                routeContractDigest: bytesDigest(Buffer.from(JSON.stringify(routeCatalog))),
+                window: { measurementStart: 100, deadline: 100 + plan.durationMs,
+                    dispatchClosed: 100 + plan.durationMs, finishedMonotonicMs: 100 + plan.durationMs + 5,
+                    observedActiveWindowMs: plan.durationMs, totalElapsedMs: plan.durationMs + 5,
+                    drainMs: 5, workerCount: plan.concurrency, peakInFlight: plan.concurrency, workers }
             }
         };
+        return { ...evidence, contentDigest: digestValue(evidence) };
     }
     if (qualification.kind === 'data-scale')
     {

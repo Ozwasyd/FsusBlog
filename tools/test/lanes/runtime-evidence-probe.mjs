@@ -9,7 +9,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { validateMeasurementNoiseReceipt } from '../measurement-noise-envelope.mjs';
-import { bindReleaseReliabilityEvidence } from '../release-reliability-evidence-binding.mjs';
+import { bindReleaseReliabilityEvidence, readReleaseReliabilityEvidenceBinding } from '../release-reliability-evidence-binding.mjs';
 
 import { fetchRouteSample, producerRouteIds, routeCatalogDigest, routeContract } from './runtime-http-route-contract.mjs';
 import {
@@ -49,6 +49,11 @@ import {
     resolveDataScaleAotRoot,
     DATA_SCALE_AOT_REBUILD_COMMAND
 } from '../../data-scale/aot-evidence.mjs';
+
+const { digestValue } = await import(new URL('../release-reliability-receipt.mjs', import.meta.url));
+const { createLoadExecutionPlan, runLoadWindow } = await import(new URL('../load-profile-window.mjs', import.meta.url));
+const { normalizeLoadResourceObservability } = await import(new URL('../load-sample-metrics.mjs', import.meta.url));
+const { startResourceSampling } = await import(new URL('../runtime-resource-sampling.mjs', import.meta.url));
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..'));
 if (!process.env.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID && process.argv[2] !== 'data-scale')
@@ -228,7 +233,7 @@ function envOverrideInt(name)
     return positiveInt(process.env[name], 0);
 }
 
-function resolveLoadProfilePolicy(profile)
+export function resolveLoadProfilePolicy(profile, { diagnostic = false } = {})
 {
     const policy = readLoadProfilePolicy(profile);
     const overrideEnv = {
@@ -241,6 +246,13 @@ function resolveLoadProfilePolicy(profile)
     for (const [key, envName] of Object.entries(overrideEnv))
     {
         const override = envOverrideInt(envName);
+        if (process.env[envName] !== undefined && process.env[envName] !== ''
+            && (!/^[1-9]\d*$/u.test(process.env[envName])
+                || !Number.isSafeInteger(Number(process.env[envName]))
+                || !diagnostic && Number(process.env[envName]) !== policy.declared[key]))
+        {
+            throw new Error(`load correctness rejects ${envName} override before dispatch`);
+        }
         effective[key] = override ?? policy.declared[key];
         overrideSources[key] = override === null ? 'policy' : `env:${envName}`;
     }
@@ -255,7 +267,7 @@ function resolveLoadProfilePolicy(profile)
 
 function thresholdCheck(metric, actual, operator, threshold)
 {
-    const passed = operator === '>=' ? actual >= threshold : actual <= threshold;
+    const passed = Number.isFinite(actual) && (operator === '>=' ? actual >= threshold : actual <= threshold);
     return {
         metric,
         actual,
@@ -1402,13 +1414,16 @@ function buildUnavailableResourceSummary(mode, target, generatedAt = nowIso())
     };
 }
 
-function buildResourceMetric(config, target, start, end)
+export function buildResourceMetric(config, target, readings)
 {
-    const readings = [
-        { phase: 'start', ...start },
-        { phase: 'end', ...end }
-    ];
-    const missing = readings.filter((reading) => reading.status !== 'ok');
+    if (!Array.isArray(readings) || readings.length < 2)
+    {
+        return { metric: null, unavailable: [{ name: config.name, reason: 'resource sample curve is incomplete' }] };
+    }
+    const start = readings[0];
+    const end = readings.at(-1);
+    const missing = readings.filter((reading) => reading.status !== 'ok'
+        || !Number.isFinite(reading.value) || reading.value < 0);
     if (missing.length > 0)
     {
         return {
@@ -1423,7 +1438,7 @@ function buildResourceMetric(config, target, start, end)
 
     const startValue = start.value;
     const endValue = end.value;
-    const maxValue = Math.max(startValue, endValue);
+    const maxValue = readings.reduce((maximum, reading) => Math.max(maximum, reading.value), startValue);
     const delta = endValue - startValue;
     const passed = delta <= config.threshold;
     return {
@@ -1433,6 +1448,8 @@ function buildResourceMetric(config, target, start, end)
             startValue,
             endValue,
             maxValue,
+            sampleCount: readings.length,
+            readings,
             delta,
             threshold: config.threshold,
             thresholdKind: config.thresholdKind,
@@ -4472,67 +4489,113 @@ async function backendQpsSequential(outFile)
     });
 }
 
-async function loadProfile(profile, outFile)
+export async function loadProfile(profile, outFile, { diagnostic = false, signal = null } = {})
 {
-    const policy = resolveLoadProfilePolicy(profile);
-    const iterations = policy.effective.concurrency * policy.effective.rounds;
-    const probe = await runRouteContractProbe(safeBinaryRouteIds, {
-        iterations,
-        concurrency: policy.effective.concurrency
+    const policy = resolveLoadProfilePolicy(profile, { diagnostic });
+    const plan = createLoadExecutionPlan(policy.effective, safeBinaryRouteIds);
+    const binding = readReleaseReliabilityEvidenceBinding({ repositoryRoot: root });
+    const url = new URL(baseUrl);
+    if (!binding && !['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname))
+    {
+        throw new Error('unbound load probes require an isolated loopback runtime');
+    }
+    const verifyIdentity = () =>
+    {
+        const currentBinding = readReleaseReliabilityEvidenceBinding({ repositoryRoot: root });
+        const target = discoverBackendProcessTarget();
+        if (binding && (target.status !== 'ok' || target.kind !== 'docker-container'))
+        {
+            throw new Error('load runtime no longer has its verified container process');
+        }
+        return { binding: currentBinding, target };
+    };
+    const target = discoverBackendProcessTarget();
+    const sampler = startResourceSampling(() => target.status === 'ok'
+        ? readReleaseResourceRssBytes(target)
+        : { status: 'unavailable', reason: target.reason ?? 'backend process was not observed' });
+    let probe;
+    let readings;
+    try
+    {
+        probe = await runLoadWindow({ plan, signal, verifyIdentity,
+            pathForRoute: (routeId) => routeContract(routeId).pathTemplate,
+            request: (routeId, options) => fetchRouteSample({ routeId, baseUrl,
+                headers: defaultHeaders, timeoutMs, signal: options.signal }) });
+    }
+    finally
+    {
+        readings = sampler.stop();
+    }
+    const unavailable = readings.find((reading) => reading.status !== 'ok');
+    const resourceObservability = normalizeLoadResourceObservability({
+        rssBytes: unavailable
+            ? { status: target.status === 'ok' ? 'probe-failed' : 'unavailable', value: null,
+                reason: unavailable.reason, source: target.source ?? null }
+            : { status: 'ok', value: readings.reduce((maximum, reading) => Math.max(maximum, reading.value), 0),
+                unit: 'bytes', source: readings[0].source }
     });
-    const failedSamples = probe.failures.length;
+    const calculated = probe.calculated;
     const metrics = {
-        rps: probe.rps,
-        p50Ms: probe.latencyMs.p50,
-        p95Ms: probe.latencyMs.p95,
-        p99Ms: probe.latencyMs.p99,
-        maxLatencyMs: probe.latencyMs.max,
-        errorRate: failedSamples / probe.sampleCount,
-        timeoutRate: probe.failures.filter((sample) => sample.failureKind === 'timeout').length / probe.sampleCount,
-        cpuPercent: null,
-        rssBytes: null,
-        managedHeapBytes: null,
-        gcCount: null,
-        threadCount: null,
-        socketCount: null,
-        postgresPoolUsage: null,
-        redisLatencyMs: null
+        rps: calculated?.rps ?? null,
+        p50Ms: calculated?.latencyMs.p50 ?? null,
+        p95Ms: calculated?.latencyMs.p95 ?? null,
+        p99Ms: calculated?.latencyMs.p99 ?? null,
+        maxLatencyMs: calculated?.latencyMs.max ?? null,
+        errorRate: calculated?.errorRate ?? null,
+        timeoutRate: calculated?.timeoutRate ?? null,
+        ...resourceObservability
     };
     const thresholdEvaluation = evaluateLoadProfileThresholds(metrics, policy.thresholds);
-    const status = probe.status === 'ok' && thresholdEvaluation.status === 'pass' ? 'ok' : 'failed';
-    writeReleaseReliabilityAuthority(outFile, {
-        status,
-        profile,
-        profileName: profile,
-        namespace,
-        policy: {
-            file: policy.file,
-            fileDigest: policy.fileDigest,
-            version: policy.version
-        },
-        declared: policy.declared,
-        effective: policy.effective,
-        thresholds: policy.thresholds,
-        thresholdEvaluation,
-        overrideSource: policy.overrideSource,
-        overrideSources: policy.overrideSources,
+    const status = probe.status === 'ok' && calculated?.completed > 0
+        && thresholdEvaluation.status === 'pass' ? 'ok' : 'failed';
+    const pathDistribution = safeBinaryRouteIds.map((routeId) => ({
+        routeId, path: routeContract(routeId).pathTemplate,
+        planned: probe.dispatches.filter((entry) => entry.routeId === routeId).length,
+        actual: probe.samples.filter((sample) => sample.path === routeContract(routeId).pathTemplate).length
+    }));
+    const summary = bindReleaseReliabilityEvidence({
+        schema: 'fsusblog.release-load-profile.v2',
+        status, profile, profileName: profile, namespace,
+        qualificationEligible: false,
+        evidenceClass: diagnostic || !binding ? 'diagnostic' : 'correctness',
+        policy: { file: policy.file, fileDigest: policy.fileDigest, version: policy.version },
+        policyDigest: policy.fileDigest,
+        executionPlanDigest: plan.contentDigest,
+        declared: policy.declared, effective: policy.effective,
+        thresholds: policy.thresholds, thresholdEvaluation,
+        overrideSource: policy.overrideSource, overrideSources: policy.overrideSources,
         sampling: {
-            totalRequests: iterations,
-            concurrency: policy.effective.concurrency,
-            rounds: policy.effective.rounds,
-            durationMs: policy.effective.durationMs,
-            routeIds: safeBinaryRouteIds
+            totalRequests: probe.dispatches.length,
+            minimumCompletedRequests: plan.minimumCompletedRequests,
+            concurrency: policy.effective.concurrency, rounds: policy.effective.rounds,
+            durationMs: policy.effective.durationMs, routeIds: safeBinaryRouteIds
         },
+        sampleCount: probe.samples.length,
+        samplesDigest: calculated?.samplesDigest ?? null,
+        outcomeCounts: calculated?.outcomeCounts ?? null,
+        statusDistribution: calculated?.statusDistribution ?? null,
+        resourceObservability, resourceSamples: readings,
+        pathDistribution,
         performance_baseline: performanceBaselineMetadata(),
         optional_deployment_layer: optionalDeploymentLayerMetadata(),
         metrics,
-        runtime: probe,
-        generatedAt: probe.generatedAt
-    });
+        runtime: { ...probe, sampleCount: probe.samples.length, concurrency: plan.concurrency,
+            namespace, measurementSource: 'runtime-http-probe',
+            durationMs: probe.window.totalElapsedMs, rps: calculated?.rps ?? null,
+            latencyMs: calculated?.latencyMs ?? null,
+            bytes: probe.samples.reduce((total, sample) => total + sample.bytes, 0),
+            statusCounts: calculated?.statusDistribution ?? null,
+            failures: probe.routeFailures,
+            routeContractDigest: routeCatalogDigest(), baseUrl },
+        generatedAt: nowIso()
+    }, { repositoryRoot: root });
+    summary.contentDigest = digestValue(summary);
+    writeJson(outFile, summary);
     if (status !== 'ok')
     {
-        throw new Error(`load profile ${profile} failed ${probe.status !== 'ok' ? `route contract: ${probe.failures[0]?.failureKind}` : 'threshold evaluation'}`);
+        throw new Error(`load profile ${profile} failed: ${probe.failureReasons.join(', ') || 'threshold evaluation'}`);
     }
+    return summary;
 }
 
 async function dataScale(tier, outFile)
@@ -5441,13 +5504,21 @@ async function releaseResourceBudget(mode, outFile)
         throw new Error(`release resource ${mode} metric unavailable: ${target.reason}`);
     }
 
-    const start = config.read(target);
-    const probe = await runHttpProbe(safeBinaryPaths, {
-        iterations: requests,
-        concurrency
-    });
-    const end = config.read(target);
-    const { metric, unavailable } = buildResourceMetric(config, target, start, end);
+    const sampler = startResourceSampling(() => config.read(target));
+    let probe;
+    let readings;
+    try
+    {
+        probe = await runHttpProbe(safeBinaryPaths, {
+            iterations: requests,
+            concurrency
+        });
+    }
+    finally
+    {
+        readings = sampler.stop();
+    }
+    const { metric, unavailable } = buildResourceMetric(config, target, readings);
     const metrics = metric ? [metric] : [];
     const okMetricCount = metrics.filter((item) => item.status === 'ok').length;
     const failedMetricCount = metrics.filter((item) => item.status !== 'ok').length;
@@ -5701,7 +5772,25 @@ async function main()
     }
     if (command === 'load-profile')
     {
-        return await loadProfile(args[0], path.resolve(root, args[1]));
+        if (args[2] && args[2] !== '--diagnostic')
+        {
+            throw new Error('unknown load profile option');
+        }
+        const cancellation = new AbortController();
+        const cancel = () => cancellation.abort(new Error('load process cancelled'));
+        process.once('SIGTERM', cancel);
+        process.once('SIGINT', cancel);
+        try
+        {
+            return await loadProfile(args[0], path.resolve(root, args[1]), {
+                diagnostic: args[2] === '--diagnostic', signal: cancellation.signal
+            });
+        }
+        finally
+        {
+            process.removeListener('SIGTERM', cancel);
+            process.removeListener('SIGINT', cancel);
+        }
     }
     if (command === 'data-scale')
     {

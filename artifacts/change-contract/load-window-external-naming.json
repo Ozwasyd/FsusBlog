@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/lanes/runtime-evidence-probe.mjs",
+                "tools/test/lanes/runtime-http-route-contract.mjs",
+                "tools/test/load-profile-window.mjs",
+                "tools/test/load-sample-metrics.mjs",
+                "tools/test/measurement-product-conclusion.mjs",
+                "tools/test/run-release-reliability-scenarios.mjs",
+                "tools/test/runtime-resource-sampling.mjs",
+                "tools/test/verify-load-profile-measurement.mjs",
+                "tools/test/verify-release-reliability-receipt.mjs"
+            ],
+            "reason": "Preserve existing process environment spellings at their adapters. The trusted registry covers tools/**/*.mjs by path, including the unchanged donor arithmetic module and window/verifier helpers that introduce no environment access. Internal bindings remain camelCase; no new permission, policy override or qualification is granted."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/release-reliability-lifecycle-action-registry.json",
+                "config/testing/release-reliability-scenario-catalog.json"
+            ],
+            "reason": "Preserve existing internal catalog/action JSON field spellings while strengthening the required measurement evidence. This changes no public wire names and grants no execution permission or qualification."
+        }
+    ]
+}

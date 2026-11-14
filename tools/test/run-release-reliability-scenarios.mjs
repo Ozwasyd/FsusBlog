@@ -362,6 +362,16 @@ export function buildScenarioChildEnvironment({
     internalEnvironment = {}
 })
 {
+    if (scenario.qualification?.kind === 'load-profile')
+    {
+        for (const [key, value] of Object.entries(scenario.command.env))
+        {
+            if (Object.hasOwn(ambientEnvironment, key) && String(ambientEnvironment[key]) !== value)
+            {
+                throw new Error(`load correctness rejects ambient ${key} override before producer spawn`);
+            }
+        }
+    }
     const childEnvironment = {};
     const requiredKeys = [
         ...catalog.childEnvironmentContract.requiredBaseKeys,

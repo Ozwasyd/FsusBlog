@@ -185,7 +185,7 @@ export function producerRouteIds(producerId)
     }
     return routeIds;
 }
-export async function fetchRouteSample({ routeId, baseUrl, requestPath = null, headers = {}, timeoutMs, fetchImpl = fetch })
+export async function fetchRouteSample({ routeId, baseUrl, requestPath = null, headers = {}, timeoutMs, fetchImpl = fetch, signal = null })
 {
     const contract = routeContract(routeId);
     const requestTarget = requestPath ?? contract.pathTemplate;
@@ -194,12 +194,71 @@ export async function fetchRouteSample({ routeId, baseUrl, requestPath = null, h
         throw new Error(`route_path_contract_mismatch:${routeId}`);
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let abortKind = null;
+    const abort = (kind) =>
+    {
+        if (!controller.signal.aborted)
+        {
+            abortKind = kind;
+            controller.abort();
+        }
+    };
+    const cancel = () => abort('cancelled');
+    signal?.addEventListener('abort', cancel, { once: true });
+    if (signal?.aborted)
+    {
+        cancel();
+    }
+    const timer = setTimeout(() => abort('timeout'), timeoutMs);
     const started = performance.now();
+    let httpStatus = 0;
+    let receivedBytes = 0;
+    let observedContentType = null;
     try
     {
         const response = await fetchImpl(`${baseUrl}${requestTarget}`, { method: contract.method, headers, redirect: 'manual', signal: controller.signal });
-        const body = new Uint8Array(await response.arrayBuffer());
+        httpStatus = response.status;
+        observedContentType = response.headers.get('content-type');
+        const chunks = [];
+        const reader = response.body?.getReader();
+        if (reader)
+        {
+            try
+            {
+                while (true)
+                {
+                    const { value, done } = await reader.read();
+                    if (done)
+                    {
+                        break;
+                    }
+                    chunks.push(value);
+                    receivedBytes += value.byteLength;
+                    if (receivedBytes > contract.maximumBodyBytes)
+                    {
+                        await reader.cancel();
+                        break;
+                    }
+                }
+            }
+            finally
+            {
+                reader.releaseLock();
+            }
+        }
+        else if (response.arrayBuffer)
+        {
+            const value = new Uint8Array(await response.arrayBuffer());
+            chunks.push(value);
+            receivedBytes = value.byteLength;
+        }
+        const body = new Uint8Array(receivedBytes);
+        let offset = 0;
+        for (const chunk of chunks)
+        {
+            body.set(chunk, offset);
+            offset += chunk.byteLength;
+        }
         const contentType = String(response.headers.get('content-type') ?? '').split(';', 1)[0].trim().toLowerCase();
         const sample = { routeId, contractDigest: digest, status: response.status, contentType, bodyBytes: body.byteLength, latencyMs: Number((performance.now() - started).toFixed(3)), frameType: null, failureKind: null };
         if (response.status >= 300 && response.status < 400 && contract.redirectPolicy === 'forbid')
@@ -269,14 +328,28 @@ export async function fetchRouteSample({ routeId, baseUrl, requestPath = null, h
                 sample.failureKind = 'html-document-invalid';
             }
         }
-        return { ...sample, ok: sample.failureKind === null };
+        const outcome = response.status >= 400 ? 'http-error' : 'success';
+        return { ...sample, ok: sample.failureKind === null, outcome,
+            errorKind: outcome === 'http-error' ? 'http-status' : null,
+            errorCode: outcome === 'http-error' ? response.status : null,
+            errorDigest: outcome === 'http-error' ? `sha256:${crypto.createHash('sha256').update(`http-status:${response.status}`).digest('hex')}` : null };
     }
     catch (error)
     {
-        return { routeId, contractDigest: digest, status: 0, contentType: null, bodyBytes: 0, frameType: null, latencyMs: Number((performance.now() - started).toFixed(3)), failureKind: error?.name === 'AbortError' ? 'timeout' : 'request-failed', ok: false };
+        const outcome = abortKind ?? 'network-error';
+        const errorCode = error?.cause?.code ?? error?.code ?? null;
+        const errorKind = abortKind ?? 'request-failed';
+        return { routeId, contractDigest: digest, status: httpStatus, contentType: observedContentType,
+            bodyBytes: receivedBytes, frameType: null,
+            latencyMs: Number((performance.now() - started).toFixed(3)),
+            failureKind: outcome === 'network-error' ? 'request-failed' : outcome,
+            outcome, errorKind, errorCode,
+            errorDigest: `sha256:${crypto.createHash('sha256').update(JSON.stringify({ errorKind, errorCode, name: error?.name ?? null })).digest('hex')}`,
+            ok: false };
     }
     finally
     {
         clearTimeout(timer);
+        signal?.removeEventListener('abort', cancel);
     }
 }
