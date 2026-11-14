@@ -367,6 +367,40 @@ extension commands and this slice remains Draft/Refs rather than production
 activation evidence. No HTTP, AEDS, or second editor authority may be added to
 fill that gap implicitly.
 
+## Closed filter package registration
+
+`AuthoringFilterContributionQueryMapper` maps closed scalar/date/range/set data
+to the existing `AuthorSavedViewQuery` AND conditions and its canonical validator.
+It does not execute an article query or issue permission, index, lifecycle,
+cache, or runtime authority. Its structural output remains blocked while those
+production facts and the canonical executor are absent.
+
+`VerifiedPackageAuthoringFilterSource` reads the bounded JSON array at
+`authoring/filters.v1.json` from the original verified package. Each array item
+has the closed contribution fields except `PackageSha256`: this field is
+forbidden in payload metadata because the package digest includes those payload
+bytes. The source fills the runtime field from the verified manifest before
+calling the original contribution parser. Unknown or duplicate fields remain
+refusals. Original package/content digests, exact plugin/version/filter IDs,
+manifest capabilities, worker entrypoint and ready runtime mapping must agree.
+No package digest algorithm, signing policy or verifier exception is introduced.
+
+`AuthoringFilterRegistryAuthority` owns these package-bound registrations and
+always reuses the same mapper. When supplied to
+`AuthoringExtensionLifecycleResources`, registration is checked before host
+activation and published after that activation succeeds; revocation removes it
+through the existing lifecycle resource owner. A declared filter without this
+registry refuses activation. Removal or reinstall during the canonical validator
+await rejects the old structural return instead of dropping its conditions.
+Existing query conditions, sort, projection and page size stay with SavedView.
+
+These are bounded package and lifecycle component hooks, not production startup
+composition. Real grant/consent, query/index/property permission facts, plugin
+condition persistence/reconciliation, RPC execution and result receipts remain
+unimplemented. There is no new ArticleQuery transport, client scan, fallback
+executor or automatic query approval. Filter logic cannot request network, file
+or mutation capabilities in this first slice.
+
 ## Closed lifecycle and generation ownership
 
 The lifecycle coordinator is the sole internal state machine for install/enable,
