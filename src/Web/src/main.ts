@@ -13,6 +13,7 @@ import { captureInitialSitePage, isSitePageSlug, sitePages } from './sitePageEnt
 
 const publicListing = () => import('./views/PublicListing.vue')
 const editor = () => import('./views/Write.vue')
+const canvas = () => import('./views/CanvasWorkspace.vue')
 const sitePage = () => import('./views/SitePage.vue')
 const router = createRouter({
   history: createWebHistory(),
@@ -29,6 +30,8 @@ const router = createRouter({
     { path: '/admin/identity', name: 'admin-identity', component: () => import('./views/AdminIdentity.vue') },
     { path: '/user/identity/mfa', name: 'security', component: () => import('./views/AccountSecurity.vue') },
     { path: '/user/messagebox', name: 'messages', component: () => import('./views/Messages.vue') },
+    { path: '/user/manage/canvas', name: 'canvas', component: canvas },
+    { path: '/user/manage/canvas/:id', name: 'canvas-document', component: canvas },
     { path: '/user/manage/assets', name: 'private-media', component: () => import('./views/PrivateMedia.vue') },
     {
       path: '/user/manage/article',
@@ -51,7 +54,7 @@ router.afterEach((to, from) => {
   document.title = to.name === 'home' ? siteTitle : `${title} · ${siteTitle}`
   document.querySelector('meta[name="robots"]')?.remove()
   if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'admin-identity' || to.name === 'messages' || to.name === 'security' ||
-      to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'private-media') {
+      to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media') {
     const robots = document.createElement('meta')
     robots.name = 'robots'
     robots.content = 'noindex'
@@ -68,6 +71,8 @@ const labels: Record<string, string> = {
   messages: '我的站内信',
   'private-media': '资产库',
   security: 'Account security',
+  canvas: 'Canvases',
+  'canvas-document': 'Canvas',
   write: 'New article',
   'article-workspace': 'Article workspace',
   edit: 'Edit article',

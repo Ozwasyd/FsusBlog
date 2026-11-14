@@ -10,7 +10,7 @@
 
 八种封闭属性类型已接入数据库、授权 API 和编辑页。服务端校验稳定字段与选项 ID、schema 及定义版本、引用和约束。完整属性管理界面、查询投影及 v1 导入仍待交付。 [文章属性](properties.md) · [#2322](https://github.com/Ozwasyd/FsusBlog/issues/2322)
 
-Canvas 的创建、分页读取、顺序编辑、CAS、删除和显式文章链接确认共用同一份 PostgreSQL 文档及修订号。真实 HTTP 验证覆盖权限、同请求重试、老修订分页、边与成员清理、故障回滚和链接转换。完整 Canvas 界面、关系查询、标题及块引用解析和撤销／重做仍待交付。 [Canvas 事务](canvas-transaction.md) · [原生测试](../../artifacts/canvas-graph-20261114/verification.log) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+Canvas 的创建、分页读取、顺序编辑、CAS、删除和显式文章链接确认共用同一份 PostgreSQL 文档及修订号。真实 HTTP 验证覆盖权限、同请求重试、老修订分页、边与成员清理、故障回滚和链接转换。作者可在真实图形工作区与大纲间切换，使用五种节点和两种边。关系查询、标题及块引用解析和撤销／重做仍待交付。 [Canvas 工作区](canvas-workspace.md) · [Canvas 事务](canvas-transaction.md) · [原生测试](../../artifacts/canvas-graph-20261114/verification.log) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
 
 ```sh
 node --test tests/Authoring/*.test.ts

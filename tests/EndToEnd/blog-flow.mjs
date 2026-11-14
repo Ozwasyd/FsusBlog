@@ -12,6 +12,7 @@ import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../
 import { exerciseWorkspace } from './workspace-flow.mjs'
 import { exerciseInspector, exerciseInspectorDate } from './inspector-flow.mjs'
 import { exerciseDraftRevision } from './revision-flow.mjs'
+import { exerciseCanvas } from './canvas-flow.mjs'
 import { readMarkdownDownload } from './markdown-export-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -403,6 +404,10 @@ try {
   await exerciseDraftRevision({
     page: publisher, origin, articleId: writtenId, sourceRevision: publicArticle.revision,
     originalBody: body, publicArticle: api.publicArticle, screenshot: screen, observations,
+  })
+  await exerciseCanvas({
+    page: publisher, origin, targetArticle: publicArticle, screenshot: screen, monitor, observations,
+    createDraft: (title, body) => articleCommand(WireRoutes.Save, 0, 0n, title, body),
   })
   await button(publisher, 'Withdraw').click()
   await visible(publisher.getByText('Article withdrawn.', { exact: true }))

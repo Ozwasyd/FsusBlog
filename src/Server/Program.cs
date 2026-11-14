@@ -273,6 +273,13 @@ app.MapGet("/archive", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes
 foreach (var route in new[] { "/search", "/login", "/user/identity/mfa", "/user/messagebox",
     "/user/manage/assets", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
+foreach (var route in new[] { "/user/manage/canvas", "/user/manage/canvas/{id:guid}" })
+    app.MapGet(route, (HttpContext ctx) =>
+    {
+        NoStore(ctx);
+        ctx.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+        return Results.Bytes(shell, Html);
+    });
 app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.StatusCode(publications.Snapshot is null ? 503 : 204); });
 app.MapFallback("/api/{**rest}", ctx => Error(ctx, 404, "Unknown API route.").ExecuteAsync(ctx));
 await app.RunAsync();

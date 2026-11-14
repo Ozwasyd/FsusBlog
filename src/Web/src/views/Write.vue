@@ -462,6 +462,7 @@ async function reloadDraft() {
     <header class="editor-header">
       <div>
         <RouterLink class="editor-back" to="/">Back</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor" class="canvas-entry" to="/user/manage/canvas">Canvases</RouterLink>
         <h1>{{ id === undefined ? 'Article workspace' : id === 0 ? 'New article' : 'Edit article' }}</h1>
         <span v-if="editable" class="metadata">{{ original?.published ? 'Published' : 'Draft' }}</span>
       </div>
@@ -581,6 +582,7 @@ async function reloadDraft() {
 </template>
 
 <style scoped>
+.canvas-entry { margin-inline-start: .75rem; }
 .workspace-actions {
   margin-block: .75rem 1rem;
 }

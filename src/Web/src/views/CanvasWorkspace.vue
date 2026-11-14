@@ -1,0 +1,614 @@
+<script setup lang="ts">
+import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter } from 'vue-router'
+import { ElAlert, ElButton, ElDialog, ElMessageBox } from '@ozwasyd/element-plus'
+import { api, ApiError } from '../../../Contracts/client'
+import {
+  canvasGraph, defaultCanvasViewport, encodeCanvasGraphCommand,
+  type CanvasGeometry, type CanvasGraphChange, type CanvasGraphCommand,
+  type CanvasGraphEdge, type CanvasGraphHeader, type CanvasNode, type CanvasViewport,
+} from '../../../Contracts/canvas-graph'
+import { confirmCanvasLink, previewCanvasLink } from '../../../Contracts/canvas-links'
+import type { CanvasLinkPlan } from '../../../Contracts/wire.generated'
+import CanvasBoard from '../authoring/CanvasBoard.vue'
+import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
+
+const route = useRoute()
+const router = useRouter()
+const articlePath = '/user/manage/article/workspace'
+const documentId = computed(() => typeof route.params.id === 'string' ? route.params.id.toLowerCase() : '')
+const authorized = computed(() => currentSession.value?.canAuthor === true && currentSession.value.expiresAt > Date.now())
+const ready = ref(false)
+const loading = ref(false)
+const working = ref(false)
+const stale = ref(false)
+const message = ref('')
+const error = ref('')
+const title = ref('')
+const document = shallowRef<CanvasGraphHeader>()
+const documents = shallowRef<readonly CanvasGraphHeader[]>([])
+const nodes = shallowRef<readonly CanvasNode[]>([])
+const edges = shallowRef<readonly CanvasGraphEdge[]>([])
+const offset = ref<number | null>(null)
+const view = ref<'canvas' | 'outline'>('canvas')
+const outlinePage = ref(0)
+const nodeId = ref('')
+const edgeId = ref('')
+const retry = shallowRef<CanvasGraphCommand>()
+const plan = shallowRef<CanvasLinkPlan>()
+const linkPending = ref(false)
+const linkUnconfirmed = ref(false)
+const graphReadFailure = ref(false)
+const form = ref<'title' | 'node' | 'edge'>()
+const nodeKind = ref<CanvasNode['kind']>('plain-text-note')
+const note = ref('')
+const article = ref('')
+const anchor = ref('')
+const pinned = ref('')
+const members = ref<string[]>([])
+const endpoint = ref('')
+const editingEdge = shallowRef<CanvasGraphEdge>()
+const choiceFilter = ref('')
+const edgeKind = ref<CanvasGraphEdge['kind']>('visual-only')
+const label = ref('')
+const selectedNode = computed(() => nodes.value.find(node => node.id === nodeId.value))
+const selectedEdge = computed(() => edges.value.find(edge => edge.id === edgeId.value))
+const byId = computed(() => new Map(nodes.value.map(node => [node.id, node])))
+const involved = computed(() => selectedEdge.value && {
+  from: byId.value.get(selectedEdge.value.sourceNodeId), to: byId.value.get(selectedEdge.value.targetNodeId),
+})
+const activeLink = computed(() => {
+  const pair = involved.value
+  if (!pair || selectedEdge.value?.kind !== 'explicit-reference-note' ||
+    pair.from?.kind !== 'article-reference' || pair.to?.kind !== 'article-reference' ||
+    pair.from.pinnedRevision || pair.to.pinnedRevision || pair.from.articleId === pair.to.articleId) return undefined
+  return { from: pair.from, to: pair.to }
+})
+const disabled = computed(() => loading.value || working.value || linkPending.value || !!plan.value || !!retry.value || stale.value || graphReadFailure.value)
+const extent = computed(() => outlinePage.value * 50)
+const outlineNodes = computed(() => nodes.value.slice(extent.value, extent.value + 50))
+const outlineEdges = computed(() => edges.value.slice(extent.value, extent.value + 50))
+const hasNextOutline = computed(() => extent.value + 50 < Math.max(nodes.value.length, edges.value.length))
+const matchesChoice = (node: CanvasNode) => nodeLabel(node).toLowerCase().includes(choiceFilter.value.trim().toLowerCase())
+const memberChoices = computed(() => nodes.value.filter(node => node.kind !== 'group-frame' && matchesChoice(node)).slice(0, 256))
+const endpointChoices = computed(() => {
+  const selected = byId.value.get(endpoint.value)
+  return [...(selected ? [selected] : []),
+    ...nodes.value.filter(node => node.id !== endpoint.value && matchesChoice(node)).slice(0, selected ? 255 : 256)]
+})
+const ownerLife = new AbortController()
+let scope = new AbortController()
+
+function scoped(signal: AbortSignal) {
+  return scope.signal === signal && !signal.aborted && authorized.value
+}
+
+function reset() {
+  scope.abort()
+  scope = new AbortController()
+  document.value = undefined
+  documents.value = []
+  nodes.value = []
+  edges.value = []
+  nodeId.value = ''
+  edgeId.value = ''
+  offset.value = null
+  outlinePage.value = 0
+  retry.value = undefined
+  plan.value = undefined
+  form.value = undefined
+  working.value = false
+  loading.value = false
+  stale.value = false
+  graphReadFailure.value = false
+  linkPending.value = false
+  linkUnconfirmed.value = false
+  error.value = ''
+  message.value = ''
+  title.value = ''
+}
+
+function recordError(cause: unknown, signal: AbortSignal, fallback: string, reading = false): boolean {
+  if (!scoped(signal)) return false
+  if (!(cause instanceof ApiError)) {
+    error.value = fallback
+    return false
+  }
+  if (cause.status === 401) {
+    invalidateSession()
+  } else if (cause.status === 403 || cause.status === 404 && reading) {
+    nodes.value = []
+    edges.value = []
+    document.value = undefined
+    documents.value = []
+    plan.value = undefined
+    retry.value = undefined
+    error.value = 'Canvas is unavailable.'
+  } else if (cause.status === 409) {
+    stale.value = true
+    error.value = 'The Canvas changed. Reload the current revision.'
+  } else if (cause.status === 400 || cause.status === 404) {
+    error.value = cause.message
+  } else {
+    error.value = fallback
+    return false
+  }
+  return true
+}
+
+async function load(more = false) {
+  const signal = scope.signal
+  if (!scoped(signal) || loading.value || (more && offset.value === null)) return
+  loading.value = true
+  error.value = ''
+  try {
+    if (!documentId.value) {
+      const value = await canvasGraph.list(signal)
+      if (scoped(signal)) documents.value = value
+    } else {
+      const previous = more ? document.value : undefined
+      const id = documentId.value
+      const page = await canvasGraph.page(id,
+        previous && offset.value !== null ? { revision: previous.revision, offset: offset.value } : {}, signal)
+      if (!scoped(signal)) return
+      document.value = page.header
+      nodes.value = more ? [...nodes.value, ...page.nodes] : page.nodes
+      edges.value = more ? [...edges.value, ...page.edges] : page.edges
+      offset.value = page.nextOffset
+      if (!more) {
+        outlinePage.value = 0
+        if (page.nextOffset !== null && page.nextOffset === page.header.nodeCount) {
+          const edgePage = await canvasGraph.page(id, { revision: page.header.revision, offset: page.nextOffset }, signal)
+          if (!scoped(signal)) return
+          edges.value = edgePage.edges
+          offset.value = edgePage.nextOffset
+        }
+      }
+      if (offset.value === null) {
+        if (nodeId.value && !byId.value.has(nodeId.value)) nodeId.value = ''
+        if (edgeId.value && !edges.value.some(edge => edge.id === edgeId.value)) edgeId.value = ''
+      }
+    }
+    if (scoped(signal)) {
+      stale.value = false
+      graphReadFailure.value = false
+    }
+  } catch (cause) {
+    if (scoped(signal)) graphReadFailure.value = true
+    recordError(cause, signal, 'Could not load the Canvas.', true)
+  } finally {
+    if (scoped(signal)) loading.value = false
+  }
+}
+
+watch([documentId, identityEpoch, ready], () => {
+  reset()
+  if (ready.value && authorized.value) void load()
+}, { immediate: true, flush: 'sync' })
+onMounted(() => {
+  void refreshSession(ownerLife.signal).finally(() => {
+    if (!ownerLife.signal.aborted) ready.value = true
+  }).catch(() => { error.value = 'Could not verify your session.' })
+})
+function protectUnload(event: BeforeUnloadEvent) {
+  if (working.value || retry.value || linkUnconfirmed.value || linkPending.value) event.preventDefault()
+}
+onMounted(() => window.addEventListener('beforeunload', protectUnload))
+onScopeDispose(() => { ownerLife.abort(); scope.abort(); window.removeEventListener('beforeunload', protectUnload) })
+function canNavigate() {
+  return !working.value && !linkPending.value && !form.value && !plan.value &&
+    !retry.value && !linkUnconfirmed.value
+}
+onBeforeRouteUpdate(canNavigate)
+onBeforeRouteLeave(canNavigate)
+
+function chooseNode(id: string) { nodeId.value = id; edgeId.value = '' }
+function chooseEdge(id: string) { edgeId.value = id; nodeId.value = '' }
+function showNode() {
+  const node = selectedNode.value
+  const viewport = document.value?.viewport
+  if (!node || !viewport) return
+  view.value = 'canvas'
+  saveViewport({ ...viewport, x: Math.max(-1_000_000_000, node.geometry.x - 3500),
+    y: Math.max(-1_000_000_000, node.geometry.y - 3500) })
+}
+
+async function send(command: CanvasGraphCommand) {
+  const signal = scope.signal
+  if (!scoped(signal) || working.value || linkPending.value || stale.value ||
+    (retry.value && retry.value !== command)) return
+  try { encodeCanvasGraphCommand(command) }
+  catch { error.value = 'Check the Canvas text, reference and size limits.'; return }
+  working.value = true
+  message.value = ''
+  error.value = ''
+  retry.value = command
+  try {
+    const result = await canvasGraph.write(command, signal)
+    if (!scoped(signal)) return
+    retry.value = undefined
+    working.value = false
+    form.value = undefined
+    message.value = 'Canvas saved.'
+    if (command.action === 'create') {
+      await router.push({ name: 'canvas-document', params: { id: result.id } })
+    } else if (result.deleted) {
+      await router.replace({ name: 'canvas' })
+    } else if (command.changes.length === 0) {
+      document.value = result
+    } else {
+      await load()
+    }
+  } catch (cause) {
+    if (recordError(cause, signal, 'Could not confirm the change. Retry the same request.')) retry.value = undefined
+  } finally {
+    if (scoped(signal)) working.value = false
+  }
+}
+
+function patch(changes: CanvasGraphChange[] = [], name = '', viewport: CanvasViewport | null = null) {
+  if (!document.value || disabled.value) return
+  void send({
+    id: document.value.id, commandId: crypto.randomUUID(), expectedRevision: document.value.revision,
+    action: 'edit', title: name, viewport, changes,
+  })
+}
+function saveViewport(viewport: CanvasViewport) {
+  const saved = document.value?.viewport
+  if (saved && (viewport.x !== saved.x || viewport.y !== saved.y || viewport.zoom !== saved.zoom)) patch([], '', viewport)
+}
+function zoom(amount: number) {
+  const viewport = document.value?.viewport
+  if (viewport) saveViewport({ ...viewport, zoom: Math.min(4000, Math.max(100, viewport.zoom + amount)) })
+}
+function move(id: string, geometry: CanvasGeometry) {
+  const node = byId.value.get(id)
+  if (node) patch([{ kind: 'upsert-node', node: { ...node, geometry } }])
+}
+
+function nameDocument() {
+  title.value = document.value?.title ?? ''
+  form.value = 'title'
+}
+function saveTitle() {
+  const next = title.value.trim()
+  if (!next || next === document.value?.title) return
+  if (document.value) patch([], next)
+  else void send({ id: crypto.randomUUID(), commandId: crypto.randomUUID(), expectedRevision: 0n,
+    action: 'create', title: next, viewport: null, changes: [] })
+}
+function addNode(kind: CanvasNode['kind'] = 'plain-text-note', existing = false) {
+  const node = existing ? selectedNode.value : undefined
+  choiceFilter.value = ''
+  nodeKind.value = node?.kind ?? kind
+  note.value = node && 'text' in node ? node.text : ''
+  article.value = node && 'articleId' in node ? String(node.articleId) : ''
+  anchor.value = node && 'anchor' in node ? node.anchor : ''
+  pinned.value = node && 'pinnedRevision' in node ? node.pinnedRevision?.toString() ?? '' : ''
+  members.value = node?.kind === 'group-frame' ? [...node.memberIds] : []
+  editingNode.value = node
+  form.value = 'node'
+}
+const editingNode = shallowRef<CanvasNode>()
+function saveNode() {
+  const canvas = document.value
+  if (!canvas) return
+  const current = editingNode.value
+  const id = current?.id ?? crypto.randomUUID()
+  const shift = (canvas.nodeCount % 8) * 3400
+  const geometry = current?.geometry ?? {
+    x: Math.min(1_000_000_000, canvas.viewport.x + 3500 + shift),
+    y: Math.min(1_000_000_000, canvas.viewport.y + 3500 + shift), width: 17000, height: 10000,
+  }
+  const kind = nodeKind.value
+  const base = { id, geometry }
+  let node: CanvasNode
+  if (kind === 'plain-text-note') node = { ...base, kind, text: note.value }
+  else if (kind === 'group-frame') node = { ...base, kind, text: note.value, memberIds: members.value }
+  else {
+    if (!/^[1-9]\d{0,9}$/.test(article.value) || Number(article.value) > 2_147_483_647 ||
+      pinned.value && !/^[1-9]\d{0,18}$/.test(pinned.value)) {
+      error.value = 'Enter a valid article ID and optional pinned revision.'
+      return
+    }
+    const referenced = { ...base, articleId: Number(article.value), pinnedRevision: pinned.value ? BigInt(pinned.value) : null }
+    node = kind === 'article-reference' ? { ...referenced, kind } : { ...referenced, kind, anchor: anchor.value }
+  }
+  patch([{ kind: 'upsert-node', node }])
+}
+function setMembers(event: Event) {
+  if (!(event.target instanceof HTMLSelectElement)) return
+  const shown = new Set(memberChoices.value.map(node => node.id))
+  const hidden = members.value.filter(member => !shown.has(member))
+  const selected = Array.from(event.target.selectedOptions, option => option.value)
+  members.value = [...hidden, ...selected]
+}
+function addEdge() {
+  if (!selectedNode.value) return
+  showEdgeForm()
+}
+function showEdgeForm(edge?: CanvasGraphEdge) {
+  editingEdge.value = edge
+  endpoint.value = edge?.targetNodeId ?? ''
+  choiceFilter.value = ''
+  edgeKind.value = edge?.kind ?? 'visual-only'
+  label.value = edge?.label ?? ''
+  form.value = 'edge'
+}
+function saveEdge() {
+  const prior = editingEdge.value
+  const sourceNodeId = prior?.sourceNodeId ?? selectedNode.value?.id
+  if (!sourceNodeId || !byId.value.has(endpoint.value) && prior?.targetNodeId !== endpoint.value) return
+  patch([{ kind: 'upsert-edge', edge: { id: prior?.id ?? crypto.randomUUID(), sourceNodeId,
+    targetNodeId: endpoint.value, kind: edgeKind.value, order: prior?.order ?? document.value?.edgeCount ?? 0,
+    label: label.value || null } }])
+}
+async function deleteDocument() {
+  const selected = document.value
+  const signal = scope.signal
+  if (!selected || disabled.value) return
+  try { await ElMessageBox.confirm('Delete this Canvas and its nodes and edges?', 'Delete Canvas', { confirmButtonText: 'Delete' }) }
+  catch { return }
+  if (!scoped(signal) || document.value !== selected) return
+  await send({ id: selected.id, expectedRevision: selected.revision, commandId: crypto.randomUUID(),
+    action: 'delete', title: '', viewport: null, changes: [] })
+}
+
+async function prepareLink() {
+  const pair = activeLink.value
+  const edge = selectedEdge.value
+  const canvas = document.value
+  const signal = scope.signal
+  if (!pair || !edge || !canvas || disabled.value) return
+  linkPending.value = true
+  error.value = ''
+  try {
+    const [host, target] = await Promise.all([api.draft(pair.from.articleId, signal), api.publicArticle(pair.to.articleId, signal)])
+    if (!scoped(signal) || document.value !== canvas || selectedEdge.value !== edge) return
+    const preview = await previewCanvasLink({ canvasId: canvas.id, edgeId: edge.id, canvasRevision: canvas.revision,
+      hostRevision: host.revision, targetRevision: target.revision, sourceOffset: host.body.length }, host.id, target.id, signal)
+    if (scoped(signal) && document.value === canvas && selectedEdge.value === edge) plan.value = preview
+  } catch (cause) { recordError(cause, signal, 'Could not prepare the article link.') }
+  finally { if (scoped(signal)) linkPending.value = false }
+}
+async function applyLink() {
+  const preview = plan.value
+  const signal = scope.signal
+  if (!preview || !scoped(signal) || linkPending.value) return
+  linkPending.value = true
+  error.value = ''
+  try {
+    await confirmCanvasLink(preview, signal)
+    if (!scoped(signal)) return
+    plan.value = undefined
+    linkUnconfirmed.value = false
+    message.value = 'Link added to a new article draft.'
+    await load()
+  } catch (cause) {
+    const rejected = recordError(cause, signal, 'The outcome is uncertain. Retry the same link confirmation.')
+    if (scoped(signal)) {
+      if (rejected) plan.value = undefined
+      linkUnconfirmed.value = !rejected
+    }
+  } finally { if (scoped(signal)) linkPending.value = false }
+}
+function cancelLink() {
+  if (!linkPending.value && !linkUnconfirmed.value) plan.value = undefined
+}
+
+const nodeTypeLabels = {
+  'plain-text-note': 'Note', 'article-reference': 'Article', 'heading-reference': 'Heading',
+  'block-reference': 'Block', 'group-frame': 'Frame',
+}
+function nodeLabel(node: CanvasNode): string {
+  return 'text' in node ? node.text.slice(0, 70) : `${nodeTypeLabels[node.kind]} reference ${node.articleId}`
+}
+function edgeLabel(edge: CanvasGraphEdge) {
+  const from = byId.value.get(edge.sourceNodeId)
+  const to = byId.value.get(edge.targetNodeId)
+  return edge.label || `${from ? nodeLabel(from) : 'Unloaded node'} → ${to ? nodeLabel(to) : 'Unloaded node'}`
+}
+</script>
+
+<template>
+  <main class="canvas-workspace" aria-labelledby="canvas-title">
+    <header class="canvas-header">
+      <div>
+        <RouterLink :to="documentId ? '/user/manage/canvas' : articlePath">{{ documentId ? 'All canvases' : 'Article workspace' }}</RouterLink>
+        <h1 id="canvas-title">{{ document?.title ?? (documentId ? 'Canvas' : 'Canvases') }}</h1>
+      </div>
+      <div v-if="authorized && ready">
+        <ElButton v-if="!documentId" type="primary" :disabled="disabled" @click="nameDocument">New Canvas</ElButton>
+        <ElButton v-else-if="document" :disabled="disabled" @click="nameDocument">Rename Canvas</ElButton>
+      </div>
+    </header>
+
+    <p v-if="!ready" role="status">Verifying author session…</p>
+    <RouterLink v-else-if="!authorized" to="/login">Log in to access Canvas</RouterLink>
+    <template v-else>
+      <ElAlert v-if="error" type="error" :title="error" :closable="false" />
+      <p v-if="message" role="status">{{ message }}</p>
+      <p v-if="loading && !document" role="status">Loading Canvas…</p>
+      <div v-if="stale || retry || graphReadFailure" class="canvas-toolbar">
+        <ElButton v-if="stale || graphReadFailure" :disabled="loading" @click="load()">Reload Canvas</ElButton>
+        <ElButton v-if="retry" :disabled="working" @click="send(retry)">Retry change</ElButton>
+      </div>
+      <section v-if="!documentId && !loading" aria-label="Canvas documents">
+        <p v-if="!documents.length">No canvases yet.</p>
+        <ul v-else class="canvas-list">
+          <li v-for="item in documents" :key="item.id">
+            <RouterLink :to="{ name: 'canvas-document', params: { id: item.id } }">{{ item.title }}</RouterLink>
+            <span>{{ item.nodeCount }} nodes · {{ item.edgeCount }} edges</span>
+          </li>
+        </ul>
+      </section>
+
+      <section v-if="document" aria-label="Canvas document">
+        <div class="canvas-toolbar" role="group" aria-label="Canvas tools">
+          <ElButton native-type="button" :disabled="disabled" @click="addNode()">Add note</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="addNode('article-reference')">Add reference</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="addNode('group-frame')">Add frame</ElButton>
+          <ElButton native-type="button" :disabled="disabled || !selectedNode" @click="addEdge">Connect</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="zoom(-250)">Zoom out</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="zoom(250)">Zoom in</ElButton>
+          <ElButton native-type="button" :disabled="disabled" @click="saveViewport(defaultCanvasViewport)">Reset view</ElButton>
+          <button type="button" class="canvas-mode" :aria-pressed="view === 'outline'" @click="view = view === 'canvas' ? 'outline' : 'canvas'">Outline</button>
+        </div>
+        <div class="canvas-graph">
+          <CanvasBoard v-if="view === 'canvas'" :nodes="nodes" :edges="edges" :viewport="document.viewport"
+            :selected-node-id="nodeId" :selected-edge-id="edgeId" :disabled="disabled"
+            @select-node="chooseNode" @select-edge="chooseEdge" @move-node="move" @viewport="saveViewport" />
+          <section v-else class="canvas-outline" aria-label="Canvas outline">
+            <h2>Nodes</h2>
+            <p v-if="!nodes.length">No nodes in this Canvas.</p>
+            <ul v-else>
+              <li v-for="node in outlineNodes" :key="node.id">
+                <button type="button" :aria-pressed="nodeId === node.id" @click="chooseNode(node.id)">{{ nodeLabel(node) }}</button>
+              </li>
+            </ul>
+            <h2>Edges</h2>
+            <p v-if="!edges.length">No loaded edges.</p>
+            <ul v-else>
+              <li v-for="edge in outlineEdges" :key="edge.id">
+                <button type="button" :aria-pressed="edgeId === edge.id" @click="chooseEdge(edge.id)">{{ edgeLabel(edge) }}</button>
+              </li>
+            </ul>
+            <div class="canvas-toolbar" role="group" aria-label="Outline pages">
+              <ElButton :disabled="outlinePage === 0" @click="outlinePage--">Previous outline page</ElButton>
+              <ElButton :disabled="!hasNextOutline" @click="outlinePage++">Next outline page</ElButton>
+            </div>
+          </section>
+          <aside class="canvas-selection" aria-label="Selected Canvas record">
+            <template v-if="selectedNode">
+              <h2>{{ nodeTypeLabels[selectedNode.kind] }}</h2>
+              <p v-if="'text' in selectedNode">{{ selectedNode.text }}</p>
+              <p v-else>Article {{ selectedNode.articleId }}<template v-if="selectedNode.pinnedRevision"> · revision {{ selectedNode.pinnedRevision }}</template></p>
+              <p v-if="'anchor' in selectedNode">Anchor {{ selectedNode.anchor }}</p>
+              <p v-if="selectedNode.kind === 'group-frame'">{{ selectedNode.memberIds.length }} {{ selectedNode.memberIds.length === 1 ? 'member' : 'members' }}</p>
+              <div class="canvas-toolbar">
+                <ElButton v-if="view === 'outline'" :disabled="disabled" @click="showNode">Show on Canvas</ElButton>
+                <ElButton :disabled="disabled" @click="addNode(selectedNode.kind, true)">Edit node</ElButton>
+                <ElButton :disabled="disabled" @click="patch([{ kind: 'remove-node', id: selectedNode.id }])">Remove node</ElButton>
+              </div>
+            </template>
+            <template v-else-if="selectedEdge">
+              <h2>{{ selectedEdge.kind === 'visual-only' ? 'Visual connection' : 'Explicit reference' }}</h2>
+              <p>{{ edgeLabel(selectedEdge) }}</p>
+              <div class="canvas-toolbar">
+                <ElButton v-if="activeLink" :disabled="disabled" @click="prepareLink">Review article link</ElButton>
+                <ElButton :disabled="disabled" @click="showEdgeForm(selectedEdge)">Edit edge</ElButton>
+                <ElButton :disabled="disabled" @click="patch([{ kind: 'remove-edge', id: selectedEdge.id }])">Remove edge</ElButton>
+              </div>
+            </template>
+            <template v-else>
+              <h2>Selection</h2>
+              <p>Select a node or edge.</p>
+            </template>
+          </aside>
+        </div>
+        <footer class="canvas-toolbar canvas-footer">
+          <span>Revision {{ document.revision }} · {{ nodes.length }}/{{ document.nodeCount }} nodes · {{ edges.length }}/{{ document.edgeCount }} edges</span>
+          <ElButton v-if="offset !== null" :disabled="disabled" @click="load(true)">Load more records</ElButton>
+          <ElButton type="danger" text :disabled="disabled" @click="deleteDocument">Delete Canvas</ElButton>
+        </footer>
+      </section>
+    </template>
+
+    <ElDialog v-if="authorized" :model-value="!!form" :title="form === 'title' ? (document ? 'Rename Canvas' : 'New Canvas') :
+      form === 'node' ? (editingNode ? 'Edit node' : 'Add node') : (editingEdge ? 'Edit edge' : 'Connect nodes')"
+      append-to-body :close-on-click-modal="!working && !retry" :close-on-press-escape="!working && !retry"
+      :show-close="!working && !retry" @close="() => { if (!working && !retry) form = undefined }">
+      <form v-if="form === 'title'" class="canvas-form" @submit.prevent="saveTitle">
+        <label for="canvas-name">Canvas title</label>
+        <input id="canvas-name" v-model="title" maxlength="128" :disabled="working || !!retry" />
+        <ElButton native-type="submit" type="primary" :disabled="working || !!retry || !title.trim()">Save Canvas</ElButton>
+      </form>
+      <form v-else-if="form === 'node'" class="canvas-form" @submit.prevent="saveNode">
+        <label v-if="nodeKind === 'article-reference' || nodeKind === 'heading-reference' || nodeKind === 'block-reference'" for="canvas-reference">Reference type</label>
+        <select v-if="nodeKind === 'article-reference' || nodeKind === 'heading-reference' || nodeKind === 'block-reference'"
+          id="canvas-reference" v-model="nodeKind" :disabled="!!editingNode || working || !!retry">
+          <option value="article-reference">Article</option><option value="heading-reference">Heading</option><option value="block-reference">Block</option>
+        </select>
+        <template v-if="nodeKind === 'plain-text-note' || nodeKind === 'group-frame'">
+          <label for="canvas-node-text">{{ nodeKind === 'group-frame' ? 'Frame name' : 'Note text' }}</label>
+          <textarea id="canvas-node-text" v-model="note" :maxlength="nodeKind === 'group-frame' ? 128 : 8192" rows="4" :disabled="working || !!retry" />
+          <template v-if="nodeKind === 'group-frame'">
+            <label for="canvas-filter-members">Filter loaded frame members</label>
+            <input id="canvas-filter-members" v-model="choiceFilter" :disabled="working || !!retry" />
+            <label for="canvas-members">Loaded frame members</label>
+            <select id="canvas-members" multiple :disabled="working || !!retry" @change="setMembers">
+              <option v-for="node in memberChoices" :key="node.id" :value="node.id" :selected="members.includes(node.id)">{{ nodeLabel(node) }}</option>
+            </select>
+            <p>{{ members.length }} selected</p>
+          </template>
+        </template>
+        <template v-else>
+          <label for="canvas-article">Article ID</label><input id="canvas-article" v-model="article" inputmode="numeric" :disabled="working || !!retry" />
+          <template v-if="nodeKind !== 'article-reference'">
+            <label for="canvas-anchor">Anchor ID</label><input id="canvas-anchor" v-model="anchor" maxlength="64" :disabled="working || !!retry" />
+          </template>
+          <label for="canvas-pin">Pinned revision (optional)</label><input id="canvas-pin" v-model="pinned" inputmode="numeric" :disabled="working || !!retry" />
+        </template>
+        <ElButton native-type="submit" type="primary" :disabled="working || !!retry">Save node</ElButton>
+      </form>
+      <form v-else-if="form === 'edge'" class="canvas-form" @submit.prevent="saveEdge">
+        <label for="canvas-filter-endpoint">Filter loaded nodes</label>
+        <input id="canvas-filter-endpoint" v-model="choiceFilter" :disabled="working || !!retry" />
+        <label for="canvas-endpoint">Target node</label>
+        <select id="canvas-endpoint" v-model="endpoint" :disabled="working || !!retry">
+          <option value="" disabled>Choose a loaded node</option>
+          <option v-if="editingEdge && !byId.has(editingEdge.targetNodeId)" :value="editingEdge.targetNodeId">Current target</option>
+          <option v-for="node in endpointChoices" :key="node.id" :value="node.id">{{ nodeLabel(node) }}</option>
+        </select>
+        <label for="canvas-edge-kind">Edge type</label>
+        <select id="canvas-edge-kind" v-model="edgeKind" :disabled="working || !!retry">
+          <option value="visual-only">Visual connection</option><option value="explicit-reference-note">Explicit reference</option>
+        </select>
+        <label for="canvas-edge-label">Edge label (optional)</label>
+        <input id="canvas-edge-label" v-model="label" maxlength="128" :disabled="working || !!retry" />
+        <ElButton native-type="submit" type="primary" :disabled="working || !!retry || !endpoint">Save edge</ElButton>
+      </form>
+      <p v-if="form && error" role="alert">{{ error }}</p>
+      <ElButton v-if="retry" :disabled="working" @click="send(retry)">Retry change</ElButton>
+      <ElButton v-else-if="form" :disabled="working" @click="form = undefined">Cancel</ElButton>
+    </ElDialog>
+
+    <ElDialog v-if="authorized" :model-value="!!plan" title="Review article link" append-to-body :show-close="!linkPending && !linkUnconfirmed"
+      :close-on-press-escape="!linkPending && !linkUnconfirmed" :close-on-click-modal="!linkPending && !linkUnconfirmed" @close="cancelLink">
+      <div v-if="plan">
+        <p>Add this Markdown to the end of article {{ plan.hostArticleId }}'s private draft.</p>
+        <pre class="canvas-link-preview">{{ plan.insertedMarkdown }}</pre>
+        <p v-if="error" role="alert">{{ error }}</p>
+        <div class="canvas-toolbar">
+          <ElButton :disabled="linkPending || linkUnconfirmed" @click="cancelLink">Cancel</ElButton>
+          <ElButton type="primary" :disabled="linkPending" @click="applyLink">{{ linkUnconfirmed ? 'Retry confirmation' : 'Confirm link' }}</ElButton>
+        </div>
+      </div>
+    </ElDialog>
+  </main>
+</template>
+
+<style scoped>
+.canvas-workspace { width: min(78rem, 100% - 2rem); margin: 0 auto; padding: 1.5rem 0 3rem; }
+.canvas-header, .canvas-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.canvas-header { justify-content: space-between; margin-bottom: 1rem; }
+.canvas-header h1 { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.canvas-toolbar { margin: .5rem 0; }
+.canvas-toolbar :deep(.el-button + .el-button) { margin-left: 0; }
+.canvas-list { list-style: none; padding: 0; }
+.canvas-list li { display: flex; gap: 1rem; justify-content: space-between; border-bottom: 1px solid var(--fsus-border); padding: .8rem 0; }
+.canvas-mode, .canvas-outline button { background: var(--fsus-paper); color: inherit; border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-control); padding: .45rem .65rem; font: inherit; cursor: pointer; }
+.canvas-mode[aria-pressed="true"], .canvas-outline button[aria-pressed="true"] { color: var(--fsus-color-action-primary); border-color: currentColor; }
+@media (forced-colors: active) { .canvas-mode[aria-pressed="true"], .canvas-outline button[aria-pressed="true"] { outline: 2px solid Highlight; } }
+.canvas-graph { display: grid; grid-template-columns: minmax(0, 1fr) 16rem; gap: 1rem; }
+.canvas-selection, .canvas-outline { border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-panel); padding: .8rem; min-width: 0; overflow-wrap: anywhere; }
+.canvas-selection p { white-space: pre-wrap; }
+.canvas-selection h2, .canvas-outline h2 { margin: 0 0 .5rem; font-size: 1.1rem; }
+.canvas-outline ul { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .4rem; }
+.canvas-form { display: grid; gap: .6rem; }
+.canvas-form input, .canvas-form select, .canvas-form textarea { font: inherit; color: inherit; background: var(--fsus-paper); border: 1px solid var(--fsus-border); border-radius: var(--fsus-radius-control); padding: .5rem; min-width: 0; }
+.canvas-form :deep(.el-button) { justify-self: start; }
+.canvas-link-preview { white-space: pre-wrap; overflow-wrap: anywhere; padding: .8rem; border: 1px solid var(--fsus-border); }
+.canvas-footer { margin-top: .8rem; justify-content: space-between; }
+@media (max-width: 700px) { .canvas-graph { grid-template-columns: minmax(0, 1fr); gap: .7rem; } }
+</style>
