@@ -180,6 +180,8 @@ def comment_progress(folder, issues, coverage):
     requirements = {row["requirementId"] for entries in coverage.values() for _, row in entries}
     classified = set()
     decisions, methods = Counter(), Counter()
+    adopted_comments = 0
+    adopted_without_requirement_id = 0
     file_counts = {}
     for path in sorted(folder.glob("comments-*.tsv")):
         count = 0
@@ -197,9 +199,14 @@ def comment_progress(folder, issues, coverage):
                         or row["decision"] not in DECISIONS or not row["note"].strip()
                         or (row["decision"] != "旧工程限定，不适用" and not row["acceptanceLinks"].strip())):
                     raise ValueError(f"invalid comment review in {path.name}: {url}")
-                unknown = set(REQUIREMENT_REFERENCE.findall(row["acceptanceLinks"])) - requirements
+                referenced = set(REQUIREMENT_REFERENCE.findall(row["acceptanceLinks"]))
+                unknown = referenced - requirements
                 if unknown:
                     raise ValueError(f"unknown acceptance reference in {path.name}: {url}: {sorted(unknown)}")
+                if row["decision"] in ("采用", "合并采用"):
+                    adopted_comments += 1
+                    if not referenced:
+                        adopted_without_requirement_id += 1
                 classified.add(url)
                 decisions[row["decision"]] += 1
                 methods[row.get("reviewMethod") or "内容摘要或明确注明的证据复用"] += 1
@@ -214,6 +221,8 @@ def comment_progress(folder, issues, coverage):
         "classificationCountsByFile": file_counts,
         "decisionCounts": dict(decisions),
         "reviewMethodCounts": dict(methods),
+        "adoptedComments": adopted_comments,
+        "adoptedCommentsMissingExplicitRequirementId": adopted_without_requirement_id,
         "pendingCountsByIssue": dict(sorted(pending.items())),
         "allCommentsSubstantivelyReviewed": False,
     }

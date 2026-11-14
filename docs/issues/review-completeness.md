@@ -16,6 +16,10 @@ python3 tools/issue-index.py
 python3 tools/issue-target-check.py
 ```
 
+### 评论条款链接 v2
+
+本轮从 51 条候选中为 14 条补上已有条款 ID 和冻结正文、评论行号，保留原处置、说明与验收文本。`comment-progress.json` 生成 `adoptedComments` 及 `adoptedCommentsMissingExplicitRequirementId`。当前 414 条采用或合并采用的评论中，仍有 37 条缺显式 ID。这个数只反映结构化追溯缺口。 [评论进度](comment-progress.json) · [创作及附件](comments-authoring-leaves-integration.tsv) · [语言与 AEDS](comments-quality.tsv) · [文件与事务](comments-recent-platform.tsv)
+
 ## 优先核对的验收
 
 | 来源和条款 | 可定位的当前证据 | 仍需核对 |

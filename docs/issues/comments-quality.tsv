@@ -41,9 +41,9 @@ sourceIssue	sourceComment	sourceUpdatedAt	decision	note	acceptanceLinks
 #2563	https://github.com/Ozwasyd/FsusBlog/issues/2563#issuecomment-6053025401	2026-10-08T05:28:52Z	待决冲突	#2557/#2558 是缓存测试删减，#2560 是 MFA 测试删减，关闭状态没有提供预期生成器或撤旧证据。	P0 查明真实先决关系；实际查询覆盖成立后才结束历史用例替换。
 #2571	https://github.com/Ozwasyd/FsusBlog/issues/2571#issuecomment-6053256196	2026-10-08T05:46:37Z	仅吸收教训	固定五个 profile 的同进程顺序，用实际进程、数据库、缓存和清理边界绑定资源。历史 DATA_ONLY 测试是拒绝控制。	P6 真环境按明确顺序切换，验证隔离、回滚、清理及缺少证据拒绝。
 #2571	https://github.com/Ozwasyd/FsusBlog/issues/2571#issuecomment-6053308793	2026-10-08T05:50:42Z	旧工程限定，不适用	旧候选补充了命名与精确 SHA 关联，31 项控制不改变真实 provider 及上游权威缺口。	只作历史归档，实际当前 runtime 独立执行。
-#2575	https://github.com/Ozwasyd/FsusBlog/issues/2575#issuecomment-6051425505	2026-10-08T03:43:29Z	合并采用	十语种首响应应按唯一目录生成验证，覆盖严格 UTF-8、OG locale、选择器身份和陈旧 AOT。	P3/P6 实际请求十语种 home/auth/deep fallback，测试禁用、坏字节及陈旧投影。
+#2575	https://github.com/Ozwasyd/FsusBlog/issues/2575#issuecomment-6051425505	2026-10-08T03:43:29Z	合并采用	十语种首响应应按唯一目录生成验证，覆盖严格 UTF-8、OG locale、选择器身份和陈旧 AOT。	P3/P6 实际请求十语种 home/auth/deep fallback，测试禁用、坏字节及陈旧投影。 R-2575-01（冻结评论 L3、L7；正文 L10、L13、L17–20）。
 #2577	https://github.com/Ozwasyd/FsusBlog/issues/2577#issuecomment-6051485569	2026-10-08T03:20:31Z	合并采用	首个 HTML 的标题、描述、OG 与 hydration 必须一致，可见文案键集精确，节点诊断未证明浏览器行为。	P3/P6 真实浏览器核对 pre/post DOM、键盘/焦点、深链和前进后退。
-#2579	https://github.com/Ozwasyd/FsusBlog/issues/2579#issuecomment-6051696242	2026-10-08T03:41:02Z	合并采用	locale preparing、commit 和 latest-wins 需要同一事务；偏好 CAS、取消、刷新和 history 必须持久一致。	P3/P6 真实 API/浏览器交错两个事务，确认只有最后生效并保留会话状态。
+#2579	https://github.com/Ozwasyd/FsusBlog/issues/2579#issuecomment-6051696242	2026-10-08T03:41:02Z	合并采用	locale preparing、commit 和 latest-wins 需要同一事务；偏好 CAS、取消、刷新和 history 必须持久一致。	P3/P6 真实 API/浏览器交错两个事务，确认只有最后生效并保留会话状态。 R-2579-01（冻结评论 L3、L7、L9；正文 L7、L12–18）。
 #2581	https://github.com/Ozwasyd/FsusBlog/issues/2581#issuecomment-6051457900	2026-10-08T04:56:11Z	合并采用	Home 只加载 common/layout/public，文章详情增 article；依赖安全功能的全应用保留 security 域。禁止切换预取全语言和重复无关请求。	P3/P6 十语种冷暖入口、快速切换、字体覆盖和 SW 内容身份都采集真实网络记录。
 #2612	https://github.com/Ozwasyd/FsusBlog/issues/2612#issuecomment-6051388567	2026-10-08T05:26:14Z	仅吸收教训	二进制 int32 测试必须保留偏移、越界及独立常量；旧工具还暴露实际构建路径分隔符解析差异。	P1/P6 用跨栈小端边界向量，实际校验 macOS/Linux 产物地址而非信任原字符串。
 #2612	https://github.com/Ozwasyd/FsusBlog/issues/2612#issuecomment-6052390624	2026-10-08T04:40:39Z	旧工程限定，不适用	此评论是 #3665 的旧 Linux verifier fixture 编译交接，556 测试中有三项原生失败，并非 #2612 的读协议要求。	保留来源，插件/资源验收按当前版本重新执行。
@@ -96,7 +96,7 @@ sourceIssue	sourceComment	sourceUpdatedAt	decision	note	acceptanceLinks
 #3053	https://github.com/Ozwasyd/FsusBlog/issues/3053#issuecomment-6052343090	2026-10-08T04:36:39Z	仅吸收教训	当前候选的精确目录、台账和生成段双向联接已有历史控制，单独的全局合格仍缺。	P6 以当前声明及实际结果检查双向完整性和生成漂移。
 #3053	https://github.com/Ozwasyd/FsusBlog/issues/3053#issuecomment-6052830076	2026-10-08T05:14:48Z	旧工程限定，不适用	旧候选的 scoped 正确性与其它文档、基线祖先、terminal 判定失败分属不同门。	保留历史差异，v2 不迁移旧 Git 门或临时路径。
 #3054	https://github.com/Ozwasyd/FsusBlog/issues/3054#issuecomment-5995394401	2026-10-05T13:25:43Z	合并采用	错误与状态来自统一 typed production authority，观察端沿用该合同，不在文档生成器中平行推断。	P1/P6 验证实际 HTTP+帧映射、公开 status 枚举及未知输入拒绝。
-#3054	https://github.com/Ozwasyd/FsusBlog/issues/3054#issuecomment-5996020276	2026-10-05T14:00:56Z	合并采用	请求结构递归保留元素可空、容器、数字边界与枚举/对象引用。	P1/P6 对照单一契约的 C#/TS/POD，异常或过期 schema 即使重封也拒绝。
+#3054	https://github.com/Ozwasyd/FsusBlog/issues/3054#issuecomment-5996020276	2026-10-05T14:00:56Z	合并采用	请求结构递归保留元素可空、容器、数字边界与枚举/对象引用。	P1/P6 对照单一契约的 C#/TS/POD，异常或过期 schema 即使重封也拒绝。 R-3054-01（冻结评论 L3–7、L19；正文 L15–16、L22）。
 #3054	https://github.com/Ozwasyd/FsusBlog/issues/3054#issuecomment-6051532193	2026-10-08T03:25:03Z	仅吸收教训	八个 font/theme GET 明确无请求 frame、各自独立响应 frame 并复用 ApiError。	P5/P6 逐个校验路径、权限、正确帧和错误语义。
 #3054	https://github.com/Ozwasyd/FsusBlog/issues/3054#issuecomment-6051880693	2026-10-08T03:57:58Z	旧工程限定，不适用	旧候选消费指定编译与 SQLite 前置后，原 145 个后台 focused 测试通过；全链仍 WIP。	保留历史候选与命令，v2 不移植编译夹具。
 #3054	https://github.com/Ozwasyd/FsusBlog/issues/3054#issuecomment-6052342774	2026-10-08T04:36:37Z	仅吸收教训	旧 OpenAPI 实际覆盖 274 项与精确 API 变异测试，局部成功离完整产物仍有实际差异。	P6 对照当前端点、路由与规范，按已实现/缺失报告，不复用历史数作 v2 结果。
@@ -106,7 +106,7 @@ sourceIssue	sourceComment	sourceUpdatedAt	decision	note	acceptanceLinks
 #3056	https://github.com/Ozwasyd/FsusBlog/issues/3056#issuecomment-5995393693	2026-10-05T13:25:41Z	合并采用	当前状态映射所有者同时供端点和观察，边界码及 AEDS 类型与旧规范一致。	P1/P6 验证业务 handler 及通用错误的统一映射。
 #3056	https://github.com/Ozwasyd/FsusBlog/issues/3056#issuecomment-5996953603	2026-10-05T14:51:49Z	仅吸收教训	四组独立 oracle 比对 message/trace/details、不可变集合、未知状态及反向负例。	P1/P6 使用真实返回及独立 golden，含未知状态失败语义。
 #3056	https://github.com/Ozwasyd/FsusBlog/issues/3056#issuecomment-5997029816	2026-10-05T14:56:07Z	旧工程限定，不适用	旧 merge footer 缺失使最终 commit-range 失败，即使补充 API 测试通过。	旧 PR 历史事项，不转成新功能或豁免。
-#3056	https://github.com/Ozwasyd/FsusBlog/issues/3056#issuecomment-6051531841	2026-10-08T03:25:02Z	合并采用	实际公开错误 authority 包含 42 mappings、19 status，含 413/415/428/429/503。	P1/P6 从 pinned 规范复核并校验真实越限、媒体类型、前置、限流与不可用响应。
+#3056	https://github.com/Ozwasyd/FsusBlog/issues/3056#issuecomment-6051531841	2026-10-08T03:25:02Z	合并采用	实际公开错误 authority 包含 42 mappings、19 status，含 413/415/428/429/503。	P1/P6 从 pinned 规范复核并校验真实越限、媒体类型、前置、限流与不可用响应。 R-3056-01（冻结评论 L3；正文 L11、L15–19）。
 #3056	https://github.com/Ozwasyd/FsusBlog/issues/3056#issuecomment-6051674617	2026-10-08T03:38:55Z	旧工程限定，不适用	指定的 InlineData 修正消除了首批编译问题，后续仍有编译错误且无测试执行。	旧编译前置，仅作状态记录。
 #3056	https://github.com/Ozwasyd/FsusBlog/issues/3056#issuecomment-6051880402	2026-10-08T03:57:57Z	旧工程限定，不适用	旧精确候选的 145 个测试只验证相关端点和 startup 诊断，完整验收仍缺。	不继承结果，保留失败、阻塞和已运行分开。
 #3056	https://github.com/Ozwasyd/FsusBlog/issues/3056#issuecomment-6052342401	2026-10-08T04:36:35Z	仅吸收教训	旧实际观察证实唯一生产错误映射，文档与完整矩阵仍有漂移。	P6 逐个观察当前 HTTP/帧并独立核对生成说明，单列不支持能力。
