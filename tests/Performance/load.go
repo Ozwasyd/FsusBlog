@@ -97,11 +97,12 @@ func number(values map[string]json.RawMessage, name string) int {
 }
 
 type expectation struct {
-	class  route
-	path   string
-	id     int
-	length int
-	digest [sha256.Size]byte
+	class   route
+	path    string
+	id      int
+	length  int
+	digest  [sha256.Size]byte
+	request []byte
 }
 
 type workload struct {
@@ -223,6 +224,28 @@ func (c *connection) close() {
 }
 
 func (c *connection) request(path string, deadline time.Time, inspect func(*http.Response) error) (int, error) {
+	request, err := encodeRequest(c.origin, path)
+	if err != nil {
+		return 0, err
+	}
+	return c.requestEncoded(request, deadline, inspect)
+}
+
+func encodeRequest(origin *url.URL, path string) ([]byte, error) {
+	req, err := http.NewRequest("GET", origin.String()+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept-Encoding", "identity")
+	req.Header.Set("User-Agent", "FsusBlogV2-public-read-v1")
+	var wire bytes.Buffer
+	if err = req.Write(&wire); err != nil {
+		return nil, err
+	}
+	return wire.Bytes(), nil
+}
+
+func (c *connection) requestEncoded(request []byte, deadline time.Time, inspect func(*http.Response) error) (int, error) {
 	if c.conn == nil {
 		dialer := &net.Dialer{Deadline: deadline}
 		var socket net.Conn
@@ -242,18 +265,11 @@ func (c *connection) request(path string, deadline time.Time, inspect func(*http
 		c.close()
 		return 0, err
 	}
-	req, err := http.NewRequest("GET", c.origin.String()+path, nil)
-	if err != nil {
+	if _, err := c.conn.Write(request); err != nil {
 		c.close()
 		return 0, err
 	}
-	req.Header.Set("Accept-Encoding", "identity")
-	req.Header.Set("User-Agent", "FsusBlogV2-public-read-v1")
-	if err := req.Write(c.conn); err != nil {
-		c.close()
-		return 0, err
-	}
-	response, err := http.ReadResponse(c.reader, req)
+	response, err := http.ReadResponse(c.reader, nil)
 	if err != nil {
 		c.close()
 		return 0, err
@@ -292,7 +308,12 @@ func preflight(ctx context.Context, origin *url.URL, w *workload) error {
 				return err
 			}
 			expected := &w.paths[class][index]
-			status, err := c.request(expected.path, time.Now().Add(requestLimit), func(response *http.Response) error {
+			request, err := encodeRequest(origin, expected.path)
+			if err != nil {
+				return err
+			}
+			expected.request = request
+			status, err := c.requestEncoded(request, time.Now().Add(requestLimit), func(response *http.Response) error {
 				if response.Proto != "HTTP/1.1" {
 					return errors.New("expected HTTP/1.1")
 				}
@@ -543,7 +564,7 @@ func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan
 	for j := range jobs {
 		r := result{class: j.class, dispatch: time.Since(j.planned)}
 		var err error
-		r.status, err = c.request(j.path, j.planned.Add(requestLimit), func(response *http.Response) error {
+		r.status, err = c.requestEncoded(j.request, j.planned.Add(requestLimit), func(response *http.Response) error {
 			r.reason, err = metadata(response, j.class, w.generation, w.wire.Headers["SearchIndexGeneration"])
 			if err != nil {
 				return err
