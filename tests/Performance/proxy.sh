@@ -30,9 +30,9 @@ extendedKeyUsage = serverAuth
 subjectAltName = IP:127.0.0.1
 EOF
   {
-    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$run/ca.key"
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$run/ca.key"
     openssl req -new -x509 -key "$run/ca.key" -days 1 -sha256 -config "$run/cert.cnf" -extensions ca -out "$proxy_ca"
-    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$FSUSBLOG_TLS_KEY"
+    openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$FSUSBLOG_TLS_KEY"
     openssl req -new -key "$FSUSBLOG_TLS_KEY" -config "$run/cert.cnf" -out "$run/leaf.csr"
     openssl x509 -req -in "$run/leaf.csr" -CA "$proxy_ca" -CAkey "$run/ca.key" -CAcreateserial \
       -days 1 -sha256 -extfile "$run/cert.cnf" -extensions leaf -out "$FSUSBLOG_TLS_CERTIFICATE"
