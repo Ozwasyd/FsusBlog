@@ -1,9 +1,13 @@
-using FsusBlog.Contracts.Articles;
 using System.Data;
 using System.Data.Common;
 using System.Runtime.CompilerServices;
 using System.Text;
 
+using SqlSugar;
+
+using StackExchange.Redis;
+
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
@@ -21,10 +25,6 @@ using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Articles;
-
-using SqlSugar;
-
-using StackExchange.Redis;
 
 namespace FsusBlog.Server.Services;
 
