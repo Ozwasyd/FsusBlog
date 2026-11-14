@@ -36,6 +36,6 @@
 
 运行 `FSUS_DOTNET=/path/to/dotnet tools/protocol-test.sh`。测试对比 C#、TypeScript 和独立固定向量，使用本机 C++ 验证标头，并使用可离线构建的 wasm32 模块，在 Node 的 WebAssembly 引擎验证标头与 CRC。模块源于同一 C++ 帧验证代码，通过本地 Clang 和 wasm-ld 构建。网页的本地搜索 Worker 使用 TypeScript 读取 FSPK 并输出 FSR4，通用 AEDS Wasm 模块的网页接入和业务载荷解码仍待验收。
 
-ApiError 和历史文章向量来自固定提交的 `tests/fixtures/protocol/`。新命令和当前公开 ArticleDetail、ArticleList、ArticleSearch 向量按相应字节布局由 Python 标准库 struct 和逐位 CRC 独立组装，再核对编码字节和解码结果。详情保留规范要求的空权限记录，权限快照、分类和标签接入属于后续交付范围。
+ApiError 和历史文章向量来自固定提交的 `tests/fixtures/protocol/`。新命令和当前公开 ArticleDetail、ArticleList、ArticleSearch 向量按相应字节布局由 Python 标准库 struct 和逐位 CRC 独立组装，再核对编码字节和解码结果。详情保留规范要求的空权限记录。文章列表、详情和搜索携带分类与标签；已发布文章的权利快照仍待接入。
 
 FSPK 和 FSR4 向量按固定提交的 [分片和包 writer](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.ArtifactCodec.cs#L565) 与 [搜索结果 writer](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/wasm/search/src/search_index.cpp#L567) 用 Python 标准库 struct 独立组装。固定数据包含只存在于正文的 `needle`、CJK 标签和大于 JavaScript 安全整数的发布坐标。

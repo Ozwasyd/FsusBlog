@@ -12,6 +12,7 @@ public enum FrameType : ushort
     CommentPermalinkContext = 210,
     CategoryList = 9,
     TagList = 10,
+    PageContent = 14,
     AuthLoginFlow = 18,
     ConversationList = 56,
     ConversationMessage = 58,
@@ -208,6 +209,7 @@ public static class WireRoutes
     public const string CommentContext = "/api/binary/comment/{articleId:int}/context/{commentId:long}";
     public const string CommentThread = "/api/binary/comment/{articleId:int}/thread/{rootId:long}";
     public const string PublicSearch = "/api/binary/article/search/query.aeds";
+    public const string PublicSitePage = "/api/binary/system/page/{slug}";
     public const string CategoryList = "/api/binary/category";
     public const string TagList = "/api/binary/tag";
     public const string CategoryMetadata = "/api/binary/category/{id:int}.aeds";

@@ -162,6 +162,7 @@ enum class FrameType : uint16_t {
     CommentPermalinkContext = 210,
     CategoryList = 9,
     TagList = 10,
+    PageContent = 14,
     AuthLoginFlow = 18,
     ConversationList = 56,
     ConversationMessage = 58,
@@ -208,6 +209,7 @@ constexpr bool known(FrameType type) {
         case FrameType::CommentPermalinkContext:
         case FrameType::CategoryList:
         case FrameType::TagList:
+        case FrameType::PageContent:
         case FrameType::AuthLoginFlow:
         case FrameType::ConversationList:
         case FrameType::ConversationMessage:

@@ -11,6 +11,14 @@
 
 来源：[v1 数据库迁移手册](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/database-migration.md)、[存储备份与恢复手册](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/releases/release-storage-backup-and-restore.md)、[备份信封与恢复演练](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/security/site-backup-envelope.md)。
 
+### 可执行的源库预检
+
+使用 `dotnet run --no-build --project src/Migrate -- legacy inventory postgres` 读出 PostgreSQL 的 catalog 和五张文章相关表的行数。连接串通过 `FSUSBLOG_V1_DB` 注入，非 public schema 另外设置 `FSUSBLOG_V1_SCHEMA`。独立 SQLite 备份以 `legacy inventory sqlite` 读取，文件来自 `FSUSBLOG_V1_SQLITE_PATH`，要求没有未合并的 WAL 或 rollback journal。MySQL 支持同名子命令和 `FSUSBLOG_V1_DB`，只接受 InnoDB 文章表。连接使用专用只读账号，SQLite 以只读模式打开。
+
+把 `inventory` 换为 `plan` 会检查稳定 ID、当前编辑和发布指针、发布序号、不可变正文块的 UTF-8 字节数和 SHA-256，再为五个固定投影输出摘要。不剔除大小写不同但字节等价的合法 SHA-256 表示。摘要绑定提供方读取到的值与固定列投影，报告不包含业务行原文。每表扫描上限 500,000 行，单文本字段上限 2 MB，每条查询和总体快照分别限定 30 秒和 4 分钟。超出、缺列和引用不一致均阻塞。报告保留 v1 激活条件和 `readyToApply: false`，`plan` 的退出码 2 表示已生成预检报告且仍需实施或解决阻塞。
+
+SDK 10.0.404 下，PostgreSQL 18.7 与 SQLite 使用真实旧字段形状的隔离样本通过了行数、稳定摘要、Unicode 正文、错误哈希、错配发布坐标及缺列测试。MySQL 已编译，真实 MySQL 库待验证。预检尚未核对外部附件、备份摘要身份、完整权限和主体现实映射。测试入口为 [legacy-source.sh](../tests/Integration/Migration/legacy-source.sh)。
+
 只读 PostgreSQL 结构盘点示例。表级计数与哈希在已确认候选集合内逐表运行，表名来自 catalog 并按提供方规则引用。预估行数可协助安排盘点，完成验收时应保存精确行数。
 
 ```sql
