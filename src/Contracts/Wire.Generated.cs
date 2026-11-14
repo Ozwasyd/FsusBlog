@@ -85,10 +85,6 @@ public enum FrameType : ushort
     PropertySchemaCommand = 32784,
     PropertyValueCommand = 32785,
     PropertyEditor = 32786,
-    PropertyFilterCatalog = 32880,
-    PropertyFilterabilityCommand = 32881,
-    PropertyArticleQuery = 32882,
-    PropertyArticlePage = 32883,
     DraftRecoveryScope = 32787,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
@@ -193,7 +189,6 @@ public static class WireLimits
     public const int PropertyValueBytes = 65536;
     public const int PropertyMaxCommandBytes = 65792;
     public const int PropertyPageSize = 25;
-    public const int PropertyQueryCursorChars = 48;
     public const int PropertyOptionCount = 32;
     public const int PropertyDecimalBytes = 64;
     public const int PropertyDateBytes = 40;
@@ -489,9 +484,6 @@ public static class WireRoutes
     public const string PropertySchemaCommand = "/api/v2/authoring/properties/schema.aeds";
     public const string PropertyValueCommand = "/api/v2/authoring/properties/values.aeds";
     public const string PropertyEditor = "/api/v2/authoring/properties/editor.aeds";
-    public const string PropertyFilterCatalog = "/api/v2/authoring/properties/filter/catalog.aeds";
-    public const string PropertyFilterability = "/api/v2/authoring/properties/filter/definition.aeds";
-    public const string PropertyArticleQuery = "/api/v2/authoring/properties/filter/articles.aeds";
     public const string DraftRecoveryScope = "/api/v2/authoring/recovery-scope.aeds";
     public const string MfaSetupStart = "/api/binary/auth/mfa/setup/start";
     public const string MfaSetupVerify = "/api/binary/auth/mfa/setup/verify";
@@ -553,7 +545,6 @@ public sealed record CanvasConfirm(Guid PlanId);
 public sealed record CanvasLinked(Guid PlanId, int ArticleId, long ArticleRevision, long CanvasRevision);
 public sealed record PropertyDefinitionCommand(int Operation, Guid DefinitionId, Guid RequestId, long SchemaRevision, long DefinitionRevision, string MachineKey, string Label);
 public sealed record PropertyWorkspaceRequest(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, string AfterKey);
-public sealed record PropertyFilterabilityCommand(Guid DefinitionId, Guid RequestId, long SchemaRevision, long DefinitionRevision, bool Enabled);
 public sealed record PropertyTextCommand(int ArticleId, long ArticleRevision, long SchemaRevision, long ValueRevision, Guid DefinitionId, long DefinitionRevision, Guid RequestId, bool Remove, string Value);
 public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevision, long Revision);
 
@@ -1207,27 +1198,6 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyWorkspaceRequest));
         var value = new PropertyWorkspaceRequest(reader.I32(), reader.I64(), reader.I64(), reader.I64(), reader.Text(WireLimits.PropertyKeyBytes));
-        reader.Finish();
-        Validate(value);
-        return value;
-    }
-
-    public static byte[] EncodePropertyFilterabilityCommand(PropertyFilterabilityCommand value)
-    {
-        Validate(value);
-        var writer = new Writer();
-        writer.Uuid(value.DefinitionId);
-        writer.Uuid(value.RequestId);
-        writer.I64(value.SchemaRevision);
-        writer.I64(value.DefinitionRevision);
-        writer.Bool(value.Enabled);
-        return Aeds.Encode(FrameType.PropertyFilterabilityCommand, writer.Written);
-    }
-
-    public static PropertyFilterabilityCommand DecodePropertyFilterabilityCommand(ReadOnlySpan<byte> frame)
-    {
-        var reader = new Reader(Aeds.Decode(frame, FrameType.PropertyFilterabilityCommand));
-        var value = new PropertyFilterabilityCommand(reader.Uuid(), reader.Uuid(), reader.I64(), reader.I64(), reader.Bool());
         reader.Finish();
         Validate(value);
         return value;
