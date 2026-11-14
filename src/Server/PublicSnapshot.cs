@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
 using System.Buffers.Binary;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -20,6 +21,7 @@ internal sealed class PublicSnapshot
     private readonly PublicArticleCache _details;
     private readonly PublicListProjection _listing;
     internal long Generation { get; }
+    internal string GenerationHeader { get; }
     internal long Watermark { get; }
     internal byte[] Home { get; }
     internal TaxonomyProjection Taxonomy { get; }
@@ -33,6 +35,7 @@ internal sealed class PublicSnapshot
     {
         Watermark = watermark;
         Generation = PublicGeneration(articles);
+        GenerationHeader = Generation.ToString(CultureInfo.InvariantCulture);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
         _ordered = articles;

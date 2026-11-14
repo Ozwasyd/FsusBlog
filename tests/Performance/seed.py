@@ -19,7 +19,6 @@ TOTAL = PUBLIC + DRAFT + WITHDRAWAL
 CATEGORIES = 32
 TAGS = 128
 SCHEMA = 1
-ADMIN_IDENTITY_SCHEMA = 2
 SERVER_LOCK = 716729109726707501
 MIGRATION_LOCK = 4815262471654073021
 SIZES = (2048, 8192, 32768)
@@ -141,7 +140,7 @@ def articles():
         first += count
 
 
-def write_guard(out, database):
+def write_guard(out, database, admin_schema):
     out.write(
         f"""\\set ON_ERROR_STOP on
 BEGIN;
@@ -187,7 +186,7 @@ BEGIN
             CONTINUE;
         END IF;
         IF relation.relname = 'admin_identity_schema' THEN
-            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND version = {ADMIN_IDENTITY_SCHEMA}) FROM public.admin_identity_schema'
+            EXECUTE 'SELECT count(*) = 1 AND bool_and(singleton AND version = {admin_schema}) FROM public.admin_identity_schema'
                 INTO valid_bootstrap;
             IF valid_bootstrap IS DISTINCT FROM true THEN
                 RAISE EXCEPTION 'Fixture target has an invalid administrator identity bootstrap marker';
@@ -266,7 +265,7 @@ COMMIT;
     )
 
 
-def generate(database, sql_path, manifest_path):
+def generate(database, admin_schema, sql_path, manifest_path):
     manifest = {
         "schema": "fsusblog-v2-p2-performance-fixture-v1",
         "seed": SEED,
@@ -283,7 +282,7 @@ def generate(database, sql_path, manifest_path):
         sql_path.open("x", encoding="ascii", newline="\n") as sql,
         manifest_path.open("x", encoding="ascii", newline="\n") as receipt,
     ):
-        write_guard(sql, database)
+        write_guard(sql, database, admin_schema)
         for article, body in articles():
             published = article["publishedAt"] or r"\N"
             publication = article["publicationId"] or r"\N"
@@ -301,6 +300,7 @@ def generate(database, sql_path, manifest_path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", required=True)
+    parser.add_argument("--admin-schema", type=int, required=True)
     parser.add_argument("--sql", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     args = parser.parse_args()
@@ -308,7 +308,9 @@ def main():
         parser.error(
             "--database must be fsusv2_perf_ followed by a new 32-digit lowercase hex run ID"
         )
-    generate(args.database, args.sql, args.manifest)
+    if not 1 <= args.admin_schema <= 2147483647:
+        parser.error("--admin-schema must be a positive PostgreSQL integer")
+    generate(args.database, args.admin_schema, args.sql, args.manifest)
 
 
 if __name__ == "__main__":

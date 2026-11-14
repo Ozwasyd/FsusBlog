@@ -230,6 +230,9 @@ ui_inputs | cmp -s "$evidence/fsusui-inputs.sha256" - || { echo 'FsusUI native a
 (cd "$run" && find server migrate web load -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2) > "$evidence/build.sha256"
 
 stage=database
+admin_schema=$(sed -nE 's/^    internal const int AdminIdentityVersion = ([1-9][0-9]*);$/\1/p' \
+  "$run/source/src/Storage/AdminIdentitySchema.cs")
+[[ "$admin_schema" =~ ^[1-9][0-9]*$ ]] || { echo 'Expected an exact administrator schema revision in the frozen source.' >&2; exit 1; }
 {
   initdb -D "$run/pg" --username perf --auth-local=trust --auth-host=reject --locale=C --encoding=UTF8 --no-sync
   pg_ctl -D "$run/pg" -l "$evidence/postgres.log" -w -t 20 start \
@@ -237,7 +240,8 @@ stage=database
   psql -X -w -v ON_ERROR_STOP=1 -c "CREATE DATABASE $database TEMPLATE template0"
   "$dotnet" "$run/migrate/FsusBlogV2.Migrate.dll" plan > "$evidence/migration-plan.json"
   "$dotnet" "$run/migrate/FsusBlogV2.Migrate.dll" apply "$evidence/migration-plan.json"
-  python3 "$run/source/tests/Performance/seed.py" --database "$database" --sql "$run/seed.sql" --manifest "$evidence/fixture.json"
+  python3 "$run/source/tests/Performance/seed.py" --database "$database" --admin-schema "$admin_schema" \
+    --sql "$run/seed.sql" --manifest "$evidence/fixture.json"
   shasum -a 256 "$run/seed.sql" "$evidence/fixture.json" > "$evidence/fixture.sha256"
   psql -X -w -v ON_ERROR_STOP=1 -d "$database" -f "$run/seed.sql"
   psql -X -w -v ON_ERROR_STOP=1 -d "$database" -f "$run/source/tests/Fixtures/publication-rights.sql"

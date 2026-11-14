@@ -5,6 +5,7 @@ using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Communication;
+using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Operations;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
@@ -224,7 +225,7 @@ app.MapGet(WireRoutes.PublicIndex, (HttpContext ctx) =>
     var snapshot = Snapshot(ctx);
     var page = Query(ctx, "page", 10);
     var generation = Query(ctx, "generation", 20);
-    if (generation is not null && generation != snapshot.Generation.ToString(CultureInfo.InvariantCulture))
+    if (generation is not null && generation != snapshot.GenerationHeader)
         return Error(ctx, 409, "The search index changed. Reload it from page 1.");
     if (page is not null && (!int.TryParse(page, NumberStyles.None, CultureInfo.InvariantCulture, out var value) || (value > 1 && generation is null)))
         return Error(ctx, 400, "Invalid search index page or missing generation.");
@@ -243,7 +244,7 @@ app.MapMethods(WireRoutes.PublicSearchCorpus, [HttpMethods.Get, HttpMethods.Head
     var head = HttpMethods.IsHead(ctx.Request.Method);
     if ((head || page > 1) && generation is null)
         return Error(ctx, 400, "A search generation is required.");
-    if (generation is not null && generation != snapshot.Generation.ToString(CultureInfo.InvariantCulture))
+    if (generation is not null && generation != snapshot.GenerationHeader)
         return Error(ctx, 409, "The search corpus changed. Reload it from page 1.");
     if (snapshot.CorpusPageCount == 0)
         return Error(ctx, 503, "The search corpus is unavailable.");
@@ -283,7 +284,7 @@ Mutation(WireRoutes.Restore, ArticleAction.Restore);
 var webPages = app.Services.GetRequiredService<WebPages>();
 var shell = webPages.Page();
 var archiveShell = webPages.Page(publicPath: "/archive");
-app.MapGet("/", (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Home, Html));
+app.MapGet("/", (HttpContext ctx) => PublicResponse.Write(ctx, Snapshot(ctx).Home, Html));
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
 app.MapGet("/archive", (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(archiveShell, Html); });
 foreach (var route in new[] { "/user/manage/article/list", "/user/manage/article/trash" })
@@ -307,17 +308,22 @@ app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.
 app.MapFallback("/api/{**rest}", ctx => Error(ctx, 404, "Unknown API route.").ExecuteAsync(ctx));
 await app.RunAsync();
 
-IResult PublicList(HttpContext ctx, string scope, int page, int size) =>
-    Results.Bytes(Snapshot(ctx).List(scope, page, size, Query(ctx, "keyword", 256), Query(ctx, "sort", 20),
+Task PublicList(HttpContext ctx, string scope, int page, int size) =>
+    PublicResponse.Write(ctx, Snapshot(ctx).List(scope, page, size, Query(ctx, "keyword", 256), Query(ctx, "sort", 20),
         ReadListCursor(ctx), ctx.RequestAborted), Binary);
 
-async Task<IResult> PublicDetail(HttpContext ctx, int id, bool asHtml)
+async Task PublicDetail(HttpContext ctx, int id, bool asHtml)
 {
     var snapshot = Snapshot(ctx);
     var article = await snapshot.Detail(id, ctx.RequestAborted);
     if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
-    if (article is not null) return asHtml ? Results.Bytes(article.Html, Html) : Results.Bytes(article.Wire, Binary);
-    return asHtml ? Results.Text("文章不存在", "text/plain; charset=utf-8", statusCode: 404) : Error(ctx, 404, "Article not found.");
+    if (article is not null)
+    {
+        await PublicResponse.Write(ctx, asHtml ? article.Html : article.Wire, asHtml ? Html : Binary);
+        return;
+    }
+    var missing = asHtml ? Results.Text("文章不存在", "text/plain; charset=utf-8", statusCode: 404) : Error(ctx, 404, "Article not found.");
+    await missing.ExecuteAsync(ctx);
 }
 
 static string? ReadListCursor(HttpContext ctx)
@@ -346,7 +352,7 @@ PublicSnapshot Snapshot(HttpContext ctx)
 {
     NoStore(ctx);
     var snapshot = publications.Snapshot ?? throw new PublicUnavailableException();
-    ctx.Response.Headers[WireHeaders.SearchIndexGeneration] = snapshot.Generation.ToString(CultureInfo.InvariantCulture);
+    ctx.Response.Headers[WireHeaders.SearchIndexGeneration] = snapshot.GenerationHeader;
     return snapshot;
 }
 

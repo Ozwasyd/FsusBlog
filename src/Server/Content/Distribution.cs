@@ -220,7 +220,7 @@ internal static class DistributionEndpoints
             var bytes = Select(artifacts);
             if (bytes is null) return Results.NotFound().ExecuteAsync(context);
             if (!ReferenceEquals(current, Publications.Snapshot)) return Results.StatusCode(503).ExecuteAsync(context);
-            context.Response.Headers[WireHeaders.SearchIndexGeneration] = current.Generation.ToString(CultureInfo.InvariantCulture);
+            context.Response.Headers[WireHeaders.SearchIndexGeneration] = current.GenerationHeader;
             return Results.Bytes(bytes, MediaType).ExecuteAsync(context);
         }
     }
