@@ -67,7 +67,7 @@ if "${migrate[@]}" admin-identity grant identity-fixture audit.read > "$scratch/
     printf '%s\n' 'Expected an offline grant to require the current administrator identity schema.' >&2
     exit 1
 fi
-rg -qF 'constraint shape mismatch' "$scratch/rejection.log"
+rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${query[@]}" 'ALTER TABLE public.admin_session ADD COLUMN unexpected_fixture integer'
 if "${migrate[@]}" admin-identity schema > "$scratch/rejection.log" 2>&1; then
     printf '%s\n' 'Expected the upgrade to reject a drifted v1 administrator identity schema.' >&2
@@ -135,7 +135,7 @@ if "${migrate[@]}" admin-identity grant identity-fixture comment.moderate > "$sc
     printf '%s\n' 'Expected an offline moderation grant to require the current administrator identity schema.' >&2
     exit 1
 fi
-rg -qF 'constraint shape mismatch' "$scratch/rejection.log"
+rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" verify
@@ -178,7 +178,7 @@ if "${migrate[@]}" admin-identity grant identity-fixture article.write > "$scrat
     printf '%s\n' 'Expected an offline taxonomy grant to require the current administrator identity schema.' >&2
     exit 1
 fi
-rg -qF 'constraint shape mismatch' "$scratch/rejection.log"
+rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" admin-identity schema
 "${migrate[@]}" verify
