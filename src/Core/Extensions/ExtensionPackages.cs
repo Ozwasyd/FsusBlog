@@ -51,7 +51,7 @@ public sealed class ExtensionPackageVerifier
         var keyMap = ImmutableDictionary.CreateBuilder<(string, string), ExtensionPublisherKey>();
         foreach (var key in keys)
         {
-            if (keyMap.Count >= 256 || !IsIdentifier(key.Publisher) || !IsIdentifier(key.KeyId) ||
+            if (keyMap.Count >= 256 || key is null || !IsIdentifier(key.Publisher) || !IsIdentifier(key.KeyId) ||
                 key.SubjectPublicKeyInfo.Length is < 32 or > 1024 || key.ValidFrom >= key.ValidUntil ||
                 !keyMap.TryAdd((key.Publisher, key.KeyId), key with { SubjectPublicKeyInfo = [.. key.SubjectPublicKeyInfo.AsSpan()] }))
                 throw new ExtensionRejectedException("publisher-keyset-shape");
@@ -64,7 +64,7 @@ public sealed class ExtensionPackageVerifier
         var sourceMap = ImmutableDictionary.CreateBuilder<string, ApprovedExtensionSource>(StringComparer.Ordinal);
         foreach (var source in sources)
         {
-            if (sourceMap.Count >= 1024 || !IsOpaqueReference(source.Reference, "approved-source/") ||
+            if (sourceMap.Count >= 1024 || source is null || !IsOpaqueReference(source.Reference, "approved-source/") ||
                 !IsOpaqueReference(source.Provenance, "provenance/") || !IsDigest(source.ArchiveSha256) ||
                 !_keys.ContainsKey((source.Publisher, source.KeyId)) || !sourceMap.TryAdd(source.Reference, source))
                 throw new ExtensionRejectedException("approved-source-catalog-shape");
@@ -123,7 +123,7 @@ public sealed class ExtensionPackageVerifier
             if (consumed == key.SubjectPublicKeyInfo.Length && verifier.KeySize is 256 or 384 or 521 &&
                 verifier.VerifyData(archive, signature, HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation)) return;
         }
-        catch (CryptographicException) { }
+        catch (Exception error) when (error is CryptographicException or PlatformNotSupportedException) { }
         throw new ExtensionRejectedException("archive-signature");
     }
 

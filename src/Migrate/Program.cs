@@ -46,6 +46,7 @@ internal static partial class Migration
                                         Allow or deny moderated public submissions on the article
                   comment moderate ARTICLE_ID COMMENT_ID EXPECTED_STATUS approve|reject|hide REASON
                                         Change comment status and append the trusted database role audit event
+                  extension --help      Manage an offline signed authoring extension store
                   legacy inventory postgres|mysql|sqlite
                                         Inspect the v1 article catalog and exact table counts
                   legacy plan postgres|mysql|sqlite
@@ -65,6 +66,10 @@ internal static partial class Migration
         Console.CancelKeyPress += cancel;
         try
         {
+            if (arguments is ["extension", .. var extensionArguments])
+            {
+                return await ExtensionMaintenance.RunAsync(extensionArguments, cancelled.Token);
+            }
             if (arguments is ["legacy", var mode, var provider])
             {
                 return await RunLegacyAsync(mode, provider, ownerMap: null, cancelled.Token);

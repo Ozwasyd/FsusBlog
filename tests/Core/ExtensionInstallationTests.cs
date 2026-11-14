@@ -175,6 +175,77 @@ public sealed partial class ExtensionAuthorityTests
         Assert.Throws<FileNotFoundException>(() => disk.Read($"{Hash(signed)}.signature"));
     }
 
+    [Fact]
+    public void QuarantineRequiresMatchingReceiptAndExplicitOfflineApprovalAcrossRestart()
+    {
+        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
+        using var disk = new InstallationDisk();
+        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var archive = MakeArchive();
+        var signed = Sign(publisher, archive);
+        var clock = new Clock();
+        var owner = NewOwner();
+        ExtensionCheckpoint before;
+        using (var store = disk.Create(Key(publisher), [Catalog("fixture", archive)], clock))
+        {
+            store.InstallAndActivate(Source, archive, signed, ExtensionPlatform.ServerLinux);
+            store.SetOwner(owner);
+            var grant = store.RecordConsent(Consent(owner, ExtensionCapability.DocumentRangeRead));
+            using var operation = BeginRead(store, owner, grant);
+            before = store.Checkpoint;
+            store.Quarantine("fixture.extension", "operator-investigation");
+            AssertRejected("operation-no-longer-current", () => operation.Complete(() => throw new InvalidOperationException()));
+        }
+
+        var status = disk.Status(clock);
+        var quarantined = Assert.Single(status.Installations);
+        Assert.Equal("quarantined", quarantined.State);
+        var receipt = Assert.IsType<ExtensionQuarantine>(quarantined.Quarantine).Receipt;
+        AssertRejected("activation-checkpoint-mismatch", () => disk.OpenMaintenance(clock, before));
+        using (var store = disk.OpenMaintenance(clock, status.Checkpoint))
+        {
+            AssertRejected("installation-store-maintenance-only", () => store.SetOwner(owner));
+            AssertRejected("extension-quarantined", () => store.InstallAndActivate(Source, archive, signed, ExtensionPlatform.ServerLinux));
+            AssertRejected("quarantine-approval", () => store.ClearQuarantine("fixture.extension", Guid.NewGuid(), Guid.NewGuid()));
+            AssertRejected("quarantine-approval", () => store.ClearQuarantine("fixture.extension", receipt, receipt));
+            store.ClearQuarantine("fixture.extension", receipt, Guid.NewGuid());
+        }
+        status = disk.Status(clock);
+        Assert.Equal("inactive", Assert.Single(status.Installations).State);
+        using (var store = disk.OpenMaintenance(clock, status.Checkpoint))
+            store.InstallAndActivate(Source, archive, signed, ExtensionPlatform.ServerLinux);
+        status = disk.Status(clock);
+        Assert.Equal("active-verified", Assert.Single(status.Installations).State);
+        Assert.NotNull(Assert.Single(status.Installations).Quarantine?.ReleaseApproval);
+    }
+
+    [Fact]
+    public void MaintenanceCanQuarantineAnAuthenticatedActivationWithCorruptArchive()
+    {
+        if (OperatingSystem.IsWindows() || (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())) return;
+        using var disk = new InstallationDisk();
+        using var publisher = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var archive = MakeArchive();
+        var clock = new Clock();
+        using (var store = disk.Create(Key(publisher), [Catalog("fixture", archive)], clock))
+            store.InstallAndActivate(Source, archive, Sign(publisher, archive), ExtensionPlatform.ServerLinux);
+        var different = archive.ToArray();
+        different[^1] ^= 1;
+        disk.Replace($"{Hash(archive)}.zip", different);
+        var originalLedger = disk.ReadLedger();
+        var status = disk.Status(clock);
+        var item = Assert.Single(status.Installations);
+        Assert.Equal("active-blocked", item.State);
+        Assert.Equal("archive-digest", item.VerificationIssue);
+        Assert.Equal(originalLedger, disk.ReadLedger());
+        AssertRejected("archive-digest", () => disk.Open(clock));
+        using (var store = disk.OpenMaintenance(clock, status.Checkpoint))
+            store.Quarantine("fixture.extension", "archive-digest");
+        Assert.Equal("quarantined", Assert.Single(disk.Status(clock).Installations).State);
+        using var reopened = disk.Open(clock);
+        reopened.SetOwner(NewOwner());
+    }
+
     private static ExtensionAuthority.Operation BeginRead(ExtensionInstallationStore store, ExtensionOwner owner, Guid grant) =>
         store.Begin(owner, "fixture.read", "preview", new ExtensionProposal.ReadRange(Guid.NewGuid(), grant, 1, 2));
 
@@ -205,6 +276,11 @@ public sealed partial class ExtensionAuthorityTests
 
         public ExtensionInstallationStore Open(TimeProvider clock, ExtensionCheckpoint? checkpoint = null) =>
             ExtensionInstallationStore.Open(_root, _id, _mac, clock, checkpoint);
+
+        public ExtensionInstallationStore OpenMaintenance(TimeProvider clock, ExtensionCheckpoint checkpoint) =>
+            ExtensionInstallationStore.OpenForMaintenance(_root, _id, _mac, clock, checkpoint);
+
+        public ExtensionStoreStatus Status(TimeProvider clock) => ExtensionInstallationStore.Inspect(_root, _id, _mac, clock);
 
         public byte[] Read(string name) => File.ReadAllBytes(Path.Combine(_root.FullName, name));
         public byte[] ReadLedger() => Read("activation.v1");

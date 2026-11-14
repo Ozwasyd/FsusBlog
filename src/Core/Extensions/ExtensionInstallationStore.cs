@@ -7,10 +7,17 @@ using static FsusBlog.V2.Core.Extensions.ExtensionPackageVerifier;
 namespace FsusBlog.V2.Core.Extensions;
 
 public sealed record ExtensionCheckpoint(long Sequence, string Digest);
+public sealed record ExtensionQuarantine(Guid Receipt, string Reason, DateTimeOffset QuarantinedAt,
+    Guid? ReleaseApproval = null, DateTimeOffset? ReleasedAt = null);
+public sealed record ExtensionInstallationStatus(string Id, string Version, string Publisher, string Identity, string State,
+    string? VerificationIssue, ExtensionQuarantine? Quarantine);
+public sealed record ExtensionStoreStatus(ExtensionCheckpoint Checkpoint, ImmutableArray<ExtensionInstallationStatus> Installations);
 
 /// <summary>Owns the activation ledger and its host-provisioned trust while holding an exclusive store handle.</summary>
 public sealed class ExtensionInstallationStore : IDisposable
 {
+    public const int MaximumArchiveBytes = MaxArchiveBytes;
+    public const int MaximumSignatureBytes = MaxSignatureBytes;
     private const string LedgerName = "activation.v1";
     private const int LedgerBytes = 4 * 1024 * 1024;
     private const int TagBytes = 32;
@@ -21,6 +28,8 @@ public sealed class ExtensionInstallationStore : IDisposable
     private readonly TimeProvider _clock;
     private readonly FileStream _ownership;
     private readonly ExtensionAuthority _authority;
+    private readonly bool _readOnly;
+    private readonly bool _servesOperations;
     private Ledger _ledger;
     private ExtensionCheckpoint _checkpoint;
     private ExtensionPackageVerifier _verifier;
@@ -29,22 +38,35 @@ public sealed class ExtensionInstallationStore : IDisposable
 
     public static ExtensionInstallationStore Create(DirectoryInfo root, Guid storeId, ReadOnlyMemory<byte> key,
         IEnumerable<ExtensionPublisherKey> keys, IEnumerable<ApprovedExtensionSource> sources, TimeProvider clock) =>
-        new(root, storeId, key, clock, new(1, storeId, 1, [.. keys], [.. sources], []), null);
+        new(root, storeId, key, clock, new(1, storeId, 1, [.. keys], [.. sources], []), null, OpenMode.Authority);
 
     public static ExtensionInstallationStore Open(DirectoryInfo root, Guid storeId, ReadOnlyMemory<byte> key, TimeProvider clock,
-        ExtensionCheckpoint? expectedCheckpoint = null) => new(root, storeId, key, clock, null, expectedCheckpoint);
+        ExtensionCheckpoint? expectedCheckpoint = null) => new(root, storeId, key, clock, null, expectedCheckpoint, OpenMode.Authority);
+
+    public static ExtensionInstallationStore OpenForMaintenance(DirectoryInfo root, Guid storeId, ReadOnlyMemory<byte> key, TimeProvider clock,
+        ExtensionCheckpoint expectedCheckpoint) => new(root, storeId, key, clock, null,
+            expectedCheckpoint ?? throw Reject("activation-checkpoint-required"), OpenMode.Maintenance);
+
+    public static ExtensionStoreStatus Inspect(DirectoryInfo root, Guid storeId, ReadOnlyMemory<byte> key, TimeProvider clock,
+        CancellationToken cancellationToken = default)
+    {
+        using var store = new ExtensionInstallationStore(root, storeId, key, clock, null, null, OpenMode.ReadOnly);
+        return store.InspectCore(cancellationToken);
+    }
 
     private ExtensionInstallationStore(DirectoryInfo root, Guid storeId, ReadOnlyMemory<byte> key, TimeProvider clock,
-        Ledger? initial, ExtensionCheckpoint? expectedCheckpoint)
+        Ledger? initial, ExtensionCheckpoint? expectedCheckpoint, OpenMode mode)
     {
         if (storeId == Guid.Empty || key.Length != TagBytes) throw Reject("installation-store-identity");
         _root = ExtensionDisk.ValidatePrivateRoot(root);
         _storeId = storeId;
         _clock = clock;
         _key = key.ToArray();
+        _readOnly = mode == OpenMode.ReadOnly;
+        _servesOperations = mode == OpenMode.Authority;
         try
         {
-            _ownership = Acquire(root);
+            _ownership = Acquire(root, initial is not null, _readOnly);
             if (initial is null)
             {
                 (_ledger, _checkpoint) = Load(CancellationToken.None);
@@ -65,7 +87,7 @@ public sealed class ExtensionInstallationStore : IDisposable
             foreach (var installation in _ledger.Installations)
             {
                 _authority.RestoreVersion(installation.Id, installation.Version);
-                if (!installation.Active) continue;
+                if (mode != OpenMode.Authority || !installation.Active) continue;
                 try { _authority.ActivateVerified(ReadPackage(installation, CancellationToken.None), null, CancellationToken.None); }
                 catch (ExtensionRejectedException error) when (error.Code == "publisher-key-not-current")
                 {
@@ -97,12 +119,19 @@ public sealed class ExtensionInstallationStore : IDisposable
             var data = archive.ToArray();
             var signed = signature.ToArray();
             var package = _verifier.VerifySnapshot(approvedSource, data, signed, platform, cancellationToken);
-            return _authority.ActivateVerified(package, version =>
+            var before = _ledger.Installations.SingleOrDefault(item => item.Id == package.Manifest.Id);
+            if (before?.Quarantine is { ReleasedAt: null }) throw Reject("extension-quarantined");
+            if (before is not null && (package.CheckedAt < before.ActivatedAt || package.CheckedAt < before.Quarantine?.ReleasedAt))
+                throw Reject("publisher-key-not-current");
+            if (before is { Active: true } && before.PackageIdentity == package.Identity)
             {
-                var before = _ledger.Installations.SingleOrDefault(item => item.Id == package.Manifest.Id);
-                if (before is not null && package.CheckedAt < before.ActivatedAt) throw Reject("publisher-key-not-current");
+                var persisted = ReadPackage(before, cancellationToken);
+                return _servesOperations ? _authority.ActivateVerified(persisted, null, cancellationToken) : persisted;
+            }
+            var verified = _authority.ActivateVerified(package, version =>
+            {
                 var installation = new Installation(package.Manifest.Id, version, approvedSource, Digest(signed), platform,
-                    package.Identity, package.CheckedAt, true);
+                    package.Identity, package.CheckedAt, true, before?.Quarantine);
                 Put(ArchiveName(installation), data, installation.Version.ArchiveDigest, cancellationToken);
                 Put(SignatureName(installation), signed, installation.SignatureDigest, cancellationToken);
                 ReadPackage(installation, cancellationToken);
@@ -110,6 +139,8 @@ public sealed class ExtensionInstallationStore : IDisposable
                 cancellationToken.ThrowIfCancellationRequested();
                 Save(_ledger with { Installations = current });
             }, cancellationToken);
+            if (!_servesOperations) _authority.Deactivate(verified.Manifest.Id);
+            return verified;
         }
     }
 
@@ -137,32 +168,92 @@ public sealed class ExtensionInstallationStore : IDisposable
         lock (_gate)
         {
             RequireLedger(CancellationToken.None);
-            var installed = _ledger.Installations.SingleOrDefault(item => item.Id == extensionId);
-            if (installed is not { Active: true }) return;
+            var installed = FindInstallation(extensionId);
+            if (!installed.Active) return;
             Save(_ledger with { Installations = _ledger.Installations.Replace(installed, installed with { Active = false }) });
             _authority.Deactivate(extensionId);
         }
     }
 
+    public void Quarantine(string extensionId, string reason)
+    {
+        lock (_gate)
+        {
+            RequireLedger(CancellationToken.None);
+            if (!IsIdentifier(reason)) throw Reject("quarantine-reason");
+            var installed = FindInstallation(extensionId);
+            if (installed.Quarantine is { ReleasedAt: null } previous)
+            {
+                if (previous.Reason != reason) throw Reject("extension-already-quarantined");
+                return;
+            }
+            var now = _clock.GetUtcNow();
+            if (now < installed.ActivatedAt || now < installed.Quarantine?.ReleasedAt) throw Reject("quarantine-clock");
+            var next = installed with { Active = false, Quarantine = new(Guid.NewGuid(), reason, now) };
+            Save(_ledger with { Installations = _ledger.Installations.Replace(installed, next) });
+            _authority.Deactivate(extensionId);
+        }
+    }
+
+    public void ClearQuarantine(string extensionId, Guid receipt, Guid approval)
+    {
+        lock (_gate)
+        {
+            RequireLedger(CancellationToken.None);
+            var installed = FindInstallation(extensionId);
+            if (installed.Quarantine is not { ReleasedAt: null } quarantine || quarantine.Receipt != receipt ||
+                approval == Guid.Empty || approval == receipt) throw Reject("quarantine-approval");
+            var now = _clock.GetUtcNow();
+            if (now < quarantine.QuarantinedAt) throw Reject("quarantine-clock");
+            var next = installed with { Quarantine = quarantine with { ReleaseApproval = approval, ReleasedAt = now } };
+            Save(_ledger with { Installations = _ledger.Installations.Replace(installed, next) });
+        }
+    }
+
+    private Installation FindInstallation(string extensionId) =>
+        _ledger.Installations.SingleOrDefault(item => item.Id == extensionId) ?? throw Reject("installed-extension-unknown");
+
+    private ExtensionStoreStatus InspectCore(CancellationToken cancellationToken)
+    {
+        RequireLedger(cancellationToken);
+        var installations = ImmutableArray.CreateBuilder<ExtensionInstallationStatus>(_ledger.Installations.Length);
+        foreach (var installed in _ledger.Installations.OrderBy(item => item.Id, StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string? failure = null;
+            if (installed.Active)
+            {
+                try { ReadPackage(installed, cancellationToken); }
+                catch (ExtensionRejectedException error) { failure = error.Code; }
+            }
+            var state = installed.Active ? failure is null ? "active-verified" : "active-blocked" :
+                installed.Quarantine is { ReleasedAt: null } ? "quarantined" : "inactive";
+            installations.Add(new(installed.Id, installed.Version.Version, installed.Version.Publisher, installed.PackageIdentity,
+                state, failure, installed.Quarantine));
+        }
+        RequireLedger(cancellationToken);
+        return new(_checkpoint, installations.MoveToImmutable());
+    }
+
     public void SetOwner(ExtensionOwner owner)
     {
-        lock (_gate) { RequireOpen(); _authority.SetOwner(owner); }
+        lock (_gate) { RequireOperationAuthority(); _authority.SetOwner(owner); }
     }
 
     public Guid RecordConsent(ExtensionConsent consent)
     {
-        lock (_gate) { RequireOpen(); return _authority.RecordConsent(consent); }
+        lock (_gate) { RequireOperationAuthority(); return _authority.RecordConsent(consent); }
     }
 
     public void RevokeConsent(Guid id)
     {
-        lock (_gate) { RequireOpen(); _authority.RevokeConsent(id); }
+        lock (_gate) { RequireOperationAuthority(); _authority.RevokeConsent(id); }
     }
 
     public ExtensionAuthority.Operation Begin(ExtensionOwner owner, string contributionId, string purpose, ExtensionProposal proposal,
         CancellationToken cancellationToken = default)
     {
-        lock (_gate) { RequireOpen(); return _authority.Begin(owner, contributionId, purpose, proposal, cancellationToken); }
+        lock (_gate) { RequireOperationAuthority(); return _authority.Begin(owner, contributionId, purpose, proposal, cancellationToken); }
     }
 
     private void ReverifyActive(VerifiedExtensionPackage package, CancellationToken cancellationToken, bool readInstalled)
@@ -255,6 +346,7 @@ public sealed class ExtensionInstallationStore : IDisposable
 
     private void Save(Ledger ledger)
     {
+        if (_readOnly) throw Reject("installation-store-read-only");
         ledger = ledger with { Sequence = checked(_ledger.Sequence + 1) };
         _checkpoint = Write(ledger, overwrite: true);
         _ledger = ledger;
@@ -291,10 +383,15 @@ public sealed class ExtensionInstallationStore : IDisposable
                 !IsVersion(installation.Version.Version) || !IsDigest(installation.Version.ArchiveDigest) ||
                 installation.Version.StateSchema is < 1 or > 1_000_000 || installation.Version.DataSchema is < 1 or > 1_000_000)
                 throw Reject("activation-ledger-shape");
+            if (installation.Quarantine is { } quarantine &&
+                (quarantine.Receipt == Guid.Empty || !IsIdentifier(quarantine.Reason) || (quarantine.ReleasedAt is null && installation.Active) ||
+                (quarantine.ReleaseApproval is null) != (quarantine.ReleasedAt is null) || quarantine.ReleaseApproval == Guid.Empty ||
+                quarantine.ReleaseApproval == quarantine.Receipt || quarantine.ReleasedAt < quarantine.QuarantinedAt))
+                throw Reject("activation-ledger-shape");
         }
     }
 
-    private static FileStream Acquire(DirectoryInfo root)
+    private static FileStream Acquire(DirectoryInfo root, bool create, bool readOnly)
     {
         if (OperatingSystem.IsWindows()) throw new PlatformNotSupportedException();
         var path = Path.Combine(root.FullName, "writer.lock");
@@ -302,8 +399,8 @@ public sealed class ExtensionInstallationStore : IDisposable
             File.GetUnixFileMode(path) != (UnixFileMode.UserRead | UnixFileMode.UserWrite))) throw Reject("installation-lock-shape");
         return new(path, new FileStreamOptions
         {
-            Mode = FileMode.OpenOrCreate, Access = FileAccess.ReadWrite, Share = FileShare.None,
-            UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite
+            Mode = create ? FileMode.OpenOrCreate : FileMode.Open, Access = readOnly ? FileAccess.Read : FileAccess.ReadWrite, Share = FileShare.None,
+            UnixCreateMode = create ? UnixFileMode.UserRead | UnixFileMode.UserWrite : null
         });
     }
 
@@ -311,6 +408,12 @@ public sealed class ExtensionInstallationStore : IDisposable
     {
         ObjectDisposedException.ThrowIf(_closed, this);
         if (_poisoned) throw Reject("installation-store-unavailable");
+    }
+
+    private void RequireOperationAuthority()
+    {
+        RequireOpen();
+        if (!_servesOperations) throw Reject("installation-store-maintenance-only");
     }
 
     public void Dispose()
@@ -331,5 +434,6 @@ public sealed class ExtensionInstallationStore : IDisposable
     private sealed record Ledger(int Format, Guid StoreId, long Sequence, ImmutableArray<ExtensionPublisherKey> Keys,
         ImmutableArray<ApprovedExtensionSource> Sources, ImmutableArray<Installation> Installations);
     private sealed record Installation(string Id, ExtensionInstalledVersion Version, string Source, string SignatureDigest,
-        ExtensionPlatform Platform, string PackageIdentity, DateTimeOffset ActivatedAt, bool Active);
+        ExtensionPlatform Platform, string PackageIdentity, DateTimeOffset ActivatedAt, bool Active, ExtensionQuarantine? Quarantine = null);
+    private enum OpenMode { Authority, Maintenance, ReadOnly }
 }
