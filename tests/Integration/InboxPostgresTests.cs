@@ -151,6 +151,7 @@ public sealed class InboxPostgresTests
         }
         var closed = await own.ReceiveAsync(new ArraySegment<byte>(payload), ct).WaitAsync(TimeSpan.FromSeconds(8), ct);
         Assert.Equal(WebSocketCloseStatus.PolicyViolation, closed.CloseStatus);
+        await own.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, ct);
         Assert.False(unrelated.IsCompleted);
         other.Abort();
         await Assert.ThrowsAnyAsync<Exception>(async () => await unrelated);

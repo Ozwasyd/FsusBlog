@@ -52,15 +52,15 @@ internal static class InboxStreamEndpoints
             }
             catch (BusinessException failure) when (failure.Rejection == Rejection.Unauthorized)
             {
-                await Close(socket, WebSocketCloseStatus.PolicyViolation, cancellation);
+                await CloseAndDrain(socket, receive, WebSocketCloseStatus.PolicyViolation, cancellation);
             }
             catch (Exception failure) when (failure is NpgsqlException or PublicUnavailableException)
             {
-                await Close(socket, WebSocketCloseStatus.EndpointUnavailable, cancellation);
+                await CloseAndDrain(socket, receive, WebSocketCloseStatus.EndpointUnavailable, cancellation);
             }
             catch (OperationCanceledException) when (!cancellation.IsCancellationRequested)
             {
-                await Close(socket, WebSocketCloseStatus.EndpointUnavailable, cancellation);
+                await CloseAndDrain(socket, receive, WebSocketCloseStatus.EndpointUnavailable, cancellation);
             }
             catch (Exception failure) when (failure is WebSocketException or OperationCanceledException) { }
             finally
@@ -114,5 +114,14 @@ internal static class InboxStreamEndpoints
         close.CancelAfter(TimeSpan.FromSeconds(1));
         try { await socket.CloseOutputAsync(status, null, close.Token); }
         catch (Exception failure) when (failure is WebSocketException or OperationCanceledException) { }
+    }
+
+    private static async Task CloseAndDrain(WebSocket socket, Task receive, WebSocketCloseStatus status, CancellationToken cancellation)
+    {
+        await Close(socket, status, cancellation);
+        if (socket.State != WebSocketState.CloseSent) return;
+        // Cancelling the still-pending receive aborts the transport and can discard the close frame.
+        try { await receive.WaitAsync(TimeSpan.FromSeconds(1), cancellation); }
+        catch (Exception failure) when (failure is TimeoutException or OperationCanceledException) { }
     }
 }
