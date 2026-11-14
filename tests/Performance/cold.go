@@ -1,0 +1,352 @@
+package main
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"mime"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+)
+
+const coldFanOut = 64
+
+type cacheEvent struct {
+	Event      string `json:"event"`
+	ID         int    `json:"articleId"`
+	Generation string `json:"generation"`
+	Pending    int    `json:"pending"`
+	Active     int    `json:"active"`
+	ElapsedUS  int    `json:"elapsedUs"`
+}
+
+type coldResponse struct {
+	Path       string  `json:"path"`
+	ID         int     `json:"articleId"`
+	Status     int     `json:"status"`
+	Bytes      int     `json:"bytes"`
+	DispatchMS float64 `json:"dispatchMs"`
+	LatencyMS  float64 `json:"latencyMs"`
+	Error      string  `json:"error,omitempty"`
+}
+
+type coldRound struct {
+	Name         string         `json:"name"`
+	StartedAt    time.Time      `json:"startedAt"`
+	FinishedAt   time.Time      `json:"finishedAt"`
+	Events       []cacheEvent   `json:"cacheEvents"`
+	Responses    []coldResponse `json:"responses"`
+	ColdStarts   map[int]int    `json:"coldStarts"`
+	CacheActions map[string]int `json:"cacheActions"`
+	HTTPStatus   map[int]int    `json:"httpStatus"`
+	PendingMax   int            `json:"pendingMax"`
+	ActiveMax    int            `json:"activeMax"`
+	P95MS        float64        `json:"p95Ms"`
+	P99MS        float64        `json:"p99Ms"`
+}
+
+var cacheEventLine = regexp.MustCompile(`Public article cache ([a-z-]+) article=([0-9]+) generation=([0-9]+) pending=([0-9]+) active=([0-9]+) elapsed_us=([0-9]+)`)
+
+func readCacheEvents(path string) ([]cacheEvent, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	events := []cacheEvent{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		match := cacheEventLine.FindStringSubmatch(scanner.Text())
+		if match == nil {
+			continue
+		}
+		id, _ := strconv.Atoi(match[2])
+		pending, _ := strconv.Atoi(match[4])
+		active, _ := strconv.Atoi(match[5])
+		elapsed, _ := strconv.Atoi(match[6])
+		events = append(events, cacheEvent{match[1], id, match[3], pending, active, elapsed})
+	}
+	return events, scanner.Err()
+}
+
+// The server initially materializes the 1,200 newest articles by creation time.
+// The fixture includes the dedicated withdrawal cases in the published ordering.
+func coldRounds(w workload) ([]coldRound, [][]expectation, error) {
+	byCreation := append([]article(nil), w.articles[:len(w.articles)-20]...)
+	sort.Slice(byCreation, func(i, j int) bool {
+		if byCreation[i].CreatedAt.Equal(byCreation[j].CreatedAt) {
+			return byCreation[i].ID > byCreation[j].ID
+		}
+		return byCreation[i].CreatedAt.After(byCreation[j].CreatedAt)
+	})
+	cold := []article{}
+	for _, entry := range byCreation[hotDetails:] {
+		if entry.State == "public" {
+			cold = append(cold, entry)
+		}
+	}
+	selected := make(map[int]bool)
+	rounds := []coldRound{}
+	paths := [][]expectation{}
+	for _, size := range []int{2048, 8192, 32768} {
+		for _, entry := range cold {
+			if entry.BodyBytes == size {
+				selected[entry.ID] = true
+				rounds = append(rounds, coldRound{Name: fmt.Sprintf("same-key-%d-bytes", size)})
+				paths = append(paths, coldPaths(w, []article{entry}))
+				break
+			}
+		}
+	}
+	if len(rounds) != 3 {
+		return nil, nil, errors.New("cold fixture does not contain all three body sizes")
+	}
+	distinct := []article{}
+	for _, entry := range cold {
+		// Use the largest standard bodies to expose parallel rendering without
+		// changing the fixture or adding an artificial render delay.
+		if entry.BodyBytes == 32768 && !selected[entry.ID] {
+			distinct = append(distinct, entry)
+			if len(distinct) == coldFanOut {
+				break
+			}
+		}
+	}
+	if len(distinct) != coldFanOut {
+		return nil, nil, errors.New("cold fixture does not contain 64 distinct large entries")
+	}
+	rounds = append(rounds, coldRound{Name: "distinct-keys-32768-bytes"})
+	paths = append(paths, coldPaths(w, distinct))
+	return rounds, paths, nil
+}
+
+func coldPaths(w workload, articles []article) []expectation {
+	paths := make([]expectation, coldFanOut)
+	for index := range paths {
+		id := articles[index%len(articles)].ID
+		path, class := "/article/"+strconv.Itoa(id), detailHTML
+		if index%2 == 1 {
+			path = strings.Replace(w.wire.Routes["PublicArticle"], "{id}", strconv.Itoa(id), 1)
+			class = detailAEDS
+		}
+		paths[index] = expectation{class: class, path: path, id: id}
+	}
+	return paths
+}
+
+func validateColdResponse(w workload, target expectation, response *http.Response, body []byte) error {
+	if response.Proto != "HTTP/1.1" || len(body) == 0 || len(body) > maxBody {
+		return errors.New("response protocol or bounded body differs")
+	}
+	if response.StatusCode != http.StatusServiceUnavailable {
+		if _, err := metadata(response, target.class, w.generation, w.wire.Headers["SearchIndexGeneration"]); err != nil {
+			return err
+		}
+		return w.validate(target.class, target.id, body)
+	}
+	if response.Header.Get("Cache-Control") != "no-store" {
+		return errors.New("temporary response can be cached")
+	}
+	kind, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
+	if target.class == detailHTML {
+		if kind != "text/plain" || string(body) != "This operation is temporarily unavailable." {
+			return errors.New("temporary response is not the public HTML error")
+		}
+		return nil
+	}
+	if kind != "application/octet-stream" {
+		return errors.New("temporary response is not an AEDS frame")
+	}
+	payload, err := w.parseFrame(body, "ApiError")
+	if err != nil {
+		return err
+	}
+	if len(payload) != number(w.wire.Layouts, "ErrorBytes") ||
+		u32(payload, number(w.wire.Layouts, "ErrorStatusOffset")) != response.StatusCode {
+		return errors.New("AEDS error status differs")
+	}
+	return nil
+}
+
+func releaseColdRound(ctx context.Context, origin *url.URL, w workload, round *coldRound, jobs []expectation) error {
+	clients := make([]connection, len(jobs))
+	dialer := net.Dialer{Timeout: requestLimit}
+	for index := range clients {
+		socket, err := dialer.DialContext(ctx, "tcp", origin.Host)
+		if err != nil {
+			return err
+		}
+		clients[index] = connection{origin: origin, conn: socket, reader: bufio.NewReaderSize(socket, 8192)}
+		defer clients[index].close()
+	}
+	responses := make([]coldResponse, len(jobs))
+	gate := make(chan struct{})
+	var requests sync.WaitGroup
+	for index, target := range jobs {
+		requests.Go(func() {
+			<-gate
+			started := time.Now()
+			row := coldResponse{Path: target.path, ID: target.id, DispatchMS: millis(started.Sub(round.StartedAt))}
+			var body []byte
+			var header *http.Response
+			status, err := clients[index].request(target.path, round.StartedAt.Add(requestLimit), func(response *http.Response) error {
+				header = response
+				var err error
+				body, err = io.ReadAll(io.LimitReader(response.Body, maxBody+1))
+				return err
+			})
+			row.LatencyMS = millis(time.Since(round.StartedAt))
+			row.Status, row.Bytes = status, len(body)
+			if err == nil {
+				err = validateColdResponse(w, target, header, body)
+			}
+			if err != nil {
+				row.Error = err.Error()
+			}
+			responses[index] = row
+		})
+	}
+	round.StartedAt = time.Now()
+	close(gate)
+	requests.Wait()
+	round.StartedAt = round.StartedAt.UTC()
+	round.FinishedAt, round.Responses = time.Now().UTC(), responses
+	return ctx.Err()
+}
+
+func millis(value time.Duration) float64 { return float64(value) / float64(time.Millisecond) }
+
+func summarizeColdRound(round *coldRound, selected []expectation, events []cacheEvent, generation string) error {
+	keys := map[int]bool{}
+	for _, entry := range selected {
+		keys[entry.id] = true
+	}
+	round.ColdStarts, round.CacheActions, round.HTTPStatus = map[int]int{}, map[string]int{}, map[int]int{}
+	var invalid []error
+	admitted := map[int]int{}
+	finished := map[int]int{}
+	ready := map[int]int{}
+	for _, event := range events {
+		round.Events = append(round.Events, event)
+		round.CacheActions[event.Event]++
+		round.ActiveMax = max(round.ActiveMax, event.Active)
+		round.PendingMax = max(round.PendingMax, event.Pending)
+		if event.Generation != generation || !keys[event.ID] {
+			invalid = append(invalid, fmt.Errorf("unexpected cache event for article %d or generation %s", event.ID, event.Generation))
+		}
+		switch event.Event {
+		case "admitted":
+			admitted[event.ID]++
+		case "started":
+			round.ColdStarts[event.ID]++
+			if event.ElapsedUS > 750_000 {
+				invalid = append(invalid, fmt.Errorf("article %d began rendering outside the 750 ms budget", event.ID))
+			}
+		case "ready":
+			ready[event.ID]++
+			if event.ElapsedUS > 2_000_000 {
+				invalid = append(invalid, fmt.Errorf("article %d became ready outside the 2 s budget", event.ID))
+			}
+		case "finished":
+			finished[event.ID]++
+		}
+	}
+	for id := range keys {
+		if admitted[id] != 1 || finished[id] != 1 || ready[id] != 1 || round.ColdStarts[id] != 1 {
+			invalid = append(invalid, fmt.Errorf("article %d did not complete exactly one cold render", id))
+		}
+	}
+	if len(events) == 0 || events[len(events)-1].Pending != 0 || events[len(events)-1].Active != 0 ||
+		round.PendingMax > 64 || round.ActiveMax > 4 {
+		invalid = append(invalid, errors.New("cache counters did not satisfy the concurrency or drain bounds"))
+	}
+	var timings histogram
+	for _, response := range round.Responses {
+		round.HTTPStatus[response.Status]++
+		timings.add(time.Duration(response.LatencyMS * float64(time.Millisecond)))
+		switch {
+		case response.Error != "":
+			invalid = append(invalid, fmt.Errorf("GET %s (%d): %s", response.Path, response.Status, response.Error))
+		case response.LatencyMS > 750:
+			invalid = append(invalid, fmt.Errorf("GET %s (%d) took %.1f ms end to end", response.Path, response.Status, response.LatencyMS))
+		case response.Status != http.StatusOK:
+			invalid = append(invalid, fmt.Errorf("GET %s received a valid %d but normal fixture did not succeed", response.Path, response.Status))
+		}
+	}
+	round.P95MS = timings.percentile(len(round.Responses), 95)
+	round.P99MS = timings.percentile(len(round.Responses), 99)
+	return errors.Join(invalid...)
+}
+
+func runCold(ctx context.Context, origin *url.URL, w workload, logPath string, out io.Writer) int {
+	started := time.Now().UTC()
+	rounds, paths, err := coldRounds(w)
+	var prior []cacheEvent
+	if err == nil {
+		prior, err = readCacheEvents(logPath)
+	}
+	if err == nil && len(prior) != 0 {
+		err = errors.New("Kestrel had already handled cold cache requests")
+	}
+	observed := len(prior)
+	completed := 0
+	for index := range rounds {
+		if err != nil {
+			break
+		}
+		round := &rounds[index]
+		var events []cacheEvent
+		err = releaseColdRound(ctx, origin, w, round, paths[index])
+		if err == nil {
+			deadline := time.Now().Add(time.Second)
+			for {
+				events, err = readCacheEvents(logPath)
+				if err != nil || time.Now().After(deadline) ||
+					len(events) > observed && events[len(events)-1].Event == "finished" && events[len(events)-1].Pending == 0 {
+					break
+				}
+				time.Sleep(5 * time.Millisecond)
+			}
+		}
+		if err == nil && len(events) < observed {
+			err = errors.New("Kestrel cache evidence was truncated")
+		} else if err == nil {
+			err = summarizeColdRound(round, paths[index], events[observed:], w.generation)
+			observed = len(events)
+		}
+		completed++
+	}
+	report := map[string]any{
+		"startedAt": started, "finishedAt": time.Now().UTC(), "target": origin.String(),
+		"generation": w.generation, "fixtureSha256": w.fixture, "requestsPerRound": coldFanOut,
+		"rounds": rounds[:completed], "measurement": "all_correct",
+	}
+	if err != nil {
+		report["error"], report["measurement"] = err.Error(), "failed"
+	}
+	encoder := json.NewEncoder(out)
+	encoder.SetIndent("", "  ")
+	if writeErr := encoder.Encode(report); writeErr != nil {
+		fmt.Fprintln(os.Stderr, writeErr)
+		return 1
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
+}

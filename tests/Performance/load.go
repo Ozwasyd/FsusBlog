@@ -59,6 +59,7 @@ type article struct {
 	HTMLBodyBytes int       `json:"htmlBodyBytes"`
 	HTMLBodySHA   string    `json:"htmlBodySha256"`
 	State         string    `json:"state"`
+	CreatedAt     time.Time `json:"createdAt"`
 	PublishedAt   time.Time `json:"publishedAt"`
 	PublicationID int64     `json:"publicationId"`
 	CategoryID    int       `json:"categoryId"`
@@ -135,7 +136,7 @@ func readWorkload(fixturePath, wirePath string) (workload, error) {
 			state = "draft"
 		}
 		digest, digestErr := hex.DecodeString(entry.BodySHA256)
-		if entry.ID != id || entry.Title == "" || digestErr != nil || len(digest) != sha256.Size || entry.State != state {
+		if entry.ID != id || entry.Title == "" || digestErr != nil || len(digest) != sha256.Size || entry.State != state || entry.CreatedAt.IsZero() {
 			return w, fmt.Errorf("invalid fixture entry %d", id)
 		}
 		if entry.State == "draft" {
@@ -703,6 +704,7 @@ func run() int {
 	wire := flag.String("wire", "src/Contracts/wire.schema.json", "checked-in wire contract")
 	rate := flag.Int("rate", 0, "scheduled requests per second (0 performs preflight only)")
 	seconds := flag.Int("seconds", 60, "seconds per measured stage")
+	coldLog := flag.String("cold-log", "", "existing private Kestrel log from a fresh, owned cold-cache run")
 	output := flag.String("out", "", "new JSON evidence path")
 	flag.Parse()
 	fail := func(err error) int { fmt.Fprintln(os.Stderr, err); return 1 }
@@ -731,6 +733,12 @@ func run() int {
 	defer out.Close()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	if *coldLog != "" {
+		if origin.Scheme != "http" || *rate != 0 {
+			return fail(errors.New("cold sampling requires a fresh direct origin and no hot load"))
+		}
+		return runCold(ctx, origin, w, *coldLog, out)
+	}
 	started := time.Now().UTC()
 	err = preflight(ctx, origin, &w)
 	report := map[string]any{

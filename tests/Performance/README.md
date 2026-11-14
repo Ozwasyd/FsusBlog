@@ -9,6 +9,7 @@ export PG_TOOLS_DIR=/absolute/path/to/postgresql/bin
 mkdir -p artifacts
 tests/Performance/run.sh smoke artifacts/p2-smoke-1
 tests/Performance/run.sh direct artifacts/p2-direct-1
+tests/Performance/run.sh cold artifacts/p2-cold-1
 ```
 
 - `smoke` 用完整数据集和 3 秒 100 QPS 验证接入。`direct` 依次做 30 秒预热和 60 秒采样的 2,000、5,000、8,000、10,500 QPS 档位。`soak` 做 30 秒预热和 15 分钟 8,000 QPS 采样。跨运行比较时留出足够主机容量，避免同时启动编译器、浏览器测试或其他负载。
@@ -16,4 +17,6 @@ tests/Performance/run.sh direct artifacts/p2-direct-1
 - Go 标准库驱动固定 20/30/20/30 四类 GET 请求，最多 256 个活动连接，2 秒端到端期限，HTTP/1.1 keep-alive 和 identity 编码。每档预查全部 2,402 个 URL，用源语料检查发布代次、正文、记录位置、AEDS CRC、分类和标签。计时期间检查完整长度、HTTP 状态、类型和代次，并定期计算校验和。首页 AEDS 游标会随时间刷新，校验和只对其游标字符作归一化，仍验证 AEDS CRC 和游标边界。
 - `outcome.txt` 记录运行、调用、尝试标识和退出状态。`environment.txt`、`owner.txt`、`source-status.txt`、`*.sha256`、`fixture.json` 与 `commands.txt` 将候选源、构建、锁文件、数据、运行身份及命令关联起来。每档 JSON 分路由提供已发、漏发、正确响应、状态、错误、计时分位和发车延迟。`server-process.csv` 保存采样的服务端 RSS 和 CPU。退出时验证并移除本次私有 PostgreSQL、Kestrel 和临时目录，证据目录保留。
 
-当前运行器的客户端和服务端共用主机。调度器把已排队和已发出请求一起限制在 256，按原计划发送时间计延迟。容量耗尽才记录漏发，空闲工作线程处于调度间隙时仍可接收请求。每档退出码表示执行和证据状态，容量按协议原始指标判定。独立供给者、代理/TLS、冷键、数据库访问归因和 GC 指标仍需另行验证。`load.go` 可针对同一主机上已验明当前运行归属的 TLS 代理做采样，证书验证使用系统信任，代理本身的身份和清理由调用方留证。
+- `cold` 运行四轮，每轮在 64 个已连接的 HTTP 客户端上同时释放请求。前三轮各选一个不同大小的未驻留键，HTML 与 AEDS 各 32 次。最后一轮使用 64 个不同的 32 KiB 公开键。按 fixture 创建日期排除热键，关闭热预查，并在私有服务日志中查验首次准入、实际渲染次数、最大并发、队列排空以及客户响应。正常语料要求 256 个正确 200 响应。诊断记录包含本次运行观测到的错误和服务器取消数。64 个不同键用于检查并发上限，不能覆盖超过 64 个键后的拒绝路径。
+
+当前运行器的客户端和服务端共用主机。调度器把已排队和已发出请求一起限制在 256，按原计划发送时间计延迟。容量耗尽才记录漏发，空闲工作线程处于调度间隙时仍可接收请求。每档退出码表示执行和证据状态，容量按协议原始指标判定。独立供给者、代理/TLS、数据库访问归因和 GC 指标仍需另行验证。`load.go` 可针对同一主机上已验明当前运行归属的 TLS 代理做采样，证书验证使用系统信任，代理本身的身份和清理由调用方留证。

@@ -7,8 +7,8 @@ repo=$PWD
 
 mode=${1:-}
 output_arg=${2:-}
-if [[ $# != 2 || ( "$mode" != smoke && "$mode" != direct && "$mode" != soak ) ]]; then
-  echo 'Usage: tests/Performance/run.sh {smoke|direct|soak} NEW_EVIDENCE_DIRECTORY' >&2
+if [[ $# != 2 || ( "$mode" != smoke && "$mode" != direct && "$mode" != soak && "$mode" != cold ) ]]; then
+  echo 'Usage: tests/Performance/run.sh {smoke|direct|soak|cold} NEW_EVIDENCE_DIRECTORY' >&2
   exit 2
 fi
 pg_dir=${PG_TOOLS_DIR:-}
@@ -162,7 +162,7 @@ stage=build
 mkdir -p "$run/source/src" "$run/source/tests/Performance"
 rsync -a --exclude bin --exclude obj --exclude dist --exclude node_modules --exclude .DS_Store src/ "$run/source/src/"
 cp Directory.Build.* NuGet.Config global.json "$run/source/"
-cp tests/Performance/{seed.py,load.go} "$run/source/tests/Performance/"
+cp tests/Performance/{seed.py,load.go,cold.go} "$run/source/tests/Performance/"
 ln -s "$repo/src/Web/node_modules" "$run/source/src/Web/node_modules"
 ln -s "$(cd ../FsusUI && pwd -P)" "$run/FsusUI"
 [[ "$(source_hash)" == "$candidate" && "$(git rev-parse HEAD)" == "$commit" ]] || { echo 'Candidate changed while copying inputs.' >&2; exit 1; }
@@ -173,7 +173,7 @@ ln -s "$(cd ../FsusUI && pwd -P)" "$run/FsusUI"
   "$dotnet" build src/Server/FsusBlog.V2.Server.csproj -c Release --no-restore --output "$run/server"
   "$dotnet" build src/Migrate/FsusBlogV2.Migrate.csproj -c Release --no-restore --output "$run/migrate"
   (cd src/Web && node node_modules/vite/bin/vite.js build --outDir "$run/web")
-  go build -trimpath -o "$run/load" tests/Performance/load.go
+  go build -trimpath -o "$run/load" tests/Performance/{load,cold}.go
   cd "$repo"
 } > "$evidence/build.log" 2>&1
 [[ "$(git -C ../FsusUI rev-parse HEAD)" == "$ui_commit" && "$(git -C ../FsusUI status --porcelain)" == "$ui_status" ]] || {
@@ -199,8 +199,11 @@ stage=database
 
 stage=startup
 server="$run/server/FsusBlog.V2.Server.dll"
+cache_level=Information
+if [[ "$mode" == cold ]]; then cache_level=Debug; fi
 env FSUSBLOG_WEB_DIST="$run/web" ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_URLS= \
   Logging__LogLevel__Microsoft=Warning 'Logging__LogLevel__Microsoft.Hosting.Lifetime=Information' \
+  "Logging__LogLevel__FsusBlog.V2.Server.Publications=$cache_level" \
   "$dotnet" "$server" --urls http://127.0.0.1:0 > "$evidence/server.log" 2>&1 &
 server_pid=$!
 for _ in {1..150}; do
@@ -249,6 +252,18 @@ measure() {
 
 case "$mode" in
   smoke) measure smoke 100 3 ;;
+  cold)
+    stage=cold
+    own_child "$server_pid"
+    pg_ctl -D "$run/pg" status >> "$evidence/owner.txt"
+    cold_args=(-target "$origin" -fixture "$evidence/fixture.json" -wire "$run/source/src/Contracts/wire.schema.json"
+      -cold-log "$evidence/server.log" -out "$evidence/cold.json")
+    { printf 'load'; printf ' %q' "${cold_args[@]}"; printf '\n'; } >> "$evidence/commands.txt"
+    "$run/load" "${cold_args[@]}" > "$evidence/cold.log" 2>&1 &
+    load_pid=$!
+    wait "$load_pid"
+    load_pid=
+    ;;
   direct)
     first=1
     for rate in 2000 5000 8000 10500; do

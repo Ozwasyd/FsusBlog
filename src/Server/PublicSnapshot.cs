@@ -26,14 +26,14 @@ internal sealed class PublicSnapshot
     internal int CorpusPageCount => _corpus?.Count ?? 0;
 
     internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, TaxonomyRows taxonomy, WebPages pages, PublicListCursor cursor,
-        PublicSnapshot? previous, CancellationToken cancellationToken)
+        PublicSnapshot? previous, ILogger log, CancellationToken cancellationToken)
     {
         Watermark = watermark;
         Generation = PublicGeneration(articles);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
         _ordered = articles;
         _byId = articles.ToFrozenDictionary(article => article.Id);
-        _details = new PublicArticleCache(_byId, pages);
+        _details = new PublicArticleCache(_byId, pages, Generation, log);
         _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
         _listing = new PublicListProjection(Generation, articles, cursor);
         var first = articles.Take(10).ToArray();
@@ -182,7 +182,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
                     row.GetString(3), body, row.GetFieldValue<DateTimeOffset>(5), row.GetFieldValue<DateTimeOffset>(6),
                     row.GetFieldValue<DateTimeOffset>(7), body[..limit], category, tags));
             }
-            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, ct);
+            next = new PublicSnapshot(maxEvent, articles, taxonomy, pages, _listCursor, _lastProjection, log, ct);
         }
         await using (var advance = Store.Sql(connection, tx, """
             update public.blog_outbox set processed_at=now() where processed_at is null
