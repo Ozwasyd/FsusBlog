@@ -890,7 +890,8 @@ export function schedulerTierAdmissionActivity({ runsRoot, admission, reference 
         const store = new RunEvidenceObjectStore({
             root: storeRoot,
             runId: admission.runId,
-            sourceState: admission.sourceState
+            sourceState: admission.sourceState,
+            readOnly: true
         });
         const event = store.readJournal().findLast((entry) => (
             entry.eventType === 'tier-admitted'

@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing serialized execution-authority keys while the original producer updates the canonical scheduler admission source content and index digests."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/scheduler-run-owner.mjs"
+            ],
+            "reason": "Retain the canonical scheduler module existing environment-variable spellings while enabling its existing immutable evidence-store observation mode."
+        }
+    ]
+}
