@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -142,10 +142,43 @@ test('producer transfers canonical build directories into the immutable domain w
 
 test('smart gate selects producer exactly when an immutable build consumer is selected', t =>
 {
-    const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-build-smart-gate-'));
+    let temp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'fsusblog-build-smart-gate-'));
     t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const caseSensitive = directory =>
+    {
+        const probe = path.join(directory, 'FsusCaseProbe');
+        fs.writeFileSync(probe, '');
+        const result = !fs.existsSync(path.join(directory, 'fsuscaseprobe'));
+        fs.unlinkSync(probe);
+        return result;
+    };
+    if (!caseSensitive(temp))
+    {
+        fs.rmSync(temp, { recursive: true, force: true });
+        const ownedRoot = path.join(root, '.tmp');
+        fs.mkdirSync(ownedRoot, { recursive: true });
+        temp = fs.mkdtempSync(path.join(ownedRoot, 'fsusblog-build-smart-gate-'));
+        assert.ok(caseSensitive(temp), 'the Git fixture requires a case-sensitive temporary filesystem');
+    }
+    const candidate = path.join(temp, 'candidate');
+    const hooks = path.join(temp, 'hooks');
+    fs.mkdirSync(hooks);
+    const git = (...args) => execFileSync('git', ['-c', `core.hooksPath=${hooks}`, '-C', candidate, ...args], { encoding: 'utf8' }).trim();
+    const base = execFileSync('git', ['-C', root, 'rev-parse', '--verify', 'HEAD^{commit}'], { encoding: 'utf8' }).trim();
+    execFileSync('git', ['-c', `core.hooksPath=${hooks}`, 'clone', '--quiet', '--shared', '--no-checkout', '--', root, candidate]);
+    git('checkout', '--quiet', '--detach', base);
     const run = changedFile =>
     {
+        // Each case is an actual clean commit against the same immutable baseline.
+        git('reset', '--quiet', '--hard', base);
+        const input = path.join(candidate, changedFile);
+        fs.mkdirSync(path.dirname(input), { recursive: true });
+        fs.appendFileSync(input, '\n');
+        git('add', '--', changedFile);
+        git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+            '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'test: exercise PR impact');
+        const head = git('rev-parse', '--verify', 'HEAD^{commit}');
+        assert.equal(git('status', '--porcelain', '--untracked-files=all'), '');
         const changed = path.join(temp, `${path.basename(changedFile)}.txt`);
         const output = path.join(temp, `${path.basename(changedFile)}.json`);
         const githubOutput = path.join(temp, `${path.basename(changedFile)}.github-output`);
@@ -153,13 +186,17 @@ test('smart gate selects producer exactly when an immutable build consumer is se
         const result = spawnSync(process.execPath, [
             'tools/run-test-matrix.mjs', 'ci-pr-plan',
             '--event-name', 'pull_request',
+            '--base-ref', base,
             '--changed-files', changed,
             '--out', output,
             '--github-output', githubOutput
-        ], { cwd: root, encoding: 'utf8' });
+        ], { cwd: candidate, encoding: 'utf8' });
         assert.equal(result.status, 0, result.stderr);
+        const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
+        assert.equal(plan.sourceState.commit, head);
+        assert.deepEqual(plan.changedFiles, [changedFile]);
         return {
-            plan: JSON.parse(fs.readFileSync(output, 'utf8')),
+            plan,
             githubOutput: fs.readFileSync(githubOutput, 'utf8')
         };
     };
@@ -169,29 +206,41 @@ test('smart gate selects producer exactly when an immutable build consumer is se
     assert.ok(runtime.selectedTierIds.includes('production-build-artifacts'));
     assert.ok(runtime.selectedJobs.includes('production-build-artifacts'));
     const producer = runtime.selectedTiers.find(tier => tier.id === 'production-build-artifacts');
-    assert.match(producer.reason, /immutable production build/u);
+    assert.match(producer.triggerReason, /immutable production build/u);
+    assert.equal(producer.reason, 'changed source input: src/backend/Program.cs');
     assert.match(runtimeResult.githubOutput, /production_build_domains=.*backend-runtime/u);
+    const mismatched = path.join(temp, 'mismatched-files.txt');
+    fs.writeFileSync(mismatched, 'docs/README-only.md\n');
+    const refused = spawnSync(process.execPath, [
+        'tools/run-test-matrix.mjs', 'ci-pr-plan', '--event-name', 'pull_request',
+        '--base-ref', base, '--changed-files', mismatched
+    ], { cwd: candidate, encoding: 'utf8' });
+    assert.notEqual(refused.status, 0);
+    assert.match(refused.stderr, /changed files input does not match the actual merge-base Git diff/u);
 
     const frontendResult = run('src/frontend/src/App.vue');
     assert.ok(frontendResult.plan.selectedTierIds.includes('production-build-artifacts'));
-    assert.doesNotMatch(frontendResult.githubOutput, /production_build_domains=.*frontend-dist/u);
-    assert.doesNotMatch(frontendResult.githubOutput, /production_build_domains=.*wasm/u);
+    // The current matrix selects the release XSS tier for frontend changes;
+    // its browser-contract job requires both immutable frontend domains.
+    assert.ok(frontendResult.plan.selectedTierIds.includes('production-xss-release'));
+    assert.ok(frontendResult.plan.selectedJobs.includes('browser-contract'));
+    assert.match(frontendResult.githubOutput,
+        /production_build_domains=backend-runtime,frontend-dist,generated-contracts,test-runtime,wasm\n/u);
     assert.match(frontendResult.githubOutput, /browser_diagnostics=false/u);
 
     const docsOnlyResult = run('docs/README-only.md');
     const docsOnly = docsOnlyResult.plan;
-    assert.ok(docsOnly.selectedTierIds.includes('runtime-cache-public-hot-read'));
-    assert.ok(docsOnly.selectedTierIds.includes('production-build-artifacts'));
-    assert.match(
-        docsOnly.selectedTiers.find(tier => tier.id === 'production-build-artifacts').reason,
-        /selected runtime\/browser job requires/u
-    );
-    assert.match(docsOnlyResult.githubOutput, /production_build_domains=backend-runtime\n/u);
+    assert.equal(docsOnly.fullMode, false);
+    assert.ok(docsOnly.selectedTierIds.includes('source-governance'));
+    assert.ok(!docsOnly.selectedTierIds.includes('runtime-cache-public-hot-read'));
+    assert.ok(!docsOnly.selectedTierIds.includes('production-build-artifacts'));
+    assert.match(docsOnlyResult.githubOutput, /production_build_domains=\n/u);
 });
 
 test('production image workflow covers Docker changes and schedules both production base families', () =>
 {
     const workflow = fs.readFileSync(productionImageWorkflowFile, 'utf8');
+    assert.match(jobSource(workflow, 'contracts'), /node-version: 24\.16\.0/u);
     const imageJob = jobSource(workflow, 'final-image');
     for (const pathFilter of [
         'ops/docker/**',
