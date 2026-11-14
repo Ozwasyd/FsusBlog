@@ -705,9 +705,13 @@ func run() int {
 	rate := flag.Int("rate", 0, "scheduled requests per second (0 performs preflight only)")
 	seconds := flag.Int("seconds", 60, "seconds per measured stage")
 	coldLog := flag.String("cold-log", "", "existing private Kestrel log from a fresh, owned cold-cache run")
+	coldPressure := flag.Bool("cold-pressure", false, "after standard cold rounds run overload and actual disconnect diagnostics")
 	output := flag.String("out", "", "new JSON evidence path")
 	flag.Parse()
 	fail := func(err error) int { fmt.Fprintln(os.Stderr, err); return 1 }
+	if *coldPressure && *coldLog == "" {
+		return fail(errors.New("cold pressure requires the private cold-cache log"))
+	}
 	origin, err := url.Parse(*target)
 	if err != nil || origin.Host == "" || origin.Port() == "" || origin.User != nil || origin.Path != "" ||
 		origin.RawQuery != "" || origin.Fragment != "" || !net.ParseIP(origin.Hostname()).IsLoopback() ||
@@ -737,7 +741,7 @@ func run() int {
 		if origin.Scheme != "http" || *rate != 0 {
 			return fail(errors.New("cold sampling requires a fresh direct origin and no hot load"))
 		}
-		return runCold(ctx, origin, w, *coldLog, out)
+		return runCold(ctx, origin, w, *coldLog, *coldPressure, out)
 	}
 	started := time.Now().UTC()
 	err = preflight(ctx, origin, &w)

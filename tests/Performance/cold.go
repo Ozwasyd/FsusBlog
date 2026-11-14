@@ -39,10 +39,12 @@ type coldResponse struct {
 	DispatchMS float64 `json:"dispatchMs"`
 	LatencyMS  float64 `json:"latencyMs"`
 	Error      string  `json:"error,omitempty"`
+	Aborted    bool    `json:"clientAborted,omitempty"`
 }
 
 type coldRound struct {
 	Name         string         `json:"name"`
+	Offered      int            `json:"offered"`
 	StartedAt    time.Time      `json:"startedAt"`
 	FinishedAt   time.Time      `json:"finishedAt"`
 	Events       []cacheEvent   `json:"cacheEvents"`
@@ -82,7 +84,7 @@ func readCacheEvents(path string) ([]cacheEvent, error) {
 
 // The server initially materializes the 1,200 newest articles by creation time.
 // The fixture includes the dedicated withdrawal cases in the published ordering.
-func coldRounds(w workload) ([]coldRound, [][]expectation, error) {
+func coldRounds(w workload, pressure bool) ([]coldRound, [][]expectation, error) {
 	byCreation := append([]article(nil), w.articles[:len(w.articles)-20]...)
 	sort.Slice(byCreation, func(i, j int) bool {
 		if byCreation[i].CreatedAt.Equal(byCreation[j].CreatedAt) {
@@ -128,11 +130,30 @@ func coldRounds(w workload) ([]coldRound, [][]expectation, error) {
 	}
 	rounds = append(rounds, coldRound{Name: "distinct-keys-32768-bytes"})
 	paths = append(paths, coldPaths(w, distinct))
+	if pressure {
+		for _, entry := range distinct {
+			selected[entry.ID] = true
+		}
+		distinct = nil
+		for _, entry := range cold {
+			if entry.BodyBytes == 32768 && !selected[entry.ID] {
+				distinct = append(distinct, entry)
+				if len(distinct) == maxInFlight {
+					break
+				}
+			}
+		}
+		if len(distinct) != maxInFlight {
+			return nil, nil, errors.New("cold fixture does not contain 256 additional distinct large entries")
+		}
+		rounds = append(rounds, coldRound{Name: "overload-256-distinct-keys-with-client-aborts"})
+		paths = append(paths, coldPaths(w, distinct))
+	}
 	return rounds, paths, nil
 }
 
 func coldPaths(w workload, articles []article) []expectation {
-	paths := make([]expectation, coldFanOut)
+	paths := make([]expectation, max(coldFanOut, len(articles)))
 	for index := range paths {
 		id := articles[index%len(articles)].ID
 		path, class := "/article/"+strconv.Itoa(id), detailHTML
@@ -182,8 +203,9 @@ func validateColdResponse(w workload, target expectation, response *http.Respons
 	return nil
 }
 
-func releaseColdRound(ctx context.Context, origin *url.URL, w workload, round *coldRound, jobs []expectation) error {
+func releaseColdRound(ctx context.Context, origin *url.URL, w workload, round *coldRound, jobs []expectation, pressure bool) error {
 	clients := make([]connection, len(jobs))
+	round.Offered = len(jobs)
 	dialer := net.Dialer{Timeout: requestLimit}
 	for index := range clients {
 		socket, err := dialer.DialContext(ctx, "tcp", origin.Host)
@@ -201,6 +223,15 @@ func releaseColdRound(ctx context.Context, origin *url.URL, w workload, round *c
 			<-gate
 			started := time.Now()
 			row := coldResponse{Path: target.path, ID: target.id, DispatchMS: millis(started.Sub(round.StartedAt))}
+			if pressure && index%8 == (index/8)%2 {
+				row.Aborted = true
+				if err := abortColdRequest(&clients[index], target.path, round.StartedAt.Add(requestLimit)); err != nil {
+					row.Error = err.Error()
+				}
+				row.LatencyMS = millis(time.Since(round.StartedAt))
+				responses[index] = row
+				return
+			}
 			var body []byte
 			var header *http.Response
 			status, err := clients[index].request(target.path, round.StartedAt.Add(requestLimit), func(response *http.Response) error {
@@ -226,6 +257,29 @@ func releaseColdRound(ctx context.Context, origin *url.URL, w workload, round *c
 	round.StartedAt = round.StartedAt.UTC()
 	round.FinishedAt, round.Responses = time.Now().UTC(), responses
 	return ctx.Err()
+}
+
+func abortColdRequest(client *connection, path string, deadline time.Time) error {
+	conn := client.conn.(*net.TCPConn)
+	if err := conn.SetWriteDeadline(deadline); err != nil {
+		return err
+	}
+	if err := conn.SetLinger(0); err != nil {
+		return err
+	}
+	req, err := http.NewRequest("GET", client.origin.String()+path, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept-Encoding", "identity")
+	if err := req.Write(conn); err != nil {
+		return err
+	}
+	// Keep the request pending long enough for Kestrel to start admission in a
+	// real burst. The reset also exercises requests that have already finished.
+	time.Sleep(20 * time.Millisecond)
+	client.close()
+	return nil
 }
 
 func millis(value time.Duration) float64 { return float64(value) / float64(time.Millisecond) }
@@ -292,9 +346,115 @@ func summarizeColdRound(round *coldRound, selected []expectation, events []cache
 	return errors.Join(invalid...)
 }
 
-func runCold(ctx context.Context, origin *url.URL, w workload, logPath string, out io.Writer) int {
+func summarizePressure(round *coldRound, selected []expectation, events []cacheEvent, generation string) error {
+	aborted := map[int]bool{}
+	rejected := map[int]bool{}
+	active := map[int]bool{}
+	round.ColdStarts, round.CacheActions, round.HTTPStatus = map[int]int{}, map[string]int{}, map[int]int{}
+	var unexpected []error
+	known := map[int]bool{}
+	for _, request := range selected {
+		known[request.id] = true
+	}
+	for _, response := range round.Responses {
+		if response.Aborted {
+			aborted[response.ID] = true
+		}
+	}
+	var timings histogram
+	measured := 0
+	for _, event := range events {
+		round.Events = append(round.Events, event)
+		round.CacheActions[event.Event]++
+		round.ActiveMax = max(round.ActiveMax, event.Active)
+		round.PendingMax = max(round.PendingMax, event.Pending)
+		if !known[event.ID] || event.Generation != generation {
+			unexpected = append(unexpected, fmt.Errorf("unexpected cold pressure event for article %d or generation %s", event.ID, event.Generation))
+		}
+		switch event.Event {
+		case "admitted":
+			if active[event.ID] {
+				unexpected = append(unexpected, fmt.Errorf("article %d had simultaneous admissions", event.ID))
+			}
+			active[event.ID] = true
+		case "finished":
+			delete(active, event.ID)
+		case "admission-rejected":
+			if event.Pending != 64 {
+				unexpected = append(unexpected, fmt.Errorf("article %d refused before 64 pending keys", event.ID))
+			}
+			rejected[event.ID] = true
+		case "wait-timeout", "worker-timeout", "render-timeout":
+			rejected[event.ID] = true
+		case "started":
+			round.ColdStarts[event.ID]++
+			if event.ElapsedUS > 750_000 {
+				unexpected = append(unexpected, fmt.Errorf("article %d began rendering outside the 750 ms budget", event.ID))
+			}
+		case "ready":
+			if event.ElapsedUS > 2_000_000 {
+				unexpected = append(unexpected, fmt.Errorf("article %d became ready outside the 2 s budget", event.ID))
+			}
+		case "wait-cancelled":
+			if !aborted[event.ID] {
+				unexpected = append(unexpected, fmt.Errorf("uncancelled client unexpectedly lost article %d", event.ID))
+			}
+		}
+	}
+	if len(active) != 0 || round.ActiveMax > 4 || round.PendingMax > 64 ||
+		len(events) == 0 || events[len(events)-1].Pending != 0 || events[len(events)-1].Active != 0 {
+		unexpected = append(unexpected, errors.New("overload did not satisfy cache limits or drain"))
+	}
+	for id, count := range round.ColdStarts {
+		if count != 1 {
+			unexpected = append(unexpected, fmt.Errorf("article %d rendered %d times", id, count))
+		}
+	}
+	for _, response := range round.Responses {
+		if response.Error != "" {
+			unexpected = append(unexpected, fmt.Errorf("GET %s (%d): %s", response.Path, response.Status, response.Error))
+		}
+		if response.Aborted {
+			continue
+		}
+		round.HTTPStatus[response.Status]++
+		timings.add(time.Duration(response.LatencyMS * float64(time.Millisecond)))
+		measured++
+		if response.Status == 200 && round.ColdStarts[response.ID] != 1 || response.Status == 503 && !rejected[response.ID] {
+			unexpected = append(unexpected, fmt.Errorf("GET %s (%d) has no matching cache result", response.Path, response.Status))
+		}
+		if response.LatencyMS > 750 {
+			unexpected = append(unexpected, fmt.Errorf("GET %s (%d) took %.1f ms end to end", response.Path, response.Status, response.LatencyMS))
+		}
+	}
+	round.P95MS = timings.percentile(measured, 95)
+	round.P99MS = timings.percentile(measured, 99)
+	return errors.Join(unexpected...)
+}
+
+func coldEventsAfterRound(logPath string, seen int, grace time.Duration) ([]cacheEvent, error) {
+	deadline := time.Now().Add(time.Second)
+	quietUntil := time.Now().Add(grace)
+	lastCount := seen
+	for {
+		events, err := readCacheEvents(logPath)
+		if err != nil || time.Now().After(deadline) {
+			return events, err
+		}
+		if len(events) != lastCount {
+			quietUntil = time.Now().Add(grace)
+			lastCount = len(events)
+		}
+		if time.Now().After(quietUntil) && len(events) > seen && events[len(events)-1].Pending == 0 {
+			return events, nil
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func runCold(ctx context.Context, origin *url.URL, w workload, logPath string, pressure bool, out io.Writer) int {
 	started := time.Now().UTC()
-	rounds, paths, err := coldRounds(w)
+	rounds, paths, err := coldRounds(w, pressure)
 	var prior []cacheEvent
 	if err == nil {
 		prior, err = readCacheEvents(logPath)
@@ -304,26 +464,48 @@ func runCold(ctx context.Context, origin *url.URL, w workload, logPath string, o
 	}
 	observed := len(prior)
 	completed := 0
+	var observedPressure *coldRound
+	var retry *coldRound
 	for index := range rounds {
 		if err != nil {
 			break
 		}
 		round := &rounds[index]
+		overload := pressure && index == len(rounds)-1
 		var events []cacheEvent
-		err = releaseColdRound(ctx, origin, w, round, paths[index])
+		err = releaseColdRound(ctx, origin, w, round, paths[index], overload)
 		if err == nil {
-			deadline := time.Now().Add(time.Second)
-			for {
-				events, err = readCacheEvents(logPath)
-				if err != nil || time.Now().After(deadline) ||
-					len(events) > observed && events[len(events)-1].Event == "finished" && events[len(events)-1].Pending == 0 {
-					break
-				}
-				time.Sleep(5 * time.Millisecond)
+			grace := time.Duration(0)
+			if overload {
+				grace = 50 * time.Millisecond
 			}
+			events, err = coldEventsAfterRound(logPath, observed, grace)
 		}
 		if err == nil && len(events) < observed {
 			err = errors.New("Kestrel cache evidence was truncated")
+		} else if err == nil && overload {
+			err = summarizePressure(round, paths[index], events[observed:], w.generation)
+			observedPressure = round
+			if err == nil {
+				observed = len(events)
+				for index, response := range round.Responses {
+					if response.Status != 503 {
+						continue
+					}
+					retry = &coldRound{Name: "retry-after-admission-rejection"}
+					path := paths[len(paths)-1][index : index+1]
+					err = releaseColdRound(ctx, origin, w, retry, path, false)
+					if err == nil {
+						events, err = coldEventsAfterRound(logPath, observed, 0)
+					}
+					if err == nil && len(events) >= observed {
+						err = summarizeColdRound(retry, path, events[observed:], w.generation)
+					} else if err == nil {
+						err = errors.New("Kestrel cache evidence was truncated during retry")
+					}
+					break
+				}
+			}
 		} else if err == nil {
 			err = summarizeColdRound(round, paths[index], events[observed:], w.generation)
 			observed = len(events)
@@ -332,8 +514,22 @@ func runCold(ctx context.Context, origin *url.URL, w workload, logPath string, o
 	}
 	report := map[string]any{
 		"startedAt": started, "finishedAt": time.Now().UTC(), "target": origin.String(),
-		"generation": w.generation, "fixtureSha256": w.fixture, "requestsPerRound": coldFanOut,
+		"generation": w.generation, "fixtureSha256": w.fixture,
 		"rounds": rounds[:completed], "measurement": "all_correct",
+	}
+	inconclusive := false
+	if err == nil && observedPressure != nil {
+		counts := observedPressure.CacheActions
+		report["pressureObserved"] = map[string]bool{"admissionRejection": counts["admission-rejected"] != 0, "serverCancellation": counts["wait-cancelled"] != 0}
+		inconclusive = counts["admission-rejected"] == 0 || counts["wait-cancelled"] == 0
+		if inconclusive {
+			report["measurement"] = "pressure_not_fully_exercised"
+		} else {
+			report["measurement"] = "pressure_exercised"
+		}
+	}
+	if retry != nil {
+		report["retry"] = retry
 	}
 	if err != nil {
 		report["error"], report["measurement"] = err.Error(), "failed"
@@ -347,6 +543,10 @@ func runCold(ctx context.Context, origin *url.URL, w workload, logPath string, o
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
+	}
+	if inconclusive {
+		fmt.Fprintln(os.Stderr, "Pressure did not produce both an admission rejection and a server-side cancellation.")
+		return 2
 	}
 	return 0
 }

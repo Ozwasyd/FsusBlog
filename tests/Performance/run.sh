@@ -258,6 +258,7 @@ case "$mode" in
     pg_ctl -D "$run/pg" status >> "$evidence/owner.txt"
     cold_args=(-target "$origin" -fixture "$evidence/fixture.json" -wire "$run/source/src/Contracts/wire.schema.json"
       -cold-log "$evidence/server.log" -out "$evidence/cold.json")
+    if [[ "${FSUSBLOG_PERF_COLD_PRESSURE:-}" == 1 ]]; then cold_args+=(-cold-pressure); fi
     { printf 'load'; printf ' %q' "${cold_args[@]}"; printf '\n'; } >> "$evidence/commands.txt"
     "$run/load" "${cold_args[@]}" > "$evidence/cold.log" 2>&1 &
     load_pid=$!

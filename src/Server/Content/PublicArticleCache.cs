@@ -106,27 +106,32 @@ internal sealed class PublicArticleCache(IReadOnlyDictionary<int, Article> artic
             {
                 lock (_gate)
                 {
+                    if (Stopwatch.GetElapsedTime(admitted) > WaitBudget)
+                    {
+                        Trace("worker-timeout", article.Id, admitted);
+                        throw new PublicUnavailableException();
+                    }
                     _active++;
                     Trace("started", article.Id, admitted);
                 }
-                var encoded = Encode(article);
-                lock (_gate)
+                try
                 {
-                    if (Stopwatch.GetElapsedTime(admitted) > RenderBudget)
+                    var encoded = Encode(article);
+                    lock (_gate)
                     {
-                        Trace("render-timeout", article.Id, admitted);
-                        throw new PublicUnavailableException();
+                        if (Stopwatch.GetElapsedTime(admitted) > RenderBudget)
+                        {
+                            Trace("render-timeout", article.Id, admitted);
+                            throw new PublicUnavailableException();
+                        }
+                        Add(article.Id, encoded);
+                        Trace("ready", article.Id, admitted);
+                        return encoded;
                     }
-                    Add(article.Id, encoded);
-                    Trace("ready", article.Id, admitted);
-                    return encoded;
                 }
+                finally { lock (_gate) _active--; }
             }
-            finally
-            {
-                lock (_gate) _active--;
-                _workers.Release();
-            }
+            finally { _workers.Release(); }
         }
         finally
         {
