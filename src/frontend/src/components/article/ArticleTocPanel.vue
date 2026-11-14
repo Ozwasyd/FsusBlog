@@ -7,10 +7,12 @@
     >
         <p class="article-toc-panel__title">{{ messages.article.actions.toc }}</p>
         <nav class="article-toc-panel__nav">
-            <button
+            <FsusUiButton
                 v-for="item in items"
                 :key="item.id"
-                type="button"
+                native-type="button"
+                text
+                size="small"
                 class="article-toc-panel__item blog-motion-reading-control"
                 :class="{
                     'article-toc-panel__item--h3': item.level === 3,
@@ -20,7 +22,7 @@
                 @click="emit('navigate', item.id)"
             >
                 {{ item.text }}
-            </button>
+            </FsusUiButton>
         </nav>
     </aside>
 
@@ -37,10 +39,12 @@
             class="article-toc-drawer__nav"
             :aria-label="messages.article.actions.tocAria"
         >
-            <button
+            <FsusUiButton
                 v-for="item in items"
                 :key="item.id"
-                type="button"
+                native-type="button"
+                text
+                size="small"
                 class="article-toc-drawer__item blog-motion-reading-control"
                 :class="{
                     'article-toc-drawer__item--h3': item.level === 3,
@@ -50,7 +54,7 @@
                 @click="handleDrawerNavigate(item.id)"
             >
                 {{ item.text }}
-            </button>
+            </FsusUiButton>
         </nav>
     </ElDrawer>
 </template>
@@ -61,6 +65,7 @@ import { computed } from 'vue';
 import type { ArticleTocItem } from '@/composables/article/useArticleToc';
 import { useI18nText } from '@/composables/useI18nText';
 import { fsusBlogMotionPresets } from '@/fsusui/blogMotion';
+import { FsusUiButton } from '@/fsusui/button';
 
 const props = defineProps<{
     items: ArticleTocItem[];
@@ -77,7 +82,13 @@ const emit = defineEmits<{
 
 const drawerVisible = computed({
     get: () => props.mobileOpen,
-    set: (value: boolean) => emit('update:mobileOpen', value)
+    set: (value: boolean) =>
+    {
+        if (value !== props.mobileOpen)
+        {
+            emit('update:mobileOpen', value);
+        }
+    }
 });
 
 const handleDrawerNavigate = (id: string): void =>
@@ -119,45 +130,91 @@ const handleDrawerNavigate = (id: string): void =>
 .article-toc-panel__item,
 .article-toc-drawer__item
  {
+    position: relative;
     min-height: 2.5rem;
-    border: 0;
-    border-left: 2px solid transparent;
-    border-radius: var(--fsusblog-radius-control);
-    background: transparent;
-    color: var(--fsusblog-text-muted);
-    padding: 0.35rem 0.25rem 0.35rem 0.625rem;
+    height: auto;
+    min-width: 0;
+    justify-content: flex-start;
+    padding-left: calc(0.625rem + 2px);
     text-align: left;
-    font-size: 12px;
-    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.article-toc-panel__item + .article-toc-panel__item,
+.article-toc-drawer__item + .article-toc-drawer__item
+ {
+    margin-left: 0;
+}
+
+.article-toc-panel__item.blog-motion-reading-control,
+.article-toc-drawer__item.blog-motion-reading-control
+ {
+    transition:
+        background-color var(--blog-motion-fast) var(--blog-motion-ease),
+        border-color var(--blog-motion-fast) var(--blog-motion-ease),
+        color var(--blog-motion-fast) var(--blog-motion-ease),
+        opacity var(--blog-motion-fast) var(--blog-motion-ease);
 }
 
 .article-toc-panel__item--h3,
 .article-toc-drawer__item--h3
  {
-    padding-left: 1.375rem;
-    font-size: 12px;
+    padding-left: calc(1.375rem + 2px);
 }
 
-.article-toc-panel__item:hover,
-.article-toc-drawer__item:hover,
 .article-toc-panel__item--active,
 .article-toc-drawer__item--active
  {
-    border-left-color: var(--fsusblog-color-primary);
     color: var(--fsusblog-text-primary);
+}
+
+.article-toc-panel__item::after,
+.article-toc-drawer__item::after
+ {
+    /* Keep chapter feedback independent of the public Button border on touch. */
+
+    /* The transparent idle border stays mounted for the reading color transition. */
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 2px;
+    box-sizing: border-box;
+    border-left: 2px solid transparent;
+    transition: inherit;
+    pointer-events: none;
+    content: '';
+}
+
+.article-toc-panel__item--active::after,
+.article-toc-drawer__item--active::after,
+.article-toc-panel__item:hover::after,
+.article-toc-drawer__item:hover::after,
+.article-toc-panel__item:focus-visible::after,
+.article-toc-drawer__item:focus-visible::after
+ {
+    border-left-color: var(--fsusblog-color-primary);
 }
 
 .article-toc-panel__item:focus-visible,
 .article-toc-drawer__item:focus-visible
  {
-    border-left-color: var(--fsusblog-color-primary);
     box-shadow: inset 0 0 0 2px var(--fsusblog-color-focus-ring);
     color: var(--fsusblog-text-primary);
-    outline: none;
 }
 
 .article-toc-drawer__nav
  {
     padding-bottom: calc(var(--fsus-safe-area-inset-bottom) + 1rem);
+}
+
+@media (prefers-reduced-motion: reduce)
+ {
+    .article-toc-panel__item::after,
+    .article-toc-drawer__item::after
+     {
+        transition: none !important;
+    }
 }
 </style>
