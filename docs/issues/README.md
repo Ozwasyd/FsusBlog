@@ -13,6 +13,7 @@ v1 代码参考为 `2605b438eed8f16d12ddddf033d08a6fa18fcd12`。issue 单独按 
 - [同仓显式引用核对](text-reference-review.md) 说明文本声明、定向正式关系、逐行语境复核和未核对范围。
 - [冻结档外目标的独立核验](target-observation-review.md) 记录 183 个编号后续查询的当前状态、PR 提交和待决语义，原冻结状态按原时间保留。
 - [规模查询、保存视图和私有沟通的语义核对](semantic-scope-review.md) 记录采用条款、执行归属、原优先级、附件阶段和当前验收缺口。
+- [管理标签和文章内容移交](risk-taxonomy-portability.md) 核对稳定 ID、公开刷新、真实管理入口及迁移范围。
 - [公开密钥清单和发布证明](risk-integrity.md) 核对公钥枚举、签名准入、发布/权利坐标与当前缺口。
 - [评论作者、删除与申诉](risk-comment-lifecycle.md) 分开核对普通账号、强匿名、独立管理员、真实写入和公开占位。
 - [公开回滚和附件交付](risk-rollback-media.md) 核对固定 v1 的真实授权、写入、公开投影，以及私有票据与公开资源的边界。
