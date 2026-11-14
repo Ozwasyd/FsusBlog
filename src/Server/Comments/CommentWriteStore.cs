@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlogV2.Storage;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Comments;
@@ -63,6 +64,13 @@ internal static class CommentWriteStore
             select $4,$5,$6,$1,id from new_comment returning comment_id
             """, input.ArticleId, input.Body, eligible.DisplayName, actor.Id, input.IdempotencyKey, hash);
         var id = (long)(await insert.ExecuteScalarAsync(ct))!;
+        if (await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(db, tx, ct))
+        {
+            await using var binding = Store.Sql(db, tx, """
+                insert into public.comment_account_owner(article_id,comment_id,user_id) values($1,$2,$3)
+                """, input.ArticleId, id, actor.Id);
+            await binding.ExecuteNonQueryAsync(ct);
+        }
         return new(input.ArticleId, id, 0, false);
     }
 

@@ -156,9 +156,13 @@ internal static partial class CurrentSchema
         if (requireAdminArticleRollback.HasValue && requireAdminArticleRollback.Value != hasAdminArticleRollback)
             throw new InvalidOperationException("The administrator article rollback schema presence does not match the requested operation.");
         var requireModerationVersion = requireAdminIdentity && adminIdentityVersion >= AdminModerationVersion;
+        var hasCommentAuthorDelete = await HasCommentAuthorDeleteSchemaAsync(connection, transaction, cancellationToken);
+        if (hasCommentAuthorDelete && !requireModerationVersion)
+            throw new InvalidOperationException("Comment author deletion requires the current comment version column.");
         var hasWorkspaceLayout = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceLayoutAsync(connection, transaction, cancellationToken);
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
+            .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteColumns : [])
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityColumns(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? (hasAdminArticleRollback ? PublicationHistoryColumnsForAdminRollback : PublicationHistoryColumns) : [])
@@ -179,6 +183,7 @@ internal static partial class CurrentSchema
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(GetCommentConstraints(requireModerationVersion)).Concat(MediaConstraints)
+            .Concat(hasCommentAuthorDelete ? CommentAuthorDeleteConstraints : [])
             .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
             .Concat(requireAdminIdentity ? GetAdminIdentityConstraints(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])

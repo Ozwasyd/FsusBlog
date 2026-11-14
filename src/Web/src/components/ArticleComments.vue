@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, provide, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton } from '@ozwasyd/element-plus'
 import { comments, type CommentContext, type CommentRoot } from '../../../Contracts/comment-read'
 import CommentBranch from './CommentBranch.vue'
+import { identityEpoch } from '../session'
+import { commentAuthorDelete, useCommentAuthorEligibility } from './commentAuthorActions'
 
 const props = defineProps<{ articleId: number }>()
 const route = useRoute()
@@ -20,7 +22,21 @@ const permalinkNodes = computed(() => {
 const loading = ref(false)
 const failed = ref(false)
 const restart = ref(0)
+const commentTitle = ref<HTMLElement>()
 let request: AbortController | undefined
+const deletionNotice = ref('')
+watch(identityEpoch, () => { deletionNotice.value = '' })
+const visibleNodes = computed(() => linked.value ? permalinkNodes.value : roots.value.flatMap(root => [root.node, ...root.preview]))
+const deletable = useCommentAuthorEligibility(() => props.articleId, visibleNodes)
+
+provide(commentAuthorDelete, async id => {
+  const epoch = identityEpoch.value
+  deletionNotice.value = 'Comment deleted.'
+  restart.value++
+  await nextTick()
+  if (identityEpoch.value === epoch && (route.hash === `#comment-${id}` || document.activeElement === document.body))
+    commentTitle.value?.focus()
+})
 
 onBeforeUnmount(() => request?.abort())
 
@@ -69,18 +85,20 @@ watch([() => props.articleId, () => route.hash, restart], ([, hash]) => void loa
 
 <template>
   <section class="article-comments" aria-labelledby="article-comments-title">
-    <h2 id="article-comments-title">Comments</h2>
+    <h2 id="article-comments-title" ref="commentTitle" tabindex="-1">Comments</h2>
+    <p v-if="deletionNotice" role="status">{{ deletionNotice }}</p>
     <p v-if="linked === null" role="status">This comment is unavailable.</p>
     <p v-if="loading" role="status">Loading comments…</p>
     <template v-if="linked">
       <ol class="comment-roots">
         <CommentBranch v-for="node in permalinkNodes"
-          :key="node.id" :article-id="articleId" :node="node" :target="target" context-only />
+          :key="node.id" :article-id="articleId" :node="node" :target="target" :can-delete="deletable.has(node.id)" context-only />
       </ol>
       <RouterLink :to="{ hash: '#article-comments-title' }">All comments</RouterLink>
     </template>
     <ol v-else-if="roots.length" class="comment-roots">
-      <CommentBranch v-for="root in roots" :key="root.node.id" :article-id="articleId" :node="root.node" :preview="root.preview" />
+      <CommentBranch v-for="root in roots" :key="root.node.id" :article-id="articleId" :node="root.node" :preview="root.preview"
+        :can-delete="deletable.has(root.node.id)" :preview-deletions="deletable" />
     </ol>
     <p v-else-if="!loading && !failed" class="muted">No comments yet.</p>
     <ElAlert v-if="failed" type="error" title="Could not load comments." :closable="false" />

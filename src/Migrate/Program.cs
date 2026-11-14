@@ -76,6 +76,7 @@ internal static partial class Migration
                   revoke NAME           End all sessions and pending tickets for an existing user
                   notify ACCOUNT_ID EVENT_ID
                                         Send an idempotent system notice from a UTF-8 JSON object on stdin
+                  comment author-delete-schema  Add signed-in comment deletion storage with the server stopped
                   comment handle ACCOUNT_ID DISPLAY_NAME
                                         Assign an explicit public comment display name to an enabled account
                   comment policy ARTICLE_ID enable|disable
@@ -262,6 +263,9 @@ internal static partial class Migration
                 case ["comment", "handle", var account, var displayName]:
                     await CommentMaintenance.AssignHandle(connection, account, displayName, token);
                     break;
+                case ["comment", "author-delete-schema"]:
+                    await InitializeCommentAuthorDeleteAsync(connection, token);
+                    break;
                 case ["comment", "policy", var article, var state]:
                     await CommentMaintenance.SetArticlePolicy(connection, article, state, token);
                     break;
@@ -327,6 +331,8 @@ internal static partial class Migration
 
         await RequireEmptyAsync(connection, transaction, token);
         await ExecuteAsync(connection, transaction, schema, token);
+        if (!await CurrentSchema.HasCommentAuthorDeleteSchemaAsync(connection, transaction, token))
+            throw new InvalidOperationException("Comment author deletion schema was not installed.");
         if (!await CurrentSchema.HasAuthoringWorkspaceLayoutAsync(connection, transaction, token))
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,

@@ -1,21 +1,73 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, shallowRef } from 'vue'
+import { computed, inject, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ElAlert, ElButton } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElDialog } from '@ozwasyd/element-plus'
 import { comments, type CommentNode } from '../../../Contracts/comment-read'
+import { deleteOwnComment } from '../../../Contracts/comment-author'
+import { ApiError } from '../../../Contracts/client'
+import { currentSession, identityEpoch } from '../session'
+import { commentAuthorDelete, useCommentAuthorEligibility } from './commentAuthorActions'
 
-const props = defineProps<{ articleId: number; node: CommentNode; preview?: CommentNode[]; target?: string; contextOnly?: boolean }>()
+const props = defineProps<{
+  articleId: number; node: CommentNode; preview?: CommentNode[]; target?: string; contextOnly?: boolean
+  canDelete?: boolean; previewDeletions?: ReadonlySet<string>
+}>()
 const children = shallowRef(props.preview ?? [])
 const expanded = ref(children.value.length > 0)
 const next = ref<string | null>(props.node.moreChildren ? children.value.at(-1)?.id ?? null : null)
 const done = ref(!props.node.moreChildren)
 const loading = ref(false)
 const failed = ref(false)
+const removing = ref(false)
+const confirmRemoval = ref(false)
+const removalError = ref('')
+const notifyDeleted = inject(commentAuthorDelete)
+const previewIds = new Set(props.preview?.map(node => node.id))
+const deletableChildren = useCommentAuthorEligibility(() => props.articleId,
+  computed(() => expanded.value ? children.value.filter(node => !previewIds.has(node.id)) : []))
 let request: AbortController | undefined
+let removal: AbortController | undefined
 const createdAt = new Date(props.node.createdAt).toISOString()
 const displayTime = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(props.node.createdAt)
 
-onBeforeUnmount(() => request?.abort())
+onBeforeUnmount(() => {
+  request?.abort()
+  removal?.abort()
+})
+
+watch([identityEpoch, () => currentSession.value?.siteSessionId, () => props.articleId, () => props.node.id], () => {
+  removal?.abort()
+  removal = undefined
+  removing.value = false
+  confirmRemoval.value = false
+  removalError.value = ''
+}, { flush: 'sync' })
+
+async function removeOwn() {
+  const session = currentSession.value
+  const id = props.node.id
+  if (!props.canDelete || !session?.siteSessionId || session.expiresAt <= Date.now() || removing.value) return
+  const controller = new AbortController()
+  removal = controller
+  const epoch = identityEpoch.value
+  removing.value = true
+  removalError.value = ''
+  try {
+    confirmRemoval.value = false
+    await deleteOwnComment(id, session.siteSessionId, controller.signal)
+    if (!controller.signal.aborted && identityEpoch.value === epoch && currentSession.value?.siteSessionId === session.siteSessionId)
+      notifyDeleted?.(id)
+  } catch (error) {
+    if (!controller.signal.aborted && identityEpoch.value === epoch && currentSession.value?.siteSessionId === session.siteSessionId)
+      removalError.value = error instanceof ApiError && error.status === 409
+        ? 'The comment changed. Reload the article before deleting it.' : 'Could not confirm comment deletion. Reload the article to check.'
+  } finally {
+    if (removal === controller) {
+      removal = undefined
+      removing.value = false
+    }
+  }
+}
 
 async function more() {
   if (done.value || loading.value || children.value.length >= 300) return
@@ -56,15 +108,26 @@ function toggle(show = !expanded.value) {
           <time :datetime="createdAt">{{ displayTime }}</time>
         </RouterLink>
         <span v-if="node.edited">Edited</span>
+        <ElButton v-if="canDelete && !node.deleted" text size="small" :loading="removing" @click="confirmRemoval = true">Delete my comment</ElButton>
       </header>
       <p class="comment-text" :lang="node.author.language">{{ node.content }}</p>
+      <p v-if="removalError" role="alert">{{ removalError }}</p>
+      <ElDialog v-if="canDelete && !node.deleted" v-model="confirmRemoval" title="Delete your comment?"
+        append-to-body :close-on-click-modal="false" width="min(calc(100vw - 2rem), 28rem)">
+        <p>Your comment will be removed. Published replies will remain visible.</p>
+        <template #footer>
+          <ElButton native-type="button" @click="confirmRemoval = false">Keep comment</ElButton>
+          <ElButton native-type="button" type="danger" @click="removeOwn">Delete comment</ElButton>
+        </template>
+      </ElDialog>
       <ElButton v-if="!contextOnly && node.childCount > 0" text size="small"
         v-bind="{ 'aria-expanded': expanded, 'aria-controls': `comment-replies-${node.id}` }" @click="toggle()">
         {{ expanded ? 'Hide replies' : `Show replies (${node.childCount})` }}
       </ElButton>
       <div v-if="!contextOnly && node.childCount > 0" v-show="expanded" :id="`comment-replies-${node.id}`">
         <ol v-if="children.length > 0" class="comment-children">
-          <CommentBranch v-for="child in children" :key="child.id" :article-id="articleId" :node="child" :target="target" />
+          <CommentBranch v-for="child in children" :key="child.id" :article-id="articleId" :node="child" :target="target"
+            :can-delete="previewDeletions?.has(child.id) || deletableChildren.has(child.id)" />
         </ol>
         <ElAlert v-if="failed" type="error" title="Could not load replies." :closable="false" />
         <ElButton v-if="!done && children.length < 300" text size="small" :loading="loading" @click="more">

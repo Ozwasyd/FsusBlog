@@ -27,6 +27,8 @@ inline constexpr uint32_t PrivateMediaBytes = 20971520;
 inline constexpr uint32_t PublicCommentBodyBytes = 4096;
 inline constexpr uint32_t PublicCommentHandleBytes = 384;
 inline constexpr uint32_t PublicCommentFrameBytes = 4533;
+inline constexpr uint32_t CommentAuthorBatchSize = 100;
+inline constexpr uint32_t CommentAuthorProofFrameBytes = 512;
 inline constexpr uint32_t SubscriptionEmailBytes = 254;
 inline constexpr uint32_t SubscriptionProofChars = 64;
 inline constexpr uint32_t MaxSubscriptionPreferenceFrameBytes = 278;
@@ -306,6 +308,12 @@ enum class FrameType : uint16_t {
     PublicCommentSubmission = 32792,
     PublicCommentSubmissionResult = 32793,
     PublicCommentEligibility = 32794,
+    CommentManagementChallengeRequest = 215,
+    CommentManagementChallengeResponse = 216,
+    CommentAuthorMutationResult = 218,
+    CommentAuthorStatusRequest = 219,
+    CommentAuthorEligibilityRequest = 32940,
+    CommentAuthorEligibility = 32941,
     PrivateMediaItems = 32795,
     SubscriptionPreferenceRequest = 32890,
     PrivateMediaUploadState = 32845,
@@ -430,6 +438,12 @@ constexpr bool known(FrameType type) {
         case FrameType::PublicCommentSubmission:
         case FrameType::PublicCommentSubmissionResult:
         case FrameType::PublicCommentEligibility:
+        case FrameType::CommentManagementChallengeRequest:
+        case FrameType::CommentManagementChallengeResponse:
+        case FrameType::CommentAuthorMutationResult:
+        case FrameType::CommentAuthorStatusRequest:
+        case FrameType::CommentAuthorEligibilityRequest:
+        case FrameType::CommentAuthorEligibility:
         case FrameType::PrivateMediaItems:
         case FrameType::SubscriptionPreferenceRequest:
         case FrameType::PrivateMediaUploadState:

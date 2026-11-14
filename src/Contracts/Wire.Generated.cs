@@ -12,6 +12,12 @@ public enum FrameType : ushort
     PublicCommentSubmission = 32792,
     PublicCommentSubmissionResult = 32793,
     PublicCommentEligibility = 32794,
+    CommentManagementChallengeRequest = 215,
+    CommentManagementChallengeResponse = 216,
+    CommentAuthorMutationResult = 218,
+    CommentAuthorStatusRequest = 219,
+    CommentAuthorEligibilityRequest = 32940,
+    CommentAuthorEligibility = 32941,
     PrivateMediaItems = 32795,
     SubscriptionPreferenceRequest = 32890,
     PrivateMediaUploadState = 32845,
@@ -150,6 +156,8 @@ public static class WireLimits
     public const int PublicCommentBodyBytes = 4096;
     public const int PublicCommentHandleBytes = 384;
     public const int PublicCommentFrameBytes = 4533;
+    public const int CommentAuthorBatchSize = 100;
+    public const int CommentAuthorProofFrameBytes = 512;
     public const int SubscriptionEmailBytes = 254;
     public const int SubscriptionProofChars = 64;
     public const int MaxSubscriptionPreferenceFrameBytes = 278;
@@ -428,6 +436,9 @@ public static class WireRoutes
     public const string SubmitPublicComment = "/api/v2/comments/submit.aeds";
     public const string PublicCommentPowChallenge = "/api/v2/comments/pow-challenge.aeds";
     public const string PublicCommentEligibility = "/api/v2/comments/eligibility/{articleId:int}.aeds";
+    public const string CommentAuthorEligibility = "/api/v2/comments/{articleId:int}/author/eligibility.aeds";
+    public const string CommentAuthorChallenge = "/api/binary/comment/{id:long}/author/challenge";
+    public const string CommentAuthorDelete = "/api/binary/comment/{id:long}/author/delete";
     public const string CommentRoots = "/api/binary/comment/{articleId:int}";
     public const string CommentChildren = "/api/binary/comment/{articleId:int}/children/{parentId:long}";
     public const string CommentContext = "/api/binary/comment/{articleId:int}/context/{commentId:long}";

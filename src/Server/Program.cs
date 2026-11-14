@@ -85,6 +85,8 @@ builder.Services.AddRateLimiter(options =>
         (context.Connection.RemoteIpAddress, (context.GetEndpoint() as RouteEndpoint)?.RoutePattern.RawText),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    options.AddPolicy("comment-author-challenge", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 24, Window = TimeSpan.FromMinutes(1) }));
     options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
@@ -223,6 +225,7 @@ FsusBlog.V2.Server.Authoring.ArticleInventoryEndpoints.Map(app, Cookie, Query);
 FsusBlog.V2.Server.Authoring.ArticleScheduleEndpoints.Map(app, Cookie, Query, ReadFrame);
 FsusBlog.V2.Server.Authoring.MarkdownExportEndpoints.Map(app, Cookie, Query);
 FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame);
+FsusBlog.V2.Server.Comments.CommentAuthorDeleteEndpoints.Map(app, Cookie, ReadFrame);
 
 app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) => PublicList(ctx, "home", page, size)).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicArchive, (HttpContext ctx, int page, int size) => PublicList(ctx, "archive", page, size)).RequireRateLimiting("query");
