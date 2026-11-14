@@ -79,6 +79,9 @@ inline constexpr uint32_t CanvasGraphMaxPageNodes = 32;
 inline constexpr uint32_t CanvasGraphMaxPageNodeBytes = 524288;
 inline constexpr uint32_t CanvasGraphMaxPageEdges = 64;
 inline constexpr uint32_t CanvasReferenceExcerptBytes = 768;
+inline constexpr uint32_t CanvasBundleBytes = 3500000;
+inline constexpr uint32_t CanvasBundleMaxReferences = 10000;
+inline constexpr uint32_t CanvasBundleExecuteFrameBytes = 3660124;
 inline constexpr uint32_t PropertyKeyBytes = 64;
 inline constexpr uint32_t PropertyLabelBytes = 1024;
 inline constexpr uint32_t PropertyValueBytes = 65536;
@@ -334,6 +337,9 @@ enum class FrameType : uint16_t {
     CanvasGraphPage = 32813,
     CanvasGraphHistory = 32814,
     CanvasReferenceResolution = 32815,
+    CanvasBundleIntake = 32816,
+    CanvasBundlePlan = 32817,
+    CanvasBundleExecute = 32818,
     PropertyDefinitionCommand = 32779,
     PropertyWorkspaceRequest = 32780,
     PropertyTextCommand = 32781,
@@ -423,6 +429,9 @@ constexpr bool known(FrameType type) {
         case FrameType::CanvasGraphPage:
         case FrameType::CanvasGraphHistory:
         case FrameType::CanvasReferenceResolution:
+        case FrameType::CanvasBundleIntake:
+        case FrameType::CanvasBundlePlan:
+        case FrameType::CanvasBundleExecute:
         case FrameType::PropertyDefinitionCommand:
         case FrameType::PropertyWorkspaceRequest:
         case FrameType::PropertyTextCommand:

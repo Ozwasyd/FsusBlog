@@ -9,13 +9,14 @@ using NpgsqlTypes;
 
 namespace FsusBlog.V2.Server.Authoring;
 
-internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor)
+internal sealed partial class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor)
 {
     private readonly CanvasHistoryStore history = new(db, tx);
     private const int RetainedDocuments = 4_000;
     private const long RetainedRevisions = 100_000;
     internal const int LinkKind = 3;
     internal const int SeedLinkKind = 4;
+    private const int ImportBundleKind = 7;
     private const string Receipt = "e.canvas_id,e.revision,e.title,e.viewport_x,e.viewport_y,e.viewport_zoom,e.deleted,e.node_count,e.edge_count,e.touched_at";
     private const string Node = "id,kind,x,y,width,height,article_id,anchor,pinned_revision,note,member_ids";
     private const string Edge = "id,explicit_reference,source_node_id,target_node_id,sort_order,label";
@@ -71,6 +72,37 @@ internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx
         if (current.Deleted) throw Missing();
         if (current.Revision != revision) throw Conflict();
         return await CanvasReferenceStore.Resolve(db, tx, actor.Id, id, nodeId, current.Revision, ct);
+    }
+
+    internal async Task<byte[]> ExportBundle(Guid id, long revision, CancellationToken ct)
+    {
+        if (id == Guid.Empty || revision <= 0) throw Invalid("An exact Canvas revision is required.");
+        var current = await Current(id, write: false, ct) ?? throw Missing();
+        if (current.Deleted) throw Missing();
+        if (current.Revision != revision) throw Conflict();
+        var graph = await LoadGraph(current, ct);
+        await CheckReferences(graph.Nodes, ct);
+        await CanvasBundleStore.ValidateAnchors(db, tx, graph.Nodes, ct);
+        var view = current.Viewport;
+        return CanvasPortableBundle.Export(current.Title, new(view.X, view.Y, view.Zoom), revision, graph).Encode();
+    }
+
+    internal async Task<CanvasGraphReceipt> ImportBundle(CanvasBundleExecute input, byte[] fingerprint, CancellationToken ct)
+    {
+        if (CanvasBundleStore.Digest(input.Bundle) != input.Digest)
+            throw Invalid("The Canvas bundle is different from the validated package.");
+        await Store.LockCommand(db, tx, actor.Id, Guid.Empty, ct);
+        if (await Replay(input.CanvasId, input.CommandId, ImportBundleKind, fingerprint, ct) is { } replay)
+            return replay;
+        var bundle = CanvasBundleStore.Read(input.Bundle);
+        var mappings = input.Mappings.ToDictionary(mapping => mapping.Slot,
+            mapping => new CanvasPortableTarget(mapping.ArticleId, mapping.PinnedRevision));
+        var graph = bundle.Materialize(mappings, input.CanvasId);
+        await CheckReferences(graph.Nodes, ct);
+        await CanvasBundleStore.ValidateAnchors(db, tx, graph.Nodes, ct);
+        var view = bundle.Viewport;
+        return await Create(input.CanvasId, input.CommandId, ImportBundleKind, fingerprint, Title(bundle.Title),
+            Viewport(new(view.X, view.Y, view.Zoom)), graph, ct);
     }
 
     internal async Task<CanvasGraphHistory> History(Guid id, long revision, CancellationToken ct)
@@ -195,8 +227,16 @@ internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx
             values($1,$2,1,$3,$4,$5,$6,false,clock_timestamp()) on conflict do nothing returning touched_at
             """, id, actor.Id, title, viewport.X, viewport.Y, viewport.Zoom);
         if (await create.ExecuteScalarAsync(ct) is not DateTime touched) throw Missing();
-        foreach (var node in graph.Nodes) await StoreNode(id, node, ct);
-        foreach (var edge in graph.Edges) await StoreEdge(id, edge, ct);
+        if (graph.Nodes.Length > 64 || graph.Edges.Length > 64)
+        {
+            await CopySeedNodes(id, graph.Nodes, ct);
+            await CopySeedEdges(id, graph.Edges, ct);
+        }
+        else
+        {
+            foreach (var node in graph.Nodes) await StoreNode(id, node, ct);
+            foreach (var edge in graph.Edges) await StoreEdge(id, edge, ct);
+        }
         var receipt = new CanvasGraphReceipt(id, 1, title, viewport, false, graph.Nodes.Length, graph.Edges.Length, touched);
         await Record(receipt, key, kind, fingerprint, ct);
         return receipt;

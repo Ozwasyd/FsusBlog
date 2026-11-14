@@ -12,6 +12,8 @@ import {
 import { confirmCanvasLink, previewCanvasLink } from '../../../Contracts/canvas-links'
 import type { CanvasLinkPlan } from '../../../Contracts/wire.generated'
 import CanvasBoard from '../authoring/CanvasBoard.vue'
+import CanvasBundlePanel from '../authoring/CanvasBundlePanel.vue'
+import { canvasBundle } from '../../../Contracts/canvas-bundle'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 
 const route = useRoute()
@@ -22,6 +24,7 @@ const authorized = computed(() => currentSession.value?.canAuthor === true && cu
 const ready = ref(false)
 const loading = ref(false)
 const working = ref(false)
+const bundlePending = ref(false)
 const stale = ref(false)
 const message = ref('')
 const error = ref('')
@@ -79,7 +82,7 @@ const activeLink = computed(() => {
     pair.from.pinnedRevision || pair.to.pinnedRevision || pair.from.articleId === pair.to.articleId) return undefined
   return { from: pair.from, to: pair.to }
 })
-const disabled = computed(() => loading.value || working.value || linkPending.value || !!plan.value || !!retry.value || stale.value || graphReadFailure.value)
+const disabled = computed(() => loading.value || working.value || linkPending.value || !!plan.value || !!retry.value || stale.value || graphReadFailure.value || bundlePending.value)
 const historyActionAvailable = computed(() => {
   const current = document.value
   const position = history.value
@@ -122,6 +125,7 @@ function reset() {
   plan.value = undefined
   form.value = undefined
   working.value = false
+  bundlePending.value = false
   loading.value = false
   stale.value = false
   graphReadFailure.value = false
@@ -259,7 +263,7 @@ onMounted(() => {
   }).catch(() => { error.value = 'Could not verify your session.' })
 })
 function protectUnload(event: BeforeUnloadEvent) {
-  if (working.value || retry.value || linkUnconfirmed.value || linkPending.value) event.preventDefault()
+  if (working.value || bundlePending.value || retry.value || linkUnconfirmed.value || linkPending.value) event.preventDefault()
 }
 onMounted(() => window.addEventListener('beforeunload', protectUnload))
 onScopeDispose(() => {
@@ -270,7 +274,7 @@ onScopeDispose(() => {
   window.removeEventListener('beforeunload', protectUnload)
 })
 function canNavigate() {
-  return !working.value && !linkPending.value && !form.value && !plan.value &&
+  return !working.value && !bundlePending.value && !linkPending.value && !form.value && !plan.value &&
     !retry.value && !linkUnconfirmed.value
 }
 onBeforeRouteUpdate(canNavigate)
@@ -330,6 +334,10 @@ async function resolveReference() {
       referenceRequest = undefined
     }
   }
+}
+
+function openImported(id: string) {
+  void router.push({ name: 'canvas-document', params: { id } })
 }
 
 function chooseNode(id: string) { nodeId.value = id; edgeId.value = '' }
@@ -584,9 +592,16 @@ function edgeLabel(edge: CanvasGraphEdge) {
         <RouterLink :to="documentId ? '/user/manage/canvas' : articlePath">{{ documentId ? 'All canvases' : 'Article workspace' }}</RouterLink>
         <h1 id="canvas-title">{{ document?.title ?? (documentId ? 'Canvas' : 'Canvases') }}</h1>
       </div>
-      <div v-if="authorized && ready">
-        <ElButton v-if="!documentId" type="primary" :disabled="disabled" @click="nameDocument">New Canvas</ElButton>
-        <ElButton v-else-if="document" :disabled="disabled" @click="nameDocument">Rename Canvas</ElButton>
+      <div v-if="authorized && ready" class="canvas-toolbar">
+        <template v-if="!documentId">
+          <ElButton type="primary" :disabled="disabled" @click="nameDocument">New Canvas</ElButton>
+          <CanvasBundlePanel :key="identityEpoch" :disabled="disabled" @imported="openImported" @pending="bundlePending = $event" @expired="invalidateSession()" />
+        </template>
+        <template v-else-if="document">
+          <ElButton :disabled="disabled" @click="nameDocument">Rename Canvas</ElButton>
+          <a v-if="!disabled" :href="canvasBundle.downloadHref(document.id, document.revision)" download="canvas.fsuscanvas"
+            class="canvas-bundle-export" :title="`Download revision ${document.revision}. Notes are unencrypted.`">Export Canvas bundle</a>
+        </template>
       </div>
     </header>
 

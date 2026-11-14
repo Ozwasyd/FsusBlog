@@ -1,0 +1,19 @@
+# Canvas 可移植包
+
+Canvas 工作区可以下载当前精确修订的 `.fsuscanvas` 文件。文件包含 Canvas 标题、视口、节点、边、几何、分组成员和原样换行的纯文本笔记。包体不加密。导出验证当前作者和全部已保存引用，即使某文章已经公开也沿用作者权限。过期文档修订会收到冲突，不会下载另外一个版本。
+
+格式为独立的 `authoring-canvas` v1 UTF-8 JSON。固定字段顺序、整数、连续包内槽位及内容 SHA-256 提供可复验的确定性。单文件无文件路径、压缩及媒体条目。笔记保留换行，角标识、目标类型和固定修订意图按引用节点保存。文件没有原站点、所有者、文档、节点、边、文章数据库 ID，也没有原目标修订号、标题、正文或渲染缓存。相同已验证的源修订生成相同字节。导入后第一次保存使用目标站点的修订 1；重新导出时源修订字段以该文档新修订为准。
+
+| 操作 | 授权 API |
+| --- | --- |
+| 下载 | GET `/api/v2/authoring/canvas/documents/{id}/bundle?revision=...` |
+| 内容预检 | POST `/api/v2/authoring/canvas/bundles/plan.aeds` |
+| 确认新建 | POST `/api/v2/authoring/canvas/bundles/execute.aeds` |
+
+预检验证封闭结构、内容摘要、大小和图形边界，并返回待映射引用槽，整个步骤零业务写入。导入者必须为每个槽填写当前站点由自己拥有的文章 ID；固定引用还要填写目标站点的确切修订。预检不向目标文章读正文。提交创建时重新验证原始字节摘要、引用数量、所有者、文章状态、修订及唯一锚点；失败不会创建 Canvas。相同请求重试返回原回执，换键不能覆盖已有文档。成功事务只创建自己的新 Canvas 并记录 Canvas 回执，文章和关联数据不写入。文件中的纯文本不解释为 Markdown 或 HTML。
+
+每个包最多 3,500,000 字节、10,000 个节点、10,000 条边和 100,000 条分组成员关系，沿用现有字段上限。最多读取 64 个锚点来源坐标，每个最多 64 个不同锚点，并限制请求总扫描量。定向映射可用于其他站点，原站点标识不参与匹配。覆盖已有 Canvas、保留未解析节点、跳过节点、ZIP 和全量无回读式流解析仍未实现。
+
+本机 PostgreSQL 18.7 实际往返 10,000 节点和 10,000 条边，包大小 884,277 字节，导入 1,185 ms，导出 801 ms。重新导出逐字节一致，这是隔离测试的单次观测。另以真实 Chrome 验证下载、篡改拒绝、零写入取消、窄屏映射后导入，以及两篇文章草稿保持原样。 [数据库结果](../../artifacts/canvas-bundle-evidence/postgres.log) · [浏览器结果](../../artifacts/canvas-bundle-browser/run-1/browser-result.json)
+
+[Canvas 事务](canvas-transaction.md) · [包格式需求 #2491](https://github.com/Ozwasyd/FsusBlog/issues/2491) · [导入需求 #2495](https://github.com/Ozwasyd/FsusBlog/issues/2495) · [界面需求 #2496](https://github.com/Ozwasyd/FsusBlog/issues/2496)

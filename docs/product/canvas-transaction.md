@@ -26,7 +26,7 @@ Canvas 文档与链接确认共用同一份数据及修订号。站点范围由�
 
 真实 PostgreSQL 测试覆盖会话和作者范围、私有标题不进入预览、方括号等字符的标签转义、围栏代码中的插入拒绝、目标版本变化、两个并发确认及回执持久化失败后的全量回滚。真实 Kestrel 测试覆盖已挂载路由、AEDS 请求与响应、认证、错误帧、CRC 和禁止缓存。C# 与 TypeScript 对照独立构造的预览响应字节向量。
 
-当前链接转换覆盖同作者、已公开普通文章、显式引用边、文末插入及保留边。文章、标题和块引用可按作者范围解析标题和确切修订，跨工作区的精确坐标跳转仍待接入。任意文章编辑坐标、关系索引、导入导出和生产规模的 Canvas 性能验收仍待完成。视觉连线能否转换的冲突仍在台账。该版 Canvas 表结构随全新 v2 数据库离线安装。 [#2487](https://github.com/Ozwasyd/FsusBlog/issues/2487) · [#2490](https://github.com/Ozwasyd/FsusBlog/issues/2490) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+当前链接转换覆盖同作者、已公开普通文章、显式引用边、文末插入及保留边。文章、标题和块引用可按作者范围解析标题和确切修订，跨工作区的精确坐标跳转仍待接入。任意文章编辑坐标、关系索引和生产规模的 Canvas 性能验收仍待完成。独立包支持当前精确修订下载及显式映射后新建。 [Canvas 可移植包](canvas-bundles.md)视觉连线能否转换的冲突仍在台账。该版 Canvas 表结构随全新 v2 数据库离线安装。 [#2487](https://github.com/Ozwasyd/FsusBlog/issues/2487) · [#2490](https://github.com/Ozwasyd/FsusBlog/issues/2490) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
 
 ## 私有引用解析
 

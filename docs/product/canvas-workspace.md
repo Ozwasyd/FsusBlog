@@ -10,4 +10,6 @@
 
 工具栏的撤销与重做绑定当前修订，并在 PostgreSQL 持久保存。刷新后仍可继续操作。图形或大纲中的 Ctrl／Cmd+Z 撤销，Shift+Ctrl／Cmd+Z 重做。新的编辑清除旧重做分支。浏览器回归覆盖键盘操作、刷新后重做、过期标签冲突、焦点归位和 375px。 [历史浏览器结果](../../artifacts/canvas-history-browser/retry-1/browser-result.json)
 
-图形工作区仍缺包导入导出、有数据的旧开发数据库转换和 10,000 节点整条原生链路的验收。当前 10,000 节点浏览器检查使用内存输入验证挂载上限。 [事务与原生 API](canvas-transaction.md) · [#2488](https://github.com/Ozwasyd/FsusBlog/issues/2488) · [#2489](https://github.com/Ozwasyd/FsusBlog/issues/2489) · [#3736](https://github.com/Ozwasyd/FsusBlog/issues/3736)
+可以下载当前精确修订的可移植包，再显式映射到本地文章后导入为新 Canvas。 [Canvas 可移植包](canvas-bundles.md)
+
+图形工作区仍缺导入覆盖既有文档、有数据的旧开发数据库转换和 10,000 节点整条浏览器链路的验收。当前 10,000 节点浏览器检查使用内存输入验证挂载上限。 [事务与原生 API](canvas-transaction.md) · [#2488](https://github.com/Ozwasyd/FsusBlog/issues/2488) · [#2489](https://github.com/Ozwasyd/FsusBlog/issues/2489) · [#3736](https://github.com/Ozwasyd/FsusBlog/issues/3736)

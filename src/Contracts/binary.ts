@@ -45,6 +45,12 @@ export class PodReader {
     return decodeUtf8(this.take(length));
   }
 
+  bytes(limit: number): Uint8Array {
+    const length = this.i32();
+    if (length < 0 || length > limit) throw new ProtocolError('Invalid AEDS byte collection length');
+    return this.take(length);
+  }
+
   finish(): void {
     if (this.offset !== this.payload.length) throw new ProtocolError('Trailing AEDS payload data');
   }
@@ -100,6 +106,11 @@ export class PodWriter {
     if (decodeUtf8(bytes) !== value) throw new ProtocolError('Invalid AEDS source text');
     this.i32(bytes.length);
     this.parts.push(bytes);
+  }
+
+  bytes(value: Uint8Array): void {
+    this.i32(value.length);
+    this.parts.push(value);
   }
 
   finish(): Uint8Array {

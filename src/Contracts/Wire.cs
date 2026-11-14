@@ -131,6 +131,12 @@ public static partial class Wire
             if (length != 0)
                 buffer.Advance(Utf8.GetBytes(value, buffer.GetSpan(length)));
         }
+
+        public void Bytes(ReadOnlySpan<byte> value)
+        {
+            I32(value.Length);
+            buffer.Write(value);
+        }
     }
 
     private ref struct Reader(ReadOnlySpan<byte> payload)
@@ -149,6 +155,13 @@ public static partial class Wire
         }
         public long I64() => BinaryPrimitives.ReadInt64LittleEndian(Take(8));
         public Guid Uuid() => new(Take(16), bigEndian: true);
+
+        public ReadOnlySpan<byte> Bytes(int limit)
+        {
+            var length = I32();
+            if (length < 0 || length > limit) throw new ProtocolException("Invalid AEDS byte collection length");
+            return Take(length);
+        }
 
         public bool Bool() => Take(1)[0] switch
         {

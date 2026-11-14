@@ -9,6 +9,35 @@ internal static class CanvasGraphEndpoints
 {
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
+        app.MapGet(WireRoutes.CanvasBundleExport, (HttpContext ctx, Store store, Guid id, CancellationToken ct) =>
+        {
+            long revision = Coordinate(ctx, "revision", long.MaxValue);
+            return store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+            {
+                var bytes = await new CanvasGraphStore(db, tx, actor).ExportBundle(id, revision, ct);
+                return Results.File(bytes, Wire.CanvasBundleContentType, "canvas.fsuscanvas");
+            }, ct);
+        }).RequireRateLimiting("command");
+
+        app.MapPost(WireRoutes.CanvasBundlePlan, (HttpContext ctx, Store store, CancellationToken ct) =>
+            store.WithSession(ctx.Request.Cookies[cookie], true, async (_, _, _) =>
+            {
+                var frame = await readFrame(ctx, WireLimits.CanvasBundleBytes + Aeds.HeaderSize, ct);
+                return Frame(Wire.EncodeCanvasBundlePlan(CanvasBundleStore.Plan(Wire.DecodeCanvasBundleIntake(frame))));
+            }, ct)).RequireRateLimiting("command");
+
+        app.MapPost(WireRoutes.CanvasBundleExecute, (HttpContext ctx, Store store, CancellationToken ct) =>
+            store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+            {
+                var frame = await readFrame(ctx, WireLimits.CanvasBundleExecuteFrameBytes, ct);
+                var input = Wire.DecodeCanvasBundleExecute(frame);
+                if (ctx.Request.Headers.TryGetValue(WireHeaders.ClientMutationId, out var header) &&
+                    (header.Count != 1 || !Guid.TryParseExact(header[0], "D", out var id) || id != input.CommandId))
+                    throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
+                var result = await new CanvasGraphStore(db, tx, actor).ImportBundle(input, SHA256.HashData(frame), ct);
+                return Frame(Wire.EncodeCanvasGraphReceipt(result));
+            }, ct)).RequireRateLimiting("command");
+
         app.MapGet(WireRoutes.CanvasGraphList, (HttpContext ctx, Store store, CancellationToken ct) =>
             store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
                 Frame(Wire.EncodeCanvasGraphList(await new CanvasGraphStore(db, tx, actor).List(ct))), ct))

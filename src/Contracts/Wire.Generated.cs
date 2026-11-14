@@ -70,6 +70,9 @@ public enum FrameType : ushort
     CanvasGraphPage = 32813,
     CanvasGraphHistory = 32814,
     CanvasReferenceResolution = 32815,
+    CanvasBundleIntake = 32816,
+    CanvasBundlePlan = 32817,
+    CanvasBundleExecute = 32818,
     PropertyDefinitionCommand = 32779,
     PropertyWorkspaceRequest = 32780,
     PropertyTextCommand = 32781,
@@ -167,6 +170,9 @@ public static class WireLimits
     public const int CanvasGraphMaxPageNodeBytes = 524288;
     public const int CanvasGraphMaxPageEdges = 64;
     public const int CanvasReferenceExcerptBytes = 768;
+    public const int CanvasBundleBytes = 3500000;
+    public const int CanvasBundleMaxReferences = 10000;
+    public const int CanvasBundleExecuteFrameBytes = 3660124;
     public const int PropertyKeyBytes = 64;
     public const int PropertyLabelBytes = 1024;
     public const int PropertyValueBytes = 65536;
@@ -449,6 +455,9 @@ public static class WireRoutes
     public const string CanvasGraphPage = "/api/v2/authoring/canvas/documents/{id:guid}.aeds";
     public const string CanvasGraphHistory = "/api/v2/authoring/canvas/documents/{id:guid}/history.aeds";
     public const string CanvasReference = "/api/v2/authoring/canvas/documents/{id:guid}/references/{nodeId:guid}.aeds";
+    public const string CanvasBundleExport = "/api/v2/authoring/canvas/documents/{id:guid}/bundle";
+    public const string CanvasBundlePlan = "/api/v2/authoring/canvas/bundles/plan.aeds";
+    public const string CanvasBundleExecute = "/api/v2/authoring/canvas/bundles/execute.aeds";
     public const string PropertyDefinitionCommand = "/api/v2/authoring/properties/definition.aeds";
     public const string PropertyWorkspace = "/api/v2/authoring/properties/workspace.aeds";
     public const string PropertyTextCommand = "/api/v2/authoring/properties/text.aeds";

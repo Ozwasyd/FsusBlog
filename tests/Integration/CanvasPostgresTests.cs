@@ -75,6 +75,130 @@ public sealed class CanvasPostgresTests
     }
 
     [PostgresFact]
+    public async Task PortableBundleKeepsOnlyCanvasFactsAndRebindsExplicitly()
+    {
+        await using var test = await Fixture.Open();
+        var owner = await test.Author("Canvas export owner");
+        var other = await test.Author("Canvas import owner");
+        var from = await test.Save(owner.Token, "Private source <article>", "# Source mapped ^block");
+        var into = await test.Save(other.Token, "Private target article", "# Target mapped ^block");
+        var bad = await test.Save(other.Token, "Another private title", "Unrelated content");
+        var canvas = Guid.NewGuid();
+        var note = Guid.NewGuid();
+        var reference = Guid.NewGuid();
+        var edge = Guid.NewGuid();
+        await using var server = await ServerProcess.Start(test.ConnectionString, test.Token);
+        var initial = new CanvasGraphCommand(canvas, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Portable research", new(1310, -2150, 1200),
+        [
+            new CanvasChangeFrame.PutNode(new(note, 3, 10, 95, 12000, 8000, Text: "Plain note 🐝")),
+            new CanvasChangeFrame.PutNode(new(reference, 1, 13500, 0, 12000, 8000, from.Id, "block", from.Revision)),
+            new CanvasChangeFrame.PutEdge(new(edge, 0, note, reference, 0, null)),
+        ]);
+        await Send(HttpMethod.Post, WireRoutes.CanvasGraphWrite, owner.Token, HttpStatusCode.OK, Wire.EncodeCanvasGraphCommand(initial));
+        string export = WireRoutes.CanvasBundleExport.Replace("{id:guid}", canvas.ToString("D"));
+        var packed = await Send(HttpMethod.Get, export + "?revision=1", owner.Token, HttpStatusCode.OK, package: true);
+        Assert.Equal(packed, await Send(HttpMethod.Get, export + "?revision=1", owner.Token, HttpStatusCode.OK, package: true));
+        var json = System.Text.Encoding.UTF8.GetString(packed);
+        Assert.Contains("Plain note", json, StringComparison.Ordinal);
+        foreach (var hidden in new[] { owner.User.Id.ToString("D"), canvas.ToString("D"), note.ToString("D"),
+            reference.ToString("D"), edge.ToString("D"), from.Title, from.Body })
+            Assert.DoesNotContain(hidden, json, StringComparison.Ordinal);
+        await Send(HttpMethod.Get, export + "?revision=1", other.Token, HttpStatusCode.NotFound);
+        await Send(HttpMethod.Get, export + "?revision=2", owner.Token, HttpStatusCode.Conflict);
+        await Send(HttpMethod.Get, export + "?revision=1", null, HttpStatusCode.Unauthorized);
+
+        var before = await test.Scalar("select count(*) from public.authoring_canvas");
+        var originalRows = await test.Scalar("select count(*) from public.article_revision");
+        var originalOutbox = await test.Scalar("select count(*) from public.blog_outbox");
+        var plan = Wire.DecodeCanvasBundlePlan(await Send(HttpMethod.Post, WireRoutes.CanvasBundlePlan, other.Token,
+            HttpStatusCode.OK, Wire.EncodeCanvasBundleIntake(packed)));
+        Assert.Equal((1L, "Portable research", 2, 1), (plan.SourceRevision, plan.Title, plan.NodeCount, plan.EdgeCount));
+        Assert.Equal(new(1, 1, true, "block"), Assert.Single(plan.References));
+        Assert.Equal(before, await test.Scalar("select count(*) from public.authoring_canvas"));
+        var tampered = (byte[])packed.Clone();
+        tampered[^4] ^= 1;
+        await Send(HttpMethod.Post, WireRoutes.CanvasBundlePlan, other.Token, HttpStatusCode.BadRequest, Wire.EncodeCanvasBundleIntake(tampered));
+        var command = new CanvasBundleExecute(Guid.NewGuid(), Guid.NewGuid(), plan.Digest, [new(1, into.Id, into.Revision)], packed);
+        await Send(HttpMethod.Post, WireRoutes.CanvasBundleExecute, other.Token, HttpStatusCode.BadRequest,
+            Wire.EncodeCanvasBundleExecute(command with { Bundle = tampered }));
+        await Send(HttpMethod.Post, WireRoutes.CanvasBundleExecute, other.Token, HttpStatusCode.BadRequest,
+            Wire.EncodeCanvasBundleExecute(command with { Mappings = [] }));
+        await Send(HttpMethod.Post, WireRoutes.CanvasBundleExecute, other.Token, HttpStatusCode.NotFound,
+            Wire.EncodeCanvasBundleExecute(command with { Mappings = [new(1, from.Id, from.Revision)] }));
+        await Send(HttpMethod.Post, WireRoutes.CanvasBundleExecute, other.Token, HttpStatusCode.NotFound,
+            Wire.EncodeCanvasBundleExecute(command with { Mappings = [new(1, bad.Id, bad.Revision)] }));
+        Assert.Equal(before, await test.Scalar("select count(*) from public.authoring_canvas"));
+
+        var commandBytes = Wire.EncodeCanvasBundleExecute(command);
+        var imported = Wire.DecodeCanvasGraphReceipt(await Send(HttpMethod.Post, WireRoutes.CanvasBundleExecute, other.Token, HttpStatusCode.OK, commandBytes));
+        Assert.Equal((command.CanvasId, 1L, 2, 1, new CanvasViewport(1310, -2150, 1200)),
+            (imported.Id, imported.Revision, imported.NodeCount, imported.EdgeCount, imported.Viewport));
+        Assert.Equal(imported, Wire.DecodeCanvasGraphReceipt(await Send(HttpMethod.Post, WireRoutes.CanvasBundleExecute, other.Token, HttpStatusCode.OK, commandBytes)));
+        var importedPath = WireRoutes.CanvasBundleExport.Replace("{id:guid}", imported.Id.ToString("D"));
+        Assert.Equal(packed, await Send(HttpMethod.Get, importedPath + "?revision=1", other.Token, HttpStatusCode.OK, package: true));
+        Assert.Equal(into.Id, await test.Scalar("select article_id from public.canvas_node where canvas_id=$1 and kind=1", imported.Id));
+        Assert.Equal(originalRows, await test.Scalar("select count(*) from public.article_revision"));
+        Assert.Equal(originalOutbox, await test.Scalar("select count(*) from public.blog_outbox"));
+        Assert.Equal(2L, await test.Scalar("select count(*) from public.authoring_canvas"));
+        await Send(HttpMethod.Post, WireRoutes.CanvasBundleExecute, other.Token, HttpStatusCode.NotFound,
+            Wire.EncodeCanvasBundleExecute(command with { CommandId = Guid.NewGuid() }));
+
+        async Task<byte[]> Send(HttpMethod method, string path, string? token, HttpStatusCode status, byte[]? body = null, bool package = false)
+        {
+            using var request = new HttpRequestMessage(method, path);
+            if (body is not null)
+            {
+                request.Content = new ByteArrayContent(body);
+                request.Content.Headers.ContentType = new MediaTypeHeaderValue(Aeds.ContentType);
+            }
+            if (token is not null) request.Headers.Add("Cookie", $"fsus-v2-session={token}");
+            using var response = await server.Client.SendAsync(request, test.Token);
+            Assert.Equal(status, response.StatusCode);
+            Assert.True(response.Headers.CacheControl?.NoStore);
+            var payload = await response.Content.ReadAsByteArrayAsync(test.Token);
+            if (package)
+            {
+                Assert.Equal(Wire.CanvasBundleContentType, response.Content.Headers.ContentType?.MediaType);
+                Assert.Equal("attachment", response.Content.Headers.ContentDisposition?.DispositionType);
+            }
+            else if (status != HttpStatusCode.OK) Aeds.Decode(payload, FrameType.ApiError);
+            return payload;
+        }
+    }
+
+    [PostgresFact]
+    public async Task ImportsAndExportsTenThousandNodesAndEdgesThroughTheCanonicalStore()
+    {
+        await using var test = await Fixture.Open();
+        var owner = await test.Author("Canvas load owner");
+        var noteIds = Enumerable.Range(1, 10_000).Select(i => new Guid(i, 0, 0, new byte[8])).ToArray();
+        var graph = new CanvasGraph(
+            [.. noteIds.Select((node, i) => new CanvasNode(node, CanvasNodeKind.PlainTextNote,
+                new(i * 4200, 0, 12000, 8000), Text: "A minimal local note"))],
+            [.. noteIds.Select((node, i) => new CanvasGraphEdge(new(i + 20_000, 0, 0, new byte[8]),
+                CanvasGraphEdgeKind.VisualOnly, node, noteIds[(i + 1) % noteIds.Length], i))]);
+        var bytes = CanvasPortableBundle.Export("10,000 portable nodes", new(0, 0, 1000), 1, graph).Encode();
+        var digest = CanvasBundleStore.Digest(bytes);
+        var command = new CanvasBundleExecute(Guid.NewGuid(), Guid.NewGuid(), digest, [], bytes);
+        var fingerprint = SHA256.HashData(Wire.EncodeCanvasBundleExecute(command));
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var imported = await test.WithGraph(owner.Token, graphStore => graphStore.ImportBundle(command, fingerprint, test.Token));
+        var insertMs = clock.ElapsedMilliseconds;
+        Assert.Equal((10_000, 10_000), (imported.NodeCount, imported.EdgeCount));
+        Assert.Equal(10_000L, await test.Scalar("select count(*) from public.canvas_node where canvas_id=$1", imported.Id));
+        Assert.Equal(10_000L, await test.Scalar("select count(*) from public.canvas_edge where canvas_id=$1", imported.Id));
+        var first = await test.WithGraph(owner.Token, store => store.Page(imported.Id, 1, 0, test.Token));
+        Assert.Equal(WireLimits.CanvasGraphMaxPageNodes, first.Nodes.Count);
+        Assert.Equal(WireLimits.CanvasGraphMaxPageNodes, first.NextOffset);
+        var last = await test.WithGraph(owner.Token, store => store.Page(imported.Id, 1, 19_999, test.Token));
+        Assert.Equal(-1, last.NextOffset);
+        Assert.Single(last.Edges);
+        clock.Restart();
+        Assert.Equal(bytes, await test.WithGraph(owner.Token, store => store.ExportBundle(imported.Id, 1, test.Token)));
+        Console.WriteLine($"Canvas 10,000 nodes+10,000 edges: package {bytes.Length} bytes, import {insertMs} ms, export {clock.ElapsedMilliseconds} ms.");
+    }
+
+    [PostgresFact]
     public async Task ResolvesOnlyStoredOwnerCoordinatesAndPinsExactSource()
     {
         await using var test = await Fixture.Open();
@@ -419,6 +543,9 @@ public sealed class CanvasPostgresTests
                 SHA256.HashData(secret), id);
             return await _store.SignIn(Convert.ToHexStringLower(secret), Token);
         }
+
+        internal Task<T> WithGraph<T>(string token, Func<CanvasGraphStore, Task<T>> operation) =>
+            _store.WithSession(token, true, (db, tx, actor) => operation(new(db, tx, actor)), Token);
 
         internal Task<T> WithCanvas<T>(string token, Func<CanvasStore, Task<T>> operation) =>
             _store.WithSession(token, true, (db, tx, actor) => operation(new(db, tx, actor, Store.TokenDigest(token)!)), Token);
