@@ -4,29 +4,32 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
-using FsusBlog.V2.Core;
 using Npgsql;
 
-namespace FsusBlog.V2.Server.Comments;
+namespace FsusBlog.V2.Server.Security;
 
-internal sealed class CommentPow(TimeProvider time)
+/// <summary>Only explicitly mapped, independently authorized operations may request a proof.</summary>
+internal enum PowScope { PublicCommentSubmit, InboxCreate, InboxReply }
+
+internal sealed class ScopedPow(TimeProvider time)
 {
     private readonly byte[] signingKey = RandomNumberGenerator.GetBytes(32);
     private readonly object issuing = new();
     private readonly Dictionary<string, int> counters = new(StringComparer.Ordinal);
     private long windowEnds;
 
-    internal PowChallenge Issue(string session, IPAddress source, string clientNonce, byte[] frame)
+    internal PowChallenge Issue(PowScope scope, string context, string session, IPAddress source, string clientNonce, byte[] frame)
     {
         if (!Hex(clientNonce, 32)) throw Invalid();
         Rate(session, source);
         var salt = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
         var timestamp = time.GetUtcNow().ToUnixTimeSeconds();
         return new(salt, WireLimits.PowChallengeDifficulty, timestamp,
-            Base64Url.EncodeToString(Signature(session, source, clientNonce, frame, salt, timestamp)));
+            Base64Url.EncodeToString(Signature(scope, context, session, source, clientNonce, frame, salt, timestamp)));
     }
 
-    internal async Task Consume(NpgsqlConnection db, NpgsqlTransaction tx, string session, IPAddress source,
+    internal async Task Consume(NpgsqlConnection db, NpgsqlTransaction tx, PowScope scope, string context,
+        string session, IPAddress source,
         byte[] frame, PowProof proof, CancellationToken ct)
     {
         var now = time.GetUtcNow().ToUnixTimeSeconds();
@@ -36,26 +39,32 @@ internal sealed class CommentPow(TimeProvider time)
             proof.Timestamp > now + 2 || !TrySignature(proof.Signature, out var observed))
             throw Refused();
 
-        var expected = Signature(session, source, proof.ClientNonce, frame, proof.Salt, proof.Timestamp);
+        var expected = Signature(scope, context, session, source, proof.ClientNonce, frame, proof.Salt, proof.Timestamp);
         if (!CryptographicOperations.FixedTimeEquals(expected, observed) ||
             !HasWork(proof.Salt, proof.Nonce, proof.ClientNonce, proof.Difficulty))
             throw Refused();
 
         await using var insert = Store.Sql(db, tx, """
             with expired_rows as (
-                select digest from public.comment_pow_consumed where expires_at<=clock_timestamp()
+                select digest from public.scoped_pow_consumed where expires_at<=clock_timestamp()
                 order by expires_at limit 32 for update skip locked
             ), clean as (
-                delete from public.comment_pow_consumed using expired_rows
-                where comment_pow_consumed.digest=expired_rows.digest
+                delete from public.scoped_pow_consumed using expired_rows
+                where scoped_pow_consumed.digest=expired_rows.digest
             )
-            insert into public.comment_pow_consumed(digest,expires_at)
+            insert into public.scoped_pow_consumed(digest,expires_at)
             select $1,$2 where $2 > clock_timestamp()
                 and to_timestamp($3) <= clock_timestamp()+interval '2 seconds'
             on conflict do nothing
             """, expected, DateTimeOffset.FromUnixTimeSeconds(proof.Timestamp + WireLimits.PowChallengeSeconds),
                 (double)proof.Timestamp);
         if (await insert.ExecuteNonQueryAsync(ct) != 1) throw Refused();
+
+        // A simultaneous request may block on the digest's unique index. Recheck the database
+        // clock after that wait, before returning authority to execute the protected mutation.
+        await using var expiry = Store.Sql(db, tx, "select $1>clock_timestamp()",
+            DateTimeOffset.FromUnixTimeSeconds(proof.Timestamp + WireLimits.PowChallengeSeconds));
+        if (await expiry.ExecuteScalarAsync(ct) is not true) throw Refused();
     }
 
     internal static bool HasWork(string salt, string nonce, string clientNonce, int bits)
@@ -82,7 +91,7 @@ internal sealed class CommentPow(TimeProvider time)
             var sessionCount = counters.GetValueOrDefault(sessionKey);
             var sourceCount = counters.GetValueOrDefault(sourceKey);
             if (sessionCount >= 8 || sourceCount >= 24 || counters.Count >= 2048)
-                throw new CommentPowFailure(429, "Too many security challenges. Try again later.", "comment_pow_rate_limited");
+                throw new ScopedPowFailure(429, "Too many security challenges. Try again later.", "pow_rate_limited");
             counters[sessionKey] = sessionCount + 1;
             counters[sourceKey] = sourceCount + 1;
         }
@@ -94,14 +103,50 @@ internal sealed class CommentPow(TimeProvider time)
         return address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address;
     }
 
-    private byte[] Signature(string session, IPAddress source, string clientNonce, byte[] frame, string salt, long timestamp)
+    private byte[] Signature(PowScope scope, string context, string session, IPAddress source, string clientNonce,
+        byte[] frame, string salt, long timestamp)
     {
+        var action = scope switch
+        {
+            PowScope.PublicCommentSubmit => "comment-submit",
+            PowScope.InboxCreate => "inbox-create",
+            PowScope.InboxReply => "inbox-reply",
+            _ => throw Refused()
+        };
+        if (context.Length > 160) throw Refused();
+        var contextDigest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(context)));
         var sessionDigest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(session)));
         var frameDigest = Convert.ToHexString(SHA256.HashData(frame));
         var ip = Convert.ToHexString(source.GetAddressBytes());
         var binding = string.Create(CultureInfo.InvariantCulture,
-            $"comment-submit-v1:{sessionDigest}:{ip}:{clientNonce}:{frameDigest}:{salt}:{timestamp}:{WireLimits.PowChallengeDifficulty}");
+            $"fsus-classic-pow-v1:{action}:{contextDigest}:{sessionDigest}:{ip}:{clientNonce}:{frameDigest}:{salt}:{timestamp}:{WireLimits.PowChallengeDifficulty}");
         return HMACSHA256.HashData(signingKey, Encoding.UTF8.GetBytes(binding));
+    }
+
+    internal static string ReadClientNonce(HttpContext ctx)
+    {
+        if (!ctx.Request.Headers.TryGetValue(WireHeaders.PowClientNonce, out var nonce) ||
+            nonce.Count != 1 || nonce[0] is not { } value || !Hex(value, 32)) throw Invalid();
+        return value;
+    }
+
+    internal static PowProof ReadProof(HttpContext ctx)
+    {
+        if (!ctx.Request.Headers.TryGetValue(WireHeaders.PowProof, out var header) || header.Count != 1)
+            throw Missing();
+        try { return PowWire.ReadProof(header[0]); }
+        catch (ProtocolException) { throw Invalid(); }
+    }
+
+    internal static async Task<IResult> Protect(HttpContext ctx, Func<Task<byte[]>> run,
+        PowScope scope = PowScope.PublicCommentSubmit)
+    {
+        try { return Results.Bytes(await run(), Aeds.ContentType); }
+        catch (ScopedPowFailure rejection)
+        {
+            var details = scope == PowScope.PublicCommentSubmit ? "comment_" + rejection.Details : rejection.Details;
+            return new AedsError(rejection.Status, Wire.EncodeError(rejection.Status, rejection.Message, details, ctx.TraceIdentifier));
+        }
     }
 
     private static bool TrySignature(string encoded, out byte[] digest)
@@ -114,12 +159,12 @@ internal sealed class CommentPow(TimeProvider time)
     private static bool Hex(string value, int length) =>
         value.Length == length && value.All(char.IsAsciiHexDigit);
 
-    internal static CommentPowFailure Missing() => new(401, "A security proof is required.", "comment_pow_required");
-    internal static CommentPowFailure Invalid() => new(400, "The security proof format is invalid.", "comment_pow_invalid");
-    internal static CommentPowFailure Refused() => new(401, "The security proof expired or was rejected.", "comment_pow_rejected");
+    private static ScopedPowFailure Missing() => new(401, "A security proof is required.", "pow_required");
+    private static ScopedPowFailure Invalid() => new(400, "The security proof format is invalid.", "pow_invalid");
+    private static ScopedPowFailure Refused() => new(401, "The security proof expired or was rejected.", "pow_rejected");
 }
 
-internal sealed class CommentPowFailure(int status, string message, string details) : Exception(message)
+internal sealed class ScopedPowFailure(int status, string message, string details) : Exception(message)
 {
     internal int Status { get; } = status;
     internal string Details { get; } = details;

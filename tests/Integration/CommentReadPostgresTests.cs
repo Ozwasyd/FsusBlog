@@ -5,6 +5,7 @@ using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Comments;
+using FsusBlog.V2.Server.Security;
 using Npgsql;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -189,7 +190,7 @@ public sealed class CommentReadPostgresTests
             Assert.True(Wire.DecodePublicCommentSubmissionResult(await lateRetry.Content.ReadAsByteArrayAsync(ct)).Replayed);
         await using var count = Store.Sql(db, null, "select count(*) from public.comment_submit_command");
         Assert.Equal(1L, await count.ExecuteScalarAsync(ct));
-        await using (var proofs = Store.Sql(db, null, "select count(*) from public.comment_pow_consumed"))
+        await using (var proofs = Store.Sql(db, null, "select count(*) from public.scoped_pow_consumed"))
             Assert.Equal(3L, await proofs.ExecuteScalarAsync(ct));
 
         async Task<string> ObtainProof(PublicCommentSubmission command)
@@ -231,49 +232,51 @@ public sealed class CommentReadPostgresTests
         await using var fixture = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var db = await fixture.DataSource.OpenConnectionAsync(ct);
         var clock = new PowTime();
-        var authority = new CommentPow(clock);
+        var authority = new ScopedPow(clock);
         var session = Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32));
         var source = IPAddress.Parse("192.0.2.1");
         var otherSource = IPAddress.Parse("192.0.2.2");
         byte[] frame = [174, 26, 55];
-        var challenge = authority.Issue(session, source, ClientNonce, frame);
+        var challenge = authority.Issue(PowScope.PublicCommentSubmit, "", session, source, ClientNonce, frame);
         var proof = PowWire.ReadProof(Solve(challenge.Salt, challenge.Signature, challenge.Difficulty, challenge.Timestamp, ClientNonce));
 
         await using (var tx = await db.BeginTransactionAsync(ct))
         {
-            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, otherSource, frame, proof, ct));
-            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, source, [174, 26, 56], proof, ct));
-            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, source, frame,
+            await Assert.ThrowsAsync<ScopedPowFailure>(() => authority.Consume(db, tx, PowScope.PublicCommentSubmit, "", session, otherSource, frame, proof, ct));
+            await Assert.ThrowsAsync<ScopedPowFailure>(() => authority.Consume(db, tx, PowScope.InboxCreate, "", session, source, frame, proof, ct));
+            await Assert.ThrowsAsync<ScopedPowFailure>(() => authority.Consume(db, tx, PowScope.PublicCommentSubmit, "other-resource", session, source, frame, proof, ct));
+            await Assert.ThrowsAsync<ScopedPowFailure>(() => authority.Consume(db, tx, PowScope.PublicCommentSubmit, "", session, source, [174, 26, 56], proof, ct));
+            await Assert.ThrowsAsync<ScopedPowFailure>(() => authority.Consume(db, tx, PowScope.PublicCommentSubmit, "", session, source, frame,
                 proof with { Difficulty = WireLimits.PowChallengeDifficulty - 1 }, ct));
-            await authority.Consume(db, tx, session, source, frame, proof, ct);
+            await authority.Consume(db, tx, PowScope.PublicCommentSubmit, "", session, source, frame, proof, ct);
             await tx.RollbackAsync(ct);
         }
 
         await using (var tx = await db.BeginTransactionAsync(ct))
         {
-            await authority.Consume(db, tx, session, source, frame, proof, ct);
+            await authority.Consume(db, tx, PowScope.PublicCommentSubmit, "", session, source, frame, proof, ct);
             await tx.CommitAsync(ct);
         }
 
         await using (var tx = await db.BeginTransactionAsync(ct))
         {
-            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, source, frame, proof, ct));
+            await Assert.ThrowsAsync<ScopedPowFailure>(() => authority.Consume(db, tx, PowScope.PublicCommentSubmit, "", session, source, frame, proof, ct));
             clock.Now = clock.Now.AddSeconds(WireLimits.PowChallengeSeconds);
-            await Assert.ThrowsAsync<CommentPowFailure>(() => authority.Consume(db, tx, session, source, frame, proof, ct));
+            await Assert.ThrowsAsync<ScopedPowFailure>(() => authority.Consume(db, tx, PowScope.PublicCommentSubmit, "", session, source, frame, proof, ct));
         }
     }
 
     [Fact]
     public void ProofIssuanceCapsPerSessionAndPerTrustedSource()
     {
-        var authority = new CommentPow(new PowTime());
+        var authority = new ScopedPow(new PowTime());
         var first = IPAddress.Parse("192.0.2.1");
         var next = IPAddress.Parse("192.0.2.2");
-        for (int i = 0; i < 8; i++) authority.Issue("session", first, ClientNonce, [1]);
-        Assert.Equal(429, Assert.Throws<CommentPowFailure>(() => authority.Issue("session", next, ClientNonce, [1])).Status);
-        for (int i = 0; i < 16; i++) authority.Issue(i.ToString(), first, ClientNonce, [1]);
-        Assert.Equal(429, Assert.Throws<CommentPowFailure>(() => authority.Issue("another", first, ClientNonce, [1])).Status);
-        Assert.NotNull(authority.Issue("another", next, ClientNonce, [1]));
+        for (int i = 0; i < 8; i++) authority.Issue(PowScope.PublicCommentSubmit, "", "session", first, ClientNonce, [1]);
+        Assert.Equal(429, Assert.Throws<ScopedPowFailure>(() => authority.Issue(PowScope.PublicCommentSubmit, "", "session", next, ClientNonce, [1])).Status);
+        for (int i = 0; i < 16; i++) authority.Issue(PowScope.PublicCommentSubmit, "", i.ToString(), first, ClientNonce, [1]);
+        Assert.Equal(429, Assert.Throws<ScopedPowFailure>(() => authority.Issue(PowScope.PublicCommentSubmit, "", "another", first, ClientNonce, [1])).Status);
+        Assert.NotNull(authority.Issue(PowScope.PublicCommentSubmit, "", "another", next, ClientNonce, [1]));
     }
 
     private sealed class PowTime : TimeProvider
@@ -282,7 +285,7 @@ public sealed class CommentReadPostgresTests
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private static string Solve(string salt, string signature, int bits, long timestamp, string clientNonce)
+    internal static string Solve(string salt, string signature, int bits, long timestamp, string clientNonce)
     {
         for (var i = 0; i < 1_000_000; i++)
         {

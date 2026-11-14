@@ -1,6 +1,7 @@
 using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Security;
 
 namespace FsusBlog.V2.Server.Comments;
 
@@ -27,7 +28,6 @@ internal static class CommentReadEndpoints
 
         if (app.Configuration.GetValue("FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS", false))
         {
-            var pow = new CommentPow(TimeProvider.System);
             app.MapGet(WireRoutes.PublicCommentEligibility, async (HttpContext ctx, int articleId, Store store, CancellationToken ct) =>
             {
                 if (!long.TryParse(ctx.Request.Query["publication"].FirstOrDefault(), NumberStyles.None,
@@ -37,35 +37,29 @@ internal static class CommentReadEndpoints
                     (db, tx, actor) => CommentWriteStore.Eligibility(db, tx, actor, articleId, publication, ct), ct);
                 return Results.Bytes(Wire.EncodePublicCommentEligibility(result), Aeds.ContentType);
             }).RequireRateLimiting("command");
-            app.MapPost(WireRoutes.PublicCommentPowChallenge, (HttpContext ctx, Store store, CancellationToken ct) =>
-                Protect(ctx, async () =>
+            app.MapPost(WireRoutes.PublicCommentPowChallenge, (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) =>
+                ScopedPow.Protect(ctx, async () =>
                 {
                     var (frame, input) = await ReadSubmission(ctx, ct);
                     var session = ctx.Request.Cookies[cookie];
-                    var source = CommentPow.Source(ctx);
-                    if (!ctx.Request.Headers.TryGetValue(WireHeaders.PowClientNonce, out var nonce) ||
-                        nonce.Count != 1 || nonce[0] is not { } value) throw CommentPow.Invalid();
+                    var source = ScopedPow.Source(ctx);
+                    var nonce = ScopedPow.ReadClientNonce(ctx);
                     var challenge = await store.WithSession(session, false, async (db, tx, actor) =>
                     {
                         await CommentWriteStore.AdmitChallenge(db, tx, actor, input, ct);
-                        return pow.Issue(session!, source, value, frame);
+                        return pow.Issue(PowScope.PublicCommentSubmit, "", session!, source, nonce, frame);
                     }, ct);
                     return PowWire.EncodeChallenge(challenge);
                 })).RequireRateLimiting("command");
-            app.MapPost(WireRoutes.SubmitPublicComment, (HttpContext ctx, Store store, CancellationToken ct) =>
-                Protect(ctx, async () =>
+            app.MapPost(WireRoutes.SubmitPublicComment, (HttpContext ctx, Store store, ScopedPow pow, CancellationToken ct) =>
+                ScopedPow.Protect(ctx, async () =>
                 {
                     var (frame, input) = await ReadSubmission(ctx, ct);
                     var session = ctx.Request.Cookies[cookie];
-                    var source = CommentPow.Source(ctx);
+                    var source = ScopedPow.Source(ctx);
                     var receipt = await store.WithSession(session, false, async (db, tx, actor) =>
                     {
-                        if (!ctx.Request.Headers.TryGetValue(WireHeaders.PowProof, out var header) || header.Count != 1)
-                            throw CommentPow.Missing();
-                        PowProof proof;
-                        try { proof = PowWire.ReadProof(header[0]); }
-                        catch (ProtocolException) { throw CommentPow.Invalid(); }
-                        await pow.Consume(db, tx, session!, source, frame, proof, ct);
+                        await pow.Consume(db, tx, PowScope.PublicCommentSubmit, "", session!, source, frame, ScopedPow.ReadProof(ctx), ct);
                         return await CommentWriteStore.Submit(db, tx, actor, input, ct);
                     }, ct);
                     return Wire.EncodePublicCommentSubmissionResult(receipt);
@@ -80,15 +74,6 @@ internal static class CommentReadEndpoints
                     throw new BusinessException(Rejection.Invalid, "Command key does not match its request header.");
                 return (frame, input);
             }
-        }
-    }
-
-    private static async Task<IResult> Protect(HttpContext ctx, Func<Task<byte[]>> run)
-    {
-        try { return Results.Bytes(await run(), Aeds.ContentType); }
-        catch (CommentPowFailure rejection)
-        {
-            return new AedsError(rejection.Status, Wire.EncodeError(rejection.Status, rejection.Message, rejection.Details, ctx.TraceIdentifier));
         }
     }
 
