@@ -184,7 +184,7 @@ ConfigureDotnetBuildParallelism() {
 
 NamespaceSlug() {
     local slug
-    slug="$(printf '%s' "${1:-local}" | tr -c 'A-Za-z0-9_.-' '-')"
+    slug="$(printf '%s' "${1:-local}" | tr -c 'A-Za-z0-9_.-' '-')" || return $?
     if [[ -z "$slug" || "$slug" == "." || "$slug" == ".." ]]; then
         slug='local'
     fi
@@ -269,7 +269,7 @@ ConfigureVitestShard() {
 
 Run() {
     CURRENT_STAGE="$*"
-    Log "run: $*"
+    Log "run: $*" || return $?
     "$@"
 }
 
@@ -314,10 +314,11 @@ RunOnceCommand() {
         --cwd "$cwd"
     )
     if [[ -n "$requiredOutput" && "$requiredOutput" != "-" ]]; then
-        local output
+        local output requiredOutputs
+        requiredOutputs="$(printf '%s\n' "$requiredOutput" | tr '|' '\n')" || return $?
         while IFS= read -r output; do
             [[ -n "$output" ]] && args+=(--require-output "$output")
-        done < <(printf '%s\n' "$requiredOutput" | tr '|' '\n')
+        done <<< "$requiredOutputs"
     fi
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-once.mjs" "${args[@]}" -- "$@"
 }
@@ -1029,57 +1030,72 @@ RunBackendBuildGovernanceLane() {
 
 BackendPlatformPlanFile() {
     local lane
-    lane="$(NamespaceSlug "${1:-backend}")"
+    lane="$(NamespaceSlug "${1:-backend}")" || return $?
     printf '%s/.tmp/%s/platform-membership-plan.json' "$ROOT_DIR" "$lane"
 }
 
 BackendPlatformOutcomeFile() {
     local lane
-    lane="$(NamespaceSlug "${1:-backend}")"
+    lane="$(NamespaceSlug "${1:-backend}")" || return $?
     printf '%s/.tmp/%s/platform-membership-outcome.json' "$ROOT_DIR" "$lane"
 }
 
 PrepareBackendPlatformPlan() {
     local lane="$1"
     local baseFilter="$2"
-    local configuration outputDirectory testAssembly diagnosticRoot planFile runtimePlatform
+    local configuration outputDirectory testAssembly diagnosticRoot planFile outcomeFile runtimePlatform sourceCommit sourceFingerprint
+    sourceCommit="${FSUSBLOG_TEST_SOURCE_COMMIT:-}"
+    sourceFingerprint="${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-}"
+    if [[ -z "$sourceCommit" ]]; then
+        sourceCommit="$(git -C "$ROOT_DIR" rev-parse HEAD)" || return $?
+    fi
+    if [[ -z "$sourceFingerprint" ]]; then
+        sourceFingerprint="$(node --input-type=module -e 'const { snapshotGitWorktree } = await import(process.argv[1] + "/tools/test-matrix/scheduler.mjs"); process.stdout.write((await snapshotGitWorktree(process.argv[1])).fingerprint)' "$ROOT_DIR")" || return $?
+    fi
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/perception-redis-producer.mjs" --ordinary-plan \
         --lane "$lane" --filter "$baseFilter" \
         --run-id "${FSUSBLOG_TEST_RUN_ID:-ordinary-$$}" \
-        --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:-$(git -C "$ROOT_DIR" rev-parse HEAD)}" \
-        --source-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-$(node --input-type=module -e 'const { snapshotGitWorktree } = await import(process.argv[1] + "/tools/test-matrix/scheduler.mjs"); process.stdout.write((await snapshotGitWorktree(process.argv[1])).fingerprint)' "$ROOT_DIR")}" \
-        --output "$ROOT_DIR/.tmp/$lane/local-redis-membership-plan.json"
-    configuration="$(BackendTestConfiguration)"
-    EnsureBackendFilteredBuild
-    outputDirectory="$(BackendTestRuntimeOutputDirectory)"
+        --source-commit "$sourceCommit" \
+        --source-fingerprint "$sourceFingerprint" \
+        --output "$ROOT_DIR/.tmp/$lane/local-redis-membership-plan.json" || return $?
+    # Conditional callers suppress Bash errexit throughout this function.
+    # Propagate each preparation failure before any discovery or execution.
+    configuration="$(BackendTestConfiguration)" || return $?
+    EnsureBackendFilteredBuild || return $?
+    outputDirectory="$(BackendTestRuntimeOutputDirectory)" || return $?
     testAssembly="$outputDirectory/FsusBlog.Server.Tests.dll"
     diagnosticRoot="$ROOT_DIR/.tmp/$lane/platform-discovery"
-    planFile="$(BackendPlatformPlanFile "$lane")"
-    runtimePlatform="$("${FSUSBLOG_NODE:-node}" -p 'process.platform')"
-    rm -rf "$diagnosticRoot"
-    rm -f "$planFile" "$(BackendPlatformOutcomeFile "$lane")"
-    mkdir -p "$diagnosticRoot"
-    Log "backend platform discovery: lane=$lane platform=$runtimePlatform"
+    planFile="$(BackendPlatformPlanFile "$lane")" || return $?
+    outcomeFile="$(BackendPlatformOutcomeFile "$lane")" || return $?
+    runtimePlatform="$("${FSUSBLOG_NODE:-node}" -p 'process.platform')" || return $?
+    rm -rf "$diagnosticRoot" || return $?
+    rm -f "$planFile" "$outcomeFile" || return $?
+    mkdir -p "$diagnosticRoot" || return $?
+    Log "backend platform discovery: lane=$lane platform=$runtimePlatform" || return $?
     "$BUILD_ENV_RUNNER" dotnet vstest "$testAssembly" \
         --ListTests \
         "--TestCaseFilter:$baseFilter" \
         "--Diag:$diagnosticRoot/union.txt" \
-        >"$diagnosticRoot/stdout.txt"
+        >"$diagnosticRoot/stdout.txt" || return $?
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/backend-platform-selection.mjs" plan \
         --platform "$runtimePlatform" \
         --base "$baseFilter" \
         --lane "$lane" \
         --diagnostic-root "$diagnosticRoot" \
         --source "$testAssembly" \
-        --out "$planFile"
+        --out "$planFile" || return $?
 }
 
 FinalizeBackendPlatformOutcome() {
     local lane="$1"
+    local planFile trxFile outcomeFile
+    planFile="$(BackendPlatformPlanFile "$lane")" || return $?
+    trxFile="$(BackendTrxFile "$lane")" || return $?
+    outcomeFile="$(BackendPlatformOutcomeFile "$lane")" || return $?
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/backend-platform-selection.mjs" outcome \
-        --plan "$(BackendPlatformPlanFile "$lane")" \
-        --trx "$(BackendTrxFile "$lane")" \
-        --out "$(BackendPlatformOutcomeFile "$lane")"
+        --plan "$planFile" \
+        --trx "$trxFile" \
+        --out "$outcomeFile"
 }
 
 RunBoundedWarningOnlySourceMutation() (
@@ -1222,16 +1238,79 @@ exec "$@"
         --physical-warning-only-proof "$evidenceRoot" "$parentCommit" "${identityArgs[@]}" --proof-output "$evidenceRoot/proof.json"
 )
 
+RequireBackendBoundedSelectionFilter() {
+    local filter="${1:-}"
+    local resolved="${filter//[[:space:]]/}"
+    case "$resolved" in
+        '' | undefined | null)
+            Fail 'bounded-server preflight/platform plan did not resolve a nonempty selection filter'
+            ;;
+    esac
+}
+
+RunBackendBoundedServerSelection() {
+    local selectionFile="${FSUSBLOG_BACKEND_UNIT_SELECTION_FILE:-}"
+    local selectedFilter platformFilter assemblyFile selectionPlan platformPlan outputDirectory trxFile status=0
+    local -a selectionArgs
+    if [[ -z "$selectionFile" ]]; then
+        Fail 'bounded-server requires FSUSBLOG_BACKEND_UNIT_SELECTION_FILE'
+    fi
+    selectionArgs=(--backend-unit --server-selection "$selectionFile")
+    # Resolve the explicit declaration before build/discovery/test commands.
+    selectedFilter="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-migration-tests.mjs" \
+        "${selectionArgs[@]}" --selection-action filter)" || return $?
+    RequireBackendBoundedSelectionFilter "$selectedFilter" || return $?
+    Log 'backend-unit selection=bounded-server; Migration explicitly not-selected; aggregate coverage incomplete' || return $?
+    PrepareBackendPlatformPlan backend-unit "$selectedFilter" || return $?
+    platformPlan="$(BackendPlatformPlanFile backend-unit)" || return $?
+    platformFilter="$("${FSUSBLOG_NODE:-node}" -p \
+        "require('$platformPlan').executionFilter")" || return $?
+    RequireBackendBoundedSelectionFilter "$platformFilter" || return $?
+    outputDirectory="$(BackendTestRuntimeOutputDirectory)" || return $?
+    assemblyFile="$outputDirectory/FsusBlog.Server.Tests.dll"
+    selectionPlan="$ROOT_DIR/.tmp/backend-unit/bounded-server-selection-plan.json"
+    selectionArgs+=(--diagnostic-root "$ROOT_DIR/.tmp/backend-unit/platform-discovery" \
+        --source "$assemblyFile" --platform-plan "$platformPlan" \
+        --selection-plan "$selectionPlan")
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-migration-tests.mjs" \
+        "${selectionArgs[@]}" --selection-action verify || return $?
+    RunBackendDotnetFilterOnly "$platformFilter" backend-unit || status=$?
+    FinalizeBackendPlatformOutcome backend-unit || status=$?
+    if ((status != 0)); then
+        return "$status"
+    fi
+    trxFile="$(BackendTrxFile backend-unit)" || return $?
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-migration-tests.mjs" \
+        "${selectionArgs[@]}" --selection-action outcome --trx "$trxFile" \
+        --out "$ROOT_DIR/.tmp/backend-unit/bounded-server-selection-outcome.json" || return $?
+    # No Migration receipt, aggregate summary or integrity producer is emitted.
+    # A successful bounded control run cannot satisfy the whole matrix tier.
+    Log 'bounded Server controls passed; backend-unit aggregate acceptance remains unrun (exit 3)'
+    return 3
+}
+
 RunBackendUnitLane() {
+    case "${FSUSBLOG_TEST_SELECTION:-}" in
+        '' | full | affected | bounded-server) ;;
+        *) Fail 'unsupported backend-unit selection; use full, affected or bounded-server' ;;
+    esac
+    if [[ "${FSUSBLOG_TEST_SELECTION:-}" == bounded-server ]]; then
+        RunBackendBoundedServerSelection
+        return $?
+    fi
+    if [[ -n "${FSUSBLOG_BACKEND_UNIT_SELECTION_FILE:-}" ]]; then
+        Fail 'FSUSBLOG_BACKEND_UNIT_SELECTION_FILE requires explicit bounded-server mode'
+    fi
     if [[ "${FSUSBLOG_TEST_SELECTION:-}" == "affected" ]]; then
         Log "backend-unit selection=affected"
         Run "$ROOT_DIR/tools/dotnet-affected-tests.sh"
     else
-        local platformFilter status=0
+        local platformFilter platformPlan status=0
         Log "backend-unit selection=full reason=${FSUSBLOG_TEST_SELECTION:-unset}"
-        PrepareBackendPlatformPlan backend-unit "$BACKEND_ORDINARY_TEST_FILTER"
+        PrepareBackendPlatformPlan backend-unit "$BACKEND_ORDINARY_TEST_FILTER" || return $?
+        platformPlan="$(BackendPlatformPlanFile backend-unit)" || return $?
         platformFilter="$("${FSUSBLOG_NODE:-node}" -p \
-            "require('$(BackendPlatformPlanFile backend-unit)').executionFilter")"
+            "require('$platformPlan').executionFilter")" || return $?
         RunBackendDotnetFilterOnly "$platformFilter" backend-unit || status=$?
         FinalizeBackendPlatformOutcome backend-unit || status=$?
         if ((status != 0)); then
@@ -1300,7 +1379,7 @@ EnsureBackendFilteredBuild() {
     local debugOutputDir releaseOutputDir debugServerOutputDir
     local -a buildCommand
     configuration="$(BackendTestConfiguration)" || return $?
-    CleanupBackendTestRuntimeOutput
+    CleanupBackendTestRuntimeOutput || return $?
     configurationSlug="${configuration,,}"
     debugOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Debug/net10.0}"
     releaseOutputDir="${FSUSBLOG_PRODUCTION_BUILD_ROOT:+$FSUSBLOG_PRODUCTION_BUILD_ROOT/dotnet/FsusBlog.Server.Tests/bin/Release/net10.0}"
@@ -1381,8 +1460,8 @@ EnsureBackendFilteredBuild() {
 
 BackendTrxFile() {
     local lane
-    lane="$(NamespaceSlug "${1:-backend}")"
-    mkdir -p "$BACKEND_TRX_DIR"
+    lane="$(NamespaceSlug "${1:-backend}")" || return $?
+    mkdir -p "$BACKEND_TRX_DIR" || return $?
     printf '%s/%s.trx' "$BACKEND_TRX_DIR" "$lane"
 }
 
@@ -1415,11 +1494,17 @@ RunBackendDotnetFilterOnly() {
     local filter="$1"
     local lane="${2:-${CURRENT_TIER:-backend}}"
     local trxFile configuration
-    trxFile="$(BackendTrxFile "$lane")"
-    configuration="$(BackendTestConfiguration)"
-    ConfigureDotnetTestProcessors
-    EnsureBackendFilteredBuild
-    rm -f "$trxFile"
+    if [[ "${FSUSBLOG_TEST_SELECTION:-}" == bounded-server || -n "${FSUSBLOG_BACKEND_UNIT_SELECTION_FILE:-}" ]]; then
+        if [[ "${FSUSBLOG_TEST_SELECTION:-}" != bounded-server || -z "${FSUSBLOG_BACKEND_UNIT_SELECTION_FILE:-}" ]]; then
+            Fail 'bounded selection requires explicit bounded-server mode and its selection declaration'
+        fi
+        RequireBackendBoundedSelectionFilter "$filter" || return $?
+    fi
+    trxFile="$(BackendTrxFile "$lane")" || return $?
+    configuration="$(BackendTestConfiguration)" || return $?
+    ConfigureDotnetTestProcessors || return $?
+    EnsureBackendFilteredBuild || return $?
+    rm -f "$trxFile" || return $?
     RunBackendDotnetTest "$lane" \
         -c "$configuration" -v minimal --no-build --no-restore \
         "${DOTNET_BUILD_SHARED_ARGS[@]}" \
