@@ -3,6 +3,7 @@
 
 import argparse
 import csv
+from datetime import datetime
 import json
 from pathlib import Path
 
@@ -51,6 +52,34 @@ def stage(path, rate, p95_limit, p99_limit):
                          "attemptFinished": totals["sent"], "correct": totals["ok"]}
         if any(sum(row[key] for row in supply) != value for key, value in supply_totals.items()):
             raise ValueError(f"{path}: producer timeline does not reconcile")
+    policy = report.get("connectionPolicy", "serial-tls-preconnect" if report.get("preconnectedTLS") else "fresh-pool")
+    if policy == "carry-from-warmup":
+        warm, reuse = report["warmup"], report["connectionReuse"]
+        warm_totals = warm["routes"]["all"]
+        warm_unreached = warm["schedulerUnreached"]
+        if (
+            any(warm[key] != report[key] for key in ("pid", "target", "generation", "fixtureSha256"))
+            or (warm["requestedRate"], warm["seconds"], warm["expected"]) != (2000, 30, 60000)
+            or not 0 <= warm_unreached <= 60000
+            or warm_totals["sent"] + warm_totals["dropped"] + warm_unreached != 60000
+            or any(warm_totals[key] != sum(warm["routes"][name][key] for name in ROUTE_WEIGHTS)
+                   for key in ("sent", "dropped", "ok"))
+            or not 0 <= warm_totals["ok"] <= warm_totals["sent"]
+            or warm_totals["sent"] - warm_totals["ok"] != sum(warm_totals["errors"].values())
+            or not 0 <= reuse["validatedOnRetained"] <= reuse["attemptedOnRetained"] <= reuse["retainedAfterWarmup"] <= 256
+            or not reuse["validatedOnRetained"] <= reuse["requestsValidatedOnRetained"] <= totals["ok"]
+            or not reuse["requestsValidatedOnRetained"] <= reuse["requestsAttemptedOnRetained"] <= totals["sent"]
+            or not reuse["validatedOnRetained"]
+            or not clock(warm["measurementStartedAt"]) < clock(warm["measurementCompletedAt"]) <= clock(report["measurementStartedAt"])
+        ):
+            raise ValueError(f"{path}: reused warmup evidence is missing or inconsistent")
+        if not warm_unreached and any(
+            warm["routes"][name]["sent"] + warm["routes"][name]["dropped"] != 60000 * weight // 100
+            for name, weight in ROUTE_WEIGHTS.items()
+        ):
+            raise ValueError(f"{path}: warmup request mix differs from the frozen protocol")
+    elif policy not in ("serial-tls-preconnect", "fresh-pool"):
+        raise ValueError(f"{path}: unknown connection policy")
     actual_rate = totals["ok"] / SECONDS
     failures = totals["dropped"] + request_errors + unreached
     per_route = {key: {k: by_route[key][k] for k in ("ok", "p95Ms", "p99Ms")} for key in ROUTE_WEIGHTS}
@@ -65,7 +94,12 @@ def stage(path, rate, p95_limit, p99_limit):
         "p95Ms": totals["p95Ms"],
         "p99Ms": totals["p99Ms"],
         "routes": per_route,
+        "connectionPolicy": policy,
     }
+    if policy == "carry-from-warmup":
+        out["connectionReuse"] = reuse
+        out["warmup"] = {"correct": warm_totals["ok"], "dropped": warm_totals["dropped"], "unreached": warm_unreached,
+                         "errors": warm_totals["sent"] - warm_totals["ok"]}
     if supply:
         out["dropSeconds"] = [row for row in supply if row["dropped"]]
     if rate == RATES[-1]:
@@ -76,6 +110,14 @@ def stage(path, rate, p95_limit, p99_limit):
                     for row in (*per_route.values(), totals))
         )
     return report["fixtureSha256"], out
+
+
+def clock(value):
+    # Python 3.9 requires either no fractional seconds or 3/6 digits.
+    whole, separator, fraction = value[:-1].partition(".")
+    if value[-1:] != "Z":
+        raise ValueError(f"expected an ISO UTC timestamp: {value}")
+    return datetime.fromisoformat(whole + ("." + fraction[:6].ljust(6, "0") if separator else "") + "+00:00")
 
 
 def matrix(directory, topology):
@@ -90,6 +132,8 @@ def matrix(directory, topology):
     fixture = stages[0][0]
     if any(digest != fixture for digest, _ in stages):
         raise ValueError(f"{directory}: fixture differs between stages")
+    if len({item["connectionPolicy"] for _, item in stages}) != 1:
+        raise ValueError(f"{directory}: connection policy differs between stages")
     with (directory / "server-process.csv").open(newline="") as file:
         rss = max(int(row["rss_kib"]) for row in csv.DictReader(file)
                   if row["pid"] == outcome["server_pid"])
@@ -98,6 +142,7 @@ def matrix(directory, topology):
         "commit": environment["commit"],
         "sourceSha256": environment["source_sha256"],
         "fixtureSha256": fixture,
+        "connectionPolicy": stages[0][1]["connectionPolicy"],
         "runId": outcome["run_id"],
         "startedAt": outcome["started_at"],
         "finishedAt": outcome["finished_at"],
@@ -119,6 +164,9 @@ def main():
     ids = {item["runId"] for item in matrices}
     if len(coordinates) != 1 or len(ids) != len(matrices):
         parser.error("matrices must use the same source and fixture and have distinct owners")
+    for kind in ("direct", "proxy"):
+        if len({item["connectionPolicy"] for item in matrices if item["topology"] == kind}) > 1:
+            parser.error(f"{kind} acceptance matrices must use the same connection policy")
     print(json.dumps(matrices, indent=2))
 
 

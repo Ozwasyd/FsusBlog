@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -16,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 )
@@ -161,7 +164,13 @@ func TestCancelledScheduleDrainsEveryAttempt(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Millisecond)
 	defer cancel()
-	_, elapsed, counts, rows := measure(ctx, loadConnections(origin, nil), w, 8000, 1)
+	pool := loadConnections(origin, nil)
+	defer func() {
+		for i := range pool {
+			pool[i].close()
+		}
+	}()
+	_, elapsed, counts, rows := measure(ctx, pool, w, 8000, 1)
 	all := counts["all"]
 	var wake, admitted, dropped, written, headers, bodies, finished, correct int
 	for _, row := range rows {
@@ -181,5 +190,64 @@ func TestCancelledScheduleDrainsEveryAttempt(t *testing.T) {
 		written != all.Written || headers != all.Header || bodies != all.Body || correct != all.OK ||
 		written == 0 || headers == 0 || bodies == 0 || correct == 0 {
 		t.Fatalf("totals disagree: %+v, rows %+v, wake %d", all, rows, wake)
+	}
+}
+
+func TestWarmupCarriesAnActualConnectionAndDoesNotRetryStaleSocket(t *testing.T) {
+	const header = "X-Example-Generation"
+	const generation = "123"
+	body := []byte("ok")
+	var peers []string
+	var requests sync.Mutex
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Lock()
+		peers = append(peers, r.RemoteAddr)
+		requests.Unlock()
+		w.Header().Set(header, generation)
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write(body)
+	}))
+	defer server.Close()
+	origin, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trust := x509.NewCertPool()
+	trust.AddCert(server.Certificate())
+	pool := []connection{{origin: origin, tlsConfig: &tls.Config{RootCAs: trust, MinVersion: tls.VersionTLS12}}}
+	defer pool[0].close()
+	request, err := encodeRequest(origin, "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := workload{generation: generation, wire: contract{
+		Headers: map[string]string{"SearchIndexGeneration": header},
+	}}
+	w.paths[homeHTML] = []expectation{{class: homeHTML, path: "/", request: request, length: len(body), digest: sha256.Sum256(body)}}
+	_, _, warm, _ := measure(context.Background(), pool, w, 1, 1)
+	if warm["all"].OK != 1 || pool[0].conn == nil {
+		t.Fatalf("warmup: %+v", warm["all"])
+	}
+	retainWarmSockets(pool)
+	_, _, measured, _ := measure(context.Background(), pool, w, 1, 1)
+	if got := continuity(pool); got != (connectionReuse{1, 1, 1, 1, 1}) || measured["all"].OK != 1 {
+		t.Fatalf("one valid reused exchange expected: %+v", got)
+	}
+	requests.Lock()
+	if len(peers) != 2 || peers[0] != peers[1] {
+		t.Errorf("TLS requests did not use the same physical socket: %v", peers)
+	}
+	requests.Unlock()
+
+	server.CloseClientConnections()
+	pool[0].reuse = connectionReuse{}
+	retainWarmSockets(pool)
+	_, _, stale, _ := measure(context.Background(), pool, w, 1, 1)
+	if got := continuity(pool); got != (connectionReuse{1, 1, 0, 1, 0}) || stale["all"].OK != 0 || stale["all"].Sent != 1 {
+		t.Fatalf("stale inherited connection must preserve a failed attempt: %+v", got)
+	}
+	_, _, later, _ := measure(context.Background(), pool, w, 1, 1)
+	if later["all"].OK != 1 {
+		t.Fatalf("a later request was not allowed a fresh dial: %+v", later["all"])
 	}
 }

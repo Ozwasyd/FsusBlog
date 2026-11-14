@@ -216,6 +216,9 @@ type connection struct {
 	tlsConfig *tls.Config
 	conn      net.Conn
 	reader    *bufio.Reader
+	served    bool
+	carryover bool
+	reuse     connectionReuse
 }
 
 func (c *connection) close() {
@@ -223,6 +226,7 @@ func (c *connection) close() {
 		c.conn.Close()
 		c.conn = nil
 	}
+	c.served = false
 }
 
 func (c *connection) request(path string, deadline time.Time, inspect func(*http.Response) error) (int, error) {
@@ -292,6 +296,8 @@ func (c *connection) requestEncoded(request []byte, deadline time.Time, observed
 	err = inspect(response)
 	if err != nil || response.Close {
 		c.close()
+	} else {
+		c.served = true
 	}
 	response.Body.Close()
 	return response.StatusCode, err
@@ -597,10 +603,10 @@ type result struct {
 }
 
 func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan<- result, w workload) {
-	defer c.close()
 	copyBuffer := make([]byte, 32*1024)
 	readBuffer := make([]byte, 0, 48*1024)
 	for j := range jobs {
+		firstCarried := c.carryover && c.reuse.Attempted == 0
 		r := result{class: j.class, dispatch: time.Since(j.planned), planned: j.planned}
 		status, err := c.requestEncoded(j.request, j.planned.Add(requestLimit), &r.exchange, func(response *http.Response) error {
 			reason, metadataErr := metadata(response, j.class, w.generation, w.wire.Headers["SearchIndexGeneration"])
@@ -647,6 +653,22 @@ func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan
 		}
 		r.completed = time.Now()
 		r.latency = r.completed.Sub(j.planned)
+		if c.carryover {
+			valid := r.reason == "" && r.dialStarted.IsZero()
+			c.reuse.AttemptedRequests++
+			if valid {
+				c.reuse.ValidatedRequests++
+			}
+			if firstCarried {
+				c.reuse.Attempted++
+				if valid {
+					c.reuse.Validated++
+				}
+			}
+			// The transport survives only while the original socket is present.
+			// There are no retries inside an attempt.
+			c.carryover = c.conn != nil && r.dialStarted.IsZero()
+		}
 		<-permits
 		output <- r
 	}
@@ -756,6 +778,36 @@ func loadConnections(origin *url.URL, config *tls.Config) []connection {
 		pool[i] = connection{origin: origin, tlsConfig: config}
 	}
 	return pool
+}
+
+type connectionReuse struct {
+	Retained          int `json:"retainedAfterWarmup"`
+	Attempted         int `json:"attemptedOnRetained"`
+	Validated         int `json:"validatedOnRetained"`
+	AttemptedRequests int `json:"requestsAttemptedOnRetained"`
+	ValidatedRequests int `json:"requestsValidatedOnRetained"`
+}
+
+func retainWarmSockets(pool []connection) {
+	for i := range pool {
+		c := &pool[i]
+		c.carryover = c.conn != nil && c.served
+		if c.carryover {
+			c.reuse.Retained = 1
+		}
+	}
+}
+
+func continuity(pool []connection) connectionReuse {
+	var total connectionReuse
+	for i := range pool {
+		total.Retained += pool[i].reuse.Retained
+		total.Attempted += pool[i].reuse.Attempted
+		total.Validated += pool[i].reuse.Validated
+		total.AttemptedRequests += pool[i].reuse.AttemptedRequests
+		total.ValidatedRequests += pool[i].reuse.ValidatedRequests
+	}
+	return total
 }
 
 func warmTLSConnections(ctx context.Context, pool []connection) error {
@@ -1017,6 +1069,31 @@ func startRuntimeMeasurement(ctx context.Context, directory string) error {
 	return errors.New("runtime evidence did not mark the start of load measurement")
 }
 
+func captureStage(ctx context.Context, pool []connection, w workload, rate, seconds int, report map[string]any) {
+	producerBefore, beforeErr := sampleProducer()
+	measured, elapsed, totals, timeline := measure(ctx, pool, w, rate, seconds)
+	finished := time.Now().UTC()
+	producerAfter, afterErr := sampleProducer()
+	all := totals["all"]
+	report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, finished, totals
+	report["measurementElapsedSeconds"] = elapsed.Seconds()
+	report["supplyBySecond"] = timeline
+	report["schedulerUnreached"] = rate*seconds - all.Sent - all.Dropped
+	if supplyErr := errors.Join(beforeErr, afterErr); supplyErr != nil {
+		report["producerResourceError"] = supplyErr.Error()
+	} else {
+		report["producerBefore"], report["producerAfter"] = producerBefore, producerAfter
+	}
+	report["correctPerSecond"] = float64(all.OK) / float64(seconds)
+	report["requestedRate"], report["seconds"], report["expected"] = rate, seconds, rate*seconds
+	if ctx.Err() != nil || all.OK != all.Sent || all.Dropped != 0 {
+		// Preserve full raw evidence regardless of stage outcome. The runner evaluates the production thresholds.
+		report["measurement"] = "errors_or_dropped"
+	} else {
+		report["measurement"] = "all_correct"
+	}
+}
+
 func run() int {
 	target := flag.String("target", "", "explicit loopback HTTP or TLS origin with port")
 	authority := flag.String("ca", "", "optional PEM authority for an isolated TLS run")
@@ -1028,6 +1105,7 @@ func run() int {
 	coldPressure := flag.Bool("cold-pressure", false, "after standard cold rounds run overload and actual disconnect diagnostics")
 	runtimeControl := flag.String("runtime-control", "", "private run directory for a runtime measurement boundary")
 	preconnect := flag.Bool("preconnect-tls", false, "establish the 256 TLS connections serially before load")
+	sharedWarmup := flag.Int("shared-warmup-seconds", 0, "2000/s warmup on the measured pool, 30 seconds or 3-second diagnostic")
 	output := flag.String("out", "", "new JSON evidence path")
 	flag.Parse()
 	fail := func(err error) int { fmt.Fprintln(os.Stderr, err); return 1 }
@@ -1055,6 +1133,9 @@ func run() int {
 	if *preconnect && (origin.Scheme != "https" || *rate == 0) {
 		return fail(errors.New("TLS preconnection requires an HTTPS target and hot load"))
 	}
+	if *sharedWarmup != 0 && (*rate == 0 || *preconnect || *sharedWarmup != 30 && *sharedWarmup != 3) {
+		return fail(errors.New("shared warmup requires hot load, no TLS preconnection, and 30 or 3 seconds"))
+	}
 	out, err := os.OpenFile(*output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return fail(err)
@@ -1073,6 +1154,12 @@ func run() int {
 	report := map[string]any{
 		"startedAt": started, "target": origin.String(), "generation": w.generation, "fixtureSha256": w.fixture,
 		"requestedRate": *rate, "seconds": *seconds, "preflight": "pass", "protocol": w.protocol, "tlsVersion": w.tlsVersion,
+		"connectionPolicy": "fresh-pool",
+	}
+	if *sharedWarmup != 0 {
+		report["connectionPolicy"] = "carry-from-warmup"
+	} else if *preconnect {
+		report["connectionPolicy"] = "serial-tls-preconnect"
 	}
 	code := 0
 	if err != nil {
@@ -1099,6 +1186,18 @@ func run() int {
 			pool[i].close()
 		}
 	}()
+	if code == 0 && *sharedWarmup != 0 {
+		warm := map[string]any{"pid": os.Getpid(), "target": origin.String(), "generation": w.generation, "fixtureSha256": w.fixture}
+		captureStage(ctx, pool, w, 2000, *sharedWarmup, warm)
+		report["warmup"] = warm
+		retainWarmSockets(pool)
+		report["connectionReuse"] = continuity(pool)
+		if ctx.Err() != nil {
+			err = ctx.Err()
+			code = 1
+			report["measurement"], report["measurementError"] = "warmup_cancelled", err.Error()
+		}
+	}
 	if code == 0 && *preconnect {
 		warmed := time.Now()
 		if err = warmTLSConnections(ctx, pool); err != nil {
@@ -1116,28 +1215,10 @@ func run() int {
 		}
 	}
 	if code == 0 && *rate > 0 {
-		producerBefore, beforeErr := sampleProducer()
-		rate, seconds := *rate, *seconds
-		measured, elapsed, totals, timeline := measure(ctx, pool, w, rate, seconds)
-		finished := time.Now().UTC()
-		producerAfter, afterErr := sampleProducer()
-		all := totals["all"]
-		report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, finished, totals
-		report["measurementElapsedSeconds"] = elapsed.Seconds()
-		report["supplyBySecond"] = timeline
-		report["schedulerUnreached"] = rate*seconds - all.Sent - all.Dropped
-		if supplyErr := errors.Join(beforeErr, afterErr); supplyErr != nil {
-			report["producerResourceError"] = supplyErr.Error()
-		} else {
-			report["producerBefore"], report["producerAfter"] = producerBefore, producerAfter
-		}
-		report["correctPerSecond"] = float64(all.OK) / float64(seconds)
-		report["expected"] = rate * seconds
-		if ctx.Err() != nil || all.OK != all.Sent || all.Dropped != 0 {
-			// Preserve full raw evidence regardless of stage outcome. The runner evaluates the production thresholds.
-			report["measurement"] = "errors_or_dropped"
-		} else {
-			report["measurement"] = "all_correct"
+		captureStage(ctx, pool, w, *rate, *seconds, report)
+		if *sharedWarmup != 0 {
+			report["connectionReuse"] = continuity(pool)
+			report["pid"] = os.Getpid()
 		}
 	}
 	report["finishedAt"] = time.Now().UTC()

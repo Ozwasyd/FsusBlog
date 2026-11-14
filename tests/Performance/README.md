@@ -15,6 +15,7 @@ tests/Performance/run.sh soak artifacts/p2-soak-1
 export CADDY_BIN=/absolute/path/to/caddy
 tests/Performance/run.sh proxy-smoke artifacts/p2-proxy-smoke-1
 tests/Performance/run.sh proxy artifacts/p2-proxy-1
+FSUSBLOG_PERF_REUSE_CONNECTIONS=1 tests/Performance/run.sh proxy artifacts/p2-proxy-shared-warmup-1
 ```
 
 - `smoke` 用完整数据集和 3 秒 100 QPS 验证接入。`direct` 依次做 30 秒预热和 60 秒采样的 2,000、5,000、8,000、10,500 QPS 档位。`soak` 做 30 秒预热和 15 分钟 8,000 QPS 采样。跨运行比较时留出足够主机容量，避免同时启动编译器、浏览器测试或其他负载。
@@ -25,6 +26,8 @@ tests/Performance/run.sh proxy artifacts/p2-proxy-1
 - `cold` 运行四轮，每轮在 64 个已连接的 HTTP 客户端上同时释放请求。前三轮各选一个不同大小的未驻留键，HTML 与 AEDS 各 32 次。最后一轮使用 64 个不同的 32 KiB 公开键。按 fixture 创建日期排除热键，关闭热预查，并在私有服务日志中查验首次准入、实际渲染次数、最大并发、队列排空以及客户响应。正常语料要求 256 个正确 200 响应。诊断记录包含本次运行观测到的错误和服务器取消数。64 个不同键用于检查并发上限，不能覆盖超过 64 个键后的拒绝路径。
 
 代理入口使用交付的 [Caddyfile](../../deploy/Caddyfile) 和每轮独立生成且按次信任的 TLS CA，证书校验包含回环 IP。代理负载和直连使用相同的供给档位及 HTTP/1.1 identity。运行记录包含 TLS 版本、配置、进程归属及 RSS，并检查裸后端拒绝、转发头重建、Passkey 来源和真实会话 Cookie。结束时检查 Caddy 与 Kestrel 的监听均已关闭，并清理本轮证书和数据库。
+
+可选的 `FSUSBLOG_PERF_REUSE_CONNECTIONS=1` 在每档使用一个负载进程和一个连接池。预查发生在 2,000 QPS 预热前，预热请求全部结束后才开启独立计时。每档 JSON 的 `warmup` 保存预热时间、错误、漏发、请求详情和供给数据，`connectionReuse` 报告保留连接及实际在同一连接上尝试和校验通过的计时请求。已被对端关闭的连接可导致首次计时请求失败，新请求才可重新建连。预热和计时各自仍用同一路径选择、摘要校验、256 个在途和 2 秒期限。默认仍使用各自进程和连接池，串行预连接保留为独立模式。此模式只确认客户端至 Kestrel 或 Caddy 的连接复用。
 
 回查近端 TLS 建连影响时，可设 `FSUSBLOG_PERF_PRECONNECT_TLS=1`。客户按顺序完成 256 次 TLS 握手，再按固定速率和并发限制发送同样的 HTTP 请求。预连接数量和耗时单列。计时中的传输失败仍计入，客户端没有透明重试。该试验用于归因，基本代理负载的结果另行保留。
 

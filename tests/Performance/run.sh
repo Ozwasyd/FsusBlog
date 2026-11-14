@@ -15,6 +15,14 @@ fi
 proxy_mode=false
 runtime_evidence=false
 if [[ "$mode" == soak || ( "$mode" == *smoke && "${FSUSBLOG_PERF_RUNTIME:-}" == 1 ) ]]; then runtime_evidence=true; fi
+shared_warmup=false
+if [[ "${FSUSBLOG_PERF_REUSE_CONNECTIONS:-}" == 1 ]]; then
+  if [[ "$mode" == cold || ( "$mode" == *smoke && "$runtime_evidence" != true ) || "${FSUSBLOG_PERF_PRECONNECT_TLS:-}" == 1 ]]; then
+    echo 'Connection reuse requires a hot stage with its own warmup and no serial preconnection.' >&2
+    exit 2
+  fi
+  shared_warmup=true
+fi
 caddy=${CADDY_BIN:-caddy}
 if [[ "$mode" == proxy* ]]; then
   proxy_mode=true
@@ -169,6 +177,7 @@ ui_tree=$(git -C ../FsusUI rev-parse 'HEAD^{tree}')
 ui_status=$(git -C ../FsusUI status --porcelain)
 {
   printf 'command=tests/Performance/run.sh %q %q\n' "$mode" "$output_arg"
+  printf 'shared_warmup=%s\n' "$shared_warmup"
   printf 'commit=%s\nsource_sha256=%s\n' "$commit" "$candidate"
   printf 'fsusui_commit=%s\nfsusui_tree=%s\nfsusui_status=%s\n' "$ui_commit" "$ui_tree" "$ui_status"
   uname -srm
@@ -319,7 +328,7 @@ sampler_pid=$!
 
 measure() {
   stage=$1
-  local rate=$2 seconds=$3
+  local rate=$2 seconds=$3 warm_seconds=${4:-0}
   own_child "$server_pid"
   if [[ -n "$proxy_pid" ]]; then own_child "$proxy_pid"; fi
   pg_ctl -D "$run/pg" status >> "$evidence/owner.txt"
@@ -328,6 +337,7 @@ measure() {
   local args=(-target "$target" -fixture "$evidence/fixture.json" -wire "$run/source/src/Contracts/wire.schema.json"
     -rate "$rate" -seconds "$seconds" -out "$evidence/$stage.json")
   args+=("${load_flags[@]+"${load_flags[@]}"}")
+  if ((warm_seconds != 0)); then args+=(-shared-warmup-seconds "$warm_seconds"); fi
   if [[ "$runtime_evidence" == true && "$stage" != warmup-* ]]; then args+=(-runtime-control "$run"); fi
   { printf 'load'; printf ' %q' "${args[@]}"; printf '\n'; } >> "$evidence/commands.txt"
   "$run/load" "${args[@]}" > "$evidence/$stage.log" 2>&1 &
@@ -344,8 +354,12 @@ fi
 case "$mode" in
   smoke|proxy-smoke)
     if [[ "$runtime_evidence" == true ]]; then
-      measure warmup-runtime-smoke 2000 3
-      measure "$mode" 2000 10
+      if [[ "$shared_warmup" == true ]]; then
+        measure "$mode" 2000 10 3
+      else
+        measure warmup-runtime-smoke 2000 3
+        measure "$mode" 2000 10
+      fi
     else
       measure "$mode" 100 3
     fi
@@ -367,13 +381,21 @@ case "$mode" in
     first=1
     for rate in 2000 5000 8000 10500; do
       if ((first)); then first=0; else sleep 15; fi
-      measure "warmup-$rate" 2000 30
-      measure "$mode-$rate" "$rate" 60
+      if [[ "$shared_warmup" == true ]]; then
+        measure "$mode-$rate" "$rate" 60 30
+      else
+        measure "warmup-$rate" 2000 30
+        measure "$mode-$rate" "$rate" 60
+      fi
     done
     ;;
   soak)
-    measure warmup-soak 2000 30
-    measure direct-soak 8000 900
+    if [[ "$shared_warmup" == true ]]; then
+      measure direct-soak 8000 900 30
+    else
+      measure warmup-soak 2000 30
+      measure direct-soak 8000 900
+    fi
     ;;
 esac
 stage=finished
