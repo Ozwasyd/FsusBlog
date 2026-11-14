@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
 using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Operations;
 using FsusBlogV2.Storage;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.FileProviders;
@@ -13,6 +14,7 @@ const string Cookie = "fsus-v2-session";
 const string Binary = "application/octet-stream";
 const string Html = "text/html; charset=utf-8";
 var builder = WebApplication.CreateBuilder(args);
+var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
 var connectionString = builder.Configuration["FSUSBLOG_DB"] ?? throw new InvalidOperationException("FSUSBLOG_DB is required.");
 var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/Web/dist");
 var template = await File.ReadAllTextAsync(Path.Combine(dist, "index.html"));
@@ -55,6 +57,15 @@ app.Use(async (ctx, next) =>
         "img-src 'self' data: blob: https:; worker-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
     try
     {
+        if (trustLoopbackProxy)
+        {
+            if (!LoopbackProxy.IsTrustedPeer(ctx.Connection.RemoteIpAddress))
+                throw new BusinessException(Rejection.Forbidden, "A local reverse proxy is required.");
+            if (!LoopbackProxy.TryApply(ctx))
+                throw new BusinessException(Rejection.Invalid, "Invalid forwarding headers.");
+            if (!ctx.Request.IsHttps)
+                throw new BusinessException(Rejection.Forbidden, "Secure transport is required.");
+        }
         if (ctx.Request.Path.StartsWithSegments("/api"))
         {
             ctx.Response.Headers[WireHeaders.TraceId] = ctx.TraceIdentifier;
