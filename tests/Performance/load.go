@@ -76,6 +76,7 @@ type contract struct {
 	Routes     map[string]string
 	Headers    map[string]string
 	Layouts    map[string]json.RawMessage
+	Limits     map[string]json.RawMessage
 }
 
 func number(values map[string]json.RawMessage, name string) int {
@@ -116,6 +117,7 @@ type workload struct {
 	tlsConfig  *tls.Config
 	protocol   string
 	tlsVersion string
+	corpus     corpusPreflight
 }
 
 func readWorkload(fixturePath, wirePath string) (workload, error) {
@@ -167,24 +169,11 @@ func readWorkload(fixturePath, wirePath string) (workload, error) {
 		}
 		return byTime[i].PublishedAt.After(byTime[j].PublishedAt)
 	})
-	var coordinate [20]byte
-	h := sha256.New()
-	for _, entry := range byTime {
-		binary.LittleEndian.PutUint32(coordinate[:], uint32(entry.ID))
-		binary.LittleEndian.PutUint64(coordinate[4:], 1)
-		binary.LittleEndian.PutUint64(coordinate[12:], uint64(entry.PublicationID))
-		h.Write(coordinate[:])
-		if entry.CategoryID > 0 {
-			fmt.Fprintf(h, "C%d:%d:%s", entry.CategoryID, len(utf16.Encode([]rune(entry.CategoryName))), entry.CategoryName)
-		}
+	for _, entry := range w.articles {
 		if len(entry.TagIDs) != len(entry.TagNames) {
 			return w, fmt.Errorf("invalid tag fixture %d", entry.ID)
 		}
-		for i, id := range entry.TagIDs {
-			fmt.Fprintf(h, "T%d:%d:%s", id, len(utf16.Encode([]rune(entry.TagNames[i]))), entry.TagNames[i])
-		}
 	}
-	w.generation = strconv.FormatUint(binary.LittleEndian.Uint64(h.Sum(nil))&0x7fffffffffffffff, 10)
 	w.fixture = fmt.Sprintf("%x", sha256.Sum256(fixture))
 	encodedWire, err := os.ReadFile(wirePath)
 	if err != nil {
@@ -193,7 +182,8 @@ func readWorkload(fixturePath, wirePath string) (workload, error) {
 	if err := json.Unmarshal(encodedWire, &w.wire); err != nil {
 		return w, err
 	}
-	if w.wire.Routes["PublicList"] == "" || w.wire.Routes["PublicArticle"] == "" || w.wire.Headers["SearchIndexGeneration"] == "" {
+	if w.wire.Routes["PublicList"] == "" || w.wire.Routes["PublicArticle"] == "" || w.wire.Routes["PublicSearchCorpus"] == "" ||
+		w.wire.Headers["SearchIndexGeneration"] == "" || w.wire.Headers["SearchIndexPages"] == "" {
 		return w, errors.New("public routes or generation header missing from wire schema")
 	}
 	listPath := strings.NewReplacer("{page:int}", "1", "{size:int}", "20").Replace(w.wire.Routes["PublicList"])
@@ -207,6 +197,162 @@ func readWorkload(fixturePath, wirePath string) (workload, error) {
 	// The list and home encode their newest articles in the same publication order.
 	w.articles = append(w.articles, byTime[:20]...)
 	return w, nil
+}
+
+type corpusPreflight struct {
+	Status int `json:"status"`
+	Pages  int `json:"pages"`
+	Bytes  int `json:"bytes"`
+}
+
+func verifyGeneration(ctx context.Context, origin *url.URL, w *workload, published []article) error {
+	transport := &http.Transport{TLSClientConfig: w.tlsConfig, DisableCompression: true, DisableKeepAlives: true}
+	client := &http.Client{Transport: transport, Timeout: requestLimit,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	generationHeader := w.wire.Headers["SearchIndexGeneration"]
+	pagesHeader := w.wire.Headers["SearchIndexPages"]
+	pageBytes := number(w.wire.Limits, "SearchCorpusPageBytes")
+	totalBytes := number(w.wire.Limits, "SearchCorpusTotalBytes")
+	maxPages := number(w.wire.Limits, "SearchCorpusMaxPages")
+	sum := sha256.New()
+	_, _ = io.WriteString(sum, "public-generation-corpus-v1\x00")
+	appendNumber := func(value int) {
+		var number [4]byte
+		binary.LittleEndian.PutUint32(number[:], uint32(value))
+		sum.Write(number[:])
+	}
+	var observed string
+	var evidence corpusPreflight
+	// These requests are outside the timed workload and do not touch the detail cache.
+	request := func(method, query string) (*http.Response, error) {
+		request, err := http.NewRequestWithContext(ctx, method, origin.String()+w.wire.Routes["PublicSearchCorpus"]+query, nil)
+		if err != nil {
+			return nil, err
+		}
+		request.Header.Set("Accept", "application/octet-stream")
+		request.Header.Set("Accept-Encoding", "identity")
+		return client.Do(request)
+	}
+	readPage := func(response *http.Response) ([]byte, error) {
+		defer response.Body.Close()
+		media, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
+		if response.Proto != "HTTP/1.1" || response.Header.Get("Cache-Control") != "no-store" || err != nil || media != "application/octet-stream" ||
+			(response.Header.Get("Content-Encoding") != "" && response.Header.Get("Content-Encoding") != "identity") {
+			return nil, errors.New("unexpected corpus protocol, cache policy or media type")
+		}
+		limit := min(pageBytes, totalBytes-evidence.Bytes)
+		if response.StatusCode != http.StatusOK {
+			limit = 4096
+		}
+		if response.ContentLength > int64(limit) {
+			return nil, errors.New("corpus response exceeds its byte budget")
+		}
+		body, err := io.ReadAll(io.LimitReader(response.Body, int64(limit)+1))
+		if err != nil {
+			return nil, err
+		}
+		if len(body) > limit {
+			return nil, errors.New("corpus response exceeds its byte budget")
+		}
+		return body, nil
+	}
+	for page := 1; ; page++ {
+		path := "?page=" + strconv.Itoa(page)
+		if page > 1 {
+			path += "&generation=" + observed
+		}
+		response, err := request(http.MethodGet, path)
+		if err != nil {
+			return fmt.Errorf("search corpus page %d: %w", page, err)
+		}
+		body, err := readPage(response)
+		if err != nil {
+			return fmt.Errorf("search corpus page %d: %w", page, err)
+		}
+		values := response.Header.Values(generationHeader)
+		if len(values) != 1 || !canonicalGeneration(values[0]) || page > 1 && values[0] != observed {
+			return errors.New("corpus generation header differs across pages")
+		}
+		counts := response.Header.Values(pagesHeader)
+		if page == 1 && response.StatusCode == http.StatusServiceUnavailable {
+			payload, err := w.parseFrame(body, "ApiError")
+			if err != nil || len(payload) != number(w.wire.Layouts, "ErrorBytes") ||
+				u32(payload, number(w.wire.Layouts, "ErrorStatusOffset")) != http.StatusServiceUnavailable || len(counts) != 0 {
+				return errors.New("invalid unavailable corpus response")
+			}
+			message := payload[number(w.wire.Layouts, "ErrorMessageOffset"):number(w.wire.Layouts, "ErrorDetailsOffset")]
+			if string(bytes.TrimRight(message, "\x00")) != "The search corpus is unavailable." {
+				return errors.New("corpus returned a different availability failure")
+			}
+			observed, evidence.Status = values[0], response.StatusCode
+			appendNumber(-1)
+			break
+		}
+		if response.StatusCode != http.StatusOK || len(counts) != 1 {
+			return errors.New("corpus page status or page count differs")
+		}
+		count, err := strconv.Atoi(counts[0])
+		if err != nil || count < page || count > maxPages || strconv.Itoa(count) != counts[0] || page > 1 && count != evidence.Pages {
+			return errors.New("corpus page count outside the expected range")
+		}
+		if page == 1 {
+			observed, evidence.Pages, evidence.Status = values[0], count, response.StatusCode
+			appendNumber(count)
+		}
+		if len(body) < number(w.wire.Layouts, "SearchPackagePayloadOffset")+number(w.wire.Layouts, "SearchShardHeaderSize") ||
+			u32(body, 0) != number(w.wire.Layouts, "SearchPackageMagic") || u32(body, 4) != number(w.wire.Layouts, "SearchArtifactVersion") {
+			return errors.New("invalid corpus package header")
+		}
+		evidence.Bytes += len(body)
+		appendNumber(len(body))
+		sum.Write(body)
+		if page == evidence.Pages {
+			break
+		}
+	}
+	ordered := append([]article(nil), published...)
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].CreatedAt.Equal(ordered[j].CreatedAt) {
+			return ordered[i].ID > ordered[j].ID
+		}
+		return ordered[i].CreatedAt.After(ordered[j].CreatedAt)
+	})
+	appendNumber(len(ordered))
+	var coordinates [20]byte
+	for _, entry := range ordered {
+		binary.LittleEndian.PutUint32(coordinates[:], uint32(entry.ID))
+		binary.LittleEndian.PutUint64(coordinates[4:], 1)
+		binary.LittleEndian.PutUint64(coordinates[12:], uint64(entry.PublicationID))
+		sum.Write(coordinates[:])
+		if entry.CategoryID > 0 {
+			fmt.Fprintf(sum, "C%d:%d:%s", entry.CategoryID, len(utf16.Encode([]rune(entry.CategoryName))), entry.CategoryName)
+		}
+		for i, id := range entry.TagIDs {
+			fmt.Fprintf(sum, "T%d:%d:%s", id, len(utf16.Encode([]rune(entry.TagNames[i]))), entry.TagNames[i])
+		}
+	}
+	expected := strconv.FormatUint(binary.LittleEndian.Uint64(sum.Sum(nil))&0x7fffffffffffffff, 10)
+	if observed != expected {
+		return fmt.Errorf("public generation differs from fixture coordinates and corpus bytes: observed %s, computed %s", observed, expected)
+	}
+	head, err := request(http.MethodHead, "?generation="+expected)
+	if err != nil {
+		return fmt.Errorf("search corpus generation check: %w", err)
+	}
+	defer head.Body.Close()
+	values, counts := head.Header.Values(generationHeader), head.Header.Values(pagesHeader)
+	valid := evidence.Status == http.StatusOK && head.StatusCode == http.StatusNoContent && len(counts) == 1 && counts[0] == strconv.Itoa(evidence.Pages) ||
+		evidence.Status == http.StatusServiceUnavailable && head.StatusCode == http.StatusServiceUnavailable && len(counts) == 0
+	if head.Proto != "HTTP/1.1" || head.Header.Get("Cache-Control") != "no-store" || len(values) != 1 || values[0] != expected || !valid {
+		return errors.New("corpus generation HEAD could not confirm the preflight snapshot")
+	}
+	w.generation, w.corpus = expected, evidence
+	return nil
+}
+
+func canonicalGeneration(value string) bool {
+	parsed, err := strconv.ParseUint(value, 10, 63)
+	return err == nil && strconv.FormatUint(parsed, 10) == value
 }
 
 // One outstanding request per connection avoids hidden HTTP client retries and pipelining.
@@ -1218,18 +1364,26 @@ func run() int {
 	defer out.Close()
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	started := time.Now().UTC()
 	if *coldLog != "" {
 		if origin.Scheme != "http" || *rate != 0 {
 			return fail(errors.New("cold sampling requires a fresh direct origin and no hot load"))
 		}
+	}
+	err = verifyGeneration(ctx, origin, &w, w.articles[:len(w.articles)-20])
+	if *coldLog != "" && err == nil {
 		return runCold(ctx, origin, w, *coldLog, *coldPressure, out)
 	}
-	started := time.Now().UTC()
-	err = preflight(ctx, origin, &w)
+	if err == nil {
+		err = preflight(ctx, origin, &w)
+	}
 	report := map[string]any{
 		"startedAt": started, "target": origin.String(), "generation": w.generation, "fixtureSha256": w.fixture,
 		"requestedRate": *rate, "seconds": *seconds, "preflight": "pass", "protocol": w.protocol, "tlsVersion": w.tlsVersion,
 		"connectionPolicy": "fresh-pool",
+	}
+	if w.generation != "" {
+		report["corpusPreflight"] = w.corpus
 	}
 	if *sharedWarmup != 0 {
 		report["connectionPolicy"] = "carry-from-warmup"

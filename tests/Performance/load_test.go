@@ -23,6 +23,135 @@ import (
 	"time"
 )
 
+func TestCorpusGenerationReplaysBytesAndIndependentCoordinates(t *testing.T) {
+	_, current, _, _ := runtime.Caller(0)
+	encodedWire, err := os.ReadFile(filepath.Join(filepath.Dir(current), "../../src/Contracts/wire.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire contract
+	if err := json.Unmarshal(encodedWire, &wire); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(2000, 0)
+	articles := []article{
+		{ID: 1, CreatedAt: now, PublicationID: 11, TagIDs: []int{7}, TagNames: []string{"𠀀"}},
+		{ID: 2, CreatedAt: now, PublicationID: 33, CategoryID: 3, CategoryName: "C"},
+	}
+	for _, scenario := range []struct {
+		name        string
+		generation  string
+		unavailable bool
+		mutate      string
+	}{
+		{name: "available", generation: "6612586008012810405"},
+		{name: "unavailable", generation: "6885968122039582122", unavailable: true},
+		{name: "changed bytes", generation: "6612586008012810405", mutate: "bytes"},
+		{name: "different page generation", generation: "6612586008012810405", mutate: "generation"},
+		{name: "changed page count", generation: "6612586008012810405", mutate: "pages"},
+		{name: "stale at final HEAD", generation: "6612586008012810405", mutate: "head"},
+		{name: "unrelated 503", generation: "6885968122039582122", unavailable: true, mutate: "error"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			packets := [][]byte{make([]byte, 104), make([]byte, 104)}
+			for i, packet := range packets {
+				copy(packet, "FSPK\x04\x00\x00\x00")
+				copy(packet[8:], bytes.Repeat([]byte{byte(i + 1)}, 96))
+			}
+			if scenario.mutate == "bytes" {
+				packets[1][103] ^= 1
+			}
+			var visits []string
+			var mutex sync.Mutex
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mutex.Lock()
+				visits = append(visits, r.Method+" "+r.URL.RawQuery)
+				mutex.Unlock()
+				w.Header().Set(wire.Headers["SearchIndexGeneration"], scenario.generation)
+				w.Header().Set("Cache-Control", "no-store")
+				w.Header().Set("Content-Type", "application/octet-stream")
+				if scenario.unavailable {
+					w.WriteHeader(http.StatusServiceUnavailable)
+					if r.Method != http.MethodHead {
+						message := "The search corpus is unavailable."
+						if scenario.mutate == "error" {
+							message = "This operation is temporarily unavailable."
+						}
+						_, _ = w.Write(corpusErrorVector(wire, http.StatusServiceUnavailable, message))
+					}
+					return
+				}
+				w.Header().Set(wire.Headers["SearchIndexPages"], "2")
+				if r.Method == http.MethodHead {
+					if scenario.mutate == "head" {
+						w.WriteHeader(http.StatusConflict)
+					} else {
+						w.WriteHeader(http.StatusNoContent)
+					}
+					return
+				}
+				page := r.URL.Query().Get("page")
+				if page == "2" {
+					if scenario.mutate == "generation" {
+						w.Header().Set(wire.Headers["SearchIndexGeneration"], "70")
+					}
+					if scenario.mutate == "pages" {
+						w.Header().Set(wire.Headers["SearchIndexPages"], "3")
+					}
+					_, _ = w.Write(packets[1])
+				} else {
+					_, _ = w.Write(packets[0])
+				}
+			}))
+			defer server.Close()
+			origin, err := url.Parse(server.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			work := workload{wire: wire}
+			err = verifyGeneration(context.Background(), origin, &work, articles)
+			if scenario.mutate != "" {
+				if err == nil || work.generation != "" {
+					t.Fatalf("unexpected admission: %+v, %v", work.corpus, err)
+				}
+				return
+			}
+			if err != nil || work.generation != scenario.generation {
+				t.Fatalf("admission failed: %+v, %s, %v", work.corpus, work.generation, err)
+			}
+			want := []string{"GET page=1"}
+			if !scenario.unavailable {
+				want = append(want, "GET page=2&generation="+scenario.generation)
+			}
+			want = append(want, "HEAD generation="+scenario.generation)
+			mutex.Lock()
+			defer mutex.Unlock()
+			if fmt.Sprint(visits) != fmt.Sprint(want) {
+				t.Fatalf("visits=%v, want %v", visits, want)
+			}
+		})
+	}
+}
+
+func corpusErrorVector(wire contract, status uint32, message string) []byte {
+	header := wire.Header
+	offset := number(header, "HeaderSize")
+	packet := make([]byte, offset+number(wire.Layouts, "ErrorBytes"))
+	binary.LittleEndian.PutUint32(packet, uint32(number(header, "Magic")))
+	packet[number(header, "VersionOffset")] = byte(number(header, "Version"))
+	packet[number(header, "LengthOffset")] = byte(offset)
+	binary.LittleEndian.PutUint16(packet[number(header, "TypeOffset"):], uint16(wire.FrameTypes["ApiError"]))
+	binary.LittleEndian.PutUint32(packet[number(header, "PayloadLengthOffset"):], uint32(len(packet)-offset))
+	binary.LittleEndian.PutUint32(packet[offset+number(wire.Layouts, "ErrorStatusOffset"):], status)
+	copy(packet[offset+number(wire.Layouts, "ErrorMessageOffset"):], message)
+	crc := uint16(0xffff)
+	for _, value := range packet[offset:] {
+		crc = (crc >> 8) ^ wireTable[byte(crc)^value]
+	}
+	binary.LittleEndian.PutUint16(packet[number(header, "CrcOffset"):], crc)
+	return packet
+}
+
 func TestSlowRequestRecordsOrderedBoundariesAndCap(t *testing.T) {
 	begin := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	at := func(ms int) time.Time { return begin.Add(time.Duration(ms) * time.Millisecond) }
