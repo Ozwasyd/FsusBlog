@@ -12,6 +12,7 @@ import { editArticleMedia, type AttachmentEdit } from '../../../Contracts/articl
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
 import ArticleProperties from './ArticleProperties.vue'
 import WorkspaceTabs from '../authoring/WorkspaceTabs.vue'
+import ArticleLibraryRail from '../authoring/ArticleLibraryRail.vue'
 import EditorInspector from '../authoring/EditorInspector.vue'
 import RevisionHistory from '../authoring/RevisionHistory.vue'
 import ArticleSchedule from '../authoring/ArticleSchedule.vue'
@@ -360,11 +361,15 @@ async function openSavedWorkspace() {
 }
 
 async function navigateTo(articleId: number, restore?: RecentlyClosed) {
-  if (!canSwitch.value) return
+  if (!canSwitch.value) return false
+  if (registry.activeTab?.articleId === articleId && id.value === articleId) return true
   const destination = address(articleId)
   const intent = restore && { group: restore.group, mode: restore.mode, path: router.resolve(destination).path }
   recoveryGroup = intent
-  try { await router.push({ ...destination, state: persistentWorkspace.value ? workspaceState : undefined }) }
+  try {
+    const failure = await router.push({ ...destination, state: persistentWorkspace.value ? workspaceState : undefined })
+    return !failure && registry.activeTab?.articleId === articleId && id.value === articleId
+  }
   finally { if (recoveryGroup === intent) recoveryGroup = undefined }
 }
 
@@ -618,6 +623,7 @@ async function reloadDraft() {
         <RouterLink :to="{ name: 'write', state: persistentWorkspace ? workspaceState : undefined }">New draft</RouterLink>
         <ElButton v-if="!persistentWorkspace && id !== undefined" text native-type="button" :disabled="!canSwitch" @click="openSavedWorkspace">Open saved workspace</ElButton>
       </form>
+      <ArticleLibraryRail :article-id="tab?.articleId" :article-revision="original?.revision" :disabled="!canSwitch" :activate="navigateTo" />
       <details v-if="recentlyClosed.length">
         <summary>Recently closed</summary>
         <ul>

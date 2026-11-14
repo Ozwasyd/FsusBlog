@@ -1,6 +1,7 @@
 using System.Globalization;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Core;
+using FsusBlog.V2.Server.Sessions;
 using Npgsql;
 
 namespace FsusBlog.V2.Server.Authoring;
@@ -10,8 +11,11 @@ internal static class ArticleInventoryEndpoints
     internal static void Map(WebApplication app, string cookie, Func<HttpContext, string, int, string?> query)
     {
         app.MapGet(WireRoutes.AuthorArticles, (HttpContext ctx, Store store, CancellationToken ct) =>
-            store.WithSession(ctx.Request.Cookies[cookie], true, async (db, tx, actor) =>
+        {
+            var token = ctx.Request.Cookies[cookie];
+            return store.WithSession(token, true, async (db, tx, actor) =>
             {
+                SiteSessions.IfCurrent(actor.Id, token, SiteSessions.Requested(ctx));
                 var scope = query(ctx, "scope", 6) switch
                 {
                     null or "active" => false, "trash" => true, _ => throw Invalid()
@@ -27,9 +31,11 @@ internal static class ArticleInventoryEndpoints
                 };
                 var keyword = query(ctx, "keyword", WireLimits.AuthorArticleKeywordChars)?.Trim() ?? "";
                 if (keyword.Any(char.IsControl)) throw Invalid();
-                var page = await Read(db, tx, actor, scope, state, keyword, Number(ctx, "category"), Number(ctx, "tag"), Number(ctx, "before"), ct);
+                var page = await Read(db, tx, actor, scope, state, keyword, Number(ctx, "category"), Number(ctx, "tag"),
+                    Number(ctx, "before"), Number(ctx, "article"), ct);
                 return Results.Bytes(Wire.EncodeAuthorArticlePage(page), Aeds.ContentType);
-            }, ct)).RequireRateLimiting("command");
+            }, ct);
+        }).RequireRateLimiting("command");
 
         int Number(HttpContext context, string name)
         {
@@ -41,7 +47,7 @@ internal static class ArticleInventoryEndpoints
 
     // Same statement and identity snapshot for count, page, revision metadata, and scheduling. Fetch tags only for emitted rows.
     private static async Task<AuthorArticlePage> Read(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor, bool trash,
-        AuthorArticleState? state, string keyword, int categoryId, int tagId, int beforeId, CancellationToken ct)
+        AuthorArticleState? state, string keyword, int categoryId, int tagId, int beforeId, int articleId, CancellationToken ct)
     {
         await using var cmd = Store.Sql(db, tx, """
             with matched as materialized (
@@ -53,7 +59,7 @@ internal static class ArticleInventoryEndpoints
                     and s.actor_id=a.owner_id and s.generation=$2 and not a.deleted
                 left join public.article_revision_category rc on rc.article_id=a.id and rc.revision=a.revision
                 left join public.category c on c.id=rc.category_id
-                where a.owner_id=$1 and a.deleted=$3 and ($4='' or strpos(lower(a.title), lower($4))>0)
+                where a.owner_id=$1 and a.deleted=$3 and ($4='' or strpos(lower(a.title), lower($4))>0) and ($10=0 or a.id=$10)
                     and ($5=0 or rc.category_id=$5)
                     and ($6=0 or exists(select from public.article_revision_tag rt where rt.article_id=a.id and rt.revision=a.revision and rt.tag_id=$6))
             ), filtered as materialized (
@@ -70,7 +76,8 @@ internal static class ArticleInventoryEndpoints
                 where link.article_id=p.id and link.revision=p.revision
             ) t on true
             order by p.id desc
-            """, actor.Id, actor.Generation, trash, keyword, categoryId, tagId, (int?)state ?? 0, beforeId, WireLimits.AuthorArticlePageSize + 1);
+            """, actor.Id, actor.Generation, trash, keyword, categoryId, tagId, (int?)state ?? 0, beforeId,
+                WireLimits.AuthorArticlePageSize + 1, articleId);
         var list = new List<AuthorArticleRow>(WireLimits.AuthorArticlePageSize);
         var total = 0;
         var more = false;

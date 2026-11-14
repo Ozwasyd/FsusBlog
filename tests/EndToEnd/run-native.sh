@@ -85,7 +85,7 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator canvas-scale-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi
-if [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery ]]; then
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery || ${FSUSBLOG_TEST_FLOW:-blog} == article-library ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator workspace-recovery-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi
@@ -142,6 +142,8 @@ elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == editor-readiness ]]; then
   node tests/EndToEnd/editor-readiness-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery ]]; then
   node tests/EndToEnd/workspace-recovery-flow.mjs
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-library ]]; then
+  node tests/EndToEnd/article-library-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == comment-author-delete ]]; then
   node tests/EndToEnd/comment-author-delete-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then

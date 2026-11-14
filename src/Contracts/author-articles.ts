@@ -1,6 +1,6 @@
 import { PodReader, ProtocolError } from './binary.ts';
-import { request } from './client.ts';
-import { FrameType, WireLimits, WireRoutes } from './wire.generated.ts';
+import { request, validSiteSessionId } from './client.ts';
+import { FrameType, WireHeaders, WireLimits, WireRoutes } from './wire.generated.ts';
 
 const states = ['draft', 'scheduled', 'published', 'retracted', 'deleted'] as const;
 export type AuthorArticleState = typeof states[number];
@@ -23,6 +23,7 @@ export type AuthorArticleQuery = Readonly<{
   tagId?: number;
   state?: Exclude<AuthorArticleState, 'deleted'>;
   beforeId?: number;
+  articleId?: number;
 }>;
 
 export function decodeAuthorArticlePage(bytes: Uint8Array): AuthorArticlePage {
@@ -59,15 +60,19 @@ export function decodeAuthorArticlePage(bytes: Uint8Array): AuthorArticlePage {
   return { total, nextId: nextId || null, items };
 }
 
-export async function listAuthorArticles(query: AuthorArticleQuery, signal?: AbortSignal): Promise<AuthorArticlePage> {
+export async function listAuthorArticles(query: AuthorArticleQuery, signal?: AbortSignal, session?: string): Promise<AuthorArticlePage> {
   const parameters = new URLSearchParams({ scope: query.trash ? 'trash' : 'active' });
   if (query.keyword) parameters.set('keyword', query.keyword);
   if (query.categoryId !== undefined) parameters.set('category', String(query.categoryId));
   if (query.tagId !== undefined) parameters.set('tag', String(query.tagId));
   if (query.state) parameters.set('state', query.state);
   if (query.beforeId !== undefined) parameters.set('before', String(query.beforeId));
-  const page = await request(`${WireRoutes.AuthorArticles}?${parameters}`, FrameType.AuthorArticlePage, decodeAuthorArticlePage, signal);
-  if (page.items.some(row => (row.state === 'deleted') !== query.trash || query.state !== undefined && row.state !== query.state))
+  if (query.articleId !== undefined) parameters.set('article', String(query.articleId));
+  if (session !== undefined && !validSiteSessionId(session)) throw new ProtocolError('Invalid author inventory session');
+  const page = await request(`${WireRoutes.AuthorArticles}?${parameters}`, FrameType.AuthorArticlePage, decodeAuthorArticlePage,
+    signal, 'GET', undefined, session === undefined ? undefined : { [WireHeaders.CurrentSession]: session });
+  if (page.items.some(row => (row.state === 'deleted') !== query.trash || query.state !== undefined && row.state !== query.state ||
+      query.articleId !== undefined && row.id !== query.articleId) || query.articleId !== undefined && (page.total > 1 || page.nextId !== null))
     throw new ProtocolError('Unexpected author article scope');
   return page;
 }

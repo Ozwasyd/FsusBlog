@@ -10,7 +10,9 @@
 
 桌面按活动标签位置投影最多 24 个标签，溢出每页最多 12 个，375px 下使用当前文章切换器。键盘以 Arrow、Home、End 移动焦点，以 Enter 或 Space 激活。Delete 和中键请求关闭。取消关闭后焦点返回原控件。路由最多挂载一个 FsusUI Markdown 编辑面，当前 registry 最多容纳 100 个会话。
 
-固定 v1 提交的标签栏位于编辑区之前，窄屏只显示当前标题和切换入口，标签不展示文章详情。v2 保留这些关系和交互。v1 另有 Rail、Quick Switcher 和跨组布局合同。v2 已提供共享打开命令和按 ID 入口，完整 Rail、跨组布局及全量 Quick Switcher 交互仍待接入。 [v1 标签组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/admin/article/ArticleWorkspaceTabStrip.vue) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296)
+固定 v1 提交的标签栏位于编辑区之前，窄屏只显示当前标题和切换入口，标签不展示文章详情。v2 保留这些关系和交互。v1 另有 Rail、Quick Switcher 和跨组布局合同。 [v1 标签组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/admin/article/ArticleWorkspaceTabStrip.vue) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296)
+
+编辑页的「Article library」使用与作者文章管理相同的权限查询，每页取 20 条元数据。可按标题与发布状态筛选。活动文章按文章 ID 标记，即使不在当前结果页也会单独查找并显示。双向箭头和 Home、End 在结果间移动焦点。Enter 使用当前工作区的同一打开命令，Ctrl 或 ⌘+Enter 在独立浏览器标签打开。桌面面板不会改变正文宽度，窄屏使用本地 FsusUI Drawer。关闭后焦点返回入口。服务端访问历史、全文模糊排序、分类与标签筛选、布局偏好持久化及 10,000 篇浏览器规模验证仍待完成。 [#1853](https://github.com/Ozwasyd/FsusBlog/issues/1853) · [#2231](https://github.com/Ozwasyd/FsusBlog/issues/2231)
 
 编辑器使用本地 FsusUI 的公开 `documentIdentity` 切换上下文。每篇文章保留正文、修订和未保存状态。当前 FsusUI 的公开切换会重建选择和撤销历史，切换后不能宣称完整恢复旧 FsusUI 会话。完整挂起及恢复仍需可验证的编辑器快照接口。 [#2294](https://github.com/Ozwasyd/FsusBlog/issues/2294)
 
