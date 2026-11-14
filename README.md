@@ -33,4 +33,4 @@ shasum -a 256 -c SHA256SUMS
 git bundle verify history.bundle
 ```
 
-在运行目录解包 `fsusblog-v2.tar.gz`，再用 `shasum -a 256 -c /absolute/path/to/payload.sha256` 验证文件。部署时设置 `FSUSBLOG_WEB_DIST` 指向包内 `web`，用运行库启动 `server/FsusBlog.V2.Server.dll`。审核历史可在空 Git 仓库执行 `git fetch /absolute/path/to/history.bundle HEAD:refs/heads/main`。部署说明见[单机 Caddy TLS](deploy/README.md)和[数据库初始化与恢复](docs/migration.md)。
+在运行目录解包 `fsusblog-v2.tar.gz`，再用 `shasum -a 256 -c /absolute/path/to/payload.sha256` 验证文件。部署时设置 `FSUSBLOG_WEB_DIST` 指向包内 `web`，用运行库启动 `server/FsusBlog.V2.Server.dll`。审核历史可在空裸仓库执行 `git fetch /absolute/path/to/history.bundle HEAD:refs/heads/main` 和 `git fsck --full`。部署说明见[单机 Caddy TLS](deploy/README.md)和[数据库初始化与恢复](docs/migration.md)。
