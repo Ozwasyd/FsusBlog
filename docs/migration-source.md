@@ -66,6 +66,24 @@ dotnet run --no-build --project src/Migrate -- legacy import apply sqlite \
 
 `tests/Integration/Migration/legacy-import.sh [sqlite|postgres|mysql]` 对三种只读源执行相同的候选实写、禁用启动、检查点续跑、改动拒绝和导入前备份恢复。2026-11-15 用 SDK 10.0.404、SQLite 3.54.0、PostgreSQL 18.7 和 MySQL 8.4.13 原生实例通过。PostgreSQL 来源连接明确强制只读事务，MySQL 来源位于无网络监听的临时实例，使用只有 `SELECT` 权限的账号。独立确认测试结束后自建库、临时目录和 MySQL socket 已清理。脱离工作树的构建基准、输入摘要和原始结果见本地 `artifacts/native-migration/provider-import-20261114T162656.log`。
 
+### 离线验看附件来源
+
+停止旧站写入后，从同一个时间点取得只读数据库和共享存储快照。用经过验证的实际目录分别指定旧站 `assets/public` 与 `assets/private`。旧版 `tools/operations/backup-site.sh` 仅归档一个可配置的 uploads 目录，通常无法从旧备份单独取得这两棵目录。验收报告请放在只有操作者可读的目录。
+
+```bash
+umask 077
+dotnet run --no-build --project src/Migrate -- legacy assets postgres \
+  "$frozen_public_assets" "$frozen_private_assets" > "$asset_report"
+```
+
+在 macOS 或 Linux 上，此步骤以只读事务和无符号链接跟随的目录句柄检查旧库 `content_asset` 与 `content_asset_reference`。逐件检查 UUID、存储类型、字节数、数据库声明的 SHA-256 和实读 SHA-256。私有件还检查 UUID 对应的存储路径及旧 `admin_principal` 所有者存在。引用使用旧文章 ID 或全局修订 ID，核对修订所属文章；报告保留元数据与关联摘要，省略文件路径及替代文本。一次最多检查 5,000 件附件、20,000 条引用和 1 GiB 字节。
+
+报告的 `issues` 按类计数。旧公有件无原始摘要、文件缺失或改变、私有件所有者未解析、草稿或模板关联、清理状态及尚存的旧 URL 附件表会有对应的条目。退出码 2 表示读取完成且存在这些未解决项，退出码 1 表示提供者、数据格式或输入失败。报告始终返回 `readyToApply: false`。核查只读，现有 `legacy import` 仍拒绝含附件的来源，授权映射、字节落库、历史链接改写与激活仍需实现。
+
+旧版编号 `20260826-post-content-asset-id-cutover` 的附件迁移 DDL 以 PostgreSQL 注册。SQLite 与 MySQL 可验看对同一字段结构的离线快照，MySQL 的测试使用 `CHAR(36)` UUID；这只确认快照读取能力。编号切换前的 URL-only 来源无法出具字节权威报告。
+
+2026-11-15 在 SDK 10.0.404 下运行 `tests/Integration/Migration/legacy-assets.sh [postgres|sqlite|mysql]`。三个样本均验证公有和私有件，同时拒绝相同长度的内容篡改、文件缺失或改名、符号链接、错误的旧所有者或修订号。草稿引用、清理队列和缺失旧摘要会生成逐项结果，当权威表结构不存在则停止。精确输入摘要与原始输出见本地 `artifacts/native-migration/assets-20261114T163811.log`。
+
 只读 PostgreSQL 结构盘点示例。表级计数与哈希在已确认候选集合内逐表运行，表名来自 catalog 并按提供方规则引用。预估行数可协助安排盘点，完成验收时应保存精确行数。
 
 ```sql

@@ -76,6 +76,8 @@ internal static partial class Migration
                   legacy import plan PROVIDER OWNER_MAP.json BACKUP_DIR MANIFEST_SHA256
                   legacy import apply PROVIDER OWNER_MAP.json BACKUP_DIR MANIFEST_SHA256 PLAN.json
                                         Validate and stage supported v1 rows into FSUSBLOG_IMPORT_DB
+                  legacy assets PROVIDER PUBLIC_ROOT PRIVATE_ROOT
+                                        Verify frozen legacy attachment metadata, references and file bytes
                 """);
             return 0;
         }
@@ -89,6 +91,8 @@ internal static partial class Migration
         Console.CancelKeyPress += cancel;
         try
         {
+            if (arguments is ["legacy", "assets", var assetProvider, var publicAssets, var privateAssets])
+                return await VerifyLegacyAssetsAsync(assetProvider, publicAssets, privateAssets, cancelled.Token);
             if (arguments is ["legacy", "import", .. var importArguments])
             {
                 return await RunLegacyImportAsync(importArguments, cancelled.Token);
