@@ -163,6 +163,40 @@ rollback proof. The existing shared drop-proof requirements and closed Contract
 phase remain unchanged; native execution and backup admission still require their
 original owners.
 
+The existing descriptor transaction kernel now runs a message raw-session
+preflight before `descriptor.Steps[0]` for the historical privacy-retention
+descriptor and typed drops of either raw column or its owning table. It borrows
+the actual PostgreSQL Read Committed transaction, locks `public.msg_conversation`
+then `public.msg_message` against concurrent writes and DDL, revalidates their
+catalog identities, and separately counts non-NULL `createdbyadminsessionid` and
+`senderadminsessionid`. Both counts must be observed and zero before any step;
+nonzero, missing table/column, unknown shape, lock/read failure, RLS or a stale
+transaction snapshot refuses the entire descriptor. A missing object is not a
+zero-count observation, even when both old columns are already absent; this is
+not an idempotent final-shape retirement implementation. Diagnostics contain fixed table/column names and counts,
+never raw session values or provider inner exceptions. The existing descriptor
+SQL, order, checksums and history are unchanged. This guard does not parse or
+authorize arbitrary SQL, and does not certify a descriptor's later writes.
+
+The locks remain owned by that descriptor transaction until commit or rollback;
+the adapter connection and transaction identities are checked around every step.
+the original offline advisory lock and closed Contract phase are preserved.
+This source guard is wired into the legacy descriptor kernel, not the separate
+Native-Core Apply or `PgLegacyNonArticlePreparation` transaction owners. It adds
+no operation registration, backup authority, execution receipt or physical DROP
+admission. DB/lock/count/DROP behavior and complete retirement qualification
+remain unverified; source review cannot establish physical retirement safety.
+
+The sole PostgreSQL current catalog reader now inventories public `pg_class`
+relations of kinds `r/p/v/m/f` rather than filtering through BASE TABLE rows.
+It rejects views, materialized views and foreign tables before column collection,
+and refuses a column whose relation was not observed. `ReadTableAsync` retains
+its existing selected-table scope; it is not a global admission check. This
+changes actual observation only, not the frozen expected target or allowed-extra
+relations. The separate offline source observer already inventories those kinds
+and is unchanged. Native catalog and full current-schema qualification remain
+unverified.
+
 ### Immutable offline planning boundary
 
 The separate `plan` command parses an explicit provider, observed instance/database

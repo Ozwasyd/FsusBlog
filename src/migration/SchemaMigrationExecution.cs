@@ -17,13 +17,37 @@ internal static class SchemaMigrationTransactionExecutor
         Func<SchemaMigrationStep, CancellationToken, Task> executeStep,
         CancellationToken cancellationToken)
     {
+        bool requiresRawSessionPreflight = MessageRawSessionRetirementPreflight.RequiresGuard(descriptor);
+        if (requiresRawSessionPreflight && !descriptor.Transactional)
+        {
+            throw new InvalidOperationException("message_raw_session_preflight_transaction_required");
+        }
         if (descriptor.Transactional)
         {
             var result = await db.Ado.UseTranAsync(async () =>
             {
+                var guardedConnection = requiresRawSessionPreflight ? db.Ado.Connection : null;
+                var guardedTransaction = requiresRawSessionPreflight ? db.Ado.Transaction : null;
+                if (requiresRawSessionPreflight)
+                {
+                    await MessageRawSessionRetirementPreflight.RequireEmptyAsync(db, cancellationToken).ConfigureAwait(false);
+                }
                 for (int i = 0; i < descriptor.Steps.Count; i++)
                 {
+                    RequireGuardedTransaction();
                     await executeStep(descriptor.Steps[i], cancellationToken).ConfigureAwait(false);
+                    RequireGuardedTransaction();
+                }
+
+                void RequireGuardedTransaction()
+                {
+                    if (requiresRawSessionPreflight
+                        && (!ReferenceEquals(db.Ado.Connection, guardedConnection)
+                            || !ReferenceEquals(db.Ado.Transaction, guardedTransaction)
+                            || !ReferenceEquals(guardedTransaction?.Connection, guardedConnection)))
+                    {
+                        throw new InvalidOperationException("message_raw_session_preflight_transaction_changed");
+                    }
                 }
             }).ConfigureAwait(false);
 
