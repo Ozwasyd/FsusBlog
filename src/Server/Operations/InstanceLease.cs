@@ -59,7 +59,7 @@ internal sealed class InstanceLease : IAsyncDisposable
 
     internal CancellationToken Stopped => _stopped.Token;
 
-    internal async Task Start(ILogger log, CancellationToken ct, bool? requireSubscription = null)
+    internal async Task Start(ILogger log, CancellationToken ct, bool? requireSubscription = null, bool? requireRecoveryKey = null)
     {
         await _owner.OpenAsync(ct);
         await using (var acquire = Store.Sql(_owner, null, "select pg_catalog.pg_try_advisory_lock($1)", OwnershipKey))
@@ -73,7 +73,7 @@ internal sealed class InstanceLease : IAsyncDisposable
             handoff.CommandTimeout = 5;
             await handoff.ExecuteNonQueryAsync(ct);
         }
-        await CurrentSchema.VerifyAsync(_owner, ct, requireSubscription);
+        await CurrentSchema.VerifyAsync(_owner, ct, requireSubscription, requireRecoveryKey);
         _pid = _owner.ProcessID;
         await using (var identity = new NpgsqlCommand("select backend_start from pg_catalog.pg_stat_activity where pid=pg_backend_pid()", _owner))
             _backendStart = (DateTime)(await identity.ExecuteScalarAsync(ct))!;

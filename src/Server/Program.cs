@@ -17,6 +17,7 @@ const string Html = "text/html; charset=utf-8";
 var builder = WebApplication.CreateBuilder(args);
 var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
 var adminIdentity = FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.ReadConfiguration(builder.Configuration);
+var recoveryKey = FsusBlog.V2.Server.Passkeys.RecoveryKeySecret.Read(builder.Configuration);
 var subscription = SubscriptionIdentity.Read(builder.Configuration[SubscriptionIdentity.KeySetting]);
 var evidenceDirectory = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"];
 var connectionString = builder.Configuration["FSUSBLOG_DB"] ?? throw new InvalidOperationException("FSUSBLOG_DB is required.");
@@ -99,7 +100,8 @@ if (app.Services.GetService<RuntimeEvidence>() is { } runtimeEvidence)
 }
 var lease = app.Services.GetRequiredService<InstanceLease>();
 using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
-await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscription: subscription is null ? null : true);
+await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscription: subscription is null ? null : true,
+    requireRecoveryKey: recoveryKey is null ? null : true);
 var publications = app.Services.GetRequiredService<Publications>();
 app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
 await publications.Refresh(CancellationToken.None);
@@ -180,7 +182,7 @@ app.UseWhen(ctx => ctx.Request.Path == WireRoutes.InboxStream, branch => branch.
 }));
 app.UseRateLimiter();
 appearance?.Map(app);
-FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame, recoveryKey);
 FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame);
 FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);

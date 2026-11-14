@@ -64,6 +64,10 @@
     "AdminModerationClaimRequest": 32867,
     "AdminModerationClaim": 32868,
     "AdminModerationDecision": 32869,
+    "RecoveryKeyOperation": 32900,
+    "RecoveryKeyIssued": 32901,
+    "RecoveryKeyStatus": 32902,
+    "RecoveryKeyVerify": 32903,
     "Draft": 32770,
     "ArticleCommand": 32771,
     "RevisionHistory": 32800,
@@ -191,6 +195,15 @@
     "PasskeyLoginBegin": "/api/binary/auth/passkey/login/begin",
     "PasskeyLoginComplete": "/api/binary/auth/passkey/login/complete",
     "PasskeyProvisionBegin": "/api/v2/identity/passkey/register/begin.aeds",
+    "RecoveryKeyAvailability": "/api/v2/identity/recovery-key/available.aeds",
+    "RecoveryKeyStatus": "/api/v2/identity/recovery-key/status.aeds",
+    "RecoveryKeyStepUpBegin": "/api/v2/identity/recovery-key/step-up/begin.aeds",
+    "RecoveryKeyStepUpComplete": "/api/v2/identity/recovery-key/step-up/complete.aeds",
+    "RecoveryKeyIssue": "/api/v2/identity/recovery-key/issue.aeds",
+    "RecoveryKeyPow": "/api/v2/identity/recovery-key/pow.aeds",
+    "RecoveryKeyVerify": "/api/v2/identity/recovery-key/verify.aeds",
+    "RecoveryKeyRebindBegin": "/api/v2/identity/recovery-key/rebind/begin.aeds",
+    "RecoveryKeyRebindComplete": "/api/v2/identity/recovery-key/rebind/complete.aeds",
     "PasskeyProvisionComplete": "/api/v2/identity/passkey/register/complete.aeds",
     "PasskeyAvailability": "/api/v2/identity/passkey/availability.aeds",
     "Draft": "/api/v2/authoring/draft/{id:int}.aeds",
@@ -300,6 +313,9 @@
     "AdminModerationClaimRequestFrameBytes": 28,
     "AdminModerationClaimFrameBytes": 107,
     "AdminModerationDecisionFrameBytes": 1135,
+    "RecoveryKeyBytes": 80,
+    "RecoveryKeyVerifyFrameBytes": 100,
+    "RecoveryKeyOperationFrameBytes": 20,
     "MaxCommandFrameBytes": 1048884,
     "RevisionHistoryPageSize": 20,
     "RevisionHistoryCursorChars": 54,
@@ -514,6 +530,22 @@
     "MfaChallengeProofOffset": 168
   },
   "records": {
+    "RecoveryKeyOperation": {
+      "frame": "RecoveryKeyOperation",
+      "fields": [["Operation", "i32"]]
+    },
+    "RecoveryKeyIssued": {
+      "frame": "RecoveryKeyIssued",
+      "fields": [["Key", "text", "RecoveryKeyBytes"], ["Version", "i64"], ["CreatedAt", "i64"]]
+    },
+    "RecoveryKeyStatus": {
+      "frame": "RecoveryKeyStatus",
+      "fields": [["Active", "bool"]]
+    },
+    "RecoveryKeyVerify": {
+      "frame": "RecoveryKeyVerify",
+      "fields": [["Key", "text", "RecoveryKeyBytes"]]
+    },
     "AdminModerationClaimRequest": {
       "frame": "AdminModerationClaimRequest",
       "fields": [["ArticleId", "i32"], ["CommentId", "i64"]]

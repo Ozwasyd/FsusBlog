@@ -74,15 +74,25 @@ with socket.socket() as public, socket.socket() as upstream:
     print(public.getsockname()[1], upstream.getsockname()[1])
 PY
 )
-export FSUSBLOG_PUBLIC_ADDRESS="https://127.0.0.1:$public_port"
-export FSUSBLOG_ADMIN_ADDRESS="https://localhost:$public_port"
+public_host=127.0.0.1
+admin_host=localhost
+public_san=IP:127.0.0.1
+admin_san=DNS:localhost
+if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
+  public_host=localhost
+  admin_host=127.0.0.1
+  public_san=DNS:localhost
+  admin_san=IP:127.0.0.1
+fi
+export FSUSBLOG_PUBLIC_ADDRESS="https://$public_host:$public_port"
+export FSUSBLOG_ADMIN_ADDRESS="https://$admin_host:$public_port"
 export FSUSBLOG_PROXY_BIND=127.0.0.1 FSUSBLOG_UPSTREAM_PORT="$upstream_port"
 export FSUSBLOG_TLS_CERTIFICATE="$scratch/public.pem" FSUSBLOG_TLS_KEY="$scratch/public.key"
 export FSUSBLOG_ADMIN_TLS_CERTIFICATE="$scratch/admin.pem" FSUSBLOG_ADMIN_TLS_KEY="$scratch/admin.key"
 export XDG_DATA_HOME="$scratch/caddy-data" XDG_CONFIG_HOME="$scratch/caddy-config"
 export FSUSBLOG_TRUST_LOOPBACK_PROXY=true FSUSBLOG_PUBLIC_ORIGIN="$FSUSBLOG_PUBLIC_ADDRESS"
-export FSUSBLOG_ADMIN_ORIGIN="$FSUSBLOG_ADMIN_ADDRESS" FSUSBLOG_ADMIN_RP_ID=localhost
-export FSUSBLOG_PASSKEY_ORIGIN="$FSUSBLOG_PUBLIC_ADDRESS" FSUSBLOG_PASSKEY_RP_ID=127.0.0.1
+export FSUSBLOG_ADMIN_ORIGIN="$FSUSBLOG_ADMIN_ADDRESS" FSUSBLOG_ADMIN_RP_ID="$admin_host"
+export FSUSBLOG_PASSKEY_ORIGIN="$FSUSBLOG_PUBLIC_ADDRESS" FSUSBLOG_PASSKEY_RP_ID="$public_host"
 export FSUSBLOG_TEST_SITE_URL="$FSUSBLOG_PUBLIC_ADDRESS" FSUSBLOG_TEST_ADMIN_URL="$FSUSBLOG_ADMIN_ADDRESS"
 export FSUSBLOG_DB="${FSUSBLOG_TEST_DB%;};Database=$database"
 export NODE_EXTRA_CA_CERTS="$scratch/ca.pem"
@@ -131,8 +141,8 @@ EOF
 {
   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$scratch/ca.key"
   openssl req -new -x509 -key "$scratch/ca.key" -days 1 -sha256 -config "$scratch/ca.cnf" -out "$scratch/ca.pem"
-  issue_leaf public IP:127.0.0.1
-  issue_leaf admin DNS:localhost
+  issue_leaf public "$public_san"
+  issue_leaf admin "$admin_san"
 } > "$evidence/certificates.log" 2>&1
 spki() {
   openssl x509 -in "$1" -noout -pubkey | openssl pkey -pubin -outform DER | openssl dgst -sha256 -binary | openssl base64 -A
@@ -171,7 +181,26 @@ set -euo pipefail
 EOF
   chmod 700 "$path"
 }
-if [[ ${FSUSBLOG_TEST_ADMIN_TAXONOMY:-0} == 1 ]]; then
+if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
+  export FSUSBLOG_RECOVERY_KEY_PEPPER_HEX="$(openssl rand -hex 32)" FSUSBLOG_TOTP_KEY_HEX="$(openssl rand -hex 32)"
+  FSUSBLOG_TEST_SITE_RECOVERY_PEER_TICKET=$("$dotnet" "$migrate" operator tls-site-recovery-peer)
+  export FSUSBLOG_TEST_SITE_RECOVERY_PEER_TICKET
+  export FSUSBLOG_TEST_SITE_RECOVERY_DATABASE="$database"
+  export FSUSBLOG_TEST_SITE_RECOVERY_PROBE="$scratch/recovery-reservation"
+  cat > "$FSUSBLOG_TEST_SITE_RECOVERY_PROBE" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $FSUSBLOG_TEST_SITE_RECOVERY_DATABASE =~ ^fsusv2_admin_tls_[a-f0-9]{24}$ ]]
+exec "${PG_TOOLS_DIR:+"$PG_TOOLS_DIR/"}psql" -X -w -v ON_ERROR_STOP=1 -d "$FSUSBLOG_TEST_SITE_RECOVERY_DATABASE" -Atc "
+  select count(*) from public.site_recovery_key k
+  join public.blog_user u on u.id=k.user_id
+  join public.site_recovery_rebind r on r.user_id=u.id
+  where u.name='tls-site-fixture' and k.version=2 and k.used_at is null
+    and r.completed_at is null and u.generation=r.generation
+"
+EOF
+  chmod 700 "$FSUSBLOG_TEST_SITE_RECOVERY_PROBE"
+elif [[ ${FSUSBLOG_TEST_ADMIN_TAXONOMY:-0} == 1 ]]; then
   unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
   unset FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE \
     FSUSBLOG_TEST_ADMIN_MODERATOR_SEED FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
@@ -239,21 +268,42 @@ expect() {
 }
 {
   expect public-health 204 "$FSUSBLOG_PUBLIC_ADDRESS/health/ready"
-  expect naked-upstream-denied 400 -H "Host: localhost:$public_port" \
+  expect naked-upstream-denied 400 -H "Host: $admin_host:$public_port" \
     "http://127.0.0.1:$upstream_port/admin/identity"
-  expect administrator-shell 200 "$FSUSBLOG_ADMIN_ADDRESS/admin/identity"
-  expect anonymous-administrator-session 401 "$FSUSBLOG_ADMIN_ADDRESS/api/v2/admin/identity/session.aeds"
   expect public-host-administrator-denied 404 "$FSUSBLOG_PUBLIC_ADDRESS/api/v2/admin/identity/session.aeds"
-  expect administrator-host-public-denied 404 "$FSUSBLOG_ADMIN_ADDRESS/"
-  expect forged-forwarded-host-denied 404 -H "X-Forwarded-Host: localhost:$public_port" \
+  expect forged-forwarded-host-denied 404 -H "X-Forwarded-Host: $admin_host:$public_port" \
     "$FSUSBLOG_PUBLIC_ADDRESS/api/v2/admin/identity/session.aeds"
-  expect administrator-authority-preserved 401 -H "X-Forwarded-Host: 127.0.0.1:$public_port" \
-    -H 'X-Forwarded-Proto: http' "$FSUSBLOG_ADMIN_ADDRESS/api/v2/admin/identity/session.aeds"
-  expect mismatched-tls-sni-and-host-denied 421 --http1.1 -H "Host: localhost:$public_port" \
-    "$FSUSBLOG_PUBLIC_ADDRESS/admin/identity"
+  if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} != 1 ]]; then
+    expect administrator-shell 200 "$FSUSBLOG_ADMIN_ADDRESS/admin/identity"
+    expect anonymous-administrator-session 401 "$FSUSBLOG_ADMIN_ADDRESS/api/v2/admin/identity/session.aeds"
+    expect administrator-host-public-denied 404 "$FSUSBLOG_ADMIN_ADDRESS/"
+    expect administrator-authority-preserved 401 -H "X-Forwarded-Host: $public_host:$public_port" \
+      -H 'X-Forwarded-Proto: http' "$FSUSBLOG_ADMIN_ADDRESS/api/v2/admin/identity/session.aeds"
+    expect mismatched-tls-sni-and-host-denied 421 --http1.1 -H "Host: $admin_host:$public_port" \
+      "$FSUSBLOG_PUBLIC_ADDRESS/admin/identity"
+  fi
 } > "$evidence/ingress-probes.log"
 
-node tests/EndToEnd/admin-identity-flow.mjs
+if [[ ${FSUSBLOG_TEST_SITE_RECOVERY:-0} == 1 ]]; then
+  node tests/EndToEnd/site-recovery-flow.mjs
+  "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
+    select 'own_key_rotated_and_spent=' || count(*) from public.site_recovery_key k
+      join public.blog_user u on u.id=k.user_id
+      where u.name='tls-site-fixture' and k.version=2 and k.used_at is not null
+    union all select 'own_rebind_completed=' || count(*) from public.site_recovery_rebind r
+      join public.blog_user u on u.id=r.user_id
+      where u.name='tls-site-fixture' and r.completed_at is not null and u.generation=r.generation+1
+    union all select 'own_replacement_credential=' || count(*) from public.passkey_credential c
+      join public.blog_user u on u.id=c.user_id where u.name='tls-site-fixture'
+    union all select 'own_totp_preserved=' || count(*) from public.mfa_totp t
+      join public.blog_user u on u.id=t.user_id where u.name='tls-site-fixture'
+  " > "$evidence/site-recovery-counts.txt"
+  for check in own_key_rotated_and_spent own_rebind_completed own_replacement_credential own_totp_preserved; do
+    grep -Fxq "$check=1" "$evidence/site-recovery-counts.txt"
+  done
+else
+  node tests/EndToEnd/admin-identity-flow.mjs
+fi
 "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -Atc "
   select 'admin_sessions=' || count(*) from public.admin_session
   union all select 'admin_invitations=' || count(*) from public.admin_invitation

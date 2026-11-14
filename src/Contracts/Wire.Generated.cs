@@ -53,6 +53,10 @@ public enum FrameType : ushort
     AdminModerationClaimRequest = 32867,
     AdminModerationClaim = 32868,
     AdminModerationDecision = 32869,
+    RecoveryKeyOperation = 32900,
+    RecoveryKeyIssued = 32901,
+    RecoveryKeyStatus = 32902,
+    RecoveryKeyVerify = 32903,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -165,6 +169,9 @@ public static class WireLimits
     public const int AdminModerationClaimRequestFrameBytes = 28;
     public const int AdminModerationClaimFrameBytes = 107;
     public const int AdminModerationDecisionFrameBytes = 1135;
+    public const int RecoveryKeyBytes = 80;
+    public const int RecoveryKeyVerifyFrameBytes = 100;
+    public const int RecoveryKeyOperationFrameBytes = 20;
     public const int MaxCommandFrameBytes = 1048884;
     public const int RevisionHistoryPageSize = 20;
     public const int RevisionHistoryCursorChars = 54;
@@ -460,6 +467,15 @@ public static class WireRoutes
     public const string PasskeyLoginBegin = "/api/binary/auth/passkey/login/begin";
     public const string PasskeyLoginComplete = "/api/binary/auth/passkey/login/complete";
     public const string PasskeyProvisionBegin = "/api/v2/identity/passkey/register/begin.aeds";
+    public const string RecoveryKeyAvailability = "/api/v2/identity/recovery-key/available.aeds";
+    public const string RecoveryKeyStatus = "/api/v2/identity/recovery-key/status.aeds";
+    public const string RecoveryKeyStepUpBegin = "/api/v2/identity/recovery-key/step-up/begin.aeds";
+    public const string RecoveryKeyStepUpComplete = "/api/v2/identity/recovery-key/step-up/complete.aeds";
+    public const string RecoveryKeyIssue = "/api/v2/identity/recovery-key/issue.aeds";
+    public const string RecoveryKeyPow = "/api/v2/identity/recovery-key/pow.aeds";
+    public const string RecoveryKeyVerify = "/api/v2/identity/recovery-key/verify.aeds";
+    public const string RecoveryKeyRebindBegin = "/api/v2/identity/recovery-key/rebind/begin.aeds";
+    public const string RecoveryKeyRebindComplete = "/api/v2/identity/recovery-key/rebind/complete.aeds";
     public const string PasskeyProvisionComplete = "/api/v2/identity/passkey/register/complete.aeds";
     public const string PasskeyAvailability = "/api/v2/identity/passkey/availability.aeds";
     public const string Draft = "/api/v2/authoring/draft/{id:int}.aeds";
@@ -526,6 +542,10 @@ public static class WireHeaders
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
 }
 
+public sealed record RecoveryKeyOperation(int Operation);
+public sealed record RecoveryKeyIssued(string Key, long Version, long CreatedAt);
+public sealed record RecoveryKeyStatus(bool Active);
+public sealed record RecoveryKeyVerify(string Key);
 public sealed record AdminModerationClaimRequest(int ArticleId, long CommentId);
 public sealed record AdminModerationClaim(int ArticleId, long CommentId, long CommentVersion, string ClaimToken, long ClaimGeneration, long ClaimVersion, long ExpiresAt);
 public sealed record AdminModerationDecision(int ArticleId, long CommentId, int ExpectedStatus, int Decision, string Reason, long CommentVersion, string ClaimToken, long ClaimGeneration, long ClaimVersion);
@@ -563,6 +583,76 @@ public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevisi
 
 public static partial class Wire
 {
+    public static byte[] EncodeRecoveryKeyOperation(RecoveryKeyOperation value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.Operation);
+        return Aeds.Encode(FrameType.RecoveryKeyOperation, writer.Written);
+    }
+
+    public static RecoveryKeyOperation DecodeRecoveryKeyOperation(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.RecoveryKeyOperation));
+        var value = new RecoveryKeyOperation(reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeRecoveryKeyIssued(RecoveryKeyIssued value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Text(value.Key, WireLimits.RecoveryKeyBytes);
+        writer.I64(value.Version);
+        writer.I64(value.CreatedAt);
+        return Aeds.Encode(FrameType.RecoveryKeyIssued, writer.Written);
+    }
+
+    public static RecoveryKeyIssued DecodeRecoveryKeyIssued(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.RecoveryKeyIssued));
+        var value = new RecoveryKeyIssued(reader.Text(WireLimits.RecoveryKeyBytes), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeRecoveryKeyStatus(RecoveryKeyStatus value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Bool(value.Active);
+        return Aeds.Encode(FrameType.RecoveryKeyStatus, writer.Written);
+    }
+
+    public static RecoveryKeyStatus DecodeRecoveryKeyStatus(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.RecoveryKeyStatus));
+        var value = new RecoveryKeyStatus(reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeRecoveryKeyVerify(RecoveryKeyVerify value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Text(value.Key, WireLimits.RecoveryKeyBytes);
+        return Aeds.Encode(FrameType.RecoveryKeyVerify, writer.Written);
+    }
+
+    public static RecoveryKeyVerify DecodeRecoveryKeyVerify(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.RecoveryKeyVerify));
+        var value = new RecoveryKeyVerify(reader.Text(WireLimits.RecoveryKeyBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
     public static byte[] EncodeAdminModerationClaimRequest(AdminModerationClaimRequest value)
     {
         Validate(value);

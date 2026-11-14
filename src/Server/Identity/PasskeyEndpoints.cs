@@ -12,7 +12,7 @@ internal static class PasskeyEndpoints
     private const string ProvisionCookiePath = "/api/v2/identity/passkey/register";
 
     internal static void Map(WebApplication app, string sessionCookie,
-        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+        Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame, RecoveryKeySecret? recoveryKey)
     {
         var configuration = PasskeyConfiguration.Read(app.Configuration);
         var secrets = TotpSecret.Read(app.Configuration);
@@ -20,6 +20,8 @@ internal static class PasskeyEndpoints
         {
             if (secrets is not null)
                 throw new InvalidOperationException("A Passkey relying party is required to enable TOTP.");
+            if (recoveryKey is not null)
+                throw new InvalidOperationException("A Passkey relying party is required to enable Recovery Keys.");
             return;
         }
         var database = app.Services.GetRequiredService<NpgsqlDataSource>();
@@ -76,6 +78,8 @@ internal static class PasskeyEndpoints
 
         if (secrets is not null)
             MfaEndpoints.Map(app, new MfaStore(database, secrets, lease), passkeys, sessionCookie, readFrame, RequireHost, IssueSession, Cookie);
+        if (recoveryKey is not null)
+            RecoveryKeyEndpoints.Map(app, passkeys, recoveryKey, sessionCookie, readFrame, RequireHost, Cookie);
 
         void IssueSession(HttpContext ctx, string token, DateTimeOffset expires)
         {

@@ -52,6 +52,10 @@ export const FrameType = {
   AdminModerationClaimRequest: 32867,
   AdminModerationClaim: 32868,
   AdminModerationDecision: 32869,
+  RecoveryKeyOperation: 32900,
+  RecoveryKeyIssued: 32901,
+  RecoveryKeyStatus: 32902,
+  RecoveryKeyVerify: 32903,
   Draft: 32770,
   ArticleCommand: 32771,
   RevisionHistory: 32800,
@@ -162,6 +166,9 @@ export const WireLimits = {
   AdminModerationClaimRequestFrameBytes: 28,
   AdminModerationClaimFrameBytes: 107,
   AdminModerationDecisionFrameBytes: 1135,
+  RecoveryKeyBytes: 80,
+  RecoveryKeyVerifyFrameBytes: 100,
+  RecoveryKeyOperationFrameBytes: 20,
   MaxCommandFrameBytes: 1048884,
   RevisionHistoryPageSize: 20,
   RevisionHistoryCursorChars: 54,
@@ -455,6 +462,15 @@ export const WireRoutes = {
   PasskeyLoginBegin: "/api/binary/auth/passkey/login/begin",
   PasskeyLoginComplete: "/api/binary/auth/passkey/login/complete",
   PasskeyProvisionBegin: "/api/v2/identity/passkey/register/begin.aeds",
+  RecoveryKeyAvailability: "/api/v2/identity/recovery-key/available.aeds",
+  RecoveryKeyStatus: "/api/v2/identity/recovery-key/status.aeds",
+  RecoveryKeyStepUpBegin: "/api/v2/identity/recovery-key/step-up/begin.aeds",
+  RecoveryKeyStepUpComplete: "/api/v2/identity/recovery-key/step-up/complete.aeds",
+  RecoveryKeyIssue: "/api/v2/identity/recovery-key/issue.aeds",
+  RecoveryKeyPow: "/api/v2/identity/recovery-key/pow.aeds",
+  RecoveryKeyVerify: "/api/v2/identity/recovery-key/verify.aeds",
+  RecoveryKeyRebindBegin: "/api/v2/identity/recovery-key/rebind/begin.aeds",
+  RecoveryKeyRebindComplete: "/api/v2/identity/recovery-key/rebind/complete.aeds",
   PasskeyProvisionComplete: "/api/v2/identity/passkey/register/complete.aeds",
   PasskeyAvailability: "/api/v2/identity/passkey/availability.aeds",
   Draft: "/api/v2/authoring/draft/{id:int}.aeds",
@@ -521,6 +537,88 @@ export const WireHeaders = {
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
+
+export interface RecoveryKeyOperation {
+  operation: number;
+}
+
+export function encodeRecoveryKeyOperation(value: RecoveryKeyOperation): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.operation);
+  return writer.finish();
+}
+
+export function decodeRecoveryKeyOperation(payload: Uint8Array): RecoveryKeyOperation {
+  const reader = new PodReader(payload);
+  const value: RecoveryKeyOperation = {
+    operation: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface RecoveryKeyIssued {
+  key: string;
+  version: bigint;
+  createdAt: bigint;
+}
+
+export function encodeRecoveryKeyIssued(value: RecoveryKeyIssued): Uint8Array {
+  const writer = new PodWriter();
+  writer.text(value.key, WireLimits.RecoveryKeyBytes);
+  writer.i64(value.version);
+  writer.i64(value.createdAt);
+  return writer.finish();
+}
+
+export function decodeRecoveryKeyIssued(payload: Uint8Array): RecoveryKeyIssued {
+  const reader = new PodReader(payload);
+  const value: RecoveryKeyIssued = {
+    key: reader.text(WireLimits.RecoveryKeyBytes),
+    version: reader.i64(),
+    createdAt: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface RecoveryKeyStatus {
+  active: boolean;
+}
+
+export function encodeRecoveryKeyStatus(value: RecoveryKeyStatus): Uint8Array {
+  const writer = new PodWriter();
+  writer.bool(value.active);
+  return writer.finish();
+}
+
+export function decodeRecoveryKeyStatus(payload: Uint8Array): RecoveryKeyStatus {
+  const reader = new PodReader(payload);
+  const value: RecoveryKeyStatus = {
+    active: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface RecoveryKeyVerify {
+  key: string;
+}
+
+export function encodeRecoveryKeyVerify(value: RecoveryKeyVerify): Uint8Array {
+  const writer = new PodWriter();
+  writer.text(value.key, WireLimits.RecoveryKeyBytes);
+  return writer.finish();
+}
+
+export function decodeRecoveryKeyVerify(payload: Uint8Array): RecoveryKeyVerify {
+  const reader = new PodReader(payload);
+  const value: RecoveryKeyVerify = {
+    key: reader.text(WireLimits.RecoveryKeyBytes),
+  };
+  reader.finish();
+  return value;
+}
 
 export interface AdminModerationClaimRequest {
   articleId: number;

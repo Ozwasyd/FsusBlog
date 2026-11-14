@@ -64,6 +64,9 @@ inline constexpr uint32_t AdminModerationClaimTokenBytes = 43;
 inline constexpr uint32_t AdminModerationClaimRequestFrameBytes = 28;
 inline constexpr uint32_t AdminModerationClaimFrameBytes = 107;
 inline constexpr uint32_t AdminModerationDecisionFrameBytes = 1135;
+inline constexpr uint32_t RecoveryKeyBytes = 80;
+inline constexpr uint32_t RecoveryKeyVerifyFrameBytes = 100;
+inline constexpr uint32_t RecoveryKeyOperationFrameBytes = 20;
 inline constexpr uint32_t MaxCommandFrameBytes = 1048884;
 inline constexpr uint32_t RevisionHistoryPageSize = 20;
 inline constexpr uint32_t RevisionHistoryCursorChars = 54;
@@ -330,6 +333,10 @@ enum class FrameType : uint16_t {
     AdminModerationClaimRequest = 32867,
     AdminModerationClaim = 32868,
     AdminModerationDecision = 32869,
+    RecoveryKeyOperation = 32900,
+    RecoveryKeyIssued = 32901,
+    RecoveryKeyStatus = 32902,
+    RecoveryKeyVerify = 32903,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -432,6 +439,10 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminModerationClaimRequest:
         case FrameType::AdminModerationClaim:
         case FrameType::AdminModerationDecision:
+        case FrameType::RecoveryKeyOperation:
+        case FrameType::RecoveryKeyIssued:
+        case FrameType::RecoveryKeyStatus:
+        case FrameType::RecoveryKeyVerify:
         case FrameType::Draft:
         case FrameType::ArticleCommand:
         case FrameType::RevisionHistory:

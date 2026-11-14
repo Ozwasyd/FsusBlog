@@ -11,8 +11,10 @@ using NpgsqlTypes;
 
 namespace FsusBlog.V2.Server.Passkeys;
 
-internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration configuration, InstanceLease? lease = null)
+internal sealed partial class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration configuration, InstanceLease? lease = null)
 {
+    private readonly NpgsqlDataSource _source = source;
+    private readonly InstanceLease? _lease = lease;
     private readonly Fido2 _verifier = configuration.CreateVerifier();
     private const long ChallengeBudgetLock = 716729109726707502L;
     private const int ChallengeCapacity = 4096;
@@ -25,10 +27,10 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             UserVerification = UserVerificationRequirement.Required
         });
         var token = NewToken();
-        await using var db = await source.OpenConnectionAsync(ct);
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        await using var db = await _source.OpenConnectionAsync(ct);
+        await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         await SaveChallenge(db, tx, token, options.ToJson(), null, null, null, ct);
-        await InstanceLease.CommitProtected(tx, lease, ct);
+        await InstanceLease.CommitProtected(tx, _lease, ct);
         return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge);
     }
 
@@ -36,8 +38,8 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
     {
         if (ticket is not { Length: 64 } || !ticket.All(char.IsAsciiHexDigitLower)) throw Denied();
         var digest = SHA256.HashData(Convert.FromHexString(ticket));
-        await using var db = await source.OpenConnectionAsync(ct);
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        await using var db = await _source.OpenConnectionAsync(ct);
+        await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         Guid userId;
         long generation;
         await using (var user = Store.Sql(db, tx, """
@@ -65,36 +67,24 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         await using (var subject = Store.Sql(db, tx, "select user_handle from public.passkey_subject where user_id=$1", userId))
             userHandle = (byte[])(await subject.ExecuteScalarAsync(ct))!;
 
-        // Avoid shipping the private operator name to platform credential providers.
-        var options = _verifier.RequestNewCredential(new RequestNewCredentialParams
-        {
-            User = new Fido2User { Id = userHandle, Name = "fsus-anonymous-account", DisplayName = "Anonymous account" },
-            AuthenticatorSelection = new AuthenticatorSelection
-            {
-                ResidentKey = ResidentKeyRequirement.Required,
-                UserVerification = UserVerificationRequirement.Required
-            },
-            AttestationPreference = AttestationConveyancePreference.None
-        });
+        var options = RegistrationOptions(userHandle);
         var token = NewToken();
         var binding = NewToken();
         await SaveChallenge(db, tx, token, options.ToJson(), userId, generation, TokenDigest(binding), ct);
-        await InstanceLease.CommitProtected(tx, lease, ct);
-        return (PasskeyWire.ProvisionBegin(token, checked((uint)options.Timeout), options.Rp.Id, options.Rp.Name,
-            options.User.Name, options.User.DisplayName, options.User.Id, options.Challenge,
-            options.PubKeyCredParams.Select(parameter => (int)parameter.Alg).ToArray()), binding);
+        await InstanceLease.CommitProtected(tx, _lease, ct);
+        return (RegistrationBegin(token, options), binding);
     }
 
     internal async Task CompleteProvision(PasskeyProvisionRequest request, string? binding, CancellationToken ct)
     {
-        await using var db = await source.OpenConnectionAsync(ct);
+        await using var db = await _source.OpenConnectionAsync(ct);
         if (binding is not { Length: 43 } || !binding.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
             throw Denied();
         var challenge = await ConsumeChallenge(db, request.Token, TokenDigest(binding), ct);
         CheckId(request.CredentialId, request.RawId);
         var accountId = challenge.UserId!.Value;
         var options = CredentialCreateOptions.FromJson(challenge.Options);
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         await using (var verifyOwner = Store.Sql(db, tx, """
             select 1 from public.blog_user u join public.passkey_subject s on s.user_id=u.id
             where u.id=$1 and u.enabled and u.generation=$2 and s.user_handle=$3 for update of u
@@ -102,27 +92,7 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             if (await verifyOwner.ExecuteScalarAsync(ct) is null) throw Denied();
         if (await HasCredential(db, tx, accountId, ct)) throw Denied();
 
-        RegisteredPublicKeyCredential credential;
-        try
-        {
-            credential = await PasskeyVerification.Attest(_verifier, request, options, async (candidate, token) =>
-            {
-                await using var unique = Store.Sql(db, tx,
-                    "select not exists(select 1 from public.passkey_credential where credential_id=$1)", candidate.CredentialId);
-                return (bool)(await unique.ExecuteScalarAsync(token))!;
-            }, ct);
-        }
-        catch (Fido2VerificationException) { throw Denied(); }
-
-        try
-        {
-            await using var insert = Store.Sql(db, tx, """
-                insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
-                values ($1,$2,$3,$4,$5,$6)
-                """, credential.Id, accountId, credential.PublicKey, (long)credential.SignCount, credential.IsBackupEligible, credential.IsBackedUp);
-            await insert.ExecuteNonQueryAsync(ct);
-        }
-        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.UniqueViolation) { throw Denied(); }
+        await RegisterCredential(db, tx, accountId, request, options, ct);
 
         // Fail stale credential-attachment challenges and retire bootstrap sessions atomically.
         await using (var revoke = Store.Sql(db, tx, "update public.blog_user set generation=generation+1 where id=$1", accountId))
@@ -131,19 +101,19 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             await revoke.ExecuteNonQueryAsync(ct);
         await using (var revoke = Store.Sql(db, tx, "delete from public.user_session where user_id=$1", accountId))
             await revoke.ExecuteNonQueryAsync(ct);
-        await InstanceLease.CommitProtected(tx, lease, ct);
+        await InstanceLease.CommitProtected(tx, _lease, ct);
     }
 
     internal async Task<(string? SessionToken, int AccountNumber, DateTimeOffset? ExpiresAt, string? MfaToken, string? MfaBinding)> CompleteLogin(
         PasskeyLoginRequest request, bool mfaEnabled, CancellationToken ct)
     {
-        await using var db = await source.OpenConnectionAsync(ct);
+        await using var db = await _source.OpenConnectionAsync(ct);
         var challenge = await ConsumeChallenge(db, request.Token, null, ct);
         if (request.RememberMe)
             throw new BusinessException(Rejection.Invalid, "Persistent Passkey sessions are not available.");
         CheckId(request.CredentialId, request.RawId);
 
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         Guid userId;
         long userGeneration;
         await using (var user = Store.Sql(db, tx, """
@@ -164,24 +134,33 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             var binding = NewToken();
             var actor = new MfaStore.Subject(userId, userGeneration, number, [.. MfaStore.FlowDigest(binding), .. request.RawId]);
             var mfa = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Login, "", ct);
-            await InstanceLease.CommitProtected(tx, lease, ct);
+            await InstanceLease.CommitProtected(tx, _lease, ct);
             return (null, number, null, mfa, binding);
         }
         var (token, expiry) = await MfaStore.IssueSession(db, tx, userId, userGeneration, request.RawId, mfa: false, ct);
-        await InstanceLease.CommitProtected(tx, lease, ct);
+        await InstanceLease.CommitProtected(tx, _lease, ct);
         return (token, number, expiry, null, null);
     }
 
     internal async Task<byte[]> BeginSetupProof(string? session, CancellationToken ct)
     {
-        await using var db = await source.OpenConnectionAsync(ct);
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        await using var db = await _source.OpenConnectionAsync(ct);
+        await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         var actor = await MfaStore.RequireSession(db, tx, session, ct);
         if (await MfaStore.IsEnabled(db, tx, actor.Id, ct)) throw MfaStore.Denied();
+        var (options, ids) = await RestrictedAssertion(db, tx, actor.Id, ct);
+        var token = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Assertion, options.ToJson(), ct);
+        await InstanceLease.CommitProtected(tx, _lease, ct);
+        return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge, ids);
+    }
+
+    private async Task<(AssertionOptions Options, List<byte[]> Credentials)> RestrictedAssertion(
+        NpgsqlConnection db, NpgsqlTransaction tx, Guid user, CancellationToken ct)
+    {
         var ids = new List<byte[]>();
         await using (var query = Store.Sql(db, tx, """
             select credential_id from public.passkey_credential where user_id=$1 order by credential_id limit 17
-            """, actor.Id))
+            """, user))
         await using (var row = await query.ExecuteReaderAsync(ct))
             while (await row.ReadAsync(ct)) ids.Add(row.GetFieldValue<byte[]>(0));
         if (ids.Count is 0 or >16) throw Denied();
@@ -190,9 +169,51 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             AllowedCredentials = ids.Select(id => new PublicKeyCredentialDescriptor(id)).ToArray(),
             UserVerification = UserVerificationRequirement.Required
         });
-        var token = await MfaStore.BeginFlow(db, tx, actor, MfaStore.Purpose.Assertion, options.ToJson(), ct);
-        await InstanceLease.CommitProtected(tx, lease, ct);
-        return PasskeyWire.LoginBegin(token, checked((uint)options.Timeout), options.RpId!, options.Challenge, ids);
+        return (options, ids);
+    }
+
+    private CredentialCreateOptions RegistrationOptions(byte[] userHandle) => _verifier.RequestNewCredential(new RequestNewCredentialParams
+    {
+        User = new Fido2User { Id = userHandle, Name = "fsus-anonymous-account", DisplayName = "Anonymous account" },
+        AuthenticatorSelection = new AuthenticatorSelection
+        {
+            ResidentKey = ResidentKeyRequirement.Required,
+            UserVerification = UserVerificationRequirement.Required
+        },
+        AttestationPreference = AttestationConveyancePreference.None
+    });
+
+    private static byte[] RegistrationBegin(string token, CredentialCreateOptions options) =>
+        PasskeyWire.ProvisionBegin(token, checked((uint)options.Timeout), options.Rp.Id, options.Rp.Name,
+            options.User.Name, options.User.DisplayName, options.User.Id, options.Challenge,
+            options.PubKeyCredParams.Select(parameter => (int)parameter.Alg).ToArray());
+
+    private async Task<byte[]> RegisterCredential(NpgsqlConnection db, NpgsqlTransaction tx, Guid user, PasskeyProvisionRequest request,
+        CredentialCreateOptions options, CancellationToken ct)
+    {
+        RegisteredPublicKeyCredential credential;
+        try
+        {
+            credential = await PasskeyVerification.Attest(_verifier, request, options, async (candidate, token) =>
+            {
+                await using var unique = Store.Sql(db, tx,
+                    "select not exists(select 1 from public.passkey_credential where credential_id=$1)", candidate.CredentialId);
+                return (bool)(await unique.ExecuteScalarAsync(token))!;
+            }, ct);
+        }
+        catch (Fido2VerificationException) { throw Denied(); }
+        if (!CryptographicOperations.FixedTimeEquals(credential.Id, request.RawId)) throw Denied();
+
+        try
+        {
+            await using var insert = Store.Sql(db, tx, """
+                insert into public.passkey_credential(credential_id,user_id,public_key,sign_count,backup_eligible,backed_up)
+                values ($1,$2,$3,$4,$5,$6)
+                """, credential.Id, user, credential.PublicKey, (long)credential.SignCount, credential.IsBackupEligible, credential.IsBackedUp);
+            await insert.ExecuteNonQueryAsync(ct);
+        }
+        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.UniqueViolation) { throw Denied(); }
+        return credential.Id;
     }
 
     internal async Task<byte[]> CompleteSetupProof(string? session, PasskeyLoginRequest request, CancellationToken ct)
@@ -200,21 +221,21 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
         if (request.RememberMe) throw Denied();
         MfaStore.Subject original;
         string options;
-        await using var db = await source.OpenConnectionAsync(ct);
-        await using (var consume = await InstanceLease.BeginProtected(db, lease, ct))
+        await using var db = await _source.OpenConnectionAsync(ct);
+        await using (var consume = await InstanceLease.BeginProtected(db, _lease, ct))
         {
             original = await MfaStore.RequireSession(db, consume, session, ct);
             options = await MfaStore.ReadFlow(db, consume, original, MfaStore.Purpose.Assertion, request.Token, consume: true, ct);
-            await InstanceLease.CommitProtected(consume, lease, ct);
+            await InstanceLease.CommitProtected(consume, _lease, ct);
         }
         CheckId(request.CredentialId, request.RawId);
-        await using var verify = await InstanceLease.BeginProtected(db, lease, ct);
+        await using var verify = await InstanceLease.BeginProtected(db, _lease, ct);
         var current = await MfaStore.RequireSession(db, verify, session, ct);
         if (original.Id != current.Id || original.Generation != current.Generation || !original.Scope.AsSpan().SequenceEqual(current.Scope) ||
             await MfaStore.IsEnabled(db, verify, current.Id, ct)) throw MfaStore.Denied();
         await VerifyAssertion(db, verify, request, current.Id, AssertionOptions.FromJson(options), requireHandle: false, ct);
         var proof = await MfaStore.BeginFlow(db, verify, current, MfaStore.Purpose.SetupProof, "", ct);
-        await InstanceLease.CommitProtected(verify, lease, ct);
+        await InstanceLease.CommitProtected(verify, _lease, ct);
         return MfaWire.EncodeChallenge(true, MfaWire.Setup, proof);
     }
 
@@ -282,7 +303,7 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
     private async Task<(string Options, Guid? UserId, long? Generation)> ConsumeChallenge(NpgsqlConnection db,
         string token, byte[]? binding, CancellationToken ct)
     {
-        await using var tx = await InstanceLease.BeginProtected(db, lease, ct);
+        await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
         await using var consume = Store.Sql(db, tx, """
             delete from public.passkey_challenge
             where digest=$1 and expires_at>clock_timestamp() and binding_digest is not distinct from $2
@@ -294,7 +315,7 @@ internal sealed class PasskeyStore(NpgsqlDataSource source, PasskeyConfiguration
             if (!await row.ReadAsync(ct)) throw Denied();
             challenge = (row.GetString(0), row.IsDBNull(1) ? null : row.GetGuid(1), row.IsDBNull(2) ? null : row.GetInt64(2));
         }
-        await InstanceLease.CommitProtected(tx, lease, ct);
+        await InstanceLease.CommitProtected(tx, _lease, ct);
         return challenge;
     }
 

@@ -42,7 +42,7 @@ internal static class PasskeyVerification
                     ClientDataJson = request.ClientData,
                     AuthenticatorData = request.AuthenticatorData,
                     Signature = request.Signature,
-                    UserHandle = request.UserHandle
+                    UserHandle = request.UserHandle.Length == 0 ? null : request.UserHandle
                 },
                 ClientExtensionResults = new AuthenticationExtensionsClientOutputs()
             },

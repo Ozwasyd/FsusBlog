@@ -8,12 +8,14 @@ import { ApiError } from '../../../Contracts/client'
 import { passkeyAvailable } from '../../../Contracts/passkey'
 import { validMfaFactor } from '../../../Contracts/mfa'
 import { currentSession, registerFirstPasskey, signIn, signInWithMfa, signInWithPasskey } from '../session'
+import SiteRecoveryLogin from './SiteRecoveryLogin.vue'
 
 const props = defineProps<{ themeMode?: ThemeMode }>()
 const emit = defineEmits<{ theme: [mode: ThemeMode] }>()
 const ticket = ref('')
 const validTicket = computed(() => /^[A-Za-z0-9_-]+$/.test(ticket.value.trim()) && ticket.value.trim().length <= WireLimits.TicketBytes)
 const busy = ref(false)
+const recoveryBusy = ref(false)
 const failure = ref('')
 const registered = ref(false)
 const hasPasskeys = ref(false)
@@ -29,7 +31,7 @@ onMounted(async () => {
 })
 
 async function submit() {
-  if (busy.value || !validTicket.value) return
+  if (busy.value || recoveryBusy.value || !validTicket.value) return
   busy.value = true
   failure.value = ''
   registered.value = false
@@ -50,7 +52,7 @@ async function submit() {
 }
 
 async function usePasskey(register: boolean) {
-  if (busy.value || (register && !validTicket.value)) return
+  if (busy.value || recoveryBusy.value || (register && !validTicket.value)) return
   busy.value = true
   failure.value = ''
   registered.value = false
@@ -119,7 +121,7 @@ function cancelFactor() {
       <ElButton native-type="button" :disabled="busy" @click="cancelFactor">Start over</ElButton>
     </form>
     <form v-else class="auth-form" @submit.prevent="submit">
-      <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy" @click="usePasskey(false)">
+      <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy || recoveryBusy" @click="usePasskey(false)">
         Log in with Passkey
       </ElButton>
       <ElAlert v-if="registered" title="Passkey created. Log in with your Passkey." type="success" :closable="false" show-icon />
@@ -130,16 +132,17 @@ function cancelFactor() {
         type="password"
         autocomplete="current-password"
         size="large"
-        :disabled="busy"
+        :disabled="busy || recoveryBusy"
       />
       <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
-      <ElButton native-type="submit" size="large" type="primary" :loading="busy" :disabled="!validTicket">
+      <ElButton native-type="submit" size="large" type="primary" :loading="busy" :disabled="!validTicket || recoveryBusy">
         Log in
       </ElButton>
-      <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy || !validTicket" @click="usePasskey(true)">
+      <ElButton v-if="hasPasskeys" native-type="button" size="large" :disabled="busy || recoveryBusy || !validTicket" @click="usePasskey(true)">
         Create Passkey
       </ElButton>
     </form>
+    <SiteRecoveryLogin v-if="!currentSession && !pending" :disabled="busy" @busy="recoveryBusy = $event" />
     <div class="auth-footer"><RouterLink to="/">Cancel</RouterLink></div>
   </main>
 </template>
