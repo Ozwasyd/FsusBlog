@@ -12,14 +12,15 @@ internal static partial class Migration
         var hasRevisionHistory = await HasRelation(connection, tx, "public.article_rollback", ct);
         var hasAdminIdentity = await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct);
         var hasArticleSchedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
+        var hasMediaUpload = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
         if (!await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct))
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory, hasAdminIdentity,
-                requirePublicationHistory: false, requireArticleSchedule: hasArticleSchedule);
+                requirePublicationHistory: false, requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload);
             await ApplySchemaAddition(connection, tx, "publication-history.sql", ct);
         }
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory, hasAdminIdentity,
-            requireArticleSchedule: hasArticleSchedule);
+            requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload);
         if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         if (hasAdminIdentity) await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
         await VerifyActivePublicationsAsync(connection, tx, ct);

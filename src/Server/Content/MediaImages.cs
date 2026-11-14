@@ -24,13 +24,7 @@ internal sealed record MediaImage(string Name, MediaFormat Format, int Width, in
 
     internal static async Task<MediaImage> ReadAsync(Stream body, int length, string name, string contentType, CancellationToken token)
     {
-        name = ValidateName(name);
-        var format = contentType switch
-        {
-            "image/png" when Path.GetExtension(name).Equals(".png", StringComparison.OrdinalIgnoreCase) => MediaFormat.Png,
-            "image/jpeg" when Path.GetExtension(name).ToLowerInvariant() is ".jpg" or ".jpeg" => MediaFormat.Jpeg,
-            _ => throw new BadHttpRequestException("Use a PNG or JPEG file with a matching extension.", StatusCodes.Status415UnsupportedMediaType)
-        };
+        var format = FormatFor(name, contentType);
         if (length is < 1 or > MaxBytes) throw Invalid("Invalid image length.");
         var source = new byte[length];
         try { await body.ReadExactlyAsync(source, token); }
@@ -40,7 +34,18 @@ internal sealed record MediaImage(string Name, MediaFormat Format, int Width, in
         return Normalize(name, format, source, token);
     }
 
-    private static string ValidateName(string name)
+    internal static MediaFormat FormatFor(string name, string contentType)
+    {
+        ValidateName(name);
+        return contentType switch
+        {
+            "image/png" when Path.GetExtension(name).Equals(".png", StringComparison.OrdinalIgnoreCase) => MediaFormat.Png,
+            "image/jpeg" when Path.GetExtension(name).ToLowerInvariant() is ".jpg" or ".jpeg" => MediaFormat.Jpeg,
+            _ => throw new BadHttpRequestException("Use a PNG or JPEG file with a matching extension.", StatusCodes.Status415UnsupportedMediaType)
+        };
+    }
+
+    private static void ValidateName(string name)
     {
         try
         {
@@ -49,10 +54,9 @@ internal sealed record MediaImage(string Name, MediaFormat Format, int Width, in
                 throw Invalid("Invalid image name.");
         }
         catch (EncoderFallbackException) { throw Invalid("Invalid image name."); }
-        return name;
     }
 
-    private static MediaImage Normalize(string name, MediaFormat format, byte[] source, CancellationToken token)
+    internal static MediaImage Normalize(string name, MediaFormat format, byte[] source, CancellationToken token)
     {
         using var reader = new MemoryStream(source, writable: false);
         using var codec = SKCodec.Create(reader);

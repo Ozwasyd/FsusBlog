@@ -267,6 +267,7 @@ enum class FrameType : uint16_t {
     PublicCommentSubmissionResult = 32793,
     PublicCommentEligibility = 32794,
     PrivateMediaItems = 32795,
+    PrivateMediaUploadState = 32845,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -345,6 +346,7 @@ constexpr bool known(FrameType type) {
         case FrameType::PublicCommentSubmissionResult:
         case FrameType::PublicCommentEligibility:
         case FrameType::PrivateMediaItems:
+        case FrameType::PrivateMediaUploadState:
         case FrameType::CommentTreeRootCursor:
         case FrameType::CommentChildCursor:
         case FrameType::CommentPermalinkContext:

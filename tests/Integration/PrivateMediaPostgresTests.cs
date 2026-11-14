@@ -103,6 +103,127 @@ public sealed class PrivateMediaPostgresTests
     }
 
     [PostgresFact]
+    public async Task ResumablePartsPersistAcrossRestartAndFinalizeOnlyVerifiedPrivateBytes()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        var ct = deadline.Token;
+        await using var db = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
+        var owner = await Author(db.DataSource, "resume-owner", true, ct);
+        var foreign = await Author(db.DataSource, "resume-other", true, ct);
+        var reader = await Author(db.DataSource, "resume-reader", false, ct);
+        var directory = Directory.CreateTempSubdirectory("fsusblog-media-parts-");
+        File.SetUnixFileMode(directory.FullName, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var root = OperatingSystem.IsMacOS() && directory.FullName.StartsWith("/var/", StringComparison.Ordinal)
+            ? "/private" + directory.FullName : directory.FullName;
+        var settings = new Dictionary<string, string> { [MediaEndpoints.StorageSetting] = root, [MediaUploadEndpoints.Setting] = "true" };
+        const int partSize = 65536;
+        var png = EncodeImage(SKEncodedImageFormat.Png);
+        var image = new byte[partSize + 19];
+        png.CopyTo(image, 0);
+        var key = Guid.NewGuid();
+        Guid upload;
+        try
+        {
+            await using (var server = await ServerProcess.Start(db.ConnectionString, ct, settings))
+            {
+                using var auth = await Begin(server.Client, reader, key, "resumable.png", image, ct);
+                Assert.Equal(HttpStatusCode.Forbidden, auth.StatusCode);
+                using var created = await Begin(server.Client, owner, key, "resumable.png", image, ct);
+                upload = await State(created, [], ct);
+                using var conflict = await Begin(server.Client, owner, key, "changed.png", image, ct);
+                Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+                using var hidden = await Send(server.Client, HttpMethod.Get, PathFor(WireRoutes.PrivateMediaUploadStatus, upload), foreign, ct);
+                Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
+                using var wrongOffset = await Part(server.Client, owner, upload, 1, 0, image[partSize..], ct);
+                Assert.Equal(HttpStatusCode.BadRequest, wrongOffset.StatusCode);
+                using var wrongDigest = await Part(server.Client, owner, upload, 1, partSize, image[partSize..], ct, new byte[32]);
+                Assert.Equal(HttpStatusCode.BadRequest, wrongDigest.StatusCode);
+                using var valid = await Part(server.Client, owner, upload, 1, partSize, image[partSize..], ct);
+                Assert.Equal(upload, await State(valid, [1], ct));
+                using var retry = await Part(server.Client, owner, upload, 1, partSize, image[partSize..], ct);
+                Assert.Equal(upload, await State(retry, [1], ct));
+                using var conflictPart = await Part(server.Client, owner, upload, 1, partSize, Enumerable.Repeat((byte)9, 19).ToArray(), ct);
+                Assert.Equal(HttpStatusCode.Conflict, conflictPart.StatusCode);
+                using var incomplete = await Send(server.Client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, upload), owner, ct);
+                Assert.Equal(HttpStatusCode.Conflict, incomplete.StatusCode);
+                Assert.Empty(directory.EnumerateFiles());
+            }
+
+            await using var resumedServer = await ServerProcess.Start(db.ConnectionString, ct, settings);
+            var client = resumedServer.Client;
+            using var repeatedBegin = await Begin(client, owner, key, "resumable.png", image, ct);
+            Assert.Equal(upload, await State(repeatedBegin, [1], ct));
+            using var finalPart = await Part(client, owner, upload, 0, 0, image[..partSize], ct);
+            Assert.Equal(upload, await State(finalPart, [0, 1], ct));
+            var finalize = PathFor(WireRoutes.PrivateMediaUploadFinalize, upload);
+            using var wrongOwner = await Send(client, HttpMethod.Post, finalize, foreign, ct);
+            Assert.Equal(HttpStatusCode.NotFound, wrongOwner.StatusCode);
+            var approvals = await Task.WhenAll(
+                Send(client, HttpMethod.Post, finalize, owner, ct),
+                Send(client, HttpMethod.Post, finalize, owner, ct));
+            using var committed = approvals[0];
+            using var simultaneous = approvals[1];
+            Assert.Equal(HttpStatusCode.OK, committed.StatusCode);
+            var asset = First(await committed.Content.ReadAsByteArrayAsync(ct), 1);
+            Assert.Equal(HttpStatusCode.OK, simultaneous.StatusCode);
+            Assert.Equal(asset, First(await simultaneous.Content.ReadAsByteArrayAsync(ct), 1));
+            using var retryFinalize = await Send(client, HttpMethod.Post, finalize, owner, ct);
+            Assert.Equal(HttpStatusCode.OK, retryFinalize.StatusCode);
+            Assert.Equal(asset, First(await retryFinalize.Content.ReadAsByteArrayAsync(ct), 1));
+            using var completed = await Send(client, HttpMethod.Get, PathFor(WireRoutes.PrivateMediaUploadStatus, upload), owner, ct);
+            Assert.Equal(upload, await State(completed, [], ct, asset));
+            var raw = PathFor(WireRoutes.PrivateMediaRead, asset);
+            await AssertHidden(client, HttpMethod.Get, raw, foreign, ct);
+            using var read = await Send(client, HttpMethod.Get, raw, owner, ct);
+            Assert.Equal(HttpStatusCode.OK, read.StatusCode);
+            using var decoded = SKBitmap.Decode(await read.Content.ReadAsByteArrayAsync(ct));
+            Assert.Equal((3, 2), (decoded.Width, decoded.Height));
+            var leaf = Assert.Single(directory.EnumerateFiles());
+            Assert.Equal($"{asset:N}.media", leaf.Name);
+            Assert.Equal(UnixFileMode.UserRead, File.GetUnixFileMode(leaf.FullName));
+
+            var different = image.ToArray();
+            different[^1] = 5;
+            using var second = await Begin(client, owner, Guid.NewGuid(), "digest.png", different, ct);
+            var other = await State(second, [], ct);
+            using var a = await Part(client, owner, other, 0, 0, image[..partSize], ct);
+            using var b = await Part(client, owner, other, 1, partSize, image[partSize..], ct);
+            Assert.Equal(HttpStatusCode.OK, a.StatusCode);
+            Assert.Equal(HttpStatusCode.OK, b.StatusCode);
+            using var mismatch = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadFinalize, other), owner, ct);
+            Assert.Equal(HttpStatusCode.Conflict, mismatch.StatusCode);
+            using var remove = await Send(client, HttpMethod.Post, PathFor(WireRoutes.PrivateMediaUploadCancel, other), owner, ct);
+            Assert.Equal(HttpStatusCode.OK, remove.StatusCode);
+            await using var check = db.DataSource.CreateCommand("SELECT count(*) FROM public.private_media_upload_part");
+            Assert.Equal(0L, await check.ExecuteScalarAsync(ct));
+
+            List<Guid> held = [];
+            for (var i = 0; i < 4; i++)
+            {
+                using var staged = await Begin(client, owner, Guid.NewGuid(), "staged.png", image, ct);
+                held.Add(await State(staged, [], ct));
+            }
+            using var overBudget = await Begin(client, owner, Guid.NewGuid(), "held.png", image, ct);
+            Assert.Equal(HttpStatusCode.Conflict, overBudget.StatusCode);
+            using var willExpire = await Part(client, owner, held[0], 1, partSize, image[partSize..], ct);
+            Assert.Equal(held[0], await State(willExpire, [1], ct));
+            await using (var expire = db.DataSource.CreateCommand("UPDATE public.private_media_upload SET expires_at=now()-interval '1 second' WHERE id=$1"))
+            {
+                expire.Parameters.AddWithValue(held[0]);
+                Assert.Equal(1, await expire.ExecuteNonQueryAsync(ct));
+            }
+            using var replacement = await Begin(client, owner, Guid.NewGuid(), "replacement.png", image, ct);
+            Assert.NotEqual(held[0], await State(replacement, [], ct));
+            using var expired = await Send(client, HttpMethod.Get, PathFor(WireRoutes.PrivateMediaUploadStatus, held[0]), owner, ct);
+            Assert.Equal(HttpStatusCode.NotFound, expired.StatusCode);
+            Assert.Equal(0L, await check.ExecuteScalarAsync(ct));
+            Assert.Single(directory.EnumerateFiles());
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [PostgresFact]
     public async Task PendingUploadCanResumeAndDeletionRefusesUnownedFileBytes()
     {
         if (OperatingSystem.IsWindows()) return;
@@ -169,6 +290,48 @@ public sealed class PrivateMediaPostgresTests
         image.Erase(SKColors.SteelBlue);
         using var encoded = image.Encode(format, 90);
         return encoded.ToArray();
+    }
+
+    private static string PathFor(string route, Guid id) => route.Replace("{id}", id.ToString("D"), StringComparison.Ordinal);
+
+    private static async Task<HttpResponseMessage> Begin(HttpClient client, SessionFixture actor, Guid key, string name, byte[] image,
+        CancellationToken ct)
+    {
+        using var request = Request(HttpMethod.Post,
+            $"{WireRoutes.PrivateMediaUploadBegin}?name={Uri.EscapeDataString(name)}&type=image%2Fpng&length={image.Length}&partSize=65536", actor);
+        request.Headers.Add(WireHeaders.ClientMutationId, key.ToString("D"));
+        request.Headers.Add(WireHeaders.PrivateMediaDigest, Convert.ToHexString(SHA256.HashData(image)));
+        return await client.SendAsync(request, ct);
+    }
+
+    private static async Task<HttpResponseMessage> Part(HttpClient client, SessionFixture actor, Guid id, int part, int offset,
+        byte[] bytes, CancellationToken ct, byte[]? wrongHash = null)
+    {
+        var path = PathFor(WireRoutes.PrivateMediaUploadPart, id).Replace("{part:int}", $"{part}", StringComparison.Ordinal);
+        using var request = Request(HttpMethod.Post, $"{path}?offset={offset}", actor);
+        request.Headers.Add(WireHeaders.PrivateMediaDigest, Convert.ToHexString(wrongHash ?? SHA256.HashData(bytes)));
+        request.Content = new ByteArrayContent(bytes);
+        request.Content.Headers.ContentType = new(Aeds.ContentType);
+        return await client.SendAsync(request, ct);
+    }
+
+    private static async Task<Guid> State(HttpResponseMessage response, int[] parts, CancellationToken ct, Guid? completed = null)
+    {
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var frame = await response.Content.ReadAsByteArrayAsync(ct);
+        var payload = Aeds.Decode(frame, FrameType.PrivateMediaUploadState);
+        Assert.Equal(65536, BinaryPrimitives.ReadInt32LittleEndian(payload[20..]));
+        Assert.Equal(completed.HasValue ? 1 : 0, payload[33]);
+        var list = payload[34..];
+        if (completed is Guid asset)
+        {
+            Assert.Equal(asset, new Guid(list[..16], bigEndian: true));
+            list = list[16..];
+        }
+        Assert.Equal(parts.Length, BinaryPrimitives.ReadInt32LittleEndian(list));
+        for (var index = 0; index < parts.Length; index++)
+            Assert.Equal(parts[index], BinaryPrimitives.ReadInt32LittleEndian(list[(4 + 4 * index)..]));
+        return new Guid(payload[..16], bigEndian: true);
     }
 
     private static async Task AssertHidden(HttpClient client, HttpMethod method, string path, SessionFixture? session, CancellationToken ct)

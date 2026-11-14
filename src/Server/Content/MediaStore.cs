@@ -78,6 +78,10 @@ internal sealed class MediaStore(MediaFiles files)
         return bytes is null ? null : (row.Record, bytes);
     }
 
+    internal async Task<MediaRecord> VerifyReady(NpgsqlConnection db, NpgsqlTransaction tx, Guid owner, Guid id, CancellationToken token)
+        => (await Read(db, tx, owner, id, token))?.Record ??
+            throw new BusinessException(Rejection.NotFound, "Private media not found.");
+
     internal async Task<bool> Tombstone(NpgsqlConnection db, NpgsqlTransaction transaction, Guid owner, Guid id,
         CancellationToken token)
     {

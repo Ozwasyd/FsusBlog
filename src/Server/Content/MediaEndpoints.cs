@@ -76,6 +76,7 @@ internal static class MediaEndpoints
         {
             await Read(ctx, id, store, media, cookie, app.Logger, token);
         }).RequireRateLimiting(ReadPolicy).WithMetadata(new PrivateRead());
+        MediaUploadEndpoints.Map(app, cookie);
     }
 
     internal static void SetHidden(HttpResponse response)
@@ -115,7 +116,7 @@ internal static class MediaEndpoints
         }
     }
 
-    private static PrivateMediaItem Contract(MediaRecord value) => new(value.Id, value.Name, (int)value.Format, value.Length,
+    internal static PrivateMediaItem Contract(MediaRecord value) => new(value.Id, value.Name, (int)value.Format, value.Length,
         value.Width, value.Height, value.CreatedAt);
 
     private static MediaPosition? Position(HttpContext ctx)
@@ -140,14 +141,14 @@ internal static class MediaEndpoints
         return checked((int)length);
     }
 
-    private static string? Only(Microsoft.Extensions.Primitives.StringValues values, int max) => values.Count switch
+    internal static string? Only(Microsoft.Extensions.Primitives.StringValues values, int max) => values.Count switch
     {
         0 => null,
         1 when values[0] is { } value && value.Length <= max => value,
         _ => throw Invalid("Invalid private media parameter.")
     };
 
-    private static Guid Key(string? value) => Guid.TryParseExact(value, "D", out var key) && key != Guid.Empty
+    internal static Guid Key(string? value) => Guid.TryParseExact(value, "D", out var key) && key != Guid.Empty
         ? key : throw Invalid("Invalid private media identifier.");
     private static BusinessException Invalid(string message) => new(Rejection.Invalid, message);
 }

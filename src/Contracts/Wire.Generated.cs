@@ -13,6 +13,7 @@ public enum FrameType : ushort
     PublicCommentSubmissionResult = 32793,
     PublicCommentEligibility = 32794,
     PrivateMediaItems = 32795,
+    PrivateMediaUploadState = 32845,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -372,6 +373,11 @@ public static class WireRoutes
     public const string InboxReplay = "/api/v2/notifications/private.aeds";
     public const string PrivateMediaList = "/api/v2/media/list.aeds";
     public const string PrivateMediaUpload = "/api/v2/media/upload.aeds";
+    public const string PrivateMediaUploadBegin = "/api/v2/media/resumable/begin.aeds";
+    public const string PrivateMediaUploadStatus = "/api/v2/media/resumable/{id}/status.aeds";
+    public const string PrivateMediaUploadPart = "/api/v2/media/resumable/{id}/parts/{part:int}.aeds";
+    public const string PrivateMediaUploadFinalize = "/api/v2/media/resumable/{id}/finalize.aeds";
+    public const string PrivateMediaUploadCancel = "/api/v2/media/resumable/{id}/cancel.aeds";
     public const string PrivateMediaRead = "/api/v2/media/raw/{id}";
     public const string PrivateMediaRemove = "/api/v2/media/{id}/remove.aeds";
     public const string SignIn = "/api/v2/identity/sign-in.aeds";
@@ -436,6 +442,7 @@ public static class WireHeaders
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
     public const string InboxWriteEnabled = "X-Fsus-Inbox-Write-Enabled";
+    public const string PrivateMediaDigest = "X-Fsus-Private-Media-SHA256";
     public const string MfaProof = "X-Fsus-Mfa-Proof";
     public const string CurrentSession = "X-Fsus-Current-Session";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
