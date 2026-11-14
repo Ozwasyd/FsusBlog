@@ -4,7 +4,15 @@ public readonly record struct CanvasViewport(int X, int Y, int Zoom)
 {
     public static CanvasViewport Default => new(0, 0, 1000);
 }
-public enum CanvasGraphAction { Create, Edit, Delete }
+public enum CanvasGraphAction
+{
+    Create = 0,
+    Edit = 1,
+    Delete = 2,
+    // Tags 3 and 4 are reserved for internal graph events.
+    Undo = 5,
+    Redo = 6
+}
 
 public sealed record CanvasNodeFrame(Guid Id, int Kind, int X, int Y, int Width, int Height,
     int? ArticleId = null, string? Anchor = null, long? PinnedRevision = null,
@@ -26,6 +34,7 @@ public sealed record CanvasGraphReceipt(Guid Id, long Revision, string Title, Ca
     int NodeCount, int EdgeCount, DateTimeOffset TouchedAt);
 public sealed record CanvasGraphPage(CanvasGraphReceipt Document, int NextOffset, IReadOnlyList<CanvasNodeFrame> Nodes,
     IReadOnlyList<CanvasEdgeFrame> Edges);
+public sealed record CanvasGraphHistory(long Revision, long? UndoRevision, long? RedoRevision);
 
 public static partial class Wire
 {
@@ -146,11 +155,44 @@ public static partial class Wire
         return new(document, next, nodes, edges);
     }
 
+    public static byte[] EncodeCanvasGraphHistory(CanvasGraphHistory history)
+    {
+        ValidateCanvasHistory(history);
+        var w = new Writer();
+        w.I64(history.Revision);
+        w.I64(history.UndoRevision ?? 0);
+        w.I64(history.RedoRevision ?? 0);
+        return Aeds.Encode(FrameType.CanvasGraphHistory, w.Written);
+    }
+
+    public static CanvasGraphHistory DecodeCanvasGraphHistory(ReadOnlySpan<byte> frame)
+    {
+        var r = new Reader(Aeds.Decode(frame, FrameType.CanvasGraphHistory));
+        var revision = r.I64();
+        var undo = r.I64();
+        var redo = r.I64();
+        r.Finish();
+        var history = new CanvasGraphHistory(revision, undo == 0 ? null : undo, redo == 0 ? null : redo);
+        ValidateCanvasHistory(history);
+        return history;
+    }
+
+    private static void ValidateCanvasHistory(CanvasGraphHistory history)
+    {
+        if (history.Revision <= 0 || history.UndoRevision is <= 0 || history.RedoRevision is <= 0
+            || history.UndoRevision > history.Revision || history.RedoRevision > history.Revision
+            || (history.UndoRevision.HasValue && history.UndoRevision == history.RedoRevision))
+            throw CanvasProtocolError();
+    }
+
     private static void ValidateCanvasCommand(CanvasGraphCommand command)
     {
         if (command.Id == Guid.Empty || command.CommandId == Guid.Empty || !Enum.IsDefined(command.Action)
             || command.ExpectedRevision < 0 || (command.ExpectedRevision == 0) != (command.Action == CanvasGraphAction.Create)
             || command.Changes.Count > WireLimits.CanvasGraphMaxChanges)
+            throw CanvasProtocolError();
+        if ((command.Action is CanvasGraphAction.Undo or CanvasGraphAction.Redo)
+            && (command.Title.Length != 0 || command.Viewport.HasValue || command.Changes.Count != 0))
             throw CanvasProtocolError();
     }
 

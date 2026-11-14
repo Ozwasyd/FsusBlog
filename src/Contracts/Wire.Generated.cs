@@ -61,6 +61,7 @@ public enum FrameType : ushort
     CanvasGraphReceipt = 32811,
     CanvasGraphList = 32812,
     CanvasGraphPage = 32813,
+    CanvasGraphHistory = 32814,
     PropertyDefinitionCommand = 32779,
     PropertyWorkspaceRequest = 32780,
     PropertyTextCommand = 32781,
@@ -417,6 +418,7 @@ public static class WireRoutes
     public const string CanvasGraphWrite = "/api/v2/authoring/canvas/documents/write.aeds";
     public const string CanvasGraphList = "/api/v2/authoring/canvas/documents.aeds";
     public const string CanvasGraphPage = "/api/v2/authoring/canvas/documents/{id:guid}.aeds";
+    public const string CanvasGraphHistory = "/api/v2/authoring/canvas/documents/{id:guid}/history.aeds";
     public const string PropertyDefinitionCommand = "/api/v2/authoring/properties/definition.aeds";
     public const string PropertyWorkspace = "/api/v2/authoring/properties/workspace.aeds";
     public const string PropertyTextCommand = "/api/v2/authoring/properties/text.aeds";

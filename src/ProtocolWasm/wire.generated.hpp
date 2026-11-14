@@ -315,6 +315,7 @@ enum class FrameType : uint16_t {
     CanvasGraphReceipt = 32811,
     CanvasGraphList = 32812,
     CanvasGraphPage = 32813,
+    CanvasGraphHistory = 32814,
     PropertyDefinitionCommand = 32779,
     PropertyWorkspaceRequest = 32780,
     PropertyTextCommand = 32781,
@@ -395,6 +396,7 @@ constexpr bool known(FrameType type) {
         case FrameType::CanvasGraphReceipt:
         case FrameType::CanvasGraphList:
         case FrameType::CanvasGraphPage:
+        case FrameType::CanvasGraphHistory:
         case FrameType::PropertyDefinitionCommand:
         case FrameType::PropertyWorkspaceRequest:
         case FrameType::PropertyTextCommand:

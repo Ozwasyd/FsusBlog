@@ -1,0 +1,282 @@
+using System.Security.Cryptography;
+using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
+using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Authoring;
+
+namespace FsusBlog.V2.Integration.Tests;
+
+public sealed class CanvasHistoryPostgresTests
+{
+    [PostgresFact]
+    public async Task RestoresNodeEdgesAndViewportWithOneRevisionAndReplaysExactReceipt()
+    {
+        await using var test = await Fixture.Open();
+        var article = await test.SaveArticle("Source", "Exactly the same body.");
+        var document = Guid.NewGuid();
+        var articleNode = Guid.NewGuid();
+        var note = Guid.NewGuid();
+        var frame = Guid.NewGuid();
+        var edge = Guid.NewGuid();
+        var originalViewport = new CanvasViewport(-70, 100, 1750);
+        var initial = await test.Write(new(document, Guid.NewGuid(), 0, CanvasGraphAction.Create, "Original", originalViewport,
+        [
+            PutNode(articleNode, 0, article: article.Id),
+            PutNode(note, 3, text: "Private sketch 🐈"),
+            PutNode(frame, 4, text: "Frame", members: [articleNode, note]),
+            new CanvasChangeFrame.PutEdge(new(edge, 0, note, articleNode, 0, "Visual"))
+        ]));
+        Assert.Equal((1L, 3, 1), (initial.Revision, initial.NodeCount, initial.EdgeCount));
+        long articleRows = await test.Count("public.article_revision");
+        long outboxRows = await test.Count("public.blog_outbox");
+
+        var editViewport = new CanvasViewport(0, -25, 800);
+        var edited = await test.Write(Command(document, initial.Revision, CanvasGraphAction.Edit) with
+        {
+            Title = "After deletion", Viewport = editViewport, Changes = [new CanvasChangeFrame.DropNode(note)]
+        });
+        Assert.Equal((2L, 2, 0), (edited.Revision, edited.NodeCount, edited.EdgeCount));
+        Assert.Equal(new[] { articleNode }, Assert.IsType<Guid[]>(await test.Scalar(
+            "select member_ids from public.canvas_node where canvas_id=$1 and id=$2", document, frame)));
+
+        var undo = Command(document, edited.Revision, CanvasGraphAction.Undo);
+        var otherSession = await test.Session();
+        var results = await Task.WhenAll(test.Write(undo), test.Write(undo, otherSession));
+        var restored = results[0];
+        Assert.Equal(restored, results[1]);
+        Assert.Equal((3L, "Original", originalViewport, 3, 1),
+            (restored.Revision, restored.Title, restored.Viewport, restored.NodeCount, restored.EdgeCount));
+        Assert.Equal("Private sketch 🐈", await test.Scalar("select note from public.canvas_node where canvas_id=$1 and id=$2", document, note));
+        Assert.Equal(new[] { articleNode, note }, Assert.IsType<Guid[]>(await test.Scalar(
+            "select member_ids from public.canvas_node where canvas_id=$1 and id=$2", document, frame)));
+        Assert.Equal(note, await test.Scalar("select source_node_id from public.canvas_edge where canvas_id=$1 and id=$2", document, edge));
+
+        var redo = Command(document, restored.Revision, CanvasGraphAction.Redo);
+        var redone = await test.Write(redo, otherSession);
+        Assert.Equal((4L, "After deletion", editViewport, 2, 0),
+            (redone.Revision, redone.Title, redone.Viewport, redone.NodeCount, redone.EdgeCount));
+        Assert.Equal(restored, await test.Write(undo));
+        await Denied(Rejection.Conflict, test.Write(undo with { ExpectedRevision = redone.Revision }));
+        Assert.Equal(redone, await test.Write(redo));
+        Assert.Equal(4L, await test.Scalar("select count(*) from public.canvas_document_event where canvas_id=$1", document));
+        Assert.Equal(2L, await test.Scalar("select target_revision from public.canvas_history_transition where canvas_id=$1 and revision=$2", document, redone.Revision));
+        Assert.Equal(articleRows, await test.Count("public.article_revision"));
+        Assert.Equal(outboxRows, await test.Count("public.blog_outbox"));
+        Assert.Equal(article, await test.ReadArticle(article.Id));
+    }
+
+    [PostgresFact]
+    public async Task NewBranchDiscardsRedoAndOneConcurrentCommandOwnsTheNextRevision()
+    {
+        await using var test = await Fixture.Open();
+        var document = Guid.NewGuid();
+        var start = await test.Write(Command(document, 0, CanvasGraphAction.Create) with { Title = "Start" });
+        var first = await test.Write(Command(document, start.Revision, CanvasGraphAction.Edit) with { Title = "First" });
+        var second = await test.Write(Command(document, first.Revision, CanvasGraphAction.Edit) with { Title = "Second" });
+        var undo = Command(document, second.Revision, CanvasGraphAction.Undo);
+        var unrolled = await test.Write(undo);
+        Assert.Equal("First", unrolled.Title);
+        var branch = await test.Write(Command(document, unrolled.Revision, CanvasGraphAction.Edit) with { Title = "Branch" });
+        Assert.Equal(new[] { second.Revision }, Assert.IsType<long[]>(await test.Scalar(
+            "select discarded_redo from public.canvas_history_transition where canvas_id=$1 and revision=$2", document, branch.Revision)));
+        Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_history_patch where canvas_id=$1 and edit_revision=$2", document, second.Revision));
+        await Denied(Rejection.Conflict, test.Write(Command(document, branch.Revision, CanvasGraphAction.Redo)));
+
+        var anotherSession = await test.Session();
+        var commandA = Command(document, branch.Revision, CanvasGraphAction.Undo);
+        var commandB = Command(document, branch.Revision, CanvasGraphAction.Undo);
+        var outcomes = await Task.WhenAll(Attempt(commandA, null), Attempt(commandB, anotherSession));
+        var winner = Assert.Single(outcomes, receipt => receipt is not null)!;
+        Assert.Equal((branch.Revision + 1, "First"), (winner.Revision, winner.Title));
+        Assert.Single(outcomes, receipt => receipt is null);
+        Assert.Equal(winner.Revision, await test.Scalar("select revision from public.authoring_canvas where id=$1", document));
+        Assert.Equal(winner.Revision, await test.Scalar("select count(*) from public.canvas_document_event where canvas_id=$1", document));
+        Assert.Equal(unrolled, await test.Write(undo));
+
+        async Task<CanvasGraphReceipt?> Attempt(CanvasGraphCommand command, string? session)
+        {
+            try { return await test.Write(command, session); }
+            catch (BusinessException error) when (error.Rejection == Rejection.Conflict) { return null; }
+        }
+    }
+
+    [PostgresFact]
+    public async Task TamperedSealAndDatabaseFaultCannotCommitPartialHistory()
+    {
+        await using var test = await Fixture.Open();
+        var document = Guid.NewGuid();
+        var node = Guid.NewGuid();
+        var start = await test.Write(Command(document, 0, CanvasGraphAction.Create) with
+        {
+            Title = "Start", Changes = [PutNode(node, 3, text: "original note")]
+        });
+        var changed = await test.Write(Command(document, start.Revision, CanvasGraphAction.Edit) with
+        {
+            Title = "Edited", Changes = [new CanvasChangeFrame.DropNode(node)]
+        });
+        var undo = Command(document, changed.Revision, CanvasGraphAction.Undo);
+        var good = Assert.IsType<byte[]>(await test.Scalar(
+            "select payload from public.canvas_history_patch where canvas_id=$1 and edit_revision=$2", document, changed.Revision));
+        await test.Scalar("""
+            update public.canvas_history_patch set payload=set_byte(payload,0,(get_byte(payload,0)+1)%256)
+            where canvas_id=$1 and edit_revision=$2
+            """, document, changed.Revision);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => test.Write(undo));
+        Assert.Contains("seal", error.Message, StringComparison.OrdinalIgnoreCase);
+        await AssertUnchanged();
+        await test.Scalar("update public.canvas_history_patch set payload=$3 where canvas_id=$1 and edit_revision=$2",
+            document, changed.Revision, good);
+
+        await test.Scalar("alter table public.canvas_history_transition add constraint reject_undo check(target_revision is null)");
+        var fault = await Assert.ThrowsAsync<Npgsql.PostgresException>(() => test.Write(undo));
+        Assert.Equal("reject_undo", fault.ConstraintName);
+        await AssertUnchanged();
+        await test.Scalar("alter table public.canvas_history_transition drop constraint reject_undo");
+        var recovered = await test.Write(undo);
+        Assert.Equal((changed.Revision + 1, "Start", 1), (recovered.Revision, recovered.Title, recovered.NodeCount));
+        Assert.Equal("original note", await test.Scalar("select note from public.canvas_node where canvas_id=$1 and id=$2", document, node));
+
+        async Task AssertUnchanged()
+        {
+            Assert.Equal(changed.Revision, await test.Scalar("select revision from public.authoring_canvas where id=$1", document));
+            Assert.Equal(changed.Title, await test.Scalar("select title from public.authoring_canvas where id=$1", document));
+            Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_node where canvas_id=$1", document));
+            Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_document_event where canvas_id=$1 and command_id=$2", document, undo.CommandId));
+            Assert.Equal(false, await test.Scalar("select undone from public.canvas_history_patch where canvas_id=$1 and edit_revision=$2", document, changed.Revision));
+        }
+    }
+
+    [PostgresFact]
+    public async Task CannotRestoreReferenceAfterItsArticleIsDeleted()
+    {
+        await using var test = await Fixture.Open();
+        var article = await test.SaveArticle("Article", "Article source.");
+        var document = Guid.NewGuid();
+        var node = Guid.NewGuid();
+        var created = await test.Write(Command(document, 0, CanvasGraphAction.Create) with
+        {
+            Title = "Reference", Changes = [PutNode(node, 0, article: article.Id)]
+        });
+        var removed = await test.Write(Command(document, created.Revision, CanvasGraphAction.Edit) with
+        {
+            Changes = [new CanvasChangeFrame.DropNode(node)]
+        });
+        var deleted = await test.DeleteArticle(article);
+        Assert.True(deleted.Deleted);
+        long articleRows = await test.Count("public.article_revision");
+        long outboxRows = await test.Count("public.blog_outbox");
+        await Denied(Rejection.NotFound, test.Write(Command(document, removed.Revision, CanvasGraphAction.Undo)));
+        Assert.Equal(removed.Revision, await test.Scalar("select revision from public.authoring_canvas where id=$1", document));
+        Assert.Equal(0L, await test.Scalar("select count(*) from public.canvas_node where canvas_id=$1", document));
+        Assert.Equal(false, await test.Scalar("select undone from public.canvas_history_patch where canvas_id=$1 and edit_revision=$2", document, removed.Revision));
+        Assert.Equal(articleRows, await test.Count("public.article_revision"));
+        Assert.Equal(outboxRows, await test.Count("public.blog_outbox"));
+    }
+
+    [PostgresFact]
+    public async Task RetainsOneHundredCompleteEditsAndAnOlderReceiptRemainsReplayable()
+    {
+        await using var test = await Fixture.Open();
+        var document = Guid.NewGuid();
+        var latest = await test.Write(Command(document, 0, CanvasGraphAction.Create) with { Title = "Start" });
+        var oldest = Command(document, latest.Revision, CanvasGraphAction.Edit) with { Title = "Edit 0" };
+        var original = latest = await test.Write(oldest);
+        for (int n = 1; n <= 100; n++)
+            latest = await test.Write(Command(document, latest.Revision, CanvasGraphAction.Edit) with { Title = $"Edit {n}" });
+
+        Assert.Equal(100L, await test.Scalar("select count(*) from public.canvas_history_patch where canvas_id=$1", document));
+        Assert.Equal(3L, await test.Scalar("select min(edit_revision) from public.canvas_history_patch where canvas_id=$1", document));
+        Assert.Equal(original, await test.Write(oldest));
+        for (int n = 99; n >= 0; n--)
+        {
+            latest = await test.Write(Command(document, latest.Revision, CanvasGraphAction.Undo));
+            Assert.Equal($"Edit {n}", latest.Title);
+        }
+        await Denied(Rejection.Conflict, test.Write(Command(document, latest.Revision, CanvasGraphAction.Undo)));
+        Assert.Equal(100L, await test.Scalar("select count(*) from public.canvas_history_patch where canvas_id=$1 and undone", document));
+        var next = await test.Write(Command(document, latest.Revision, CanvasGraphAction.Redo));
+        Assert.Equal("Edit 1", next.Title);
+    }
+
+    private static CanvasGraphCommand Command(Guid document, long revision, CanvasGraphAction action) =>
+        new(document, Guid.NewGuid(), revision, action, "", null, []);
+
+    private static CanvasChangeFrame PutNode(Guid id, int kind, string? text = null, int? article = null, Guid[]? members = null) =>
+        new CanvasChangeFrame.PutNode(new(id, kind, 0, 0, 12_000, 8_000, article, Text: text, MemberIds: members));
+
+    private static async Task Denied(Rejection rejection, Task<CanvasGraphReceipt> write) =>
+        Assert.Equal(rejection, (await Assert.ThrowsAsync<BusinessException>(() => write)).Rejection);
+
+    private sealed class Fixture(ScratchDatabase database, CancellationTokenSource deadline) : IAsyncDisposable
+    {
+        private readonly Store store = new(database.DataSource);
+        private readonly Guid actorId = Guid.NewGuid();
+        private CancellationToken Token => deadline.Token;
+        private string ownerToken = "";
+
+        internal static async Task<Fixture> Open()
+        {
+            var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            try
+            {
+                var dsn = Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!;
+                var fixture = new Fixture(await ScratchDatabase.Create(dsn, deadline.Token), deadline);
+                try
+                {
+                    await fixture.Scalar("insert into public.blog_user(id,name,can_author,enabled,generation) values($1,$2,true,true,1)",
+                        fixture.actorId, "Canvas history owner");
+                    fixture.ownerToken = await fixture.Session();
+                    return fixture;
+                }
+                catch { await fixture.DisposeAsync(); throw; }
+            }
+            catch { deadline.Dispose(); throw; }
+        }
+
+        internal async Task<string> Session()
+        {
+            byte[] secret = RandomNumberGenerator.GetBytes(32);
+            await Scalar("insert into public.login_ticket(digest,user_id,expires_at) values($1,$2,now()+interval '2 minutes')",
+                SHA256.HashData(secret), actorId);
+            return (await store.SignIn(Convert.ToHexStringLower(secret), Token)).Token;
+        }
+
+        internal Task<CanvasGraphReceipt> Write(CanvasGraphCommand command, string? session = null)
+        {
+            byte[] fingerprint = SHA256.HashData(Wire.EncodeCanvasGraphCommand(command));
+            return store.WithSession(session ?? ownerToken, true, (db, tx, actor) =>
+                new CanvasGraphStore(db, tx, actor).Write(command, fingerprint, Token), Token);
+        }
+
+        internal Task<ArticleState> SaveArticle(string title, string body) =>
+            WriteArticle(ArticleAction.Save, new(0, 0, Guid.NewGuid(), title, body));
+
+        internal Task<ArticleState> DeleteArticle(ArticleState article) =>
+            WriteArticle(ArticleAction.Delete, new(article.Id, article.Revision, Guid.NewGuid(), "", ""));
+
+        private async Task<ArticleState> WriteArticle(ArticleAction action, Edit command)
+        {
+            var edit = Publishing.Validate(action, command);
+            return (await store.WithSession(ownerToken, true,
+                (db, tx, actor) => Store.Execute(db, tx, actor, action, edit, Token), Token)).Article;
+        }
+
+        internal Task<ArticleState> ReadArticle(int id) =>
+            store.WithSession(ownerToken, true, (db, tx, actor) => Store.Find(db, tx, actor, id, false, Token), Token);
+
+        internal async Task<long> Count(string table) => Assert.IsType<long>(await Scalar($"select count(*) from {table}"));
+
+        internal async Task<object?> Scalar(string sql, params object[] args)
+        {
+            await using var db = await database.DataSource.OpenConnectionAsync(Token);
+            await using var command = Store.Sql(db, null, sql, args);
+            return await command.ExecuteScalarAsync(Token);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            try { await database.DisposeAsync(); }
+            finally { deadline.Dispose(); }
+        }
+    }
+}

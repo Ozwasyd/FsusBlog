@@ -26,7 +26,13 @@ Canvas 文档与链接确认共用同一份数据及修订号。站点范围由�
 
 真实 PostgreSQL 测试覆盖会话和作者范围、私有标题不进入预览、方括号等字符的标签转义、围栏代码中的插入拒绝、目标版本变化、两个并发确认及回执持久化失败后的全量回滚。真实 Kestrel 测试覆盖已挂载路由、AEDS 请求与响应、认证、错误帧、CRC 和禁止缓存。C# 与 TypeScript 对照独立构造的预览响应字节向量。
 
-当前链接转换覆盖同作者、已公开普通文章、显式引用边、文末插入及保留边。标题和块引用能保存同作者文章 ID、锚点及可选固定修订，解析和跳转仍待接入。Canvas 界面、撤销／重做、任意编辑坐标、关系索引和生产规模的 Canvas 性能验收仍待完成。视觉连线能否转换的冲突仍在台账。该版 Canvas 表结构随全新 v2 数据库离线安装。 [#2487](https://github.com/Ozwasyd/FsusBlog/issues/2487) · [#2490](https://github.com/Ozwasyd/FsusBlog/issues/2490) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+当前链接转换覆盖同作者、已公开普通文章、显式引用边、文末插入及保留边。标题和块引用能保存同作者文章 ID、锚点及可选固定修订，解析和跳转仍待接入。任意文章编辑坐标、关系索引、导入导出和生产规模的 Canvas 性能验收仍待完成。视觉连线能否转换的冲突仍在台账。该版 Canvas 表结构随全新 v2 数据库离线安装。 [#2487](https://github.com/Ozwasyd/FsusBlog/issues/2487) · [#2490](https://github.com/Ozwasyd/FsusBlog/issues/2490) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+
+## 撤销与重做
+
+作者会话可通过 `GET /api/v2/authoring/canvas/documents/{id}/history.aeds?revision=...` 查看当前可撤销和重做的修订。按钮提交原有文档命令，携带当前修订和重试键。服务器锁定文档后从对应栈顶恢复前后配对的节点、边、标题及视口；先核对配对事实，再提交图形和历史。一个普通编辑批次、一次撤销或一次重做各增加一个修订。重复命令返回原回执，新编辑关闭旧重做分支。恢复文章引用时再次校验当前作者及对应文章。
+
+每份文档最多保留 100 个可重放编辑和 32 MiB 历史负载，以先达到的界限为准。载荷只保存被修改的 Canvas 记录，摘要绑定文档及原修订。每个新动作保留精简的操作结果。删除文档时清除可重放载荷。创建文档、删除文档及显式文章链接转换属于独立事务，撤销和重做只修改 Canvas，文章修订、发布和 outbox 保持原样。已安装图形布局用离线 `canvas-graph apply-empty` 增加历史表，保留原文档和修订；升级前的操作没有配对记录，不能重放。 [PostgreSQL 历史测试](../../artifacts/canvas-history-evidence/postgres.log) · [升级测试](../../artifacts/canvas-history-upgrade/run.log)
 
 ## 已知开发预览 Canvas
 

@@ -33,7 +33,7 @@ export type CanvasGraphCommand = {
   id: string
   commandId: string
   expectedRevision: bigint
-  action: 'create' | 'edit' | 'delete'
+  action: keyof typeof actions
   title: string
   viewport: CanvasViewport | null
   changes: readonly CanvasGraphChange[]
@@ -57,9 +57,15 @@ export type CanvasGraphPage = {
   edges: CanvasGraphEdge[]
 }
 
+export type CanvasGraphHistory = {
+  revision: bigint
+  undoRevision: bigint | null
+  redoRevision: bigint | null
+}
+
 const maxRecords = 10_000
 const maxCoordinate = 1_000_000_000
-const actions = ['create', 'edit', 'delete'] as const
+const actions = { create: 0, edit: 1, delete: 2, undo: 5, redo: 6 } as const
 const nodeKinds = ['article-reference', 'heading-reference', 'block-reference', 'plain-text-note', 'group-frame'] as const
 const edgeKinds = ['visual-only', 'explicit-reference-note'] as const
 const zeroUuid = '00000000-0000-0000-0000-000000000000'
@@ -216,9 +222,12 @@ function readEdge(input: PodReader): CanvasGraphEdge {
 }
 
 export function encodeCanvasGraphCommand(command: CanvasGraphCommand): Uint8Array {
-  const tag = actions.indexOf(command.action)
-  check(tag >= 0 && (command.action === 'create' ? command.expectedRevision === 0n : command.expectedRevision > 0n), 'command revision or action')
+  const tag = actions[command.action]
+  check(typeof tag === 'number' && (command.action === 'create' ? command.expectedRevision === 0n : command.expectedRevision > 0n), 'command revision or action')
   check(command.action !== 'delete' || command.title === '' && command.viewport === null && command.changes.length === 0, 'delete shape')
+  if (command.action === 'undo' || command.action === 'redo') {
+    check(command.title === '' && command.viewport === null && command.changes.length === 0, 'history command shape')
+  }
   check(command.action !== 'edit' || command.title !== '' || command.viewport !== null || command.changes.length !== 0, 'empty edit')
   const output = new PodWriter()
   output.uuid(identity(command.id))
@@ -313,6 +322,17 @@ export function decodeCanvasGraphPage(payload: Uint8Array, offset = 0): CanvasGr
   return { header, nextOffset: next === -1 ? null : next, nodes, edges }
 }
 
+export function decodeCanvasGraphHistory(payload: Uint8Array): CanvasGraphHistory {
+  const input = new PodReader(payload)
+  const revision = input.i64()
+  const undo = input.i64()
+  const redo = input.i64()
+  input.finish()
+  check(revision > 0n && undo >= 0n && undo <= revision && redo >= 0n && redo <= revision &&
+    (undo === 0n || undo !== redo), 'history revision')
+  return { revision, undoRevision: undo || null, redoRevision: redo || null }
+}
+
 export const canvasGraph = {
   list(signal?: AbortSignal): Promise<CanvasGraphHeader[]> {
     return request(WireRoutes.CanvasGraphList, FrameType.CanvasGraphList, decodeCanvasGraphList, signal)
@@ -331,6 +351,15 @@ export const canvasGraph = {
       const page = decodeCanvasGraphPage(payload, offset)
       check(page.header.id === document && (revision === undefined || page.header.revision === revision), 'page document or revision')
       return page
+    }, signal)
+  },
+  history(id: string, expectedRevision: bigint, signal?: AbortSignal): Promise<CanvasGraphHistory> {
+    check(expectedRevision > 0n && BigInt.asIntN(64, expectedRevision) === expectedRevision, 'history revision')
+    const path = WireRoutes.CanvasGraphHistory.replace('{id:guid}', identity(id))
+    return request(`${path}?revision=${expectedRevision}`, FrameType.CanvasGraphHistory, payload => {
+      const history = decodeCanvasGraphHistory(payload)
+      check(history.revision === expectedRevision, 'history revision')
+      return history
     }, signal)
   },
   write(command: CanvasGraphCommand, signal?: AbortSignal): Promise<CanvasGraphHeader> {

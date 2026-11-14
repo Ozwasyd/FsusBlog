@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { decodeFrame, encodeFrame, ProtocolError } from '../../src/Contracts/aeds.ts'
 import {
-  canvasGraph, decodeCanvasGraphPage, encodeCanvasGraphCommand, type CanvasGraphCommand,
+  canvasGraph, decodeCanvasGraphHistory, decodeCanvasGraphPage, encodeCanvasGraphCommand, type CanvasGraphCommand,
 } from '../../src/Contracts/canvas-graph.ts'
 import { FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 
@@ -77,4 +77,42 @@ test('graph fetch preserves loaded page coordinates and rejects cross-document r
   assert.equal(calls[0], `${endpoint}?revision=${revision}&offset=2`)
   await assert.rejects(canvasGraph.page(id(2), { revision, offset: 2 }), /page document or revision/)
   assert.throws(() => canvasGraph.page(id(1), { offset: 2 }), /page revision/)
+})
+
+test('undo and redo preserve their command envelopes and reject edit fields', () => {
+  const actions = ['undo', 'redo'] as const
+  for (const action of actions) {
+    const command = { ...commands, action, title: '', viewport: null, changes: [] }
+    assert.deepEqual(encodeFrame(FrameType.CanvasGraphCommand, encodeCanvasGraphCommand(command)), fixture(`canvas-graph-${action}`))
+    assert.throws(() => encodeCanvasGraphCommand({ ...command, title: 'x' }), /history command shape/)
+    assert.throws(() => encodeCanvasGraphCommand({ ...command, viewport }), /history command shape/)
+    assert.throws(() => encodeCanvasGraphCommand({ ...command, changes: commands.changes }), /history command shape/)
+    assert.throws(() => encodeCanvasGraphCommand({ ...command, expectedRevision: 0n }), /command revision or action/)
+  }
+})
+
+test('history reads exact revision echoes and rejects malformed optional revisions', async t => {
+  const bytes = fixture('canvas-graph-history')
+  const { payload } = decodeFrame(bytes, FrameType.CanvasGraphHistory)
+  const expected = { revision, undoRevision: revision, redoRevision: null }
+  assert.deepEqual(decodeCanvasGraphHistory(payload), expected)
+  assert.throws(() => decodeCanvasGraphHistory(payload.subarray(0, -1)), ProtocolError)
+  assert.throws(() => decodeCanvasGraphHistory(Uint8Array.from([...payload, 0])), ProtocolError)
+  for (const redo of [-1n, revision, revision + 1n]) {
+    const bad = payload.slice()
+    new DataView(bad.buffer).setBigInt64(16, redo, true)
+    assert.throws(() => decodeCanvasGraphHistory(bad), /history revision/)
+  }
+
+  const signal = new AbortController().signal
+  const mocked = t.mock.method(globalThis, 'fetch', async (path: string, init: RequestInit) => {
+    assert.equal(init.signal, signal)
+    assert.match(path, new RegExp(`/${id(1)}/history\\.aeds\\?revision=\\d+$`))
+    return new Response(bytes, { headers: { 'content-type': 'application/octet-stream' } })
+  })
+  assert.deepEqual(await canvasGraph.history(id(1), revision, signal), expected)
+  await assert.rejects(canvasGraph.history(id(1), revision + 1n, signal), /history revision/)
+  assert.throws(() => canvasGraph.history(id(1), 0n, signal), /history revision/)
+  assert.throws(() => canvasGraph.history(id(1), 1n << 63n, signal), /history revision/)
+  assert.equal(mocked.mock.callCount(), 2)
 })

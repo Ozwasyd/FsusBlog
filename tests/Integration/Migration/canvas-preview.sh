@@ -21,9 +21,16 @@ cli=(dotnet "$migrate")
 "${cli[@]}" canvas-graph apply-empty > "$evidence/current-repeat.json"
 cmp "$evidence/current.json" "$evidence/current-repeat.json"
 
+# Installing the two history tables must not rewrite an already current graph.
+"${psql[@]}" -c 'DROP TABLE public.canvas_history_transition, public.canvas_history_patch' >/dev/null
+"${cli[@]}" canvas-graph check > "$evidence/history-ready.json"
+grep -q '"status": "history-ready"' "$evidence/history-ready.json"
+"${cli[@]}" canvas-graph apply-empty > "$evidence/history-added.json"
+cmp "$evidence/current.json" "$evidence/history-added.json"
+
 # Replay the physical pre-graph schema kept by the exact repository checkpoint.
 git show 9cec6aa^:src/Migrate/canvas.sql > "$scratch/legacy.sql"
-"${psql[@]}" -c 'DROP TABLE public.canvas_link_plan, public.canvas_document_event, public.canvas_edge, public.canvas_node, public.authoring_canvas' >/dev/null
+"${psql[@]}" -c 'DROP TABLE public.canvas_history_transition, public.canvas_history_patch, public.canvas_link_plan, public.canvas_document_event, public.canvas_edge, public.canvas_node, public.authoring_canvas' >/dev/null
 "${psql[@]}" -f "$scratch/legacy.sql" >/dev/null
 "${cli[@]}" canvas-graph check > "$evidence/empty-legacy.json"
 
@@ -56,7 +63,7 @@ cmp "$evidence/current.json" "$evidence/upgraded.json"
 "${cli[@]}" verify > "$evidence/verified-current.log"
 
 # A populated exact preview retains article/revision/plan coordinates and all digests.
-"${psql[@]}" -c 'DROP TABLE public.canvas_link_plan, public.canvas_document_event, public.canvas_edge, public.canvas_node, public.authoring_canvas' >/dev/null
+"${psql[@]}" -c 'DROP TABLE public.canvas_history_transition, public.canvas_history_patch, public.canvas_link_plan, public.canvas_document_event, public.canvas_edge, public.canvas_node, public.authoring_canvas' >/dev/null
 "${psql[@]}" -f "$scratch/legacy.sql" >/dev/null
 "${psql[@]}" <<'SQL' >/dev/null
 begin;

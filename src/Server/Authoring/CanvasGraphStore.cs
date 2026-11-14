@@ -11,6 +11,7 @@ namespace FsusBlog.V2.Server.Authoring;
 
 internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx, Identity actor)
 {
+    private readonly CanvasHistoryStore history = new(db, tx);
     private const int RetainedDocuments = 4_000;
     private const long RetainedRevisions = 100_000;
     internal const int LinkKind = 3;
@@ -62,6 +63,15 @@ internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx
         return new(current, NextOffset(current, offset, edges.Count), [], edges.Select(ToFrame).ToArray());
     }
 
+    internal async Task<CanvasGraphHistory> History(Guid id, long revision, CancellationToken ct)
+    {
+        if (id == Guid.Empty || revision <= 0) throw Invalid("A valid Canvas revision is required.");
+        var current = await Current(id, write: false, ct) ?? throw Missing();
+        if (current.Deleted) throw Missing();
+        if (current.Revision != revision) throw Conflict();
+        return await history.Heads(id, revision, ct);
+    }
+
     internal async Task<CanvasGraphReceipt> Write(CanvasGraphCommand command, byte[] fingerprint, CancellationToken ct)
     {
         if (command.Action == CanvasGraphAction.Create)
@@ -84,29 +94,79 @@ internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx
             if (command.Title.Length != 0 || command.Viewport.HasValue || command.Changes.Count != 0)
                 throw Invalid("Delete accepts only exact Canvas document coordinates.");
             await DeleteGraph(command.Id, ct);
-            return await Advance(current with { Title = "", Viewport = CanvasViewport.Default, Deleted = true, NodeCount = 0, EdgeCount = 0 },
+            var deleted = await Advance(current with { Title = "", Viewport = CanvasViewport.Default, Deleted = true, NodeCount = 0, EdgeCount = 0 },
                 command.CommandId, (int)command.Action, fingerprint, ct);
+            await history.Clear(current.Id, deleted.Revision, ct);
+            return deleted;
         }
+        if (command.Action is CanvasGraphAction.Undo or CanvasGraphAction.Redo)
+            return await ReplayHistory(current, command, fingerprint, ct);
 
         string title = command.Title.Length == 0 ? current.Title : Title(command.Title);
         var viewport = command.Viewport.HasValue ? Viewport(command.Viewport.Value) : current.Viewport;
-        if (command.Changes.Count == 0 && title == current.Title && viewport == current.Viewport)
+        var before = command.Changes.Count == 0 ? CanvasGraph.Empty : await LoadGraph(current, ct);
+        var after = Apply(before, command.Changes);
+        var patch = CanvasHistoryPatch.Between(before, after);
+        if (patch.Nodes.IsEmpty && patch.Edges.IsEmpty && title == current.Title && viewport == current.Viewport)
             throw Invalid("Choose a Canvas change.");
-        if (command.Changes.Count != 0)
+        if (!patch.Nodes.IsEmpty || !patch.Edges.IsEmpty)
+            current = await ApplyPatch(current, after, patch, forward: true, ct);
+
+        var applied = await Advance(current with { Title = title, Viewport = viewport }, command.CommandId, (int)command.Action, fingerprint, ct);
+        await history.Edit(current.Id, applied.Revision, new(1, new(current.Title, current.Viewport), new(title, viewport), patch), ct);
+        return applied;
+    }
+
+    private async Task<CanvasGraphReceipt> ReplayHistory(CanvasGraphReceipt current, CanvasGraphCommand command,
+        byte[] fingerprint, CancellationToken ct)
+    {
+        bool undo = command.Action == CanvasGraphAction.Undo;
+        var entry = await history.Read(current.Id, current.Revision, undo, ct)
+            ?? throw new BusinessException(Rejection.Conflict, "This Canvas has no retained operation in that direction.");
+        var payload = entry.Payload;
+        var expected = undo ? payload.After : payload.Before;
+        var desired = undo ? payload.Before : payload.After;
+        if (current.Title != expected.Title || current.Viewport != expected.Viewport)
+            throw new BusinessException(Rejection.Conflict, "Canvas history does not match its current metadata.");
+
+        if (!payload.Patch.Nodes.IsEmpty || !payload.Patch.Edges.IsEmpty)
         {
-            var before = new CanvasGraph((await ReadNodes(command.Id, 0, CanvasGraph.MaxNodes, ct)).ToImmutableArray(),
-                (await ReadEdges(command.Id, 0, CanvasGraph.MaxEdges, ct)).ToImmutableArray());
-            if (before.Nodes.Length != current.NodeCount || before.Edges.Length != current.EdgeCount)
-                throw new InvalidOperationException("Canvas graph counts do not match the document event.");
-            var after = Apply(before, command.Changes);
-            var original = before.Nodes.ToDictionary(node => node.Id);
-            var changed = after.Nodes.Where(node => !original.TryGetValue(node.Id, out var prior) || !SameNode(prior, node)).ToArray();
-            await CheckReferences(changed.Where(node => !original.TryGetValue(node.Id, out var prior) ||
-                (node.ArticleId, node.PinnedRevision) != (prior.ArticleId, prior.PinnedRevision)), ct);
-            await ReplaceChanged(command.Id, before, after, changed, ct);
-            current = current with { NodeCount = after.Nodes.Length, EdgeCount = after.Edges.Length };
+            var before = await LoadGraph(current, ct);
+            var after = payload.Patch.Apply(before, forward: !undo);
+            current = await ApplyPatch(current, after, payload.Patch, forward: !undo, ct);
         }
-        return await Advance(current with { Title = title, Viewport = viewport }, command.CommandId, (int)command.Action, fingerprint, ct);
+        var result = await Advance(current with { Title = Title(desired.Title), Viewport = Viewport(desired.Viewport) },
+            command.CommandId, (int)command.Action, fingerprint, ct);
+        await history.Move(current.Id, result.Revision, entry.Revision, undone: undo, ct);
+        return result;
+    }
+
+    private async Task<CanvasGraph> LoadGraph(CanvasGraphReceipt current, CancellationToken ct)
+    {
+        var graph = new CanvasGraph((await ReadNodes(current.Id, 0, CanvasGraph.MaxNodes, ct)).ToImmutableArray(),
+            (await ReadEdges(current.Id, 0, CanvasGraph.MaxEdges, ct)).ToImmutableArray());
+        if (graph.Nodes.Length != current.NodeCount || graph.Edges.Length != current.EdgeCount)
+            throw new InvalidOperationException("Canvas graph counts do not match the document event.");
+        return graph;
+    }
+
+    private async Task<CanvasGraphReceipt> ApplyPatch(CanvasGraphReceipt current, CanvasGraph after,
+        CanvasHistoryPatch patch, bool forward, CancellationToken ct)
+    {
+        var nodes = patch.Nodes.Select(entry => (Expected: forward ? entry.Before : entry.After, Desired: forward ? entry.After : entry.Before)).ToArray();
+        var edges = patch.Edges.Select(entry => (Id: entry.Id, Desired: forward ? entry.After : entry.Before)).ToArray();
+        await CheckReferences(nodes.Where(pair => pair.Desired is not null &&
+            (pair.Expected?.ArticleId, pair.Expected?.PinnedRevision) != (pair.Desired.ArticleId, pair.Desired.PinnedRevision))
+                .Select(pair => pair.Desired!), ct);
+        await DeleteIds(current.Id, "delete from public.canvas_edge where canvas_id=$1 and id=any($2)",
+            edges.Where(pair => pair.Desired is null).Select(pair => pair.Id).ToArray(), ct);
+        foreach (var pair in nodes)
+            if (pair.Desired is not null) await StoreNode(current.Id, pair.Desired, ct);
+        foreach (var pair in edges)
+            if (pair.Desired is not null) await StoreEdge(current.Id, pair.Desired, ct);
+        await DeleteIds(current.Id, "delete from public.canvas_node where canvas_id=$1 and id=any($2)",
+            nodes.Where(pair => pair.Desired is null).Select(pair => pair.Expected!.Id).ToArray(), ct);
+        return current with { NodeCount = after.Nodes.Length, EdgeCount = after.Edges.Length };
     }
 
     internal async Task<CanvasGraphReceipt> Create(Guid id, Guid key, int kind, byte[] fingerprint, string title,
@@ -158,18 +218,33 @@ internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx
     {
         // Lock first, then read the matching event using the next READ COMMITTED statement.
         // A concurrent writer may have advanced the row while we waited for its lock.
-        await using (var acquire = Store.Sql(db, tx,
-            "select revision from public.authoring_canvas where id=$1 and owner_id=$2" +
-            (write ? " for update" : " for share"), id, actor.Id))
+        long revision;
+        string title;
+        CanvasViewport viewport;
+        bool deleted;
+        DateTimeOffset touched;
+        await using (var acquire = Store.Sql(db, tx, """
+            select revision,title,viewport_x,viewport_y,viewport_zoom,deleted,touched_at
+            from public.authoring_canvas where id=$1 and owner_id=$2
+            """ + (write ? " for update" : " for share"), id, actor.Id))
+        await using (var row = await acquire.ExecuteReaderAsync(ct))
         {
-            if (await acquire.ExecuteScalarAsync(ct) is not long revision) return null;
-            await using var read = Store.Sql(db, tx, $"""
-                select {Receipt} from public.canvas_document_event e where e.canvas_id=$1 and e.revision=$2
-                """, id, revision);
-            await using var row = await read.ExecuteReaderAsync(ct);
-            if (!await row.ReadAsync(ct)) throw new InvalidOperationException("Canvas document event is missing.");
-            return ReadReceipt(row);
+            if (!await row.ReadAsync(ct)) return null;
+            revision = row.GetInt64(0);
+            title = row.GetString(1);
+            viewport = new(row.GetInt32(2), row.GetInt32(3), row.GetInt32(4));
+            deleted = row.GetBoolean(5);
+            touched = row.GetFieldValue<DateTimeOffset>(6);
         }
+        await using var read = Store.Sql(db, tx, $"""
+            select {Receipt} from public.canvas_document_event e where e.canvas_id=$1 and e.revision=$2
+            """, id, revision);
+        await using var eventRow = await read.ExecuteReaderAsync(ct);
+        if (!await eventRow.ReadAsync(ct)) throw new InvalidOperationException("Canvas document event is missing.");
+        var receipt = ReadReceipt(eventRow);
+        if (receipt.Title != title || receipt.Viewport != viewport || receipt.Deleted != deleted || receipt.TouchedAt != touched)
+            throw new InvalidOperationException("Canvas document metadata does not match its event.");
+        return receipt;
     }
 
     private async Task<CanvasGraphReceipt> Advance(CanvasGraphReceipt current, Guid key, int kind, byte[] fingerprint, CancellationToken ct)
@@ -248,18 +323,6 @@ internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx
         return result;
     }
 
-    private async Task ReplaceChanged(Guid id, CanvasGraph before, CanvasGraph after, CanvasNode[] changed, CancellationToken ct)
-    {
-        await DeleteIds(id, "delete from public.canvas_edge where canvas_id=$1 and id=any($2)",
-            before.Edges.Select(edge => edge.Id).Except(after.Edges.Select(edge => edge.Id)).ToArray(), ct);
-        foreach (var node in changed) await StoreNode(id, node, ct);
-        var originalEdges = before.Edges.ToDictionary(edge => edge.Id);
-        foreach (var edge in after.Edges)
-            if (!originalEdges.TryGetValue(edge.Id, out var previous) || previous != edge) await StoreEdge(id, edge, ct);
-        await DeleteIds(id, "delete from public.canvas_node where canvas_id=$1 and id=any($2)",
-            before.Nodes.Select(node => node.Id).Except(after.Nodes.Select(node => node.Id)).ToArray(), ct);
-    }
-
     private async Task DeleteIds(Guid id, string sql, Guid[] removed, CancellationToken ct)
     {
         if (removed.Length == 0) return;
@@ -332,10 +395,6 @@ internal sealed class CanvasGraphStore(NpgsqlConnection db, NpgsqlTransaction tx
     private static CanvasGraphReceipt ReadReceipt(NpgsqlDataReader row) => new(row.GetGuid(0), row.GetInt64(1),
         row.GetString(2), new(row.GetInt32(3), row.GetInt32(4), row.GetInt32(5)), row.GetBoolean(6),
         row.GetInt32(7), row.GetInt32(8), row.GetFieldValue<DateTimeOffset>(9));
-
-    private static bool SameNode(CanvasNode first, CanvasNode second) =>
-        first with { MemberIds = default } == second with { MemberIds = default } &&
-        first.MemberIds.AsSpan().SequenceEqual(second.MemberIds.AsSpan());
 
     private static NpgsqlParameter Optional(NpgsqlDbType type, object? value) => new()
     {

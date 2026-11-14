@@ -41,6 +41,8 @@ internal static partial class Migration
             await ExecuteAsync(connection, tx, "drop table public.canvas_link_plan, public.canvas_edge, public.authoring_canvas", ct);
             await ApplySchemaAddition(connection, tx, "canvas.sql", ct);
         }
+        if (before.Status is "empty-legacy-ready" or "history-ready")
+            await ApplySchemaAddition(connection, tx, "canvas_history.sql", ct);
         var after = await InspectCanvasGraphAsync(connection, tx, ct);
         if (after.Status != "current") throw new InvalidOperationException("The Canvas schema did not reach the current shape.");
         await tx.CommitAsync(ct);
@@ -57,7 +59,10 @@ internal static partial class Migration
         }
         var nodeTable = await HasRelation(connection, tx, "public.canvas_node", ct);
         var eventTable = await HasRelation(connection, tx, "public.canvas_document_event", ct);
-        if (nodeTable != eventTable) throw new InvalidOperationException("The Canvas schema matches neither exact supported layout.");
+        var patchTable = await HasRelation(connection, tx, "public.canvas_history_patch", ct);
+        var transitionTable = await HasRelation(connection, tx, "public.canvas_history_transition", ct);
+        if (nodeTable != eventTable || patchTable != transitionTable || patchTable && !nodeTable)
+            throw new InvalidOperationException("The Canvas schema matches neither exact supported layout.");
 
         var hasRecoveryScope = await HasRelation(connection, tx, "public.authoring_recovery_site", ct);
         var hasRevisionHistory = await HasRelation(connection, tx, "public.article_rollback", ct);
@@ -66,10 +71,11 @@ internal static partial class Migration
         var hasArticleSchedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
         var hasMediaUpload = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
-            hasAdminIdentity, hasPublicationHistory, hasArticleSchedule, hasMediaUpload, legacyCanvas: !nodeTable);
+            hasAdminIdentity, hasPublicationHistory, hasArticleSchedule, hasMediaUpload, legacyCanvas: !nodeTable,
+            requireCanvasHistory: patchTable);
         if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         if (hasAdminIdentity) await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
-        if (nodeTable) return new("current", null, [], []);
+        if (nodeTable) return new(patchTable ? "current" : "history-ready", null, [], []);
 
         await using var counts = new NpgsqlCommand("""
             select

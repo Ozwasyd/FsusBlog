@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter } from 'vue-router'
 import { ElAlert, ElButton, ElDialog, ElMessageBox } from '@ozwasyd/element-plus'
 import { api, ApiError } from '../../../Contracts/client'
 import {
   canvasGraph, defaultCanvasViewport, encodeCanvasGraphCommand,
   type CanvasGeometry, type CanvasGraphChange, type CanvasGraphCommand,
-  type CanvasGraphEdge, type CanvasGraphHeader, type CanvasNode, type CanvasViewport,
+  type CanvasGraphEdge, type CanvasGraphHeader, type CanvasGraphHistory, type CanvasNode, type CanvasViewport,
 } from '../../../Contracts/canvas-graph'
 import { confirmCanvasLink, previewCanvasLink } from '../../../Contracts/canvas-links'
 import type { CanvasLinkPlan } from '../../../Contracts/wire.generated'
@@ -39,6 +39,12 @@ const plan = shallowRef<CanvasLinkPlan>()
 const linkPending = ref(false)
 const linkUnconfirmed = ref(false)
 const graphReadFailure = ref(false)
+const history = shallowRef<CanvasGraphHistory>()
+const historyFailure = ref(false)
+const historyLoading = ref(false)
+const tools = ref<HTMLElement>()
+const graph = ref<HTMLElement>()
+let historyRequest: AbortController | undefined
 const form = ref<'title' | 'node' | 'edge'>()
 const nodeKind = ref<CanvasNode['kind']>('plain-text-note')
 const note = ref('')
@@ -65,6 +71,15 @@ const activeLink = computed(() => {
   return { from: pair.from, to: pair.to }
 })
 const disabled = computed(() => loading.value || working.value || linkPending.value || !!plan.value || !!retry.value || stale.value || graphReadFailure.value)
+const historyActionAvailable = computed(() => {
+  const current = document.value
+  const position = history.value
+  const ready = !disabled.value && !form.value && current && position?.revision === current.revision
+  return {
+    undo: Boolean(ready && position.undoRevision !== null),
+    redo: Boolean(ready && position.redoRevision !== null),
+  }
+})
 const extent = computed(() => outlinePage.value * 50)
 const outlineNodes = computed(() => nodes.value.slice(extent.value, extent.value + 50))
 const outlineEdges = computed(() => edges.value.slice(extent.value, extent.value + 50))
@@ -101,6 +116,11 @@ function reset() {
   loading.value = false
   stale.value = false
   graphReadFailure.value = false
+  history.value = undefined
+  historyFailure.value = false
+  historyLoading.value = false
+  historyRequest?.abort()
+  historyRequest = undefined
   linkPending.value = false
   linkUnconfirmed.value = false
   error.value = ''
@@ -121,6 +141,8 @@ function recordError(cause: unknown, signal: AbortSignal, fallback: string, read
     edges.value = []
     document.value = undefined
     documents.value = []
+    history.value = undefined
+    historyFailure.value = false
     plan.value = undefined
     retry.value = undefined
     error.value = 'Canvas is unavailable.'
@@ -136,7 +158,39 @@ function recordError(cause: unknown, signal: AbortSignal, fallback: string, read
   return true
 }
 
-async function load(more = false) {
+async function loadHistory(current = document.value) {
+  const signal = scope.signal
+  if (!current || !scoped(signal)) return
+  historyRequest?.abort()
+  const request = new AbortController()
+  historyRequest = request
+  historyLoading.value = true
+  history.value = undefined
+  historyFailure.value = false
+
+  const isLatest = () => request === historyRequest && !request.signal.aborted && scoped(signal) &&
+    document.value?.id === current.id && document.value.revision === current.revision
+  try {
+    const next = await canvasGraph.history(current.id, current.revision, request.signal)
+    if (!isLatest()) return
+    if (next.revision !== current.revision) throw Error('Canvas history revision changed')
+    history.value = next
+  } catch (cause) {
+    if (!isLatest()) return
+    if (cause instanceof ApiError && [401, 403, 404, 409].includes(cause.status)) {
+      recordError(cause, signal, 'Could not load Canvas history.', true)
+    } else {
+      historyFailure.value = true
+    }
+  } finally {
+    if (request === historyRequest && scoped(signal)) {
+      historyLoading.value = false
+      historyRequest = undefined
+    }
+  }
+}
+
+async function load(more = false, confirmed?: CanvasGraphHeader) {
   const signal = scope.signal
   if (!scoped(signal) || loading.value || (more && offset.value === null)) return
   loading.value = true
@@ -148,8 +202,8 @@ async function load(more = false) {
     } else {
       const previous = more ? document.value : undefined
       const id = documentId.value
-      const page = await canvasGraph.page(id,
-        previous && offset.value !== null ? { revision: previous.revision, offset: offset.value } : {}, signal)
+      const page = await canvasGraph.page(id, confirmed ? { revision: confirmed.revision }
+        : previous && offset.value !== null ? { revision: previous.revision, offset: offset.value } : {}, signal)
       if (!scoped(signal)) return
       document.value = page.header
       nodes.value = more ? [...nodes.value, ...page.nodes] : page.nodes
@@ -172,6 +226,10 @@ async function load(more = false) {
     if (scoped(signal)) {
       stale.value = false
       graphReadFailure.value = false
+      if (!more && document.value) {
+        if (confirmed) await loadHistory(document.value)
+        else void loadHistory(document.value)
+      }
     }
   } catch (cause) {
     if (scoped(signal)) graphReadFailure.value = true
@@ -194,7 +252,12 @@ function protectUnload(event: BeforeUnloadEvent) {
   if (working.value || retry.value || linkUnconfirmed.value || linkPending.value) event.preventDefault()
 }
 onMounted(() => window.addEventListener('beforeunload', protectUnload))
-onScopeDispose(() => { ownerLife.abort(); scope.abort(); window.removeEventListener('beforeunload', protectUnload) })
+onScopeDispose(() => {
+  ownerLife.abort()
+  scope.abort()
+  historyRequest?.abort()
+  window.removeEventListener('beforeunload', protectUnload)
+})
 function canNavigate() {
   return !working.value && !linkPending.value && !form.value && !plan.value &&
     !retry.value && !linkUnconfirmed.value
@@ -229,13 +292,18 @@ async function send(command: CanvasGraphCommand) {
     retry.value = undefined
     working.value = false
     form.value = undefined
-    message.value = 'Canvas saved.'
+    message.value = command.action === 'undo' ? 'Canvas change undone.'
+      : command.action === 'redo' ? 'Canvas change redone.' : 'Canvas saved.'
     if (command.action === 'create') {
       await router.push({ name: 'canvas-document', params: { id: result.id } })
     } else if (result.deleted) {
       await router.replace({ name: 'canvas' })
+    } else if (command.action === 'undo' || command.action === 'redo') {
+      await load(false, result)
     } else if (command.changes.length === 0) {
       document.value = result
+      // A later continuation must use the newly confirmed revision.
+      void loadHistory(result)
     } else {
       await load()
     }
@@ -244,6 +312,38 @@ async function send(command: CanvasGraphCommand) {
   } finally {
     if (scoped(signal)) working.value = false
   }
+}
+
+async function travel(action: 'undo' | 'redo') {
+  const current = document.value
+  if (!current || !historyActionAvailable.value[action]) return
+  const signal = scope.signal
+  const trigger = tools.value?.querySelector<HTMLButtonElement>(`button.canvas-${action}`)
+  const hadFocus = trigger === window.document.activeElement
+  await send({
+    id: current.id, commandId: crypto.randomUUID(), expectedRevision: current.revision,
+    action, title: '', viewport: null, changes: [],
+  })
+  await nextTick()
+  if (!hadFocus || !scoped(signal) || document.value?.id !== current.id) return
+  const active = window.document.activeElement
+  if (active !== trigger && active !== window.document.body) return
+  if (trigger && !trigger.disabled) {
+    trigger.focus()
+  } else {
+    const region = graph.value?.querySelector<HTMLElement>('[aria-label="Interactive Canvas Viewport"], [aria-label="Canvas outline"]')
+    region?.focus({ preventScroll: true })
+  }
+}
+
+function historyShortcut(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.repeat || event.isComposing || event.altKey || event.ctrlKey === event.metaKey) return
+  const key = event.key.toLowerCase()
+  const action = key === 'z' ? (event.shiftKey ? 'redo' : 'undo') : key === 'y' && !event.shiftKey ? 'redo' : undefined
+  if (!action || !historyActionAvailable.value[action] || !(event.target instanceof HTMLElement) ||
+    !graph.value?.contains(event.target) || event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return
+  event.preventDefault()
+  void travel(action)
 }
 
 function patch(changes: CanvasGraphChange[] = [], name = '', viewport: CanvasViewport | null = null) {
@@ -411,7 +511,7 @@ function edgeLabel(edge: CanvasGraphEdge) {
 </script>
 
 <template>
-  <main class="canvas-workspace" aria-labelledby="canvas-title">
+  <main class="canvas-workspace" aria-labelledby="canvas-title" @keydown="historyShortcut">
     <header class="canvas-header">
       <div>
         <RouterLink :to="documentId ? '/user/manage/canvas' : articlePath">{{ documentId ? 'All canvases' : 'Article workspace' }}</RouterLink>
@@ -444,7 +544,10 @@ function edgeLabel(edge: CanvasGraphEdge) {
       </section>
 
       <section v-if="document" aria-label="Canvas document">
-        <div class="canvas-toolbar" role="group" aria-label="Canvas tools">
+        <div ref="tools" class="canvas-toolbar" role="group" aria-label="Canvas tools">
+          <ElButton class="canvas-undo" native-type="button" :disabled="!historyActionAvailable.undo" @click="travel('undo')">Undo</ElButton>
+          <ElButton class="canvas-redo" native-type="button" :disabled="!historyActionAvailable.redo" @click="travel('redo')">Redo</ElButton>
+          <ElButton v-if="historyFailure" native-type="button" :disabled="disabled || historyLoading" @click="loadHistory()">Retry Canvas history</ElButton>
           <ElButton native-type="button" :disabled="disabled" @click="addNode()">Add note</ElButton>
           <ElButton native-type="button" :disabled="disabled" @click="addNode('article-reference')">Add reference</ElButton>
           <ElButton native-type="button" :disabled="disabled" @click="addNode('group-frame')">Add frame</ElButton>
@@ -454,11 +557,11 @@ function edgeLabel(edge: CanvasGraphEdge) {
           <ElButton native-type="button" :disabled="disabled" @click="saveViewport(defaultCanvasViewport)">Reset view</ElButton>
           <button type="button" class="canvas-mode" :aria-pressed="view === 'outline'" @click="view = view === 'canvas' ? 'outline' : 'canvas'">Outline</button>
         </div>
-        <div class="canvas-graph">
+        <div ref="graph" class="canvas-graph">
           <CanvasBoard v-if="view === 'canvas'" :nodes="nodes" :edges="edges" :viewport="document.viewport"
             :selected-node-id="nodeId" :selected-edge-id="edgeId" :disabled="disabled"
             @select-node="chooseNode" @select-edge="chooseEdge" @move-node="move" @viewport="saveViewport" />
-          <section v-else class="canvas-outline" aria-label="Canvas outline">
+          <section v-else class="canvas-outline" aria-label="Canvas outline" tabindex="-1">
             <h2>Nodes</h2>
             <p v-if="!nodes.length">No nodes in this Canvas.</p>
             <ul v-else>

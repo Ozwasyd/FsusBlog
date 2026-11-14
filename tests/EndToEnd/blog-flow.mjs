@@ -14,6 +14,7 @@ import { exerciseWorkspace } from './workspace-flow.mjs'
 import { exerciseInspector, exerciseInspectorDate } from './inspector-flow.mjs'
 import { exerciseDraftRevision } from './revision-flow.mjs'
 import { exerciseCanvas } from './canvas-flow.mjs'
+import { exerciseCanvasHistory } from './canvas-history-flow.mjs'
 import { exerciseArticleSchedule } from './article-schedule-flow.mjs'
 import { readMarkdownDownload } from './markdown-export-flow.mjs'
 
@@ -412,6 +413,7 @@ try {
     page: publisher, origin, targetArticle: publicArticle, screenshot: screen, monitor, observations,
     createDraft: (title, body) => articleCommand(WireRoutes.Save, 0, 0n, title, body),
   })
+  await exerciseCanvasHistory({ page: publisher, origin, screenshot: screen, monitor, observations })
   await exerciseSearchWorkerReuse({
     page: visitor, origin, articleTitle: title, firstQuery: bodyTerm, repeatQuery: bodyTerm.toUpperCase(),
     withdraw: async () => {
