@@ -16,7 +16,7 @@
 
 90% 是全部功能交付之后的目标。现有切片的比值不能说明已达到该目标。
 
-代码量检查点 `bac3272` 有 345 个入选文件和 55,638 规范化 NCLOC。固定 v1 主口径为 2,085,464，v2 上限为 208,546。Go 压测代码和两份 Caddy 配置均计入。首条链路后的[各域预算](product/code-budget-checkpoint.md)按 `0e204f8` 冻结，后续交付须用实际增长和已移除的缺口重估。完整功能的实际减量仍待复算。
+代码量检查点 `88acf14` 有 353 个入选文件和 56,715 规范化 NCLOC。固定 v1 主口径为 2,085,464，v2 上限为 208,546。Go 压测代码和两份 Caddy 配置均计入。首条链路后的[各域预算](product/code-budget-checkpoint.md)按 `0e204f8` 冻结，后续交付须用实际增长和已移除的缺口重估。完整功能的实际减量仍待复算。
 
 `3625a2c` 独立检出通过 11 项 Core、22 项集成测试、AEDS C#/TS/C++/Wasm、严格前端类型及构建和 Chrome 发布闭环。后续候选继续追加实库与浏览器证据。两轮直连最高档分别完成约 10,471 和 10,422 个正确响应每秒，客户端漏发分别为 0.273% 和 0.747%，均超过 0.1% 上限。见[直连诊断](../tests/Performance/diagnostic-2026-11-14.md)。
 
@@ -24,7 +24,7 @@
 
 干净的 `8e84f89` 生成发布候选，247 个解包文件通过摘要校验，bundle 已导入独立裸仓库并通过 `git fsck --full`。候选证据在本机 `artifacts/candidate-release-verified/`。
 
-`bac3272` 的独立检出以锁定依赖通过 Release 编译、31 项 Core、77 项原生 PostgreSQL 集成和 40 项 Node 协议检查。独立向量通过 C#、C++、Wasm，JS/Wasm 差分覆盖 2,821 个确定输入。289 个解包文件通过摘要校验，完整历史导入空仓库后通过 `git fsck`。从解包后的发布包运行的实际 Chrome 业务流退出 0 并完成清理。原始证据在 `artifacts/candidate-bac3272/`。
+`88acf14` 的独立检出以锁定依赖通过 Release 编译、31 项 Core、78 项原生 PostgreSQL 集成和 40 项 Node 协议检查。独立向量通过 C#、C++、Wasm，JS/Wasm 差分覆盖 2,821 个确定输入。289 个解包文件通过摘要校验，完整历史导入空仓库后通过 `git fsck`。实际 Chrome 的 18 项流程从解包后的候选运行并完成清理。另独立验证同候选的 PostgreSQL 和私有媒体备份恢复。原始证据在 `artifacts/candidate-88acf14/`。
 
 两轮 15 分钟诊断归因四条热读零 PostgreSQL 命令及物理连接。默认 GC 的 RSS 峰值 1,645,200 KiB，超过 1.5 GiB。`ConserveMemory=5` 峰值为 1,513,568 KiB，达到该轮 RSS 预算，两种 GC 时间口径的差异及初始同机并发仍已记录。正式容量验收未通过，生产默认 GC 配置未改。见[运行时诊断](../tests/Performance/runtime-2026-11-14.md)。
 
