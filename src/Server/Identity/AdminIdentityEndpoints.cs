@@ -61,7 +61,7 @@ internal static class AdminIdentityEndpoints
         {
             ctx.Response.Headers.CacheControl = "no-store";
             ctx.Response.Headers["X-Robots-Tag"] = "noindex";
-            return Results.Bytes(app.Services.GetRequiredService<WebPages>().Page(), "text/html; charset=utf-8");
+            return Results.Bytes(app.Services.GetRequiredService<WebPages>().Page(useAppearance: false), "text/html; charset=utf-8");
         });
         app.MapPost(WireRoutes.AdminBootstrapBegin, async (HttpContext ctx, CancellationToken ct) =>
         {

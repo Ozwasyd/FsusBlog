@@ -90,17 +90,8 @@ public sealed class ExtensionPackageVerifier
     internal VerifiedExtensionPackage VerifySnapshot(string sourceReference, byte[] data, byte[] signed,
         ExtensionPlatform platform, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!_sources.TryGetValue(sourceReference, out var source)) throw new ExtensionRejectedException("source-not-approved");
-        RequirePackageSize(data.Length, signed.Length);
-
-        var checkedAt = _clock.GetUtcNow();
-        var key = _keys[(source.Publisher, source.KeyId)];
-        var validUntil = key.RevokedAt is { } cutoff && cutoff < key.ValidUntil ? cutoff : key.ValidUntil;
-        if (checkedAt < key.ValidFrom || checkedAt >= validUntil) throw new ExtensionRejectedException("publisher-key-not-current");
-
-        RequireDigest(SHA256.HashData(data), source.ArchiveSha256, "archive-digest");
-        VerifySignature(key, data, signed);
+        var trust = VerifyArchive(sourceReference, data, signed, cancellationToken);
+        var source = trust.Source;
         var manifest = VerifyEntries(data, platform, cancellationToken);
         if (manifest.Publisher != source.Publisher || manifest.SignatureReference != source.SignatureReference ||
             manifest.TrustPolicyReference != source.TrustPolicyReference)
@@ -108,10 +99,33 @@ public sealed class ExtensionPackageVerifier
 
         var identity = DigestFields(["fsusblog.v2.authoring-package", source.Reference, source.Provenance, source.Publisher,
             source.KeyId, source.ArchiveSha256, _keysetIdentity, Digest(signed), platform.ToString()]);
-        var completedAt = _clock.GetUtcNow();
+        trust.RequireCurrent(_clock, cancellationToken);
+        return new(manifest, identity, source.ArchiveSha256, trust.CheckedAt, trust.ValidUntil);
+    }
+
+    internal SignedArchiveTrust VerifyArchive(string sourceReference, ReadOnlySpan<byte> data, ReadOnlySpan<byte> signed,
+        CancellationToken cancellationToken, bool requireCurrent = true)
+    {
         cancellationToken.ThrowIfCancellationRequested();
-        if (completedAt < checkedAt || completedAt >= validUntil) throw new ExtensionRejectedException("publisher-key-not-current");
-        return new(manifest, identity, source.ArchiveSha256, checkedAt, validUntil);
+        if (!_sources.TryGetValue(sourceReference, out var source)) throw new ExtensionRejectedException("source-not-approved");
+        RequirePackageSize(data.Length, signed.Length);
+        var checkedAt = _clock.GetUtcNow();
+        var key = _keys[(source.Publisher, source.KeyId)];
+        var validUntil = key.RevokedAt is { } cutoff && cutoff < key.ValidUntil ? cutoff : key.ValidUntil;
+        if (requireCurrent && (checkedAt < key.ValidFrom || checkedAt >= validUntil)) throw new ExtensionRejectedException("publisher-key-not-current");
+        RequireDigest(SHA256.HashData(data), source.ArchiveSha256, "archive-digest");
+        VerifySignature(key, data, signed);
+        return new(source, checkedAt, key.ValidFrom, validUntil);
+    }
+
+    internal sealed record SignedArchiveTrust(ApprovedExtensionSource Source, DateTimeOffset CheckedAt, DateTimeOffset ValidFrom, DateTimeOffset ValidUntil)
+    {
+        internal void RequireCurrent(TimeProvider clock, CancellationToken cancellationToken)
+        {
+            var completedAt = clock.GetUtcNow();
+            cancellationToken.ThrowIfCancellationRequested();
+            if (completedAt < CheckedAt || completedAt >= ValidUntil) throw new ExtensionRejectedException("publisher-key-not-current");
+        }
     }
 
     private static void VerifySignature(ExtensionPublisherKey key, ReadOnlySpan<byte> archive, ReadOnlySpan<byte> signature)

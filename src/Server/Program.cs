@@ -21,6 +21,8 @@ var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/W
 var template = await File.ReadAllTextAsync(Path.Combine(dist, "index.html"));
 if (!template.Contains("<!--fsus-public-content-->", StringComparison.Ordinal))
     throw new InvalidOperationException("The v2 web build is missing the public content slot.");
+var appearance = FsusBlog.V2.Server.Content.AppearanceAssets.Load(builder.Configuration[FsusBlog.V2.Server.Content.AppearanceAssets.RootSetting],
+    dist, builder.Configuration[FsusBlog.V2.Server.Content.MediaEndpoints.StorageSetting]);
 
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = WireLimits.MaxCommandFrameBytes);
 builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
@@ -33,7 +35,7 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
     builder.Services.AddSingleton(services => new RuntimeEvidence(evidenceDirectory, output, services.GetRequiredService<IHttpContextAccessor>()));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
-builder.Services.AddSingleton(new WebPages(template, publicSite));
+builder.Services.AddSingleton(new WebPages(template, publicSite, appearance));
 builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.SitePages(builder.Configuration,
     services.GetRequiredService<WebPages>()));
 builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.DistributionSettings(publicSite,
@@ -164,6 +166,7 @@ foreach (var asset in new[] { "assets", "dist" })
         app.UseStaticFiles(new StaticFileOptions { FileProvider = new PhysicalFileProvider(assetDir), RequestPath = "/" + asset });
 }
 app.UseRateLimiter();
+appearance?.Map(app);
 FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.Map(app, adminIdentity, ReadFrame);
 FsusBlog.V2.Server.Sessions.SiteSessionEndpoints.Map(app, Cookie);

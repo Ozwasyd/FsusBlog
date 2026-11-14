@@ -228,14 +228,14 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     }
 }
 
-internal sealed class WebPages(string template, PublicSiteConfiguration? site = null)
+internal sealed class WebPages(string template, PublicSiteConfiguration? site = null, AppearanceAssets? appearance = null)
 {
     internal string SiteTitle => site?.Seo.Title ?? PublicSiteConfiguration.DefaultTitle;
 
     internal byte[] Page(string content = "", string? title = null, string? description = null, string? language = null,
-        bool noIndex = false, string? publicPath = null)
+        bool noIndex = false, string? publicPath = null, bool useAppearance = true)
     {
-        var document = template;
+        var document = useAppearance && appearance is not null ? appearance.WithStylesheet(template) : template;
         var titleText = title is null ? SiteTitle : $"{title} · {SiteTitle}";
         document = document.Replace("<title>Fsu's Blog</title>", $"<title>{HtmlEncoder.Default.Encode(titleText)}</title>", StringComparison.Ordinal);
         var canonical = publicPath is not null && !noIndex && site?.Origin is { } origin ? origin + publicPath : null;
