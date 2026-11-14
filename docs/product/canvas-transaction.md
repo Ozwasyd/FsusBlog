@@ -26,4 +26,12 @@ Canvas 文档与链接确认共用同一份数据及修订号。站点范围由�
 
 真实 PostgreSQL 测试覆盖会话和作者范围、私有标题不进入预览、方括号等字符的标签转义、围栏代码中的插入拒绝、目标版本变化、两个并发确认及回执持久化失败后的全量回滚。真实 Kestrel 测试覆盖已挂载路由、AEDS 请求与响应、认证、错误帧、CRC 和禁止缓存。C# 与 TypeScript 对照独立构造的预览响应字节向量。
 
-当前链接转换覆盖同作者、已公开普通文章、显式引用边、文末插入及保留边。标题和块引用能保存同作者文章 ID、锚点及可选固定修订，解析和跳转仍待接入。Canvas 界面、撤销／重做、任意编辑坐标、关系索引和生产规模的 Canvas 性能验收仍待完成。视觉连线能否转换的冲突仍在台账。该版 Canvas 表结构随全新 v2 数据库离线安装，开发预览版的旧 Canvas 表形状仍缺现场升级工具。 [#2487](https://github.com/Ozwasyd/FsusBlog/issues/2487) · [#2490](https://github.com/Ozwasyd/FsusBlog/issues/2490) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+当前链接转换覆盖同作者、已公开普通文章、显式引用边、文末插入及保留边。标题和块引用能保存同作者文章 ID、锚点及可选固定修订，解析和跳转仍待接入。Canvas 界面、撤销／重做、任意编辑坐标、关系索引和生产规模的 Canvas 性能验收仍待完成。视觉连线能否转换的冲突仍在台账。该版 Canvas 表结构随全新 v2 数据库离线安装。 [#2487](https://github.com/Ozwasyd/FsusBlog/issues/2487) · [#2490](https://github.com/Ozwasyd/FsusBlog/issues/2490) · [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738)
+
+## 已知开发预览 Canvas
+
+设置现有的 `FSUSBLOG_DB` 后，离线迁移程序的 `canvas-graph check` 对 v2 marker、整套已知列和约束进行只读核对。已知旧布局报告 Canvas 数、作者数、修订范围、边数和计划回执数量，并列出保留源坐标的列名。输出只含汇总，不包含账号或文档标识、文章内容、计划 ID 和会话摘要。
+
+使用 `canvas-graph apply-empty` 时须先停止服务。命令取得现有数据库公开快照租约和事务排空锁，然后独占锁定三个 Canvas 表。在核对旧布局为空后，同一事务重建 Canvas 表并复查新布局；已升级数据库可安全重复执行。若存在外部 PostgreSQL 表依赖或形状不相符，事务回滚。含旧文档、边或计划的已知预览数据库只报告保留范围并拒绝修改，因为旧版没有节点几何、视口及完整操作回执。该诊断不会合成历史或删除现存数据。
+
+独立 PostgreSQL 18.7 试验验证空表升级、重复执行、外部依赖回滚、活动服务租约拒绝、未知列拒绝及旧计划回执逐字节摘要相同。 [原生测试](../../artifacts/canvas-preview-migration-evidence/run.log)

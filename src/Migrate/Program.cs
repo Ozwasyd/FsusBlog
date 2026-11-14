@@ -32,6 +32,8 @@ internal static partial class Migration
                   plan                   Print a fresh-schema plan without changing the database
                   apply PLAN.json        Apply that plan atomically to an empty database
                   verify                 Check the current marker, shape and publication coordinates
+                  canvas-graph check|apply-empty
+                                        Inspect preview Canvas provenance or upgrade its exact empty schema offline
                   recovery-scope         Initialize the durable draft recovery site ID on a matching existing database
                   revision-history      Add rollback provenance to a matching existing database with the server stopped
                   publication-history   Retain current publication coordinates and add event history with the server stopped
@@ -131,6 +133,12 @@ internal static partial class Migration
                     await CurrentSchema.VerifyAsync(connection, token);
                     await VerifyPublicationsAsync(connection, token);
                     Console.WriteLine($"Verified FsusBlog V2 schema version {CurrentSchema.Version}.");
+                    break;
+                case ["canvas-graph", "check"]:
+                    await CheckCanvasGraphAsync(connection, token);
+                    break;
+                case ["canvas-graph", "apply-empty"]:
+                    await UpgradeEmptyCanvasGraphAsync(connection, token);
                     break;
                 case ["recovery-scope"]:
                     await InitializeRecoveryScopeAsync(connection, token);
