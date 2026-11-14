@@ -983,6 +983,7 @@ func measure(ctx context.Context, pool []connection, w workload, rate, seconds i
 	}
 	close(jobs)
 	workers.Wait()
+	drained := time.Since(started)
 	close(results)
 	collector.Wait()
 	for _, s := range totals {
@@ -991,7 +992,7 @@ func measure(ctx context.Context, pool []connection, w workload, rate, seconds i
 		s.P99MS = s.latency.percentile(s.OK, 99)
 		s.Dispatch = s.dispatch.percentile(s.Sent, 99)
 	}
-	return started.UTC(), time.Since(started), totals, timeline.rows(rate)
+	return started.UTC(), drained, totals, timeline.rows(rate)
 }
 
 func startRuntimeMeasurement(ctx context.Context, directory string) error {
@@ -1116,20 +1117,22 @@ func run() int {
 	}
 	if code == 0 && *rate > 0 {
 		producerBefore, beforeErr := sampleProducer()
-		measured, elapsed, totals, timeline := measure(ctx, pool, w, *rate, *seconds)
+		rate, seconds := *rate, *seconds
+		measured, elapsed, totals, timeline := measure(ctx, pool, w, rate, seconds)
 		finished := time.Now().UTC()
 		producerAfter, afterErr := sampleProducer()
 		all := totals["all"]
 		report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, finished, totals
 		report["measurementElapsedSeconds"] = elapsed.Seconds()
 		report["supplyBySecond"] = timeline
+		report["schedulerUnreached"] = rate*seconds - all.Sent - all.Dropped
 		if supplyErr := errors.Join(beforeErr, afterErr); supplyErr != nil {
 			report["producerResourceError"] = supplyErr.Error()
 		} else {
 			report["producerBefore"], report["producerAfter"] = producerBefore, producerAfter
 		}
-		report["correctPerSecond"] = float64(all.OK) / float64(*seconds)
-		report["expected"] = *rate * *seconds
+		report["correctPerSecond"] = float64(all.OK) / float64(seconds)
+		report["expected"] = rate * seconds
 		if ctx.Err() != nil || all.OK != all.Sent || all.Dropped != 0 {
 			// Preserve full raw evidence regardless of stage outcome. The runner evaluates the production thresholds.
 			report["measurement"] = "errors_or_dropped"
