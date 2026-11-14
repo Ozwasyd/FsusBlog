@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { api } from '../../src/Contracts/client.ts'
-import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
+import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseWorkspace } from './workspace-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -26,7 +27,8 @@ await mkdir(config.evidence, { recursive: true })
 const token = `fsusv2${Date.now()}`
 const title = `Browser flow ${token}`
 const bodyTerm = `publicationneedle${Date.now()}`
-const body = `## Draft milestone\n\nThis release note contains ${token}.\n${'Padding paragraph. '.repeat(15)}\n${bodyTerm}.\n`
+const padding = 'Padding paragraph. '.repeat(15)
+const body = `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n${bodyTerm} 雪原.\n`
 const origin = new URL(config.origin).origin
 const nativeFetch = globalThis.fetch
 const repository = fileURLToPath(new URL('../../', import.meta.url))
@@ -96,6 +98,17 @@ async function search(page, value) {
   await page.goto(`${origin}/search`)
   await page.getByRole('textbox', { name: 'Search articles' }).fill(value)
   await page.locator('form.search-form').getByRole('button', { name: 'Search', exact: true }).click()
+}
+
+async function articleCommand(path, id, revision, title = '', body = '', expected = FrameType.Draft) {
+  const input = encodeArticleCommand({ id, expectedRevision: revision, idempotencyKey: randomUUID(), title, body })
+  const response = await publisher.request.post(`${origin}${path}`, {
+    data: Buffer.from(encodeFrame(FrameType.ArticleCommand, input)),
+    headers: { 'Content-Type': 'application/octet-stream' },
+  })
+  assert.equal(response.status(), 200)
+  const frame = decodeFrame(await response.body(), expected)
+  return expected === FrameType.Draft ? decodeDraft(frame.payload) : undefined
 }
 
 let writtenId
@@ -332,6 +345,22 @@ try {
   assert.equal((await api.search(bodyTerm)).items[0].id, writtenId)
   await screen(visitor, 'search-mobile-dark')
   observations.push('Published snapshot visible in HTML, AEDS public detail, and local full-text search on a dark 375px viewport. A body-only term passed through the FSPK worker and generation recheck.')
+
+  const reversedTitle = `Reverse order ${token}`
+  const reversed = await articleCommand(WireRoutes.Save, 0, 0n, reversedTitle,
+    `## Draft milestone\n\nThis release note contains ${token}.\n${padding}\n雪原 ${bodyTerm}.\n`)
+  const comparison = await articleCommand(WireRoutes.Publish, reversed.id, reversed.revision)
+  const orderedLinks = visitor.locator('ol.article-list h2 a')
+  const normalizedTerm = [...bodyTerm].map(letter => String.fromCodePoint(letter.codePointAt(0) + 0xfee0)).join('')
+  await search(visitor, `${normalizedTerm}　雪原`)
+  await visible(orderedLinks.getByText(title, { exact: true }))
+  await visible(orderedLinks.getByText(reversedTitle, { exact: true }))
+  assert.equal(await orderedLinks.first().textContent(), title)
+  await search(visitor, `雪原 ${bodyTerm}`)
+  await visible(orderedLinks.getByText(reversedTitle, { exact: true }))
+  assert.equal(await orderedLinks.first().textContent(), reversedTitle)
+  await articleCommand(WireRoutes.Delete, comparison.id, comparison.revision, '', '', FrameType.EmptySuccess)
+  observations.push('The local worker normalizes fullwidth Latin and ranks mixed Latin/CJK phrases by stored body positions. Reversing query order reverses the order of otherwise equivalent articles.')
 
   const stale = await desktop.newPage()
   monitor(stale, 'stale-editor')

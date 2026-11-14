@@ -13,6 +13,10 @@ public static class LocalSearchCorpus
     private const int PageBytes = WireLimits.SearchCorpusPageBytes;
     private const int MaxPages = WireLimits.SearchCorpusMaxPages;
     private const int AggregateBytes = WireLimits.SearchCorpusTotalBytes;
+    private const int PostingBudgetBytes = 40;
+    private const int PositionBudgetBytes = 7;
+    private const byte TitleField = 1;
+    private const byte BodyField = 4;
 
     public static IReadOnlyList<byte[]>? Build(IReadOnlyList<Article> articles, CancellationToken ct = default)
     {
@@ -31,7 +35,7 @@ public static class LocalSearchCorpus
             var doc = Index(article, ct);
             if (doc is null) return null;
             // Bound both the exact encoded size and the construction before merging term dictionaries.
-            var estimate = SearchDocumentRecordSize + doc.Terms.Count * 35 + doc.TextBytes;
+            var estimate = doc.EstimatedBytes;
             if (docs.Count != 0 && (projectedBytes + estimate > PageBytes - 512 ||
                                       docs.Count >= WireLimits.SearchIndexPageSize))
             {
@@ -48,7 +52,7 @@ public static class LocalSearchCorpus
         bool PublishPage()
         {
             if (pages.Count >= MaxPages) return false;
-            var page = Package(docs);
+            var page = Package(docs, ct);
             if (page is null || page.Length > AggregateBytes - byteCount) return false;
             byteCount += page.Length;
             pages.Add(page);
@@ -56,10 +60,11 @@ public static class LocalSearchCorpus
         }
     }
 
-    private sealed record Document(Article Article, Dictionary<uint, Frequencies> Terms, int Length, int TextBytes);
-    private record struct Frequencies(int Title, int Meta, int Body);
+    private sealed record Document(Article Article, Dictionary<uint, Frequencies> Terms, int Length, int EstimatedBytes);
+    private record struct Frequencies(int Title, int Meta, int Body, List<Position>? Positions);
+    private readonly record struct Position(int Offset, byte Field);
     private readonly record struct Posting(int ArticleId, Frequencies Tf);
-    private readonly record struct Term(uint Hash, float Idf, int Offset, int Length);
+    private readonly record struct Term(uint Hash, float Idf, int Offset, int Length, bool HasPositions);
     private readonly record struct TextSlice(int Offset, int Length);
     private readonly record struct Taxon(int Id, TextSlice Name);
 
@@ -83,37 +88,48 @@ public static class LocalSearchCorpus
 
         var terms = new Dictionary<uint, Frequencies>();
         var length = 0;
-        if (!Field(article.Title, 0) || !Field(summary, 1) ||
-            !Field(article.Category?.Name ?? string.Empty, 1) ||
-            tags.Any(tag => !Field(tag.Name, 1)) || !Field(article.Body, 2))
+        var positions = 0;
+        if (!Field(article.Title, TitleField) || !Field(summary, 0) ||
+            !Field(article.Category?.Name ?? string.Empty, 0) ||
+            tags.Any(tag => !Field(tag.Name, 0)) || !Field(article.Body, BodyField))
             return null;
 
-        return new Document(article, terms, Math.Max(1, length), textBytes);
+        return new Document(article, terms, Math.Max(1, length), Estimate());
 
-        bool Field(string text, int field)
+        int Estimate() => SearchDocumentRecordSize + textBytes +
+            terms.Count * PostingBudgetBytes + positions * PositionBudgetBytes;
+
+        bool Field(string text, byte field)
         {
+            var offset = 0;
             foreach (var token in Tokens(text))
             {
                 if ((length & 1023) == 0) ct.ThrowIfCancellationRequested();
                 length++;
                 terms.TryGetValue(token, out var old);
+                if (field is TitleField or BodyField)
+                {
+                    (old.Positions ??= []).Add(new Position(offset++, field));
+                    positions++;
+                }
                 terms[token] = field switch
                 {
-                    0 => old with { Title = old.Title + 1 },
-                    1 => old with { Meta = old.Meta + 1 },
-                    _ => old with { Body = old.Body + 1 }
+                    TitleField => old with { Title = old.Title + 1 },
+                    BodyField => old with { Body = old.Body + 1 },
+                    _ => old with { Meta = old.Meta + 1 }
                 };
-                if (terms.Count > (PageBytes - textBytes - 512) / 35) return false;
+                if (Estimate() > PageBytes - 512) return false;
             }
             return true;
         }
     }
 
-    private static byte[]? Package(IReadOnlyList<Document> docs)
+    private static byte[]? Package(IReadOnlyList<Document> docs, CancellationToken ct)
     {
         var index = new SortedDictionary<uint, List<Posting>>();
         foreach (var doc in docs)
         {
+            ct.ThrowIfCancellationRequested();
             foreach (var (hash, frequency) in doc.Terms)
             {
                 if (!index.TryGetValue(hash, out var postings)) index.Add(hash, postings = []);
@@ -125,9 +141,11 @@ public static class LocalSearchCorpus
         var terms = new List<Term>(index.Count);
         foreach (var (hash, postings) in index)
         {
+            ct.ThrowIfCancellationRequested();
             var start = checked((int)postingBytes.Position);
             Varint(postingBytes, postings.Count);
             var previous = 0;
+            var hasPositions = false;
             foreach (var posting in postings)
             {
                 Varint(postingBytes, posting.ArticleId - previous);
@@ -135,10 +153,24 @@ public static class LocalSearchCorpus
                 postingBytes.WriteByte(Quantize(posting.Tf.Title));
                 postingBytes.WriteByte(Quantize(posting.Tf.Meta));
                 postingBytes.WriteByte(Quantize(posting.Tf.Body));
-                Varint(postingBytes, 0);
+                var positions = posting.Tf.Positions;
+                Varint(postingBytes, positions?.Count ?? 0);
+                if (positions is not { Count: > 0 }) continue;
+                hasPositions = true;
+                positions.Sort(static (first, second) => first.Offset != second.Offset
+                    ? first.Offset.CompareTo(second.Offset) : first.Field.CompareTo(second.Field));
+                var priorPosition = 0;
+                foreach (var position in positions)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Varint(postingBytes, position.Offset - priorPosition);
+                    Varint(postingBytes, 1);
+                    Varint(postingBytes, position.Field);
+                    priorPosition = position.Offset;
+                }
             }
             var idf = (float)Math.Log(1 + (docs.Count - postings.Count + 0.5) / (postings.Count + 0.5));
-            terms.Add(new Term(hash, idf, start, checked((int)postingBytes.Position - start)));
+            terms.Add(new Term(hash, idf, start, checked((int)postingBytes.Position - start), hasPositions));
         }
 
         using var strings = new MemoryStream();
@@ -193,6 +225,7 @@ public static class LocalSearchCorpus
             F32(row, 4, term.Idf);
             I32(row, 8, term.Offset);
             I32(row, 12, term.Length);
+            I32(row, 16, term.HasPositions ? 1 : 0);
         }
 
         var tagOffset = 0;
@@ -281,6 +314,7 @@ public static class LocalSearchCorpus
 
     private static IEnumerable<uint> Tokens(string text)
     {
+        text = text.Normalize(NormalizationForm.FormKC);
         for (var index = 0; index < text.Length;)
         {
             if (char.IsAsciiLetterOrDigit(text[index]))
@@ -293,8 +327,9 @@ public static class LocalSearchCorpus
             {
                 var scalar = Rune.GetRuneAt(text, index);
                 index += scalar.Utf16SequenceLength;
-                if (scalar.Value is >= 0x4e00 and <= 0x9fff or >= 0x3400 and <= 0x4dbf or
-                    >= 0x3040 and <= 0x30ff or >= 0xac00 and <= 0xd7af)
+                if (scalar.Value >= 0x80 && (Rune.IsLetterOrDigit(scalar) ||
+                    scalar.Value is >= 0x4e00 and <= 0x9fff or >= 0x3400 and <= 0x4dbf or
+                    >= 0x3040 and <= 0x30ff or >= 0xac00 and <= 0xd7af))
                     yield return Hash(Utf8.GetBytes(scalar.ToString()));
             }
         }

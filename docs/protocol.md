@@ -24,7 +24,9 @@
 
 扩展类型使用新的高位编号。UUID 是标准文本顺序的 16 字节。文本字段使用紧邻在前的有符号 LE int32 字节数与严格 UTF-8。代次、修订采用 int64，浏览器以 `bigint` 处理。布尔值使用字节 0 或 1。ApiError (251) 保留 584 字节 POD，输出代码、分类、状态、消息、详情和 trace ID；EmptySuccess 保留四字节 POD。HTTP 状态必须与错误 POD 一致。
 
-#1764 和 #1766 的当前格式准入排除 56/76 字节列表记录、cursor v1、ARD3 和 ARD4。公开 HTTP 搜索保留 FAS4。浏览器本地搜索读取独立的 FSPK/FHS2 v4 分片，由 Worker 对标题、摘要、分类、标签和正文的倒排索引评分、分页，以 FSR4 结果交给 Vue。分片不附带正文原文。当前实现支持 ASCII 词和 CJK 单字搜索，使用简化 BM25 评分。字典分词、词组位置、增量 patch 与搜索专用 Wasm 引擎尚未复刻。
+#1764 和 #1766 的当前格式准入排除 56/76 字节列表记录、cursor v1、ARD3 和 ARD4。公开 HTTP 搜索保留 FAS4。浏览器本地搜索读取独立的 FSPK/FHS2 v4 分片，由 Worker 对标题、摘要、分类、标签和正文的倒排索引评分、分页，以 FSR4 结果交给 Vue。分片不附带正文原文。
+
+建索引和解析查询时先做 NFKC。ASCII 字母和数字组成小写词，CJK 与其他 Unicode 字母和十进制数字按单个码位索引。查询原文和 NFKC 后均最多 128 个 UTF-16 代码单元。标题、正文保存 v4 的位置差值、跨度和字段 ID。BM25 保留普通词命中，为同一字段中按查询顺序连续出现的词另加分，重复词仍要求对应位置。因此词组能提升排序，其他词命中仍可返回。字典和停用词分段、多码位跨度、词频裁剪策略、增量 patch 与搜索专用 Wasm 引擎尚未复刻。
 
 两种静态索引逐页绑定首页的公开代次和总页数。浏览器 Worker 检查发布坐标、分页和重复文章，并在页数或字节超出预算时停止。正文搜索分片按单页 8 MiB、总量 64 MiB、最多 128 页准入。浏览器不缓存搜索分片，取消时终止 Worker。加载、评分和解析完成后，主线程用 HEAD 复核同一代次，再显示结果。已送达客户端的旧公开结果无法远程擦除，重新搜索会重新读取并复核。
 
@@ -38,4 +40,8 @@
 
 ApiError 和历史文章向量来自固定提交的 `tests/fixtures/protocol/`。新命令和当前公开 ArticleDetail、ArticleList、ArticleSearch 向量按相应字节布局由 Python 标准库 struct 和逐位 CRC 独立组装，再核对编码字节和解码结果。详情保留规范要求的空权限记录。文章列表、详情和搜索携带分类与标签；已发布文章的权利快照仍待接入。
 
-FSPK 和 FSR4 向量按固定提交的 [分片和包 writer](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.ArtifactCodec.cs#L565) 与 [搜索结果 writer](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/wasm/search/src/search_index.cpp#L567) 用 Python 标准库 struct 独立组装。固定数据包含只存在于正文的 `needle`、CJK 标签和大于 JavaScript 安全整数的发布坐标。
+FSPK 和 FSR4 向量按固定提交的 [分片和包 writer](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Services/SearchIndexService.ArtifactCodec.cs#L565) 与 [搜索结果 writer](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/wasm/search/src/search_index.cpp#L567) 用 Python 标准库 struct 独立组装。固定数据包含正文中的降宽与重复词、CJK 标签、不同字段的位置及大于 JavaScript 安全整数的发布坐标。
+
+2026-11-14 的隔离候选 `53da1b573481205e948ef71ee8ecbfbebf0eb701` 通过 30 项 Node 协议检查、C# 向量和原生 C++、Wasm 帧检查，并以 PostgreSQL 18.7 和 Chromium 执行完整浏览器流程。两篇等词频且正文词序相反的已发布文章，在全角 ASCII 加 CJK 查询中按词组顺序切换排名。撤回仍使旧代次返回 409。证据位于 `artifacts/search-phrases-20261114`。
+
+同一候选另用冻结性能语料验证索引可用性。12,100 篇文章中 12,050 篇公开，生成 61 页共 47,186,376 字节，最大页 820,635 字节。Kestrel 约 3,067 毫秒就绪，进程采样 RSS 峰值 1,095,296 KiB。Node 通过本机回环读取和验证全部页约 689 毫秒，另一次读取、对全角查询评分和 HEAD 复核约 634 毫秒。这组诊断与另一个试验的开头约有 5 秒重叠，不作为独占性能验收或浏览器规模结论。原始值和清理记录位于 `artifacts/search-phrases-scale-20261114-rerun`。

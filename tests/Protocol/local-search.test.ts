@@ -13,7 +13,7 @@ const packageBytes = fixtures('search-fspk-v4');
 const expected = fixtures('search-fsr4');
 
 test('FSPK v4 indexes a body-only term and produces the fixed FSR4 result', () => {
-  assert.deepEqual([...searchTerms('foo FOO')], [0xf6a5c420]);
+  assert.deepEqual(searchTerms('foo ＦＯＯ'), [0xf6a5c420, 0xf6a5c420]);
   const shard = queryCorpusPage(packageBytes, searchTerms('needle'));
   assert.deepEqual([...shard.matches.keys()], [42]);
   assert.equal(queryCorpusPage(packageBytes, searchTerms('雪')).matches.size, 1);
@@ -33,9 +33,21 @@ test('FSPK v4 indexes a body-only term and produces the fixed FSR4 result', () =
   assert.equal(answer.items[0].publishedAt, 1700000002345);
 });
 
+test('position ranges reward contiguous ordered tokens in one field, including repetitions', () => {
+  const score = (term: string) => queryCorpusPage(packageBytes, searchTerms(term)).matches.get(42)!;
+  assert.equal(score('ＮＥＥＤＬＥ　雪 needle'), score('needle 雪'));
+  assert.equal(score('needle 雪 needle'), score('needle 雪 雪') + 1.25);
+  assert.equal(score('needle needle'), score('needle'));
+  assert.equal(score('title needle'), score('needle title'));
+  assert.equal(score('title needle'), score('title') + score('needle'));
+  assert.deepEqual(searchTerms('ｎｅｅｄｌｅ雪'), searchTerms('needle 雪'));
+  assert.deepEqual(searchTerms('cafe\u0301'), searchTerms('café'));
+  assert.throws(() => searchTerms('㍿'.repeat(128)), /normalized query length/);
+});
+
 test('admission rejects incorrect package versions, offsets, invalid postings and wrong result contracts', () => {
   for (const end of [0, 12, 104, packageBytes.length - 1]) {
-    assert.throws(() => queryCorpusPage(packageBytes.subarray(0, end), new Set()), ProtocolError);
+    assert.throws(() => queryCorpusPage(packageBytes.subarray(0, end), []), ProtocolError);
   }
   const mutate = (offset: number, value: number) => {
     const changed = packageBytes.slice();
@@ -46,7 +58,7 @@ test('admission rejects incorrect package versions, offsets, invalid postings an
   mutate(L.SearchPackageEntryOffset + 8, 28);
   mutate(L.SearchPackagePayloadOffset + 64, 1);
   const changedPosting = packageBytes.slice();
-  changedPosting[changedPosting.length - 1] = 1;
+  changedPosting[changedPosting.length - 1] = 8;
   assert.throws(() => queryCorpusPage(changedPosting, searchTerms('unknown')), ProtocolError);
   const fas4Frame = encodeFrame(FrameType.ArticleSearch, fixtures('article-search-fas4').subarray(16));
   assert.throws(() => decodeLocalSearchResult(fas4Frame.subarray(16)), ProtocolError);

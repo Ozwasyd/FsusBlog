@@ -3,15 +3,19 @@ import { decodeUtf8 } from './binary.ts';
 import type { ArticleCard } from './public-articles.ts';
 import { FrameType, WireHeaders, WireLayouts as L, WireLimits as Limit, WireRoutes } from './wire.generated.ts';
 
-type Term = { offset: number; end: number; idf: number };
+type Term = { offset: number; end: number; idf: number; hasPositions: boolean };
 type SearchArticle = ArticleCard & { length: number };
 type Taxon = ArticleCard['category'];
 type Shard = { documents: Map<number, SearchArticle>; matches: Map<number, number> };
 type Result = { items: ArticleCard[]; total: number; nextCursor: null };
+type PhraseHits = Map<number, Map<number, bigint>>;
 
 const utf8 = new TextEncoder();
 const none: Taxon = { id: 0, name: '' };
 const tf = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 30, 50, 100, 140];
+const titleField = 1;
+const bodyField = 4;
+const phraseBonus = 1.25;
 
 function requireWire(condition: boolean, field: string): asserts condition {
   if (!condition) throw new ProtocolError(`Invalid local search ${field}`);
@@ -84,10 +88,12 @@ function murmur(bytes: Uint8Array): number {
   return (hash ^ (hash >>> 16)) >>> 0;
 }
 
-export function searchTerms(query: string): ReadonlySet<number> {
+export function searchTerms(query: string): readonly number[] {
   requireWire(query.length <= Limit.SearchQueryChars, 'query length');
-  const words = query.match(/[a-zA-Z0-9]+|[\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/gu) ?? [];
-  return new Set(words.map(word => murmur(utf8.encode(word.toLowerCase()))));
+  const normalized = query.normalize('NFKC');
+  requireWire(normalized.length <= Limit.SearchQueryChars, 'normalized query length');
+  const words = normalized.match(/[a-zA-Z0-9]+|[\p{Letter}\p{Decimal_Number}\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]/gu) ?? [];
+  return words.map(word => murmur(utf8.encode(word.replace(/[A-Z]/g, letter => letter.toLowerCase()))));
 }
 
 function dictionary(bytes: Bytes, start: number, count: number, strings: number, end: number): Taxon[] {
@@ -111,6 +117,8 @@ function readPostings(
   documents: Map<number, SearchArticle>,
   meanLength: number,
   matches: Map<number, number> | undefined,
+  phraseHits: PhraseHits,
+  wordMask: bigint,
 ) {
   let offset = term.offset;
   function vint() {
@@ -131,6 +139,7 @@ function readPostings(
   const count = vint();
   requireWire(count > 0 && count <= documents.size, 'posting document count');
   let id = 0;
+  let hasPositions = false;
   for (let i = 0; i < count; i++) {
     const delta = vint();
     id += delta;
@@ -140,18 +149,58 @@ function readPostings(
     const meta = tf[bytes.u8(offset++)];
     const body = tf[bytes.u8(offset++)];
     requireWire(title !== undefined && meta !== undefined && body !== undefined && title + meta + body > 0, 'term frequency');
-    requireWire(vint() === 0, 'position-free posting');
+    const positions = vint();
+    requireWire((term.hasPositions || positions === 0) && positions <= doc.length &&
+      positions * 3 <= term.end - offset, 'posting position count');
+    hasPositions ||= positions > 0;
+    let position = 0;
+    let previousField = 0;
+    let titlePositions = 0;
+    let bodyPositions = 0;
+    for (let j = 0; j < positions; j++) {
+      const delta = vint();
+      const width = vint();
+      const field = vint();
+      position += delta;
+      requireWire(width === 1 && position < doc.length && (field === titleField || field === bodyField) &&
+        (delta > 0 || field > previousField), 'posting position');
+      previousField = field;
+      if (field === titleField) titlePositions++;
+      else bodyPositions++;
+      if (wordMask !== 0n) {
+        let docHits = phraseHits.get(id);
+        if (!docHits) phraseHits.set(id, docHits = new Map());
+        const lane = position * 2 + (field === bodyField ? 1 : 0);
+        docHits.set(lane, (docHits.get(lane) ?? 0n) | wordMask);
+      }
+    }
+    requireWire((titlePositions === 0 || title > 0) && (bodyPositions === 0 || body > 0), 'posting position fields');
     if (matches) {
       const frequency = title * 2.5 + meta * 0.9 + body;
       const score = term.idf * (frequency * 2.2) / (frequency + 1.2 * (0.25 + 0.75 * doc.length / meanLength));
       matches.set(id, (matches.get(id) ?? 0) + score);
     }
   }
-  requireWire(offset === term.end, 'posting end');
+  requireWire(offset === term.end && term.hasPositions === hasPositions, 'posting end or position flag');
+}
+
+function hasPhrase(hits: Map<number, bigint>, expected: bigint): boolean {
+  // Bit N represents a run matching the first N+1 query tokens at this field offset.
+  const masks = [0n, 0n];
+  const previous = [-2, -1];
+  for (const [lane, words] of [...hits].sort((a, b) => a[0] - b[0])) {
+    const field = lane % 2;
+    const prefix = previous[field] + 2 === lane ? masks[field] : 0n;
+    masks[field] = ((prefix << 1n) | 1n) & words;
+    previous[field] = lane;
+    if ((masks[field] & expected) !== 0n) return true;
+  }
+  return false;
 }
 
 /** Parses a complete core shard, including all posting lists even when their terms do not match. */
-export function queryCorpusPage(payload: Uint8Array, terms: ReadonlySet<number>): Shard {
+export function queryCorpusPage(payload: Uint8Array, terms: readonly number[]): Shard {
+  requireWire(terms.length <= Limit.SearchQueryChars, 'term count');
   try {
     return parseCorpusPage(payload, terms);
   } catch (error) {
@@ -160,7 +209,7 @@ export function queryCorpusPage(payload: Uint8Array, terms: ReadonlySet<number>)
   }
 }
 
-function parseCorpusPage(payload: Uint8Array, terms: ReadonlySet<number>): Shard {
+function parseCorpusPage(payload: Uint8Array, terms: readonly number[]): Shard {
   const p = new Bytes(payload);
   requireWire(p.length >= L.SearchPackagePayloadOffset + L.SearchShardHeaderSize &&
     p.length <= Limit.SearchCorpusPageBytes && p.u32(0) === L.SearchPackageMagic &&
@@ -239,6 +288,13 @@ function parseCorpusPage(payload: Uint8Array, terms: ReadonlySet<number>): Shard
   requireWire(consumedReferences === referenceCount, 'shard tag references');
 
   const matches = new Map<number, number>();
+  const phrase = new Map<number, bigint>();
+  const phraseHits: PhraseHits = new Map();
+  if (terms.length > 1) {
+    for (const [index, hash] of terms.entries())
+      phrase.set(hash, (phrase.get(hash) ?? 0n) | (1n << BigInt(index)));
+  }
+  const uniqueTerms = new Set(terms);
   let priorHash = -1;
   let consumed = postingAt;
   for (let i = 0; i < termCount; i++) {
@@ -247,13 +303,21 @@ function parseCorpusPage(payload: Uint8Array, terms: ReadonlySet<number>): Shard
     const idf = b.f32(at + 4);
     const offset = postingAt + b.u32(at + 8);
     const length = b.u32(at + 12);
+    const positionFlag = b.u32(at + 16);
     requireWire(hash > priorHash && Number.isFinite(idf) && idf > 0 && offset === consumed &&
-      length > 0 && offset + length <= end && b.u32(at + 16) === 0 && b.u32(at + 20) === 0, 'term metadata');
-    readPostings(b, { offset, end: offset + length, idf }, documents, average, terms.has(hash) ? matches : undefined);
+      length > 0 && offset + length <= end && positionFlag <= 1 && b.u32(at + 20) === 0, 'term metadata');
+    readPostings(b, { offset, end: offset + length, idf, hasPositions: positionFlag === 1 }, documents,
+      average, uniqueTerms.has(hash) ? matches : undefined, phraseHits, phrase.get(hash) ?? 0n);
     priorHash = hash;
     consumed += length;
   }
   requireWire(consumed === end, 'shard trailing bytes');
+  if (phraseHits.size > 0) {
+    const expected = 1n << BigInt(terms.length - 1);
+    for (const [id, hits] of phraseHits) {
+      if (hasPhrase(hits, expected)) matches.set(id, (matches.get(id) ?? 0) + phraseBonus);
+    }
+  }
   return { documents, matches };
 }
 
@@ -434,7 +498,7 @@ export async function searchCorpus(query: string, signal?: AbortSignal, page = 1
     Number.isInteger(size) && size > 0 && size <= 100, 'query page');
   const terms = searchTerms(query);
   signal?.throwIfAborted();
-  if (terms.size === 0) return { frame: encodeLocalSearchResult([], 0), generation: null };
+  if (terms.length === 0) return { frame: encodeLocalSearchResult([], 0), generation: null };
 
   const first = await corpusRequest(signal, undefined, 1);
   const ids = new Set<number>();
