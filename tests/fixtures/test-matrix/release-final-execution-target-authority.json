@@ -4685,8 +4685,8 @@
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",
-            "contentDigest": "sha256:a2be3670a2f5e3a68e2c392c9f86c693e99567d17760e292d9b0c4bc73013356",
-            "indexDigest": "sha256:a2be3670a2f5e3a68e2c392c9f86c693e99567d17760e292d9b0c4bc73013356"
+            "contentDigest": "sha256:962a2b1e1388e9fb150bb454785cbd439ed00cd09a8009be57e36df7b1691e6a",
+            "indexDigest": "sha256:962a2b1e1388e9fb150bb454785cbd439ed00cd09a8009be57e36df7b1691e6a"
         },
         {
             "path": "tools/test-matrix/schema-validator/validate.mjs",
