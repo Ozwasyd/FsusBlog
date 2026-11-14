@@ -5,8 +5,8 @@
 | 条款范围 | 回查结果 |
 | --- | --- |
 | 离线迁移 | 将 #1760、#1761 和 #1762 评论里的顺序图拆成独立的结构准入、plan、apply、verify、文章与本地媒体互证。#567、#2173、#2211–#2213 的已关闭状态和正文已单独核对。#2699 已删除，其余保留要求据 #2223 追踪。现有 v2 原生样本、空库恢复、现行 PostgreSQL 验证和旧库只读盘点都有明确范围。生产 legacy apply、真实 DB 与媒体切换、持久检查点和独立恢复仍待验收。 [迁移条款](risk-migration.tsv) |
-| 附件、上传与代理 | #1778、#1781、#1782、#1783 的关闭状态已独立核对。#3585 和 #3559 是已合并的 v1 PR，分别提供代理拓扑和编译证据的历史线索。当前 Caddy 反代、Vite 静态资源和媒体 schema 无法提供受权附件交付、会话上传或物理清理的证据。#2076 与固定 v1 票据的失败状态和一次消费仍按 C9 待定。 [附件条款](risk-assets.tsv) · [固定票据](https://github.com/Ozwasyd/FsusBlog/issues/1782) · [代理拓扑 PR](https://github.com/Ozwasyd/FsusBlog/pull/3585) · [编译证据 PR](https://github.com/Ozwasyd/FsusBlog/pull/3559) |
-| PoW 与权限 | 固定 v1 的 AEDS challenge、classic proof、风险 aggregate、强匿名、WebAuthn 和 MFA 分属不同边界。当前评论提交在显式启用后能写入待审队列，缺 v1 PoW 与风险准入。工单创建及回复已有存储，受保护的公开写路由尚未接入。作者、管理员、上传、账号注册和恢复分别按固定路由核对。 [PoW 条款](risk-pow.tsv) |
+| 附件、上传与代理 | #1778、#1781、#1782、#1783 的关闭状态已独立核对。#3585 和 #3559 是已合并的 v1 PR，分别提供代理拓扑和编译证据的历史线索。`97d9787` 的作者专用媒体库已有实际 PostgreSQL 和 Chrome 证据，涵盖限量 PNG/JPEG 上传及同作者会话下载。v1 附件票据、分片/续传、内容引用和清理、真实代理字节计费仍分别追踪。#2076 与固定 v1 票据的失败状态和一次消费仍按 C9 待定。 [附件条款](risk-assets.tsv) · [当前媒体验证](../product/private-media.md) · [固定票据](https://github.com/Ozwasyd/FsusBlog/issues/1782) · [代理拓扑 PR](https://github.com/Ozwasyd/FsusBlog/pull/3585) · [编译证据 PR](https://github.com/Ozwasyd/FsusBlog/pull/3559) |
+| PoW 与权限 | 固定 v1 的 AEDS challenge、classic proof、风险 aggregate、强匿名、WebAuthn 和 MFA 分属不同边界。`561de55` 接通评论专用 AEDS challenge、classic PoW、Worker、本地速率/难度策略，以及证明一次消费与提交待审的实际 PostgreSQL 事务。v1 风险 aggregate、通用 use-case 路径仍待验收。工单创建及回复已有存储，受保护的公开写路由在该提交尚未接入。作者、管理员、上传、账号注册和恢复分别按固定路由核对。 [PoW 条款](risk-pow.tsv) |
 | 属性、扩展和 Canvas | 八种属性的 CRUD 有实际持久化与 AEDS，尚未完成草稿、历史修订、发布属性快照以及索引。签名扩展尚缺真实属性 validator 宿主、撤销与执行接线。Canvas 受限边型真正进入服务端数据库事务，已有隔离的 Kestrel/PostgreSQL 结果。完整 Canvas 界面、标题与块引用、撤销和 v1 协议互操作仍未验收。 [创作条款](risk-scope.tsv) |
 | FsusUI 跨仓依赖 | 规则提取的 17 个编号均经独立 GitHub GET 确认是已关闭 issue。固定 FsusUI 检出中的真实公开 API 与对应测试逐项定位，再检查 v2 当前入口有没有消费。#416 npm 发布自动化按本次 checkout alias 要求归旧工程。Live、命令、附件、大纲以及特殊 Markdown 在编辑和公开显示的语义仍各自验收。 [跨仓依赖](dependency-fsusui.tsv) |
 
