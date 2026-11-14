@@ -23,3 +23,14 @@ dotnet run --project src/Server/FsusBlog.V2.Server.csproj --no-build -c Release 
 ```
 
 [Web]: src/Web/
+
+发布构建使用干净的 FsusBlogV2 和相邻 FsusUI 检出、已锁定的依赖以及 FsusUI 原生 Wasm。可用 `DOTNET_BIN` 指定锁定的 SDK 命令。发布入口生成框架依赖的后端、离线迁移工具和 Web 产物，以及同一提交的完整可达 Git 历史和摘要。
+
+```sh
+tools/build-release.sh artifacts/fsusblog-v2-release
+cd artifacts/fsusblog-v2-release
+shasum -a 256 -c SHA256SUMS
+git bundle verify history.bundle
+```
+
+在运行目录解包 `fsusblog-v2.tar.gz`，再用 `shasum -a 256 -c /absolute/path/to/payload.sha256` 验证文件。部署时设置 `FSUSBLOG_WEB_DIST` 指向包内 `web`，用运行库启动 `server/FsusBlog.V2.Server.dll`。审核历史可在空 Git 仓库执行 `git fetch /absolute/path/to/history.bundle HEAD:refs/heads/main`。部署说明见[单机 Caddy TLS](deploy/README.md)和[数据库初始化与恢复](docs/migration.md)。
