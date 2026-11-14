@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/security/private-surface-runtime.md"
+            ],
+            "reason": "Preserve existing caller-visible DOM, token and protocol spellings in the current private-surface security document while adding the original capture recovery boundary; no selector, token or naming migration is performed."
+        }
+    ]
+}
