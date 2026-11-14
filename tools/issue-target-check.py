@@ -8,7 +8,7 @@ import json
 import re
 import subprocess
 import time
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 
@@ -154,6 +154,8 @@ def render(folder, observation, targets):
                 if check and (check["httpStatus"] != 200 or check["kind"] != kind or check["url"] != url
                               or check["state"] != ("closed" if state == "MERGED" else state.lower())):
                     raise ValueError(f"conflicting REST evidence: {number}")
+                if "stateReason" in check and (check["stateReason"] or "").upper() != (target["stateReason"] or ""):
+                    raise ValueError(f"conflicting REST close reason: {number}")
                 if kind == "PullRequest":
                     shas = [target.get("headRefOid"), target.get("baseRefOid"), (target.get("mergeCommit") or {}).get("oid")]
                     if any(sha and not re.fullmatch(r"[0-9a-f]{40}", sha) for sha in shas):

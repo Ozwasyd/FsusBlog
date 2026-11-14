@@ -676,8 +676,7 @@
           "httpStatus": 200,
           "kind": "Issue",
           "url": "https://github.com/Ozwasyd/FsusBlog/issues/1618",
-          "state": "closed",
-          "stateReason": "completed"
+          "state": "closed"
         }
       ]
     },
@@ -910,8 +909,7 @@
           "httpStatus": 200,
           "kind": "Issue",
           "url": "https://github.com/Ozwasyd/FsusBlog/issues/1722",
-          "state": "closed",
-          "stateReason": "completed"
+          "state": "closed"
         }
       ]
     },
@@ -1366,8 +1364,7 @@
           "httpStatus": 200,
           "kind": "Issue",
           "url": "https://github.com/Ozwasyd/FsusBlog/issues/1782",
-          "state": "closed",
-          "stateReason": "completed"
+          "state": "closed"
         }
       ]
     },
@@ -2044,8 +2041,7 @@
           "httpStatus": 200,
           "kind": "Issue",
           "url": "https://github.com/Ozwasyd/FsusBlog/issues/2293",
-          "state": "closed",
-          "stateReason": "completed"
+          "state": "closed"
         },
         {
           "number": 2332,
@@ -2289,8 +2285,7 @@
           "httpStatus": 200,
           "kind": "Issue",
           "url": "https://github.com/Ozwasyd/FsusBlog/issues/2440",
-          "state": "closed",
-          "stateReason": "completed"
+          "state": "closed"
         },
         {
           "number": 2482,
@@ -2300,8 +2295,7 @@
           "httpStatus": 200,
           "kind": "Issue",
           "url": "https://github.com/Ozwasyd/FsusBlog/issues/2482",
-          "state": "closed",
-          "stateReason": "completed"
+          "state": "closed"
         },
         {
           "number": 2484,
@@ -2311,8 +2305,7 @@
           "httpStatus": 200,
           "kind": "Issue",
           "url": "https://github.com/Ozwasyd/FsusBlog/issues/2484",
-          "state": "closed",
-          "stateReason": "completed"
+          "state": "closed"
         }
       ]
     },
@@ -2794,8 +2787,7 @@
           "httpStatus": 200,
           "kind": "Issue",
           "url": "https://github.com/Ozwasyd/FsusBlog/issues/3052",
-          "state": "closed",
-          "stateReason": "completed"
+          "state": "closed"
         },
         {
           "number": 3559,
