@@ -97,7 +97,7 @@ internal static partial class CurrentSchema
     internal static async Task VerifyCatalogAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         CancellationToken cancellationToken, bool requireRecoveryScope = true, bool requireRevisionHistory = true,
         bool requireAdminIdentity = true, bool requirePublicationHistory = true, bool requireArticleSchedule = true,
-        bool requireMediaUpload = true, bool legacyCanvas = false)
+        bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion)
     {
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(CommentColumns).Concat(MediaColumns)
@@ -110,7 +110,7 @@ internal static partial class CurrentSchema
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(legacyCanvas ? LegacyCanvasConstraints : CanvasConstraints)
             .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(CommentConstraints).Concat(MediaConstraints)
             .Concat(requireRevisionHistory ? RevisionHistoryConstraints : [])
-            .Concat(requireAdminIdentity ? AdminIdentityConstraints : [])
+            .Concat(requireAdminIdentity ? GetAdminIdentityConstraints(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? PublicationHistoryConstraints : [])
             .Concat(requireArticleSchedule ? ArticleScheduleConstraints : [])
             .Concat(requireMediaUpload ? MediaUploadConstraints : [])

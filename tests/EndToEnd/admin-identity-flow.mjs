@@ -6,7 +6,9 @@ import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
-import { decodeAdminSessionSnapshot, FrameType, WireHeaders, WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import {
+  decodeAdminOperationsStatus, decodeAdminSessionSnapshot, FrameType, WireHeaders, WireRoutes,
+} from '../../src/Contracts/wire.generated.ts'
 
 const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium, request } = packages('@playwright/test')
@@ -15,9 +17,12 @@ const siteUrl = process.env.FSUSBLOG_TEST_SITE_URL
 const adminTicket = process.env.FSUSBLOG_TEST_ADMIN_TICKET
 const siteTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
 const revokeExecutable = process.env.FSUSBLOG_TEST_ADMIN_REVOKE
+const auditGrant = process.env.FSUSBLOG_TEST_ADMIN_AUDIT_GRANT
+const auditRevoke = process.env.FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
 assert(adminUrl && siteUrl && /^[0-9a-f]{64}$/.test(adminTicket ?? '') && /^[0-9a-f]{64}$/.test(siteTicket ?? ''),
   'Provide isolated site/admin origins and two unused one-time fixture keys.')
 assert.notEqual(adminTicket, siteTicket, 'Use independent site and administrator fixture keys.')
+assert(Boolean(auditGrant) === Boolean(auditRevoke), 'Provide both offline audit permission executables to test grant and revoke.')
 const adminOrigin = new URL(adminUrl)
 const siteOrigin = new URL(siteUrl)
 assert.equal(adminOrigin.hostname, 'localhost', 'The admin WebAuthn fixture uses localhost as its relying party.')
@@ -30,6 +35,7 @@ const adminPage = adminOrigin.origin + '/admin/identity'
 const {
   AdminBootstrapBegin: bootstrapBegin, AdminBootstrapComplete: bootstrapComplete, AdminPasskeyBegin: passkeyBegin,
   AdminPasskeyComplete: passkeyComplete, AdminSession: adminSession, AdminSignOut: adminLogout,
+  AdminOperationsStatus: operationsStatus,
   Session: siteSession, SignIn: siteSignIn, SignOut: siteSignOut,
 } = WireRoutes
 const secureAdmin = adminOrigin.protocol === 'https:'
@@ -174,6 +180,13 @@ try {
     checks.offlineRevocationInvalidatesPendingChallenge = true
   }
 
+  if (auditGrant && auditRevoke) {
+    phase = 'operations-permission'
+    finalCookie = await verifyOperationsPermissions(admin, context, siteCookie, finalCookie, auditGrant, auditRevoke)
+    checks.operationsRequireIndependentAuditGrant = true
+    checks.operationsGrantAndRevokeInvalidateOldSessions = true
+  }
+
   phase = 'logout'
   // Seed the site credential into the admin host only in this test to detect a shared cookie-clearing helper.
   await context.addCookies([{ ...siteCookie, domain: adminOrigin.hostname }])
@@ -239,6 +252,66 @@ async function revokeDuringLogin(page, executable) {
 function waitPost(page, origin, path) {
   return page.waitForResponse(response => response.url() === origin.origin + path && response.request().method() === 'POST',
     { timeout: 12_000 })
+}
+
+async function verifyOperationsPermissions(page, context, siteCookie, priorCookie, grant, revoke) {
+  const endpoint = adminOrigin.origin + operationsStatus
+  const statusButton = page.getByRole('button', { name: 'Check operations status', exact: true })
+  const checkStatus = async () => (await Promise.all([
+    page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
+    statusButton.click(),
+  ]))[0]
+  const deniedMessage = 'You do not have permission to view operations status.'
+  const revokedMessage = 'Your administrator session expired or was revoked. Log in again.'
+  const alert = text => page.getByRole('alert').filter({ hasText: text })
+  const displayedSnapshot = page.getByText('Public snapshot', { exact: true })
+  const generation = (await snapshot(context)).principal.generation
+
+  assert.equal((await context.request.get(siteOrigin.origin + operationsStatus)).status(), 404)
+  await credentialProbe(endpoint, siteCookieName, siteCookie.value, 401)
+  await credentialProbe(endpoint, adminCookieName, siteCookie.value, 401)
+  assert.equal((await checkStatus()).status(), 403, 'An administrator login alone must not grant the operations status capability.')
+  await alert(deniedMessage).waitFor()
+  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
+
+  await promisify(execFile)(grant, [], { timeout: 8_000 })
+  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, priorCookie.value, 401)
+  await credentialProbe(endpoint, adminCookieName, priorCookie.value, 401)
+  assert.equal((await checkStatus()).status(), 401)
+  await alert(revokedMessage).waitFor()
+  await displayedSnapshot.waitFor({ state: 'hidden' })
+  await logIn(page)
+  const granted = await snapshot(context)
+  assert(granted.principal.generation > generation)
+  const grantedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  assert(grantedCookie.value !== priorCookie.value)
+  const status = await checkStatus()
+  assert.equal(status.status(), 200)
+  assert((await status.headerValue('Cache-Control'))?.includes('no-store'))
+  const body = await status.body()
+  assertNoCredential(body, grantedCookie.value)
+  const observed = decodeAdminOperationsStatus(decodeFrame(body, FrameType.AdminOperationsStatus).payload)
+  assert.equal(observed.snapshotReady, true, 'This running fixture must report its published snapshot.')
+  assert(observed.publicationWatermark >= 0n && observed.pendingPublicationEvents >= 0n)
+  assert(observed.pendingPublicationEvents === 0n ? observed.oldestPendingAt === 0n : observed.oldestPendingAt > 0n)
+  await page.getByRole('heading', { name: 'Operations status', exact: true }).waitFor()
+  for (const name of ['Public snapshot', 'Publication watermark', 'Pending publication events'])
+    await page.getByText(name, { exact: true }).waitFor()
+  await page.screenshot({ path: join(evidence, 'administrator-operations-status.png') })
+
+  await promisify(execFile)(revoke, [], { timeout: 8_000 })
+  await credentialProbe(adminOrigin.origin + adminSession, adminCookieName, grantedCookie.value, 401)
+  await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
+  assert.equal((await checkStatus()).status(), 401)
+  await alert(revokedMessage).waitFor()
+  await displayedSnapshot.waitFor({ state: 'hidden' })
+  await logIn(page)
+  const revoked = await snapshot(context)
+  assert(revoked.principal.generation > granted.principal.generation)
+  assert.equal((await checkStatus()).status(), 403, 'Revoking audit permission must retain login only.')
+  await alert(deniedMessage).waitFor()
+  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
+  return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
 }
 
 async function clickAndWait(page, origin, path, label) {

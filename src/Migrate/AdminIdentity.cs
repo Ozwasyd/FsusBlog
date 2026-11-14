@@ -16,8 +16,9 @@ internal static partial class Migration
         (string action, string handle) = arguments switch
         {
             ["bootstrap", var name, CurrentSchema.AdminManagePermission] => ("bootstrap", name),
+            ["grant" or "revoke", var name, CurrentSchema.AuditReadPermission] => (arguments[0], name),
             ["rotate-passkey" or "revoke-all" or "disable", var name] => (arguments[0], name),
-            _ => throw new ArgumentException("Use admin-identity schema, bootstrap HANDLE admin.manage, rotate-passkey HANDLE, revoke-all HANDLE, or disable HANDLE.")
+            _ => throw new ArgumentException("Use admin-identity schema, bootstrap HANDLE admin.manage, grant|revoke HANDLE audit.read, rotate-passkey HANDLE, revoke-all HANDLE, or disable HANDLE.")
         };
         if (handle.Length is < 1 or > 64 || !char.IsAsciiLetterLower(handle[0]) ||
             !handle.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c is '_' or '-' or '.'))
@@ -44,16 +45,33 @@ internal static partial class Migration
         }
         else
         {
-            await using var advance = Command("""
-                update public.admin_principal set generation=generation+1,generation_changed_at=pg_catalog.clock_timestamp(),enabled=$2
-                where handle=$1 and enabled
-                returning id,generation
-                """, handle, action != "disable");
-            await using (var row = await advance.ExecuteReaderAsync(ct))
+            await using (var actor = Command("select id from public.admin_principal where handle=$1 and enabled for update", handle))
             {
-                if (!await row.ReadAsync(ct)) throw new InvalidOperationException("Enabled administrator principal not found.");
-                (principal, generation) = (row.GetGuid(0), row.GetInt64(1));
+                if (await actor.ExecuteScalarAsync(ct) is not Guid id)
+                    throw new InvalidOperationException("Enabled administrator principal not found.");
+                principal = id;
             }
+
+            if (action is "grant" or "revoke")
+            {
+                var changed = action == "grant"
+                    ? await RunAsync("insert into public.admin_permission(principal_id,permission) values($1,$2) on conflict do nothing",
+                        principal, CurrentSchema.AuditReadPermission)
+                    : await RunAsync("delete from public.admin_permission where principal_id=$1 and permission=$2",
+                        principal, CurrentSchema.AuditReadPermission);
+                if (changed == 0)
+                {
+                    await tx.CommitAsync(ct);
+                    Console.WriteLine("Administrator permissions unchanged.");
+                    return;
+                }
+            }
+
+            await using (var advance = Command("""
+                update public.admin_principal set generation=generation+1,generation_changed_at=pg_catalog.clock_timestamp(),enabled=$2
+                where id=$1 returning generation
+                """, principal, action != "disable"))
+                generation = (long)(await advance.ExecuteScalarAsync(ct))!;
 
             await RunAsync("delete from public.admin_session where principal_id=$1", principal);
             await RunAsync("delete from public.admin_invitation where principal_id=$1", principal);
@@ -65,7 +83,7 @@ internal static partial class Migration
         await RunAsync("""
             insert into public.admin_identity_audit(principal_id,action,happened_at,actor)
             values($1,$2,pg_catalog.clock_timestamp(),session_user::text)
-            """, principal, action);
+            """, principal, action is "grant" or "revoke" ? $"{action}:{CurrentSchema.AuditReadPermission}" : action);
 
         if (action is "bootstrap" or "rotate-passkey")
         {
@@ -84,7 +102,13 @@ internal static partial class Migration
         else
         {
             await tx.CommitAsync(ct);
-            Console.WriteLine(action == "disable" ? "Disabled administrator principal." : "Revoked administrator sessions and invitations.");
+            Console.WriteLine(action switch
+            {
+                "disable" => "Disabled administrator principal.",
+                "grant" => "Granted audit.read and revoked prior administrator sessions and invitations.",
+                "revoke" => "Revoked audit.read and prior administrator sessions and invitations.",
+                _ => "Revoked administrator sessions and invitations."
+            });
         }
 
         NpgsqlCommand Command(string sql, params object[] values)
@@ -94,10 +118,10 @@ internal static partial class Migration
             return command;
         }
 
-        async Task RunAsync(string sql, params object[] values)
+        async Task<int> RunAsync(string sql, params object[] values)
         {
             await using var command = Command(sql, values);
-            await command.ExecuteNonQueryAsync(ct);
+            return await command.ExecuteNonQueryAsync(ct);
         }
     }
 
@@ -110,19 +134,37 @@ internal static partial class Migration
         var hasArticleSchedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
         var hasPublicationHistory = await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct);
         var hasMediaUpload = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
+        var legacyCanvas = !await HasRelation(connection, tx, "public.canvas_node", ct);
+        if (legacyCanvas && await HasRelation(connection, tx, "public.canvas_document_event", ct))
+            throw new InvalidOperationException("The Canvas schema matches neither exact supported layout.");
         if (!await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct))
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
                 requireAdminIdentity: false, requirePublicationHistory: hasPublicationHistory,
-                requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload);
+                requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas);
             await ApplySchemaAddition(connection, tx, "admin-identity.sql", ct);
+        }
+        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) == 1)
+        {
+            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
+                requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
+                requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, adminIdentityVersion: 1);
+            await ExecuteAsync(connection, tx, """
+                alter table public.admin_permission drop constraint admin_permission_permission_check;
+                alter table public.admin_permission add constraint admin_permission_permission_check
+                    check (permission = 'admin.manage' or permission = 'audit.read');
+                alter table public.admin_identity_schema drop constraint admin_identity_schema_version_check;
+                update public.admin_identity_schema set version=2 where singleton and version=1;
+                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=2);
+                """, ct);
         }
 
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
-            requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload);
+            requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
+            requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
         if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         await tx.CommitAsync(ct);
-        Console.WriteLine("Verified independent administrator identity schema.");
+        Console.WriteLine($"Verified independent administrator identity schema version {CurrentSchema.AdminIdentityVersion}.");
     }
 }

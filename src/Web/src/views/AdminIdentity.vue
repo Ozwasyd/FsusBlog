@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
+import { ApiError } from '../../../Contracts/aeds'
 import {
   bootstrapAdminPasskey,
   readAdminAuthority,
+  readAdminOperations,
   signInAdmin,
   signOutAdmin,
   validAdminBootstrapToken,
   type AdminAuthority,
+  type AdminOperationsStatus,
 } from '../../../Contracts/admin-identity'
 
 const lifetime = new AbortController()
@@ -19,10 +22,15 @@ const canUsePasskeys = globalThis.isSecureContext && typeof PublicKeyCredential 
 const busy = ref(false)
 const failure = ref('')
 const notice = ref('')
+const operations = shallowRef<AdminOperationsStatus | null>(null)
+const operationsBusy = ref(false)
+const operationsFailure = ref('')
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
+let operationsRequest: AbortController | undefined
 
 function setAuthority(next: AdminAuthority | null) {
   clearTimeout(expiryTimer)
+  clearOperations()
   if (next?.status === 'active') {
     const remaining = next.session.expiresAt - Date.now()
     if (remaining <= 0) {
@@ -63,8 +71,44 @@ onMounted(() => {
 onUnmounted(() => {
   lifetime.abort()
   clearTimeout(expiryTimer)
+  clearOperations()
   document.removeEventListener('visibilitychange', whenVisible)
 })
+
+function clearOperations() {
+  operationsRequest?.abort()
+  operationsRequest = undefined
+  operations.value = null
+  operationsBusy.value = false
+  operationsFailure.value = ''
+}
+
+async function checkOperations() {
+  if (authority.value?.status !== 'active' || busy.value || operationsBusy.value) return
+  clearOperations()
+  const check = new AbortController()
+  operationsRequest = check
+  operationsBusy.value = true
+  try {
+    const status = await readAdminOperations(check.signal)
+    if (!check.signal.aborted) operations.value = status
+  } catch (error) {
+    if (check.signal.aborted) return
+    if (error instanceof ApiError && error.status === 401) {
+      setAuthority({ status: 'signed-out' })
+      failure.value = 'Your administrator session expired or was revoked. Log in again.'
+    } else {
+      operationsFailure.value = error instanceof ApiError && error.status === 403
+        ? 'You do not have permission to view operations status.'
+        : 'Could not check operations status. Try again.'
+    }
+  } finally {
+    if (operationsRequest === check) {
+      operationsRequest = undefined
+      operationsBusy.value = false
+    }
+  }
+}
 
 function closeBootstrap() {
   bootstrapOpen.value = false
@@ -121,6 +165,27 @@ function logOut() {
       </dl>
       <ElButton native-type="button" :loading="busy" @click="logOut">Log out of administrator session</ElButton>
     </section>
+    <section v-if="authority?.status === 'active'" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">
+      <h2 id="admin-operations-heading">Operations status</h2>
+      <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">Check operations status</ElButton>
+      <ElAlert v-if="operationsFailure" :title="operationsFailure" type="error" :closable="false" show-icon />
+      <div aria-live="polite">
+        <dl v-if="operations">
+          <dt>Public snapshot</dt>
+          <dd>{{ operations.snapshotReady ? 'Ready' : 'Not ready' }}</dd>
+          <dt>Publication watermark</dt>
+          <dd>{{ operations.publicationWatermark.toString() }}</dd>
+          <dt>Pending publication events</dt>
+          <dd>{{ operations.pendingPublicationEvents.toString() }}</dd>
+          <template v-if="operations.oldestPendingAt !== null">
+            <dt>Oldest pending publication event</dt>
+            <dd>
+              <time :datetime="new Date(operations.oldestPendingAt).toISOString()">{{ new Date(operations.oldestPendingAt).toLocaleString() }}</time>
+            </dd>
+          </template>
+        </dl>
+      </div>
+    </section>
     <p v-else-if="authority?.status === 'unavailable'">Administrator access is unavailable on this origin.</p>
     <template v-else-if="authority?.status === 'signed-out'">
       <p v-if="!canUsePasskeys">Use a secure origin and a browser that supports Passkeys.</p>
@@ -145,4 +210,5 @@ function logOut() {
 <style scoped>
 .admin-bootstrap-form { display: grid; gap: 0.75rem; }
 .admin-setup-button { margin-inline-start: 0; }
+.admin-operations { margin-block-start: 1.5rem; }
 </style>

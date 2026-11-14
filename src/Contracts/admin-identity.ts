@@ -1,10 +1,18 @@
 import { ApiError, decodeSuccess, ProtocolError } from './aeds.ts';
 import { request } from './client.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
-import { decodeAdminSessionSnapshot, FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
+import {
+  decodeAdminOperationsStatus,
+  decodeAdminSessionSnapshot,
+  FrameType,
+  WireHeaders,
+  WireRoutes,
+  type AdminOperationsStatus as WireAdminOperationsStatus,
+} from './wire.generated.ts';
 
 export type AdminSession = Readonly<{ handle: string; generation: bigint; expiresAt: number }>;
 export type AdminAuthority = { status: 'unavailable' } | { status: 'signed-out' } | { status: 'active'; session: AdminSession };
+export type AdminOperationsStatus = Readonly<Omit<WireAdminOperationsStatus, 'oldestPendingAt'> & { oldestPendingAt: number | null }>;
 
 export function validAdminBootstrapToken(ticket: string): boolean {
   return /^[0-9a-f]{64}$/.test(ticket);
@@ -40,6 +48,18 @@ export async function signInAdmin(signal?: AbortSignal): Promise<AdminSession> {
 
 export async function signOutAdmin(signal?: AbortSignal): Promise<void> {
   await request(WireRoutes.AdminSignOut, FrameType.EmptySuccess, decodeSuccess, signal, 'POST');
+}
+
+export function readAdminOperations(signal?: AbortSignal): Promise<AdminOperationsStatus> {
+  return request(WireRoutes.AdminOperationsStatus, FrameType.AdminOperationsStatus, readOperationsStatus, signal);
+}
+
+function readOperationsStatus(payload: Uint8Array): AdminOperationsStatus {
+  const status = decodeAdminOperationsStatus(payload);
+  const oldestPendingAt = Number(status.oldestPendingAt);
+  if (status.publicationWatermark < 0n || status.pendingPublicationEvents < 0n || !Number.isSafeInteger(oldestPendingAt) ||
+      oldestPendingAt < 0 || oldestPendingAt > 8.64e15) throw new ProtocolError('Invalid administrator operations status.');
+  return { ...status, oldestPendingAt: oldestPendingAt || null };
 }
 
 function readAdminSession(payload: Uint8Array): AdminSession {

@@ -52,6 +52,7 @@
     "OperatorSession": 32769,
     "SiteSessionList": 32796,
     "AdminSessionSnapshot": 32830,
+    "AdminOperationsStatus": 32850,
     "Draft": 32770,
     "ArticleCommand": 32771,
     "RevisionHistory": 32800,
@@ -146,6 +147,7 @@
     "AdminPasskeyComplete": "/api/v2/admin/identity/passkey/complete.aeds",
     "AdminSession": "/api/v2/admin/identity/session.aeds",
     "AdminSignOut": "/api/v2/admin/identity/sign-out.aeds",
+    "AdminOperationsStatus": "/api/v2/admin/identity/operations/status.aeds",
     "PasskeyLoginBegin": "/api/binary/auth/passkey/login/begin",
     "PasskeyLoginComplete": "/api/binary/auth/passkey/login/complete",
     "PasskeyProvisionBegin": "/api/v2/identity/passkey/register/begin.aeds",
@@ -439,6 +441,10 @@
     "AdminSessionSnapshot": {
       "frame": "AdminSessionSnapshot",
       "fields": [["Handle", "text", "NameBytes"], ["Generation", "i64"], ["ExpiresAt", "i64"]]
+    },
+    "AdminOperationsStatus": {
+      "frame": "AdminOperationsStatus",
+      "fields": [["SnapshotReady", "bool"], ["PublicationWatermark", "i64"], ["PendingPublicationEvents", "i64"], ["OldestPendingAt", "i64"]]
     },
     "DraftRecoveryScope": {
       "frame": "DraftRecoveryScope",

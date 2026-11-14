@@ -31,8 +31,7 @@ query=("${pg[@]}" -d "$database" -qAtc)
 "${migrate[@]}" verify
 
 # Retain a site account with the same name across the additive admin upgrade.
-site_ticket=$("${migrate[@]}" operator identity-fixture)
-unset site_ticket
+"${migrate[@]}" operator identity-fixture > /dev/null
 "${query[@]}" 'DROP TABLE public.admin_identity_audit, public.admin_session, public.admin_challenge,
     public.admin_invitation, public.admin_passkey_credential, public.admin_permission, public.admin_principal,
     public.admin_identity_schema'
@@ -57,14 +56,44 @@ if "${migrate[@]}" admin-identity bootstrap invalid-fixture article.write > "$sc
 fi
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_principal') == 1 ]]
 
+# Restore the exact v1 component contract as published before audit.read, with existing administrator state.
+"${query[@]}" "ALTER TABLE public.admin_permission DROP CONSTRAINT admin_permission_permission_check;
+    ALTER TABLE public.admin_permission ADD CONSTRAINT admin_permission_permission_check CHECK (permission='admin.manage');
+    ALTER TABLE public.admin_identity_schema DROP CONSTRAINT admin_identity_schema_version_check;
+    UPDATE public.admin_identity_schema SET version=1;
+    ALTER TABLE public.admin_identity_schema ADD CONSTRAINT admin_identity_schema_version_check CHECK (version=1)"
+if "${migrate[@]}" admin-identity grant identity-fixture audit.read > "$scratch/rejection.log" 2>&1; then
+    printf '%s\n' 'Expected an offline grant to require the current administrator identity schema.' >&2
+    exit 1
+fi
+rg -qF 'constraint shape mismatch' "$scratch/rejection.log"
+"${query[@]}" 'ALTER TABLE public.admin_session ADD COLUMN unexpected_fixture integer'
+if "${migrate[@]}" admin-identity schema > "$scratch/rejection.log" 2>&1; then
+    printf '%s\n' 'Expected the upgrade to reject a drifted v1 administrator identity schema.' >&2
+    exit 1
+fi
+rg -qF 'relation/column shape mismatch' "$scratch/rejection.log"
+[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 1 ]]
+"${query[@]}" 'ALTER TABLE public.admin_session DROP COLUMN unexpected_fixture'
+"${migrate[@]}" admin-identity schema
+"${migrate[@]}" admin-identity schema
+"${migrate[@]}" verify
+[[ $("${query[@]}" 'SELECT version FROM public.admin_identity_schema') == 2 ]]
+[[ $("${query[@]}" "SELECT count(*) FROM public.admin_invitation WHERE encode(digest, 'hex') = '$first_digest'") == 1 ]]
+[[ $("${query[@]}" "SELECT count(*) FROM public.admin_permission WHERE permission='admin.manage'") == 1 ]]
+
 # These state fixtures exercise the offline revocation commands without pretending to prove WebAuthn.
+add_pending_session_and_challenge() {
+    "${query[@]}" "INSERT INTO public.admin_session
+        SELECT decode(repeat('ab',32),'hex'), id, generation, now()+interval '1 minute' FROM public.admin_principal;
+        INSERT INTO public.admin_challenge(digest,principal_id,generation,binding_digest,kind,options,expires_at)
+        SELECT decode(repeat('cd',32),'hex'), id, generation, decode(repeat('ef',32),'hex'), 2, '{}', now()+interval '1 minute'
+        FROM public.admin_principal"
+}
+
 "${query[@]}" "INSERT INTO public.admin_passkey_credential
-    SELECT decode('01','hex'), id, decode('02','hex'), 0, false, false FROM public.admin_principal;
-    INSERT INTO public.admin_session
-    SELECT decode(repeat('ab',32),'hex'), id, generation, now()+interval '1 minute' FROM public.admin_principal;
-    INSERT INTO public.admin_challenge(digest,principal_id,generation,binding_digest,kind,options,expires_at)
-    SELECT decode(repeat('cd',32),'hex'), id, generation, decode(repeat('ef',32),'hex'), 2, '{}', now()+interval '1 minute'
-    FROM public.admin_principal;"
+    SELECT decode('01','hex'), id, decode('02','hex'), 0, false, false FROM public.admin_principal"
+add_pending_session_and_challenge
 replacement=$("${migrate[@]}" admin-identity rotate-passkey identity-fixture)
 [[ "$replacement" =~ ^[0-9a-f]{64}$ ]]
 replacement_digest=$(printf '%s' "$replacement" | xxd -r -p | openssl dgst -sha256 | awk '{print $NF}')
@@ -77,13 +106,40 @@ unset replacement first_digest replacement_digest
 
 "${query[@]}" "INSERT INTO public.admin_passkey_credential
     SELECT decode('03','hex'), id, decode('04','hex'), 0, false, false FROM public.admin_principal;"
+add_pending_session_and_challenge
+old_fence=$("${query[@]}" 'SELECT generation_changed_at FROM public.admin_principal')
+"${migrate[@]}" admin-identity grant identity-fixture audit.read
+[[ $("${query[@]}" "SELECT string_agg(permission, ',' ORDER BY permission) FROM public.admin_permission") == 'admin.manage,audit.read' ]]
+[[ $("${query[@]}" "SELECT generation=3 AND generation_changed_at>'$old_fence'::timestamptz FROM public.admin_principal") == t ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_invitation') == 0 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_session') == 0 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_challenge') == 0 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_passkey_credential') == 1 ]]
+
+add_pending_session_and_challenge
+fence=$("${query[@]}" 'SELECT generation_changed_at FROM public.admin_principal')
+"${migrate[@]}" admin-identity grant identity-fixture audit.read
+[[ $("${query[@]}" "SELECT generation=3 AND generation_changed_at='$fence'::timestamptz FROM public.admin_principal") == t ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_session') == 1 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_challenge') == 1 ]]
+
+if "${migrate[@]}" admin-identity revoke identity-fixture admin.manage > "$scratch/rejection.log" 2>&1; then
+    printf '%s\n' 'Expected permission management to preserve the administrator bootstrap authority.' >&2
+    exit 1
+fi
+"${migrate[@]}" admin-identity revoke identity-fixture audit.read
+"${migrate[@]}" admin-identity revoke identity-fixture audit.read
+[[ $("${query[@]}" "SELECT string_agg(permission, ',' ORDER BY permission) FROM public.admin_permission") == 'admin.manage' ]]
+[[ $("${query[@]}" "SELECT generation=4 AND generation_changed_at>'$fence'::timestamptz FROM public.admin_principal") == t ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_session') == 0 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_challenge') == 0 ]]
 "${migrate[@]}" admin-identity revoke-all identity-fixture
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_passkey_credential') == 1 ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_invitation') == 0 ]]
 "${migrate[@]}" admin-identity disable identity-fixture
 [[ $("${query[@]}" 'SELECT count(*) FROM public.admin_passkey_credential') == 0 ]]
-[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_principal WHERE NOT enabled AND generation=4') == 1 ]]
+[[ $("${query[@]}" 'SELECT count(*) FROM public.admin_principal WHERE NOT enabled AND generation=6') == 1 ]]
 [[ $("${query[@]}" 'SELECT count(*) FROM public.blog_user WHERE enabled AND can_author AND generation=1') == 1 ]]
 audit=$("${query[@]}" "SELECT string_agg(action, ',' ORDER BY id) FROM public.admin_identity_audit WHERE actor=session_user::text")
-[[ "$audit" == 'bootstrap,rotate-passkey,revoke-all,disable' ]]
-printf '%s\n' 'Verified independent schema upgrade, explicit permissions, one-use invitation issuance, credential rotation, revocation, and database actor audit.'
+[[ "$audit" == 'bootstrap,rotate-passkey,grant:audit.read,revoke:audit.read,revoke-all,disable' ]]
+printf '%s\n' 'Verified exact administrator schema upgrade, idempotent audit permission changes, separate account authority, credential rotation, and database actor audit.'

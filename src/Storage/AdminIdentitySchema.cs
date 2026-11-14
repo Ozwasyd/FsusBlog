@@ -8,7 +8,9 @@ namespace FsusBlogV2.Storage;
 internal static partial class CurrentSchema
 {
     internal const string AdminIdentityMarker = "public.admin_identity_schema";
+    internal const int AdminIdentityVersion = 2;
     internal const string AdminManagePermission = "admin.manage";
+    internal const string AuditReadPermission = "audit.read";
 
     private static readonly string[] AdminIdentityColumns =
     [
@@ -26,7 +28,6 @@ internal static partial class CurrentSchema
     [
         "admin_identity_schema p singleton",
         "admin_identity_schema c singleton singleton",
-        "admin_identity_schema c version version=1",
         "admin_principal p id",
         "admin_principal u handle",
         "admin_principal c handle handle~'^[a-z][a-z0-9_.-]{0,63}$'::text",
@@ -35,7 +36,6 @@ internal static partial class CurrentSchema
         "admin_principal c generation generation>0",
         "admin_permission p principal_id,permission",
         "admin_permission f principal_id public.admin_principal:id",
-        "admin_permission c permission permission='admin.manage'::text",
         "admin_passkey_credential p credential_id",
         "admin_passkey_credential u principal_id",
         "admin_passkey_credential f principal_id public.admin_principal:id",
@@ -65,11 +65,36 @@ internal static partial class CurrentSchema
         "admin_identity_audit c actor octet_length(actor)>=1ANDoctet_length(actor)<=255"
     ];
 
+    private static string[] GetAdminIdentityConstraints(int version) => version switch
+    {
+        1 =>
+        [
+            .. AdminIdentityConstraints,
+            "admin_identity_schema c version version=1",
+            "admin_permission c permission permission='admin.manage'::text"
+        ],
+        AdminIdentityVersion =>
+        [
+            .. AdminIdentityConstraints,
+            "admin_identity_schema c version version=2",
+            "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::text"
+        ],
+        _ => throw new InvalidOperationException("Unsupported admin identity schema version.")
+    };
+
     internal static async Task VerifyAdminIdentityMarkerAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
+    {
+        if (await ReadAdminIdentityVersionAsync(db, tx, ct) != AdminIdentityVersion)
+            throw new InvalidOperationException($"Expected admin identity schema version {AdminIdentityVersion}.");
+    }
+
+    internal static async Task<int> ReadAdminIdentityVersionAsync(NpgsqlConnection db, NpgsqlTransaction tx, CancellationToken ct)
     {
         await using var command = new NpgsqlCommand("select version from public.admin_identity_schema", db, tx);
         await using var row = await command.ExecuteReaderAsync(ct);
-        if (!await row.ReadAsync(ct) || row.GetInt32(0) != 1 || await row.ReadAsync(ct))
-            throw new InvalidOperationException("Expected a single admin identity schema marker at version 1.");
+        if (!await row.ReadAsync(ct)) throw new InvalidOperationException("Expected a single admin identity schema marker.");
+        var version = row.GetInt32(0);
+        if (await row.ReadAsync(ct)) throw new InvalidOperationException("Expected a single admin identity schema marker.");
+        return version;
     }
 }

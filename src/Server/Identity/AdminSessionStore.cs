@@ -14,26 +14,47 @@ internal sealed partial class AdminPasskeyStore
     private sealed record Principal(Guid Id, string Handle, byte[] UserHandle, long Generation, DateTimeOffset GenerationChangedAt);
     private sealed record Challenge(Guid? Principal, long? Generation, string Options, DateTimeOffset StartedAt);
 
-    internal async Task<AdminSessionSnapshot> Session(string? token, CancellationToken ct)
+    internal Task<AdminSessionSnapshot> Session(string? token, CancellationToken ct) =>
+        WithSession(token, Permission, (_, _, session) => Task.FromResult(session), ct);
+
+    private async Task<T> WithSession<T>(string? token, string requiredPermission,
+        Func<NpgsqlConnection, NpgsqlTransaction, AdminSessionSnapshot, Task<T>> use, CancellationToken ct)
     {
         var digest = Store.TokenDigest(token) ?? throw Denied();
         await using var db = await _source.OpenConnectionAsync(ct);
         await using var tx = await InstanceLease.BeginProtected(db, _lease, ct);
-        AdminSessionSnapshot result;
+        Guid principal;
+        string handle;
+        long generation;
         await using (var cmd = Store.Sql(db, tx, """
-            select p.handle,p.generation,s.expires_at
-            from public.admin_principal p join public.admin_session s on s.principal_id=p.id
-            where s.digest=$1 and p.enabled and s.generation=p.generation and s.expires_at>clock_timestamp()
-            and exists (select from public.admin_permission where principal_id=p.id and permission=$2)
-            and exists (select from public.admin_passkey_credential where principal_id=p.id)
-            for share of p,s
-            """, digest, Permission))
+            select id,handle,generation from public.admin_principal where enabled
+            and id=(select principal_id from public.admin_session where digest=$1)
+            for share
+            """, digest))
         await using (var row = await cmd.ExecuteReaderAsync(ct))
         {
             if (!await row.ReadAsync(ct)) throw Denied();
-            result = new(row.GetString(0), row.GetInt64(1), row.GetFieldValue<DateTimeOffset>(2).ToUnixTimeMilliseconds());
+            (principal, handle, generation) = (row.GetGuid(0), row.GetString(1), row.GetInt64(2));
         }
-        if (result.ExpiresAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) throw Denied();
+        long expiration;
+        await using (var cmd = Store.Sql(db, tx, """
+            select expires_at from public.admin_session where digest=$1 and principal_id=$2 and generation=$3
+            and expires_at>clock_timestamp()
+            and exists (select from public.admin_permission where principal_id=$2 and permission=$4)
+            and exists (select from public.admin_passkey_credential where principal_id=$2)
+            for share
+            """, digest, principal, generation, Permission))
+            expiration = (await cmd.ExecuteScalarAsync(ct) is DateTime expiry) ? new DateTimeOffset(expiry).ToUnixTimeMilliseconds() : throw Denied();
+        if (requiredPermission != Permission)
+        {
+            await using var grant = Store.Sql(db, tx, """
+                select exists (select from public.admin_permission where principal_id=$1 and permission=$2)
+                """, principal, requiredPermission);
+            if (await grant.ExecuteScalarAsync(ct) is not true)
+                throw new BusinessException(Rejection.Forbidden, "This administrator does not hold the required permission.");
+        }
+        var result = await use(db, tx, new AdminSessionSnapshot(handle, generation, expiration));
+        if (expiration <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) throw Denied();
         await InstanceLease.CommitProtected(tx, _lease, ct);
         return result;
     }

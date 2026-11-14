@@ -41,6 +41,7 @@ public enum FrameType : ushort
     OperatorSession = 32769,
     SiteSessionList = 32796,
     AdminSessionSnapshot = 32830,
+    AdminOperationsStatus = 32850,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -392,6 +393,7 @@ public static class WireRoutes
     public const string AdminPasskeyComplete = "/api/v2/admin/identity/passkey/complete.aeds";
     public const string AdminSession = "/api/v2/admin/identity/session.aeds";
     public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
+    public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
     public const string PasskeyLoginBegin = "/api/binary/auth/passkey/login/begin";
     public const string PasskeyLoginComplete = "/api/binary/auth/passkey/login/complete";
     public const string PasskeyProvisionBegin = "/api/v2/identity/passkey/register/begin.aeds";
@@ -449,6 +451,7 @@ public static class WireHeaders
 }
 
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
+public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
 public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
@@ -490,6 +493,26 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSessionSnapshot));
         var value = new AdminSessionSnapshot(reader.Text(WireLimits.NameBytes), reader.I64(), reader.I64());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAdminOperationsStatus(AdminOperationsStatus value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Bool(value.SnapshotReady);
+        writer.I64(value.PublicationWatermark);
+        writer.I64(value.PendingPublicationEvents);
+        writer.I64(value.OldestPendingAt);
+        return Aeds.Encode(FrameType.AdminOperationsStatus, writer.Written);
+    }
+
+    public static AdminOperationsStatus DecodeAdminOperationsStatus(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminOperationsStatus));
+        var value = new AdminOperationsStatus(reader.Bool(), reader.I64(), reader.I64(), reader.I64());
         reader.Finish();
         Validate(value);
         return value;

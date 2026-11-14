@@ -1,8 +1,8 @@
 CREATE TABLE public.admin_identity_schema (
     singleton boolean PRIMARY KEY CHECK (singleton),
-    version integer NOT NULL CHECK (version = 1)
+    version integer NOT NULL CHECK (version = 2)
 );
-INSERT INTO public.admin_identity_schema (singleton, version) VALUES (true, 1);
+INSERT INTO public.admin_identity_schema (singleton, version) VALUES (true, 2);
 
 CREATE TABLE public.admin_principal (
     id uuid PRIMARY KEY,
@@ -15,7 +15,7 @@ CREATE TABLE public.admin_principal (
 
 CREATE TABLE public.admin_permission (
     principal_id uuid NOT NULL REFERENCES public.admin_principal (id),
-    permission text NOT NULL CHECK (permission = 'admin.manage'),
+    permission text NOT NULL CHECK (permission = 'admin.manage' OR permission = 'audit.read'),
     PRIMARY KEY (principal_id, permission)
 );
 

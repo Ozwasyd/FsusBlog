@@ -40,6 +40,7 @@ export const FrameType = {
   OperatorSession: 32769,
   SiteSessionList: 32796,
   AdminSessionSnapshot: 32830,
+  AdminOperationsStatus: 32850,
   Draft: 32770,
   ArticleCommand: 32771,
   RevisionHistory: 32800,
@@ -387,6 +388,7 @@ export const WireRoutes = {
   AdminPasskeyComplete: "/api/v2/admin/identity/passkey/complete.aeds",
   AdminSession: "/api/v2/admin/identity/session.aeds",
   AdminSignOut: "/api/v2/admin/identity/sign-out.aeds",
+  AdminOperationsStatus: "/api/v2/admin/identity/operations/status.aeds",
   PasskeyLoginBegin: "/api/binary/auth/passkey/login/begin",
   PasskeyLoginComplete: "/api/binary/auth/passkey/login/complete",
   PasskeyProvisionBegin: "/api/v2/identity/passkey/register/begin.aeds",
@@ -464,6 +466,34 @@ export function decodeAdminSessionSnapshot(payload: Uint8Array): AdminSessionSna
     handle: reader.text(WireLimits.NameBytes),
     generation: reader.i64(),
     expiresAt: reader.i64(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AdminOperationsStatus {
+  snapshotReady: boolean;
+  publicationWatermark: bigint;
+  pendingPublicationEvents: bigint;
+  oldestPendingAt: bigint;
+}
+
+export function encodeAdminOperationsStatus(value: AdminOperationsStatus): Uint8Array {
+  const writer = new PodWriter();
+  writer.bool(value.snapshotReady);
+  writer.i64(value.publicationWatermark);
+  writer.i64(value.pendingPublicationEvents);
+  writer.i64(value.oldestPendingAt);
+  return writer.finish();
+}
+
+export function decodeAdminOperationsStatus(payload: Uint8Array): AdminOperationsStatus {
+  const reader = new PodReader(payload);
+  const value: AdminOperationsStatus = {
+    snapshotReady: reader.bool(),
+    publicationWatermark: reader.i64(),
+    pendingPublicationEvents: reader.i64(),
+    oldestPendingAt: reader.i64(),
   };
   reader.finish();
   return value;
