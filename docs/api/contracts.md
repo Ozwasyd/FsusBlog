@@ -41,21 +41,21 @@ invariants and links back to those authorities rather than restating them.
 ## Contents
 
 - [Base response and transport contract](#base-response-and-transport-contract)
-- [Pagination and cursor envelopes](#pagination-and-cursor-envelopes)
-- [Authentication contracts](#authentication-contracts)
-- [Article contracts](#article-contracts)
-- [Human-read proof contracts](#human-read-proof-contracts)
-- [Comment contracts](#comment-contracts)
-- [Category and tag contracts](#category-and-tag-contracts)
-- [Message contracts](#message-contracts)
-- [Notification WebSocket contracts](#notification-websocket-contracts)
-- [File-upload contracts](#file-upload-contracts)
-- [System-configuration contracts](#system-configuration-contracts)
-- [Admin-statistics contracts](#admin-statistics-contracts)
-- [Public AOT-page contracts](#public-aot-page-contracts)
-- [PoW contracts](#pow-contracts)
-- [Security-challenge contracts](#security-challenge-contracts)
-- [Anonymous-credential issuance contracts](#anonymous-credential-issuance-contracts)
+- [Pagination and cursor envelopes](#pagination-and-cursor-envelope)
+- [Authentication contracts](#authentication-system-contract)
+- [Article contracts](#article-contract)
+- [Human-read proof contracts](#real-person-reads-proof-contract)
+- [Comment contracts](#comment-contract)
+- [Category and tag contracts](#classification-and-tag-contract)
+- [Message contracts](#message-system-contract)
+- [Notification WebSocket contracts](#通知-websocket-契约)
+- [File-upload contracts](#file-upload-contract)
+- [System-configuration contracts](#system-configuration-contract)
+- [Admin-statistics contracts](#management-side-statistics-contract)
+- [Public AOT-page contracts](#aot-public-page-contract)
+- [PoW contracts](#pow-contract)
+- [Security-challenge contracts](#security-challenge-contract)
+- [Anonymous-credential issuance contracts](#anonymous-certificate-issuance-contract)
 
 ---
 
@@ -446,7 +446,6 @@ WebAuthn Level 3 Signal API 是浏览器侧 best-effort 副作用，不属于账
 
 后台控制面身份独立于 `sys_user`，只使用 admin principal / session / passkey 表。首次 root admin bootstrap 必须带 `X-Fsus-Admin-Bootstrap-Token`，该 token 只从 `FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN` 或 `Admin:BootstrapToken` 读取；存在 active root admin 后 bootstrap 端点固定拒绝。`X-Fsus-Admin-Handle` 只在 bootstrap begin 指定后台 handle，不写入匿名账号。所有后台控制面端点必须校验 `identity_kind=admin_principal` 与具体 `admin_permission` claim，不得接受 legacy `sys_user.role=admin`。
 
-
 admin 登录只接受 Passkey/Security Key assertion。成功会写入独立 `AdminAccessToken` / `AdminSessionId` Cookie；生产读取只接受 `__Host-AdminAccessToken` / `__Host-AdminSessionId`，未前缀 admin Cookie 只在清理路径删除，不作为认证 fallback。JWT 必须包含 `identity_kind=admin_principal`、`admin_id`、`admin_sid` 与多值 `admin_permission` claim，不得签发 `ClaimTypes.Role` / `role=admin` 兼容 claim，也不得把 role claim 作为后台授权来源。请求期认证必须按 `admin_sid` 回查 `admin_session` 并校验 principal active、session 未撤销、idle/absolute 未过期、`AccessTokenHash` 与当前 token 匹配、session principal id 与 `admin_id` 一致；失败返回未认证/未授权并删除 admin session cookies，成功时只通过 row-version、旧 token hash 和旧过期时间谓词更新 `LastSeenAtUtc`，stale 更新按 session conflict 处理。`GET /api/binary/auth/admin/me` 从已验证的 admin principal claims 生成 `AdminPrincipalSnapshot`，用于前端从 HttpOnly Cookie 恢复 independent admin workspace，不得退回 legacy `sys_user.role=admin`。admin-sensitive step-up 只接受 `/api/binary/auth/admin/step-up/passkey/begin|complete` 的管理员 Passkey 再认证，不读取普通 `sys_user` MFA 状态，也不接受普通用户 MFA proof。
 
 前端管理态只来自 `GET /api/binary/auth/admin/me` 返回的 independent principal；`AdminPrincipalSnapshot.permissions` 是导航、route guard 和按钮权限的唯一来源。普通 `IdentityAccountSnapshot` / `/auth/me` 不提供 admin 权限，客户端不得用 `legacy.admin`、`syncLegacyAdminPrincipal` 或 `user role=admin` 作为降级入口。
@@ -510,7 +509,7 @@ enrollment token 只允许访问 `POST /auth/enrollment/passkey/register/begin`�
 | `BlindCredentialIssueRequest` (`194`) | `BlindCredentialIssueRequestPod` + shared blob | RFC 9474 384-byte blinded representative；不含 secret、opening、commitment 或 nullifier |
 | `BlindCredentialIssueResponse` (`195`) | `BlindCredentialIssueResponsePod` + shared blob | 384-byte blind signature 与匹配 metadata；浏览器本地 Finalize/verify |
 | `AnonymousCommentTicketRequest` (`180`) | `AnonymousCommentTicketRequestPod` + shared blob | 匿名评论 ticket 申请请求：article/root 上下文、action context、版本化 scope、verifying key hash、nullifier hash、credential root、revocation root、Groth16 proof、canonical public inputs；top ticket 不携带 reply id，thread ticket 只绑定 canonical root，最终 parent/reply target 在 submit 时由服务端校验 |
-| `AnonymousCommentTicketResponse` (`181`) | `AnonymousCommentTicketResponsePod` + shared blob | 匿名评论 ticket 响应：one-time opaque ticket、expires_at、`rate_class=common|unknown`、`requires_moderation` 与 moderation subject hash；不得包含精确 credential/reputation/account-age 属性、user id、username、public handle 或 nullifier 原文 |
+| `AnonymousCommentTicketResponse` (`181`) | `AnonymousCommentTicketResponsePod` + shared blob | 匿名评论 ticket 响应：one-time opaque ticket、expires_at、`rate_class=common\|unknown`、`requires_moderation` 与 moderation subject hash；不得包含精确 credential/reputation/account-age 属性、user id、username、public handle 或 nullifier 原文 |
 | `AnonymousCommentCreateRequest` (`182`) | `AnonymousCommentCreateRequestPod` + shared blob | 匿名评论创建请求：article/reply 上下文、credential epoch、scope、language、ticket、content；不携带用户身份或 Authorization token |
 | `AnonymousPrivacyStateSnapshot` (`183`) | `AnonymousPrivacyStateSnapshotPod` + shared blob | 前端隐私状态快照：active credential、issue/submit capability、root/ticket expiry、circuit/verifying-key/status 与本地凭证可用性；不作为精确资格属性的公开投影 |
 
@@ -1182,7 +1181,6 @@ Submit 同样受 `read_proof` 专用限流保护。限流 key 是 path + 一分�
 管理端分类和标签写入均使用 binary mutation path。`CategoryWriteRequest(33)` 与 `TagWriteRequest(34)` 的当前 payload 是 136-byte `TaxonomyMetadataMutationRequestPod`（`Utf8Fixed128 Name` + `Utf8SliceRef Description`），后接标准 `int32 blobByteLength` 与 UTF-8 description blob。description 持久化前 trim，空白归一化为 `NULL`，超过 500 个 Unicode scalar value 的请求在数据库修改前返回 validation error。迁移期后端同时接受精确 128-byte legacy `NameMutationRequestPod`：legacy create 写 `Description = NULL`，legacy update 只更新名称并保留已有 description。新格式 update 同时替换名称与 description。该 description 不进入 `CategoryList`、`TagList`、文章 taxonomy projection 或文章列表契约。匿名精确读取使用独立 `TaxonomyExactMetadata(243)` frame，路径为 `GET /api/binary/category/{id}.aeds`、`GET /api/binary/tag/{id}.aeds` 与 `GET /api/binary/tag/by-name.aeds?name=`，成功 payload 仅含 `id`、`name` 与 nullable `description`，不含 `articleCount` 或文章列表。缺失 id/name 返回普通 binary `NotFound`。Tag-by-name 使用与 Public AOT filter bootstrap 相同的显示名规范化与 `TagUrlAlias` 解析，命中后返回当前规范标签身份，不把 alias 当作第二身份。精确元数据缓存按 taxonomy kind + canonical id 独立于 list frame 失效。 公开 Filter SPA 在无可用 seed 时用上述精确读取解析当前 Category/Tag 目标（分类 id、标签 id、或标签名/alias），不再为单个 Filter 目标下载 `CategoryList`/`TagList`。有效公开 Filter seed 若已含 taxonomy 元数据则直接使用，不追加精确读取。Search 模式不请求 taxonomy 元数据。`CategoryList`/`TagList` 仍供导航、管理端和列表使用。 Category/Tag update 先按同一规范化规则比较持久化 Name/Description：两边未变则成功且无下游失效；`nameChanged` 保持既有 rename 投影/outbox、taxonomy list-frame bump、`ArticleList` 与 RequiredTaxonomy PublicHot；仅 Description 变化只失效该实体 exact metadata 与 `category:{id}`/`tag:{id}` Filter AOT 路由族（含分页、hydration 与 `filter.description` SEO），不插入 article taxonomy outbox、不 bump list frame、不失效 `ArticleList`、不改 `TagUrlAlias`。
 
 创建成功响应 `MutationId`，编辑器可用返回的 `id` 立即选中新建分类或关联新建标签，不能只依赖刷新列表后按名称猜测；更新和删除成功响应 `EmptySuccess`：
-
 
 上述六个 admin mutation 只有在 PublicHot `required-taxonomy` dirty generation 已持久化且 typed delivery receipt 允许成功后才返回成功。bounded channel 已满时，持久化的 `persisted-dirty` receipt 仍授权成功并由 full rebuild 恢复；delivery result 为 `cancelled`、`closed` 或 `failed` 时返回 HTTP `500` + AEDS `ApiError(Code=InfraFailure)`，不得返回 `MutationId` / `EmptySuccess`。该失败可能发生在 taxonomy 数据库写入已经提交之后，不表示事务回滚。客户端必须先重读 `/api/binary/author/taxonomy/categories` 或 `/api/binary/author/taxonomy/tags` 再决定是否重试，尤其不能盲目重放 create。运维恢复 Redis 后按 [PublicHot recovery runbook](../architecture/public-aot-runtime-state-boundary.md#recovery-runbook) 触发或等待 full rebuild。
 
@@ -2237,7 +2235,6 @@ X-Fsus-Pow-Answer: <nonce 值>
 
 公开分发端点只暴露 `published` 且到达发布时间的文章；`draft`、`scheduled`、`archived`、`deleted` 不得出现在 feed、sitemap、related-reading、搜索索引或 PublicAOT 公开缓存中。
 
-
 feed、sitemap 与 robots 响应使用 `Cache-Control: public, max-age=60, stale-while-revalidate=300` 并挂载 OutputCache ArticleList/Seo tag；端点不按正文手写 ETag，也不在请求线程解析 `If-None-Match`。RSS channel 的 copyright 来源于合规配置；`robots.txt` 明确禁止 `/api/`、`/user`、`/admin`、搜索索引二进制与 patch 目录，同时保留 `/api/public/`、`/feed/`、`/sitemap.xml` 与公开路由可抓取。
 
 Feed article projection 固定最多 50 条；sitemap article projection 无 Feed 限制，且只选择 article identity、发布时间和 `article_body.updated_at`，不加载 Markdown。文章 `lastmod`、JSON Feed `date_modified`、Atom `updated` 和 AOT `dateModified` 使用同一实质正文更新时间；首次公开时间单独写入 `date_published`/Atom `published`/RSS `pubDate`。首页/归档、分类、标签分别使用其公开集合的最近实质变化；静态页只读取自身 `page_content.updated_at`；来源不存在时省略 `lastmod`。空站重复生成不得引入当前时间。sitemap 不输出 `priority`。
@@ -2257,7 +2254,6 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 ### Site Subscription
 
 订阅表单使用 AEDS，不保存明文 email；服务端只写入由 `Subscription:EmailHashPepper` 派生的 `HMAC-SHA256(normalizedEmail)` keyed lookup identifier、`hash_version` 与归一化 channel。该值仅用于本部署内去重/查找，不是明文 email，也不是跨环境或跨系统稳定身份标识；旧裸 `SHA256(normalizedEmail)` 只允许在迁移期作为一次性匹配来源并在下一次写入时升级到当前 HMAC。公开退订必须额外携带一次性 `X-Fsus-Subscription-Proof`，proof 由服务内部签发并可交给受控外部投递域发送，绑定 keyed email hash 与 channel；当前公开 API 不提供明文 email 查询或无 proof 退订入口。
-
 
 `SiteSubscriptionRequest` payload 是 `SiteSubscriptionRequestPod`：fixed UTF-8 `Email(256)` + `Channel(32)`。`SiteSubscriptionResponse` payload 是 `SiteSubscriptionResponsePod`：`subscribed:byte`、`unsubscribed:byte`、reserved、fixed UTF-8 `Channel(32)`。非法 email 返回 HTTP 400 + `ApiError` frame，响应不得回显明文 email。退订 proof 不进入 AEDS payload，cache key 只使用 proof token hash，不包含原始 email；DELETE 先按绑定的 `email_hash` + `channel` 非消费校验 proof，只有 `site_subscription` 更新成功后才提交一次性消费，DB 失败或请求取消时 proof 保持可重试。
 
@@ -2375,7 +2371,6 @@ Revision detail 的 JSON DTO 固定把内容修订与历史绑定放在同一响
 Rollback request frame `ArticleRevisionRollbackRequest(213)` 的 payload 是 AEDS JSON：`{baseRevisionId:int64,targetStatus:int32,reason:string}`。`baseRevisionId` 必须是正数；`targetStatus` 只能显式为 `0 Draft`、`2 Published` 或 `3 Archived`，不能省略、默认成 Published 或使用 Scheduled；trim 后的 `reason` 长度为 8..500。响应使用 `MutationId(241)` 的 48B `ArticleMutationResultPod`，与 create/update 共用同一强类型结果；目标 revision 不存在时返回 `NotFound/revision_not_found`，不再以 nullable success 表示。请求不再接受 `X-Fsus-Base-Revision-Id` 或 `X-Fsus-Article-Revision-Force` 绕过；MFA proof header 与 admin `article.write` 授权保持不变。
 
 服务端在同一 PostgreSQL 事务中执行 base revision CAS、复制源 revision 的正文/分类/标签、复制源 rights 与 responsibility 到新 snapshot 绑定、创建新 revision/release，并写只引用新坐标的 mutation outbox。新 revision 持久化 `rollback_source_revision_id`、执行 admin principal 与 `rollback_reason`；源 revision/publication 永不更新或重新启用。base 冲突返回 `409 article_revision_conflict`，缺少完整历史绑定返回 `Validation/details=article_revision_package_incomplete`，非法目标与原因分别返回 `article_rollback_status_invalid`、`article_rollback_reason_invalid`；所有失败分支均不得留下 revision、snapshot、release、公开 artifact 或 outbox。Draft/Archived release 是不可变非公开坐标，只有 Published rollback 进入公开读取；AOT/search/feed/binary cache 与 notification stream 只消费新 outbox 坐标。
-
 
 草稿 `draft_conflict` 使用 HTTP 409 `ApiError(251)`；`details` 是有界 JSON `{currentServerRevision,currentUpdatedAt,titleSummary}`，不包含正文、摘要、封面、分类标签、rights、article revision 或任何身份材料。双标签页、乱序自动保存和 stale discard 都走同一失败面；客户端不得自动重放冲突 mutation。普通网络失败可用原 `clientRevision + expectedServerRevision` 重试，服务端用内容一致性识别已成功但响应丢失的幂等重试。
 | POST | `/api/binary/author/articles/{articleId}/assets/reindex` | 从正文和封面重建资产引用 |
@@ -2580,6 +2575,7 @@ Security system IA and API boundaries:
 - [schemas-and-errors.md](schemas-and-errors.md) — 错误码枚举与 Binary 帧格式
 - `src/shared/Contracts/Outputs/ServerResponseContracts.cs` — 所有 DTO 权威源码
 - `src/shared/Contracts/NotificationStream/NotificationStreamContracts.cs` — notification stream 信封权威源码
+
 ## `article_body_missing` 公开读取契约
 
 `GET /api/binary/article/{id}.aeds` 及其公共投影发现 Published 文章缺少非空 `article_body.markdown_content` 时，返回 `InfraFailure`，稳定错误 detail 为 `article_body_missing`。该状态不是 `NotFound`，客户端应显示正文暂不可用并允许稍后重试；不得把列表 `summary` 渲染为详情正文。
@@ -2636,7 +2632,6 @@ origin fail closed without changing assignment or fencing state.
 ## Plugin Admin binary contract
 
 Plug-in management is only registered in the authoring surface of the independent admin principal:
-
 
 安装 request payload 是未经文本转码的完整 `.fspkg` bytes，受 package reader 的
 32 MiB, entry count, path, checksum, signature and manifest constraints; must also carry
