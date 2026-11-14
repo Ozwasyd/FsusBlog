@@ -1,4 +1,4 @@
-import { readonly, ref, shallowRef } from 'vue'
+import { computed, readonly, ref, shallowRef } from 'vue'
 import type { Draft } from '../../../Contracts/wire.generated'
 import {
   DraftJournal, type DraftTarget, type PendingSource, type RecoveryCandidate,
@@ -8,6 +8,7 @@ import type { EditorTransport, WorkspaceTab } from './workspaceRegistry'
 
 type Confirmation = Parameters<NonNullable<EditorTransport<Draft>['confirmed']>>[0]
 type ActiveDraft = { tab: WorkspaceTab; draft: Draft; edit: number }
+const recoveryTimeoutMs = 2_500
 
 export function editorRecovery() {
   let journal: DraftJournal | undefined
@@ -18,7 +19,9 @@ export function editorRecovery() {
   let inspection = 0
   const candidates = shallowRef<readonly RecoveryCandidate[]>([])
   const failure = ref(false)
-  const guarded = ref(false)
+  const attaching = ref(false)
+  const inspecting = ref(false)
+  const guarded = computed(() => attaching.value || inspecting.value)
 
   function setCurrent(tab: WorkspaceTab | undefined, draft: Draft | undefined, edit: number) {
     const previous = current
@@ -26,7 +29,7 @@ export function editorRecovery() {
     if (previous?.tab.sessionId !== current?.tab.sessionId || previous?.draft.id !== current?.draft.id) {
       checked = undefined
       candidates.value = []
-      guarded.value = false
+      inspecting.value = false
       ++inspection
     }
     if (current && current.tab.risk === 'clean' && journal && checked !== current.tab.sessionId) void inspect(current)
@@ -35,7 +38,14 @@ export function editorRecovery() {
   async function attach(epoch: number, valid: () => boolean) {
     close()
     failure.value = false
+    attaching.value = true
     const request = scopeRequest
+    const timeout = setTimeout(() => {
+      if (request.signal.aborted) return
+      request.abort()
+      attaching.value = false
+      failure.value = true
+    }, recoveryTimeoutMs)
     try {
       const scope = await verifyDraftScope(epoch, valid, request.signal)
       if (!scope) return
@@ -51,6 +61,9 @@ export function editorRecovery() {
       }
     } catch {
       if (!request.signal.aborted) failure.value = true
+    } finally {
+      clearTimeout(timeout)
+      if (!request.signal.aborted) attaching.value = false
     }
   }
 
@@ -59,7 +72,14 @@ export function editorRecovery() {
     if (!owner) return
     const sequence = ++inspection
     checked = snapshot.tab.sessionId
-    guarded.value = true
+    inspecting.value = true
+    const timeout = setTimeout(() => {
+      if (journal !== owner || inspection !== sequence) return
+      owner.close()
+      journal = undefined
+      inspecting.value = false
+      failure.value = true
+    }, recoveryTimeoutMs)
     try {
       const next = snapshot.draft.id === 0 ? await owner.inspectNew()
         : await owner.inspect({ articleId: snapshot.draft.id }, snapshot.draft)
@@ -69,7 +89,8 @@ export function editorRecovery() {
     } catch {
       if (journal === owner && inspection === sequence) failure.value = true
     } finally {
-      if (journal === owner && inspection === sequence) guarded.value = false
+      clearTimeout(timeout)
+      if (journal === owner && inspection === sequence) inspecting.value = false
     }
   }
 
@@ -152,7 +173,8 @@ export function editorRecovery() {
     createTargets.clear()
     checked = undefined
     candidates.value = []
-    guarded.value = false
+    attaching.value = false
+    inspecting.value = false
     ++inspection
   }
 
@@ -162,6 +184,6 @@ export function editorRecovery() {
 
   return {
     setCurrent, attach, close, persist, confirmed, remove, discardArticle, dismissCandidates,
-    candidates: readonly(candidates), failure: readonly(failure), guarded: readonly(guarded),
+    candidates: readonly(candidates), failure: readonly(failure), guarded,
   }
 }

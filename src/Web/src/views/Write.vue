@@ -59,8 +59,9 @@ const revisionComparisonActive = ref(false)
 const recovery = editorRecovery()
 const recoveryItems = recovery.candidates
 const recoveryFailure = recovery.failure
+const recoveryChecking = recovery.guarded
 const recoveryWorking = ref(false)
-const recoveryBlocked = computed(() => recoveryWorking.value || recovery.guarded.value || recoveryItems.value.length > 0)
+const recoveryBlocked = computed(() => recoveryWorking.value || recoveryChecking.value || recoveryItems.value.length > 0)
 const failure = ref('')
 const authorizationReady = ref(false)
 const loading = ref(false)
@@ -193,7 +194,7 @@ watch([currentSession, identityEpoch], ([session, epoch]) => {
 watch([identityEpoch, () => currentSession.value?.canAuthor], ([epoch, author]) => {
   if (!author) recovery.close()
   else void recovery.attach(epoch, () => identityEpoch.value === epoch && currentSession.value?.canAuthor === true)
-}, { immediate: true, flush: 'post' })
+}, { immediate: true })
 
 onMounted(() => {
   void refreshSession(lifetime.signal).catch(() => {
@@ -560,6 +561,7 @@ async function reloadDraft() {
       </p>
       <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
       <ElButton v-if="hasConflict" class="retry" @click="reloadDraft">Load latest revision</ElButton>
+      <p v-if="recoveryChecking" role="status">Checking local draft recovery…</p>
       <label for="article-title">Title</label>
       <ElInput id="article-title" :model-value="original?.title" @update:model-value="edit('title', $event)" placeholder="Write the article title" size="large" :disabled="pending || taxonomyDirty || recoveryBlocked" />
       <p v-if="id === 0 || articleDirty" class="metadata">Save the draft before publishing.</p>

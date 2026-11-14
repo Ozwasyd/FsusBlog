@@ -126,6 +126,8 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
     -f tests/EndToEnd/canvas-scale-verify.sql > "$evidence/canvas-scale-database.txt"
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
   node tests/EndToEnd/article-media-flow.mjs
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == editor-readiness ]]; then
+  node tests/EndToEnd/editor-readiness-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then
   node tests/EndToEnd/private-media-flow.mjs
   if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then
