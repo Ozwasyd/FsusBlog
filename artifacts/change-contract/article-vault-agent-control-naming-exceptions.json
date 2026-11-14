@@ -1,0 +1,44 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/article-vault/linux/LinuxVaultAgentControlSession.cs",
+                "src/article-vault/linux/LinuxVaultAgentGrantLedger.cs",
+                "src/article-vault/linux/LinuxVaultAgentLifecycleJournal.cs",
+                "src/article-vault/linux/LinuxVaultLeaseNative.cs",
+                "src/article-vault/linux/LinuxVaultLocalIpcEndpoint.cs",
+                "src/article-vault/linux/LinuxVaultWriterLeaseScope.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultAgentCanonicalOperationAdapter.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAgentBinding.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAgentCommandReceipt.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAgentDispatchScope.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAgentLifecycle.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAgentLifecycleInventory.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAgentOperationInventory.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAgentRequest.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAgentRescanBoundary.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultEventNormalizer.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultMaterializationInstruction.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultObservationContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultOperationContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultOperationVerifier.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultRescanTracker.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSnapshotAssessment.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultWriterLease.cs",
+                "tools/governance/check-article-vault-agent-control.mjs"
+            ],
+            "reason": "Preserve canonical caller-visible wire fields, protocol reason codes and Linux native ABI spelling; internal C# and JavaScript symbols follow repository conventions."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/article-vault-agent-control.md"
+            ],
+            "reason": "Document the actual caller-visible closed protocol, command and refusal spellings while keeping prose aligned with repository conventions."
+        }
+    ]
+}
