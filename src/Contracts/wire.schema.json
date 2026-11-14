@@ -24,6 +24,7 @@
     "PublicCommentSubmissionResult": 32793,
     "PublicCommentEligibility": 32794,
     "PrivateMediaItems": 32795,
+    "SubscriptionPreferenceRequest": 32890,
     "PrivateMediaUploadState": 32845,
     "ArticleMedia": 32870,
     "ArticleMediaCommand": 32871,
@@ -119,6 +120,8 @@
     "PublicSitePage": "/api/binary/system/page/{slug}",
     "PublicSeo": "/api/binary/system/seo",
     "PublicCompliance": "/api/binary/system/compliance",
+    "SubscriptionEnroll": "/api/v2/subscription/enroll.aeds",
+    "SubscriptionCancel": "/api/v2/subscription/cancel.aeds",
     "CategoryList": "/api/binary/category",
     "TagList": "/api/binary/tag",
     "CategoryMetadata": "/api/binary/category/{id:int}.aeds",
@@ -220,6 +223,7 @@
     "AccessExpiresAtUtc": "X-Fsus-Access-Expires-At-Utc",
     "PowProof": "X-Fsus-Pow-Proof",
     "PowClientNonce": "X-Fsus-Pow-Client-Nonce",
+    "SubscriptionProof": "X-Fsus-Subscription-Proof",
     "ClientMutationId": "X-Fsus-Client-Mutation-Id",
     "SearchIndexGeneration": "X-Fsus-Search-Index-Generation",
     "SearchIndexPages": "X-Fsus-Search-Index-Pages",
@@ -240,6 +244,9 @@
     "PublicCommentBodyBytes": 4096,
     "PublicCommentHandleBytes": 384,
     "PublicCommentFrameBytes": 4533,
+    "SubscriptionEmailBytes": 254,
+    "SubscriptionProofChars": 64,
+    "MaxSubscriptionPreferenceFrameBytes": 278,
     "TaxonomyNameBytes": 512,
     "AdminTaxonomyPageSize": 24,
     "TaxonomyDescriptionBytes": 2000,
@@ -319,6 +326,8 @@
     "MfaCodeCount": 8
   },
   "layouts": {
+    "SubscriptionRssChannel": 1,
+    "SubscriptionEmailChannel": 2,
     "PowChallengeBytes": 204,
     "PowChallengeSaltBytes": 64,
     "PowChallengeTimestampOffset": 68,
@@ -508,6 +517,10 @@
     "PublicCommentSubmissionResult": {
       "frame": "PublicCommentSubmissionResult",
       "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["ModerationStatus", "i32"], ["Replayed", "bool"]]
+    },
+    "SubscriptionPreferenceRequest": {
+      "frame": "SubscriptionPreferenceRequest",
+      "fields": [["Email", "text", "SubscriptionEmailBytes"], ["Channel", "i32"]]
     },
     "DraftTaxonomy": {
       "frame": "DraftTaxonomy",

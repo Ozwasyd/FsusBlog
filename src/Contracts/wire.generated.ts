@@ -12,6 +12,7 @@ export const FrameType = {
   PublicCommentSubmissionResult: 32793,
   PublicCommentEligibility: 32794,
   PrivateMediaItems: 32795,
+  SubscriptionPreferenceRequest: 32890,
   PrivateMediaUploadState: 32845,
   ArticleMedia: 32870,
   ArticleMediaCommand: 32871,
@@ -115,6 +116,9 @@ export const WireLimits = {
   PublicCommentBodyBytes: 4096,
   PublicCommentHandleBytes: 384,
   PublicCommentFrameBytes: 4533,
+  SubscriptionEmailBytes: 254,
+  SubscriptionProofChars: 64,
+  MaxSubscriptionPreferenceFrameBytes: 278,
   TaxonomyNameBytes: 512,
   AdminTaxonomyPageSize: 24,
   TaxonomyDescriptionBytes: 2000,
@@ -195,6 +199,8 @@ export const WireLimits = {
 } as const;
 
 export const WireLayouts = {
+  SubscriptionRssChannel: 1,
+  SubscriptionEmailChannel: 2,
   PowChallengeBytes: 204,
   PowChallengeSaltBytes: 64,
   PowChallengeTimestampOffset: 68,
@@ -373,6 +379,8 @@ export const WireRoutes = {
   PublicSitePage: "/api/binary/system/page/{slug}",
   PublicSeo: "/api/binary/system/seo",
   PublicCompliance: "/api/binary/system/compliance",
+  SubscriptionEnroll: "/api/v2/subscription/enroll.aeds",
+  SubscriptionCancel: "/api/v2/subscription/cancel.aeds",
   CategoryList: "/api/binary/category",
   TagList: "/api/binary/tag",
   CategoryMetadata: "/api/binary/category/{id:int}.aeds",
@@ -475,6 +483,7 @@ export const WireHeaders = {
   AccessExpiresAtUtc: "X-Fsus-Access-Expires-At-Utc",
   PowProof: "X-Fsus-Pow-Proof",
   PowClientNonce: "X-Fsus-Pow-Client-Nonce",
+  SubscriptionProof: "X-Fsus-Subscription-Proof",
   ClientMutationId: "X-Fsus-Client-Mutation-Id",
   SearchIndexGeneration: "X-Fsus-Search-Index-Generation",
   SearchIndexPages: "X-Fsus-Search-Index-Pages",
@@ -677,6 +686,28 @@ export function decodePublicCommentSubmissionResult(payload: Uint8Array): Public
     commentId: reader.i64(),
     moderationStatus: reader.i32(),
     replayed: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface SubscriptionPreferenceRequest {
+  email: string;
+  channel: number;
+}
+
+export function encodeSubscriptionPreferenceRequest(value: SubscriptionPreferenceRequest): Uint8Array {
+  const writer = new PodWriter();
+  writer.text(value.email, WireLimits.SubscriptionEmailBytes);
+  writer.i32(value.channel);
+  return writer.finish();
+}
+
+export function decodeSubscriptionPreferenceRequest(payload: Uint8Array): SubscriptionPreferenceRequest {
+  const reader = new PodReader(payload);
+  const value: SubscriptionPreferenceRequest = {
+    email: reader.text(WireLimits.SubscriptionEmailBytes),
+    channel: reader.i32(),
   };
   reader.finish();
   return value;

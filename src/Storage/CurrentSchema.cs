@@ -63,7 +63,8 @@ internal static partial class CurrentSchema
         "blog_outbox f article_id,revision public.article_revision:article_id,revision"
     ];
 
-    internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken)
+    internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
+        bool? requireSubscription = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -86,7 +87,7 @@ internal static partial class CurrentSchema
                 throw new InvalidOperationException("The database is an isolated legacy import candidate and cannot serve.");
         }
 
-        await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true);
+        await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true, requireSubscription: requireSubscription);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -106,12 +107,18 @@ internal static partial class CurrentSchema
         bool requireAdminIdentity = true, bool requirePublicationHistory = true, bool requireArticleSchedule = true,
         bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion,
         bool requirePublicationRights = true,
-        bool requireCanvasHistory = true, bool? requireArticleMedia = null)
+        bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null)
     {
         if (requireArticleMedia is null)
         {
             await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass('public.article_revision_media') IS NOT NULL", connection, transaction);
             requireArticleMedia = await relation.ExecuteScalarAsync(cancellationToken) is true;
+        }
+        if (requireSubscription is null)
+        {
+            await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
+            relation.Parameters.AddWithValue(SiteSubscriptionRelation);
+            requireSubscription = await relation.ExecuteScalarAsync(cancellationToken) is true;
         }
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(CommentColumns).Concat(MediaColumns)
@@ -121,6 +128,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleSchedule ? ArticleScheduleColumns : [])
             .Concat(requireMediaUpload ? MediaUploadColumns : [])
             .Concat(requireArticleMedia.Value ? ArticleMediaColumns : [])
+            .Concat(requireSubscription.Value ? SiteSubscriptionColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
@@ -132,6 +140,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleSchedule ? ArticleScheduleConstraints : [])
             .Concat(requireMediaUpload ? MediaUploadConstraints : [])
             .Concat(requireArticleMedia.Value ? ArticleMediaConstraints : [])
+            .Concat(requireSubscription.Value ? SiteSubscriptionConstraints : [])
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();

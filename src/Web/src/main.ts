@@ -29,6 +29,7 @@ const router = createRouter({
     ...Object.keys(sitePages).map(slug => ({ path: '/' + slug, name: slug, component: sitePage })),
     { path: '/login', name: 'login', component: () => import('./views/Login.vue') },
     { path: '/admin/identity', name: 'admin-identity', component: () => import('./views/AdminIdentity.vue') },
+    { path: '/subscribe', name: 'subscribe', component: () => import('./views/SubscriptionPreference.vue') },
     { path: '/user/identity/mfa', name: 'security', component: () => import('./views/AccountSecurity.vue') },
     { path: '/user/messagebox', name: 'messages', component: () => import('./views/Messages.vue') },
     { path: '/user/manage/canvas', name: 'canvas', component: canvas },
@@ -52,16 +53,17 @@ router.afterEach((to, from) => {
   // Canonical metadata belongs to the verified HTML response for its original route.
   if (from.name && to.path !== from.path) document.head.querySelector('link[rel="canonical"]')?.remove()
   const authorInventory = to.name === 'article-list' || to.name === 'article-trash'
-  document.documentElement.lang = isSitePageSlug(to.name) || to.name === 'private-media' || authorInventory ? 'zh-CN' : 'en'
+  const subscription = to.name === 'subscribe'
+  document.documentElement.lang = isSitePageSlug(to.name) || to.name === 'private-media' || authorInventory || subscription ? 'zh-CN' : 'en'
   if (to.name === 'article' && !from.name) return
   const title = isSitePageSlug(to.name) ? sitePages[to.name] : (labels[String(to.name)] ?? 'Article')
   document.title = to.name === 'home' ? siteTitle : `${title} · ${siteTitle}`
   document.querySelector('meta[name="robots"]')?.remove()
   if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'admin-identity' || to.name === 'messages' || to.name === 'security' ||
-      to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media' || authorInventory) {
+      to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'canvas' || to.name === 'canvas-document' || to.name === 'private-media' || authorInventory || subscription) {
     const robots = document.createElement('meta')
     robots.name = 'robots'
-    robots.content = 'noindex'
+    robots.content = subscription ? 'noindex, nofollow' : 'noindex'
     document.head.append(robots)
   }
 })
@@ -72,6 +74,7 @@ const labels: Record<string, string> = {
   tag: 'Tag',
   login: 'Log in',
   'admin-identity': 'Administrator access',
+  subscribe: '订阅偏好',
   messages: '我的站内信',
   'private-media': '资产库',
   security: 'Account security',

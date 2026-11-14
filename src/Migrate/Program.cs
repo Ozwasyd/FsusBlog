@@ -42,6 +42,10 @@ internal static partial class Migration
                   private-media-upload schema
                                         Add private resumable upload staging with the server stopped
                   article-private-media Add article revision attachment storage with the server stopped
+                  site-subscription schema
+                                        Add optional subscription storage with the server stopped
+                  site-subscription issue-cancel rss|email
+                                        Issue a short-lived cancellation proof for an email read from stdin
                   admin-identity schema Add the independent administrator schema with the server stopped
                   admin-identity bootstrap HANDLE admin.manage
                                         Create an administrator and issue a one-use Passkey invitation
@@ -184,6 +188,12 @@ internal static partial class Migration
                 case ["article-private-media"]:
                     await InitializeArticleMediaAsync(connection, token);
                     break;
+                case ["site-subscription", "schema"]:
+                    await InitializeSiteSubscriptionAsync(connection, token);
+                    break;
+                case ["site-subscription", "issue-cancel", var channel]:
+                    await IssueSubscriptionCancelAsync(connection, channel, token);
+                    break;
                 case ["admin-identity", .. var adminArguments]:
                     await AdminIdentityAsync(connection, adminArguments, token);
                     break;
@@ -270,7 +280,7 @@ internal static partial class Migration
 
         await RequireEmptyAsync(connection, transaction, token);
         await ExecuteAsync(connection, transaction, schema, token);
-        await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true);
+        await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true, requireSubscription: true);
         await ExecuteAsync(connection, transaction,
             $"INSERT INTO public.v2_schema (singleton, version) VALUES (true, {CurrentSchema.Version})", token);
         await transaction.CommitAsync(token);

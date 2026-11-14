@@ -18,7 +18,7 @@ internal sealed class ServerProcess : IAsyncDisposable
     }
 
     internal static async Task<ServerProcess> Start(string connectionString, CancellationToken cancellationToken,
-        IReadOnlyDictionary<string, string>? settings = null)
+        IReadOnlyDictionary<string, string>? settings = null, Action<HttpRequestMessage>? readinessHeaders = null)
     {
         var host = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet";
         var assembly = Path.Combine(AppContext.BaseDirectory, "FsusBlog.V2.Server.dll");
@@ -74,7 +74,9 @@ internal sealed class ServerProcess : IAsyncDisposable
             var server = new ServerProcess(process, dist, uri);
             try
             {
-                using var ready = await server.Client.GetAsync("/health/ready", cancellationToken);
+                using var request = new HttpRequestMessage(HttpMethod.Get, "/health/ready");
+                readinessHeaders?.Invoke(request);
+                using var ready = await server.Client.SendAsync(request, cancellationToken);
                 if (ready.StatusCode != HttpStatusCode.NoContent)
                     throw new InvalidOperationException($"Integration server did not become ready ({ready.StatusCode}).\n{log}");
                 return server;

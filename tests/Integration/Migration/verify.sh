@@ -181,6 +181,23 @@ FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT count(*) FROM public.article_publication_rights')" == 0 ]]
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT publication_id FROM public.article_publication')" == "$active" ]]
 
+# A new database always has optional subscription storage. A current database from before it still verifies.
+[[ "$("${psql_source[@]}" -qAtc 'SELECT count(*) FROM public.site_subscription')" == 0 ]]
+"${psql_restore[@]}" -c 'DROP TABLE public.site_subscription'
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" \
+  FSUSBLOG_SUBSCRIPTION_HMAC_KEY=000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
+  expect_failure 'relation/column shape mismatch' "${migrate[@]}" site-subscription issue-cancel email <<< 'fixture@example.invalid'
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" site-subscription schema
+"${psql_restore[@]}" -c "INSERT INTO public.site_subscription (email_key,channel,enabled,created_at,unsubscribed_at)
+    VALUES (decode(repeat('ab',32),'hex'),2,false,'2026-01-01 00:00:00+00','2026-01-02 00:00:00+00')"
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" site-subscription schema
+[[ "$("${psql_restore[@]}" -qAtc 'SELECT channel FROM public.site_subscription WHERE NOT enabled AND unsubscribed_at IS NOT NULL')" == 2 ]]
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+"${psql_restore[@]}" -c 'ALTER TABLE public.site_subscription DROP CONSTRAINT site_subscription_channel_check'
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'constraint shape mismatch' "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'constraint shape mismatch' "${migrate[@]}" site-subscription schema
+
 "${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 2'
 expect_failure 'unexpected-identity-sequence' "${migrate[@]}" verify
 "${psql_source[@]}" -c 'ALTER SEQUENCE public.article_id_seq INCREMENT BY 1'

@@ -13,6 +13,7 @@ public enum FrameType : ushort
     PublicCommentSubmissionResult = 32793,
     PublicCommentEligibility = 32794,
     PrivateMediaItems = 32795,
+    SubscriptionPreferenceRequest = 32890,
     PrivateMediaUploadState = 32845,
     ArticleMedia = 32870,
     ArticleMediaCommand = 32871,
@@ -118,6 +119,9 @@ public static class WireLimits
     public const int PublicCommentBodyBytes = 4096;
     public const int PublicCommentHandleBytes = 384;
     public const int PublicCommentFrameBytes = 4533;
+    public const int SubscriptionEmailBytes = 254;
+    public const int SubscriptionProofChars = 64;
+    public const int MaxSubscriptionPreferenceFrameBytes = 278;
     public const int TaxonomyNameBytes = 512;
     public const int AdminTaxonomyPageSize = 24;
     public const int TaxonomyDescriptionBytes = 2000;
@@ -199,6 +203,8 @@ public static class WireLimits
 
 public static class WireLayouts
 {
+    public const int SubscriptionRssChannel = 1;
+    public const int SubscriptionEmailChannel = 2;
     public const int PowChallengeBytes = 204;
     public const int PowChallengeSaltBytes = 64;
     public const int PowChallengeTimestampOffset = 68;
@@ -378,6 +384,8 @@ public static class WireRoutes
     public const string PublicSitePage = "/api/binary/system/page/{slug}";
     public const string PublicSeo = "/api/binary/system/seo";
     public const string PublicCompliance = "/api/binary/system/compliance";
+    public const string SubscriptionEnroll = "/api/v2/subscription/enroll.aeds";
+    public const string SubscriptionCancel = "/api/v2/subscription/cancel.aeds";
     public const string CategoryList = "/api/binary/category";
     public const string TagList = "/api/binary/tag";
     public const string CategoryMetadata = "/api/binary/category/{id:int}.aeds";
@@ -481,6 +489,7 @@ public static class WireHeaders
     public const string AccessExpiresAtUtc = "X-Fsus-Access-Expires-At-Utc";
     public const string PowProof = "X-Fsus-Pow-Proof";
     public const string PowClientNonce = "X-Fsus-Pow-Client-Nonce";
+    public const string SubscriptionProof = "X-Fsus-Subscription-Proof";
     public const string ClientMutationId = "X-Fsus-Client-Mutation-Id";
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
@@ -500,6 +509,7 @@ public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
 public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
 public sealed record PublicCommentSubmissionResult(int ArticleId, long CommentId, int ModerationStatus, bool Replayed);
+public sealed record SubscriptionPreferenceRequest(string Email, int Channel);
 public sealed record DraftTaxonomy(int Id, long Revision, int CategoryId, IReadOnlyList<int> TagIds);
 public sealed record TaxonomyAssignment(int Id, long ExpectedRevision, Guid IdempotencyKey, int CategoryId, IReadOnlyList<int> TagIds);
 public sealed record SignIn(string Ticket);
@@ -659,6 +669,24 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.PublicCommentSubmissionResult));
         var value = new PublicCommentSubmissionResult(reader.I32(), reader.I64(), reader.I32(), reader.Bool());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeSubscriptionPreferenceRequest(SubscriptionPreferenceRequest value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Text(value.Email, WireLimits.SubscriptionEmailBytes);
+        writer.I32(value.Channel);
+        return Aeds.Encode(FrameType.SubscriptionPreferenceRequest, writer.Written);
+    }
+
+    public static SubscriptionPreferenceRequest DecodeSubscriptionPreferenceRequest(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.SubscriptionPreferenceRequest));
+        var value = new SubscriptionPreferenceRequest(reader.Text(WireLimits.SubscriptionEmailBytes), reader.I32());
         reader.Finish();
         Validate(value);
         return value;

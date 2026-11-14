@@ -27,6 +27,9 @@ inline constexpr uint32_t PrivateMediaBytes = 20971520;
 inline constexpr uint32_t PublicCommentBodyBytes = 4096;
 inline constexpr uint32_t PublicCommentHandleBytes = 384;
 inline constexpr uint32_t PublicCommentFrameBytes = 4533;
+inline constexpr uint32_t SubscriptionEmailBytes = 254;
+inline constexpr uint32_t SubscriptionProofChars = 64;
+inline constexpr uint32_t MaxSubscriptionPreferenceFrameBytes = 278;
 inline constexpr uint32_t TaxonomyNameBytes = 512;
 inline constexpr uint32_t AdminTaxonomyPageSize = 24;
 inline constexpr uint32_t TaxonomyDescriptionBytes = 2000;
@@ -107,6 +110,8 @@ inline constexpr uint32_t MfaCodeCount = 8;
 }
 
 namespace layouts {
+inline constexpr uint32_t SubscriptionRssChannel = 1;
+inline constexpr uint32_t SubscriptionEmailChannel = 2;
 inline constexpr uint32_t PowChallengeBytes = 204;
 inline constexpr uint32_t PowChallengeSaltBytes = 64;
 inline constexpr uint32_t PowChallengeTimestampOffset = 68;
@@ -280,6 +285,7 @@ enum class FrameType : uint16_t {
     PublicCommentSubmissionResult = 32793,
     PublicCommentEligibility = 32794,
     PrivateMediaItems = 32795,
+    SubscriptionPreferenceRequest = 32890,
     PrivateMediaUploadState = 32845,
     ArticleMedia = 32870,
     ArticleMediaCommand = 32871,
@@ -372,6 +378,7 @@ constexpr bool known(FrameType type) {
         case FrameType::PublicCommentSubmissionResult:
         case FrameType::PublicCommentEligibility:
         case FrameType::PrivateMediaItems:
+        case FrameType::SubscriptionPreferenceRequest:
         case FrameType::PrivateMediaUploadState:
         case FrameType::ArticleMedia:
         case FrameType::ArticleMediaCommand:

@@ -17,6 +17,7 @@ const string Html = "text/html; charset=utf-8";
 var builder = WebApplication.CreateBuilder(args);
 var trustLoopbackProxy = LoopbackProxy.ReadConfiguration(builder.Configuration);
 var adminIdentity = FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.ReadConfiguration(builder.Configuration);
+var subscription = SubscriptionIdentity.Read(builder.Configuration[SubscriptionIdentity.KeySetting]);
 var evidenceDirectory = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_CONTROL"];
 var connectionString = builder.Configuration["FSUSBLOG_DB"] ?? throw new InvalidOperationException("FSUSBLOG_DB is required.");
 var dist = Path.GetFullPath(builder.Configuration["FSUSBLOG_WEB_DIST"] ?? "src/Web/dist");
@@ -37,6 +38,8 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
     builder.Services.AddSingleton(services => new RuntimeEvidence(evidenceDirectory, output, services.GetRequiredService<IHttpContextAccessor>()));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
+if (subscription is not null && publicSite.Origin is null)
+    throw new InvalidOperationException("Subscription preferences require an explicit public HTTPS origin.");
 builder.Services.AddSingleton(new WebPages(template, publicSite, appearance));
 builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.SitePages(builder.Configuration,
     services.GetRequiredService<WebPages>()));
@@ -73,6 +76,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddConcurrencyLimiter("inbox-stream", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     FsusBlog.V2.Server.Administration.AdminIdentityEndpoints.AddRateLimits(options);
     FsusBlog.V2.Server.Content.MediaEndpoints.AddRateLimits(options);
+    if (subscription is not null) SubscriptionEndpoints.AddRateLimits(options);
 });
 
 await using var app = builder.Build();
@@ -95,7 +99,7 @@ if (app.Services.GetService<RuntimeEvidence>() is { } runtimeEvidence)
 }
 var lease = app.Services.GetRequiredService<InstanceLease>();
 using var stopLease = app.Lifetime.ApplicationStopping.Register(lease.Stop);
-await lease.Start(app.Logger, app.Lifetime.ApplicationStopping);
+await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscription: subscription is null ? null : true);
 var publications = app.Services.GetRequiredService<Publications>();
 app.Logger.LogInformation("Building initial public projection from current PostgreSQL schema.");
 await publications.Refresh(CancellationToken.None);
@@ -186,6 +190,7 @@ if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor, Cookie, ReadFrame);
 app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
 publicSite.Map(app);
+if (subscription is not null) SubscriptionEndpoints.Map(app, subscription, publicSite.Origin!, ReadFrame);
 FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,
     app.Services.GetRequiredService<FsusBlog.V2.Server.Content.DistributionSettings>());
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
