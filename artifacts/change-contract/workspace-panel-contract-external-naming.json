@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringWorkspacePanelContract.cs"
+            ],
+            "reason": "Preserve registered external process spelling on the governed C# surface; the new panel API uses the repository C# identifier mapping and introduces no environment-variable aliases."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md",
+                "docs/security/authoring-extension-capability-isolation.md"
+            ],
+            "reason": "Preserve external CSS and host-contract terminology while documenting the closed panel plain-text subset; these current documents do not rename external interfaces."
+        }
+    ]
+}

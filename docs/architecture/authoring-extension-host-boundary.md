@@ -42,6 +42,45 @@ service broker, RPC, permission, lifecycle, budget enforcement, and concrete
 contribution behavior belong to later child boundaries; these enum values are not
 evidence that any such runtime is active.
 
+## Workspace panel declaration admission
+
+`AuthoringWorkspacePanelContract` is the server-only version-one declaration,
+read-model and slot-admission boundary for `WorkspacePanel` contributions. It
+revalidates the existing extension contract and exact contribution kind without
+extending the total manifest or RPC registry. A declaration binds the panel,
+extension/version/package/content/contract, contribution, requested host slot,
+closed role, minimum/maximum/preferred logical size, fixed model schema, exact
+host command references, platforms/viewports, resource ceilings and release/cancel
+policy. Models contain only text, key/value, status or host-command reference
+nodes; no component/props, HTML, CSS, SVG, iframe, callback or mutation plan exists.
+
+The host must supply its real slot roster and reserved core IDs, post-zoom slot
+and viewport dimensions, remaining editor width for the proposed set, platform,
+viewport, active counts/caps, command roster, resource use/ceilings, current exact
+instance binding, enabled/permission observations and visibility. There are no
+default slots, guessed layout facts or permission grants. Unknown or core-conflict
+slots, malformed/duplicate fields and nodes, identity/digest drift, and unsupported
+union values refuse. Model/runtime/workspace/snapshot/group/tab/document epoch,
+revision, lifecycle generation and request identity must match the host input.
+
+The whole set is checked before returning results. Ordinal panel order makes
+capacity consumption deterministic across 0/1/100/1000 declarations; active caps,
+per-slot caps, aggregate resource and payload bounds remain enforced. Legitimate
+unsupported platform/role/viewport, insufficient preferred size/editor width,
+permission/disabled state and exhausted capacity return closed blocked statuses.
+Mobile returns unsupported or requires a host Drawer; it never admits a desktop
+panel or creates navigation. A hidden/collapsed/offscreen model must have empty
+nodes and zero observed retained resources. This validates supplied observations;
+it does not stop workers, timers or requests itself.
+
+Admission records bind hashes and closed status, omitting read-model text and
+raw document IDs. Digests provide content identity, not signatures, consent or
+proof that host observations are current. The current slice is document-bound
+only. Real #1854/#1855/#1856 slot/layout/snapshot ownership, renderer/Drawer and
+commands, cancellation and cleanup, restore/reconciliation, keyboard/a11y/theme
+and runtime receipt verification remain separate product integration work. No
+panel is registered, persisted or rendered by this source contract.
+
 ## Identity and core non-overlap
 
 Contract identity hashes the canonical manifest together with the schema, host API,

@@ -204,6 +204,27 @@ receives no command feed until a reviewed internal owner exists; the fixture and
 test executor are evidence for consumer behavior only, not a production adapter
 or permission boundary.
 
+## Workspace panel model boundary
+
+The dedicated version-one `AuthoringWorkspacePanelContract` accepts a bounded
+read-only node union and host-command IDs under an exact verified `WorkspacePanel`
+contribution. JSON rejects unknown, missing and duplicate fields; typed input
+retains the same identity, enum, text, node, size and resource bounds. Markup and
+style-like values are refused by the plain-text subset; this is not an HTML/CSS
+sanitizer or a rendering permission. Arbitrary components, props, callbacks,
+mutation payloads and plugin-created core slots have no representation.
+
+All slot/layout/currentness/permission observations are explicit trusted host
+inputs. A caller-computed digest cannot manufacture those observations. The
+validator invents no core/extension slot registry, editor minimum, viewport,
+platform, capacity or budget. Request and workspace/document/lifecycle drift are
+refused even when a plugin recomputes its model digest. Nonvisible panels require
+empty model nodes and zero observed retained resources; actual stopping, release
+and restart reconciliation require the later lifecycle/host owner. Admission is
+pure validation and does not call RPC, mutate a document, execute a command,
+persist geometry, create UI or issue capabilities. Real host composition and
+visual/runtime/security qualification remain unimplemented for this slice.
+
 ## Lifecycle revocation and state ownership
 
 Lifecycle receipts are closed, monotonically sequenced, generation-bound, and
