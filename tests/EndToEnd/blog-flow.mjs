@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { api } from '../../src/Contracts/client.ts'
 import { WireRoutes } from '../../src/Contracts/wire.generated.ts'
+import { exerciseWorkspace } from './workspace-flow.mjs'
 
 const tools = createRequire(new URL('../../src/Web/package.json', import.meta.url))
 const { chromium } = tools('@playwright/test')
@@ -212,6 +213,8 @@ try {
   await visible(publisher.getByText('Draft saved.', { exact: true }))
   assert(!(await durableRecords()).some(item => item.document === `article:${writtenId}`))
   observations.push('The author inspects and restores an unconfirmed IndexedDB draft in a new page. Server acknowledgement purges it.')
+
+  await exerciseWorkspace({ page: publisher, origin, article: { id: writtenId, title, body }, screenshot: screen, monitor, token, observations })
 
   if (config.publicFixture) {
     await publisher.getByRole('combobox', { name: 'Category', exact: true }).click()

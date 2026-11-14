@@ -214,7 +214,7 @@ Mutation(WireRoutes.Delete, ArticleAction.Delete);
 var shell = app.Services.GetRequiredService<WebPages>().Page();
 app.MapGet("/", (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Home, Html));
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
-foreach (var route in new[] { "/archive", "/search", "/login", "/user/identity/mfa", "/user/messagebox", "/user/manage/article/write", "/user/manage/article/edit/{id:int}" })
+foreach (var route in new[] { "/archive", "/search", "/login", "/user/identity/mfa", "/user/messagebox", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
 app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.StatusCode(publications.Snapshot is null ? 503 : 204); });
 app.MapFallback("/api/{**rest}", ctx => Error(ctx, 404, "Unknown API route.").ExecuteAsync(ctx));

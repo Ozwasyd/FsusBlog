@@ -286,3 +286,63 @@ test('100 pinned tabs stay bounded and existing sessions still activate at capac
   assert.equal((await activate(registry, 1, 'other-group')).group, 'main')
   assert.deepEqual(registry.tabs.filter(tab => tab.active).map(tab => tab.articleId), [1])
 })
+
+test('returning to an inactive session rechecks authority without overwriting dirty text', async () => {
+  let revision = 1n
+  let permission = true
+  const registry = setup({
+    load: async id => id === 1 && !permission ? { kind: 'blocked', reason: 'forbidden' } :
+      { kind: 'ready', draft: draft(id, id === 1 ? revision : 1n, 'server') },
+  })
+  const one = await activate(registry, 1, 'first')
+  registry.updateDraft(one, draft(1, 1n, 'local'))
+  const other = await activate(registry, 2)
+  revision = 2n
+  await activate(registry, 1)
+  assert.equal(registry.activeDraft?.body, 'local')
+  assert.equal(registry.activeTab?.risk, 'conflict')
+  await activate(registry, 2)
+  permission = false
+  assert.deepEqual(await registry.openOrActivate(1), { kind: 'blocked', reason: 'forbidden' })
+  assert.equal(registry.activeTab?.articleId, other.articleId)
+  assert.equal(registry.tabs.find(tab => tab.articleId === 1)?.risk, 'blocked')
+})
+
+test('a superseded route guard cannot replace the existing preview', async () => {
+  const pending = deferred<DraftLoad<Draft>>()
+  const registry = setup({ load: async id => id === 2 ? pending.promise : { kind: 'ready', draft: draft(id) } })
+  await activate(registry, 1)
+  let admissible = true
+  const activation = registry.openOrActivate(2, 'main', 'preview', () => admissible)
+  admissible = false
+  pending.resolve({ kind: 'ready', draft: draft(2) })
+  assert.deepEqual(await activation, { kind: 'superseded' })
+  assert.deepEqual(registry.tabs.map(tab => tab.articleId), [1])
+  assert.equal(registry.activeTab?.articleId, 1)
+})
+
+test('idle retains scoped tabs and recently closed entries are bounded and never disclose old titles', async () => {
+  const registry = new WorkspaceRegistry({
+    load: async id => ({ kind: 'ready', draft: { id, revision: 1n, title: `Private ${id}` } }),
+    save: async draft => ({ kind: 'saved', draft }),
+  })
+  registry.setIdentity(author)
+  for (let id = 1; id < 18; id++) {
+    const result = await registry.openOrActivate(id, 'one', 'pinned')
+    assert.equal(result.kind, 'ready')
+    assert.equal(result.tab.title, `Private ${id}`)
+    assert.equal(registry.requestClose(result.tab).kind, 'closed')
+  }
+  assert.equal(registry.recentlyClosed.length, 12)
+  assert.equal(registry.recentlyClosed[0].title, 'Article 17')
+  const restored = await registry.openOrActivate(17, 'one', 'pinned')
+  assert.equal(restored.kind, 'ready')
+  assert.equal(restored.tab.title, 'Private 17')
+  registry.idle()
+  assert.equal(registry.activeTab, undefined)
+  assert.equal(registry.tabs.length, 1)
+  assert.equal(registry.recentlyClosed.length, 11)
+  registry.setIdentity(null)
+  assert.deepEqual(registry.tabs, [])
+  assert.deepEqual(registry.recentlyClosed, [])
+})

@@ -22,7 +22,7 @@ const navigation = [
   { key: 'archive', label: 'Archive', href: '/archive' },
   { key: 'about', label: sitePages.about, href: '/about' },
 ]
-const accountArea = computed(() => route.name === 'write' || route.name === 'edit' || route.name === 'messages' || route.name === 'security')
+const accountArea = computed(() => route.name === 'write' || route.name === 'edit' || route.name === 'article-workspace' || route.name === 'messages' || route.name === 'security')
 const ownerPath = '/user/manage/article/write'
 const authHref = computed(() => currentSession.value?.canAuthor ? ownerPath : '/login')
 const authLabel = computed(() => currentSession.value?.canAuthor ? 'Write' : 'Log in')

@@ -1,0 +1,15 @@
+# 文章工作区
+
+打开、激活、固定、关闭和恢复共用 `WorkspaceRegistry`。标签从 registry 投影，路由负责导航。同一文章在工作区内只有一个会话。通过标签、文章 ID 入口和浏览器前进后退切换时，真实草稿读取或已有会话校验完成后才激活，失败则标记不可用并保留当前编辑。新浏览器标签使用独立路由，不向原工作区注册。
+
+预览只会替换同组内已有且干净的预览。编辑和显式固定都会固定标签。切换回来会重新检查授权和持久化修订，有新修订时保护本机内容并显示冲突。关闭含未确认内容的标签需要确认。待处理请求禁止直接关闭。最近关闭仅保存最多 12 条同账户的文章 ID 和固定模式，重新打开要加载当前授权的草稿。
+
+桌面按活动标签位置投影最多 24 个标签，溢出每页最多 12 个，375px 下使用当前文章切换器。键盘以 Arrow、Home、End 移动焦点，以 Enter 或 Space 激活。Delete 和中键请求关闭。取消关闭后焦点返回原控件。路由最多挂载一个 FsusUI Markdown 编辑面，当前 registry 最多容纳 100 个会话。
+
+固定 v1 提交的标签栏位于编辑区之前，窄屏只显示当前标题和切换入口，标签不展示文章详情。v2 保留这些关系和交互。v1 另有 Rail、Quick Switcher 和跨组布局合同。v2 已提供共享打开命令和按 ID 入口，完整 Rail、跨组布局及全量 Quick Switcher 交互仍待接入。 [v1 标签组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/admin/article/ArticleWorkspaceTabStrip.vue) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296)
+
+编辑器使用本地 FsusUI 的公开 `documentIdentity` 切换上下文。每篇文章保留正文、修订和未保存状态。当前 FsusUI 的公开切换会重建选择和撤销历史，切换后不能宣称完整恢复旧 FsusUI 会话。完整挂起及恢复仍需可验证的编辑器快照接口。 [#2294](https://github.com/Ozwasyd/FsusBlog/issues/2294)
+
+Registry 单元验证覆盖 100 会话、组内预览替换、异步加载失效、跨身份退回、权限撤销、远端修订冲突及最近关闭容量。单独使用 Chrome 验证了 33 条标签投影的桌面和溢出上限、键盘焦点、固定和窄屏切换。当前环境未提供 Browser 技能，本机测试使用项目的 Playwright 和已安装的 Chrome。
+
+原生 PostgreSQL、Kestrel 与 Chrome 联合测试通过实际延迟草稿响应、找不到文章、预览替换、固定标签保留未保存文字、键盘与浏览器历史、375px 窄屏、取消关闭后焦点、最近关闭重开及独立浏览器标签。服务与数据库清理通过。 [本机浏览器证据](../../artifacts/workspace-combined-20261114-scoped/browser-result.json)

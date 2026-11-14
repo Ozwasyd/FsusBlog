@@ -1,6 +1,6 @@
 # 创作模块实现与验收边界
 
-`WorkspaceRegistry` 记录文章与编辑会话的一对一关系。重复打开会激活原所属组，失败的加载不会产生标签。首次保存新建草稿时沿用原会话，服务器返回的文章 ID 成为正式身份。保存结果不覆盖请求发出后的编辑。请求结果不确定时，重试沿用原正文、期望修订和幂等键。身份切换、到期或会话撤销后，旧请求不能回写当前会话。编辑页使用该 registry 管理草稿，现阶段需要独立验收完整标签栏、分组、所有打开入口、真实编辑器挂起与恢复，以及崩溃后恢复界面。 [#2293](https://github.com/Ozwasyd/FsusBlog/issues/2293) · [#2294](https://github.com/Ozwasyd/FsusBlog/issues/2294) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296) · [#4234](https://github.com/Ozwasyd/FsusBlog/issues/4234)
+`WorkspaceRegistry` 记录文章与编辑会话的一对一关系。重复打开会激活原所属组，失败的加载不会产生标签。首次保存新建草稿时沿用原会话，服务器返回的文章 ID 成为正式身份。保存结果不覆盖请求发出后的编辑。请求结果不确定时，重试沿用原正文、期望修订和幂等键。身份切换、到期或会话撤销后，旧请求不能回写当前会话。桌面标签、窄屏切换和最近关闭入口接入同一 registry；可见分组、完整快捷切换入口和 FsusUI 会话快照仍待交付。 [文章工作区](article-workspace.md) · [#2293](https://github.com/Ozwasyd/FsusBlog/issues/2293) · [#2294](https://github.com/Ozwasyd/FsusBlog/issues/2294) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296) · [#4234](https://github.com/Ozwasyd/FsusBlog/issues/4234)
 
 `DraftJournal` 已接入编辑页。服务端通过仅作者可读的 `/api/v2/authoring/recovery-scope.aeds` 确认稳定的账户 UUID 与数据库站点 UUID。站点 UUID 随离线安装生成，重启和完整数据库备份恢复后保留。浏览器 IndexedDB 以明文保存尚未确认的标题及正文，最长 168 小时。能访问同源浏览器资料的主体可以读取存储。各标签写入独立记录，账户范围的清理会原子推进代次，阻止旧标签复写。已保存文章按文章 ID 查找，尚未保存的新文章使用独立草稿 UUID。恢复前显示服务器和本机版本，作者可以恢复或丢弃。确认保存后清理对应编辑序号，后来的编辑继续保留。存储不可用时可直接保存到服务器。 [#1813](https://github.com/Ozwasyd/FsusBlog/issues/1813)
 
