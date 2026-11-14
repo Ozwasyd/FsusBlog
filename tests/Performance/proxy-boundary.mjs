@@ -32,7 +32,8 @@ function send(origin, path, { headers = {}, body, method = 'GET', trustFixture =
   });
 }
 
-await assert.rejects(send(publicOrigin, '/health/ready', { trustFixture: false }), { code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' });
+await assert.rejects(send(publicOrigin, '/health/ready', { trustFixture: false }),
+  error => ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY'].includes(error.code));
 assert.equal((await send(upstream, '/health/ready')).status, 400);
 assert.equal((await send(publicOrigin, '/health/ready')).status, 204);
 const spoofed = {
