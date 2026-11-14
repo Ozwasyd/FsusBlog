@@ -39,10 +39,10 @@ case "$REUSE_BUILD_OUTPUTS" in
         ;;
 esac
 
-if [[ "$REUSE_BUILD_OUTPUTS" == "1" \
-    && -n "${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}" \
-    && "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" == "build-static" \
-    && "${FSUSBLOG_STEP_ID:-}" == "production-build-artifacts" ]]; then
+if [[ "$REUSE_BUILD_OUTPUTS" == "1" &&
+    -n "${FSUSBLOG_PRODUCTION_BUILD_ROOT:-}" &&
+    "${FSUSBLOG_PHYSICAL_BUNDLE_ID:-}" == "build-static" &&
+    "${FSUSBLOG_STEP_ID:-}" == "production-build-artifacts" ]]; then
     node "$ROOT_DIR/tools/test-matrix/content-addressed-build-cache.mjs" wait-summary
 fi
 
@@ -151,7 +151,8 @@ fi
 if [[ "$REUSE_BUILD_OUTPUTS" != "1" ]] && HasDomain test-runtime; then
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/src/migration/FsusBlog.Migration.csproj" \
-        -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false
+        -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false \
+        -p:FsusBlogCommitSha="${FSUSBLOG_TEST_SOURCE_COMMIT:?production build source commit is required}"
     "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
         "$ROOT_DIR/tools/build-with-data-env.sh" dotnet build "$ROOT_DIR/tests/backend/FsusBlog.Server.Tests.csproj" \
         -c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal /p:NuGetAudit=false

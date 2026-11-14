@@ -2180,8 +2180,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:ef9b10c9bddc2fdeb7c47c28877afeb088280bf8df86d776e3d37bc17d603caa",
-            "indexDigest": "sha256:ef9b10c9bddc2fdeb7c47c28877afeb088280bf8df86d776e3d37bc17d603caa"
+            "contentDigest": "sha256:497c4eb52b90f39a463105cd128e25c2e2b412902589e19afe723c6a1af6298f",
+            "indexDigest": "sha256:497c4eb52b90f39a463105cd128e25c2e2b412902589e19afe723c6a1af6298f"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -5185,8 +5185,8 @@
         },
         {
             "path": "tools/test/lanes/production-build-artifacts.sh",
-            "contentDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
-            "indexDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a"
+            "contentDigest": "sha256:2565196ae68d20fe7167c3da68d6d1b4f7a3bc1f93d7852fb2a6d552157908fa",
+            "indexDigest": "sha256:2565196ae68d20fe7167c3da68d6d1b4f7a3bc1f93d7852fb2a6d552157908fa"
         },
         {
             "path": "tools/test/lanes/project-privacy-zk-prebuild.mjs",
@@ -33528,8 +33528,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
-            "indexDigest": "sha256:d25896faecd7997731f5aeab7e6bc0e9ba073e295be3670c7653495876da428a",
+            "contentDigest": "sha256:2565196ae68d20fe7167c3da68d6d1b4f7a3bc1f93d7852fb2a6d552157908fa",
+            "indexDigest": "sha256:2565196ae68d20fe7167c3da68d6d1b4f7a3bc1f93d7852fb2a6d552157908fa",
             "dependencyClosure": [
                 "src/backend/FsusBlog.Server.csproj",
                 "src/frontend/package.json",
