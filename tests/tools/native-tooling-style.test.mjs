@@ -11,6 +11,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const checker = path.join(root, 'tools/style/check-native-tooling-style.mjs');
 const sourcePolicy = JSON.parse(fs.readFileSync(path.join(root, 'config/development/native-tooling-style-policy.json'), 'utf8'));
 const fixtureSource = path.join(root, 'tests/fixtures/native-tooling-style');
+const markdownPackage = 'tools/style/markdown-toolchain/node_modules/markdownlint-cli2';
+const markdownBinary = `${markdownPackage}/markdownlint-cli2-bin.mjs`;
 
 function WriteFile(fixtureRoot, relativePath, content)
 {
@@ -545,19 +547,16 @@ test('native tooling style governance invokes Markdownlint once for the complete
     {
         CopyCase(fixtureRoot, 'valid');
         WriteFile(fixtureRoot, 'sample/SecondGuide.md', '# Second guide\n');
-        const bin = path.join(fixtureRoot, 'bin');
         const capture = path.join(fixtureRoot, 'markdownlint.args');
         WriteFile(
             fixtureRoot,
-            'bin/markdownlint-cli2',
-            '#!/usr/bin/env bash\nset -euo pipefail\nprintf \'%s\\n\' "$@" > "${FSUSBLOG_MARKDOWNLINT_CAPTURE}"\n'
+            markdownBinary,
+            'import fs from \'node:fs\';\nfs.writeFileSync(process.env.FSUSBLOG_MARKDOWNLINT_CAPTURE, process.argv.slice(2).join(\'\\n\') + \'\\n\');\n'
         );
-        fs.chmodSync(path.join(bin, 'markdownlint-cli2'), 0o755);
 
         const result = RunChecker(fixtureRoot, ['sample/Guide.md', 'sample/SecondGuide.md'], [], {
             FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
-            FSUSBLOG_MARKDOWNLINT_CAPTURE: capture,
-            PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`
+            FSUSBLOG_MARKDOWNLINT_CAPTURE: capture
         });
         assert.equal(result.status, 0, Output(result));
         assert.deepEqual(fs.readFileSync(capture, 'utf8').trim().split('\n'), [
@@ -576,23 +575,17 @@ test('native tooling style governance aggregates every Markdownlint diagnostic f
     {
         CopyCase(fixtureRoot, 'valid');
         WriteFile(fixtureRoot, 'sample/SecondGuide.md', '# Second guide\n');
-        const bin = path.join(fixtureRoot, 'bin');
         WriteFile(
             fixtureRoot,
-            'bin/markdownlint-cli2',
-            `#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' \
-    'sample/Guide.md:2 error MD012/no-multiple-blanks Multiple consecutive blank lines' \
-    'sample/SecondGuide.md:1:1 error MD041/first-line-h1 First line must be a top-level heading' >&2
-exit 1
+            markdownBinary,
+            `console.error('sample/Guide.md:2 error MD012/no-multiple-blanks Multiple consecutive blank lines');
+console.error('sample/SecondGuide.md:1:1 error MD041/first-line-h1 First line must be a top-level heading');
+process.exitCode = 1;
 `
         );
-        fs.chmodSync(path.join(bin, 'markdownlint-cli2'), 0o755);
 
         const result = RunChecker(fixtureRoot, ['sample/Guide.md', 'sample/SecondGuide.md'], [], {
-            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
-            PATH: `${bin}${path.delimiter}${process.env.PATH ?? ''}`
+            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0'
         });
         const output = Output(result);
         assert.notEqual(result.status, 0);
@@ -853,18 +846,52 @@ function FragmentDocument()
     return `# API fragment fixture\n\n${record.anchors.map((entry) => `<a id="${entry.id}"></a>\n\n${entry.heading}\n\nMaintained section.\n`).join('\n')}`;
 }
 
-function ActualMarkdownlintEnvironment()
+function ActualMarkdownlintEnvironment(fixtureRoot)
 {
-    const binary = (process.env.PATH ?? '').split(path.delimiter)
-        .map((directory) => path.join(directory, 'markdownlint-cli2'))
-        .find((file) =>
-        {
-            try { fs.accessSync(file, fs.constants.X_OK); return true; }
-            catch { return false; }
-        });
-    assert.ok(binary, 'required actual Markdownlint CLI is unavailable; no parser qualification from mocks');
+    const installed = path.join(root, markdownPackage);
+    assert.ok(fs.existsSync(path.join(root, markdownBinary)),
+        'required actual Markdownlint CLI is unavailable; run npm ci --ignore-scripts --prefix tools/style/markdown-toolchain');
+    const target = path.join(fixtureRoot, markdownPackage);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.symlinkSync(installed, target, 'dir');
     return { FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0' };
 }
+
+test('native Markdown toolchain runs actual positive and invalid Markdown through the original checker', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const file = 'sample/Guide.md';
+        WriteFile(fixtureRoot, file, '# Guide\n\nValid Markdown.\n');
+        const environment = ActualMarkdownlintEnvironment(fixtureRoot);
+        const positive = RunChecker(fixtureRoot, [file], ['--require-tools'], environment);
+        assert.equal(positive.status, 0, Output(positive));
+        WriteFile(fixtureRoot, file, '# Guide\n\n\nInvalid Markdown.\n');
+        const invalid = RunChecker(fixtureRoot, [file], ['--require-tools'], environment);
+        assert.equal(invalid.status, 1, Output(invalid));
+        assert.match(Output(invalid), /markdownlint-md012:/u);
+    });
+});
+
+test('native Markdown toolchain missing install refuses global PATH and NODE_PATH substitutes', () =>
+{
+    WithFixture((fixtureRoot) =>
+    {
+        const file = 'sample/Guide.md';
+        WriteFile(fixtureRoot, file, '# Guide\n');
+        const marker = path.join(fixtureRoot, 'global-entered');
+        WriteFile(fixtureRoot, 'bin/markdownlint-cli2', `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(marker)}, 'entered');\n`);
+        fs.chmodSync(path.join(fixtureRoot, 'bin/markdownlint-cli2'), 0o755);
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], {
+            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
+            PATH: `${path.join(fixtureRoot, 'bin')}${path.delimiter}${process.env.PATH ?? ''}`,
+            NODE_PATH: path.join(root, 'tools/style/markdown-toolchain/node_modules')
+        });
+        assert.equal(result.status, 1, Output(result));
+        assert.match(Output(result), /missing-tool: markdownlint-cli2.*npm ci --ignore-scripts --prefix tools\/style\/markdown-toolchain/u);
+        assert.equal(fs.existsSync(marker), false);
+    });
+});
 
 test('native fragment compatibility retains nine raw actual CLI findings while binding complete parser spans', () =>
 {
@@ -873,8 +900,8 @@ test('native fragment compatibility retains nine raw actual CLI findings while b
         const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
         const content = FragmentDocument();
         WriteFile(fixtureRoot, file, content);
-        const environment = ActualMarkdownlintEnvironment();
-        const raw = spawnSync('markdownlint-cli2', ['--config', '.markdownlint-cli2.jsonc', '--no-globs', `:${file}`], {
+        const environment = ActualMarkdownlintEnvironment(fixtureRoot);
+        const raw = spawnSync(process.execPath, [path.join(root, markdownBinary), '--config', '.markdownlint-cli2.jsonc', '--no-globs', `:${file}`], {
             cwd: fixtureRoot, env: { ...process.env, ...environment }, encoding: 'utf8', timeout: 60_000
         });
         assert.equal(raw.status, 1, Output(raw));
@@ -893,7 +920,7 @@ test('native fragment compatibility allows real line shifts without identity or 
     {
         const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
         WriteFile(fixtureRoot, file, FragmentDocument().replace('# API fragment fixture\n\n', '# API fragment fixture\n\nNew introductory prose.\n\n'));
-        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment());
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment(fixtureRoot));
         assert.equal(result.status, 0, Output(result));
         assert.match(result.stdout, /compatibility-aliases=9 raw-markdownlint-exit=1/u);
     });
@@ -935,7 +962,7 @@ for (const [name, mutate] of [
         {
             const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
             WriteFile(fixtureRoot, file, mutate(FragmentDocument()));
-            const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment());
+            const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment(fixtureRoot));
             assert.notEqual(result.status, 0, Output(result));
             assert.match(Output(result), /markdown-anchor-(?:source|span)|markdownlint-md033/u);
         });
@@ -948,7 +975,7 @@ test('native fragment compatibility never carries to another actual document', (
     {
         const file = 'docs/api/other-schema.md';
         WriteFile(fixtureRoot, file, FragmentDocument());
-        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment());
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment(fixtureRoot));
         assert.notEqual(result.status, 0, Output(result));
         assert.equal([...Output(result).matchAll(/markdownlint-md033:/gu)].length, 9, Output(result));
         assert.doesNotMatch(result.stdout, /compatibility-aliases=/u);
@@ -999,11 +1026,9 @@ test('native fragment rejects a text-only mock executable instead of granting sp
     {
         const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
         WriteFile(fixtureRoot, file, FragmentDocument());
-        WriteFile(fixtureRoot, 'bin/markdownlint-cli2', '#!/usr/bin/env bash\nexit 0\n');
-        fs.chmodSync(path.join(fixtureRoot, 'bin/markdownlint-cli2'), 0o755);
+        WriteFile(fixtureRoot, markdownBinary, 'process.exitCode = 0;\n');
         const result = RunChecker(fixtureRoot, [file], ['--require-tools'], {
-            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
-            PATH: `${path.join(fixtureRoot, 'bin')}${path.delimiter}${process.env.PATH ?? ''}`
+            FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0'
         });
         assert.notEqual(result.status, 0, Output(result));
         assert.match(Output(result), /markdown-anchor-span/u);
@@ -1018,7 +1043,7 @@ test('native fragment actual CLI configuration errors cannot become compatibilit
         const file = sourcePolicy.markdownCompatibilityAnchors[0].documentPath;
         WriteFile(fixtureRoot, file, FragmentDocument());
         WriteFile(fixtureRoot, '.markdownlint-cli2.jsonc', '{ "config": ');
-        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment());
+        const result = RunChecker(fixtureRoot, [file], ['--require-tools'], ActualMarkdownlintEnvironment(fixtureRoot));
         assert.notEqual(result.status, 0, Output(result));
         assert.match(Output(result), /markdown-anchor-span/u);
         assert.match(Output(result), /markdownlint:/u);
@@ -1082,12 +1107,12 @@ for (const [name, mutate] of [
                 }
             }
             mutate(value);
-            WriteFile(fixtureRoot, 'bin/package.json', JSON.stringify({ name: 'markdownlint-cli2', version: '0.23.1', type: 'module',
-                exports: { '.': './markdownlint-cli2.mjs' }, bin: { 'markdownlint-cli2': './markdownlint-cli2' } }));
-            WriteFile(fixtureRoot, 'bin/markdownlint-cli2', '#!/usr/bin/env node\n');
-            fs.chmodSync(path.join(fixtureRoot, 'bin/markdownlint-cli2'), 0o755);
-            WriteFile(fixtureRoot, 'bin/node_modules/markdownlint-cli2-formatter-default/index.js', 'module.exports = {};\n');
-            WriteFile(fixtureRoot, 'bin/markdownlint-cli2.mjs', `
+            WriteFile(fixtureRoot, `${markdownPackage}/package.json`, JSON.stringify({ name: 'markdownlint-cli2', version: '0.23.1', type: 'module',
+                exports: { '.': './markdownlint-cli2.mjs' }, bin: { 'markdownlint-cli2': './markdownlint-cli2-bin.mjs' } }));
+            WriteFile(fixtureRoot, markdownBinary, '#!/usr/bin/env node\n');
+            fs.chmodSync(path.join(fixtureRoot, markdownBinary), 0o755);
+            WriteFile(fixtureRoot, `${markdownPackage}/node_modules/markdownlint-cli2-formatter-default/index.js`, 'module.exports = {};\n');
+            WriteFile(fixtureRoot, `${markdownPackage}/markdownlint-cli2.mjs`, `
 const value = ${JSON.stringify(value)};
 export async function main(options) {
     for (const entry of value.findings) {
@@ -1101,8 +1126,7 @@ export async function main(options) {
 }
 `);
             const result = RunChecker(fixtureRoot, [file], ['--require-tools'], {
-                FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0',
-                PATH: `${path.join(fixtureRoot, 'bin')}${path.delimiter}${process.env.PATH ?? ''}`
+                FSUSBLOG_STYLE_DISABLE_EXTERNAL_TOOLS: '0'
             });
             assert.notEqual(result.status, 0, Output(result));
             assert.match(Output(result), /markdown-anchor-span/u);

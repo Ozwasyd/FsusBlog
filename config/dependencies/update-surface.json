@@ -1074,6 +1074,22 @@
       ]
     },
     {
+      "id": "npm-markdownlint-cli2-markdown-toolchain",
+      "datasource": "npm",
+      "packageName": "markdownlint-cli2",
+      "manager": "npm",
+      "files": [
+        "tools/style/markdown-toolchain/package.json",
+        "tools/style/markdown-toolchain/package-lock.json"
+      ],
+      "versioning": "npm",
+      "group": "frontend-test-tooling",
+      "stabilityPolicy": "stable-only",
+      "fieldPaths": [
+        "/devDependencies/markdownlint-cli2"
+      ]
+    },
+    {
       "id": "npm-typescript-ts-ast-adapter",
       "datasource": "npm",
       "packageName": "typescript",
