@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { writeStagedFeedFile } from '../../tools/docs/prepare-behavior-doc-nuget.mjs';
+const { writeStagedFeedFile } = await import(new URL('../../tools/docs/prepare-behavior-doc-nuget.mjs', import.meta.url));
 
 test('staged feed retains its sealed mode under a restrictive umask', (context) =>
 {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import test from 'node:test';
 
 test('BehaviorDoc workflow binds the acquisition, offline producer and consumer to one run', () =>
