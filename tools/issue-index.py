@@ -10,6 +10,7 @@ import json
 import re
 from collections import Counter
 from pathlib import Path
+from issue_references import project as project_references
 
 
 CONNECTIONS = {"comments", "labels", "blockedBy", "blocking", "subIssues"}
@@ -253,6 +254,7 @@ if __name__ == "__main__":
     edges = [edge for issue in issues for edge in references(repository, issue)]
     tsv(args.input / "text-reference-candidates.tsv",
         ("sourceIssue", "sourceDocument", "line", "marker", "targetRepository", "targetNumber"), edges)
+    reference_review = project_references(args.input, repository, issues, edges, tsv)
     tsv(args.input / "review-queue.tsv", HEADER, review_queue(issues, edges, coverage))
     missing = [i["number"] for i in issues if i["number"] not in coverage]
     result = {
@@ -260,6 +262,7 @@ if __name__ == "__main__":
         "issuesWithoutDispositionRows": missing,
         "dispositionRows": sum(len(rows) for rows in coverage.values()),
         "explicitTextReferenceCandidates": len(edges),
+        "explicitReferenceReview": reference_review,
         "fullClauseAdjudicationComplete": False,
     }
     (args.input / "review-progress.json").write_text(json.dumps(result, indent=2) + "\n")

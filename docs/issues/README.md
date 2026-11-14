@@ -10,7 +10,8 @@ v1 代码参考为 `2605b438eed8f16d12ddddf033d08a6fa18fcd12`。issue 单独按 
 - [inventory.tsv](inventory.tsv)：按编号列出开放 issue、状态、更新时间、标签、评论数，以及 GitHub 结构化的 blocked by / blocking / parent / sub-issue。只计算 GitHub Issue，排除 Pull Request。
 - [open-issues.ndjson.gz](open-issues.ndjson.gz)：开放 issue 正文与评论快照。只存公开可见读取结果，不保存登录凭据。不是测试 fixture、命令或运行配置。
 - [text-reference-candidates.tsv](text-reference-candidates.tsv)：正文/评论中显式 `Depends on:`、`Parent:`、`Implementation DAG:` 等行的候选。候选带正文/评论 URL 和文本行号；目标可能是 PR、关闭 issue、跨仓 issue 或历史引用。在段落、表格或自由文本里的依赖仍需人工回查。正式关系与文本提及不能混用。
-- [review-queue.tsv](review-queue.tsv)：按开放 issue 索引处置台账；没有映射的主题路由只是分工建议，`acceptanceCase` 的 ID 关联下方的现有条款。若一个 issue 对应多种处置，按分项台账判断。去重覆盖和剩余条款见 [review-progress.json](review-progress.json)。
+- [同仓显式引用核对](text-reference-review.md) 说明文本声明、定向正式关系、逐行语境复核和未核对范围。
+- [review-queue.tsv](review-queue.tsv)：按开放 issue 索引处置台账；`dependencies` 是原候选编号的检索索引，具体语义见显式引用台账。没有映射的主题路由只是分工建议，`acceptanceCase` 的 ID 关联下方的现有条款。若一个 issue 对应多种处置，按分项台账判断。去重覆盖和剩余条款见 [review-progress.json](review-progress.json)。
 - [accepted-priority.tsv](accepted-priority.tsv) 与 [priority-review.md](priority-review.md)：附件九项的子条款、测试映射和剩余边界。
 - `review-<起始编号>-<结束编号>.tsv` 各文件是 issue 范围处置及验收草案；评论没有完成逐条裁决的范围在各表列明。
 - `comments-*.tsv` 关联冻结评论、处置及相应验收。详见 [评论覆盖](comment-progress.json) 和 [从评论纳入的验收用例](comment-findings.md)。
@@ -18,7 +19,7 @@ v1 代码参考为 `2605b438eed8f16d12ddddf033d08a6fa18fcd12`。issue 单独按 
 - [高风险条款的实现对照](risk-trace.md) 特别核对迁移、私有附件、PoW、属性和 Canvas 的正文及评论引用，并记录当前实现、已有运行证据和验收缺口。
 - [发布、分发和身份恢复](risk-release-trace.md) 将固定 v1 契约与当前项目及离线演练逐项对照。[历史评论对应关系](historical-comment-lineage.tsv) 给出 712 条已分类评论的冻结正文摘要及重复来源定位。
 
-可离线重建候选索引，核对评论 URL、时间、处置及验收 ID。命令将重新计算评论与议题覆盖。
+可离线重建候选索引与正式关系，核对冻结的来源位置、评论处置及验收 ID。命令将重新计算各项覆盖。
 
 ```sh
 python3 tools/issue-index.py

@@ -4,5 +4,35 @@
   "issuesWithoutDispositionRows": [],
   "dispositionRows": 885,
   "explicitTextReferenceCandidates": 3516,
+  "explicitReferenceReview": {
+    "sameRepositoryTextCandidateOccurrences": 3410,
+    "sameRepositoryOpenTargetBodyOccurrences": 2611,
+    "uniqueSameRepositoryCandidateLocators": 3408,
+    "qualifiedLocators": 298,
+    "supplementalLocators": 73,
+    "freezeTargetStates": {
+      "ABSENT": 605,
+      "CLOSED": 209,
+      "OPEN": 2667
+    },
+    "interpretations": {
+      "acceptance-gate": 43,
+      "blocks": 4,
+      "conditional-prerequisite": 5,
+      "context": 43,
+      "dag-member": 12,
+      "historical": 73,
+      "parent": 534,
+      "pr-evidence": 24,
+      "prerequisite": 2646,
+      "reference-conflict": 3,
+      "related": 67,
+      "reported-blocker": 3,
+      "scope-exclusion": 6,
+      "source-handoff": 11,
+      "tracking": 7
+    },
+    "normalizedFormalEdges": 229
+  },
   "fullClauseAdjudicationComplete": false
 }

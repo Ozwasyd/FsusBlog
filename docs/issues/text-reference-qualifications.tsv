@@ -1,0 +1,299 @@
+sourceDocument	line	targetNumber	interpretation	support	note
+https://github.com/Ozwasyd/FsusBlog/issues/1810	1	1907	acceptance-gate	#1810:206-212; #1907:88-106	总验收需真实 caption 合入；#1907 正向消费 #2256/#2258/#2261/#2263/#2265 的实际结果，不等待 #1810 聚合关闭。
+https://github.com/Ozwasyd/FsusBlog/issues/1810	3	1907	related	#1810:206-212; #1907:88-106	保留相关声明与 L1 总验收两条出处；本条不建立反向实现顺序。
+https://github.com/Ozwasyd/FsusBlog/issues/1871	3	1909	dag-member	#1871:3-17; #1909:1	正文声明锚点实现顺序 #1909 → #1910 → #1911 → #1912 → #1913；各成员不是跟踪票的五个独立前置。
+https://github.com/Ozwasyd/FsusBlog/issues/1871	3	1910	dag-member	#1871:3-17; #1909:1	正文声明锚点实现顺序 #1909 → #1910 → #1911 → #1912 → #1913；各成员不是跟踪票的五个独立前置。
+https://github.com/Ozwasyd/FsusBlog/issues/1871	3	1911	dag-member	#1871:3-17; #1909:1	正文声明锚点实现顺序 #1909 → #1910 → #1911 → #1912 → #1913；各成员不是跟踪票的五个独立前置。
+https://github.com/Ozwasyd/FsusBlog/issues/1871	3	1912	dag-member	#1871:3-17; #1909:1	正文声明锚点实现顺序 #1909 → #1910 → #1911 → #1912 → #1913；各成员不是跟踪票的五个独立前置。
+https://github.com/Ozwasyd/FsusBlog/issues/1871	3	1913	dag-member	#1871:3-17; #1909:1	正文声明锚点实现顺序 #1909 → #1910 → #1911 → #1912 → #1913；各成员不是跟踪票的五个独立前置。
+https://github.com/Ozwasyd/FsusBlog/issues/1873	3	1914	dag-member	#1873:3; #1915:1; #1920:1	正文声明 #1914 后并行落实 #1915–#1919，#1920 汇合五项；不按编号串行或择一。
+https://github.com/Ozwasyd/FsusBlog/issues/1873	3	1915	dag-member	#1873:3; #1915:1; #1920:1	正文声明 #1914 后并行落实 #1915–#1919，#1920 汇合五项；不按编号串行或择一。
+https://github.com/Ozwasyd/FsusBlog/issues/1873	3	1916	dag-member	#1873:3; #1915:1; #1920:1	正文声明 #1914 后并行落实 #1915–#1919，#1920 汇合五项；不按编号串行或择一。
+https://github.com/Ozwasyd/FsusBlog/issues/1873	3	1917	dag-member	#1873:3; #1915:1; #1920:1	正文声明 #1914 后并行落实 #1915–#1919，#1920 汇合五项；不按编号串行或择一。
+https://github.com/Ozwasyd/FsusBlog/issues/1873	3	1918	dag-member	#1873:3; #1915:1; #1920:1	正文声明 #1914 后并行落实 #1915–#1919，#1920 汇合五项；不按编号串行或择一。
+https://github.com/Ozwasyd/FsusBlog/issues/1873	3	1919	dag-member	#1873:3; #1915:1; #1920:1	正文声明 #1914 后并行落实 #1915–#1919，#1920 汇合五项；不按编号串行或择一。
+https://github.com/Ozwasyd/FsusBlog/issues/1873	3	1920	dag-member	#1873:3; #1915:1; #1920:1	正文声明 #1914 后并行落实 #1915–#1919，#1920 汇合五项；不按编号串行或择一。
+https://github.com/Ozwasyd/FsusBlog/issues/1907	3	1865	tracking	#1907:88-106; #1865:186-188	文章包跟踪语境；标题集成读精确导出/校验/解析/执行 producer 和收据，终验 #2409/#2420 则等待其集成。
+https://github.com/Ozwasyd/FsusBlog/issues/2025	2	2020	prerequisite	#2025:64-74	当前顺序为登记 DATA_ONLY 契约 → 适配器 → #2025 的生产者验证。正文明确排除两条历史评论所述反向关系。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	46	1913	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	1909	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	1910	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	1911	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	1912	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	2130	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	2131	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	2132	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	2133	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	2134	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2136	47	2135	historical	#2136:1-11; #2136:45-47	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2152	30	1713	historical	#2152:1-11; #2152:29-31	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2152	31	1714	historical	#2152:1-11; #2152:29-31	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2152	31	2146	historical	#2152:1-11; #2152:29-31	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2152	31	2147	historical	#2152:1-11; #2152:29-31	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2152	31	2148	historical	#2152:1-11; #2152:29-31	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2152	31	2149	historical	#2152:1-11; #2152:29-31	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2152	31	2150	historical	#2152:1-11; #2152:29-31	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2152	31	2151	historical	#2152:1-11; #2152:29-31	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2162	29	1715	historical	#2162:1-11; #2162:28-30	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2162	30	2158	historical	#2162:1-11; #2162:28-30	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2162	30	2159	historical	#2162:1-11; #2162:28-30	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2162	30	2160	historical	#2162:1-11; #2162:28-30	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2162	30	2161	historical	#2162:1-11; #2162:28-30	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2172	36	1717	historical	#2172:1-11; #2172:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2172	37	2168	historical	#2172:1-11; #2172:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2172	37	2169	historical	#2172:1-11; #2172:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2172	37	2170	historical	#2172:1-11; #2172:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2172	37	2171	historical	#2172:1-11; #2172:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2176	36	1724	historical	#2176:1-11; #2176:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2176	37	1712	historical	#2176:1-11; #2176:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2176	37	2173	historical	#2176:1-11; #2176:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2176	37	2174	historical	#2176:1-11; #2176:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2176	37	2175	historical	#2176:1-11; #2176:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2180	36	1725	historical	#2180:1-11; #2180:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2180	37	1715	historical	#2180:1-11; #2180:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2180	37	2177	historical	#2180:1-11; #2180:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2180	37	2178	historical	#2180:1-11; #2180:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2180	37	2179	historical	#2180:1-11; #2180:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2184	36	1713	historical	#2184:1-11; #2184:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2184	37	2151	historical	#2184:1-11; #2184:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2184	37	2181	historical	#2184:1-11; #2184:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2184	37	2182	historical	#2184:1-11; #2184:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2184	37	2183	historical	#2184:1-11; #2184:35-37	来源是非执行跟踪票保留的原始要求；当前正文另指定实际实施、各自的执行者和终验。结构化关系仍单列。
+https://github.com/Ozwasyd/FsusBlog/issues/2219	2	2176	tracking	#2219:2; #2176:1-11	正文显式指定 #2176；其当前正文把实际实施与消费者终验分给 #2690、#2691。所需具体输出需另核实，不以推测替换目标。
+https://github.com/Ozwasyd/FsusBlog/issues/2223	5	2699	historical	#2223:1-13	正文称旧单子项包装已退役；当前直接任务仍由 L12–13 所列范围与前置约束。独立状态只凭冻结正式元数据或已有核验。
+https://github.com/Ozwasyd/FsusBlog/issues/2227	5	2700	historical	#2227:1-13	正文称旧单子项包装已退役；当前直接任务仍由 L12–13 所列范围与前置约束。独立状态只凭冻结正式元数据或已有核验。
+https://github.com/Ozwasyd/FsusBlog/issues/2244	1	1600	context	#2244:7-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2244	1	1603	context	#2244:7-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2244	1	1753	context	#2244:7-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2244	1	1929	context	#2244:7-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2244	1	2009	context	#2244:7-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2244	1	2010	context	#2244:7-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2244	1	2026	context	#2244:7-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2244	1	2209	context	#2244:7-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2244	1	2210	context	#2244:7-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2255	3	1753	context	#2255:28-31	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2265	5	2701	historical	#2265:1-13	正文称旧单子项包装已退役；当前直接任务仍由 L12–13 所列范围与前置约束。独立状态只凭冻结正式元数据或已有核验。
+https://github.com/Ozwasyd/FsusBlog/issues/2265	14	1907	related	#2265:14; #2265:59-65; #1907:88-106	caption 的下游实际集成责任；同一行的 FsusUI #314 属另一仓，本表不作同仓编号。
+https://github.com/Ozwasyd/FsusBlog/issues/2266	3	1753	context	#2266:39	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2266	3	2209	context	#2266:39	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2266	3	2210	context	#2266:39	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2276	3	1753	context	#2276:7	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2276	3	2026	context	#2276:7	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2276	3	2209	context	#2276:7	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2276	3	2210	context	#2276:7	测试或治理职责引用；原有 producer/gate 自有验收，本条未建立运行时依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/2285	5	2702	historical	#2285:1-13	正文称旧单子项包装已退役；当前直接任务仍由 L12–13 所列范围与前置约束。独立状态只凭冻结正式元数据或已有核验。
+https://github.com/Ozwasyd/FsusBlog/issues/2325#issuecomment-6053112924	7	2322	reported-blocker	#2325:1-3; #2325@6053112924:3-7	评论记录旧 inspector 缺实际定义、值和查询需求，三个责任由冻结正文直接声明；该旧阻塞记录不自动成为新执行门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/2325#issuecomment-6053112924	7	2323	reported-blocker	#2325:1-3; #2325@6053112924:3-7	评论记录旧 inspector 缺实际定义、值和查询需求，三个责任由冻结正文直接声明；该旧阻塞记录不自动成为新执行门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/2325#issuecomment-6053112924	7	2324	reported-blocker	#2325:1-3; #2325@6053112924:3-7	评论记录旧 inspector 缺实际定义、值和查询需求，三个责任由冻结正文直接声明；该旧阻塞记录不自动成为新执行门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/2325#issuecomment-6053112924	7	3735	context	#2325:1-3; #2325@6053112924:3-7	评论中的显式 URL 是旧源码交接请求位置，与本句报告的属性阻塞不同。
+https://github.com/Ozwasyd/FsusBlog/issues/2408	1	1865	tracking	#2408:64; #1865:186-188	文章包跟踪父项；与 #2398 同一个实现、两套验收，无需先关闭锚点跟踪 #1868。
+https://github.com/Ozwasyd/FsusBlog/issues/2409	2	1907	acceptance-gate	#2409:81; #1907:88-106	终验消费真实 caption 与包集成收据；#1907 只等待上游基础包能力，两个终验没有反向阻塞生产实现。
+https://github.com/Ozwasyd/FsusBlog/issues/2412	2	1865	context	#2412:11; #1865:186-188	同一生态中的独立 Markdown 往返路径，不是 DOCX/HTML/PDF 等文档 provider 的 fallback。
+https://github.com/Ozwasyd/FsusBlog/issues/2420	2	1907	acceptance-gate	#2420:78; #1907:88-106	终验消费真实 caption 与包集成收据；#1907 只等待上游基础包能力，两个终验没有反向阻塞生产实现。
+https://github.com/Ozwasyd/FsusBlog/issues/2424	2	1865	context	#2424:11; #1865:186-188	同一生态中的独立 Markdown 往返路径，不是 DOCX/HTML/PDF 等文档 provider 的 fallback。
+https://github.com/Ozwasyd/FsusBlog/issues/2436	2	1865	context	#2436:11; #1865:186-188	同一生态中的独立 Markdown 往返路径，不是 DOCX/HTML/PDF 等文档 provider 的 fallback。
+https://github.com/Ozwasyd/FsusBlog/issues/2477	2	2471	prerequisite	#2477:12-19	只接受这项定义的现行布局和清理切换；旧 depth 不能成为持久值，不能保留双布局 fallback。
+https://github.com/Ozwasyd/FsusBlog/issues/2491	2	1865	context	#2491:10-18; #1865:186-188	共享安全原则及可复用的壳，Canvas 使用独立 kind、schema 和读者，不走文章导入 fallback。
+https://github.com/Ozwasyd/FsusBlog/issues/2492	2	2490	conditional-prerequisite	#2492:15	只在显式转换命令中消费；拖放只产生 Canvas 边，文章不随该动作写入。
+https://github.com/Ozwasyd/FsusBlog/issues/2495	2	1865	context	#2495:10-18; #1865:186-188	共享安全原则及可复用的壳，Canvas 使用独立 kind、schema 和读者，不走文章导入 fallback。
+https://github.com/Ozwasyd/FsusBlog/issues/2549	2	1619	reference-conflict	#2549:12-15; #2549:45; #1619:5-9	正文标题栏把查询能力指向 #1619；冻结目标实际上是 Snowflake fixture 分配器。保留原声明，等待确认实际查询 owner，不推填新编号。
+https://github.com/Ozwasyd/FsusBlog/issues/2555	2	1619	reference-conflict	#2555:15; #2555:49; #1619:5-9	正文标题栏把查询能力指向 #1619；冻结目标实际上是 Snowflake fixture 分配器。保留原声明，等待确认实际查询 owner，不推填新编号。
+https://github.com/Ozwasyd/FsusBlog/issues/2561	2	1619	reference-conflict	#2561:6-12; #2561:66; #1619:5-9	正文标题栏把查询能力指向 #1619；冻结目标实际上是 Snowflake fixture 分配器。保留原声明，等待确认实际查询 owner，不推填新编号。
+https://github.com/Ozwasyd/FsusBlog/issues/2572	2	2714	acceptance-gate	#2572:9-18; #2714:64; #2714:87-99	聚合登记消费终验收据；终验指向同一聚合父项是收纳关系，两种方向不组成实施环。
+https://github.com/Ozwasyd/FsusBlog/issues/2652	2	1590	tracking	#2652:70-72; #1590:9-12; #1591:9-11	正式 blockedBy 也保留。目标是非执行跟踪职责；只消费本 issue 所需的原证据和实际责任，不增建父级执行者。
+https://github.com/Ozwasyd/FsusBlog/issues/2652	2	1591	tracking	#2652:70-72; #1590:9-12; #1591:9-11	正式 blockedBy 也保留。目标是非执行跟踪职责；只消费本 issue 所需的原证据和实际责任，不增建父级执行者。
+https://github.com/Ozwasyd/FsusBlog/issues/2653	2	1590	tracking	#2653:25-28; #2653:44; #1590:9-12; #1591:9-11	正式 blockedBy 也保留。目标是非执行跟踪职责；只消费本 issue 所需的原证据和实际责任，不增建父级执行者。
+https://github.com/Ozwasyd/FsusBlog/issues/2653	2	1591	tracking	#2653:25-28; #2653:44; #1590:9-12; #1591:9-11	正式 blockedBy 也保留。目标是非执行跟踪职责；只消费本 issue 所需的原证据和实际责任，不增建父级执行者。
+https://github.com/Ozwasyd/FsusBlog/issues/2659	2	2657	acceptance-gate	#2659:2-6; #2703:2; #2704:2; #2705:2; #2706:2	终验直接消费当前正文指定的收据；旧结构化 blockedBy 另保留在 formal-relations。底层 producer 的间接工作不扩写为新直连。
+https://github.com/Ozwasyd/FsusBlog/issues/2659	2	2658	acceptance-gate	#2659:2-6; #2703:2; #2704:2; #2705:2; #2706:2	终验直接消费当前正文指定的收据；旧结构化 blockedBy 另保留在 formal-relations。底层 producer 的间接工作不扩写为新直连。
+https://github.com/Ozwasyd/FsusBlog/issues/2659	2	2703	acceptance-gate	#2659:2-6; #2703:2; #2704:2; #2705:2; #2706:2	终验直接消费当前正文指定的收据；旧结构化 blockedBy 另保留在 formal-relations。底层 producer 的间接工作不扩写为新直连。
+https://github.com/Ozwasyd/FsusBlog/issues/2659	2	2704	acceptance-gate	#2659:2-6; #2703:2; #2704:2; #2705:2; #2706:2	终验直接消费当前正文指定的收据；旧结构化 blockedBy 另保留在 formal-relations。底层 producer 的间接工作不扩写为新直连。
+https://github.com/Ozwasyd/FsusBlog/issues/2659	2	2705	acceptance-gate	#2659:2-6; #2703:2; #2704:2; #2705:2; #2706:2	终验直接消费当前正文指定的收据；旧结构化 blockedBy 另保留在 formal-relations。底层 producer 的间接工作不扩写为新直连。
+https://github.com/Ozwasyd/FsusBlog/issues/2659	2	2706	acceptance-gate	#2659:2-6; #2703:2; #2704:2; #2705:2; #2706:2	终验直接消费当前正文指定的收据；旧结构化 blockedBy 另保留在 formal-relations。底层 producer 的间接工作不扩写为新直连。
+https://github.com/Ozwasyd/FsusBlog/issues/2679	2	2707	acceptance-gate	#2679:6; #2679:33; #2707:2; #2708:2; #2709:2	终验直接消费当前正文指定的收据；旧结构化 blockedBy 另保留在 formal-relations。底层 producer 的间接工作不扩写为新直连。
+https://github.com/Ozwasyd/FsusBlog/issues/2679	2	2708	acceptance-gate	#2679:6; #2679:33; #2707:2; #2708:2; #2709:2	终验直接消费当前正文指定的收据；旧结构化 blockedBy 另保留在 formal-relations。底层 producer 的间接工作不扩写为新直连。
+https://github.com/Ozwasyd/FsusBlog/issues/2679	2	2709	acceptance-gate	#2679:6; #2679:33; #2707:2; #2708:2; #2709:2	终验直接消费当前正文指定的收据；旧结构化 blockedBy 另保留在 formal-relations。底层 producer 的间接工作不扩写为新直连。
+https://github.com/Ozwasyd/FsusBlog/issues/3053	1	2200	historical	#3053:6	当前正文明确两项已属于 v1 原合并链；保留前提来源，不能拿旧 merge 当 v2 运行证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3053	1	2205	historical	#3053:6	当前正文明确两项已属于 v1 原合并链；保留前提来源，不能拿旧 merge 当 v2 运行证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3053	2	3052	conditional-prerequisite	#3053:1-6	冻结声明要求两个精确 v1 merge SHA；记录 v1 当时的开始门槛，不把旧分支授权推入 v2。
+https://github.com/Ozwasyd/FsusBlog/issues/3053	2	3054	conditional-prerequisite	#3053:1-6	冻结声明要求两个精确 v1 merge SHA；记录 v1 当时的开始门槛，不把旧分支授权推入 v2。
+https://github.com/Ozwasyd/FsusBlog/issues/3054	3	1759	acceptance-gate	#3054:1-3	这是旧治理终验的再核验条件，不能与同一行指名的技术前置合并。
+https://github.com/Ozwasyd/FsusBlog/issues/3056	3	1759	acceptance-gate	#3056:1-3	这是旧治理终验的再核验条件，不能与同一行指名的技术前置合并。
+https://github.com/Ozwasyd/FsusBlog/issues/3056	3	3054	blocks	#3056:1-3	冻结正文声明该类型或能力是另一修复的直接前置；旧治理终验见同一源行其他记录。
+https://github.com/Ozwasyd/FsusBlog/issues/3177	2	1759	acceptance-gate	#3177:1-2	这是旧治理终验的再核验条件，不能与同一行指名的技术前置合并。
+https://github.com/Ozwasyd/FsusBlog/issues/3177	2	3054	blocks	#3177:1-2	冻结正文声明该类型或能力是另一修复的直接前置；旧治理终验见同一源行其他记录。
+https://github.com/Ozwasyd/FsusBlog/issues/3527	3	1072	historical	#3527:3	同句单列已关闭的旧执行约束来源，未声明它是被该任务阻塞的对象。
+https://github.com/Ozwasyd/FsusBlog/issues/3527	3	2214	context	#3527:3	括号内是 #3524 下游链，不是 #3527 的额外直接声明。
+https://github.com/Ozwasyd/FsusBlog/issues/3527	3	3523	context	#3527:3	括号内是 #3524 下游链，不是 #3527 的额外直接声明。
+https://github.com/Ozwasyd/FsusBlog/issues/3527	3	3524	blocks	#3527:3; #3523:3	正文声明直接测试系统前置。沿后续关系可查 #3523、#2214，但不新增本源直连。
+https://github.com/Ozwasyd/FsusBlog/issues/3533	2	3525	context	#3533:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3533	2	3529	acceptance-gate	#3533:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3533	2	3530	acceptance-gate	#3533:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3534	2	3525	context	#3534:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3534	2	3529	context	#3534:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3534	2	3530	context	#3534:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3534	2	3533	acceptance-gate	#3534:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3536	2	3525	context	#3536:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3536	2	3529	acceptance-gate	#3536:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3536	2	3530	acceptance-gate	#3536:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3536	2	3533	acceptance-gate	#3536:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3537	2	3534	scope-exclusion	#3537:2	明确另有文件或工具所有权，不是本 issue 阻塞的对象。
+https://github.com/Ozwasyd/FsusBlog/issues/3537	2	3536	acceptance-gate	#3537:2	仅对应指定 v1 风格验收的直接门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/3540	1	3537	parent	#3540:1	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3540	1	3539	pr-evidence	#3540:1	正文明确标识旧或草案 PR；只记录来源和相应限定，不将数字归为 issue 父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3543	12	3524	related	#3543:12	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3545	14	3524	related	#3545:14	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3545	14	3543	related	#3545:14	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3547	1	2230	parent	#3547:1	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3547	1	3247	historical	#3547:1	正文以已关闭责任或绑定提交的历史材料作对照。
+https://github.com/Ozwasyd/FsusBlog/issues/3554	12	3551	related	#3554:12	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3556	1	2348	historical	#3556:1	正文以已关闭责任或绑定提交的历史材料作对照。
+https://github.com/Ozwasyd/FsusBlog/issues/3556	1	3551	parent	#3556:1	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3560	1	3551	parent	#3560:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3560	1	3558	prerequisite	#3560:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3560	1	3559	pr-evidence	#3560:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3562	1	3551	parent	#3562:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3562	1	3558	prerequisite	#3562:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3562	1	3559	pr-evidence	#3562:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3564	1	3551	parent	#3564:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3564	1	3558	prerequisite	#3564:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3564	1	3559	pr-evidence	#3564:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3566	1	3551	parent	#3566:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3566	1	3558	prerequisite	#3566:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3566	1	3559	pr-evidence	#3566:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3568	1	3551	parent	#3568:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3568	1	3558	prerequisite	#3568:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3568	1	3559	pr-evidence	#3568:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3570	1	3551	parent	#3570:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3570	1	3558	prerequisite	#3570:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3570	1	3559	pr-evidence	#3570:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3572	1	3551	parent	#3572:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3572	1	3558	prerequisite	#3572:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3572	1	3559	pr-evidence	#3572:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3574	1	3551	parent	#3574:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3574	1	3558	prerequisite	#3574:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3574	1	3559	pr-evidence	#3574:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3576	1	3551	parent	#3576:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3576	1	3558	prerequisite	#3576:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3576	1	3559	pr-evidence	#3576:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3578	1	3551	parent	#3578:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3578	1	3558	prerequisite	#3578:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3578	1	3559	pr-evidence	#3578:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3580	1	3551	parent	#3580:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3580	1	3558	prerequisite	#3580:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3580	1	3559	pr-evidence	#3580:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3582	1	3551	parent	#3582:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3582	1	3558	prerequisite	#3582:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3582	1	3559	pr-evidence	#3582:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3584	1	3551	parent	#3584:1	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3586	1	3551	parent	#3586:1	明确的 v1 测试治理归属。
+https://github.com/Ozwasyd/FsusBlog/issues/3586	1	3558	prerequisite	#3586:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3586	1	3559	pr-evidence	#3586:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3586	1	3584	prerequisite	#3586:1	真实编译元数据检查或私有资产拓扑的 v1 测试输入；本关系不同于协调父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3586	1	3585	pr-evidence	#3586:1	明确标记 PR，是 v1 测试或生产拓扑的源码集成证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3588	3	3551	parent	#3588:3	无冒号的父项标题。
+https://github.com/Ozwasyd/FsusBlog/issues/3588	3	3584	prerequisite	#3588:3	直接文字要求复用真实生产网络边界检查者。
+https://github.com/Ozwasyd/FsusBlog/issues/3588	3	3585	pr-evidence	#3588:3	显式 PR，提供生产拓扑源码证据。
+https://github.com/Ozwasyd/FsusBlog/issues/3590	3	3551	parent	#3590:3	无冒号父项，限定到单个真实测试来源。
+https://github.com/Ozwasyd/FsusBlog/issues/3593	2	3537	scope-exclusion	#3593:2	明确另有文件或工具所有权，不是本 issue 阻塞的对象。
+https://github.com/Ozwasyd/FsusBlog/issues/3593	2	3543	acceptance-gate	#3593:2	仅对应指定 v1 风格验收的直接门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/3597	1	3551	parent	#3597:1	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3599	1	3551	parent	#3599:1	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3601	1	2214	context	#3601:1	描述父项 #3527 的后续阻塞链；同一行再提 #3527 的隔离约束不是第二条父关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3601	1	3523	context	#3601:1	描述父项 #3527 的后续阻塞链；同一行再提 #3527 的隔离约束不是第二条父关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3601	1	3524	context	#3601:1	描述父项 #3527 的后续阻塞链；同一行再提 #3527 的隔离约束不是第二条父关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3601	1	3527	parent	#3601:1	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3602	1	3527	acceptance-gate	#3602:1	旧调度器及本地 CI 的限定前置。
+https://github.com/Ozwasyd/FsusBlog/issues/3602	1	3597	acceptance-gate	#3602:1	旧调度器及本地 CI 的限定前置。
+https://github.com/Ozwasyd/FsusBlog/issues/3602	1	3601	scope-exclusion	#3602:1	另一项只负责原样运行资产物化。
+https://github.com/Ozwasyd/FsusBlog/issues/3606	3	3597	scope-exclusion	#3606:3	明确区分旧 .NET SDK 主机参数边界与 Landlock、调度器更改，没有声称它们验收。
+https://github.com/Ozwasyd/FsusBlog/issues/3606	3	3601	scope-exclusion	#3606:3	明确区分旧 .NET SDK 主机参数边界与 Landlock、调度器更改，没有声称它们验收。
+https://github.com/Ozwasyd/FsusBlog/issues/3606	3	3602	scope-exclusion	#3606:3	明确区分旧 .NET SDK 主机参数边界与 Landlock、调度器更改，没有声称它们验收。
+https://github.com/Ozwasyd/FsusBlog/issues/3608	3	3597	conditional-prerequisite	#3608:3	仅限该主机的旧 CI 资格，保留限定。
+https://github.com/Ozwasyd/FsusBlog/issues/3608	3	3606	conditional-prerequisite	#3608:3	仅限该主机的旧 CI 资格，保留限定。
+https://github.com/Ozwasyd/FsusBlog/issues/3610	2	3525	context	#3610:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3610	2	3533	acceptance-gate	#3610:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3610	2	3536	acceptance-gate	#3610:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3611	2	3525	context	#3611:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3611	2	3533	context	#3611:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3611	2	3536	context	#3611:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3611	2	3610	acceptance-gate	#3611:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3612	2	3525	context	#3612:1-2	句子单列后续 gate，记录其下游作用，不增加该源 issue 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3612	2	3533	acceptance-gate	#3612:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3612	2	3536	acceptance-gate	#3612:1-2	声明作用于 v1 对应样式、静态或 BehaviorDoc 闸门的直接前置。组合门槛可同时含多个成员。
+https://github.com/Ozwasyd/FsusBlog/issues/3615	3	3524	acceptance-gate	#3615:3	旧 canonical backend-unit 的静态准入门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/3617	3	3524	acceptance-gate	#3617:3	旧 backend-unit 与 DocClaim 的完整准入都需事实提取器接受实际构建凭据。
+https://github.com/Ozwasyd/FsusBlog/issues/3617	3	3615	acceptance-gate	#3617:3	旧 backend-unit 与 DocClaim 的完整准入都需事实提取器接受实际构建凭据。
+https://github.com/Ozwasyd/FsusBlog/issues/3620	2	3524	acceptance-gate	#3620:2	旧执行和清理验收的进程观测一致性，需要独立实际结果。
+https://github.com/Ozwasyd/FsusBlog/issues/3620	2	3527	acceptance-gate	#3620:2	旧执行和清理验收的进程观测一致性，需要独立实际结果。
+https://github.com/Ozwasyd/FsusBlog/issues/3626	3	3524	parent	#3626:3	无冒号父项，项目分工语境。
+https://github.com/Ozwasyd/FsusBlog/issues/3626	3	3601	related	#3626:3	相关同域前置；原句没有给出严格直接顺序。
+https://github.com/Ozwasyd/FsusBlog/issues/3626	3	3602	related	#3626:3	相关同域前置；原句没有给出严格直接顺序。
+https://github.com/Ozwasyd/FsusBlog/issues/3628	1	3527	acceptance-gate	#3628:1	旧调度器取消和本地等价门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/3628	1	3597	acceptance-gate	#3628:1	旧调度器取消和本地等价门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/3628	1	3602	acceptance-gate	#3628:1	旧调度器取消和本地等价门槛。
+https://github.com/Ozwasyd/FsusBlog/issues/3630	1	3524	context	#3630:1	共同执行边界也影响后续验收，不作为该句父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3630	1	3597	parent	#3630:1	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3632	3	3578	prerequisite	#3632:3	实际导出运行失败约束是这项 v1 测试的前提。
+https://github.com/Ozwasyd/FsusBlog/issues/3632	3	3579	pr-evidence	#3632:3	显式旧草案 PR。
+https://github.com/Ozwasyd/FsusBlog/issues/3634	3	3578	prerequisite	#3634:3	实际导出运行边界与对应旧测试需要此运行条件。
+https://github.com/Ozwasyd/FsusBlog/issues/3634	3	3579	pr-evidence	#3634:3	由前后文识别为草案配对，目标状态不由此确定。
+https://github.com/Ozwasyd/FsusBlog/issues/3634	3	3632	prerequisite	#3634:3	实际导出运行边界与对应旧测试需要此运行条件。
+https://github.com/Ozwasyd/FsusBlog/issues/3634	3	3633	pr-evidence	#3634:3	由前后文识别为草案配对，目标状态不由此确定。
+https://github.com/Ozwasyd/FsusBlog/issues/3638	3	3597	context	#3638:3	相关实现仍由原 issue 持有，未改变批准状态或产生第二父关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3638	3	3598	pr-evidence	#3638:3	正文明确标识旧或草案 PR；只记录来源和相应限定，不将数字归为 issue 父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3638	3	3630	parent	#3638:3	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3639	3	3606	acceptance-gate	#3639:3	旧工具治理的父层导入，不扩大运行时迁移。
+https://github.com/Ozwasyd/FsusBlog/issues/3639	3	3631	acceptance-gate	#3639:3	旧工具治理的父层导入，不扩大运行时迁移。
+https://github.com/Ozwasyd/FsusBlog/issues/3641	1	3624	acceptance-gate	#3641:1	旧测试矩阵治理的前置。
+https://github.com/Ozwasyd/FsusBlog/issues/3641	1	3625	pr-evidence	#3641:1	明确是旧 PR。
+https://github.com/Ozwasyd/FsusBlog/issues/3644	1	3624	context	#3644:1	随后沿原链重验，不再加直连。
+https://github.com/Ozwasyd/FsusBlog/issues/3644	1	3641	acceptance-gate	#3644:1	直接限定旧测试治理准入。
+https://github.com/Ozwasyd/FsusBlog/issues/3644	1	3642	pr-evidence	#3644:1	旧草案 PR。
+https://github.com/Ozwasyd/FsusBlog/issues/3645	1	3624	context	#3645:1	这是明确由父项 #3644 阻塞的旧实现和重验，不是 #3645 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3645	1	3641	context	#3645:1	这是明确由父项 #3644 阻塞的旧实现和重验，不是 #3645 的直接阻塞。
+https://github.com/Ozwasyd/FsusBlog/issues/3645	1	3642	pr-evidence	#3645:1	正文明确标识旧或草案 PR；只记录来源和相应限定，不将数字归为 issue 父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3645	1	3644	parent	#3645:1	仅将正文指名的协调方归为父项，保留同句其他不同性质的引用。
+https://github.com/Ozwasyd/FsusBlog/issues/3651	19	3554	related	#3651:19	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3651	19	3558	related	#3651:19	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3651	19	3598	related	#3651:19	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3654	23	2173	related	#3654:23	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3654	23	2174	related	#3654:23	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3654	23	2175	related	#3654:23	按精确作用域关联；既有验收责任保持分立，同一行的重复提醒不增加另一条关系。
+https://github.com/Ozwasyd/FsusBlog/issues/3665	1	2141	parent	#3665:1	复数标记分别声明 RPC 核心与 Broker 两个父项，并列收纳。
+https://github.com/Ozwasyd/FsusBlog/issues/3665	1	2142	parent	#3665:1	复数标记分别声明 RPC 核心与 Broker 两个父项，并列收纳。
+https://github.com/Ozwasyd/FsusBlog/issues/3665	2	3663	related	#3665:2	只关联 trust-window 的后续工作。
+https://github.com/Ozwasyd/FsusBlog/issues/3702	1	2322	source-handoff	#3702:1-3	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3707	3	3177	source-handoff	#3707:1-3	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3709	23	2268	source-handoff	#3709:1-23	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3709	23	2270	source-handoff	#3709:1-23	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	1762	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3523	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3524	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3527	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3601	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3602	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3610	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3612	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3615	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3617	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3620	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3730	5	3656	historical	#3730:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3734	5	1950	historical	#3734:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3734	5	2539	historical	#3734:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3734	5	2541	historical	#3734:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3742	5	2918	historical	#3742:1-5	正文标明准备交接时的父项状态；不把状态陈述当作新增前置，历史状态不替代冻结元数据。
+https://github.com/Ozwasyd/FsusBlog/issues/3759#issuecomment-6876140479	77	4759	historical	#3759@6876140479:71-81	旧 PR 材料的关联编号；#4759 那份还是对本 issue 的自指，不构成 blocker。#4762 未由本句证明冻结时状态。
+https://github.com/Ozwasyd/FsusBlog/issues/3759#issuecomment-6876140479	77	4762	historical	#3759@6876140479:71-81	旧 PR 材料的关联编号；#4759 那份还是对本 issue 的自指，不构成 blocker。#4762 未由本句证明冻结时状态。
+https://github.com/Ozwasyd/FsusBlog/issues/3777	1	3524	source-handoff	#3777:1-3	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3779	1	3524	source-handoff	#3779:1-3	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3779	1	3527	source-handoff	#3779:1-3	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3779	1	3764	related	#3779:1-3	同一行描述另一个源码交接，不充当父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3780	1	3737	source-handoff	#3780:1-3	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3781	1	1599	source-handoff	#3781:1-3	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3781	1	2636	source-handoff	#3781:1-3	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/3781	1	3764	related	#3781:1-3	同一行描述另一个源码交接，不充当父项。
+https://github.com/Ozwasyd/FsusBlog/issues/3784	1	3764	source-handoff	#3784:1-3	v1 源码交接父项或保留的原验收，不据此关闭原 issue 或添加 v2 执行依赖。
+https://github.com/Ozwasyd/FsusBlog/issues/4222	5	4221	pr-evidence	#4222:5	原文是解析配置 PR，并明确将变动的文件排除出本任务。
+https://github.com/Ozwasyd/FsusBlog/issues/4759#issuecomment-6876140834	77	4759	historical	#4759@6876140834:71-81	旧 PR 材料的关联编号；#4759 那份还是对本 issue 的自指，不构成 blocker。#4762 未由本句证明冻结时状态。
+https://github.com/Ozwasyd/FsusBlog/issues/4759#issuecomment-6876140834	77	4762	historical	#4759@6876140834:71-81	旧 PR 材料的关联编号；#4759 那份还是对本 issue 的自指，不构成 blocker。#4762 未由本句证明冻结时状态。
