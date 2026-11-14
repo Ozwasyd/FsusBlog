@@ -23,6 +23,40 @@ import (
 	"time"
 )
 
+func TestSlowRequestRecordsOrderedBoundariesAndCap(t *testing.T) {
+	begin := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	at := func(ms int) time.Time { return begin.Add(time.Duration(ms) * time.Millisecond) }
+	slow := slowRequests{ThresholdMS: millis(slowRequestThreshold)}
+	slow.record(result{class: detailAEDS, reason: "dropped", latency: time.Second})
+	slow.record(result{class: detailAEDS, latency: 19 * time.Millisecond})
+	slow.record(result{class: detailAEDS, planned: begin, dispatch: 5 * time.Millisecond, latency: 60 * time.Millisecond,
+		status: 200, bytes: 256, bodyCompleted: at(58), completed: at(60),
+		exchange: exchange{written: at(10), headers: at(52)}})
+	if len(slow.Requests) != 1 || slow.Omitted != 0 {
+		t.Fatalf("expected one slow attempt: %+v", slow)
+	}
+	got := slow.Requests[0]
+	if got.Route != "detail-aeds" || got.Milliseconds != 60 || got.Bytes != 256 || got.Status != 200 ||
+		!got.Planned.Equal(begin) || !got.Worker.Equal(at(5)) || !got.Written.Equal(at(10)) ||
+		!got.Headers.Equal(at(52)) || !got.Body.Equal(at(58)) || !got.Finished.Equal(at(60)) {
+		t.Fatalf("wrong slow attempt phases: %+v", got)
+	}
+	if got.Phases.PlannedToWorker != 5 || *got.Phases.WorkerToWrite != 5 || *got.Phases.WriteToHeaders != 42 ||
+		*got.Phases.HeadersToBody != 6 || *got.Phases.BodyToFinish != 2 {
+		t.Fatalf("wrong slow attempt phase durations: %+v", got.Phases)
+	}
+	for len(slow.Requests) < slowRequestLimit {
+		slow.record(result{class: homeHTML, planned: begin, completed: at(25), latency: 25 * time.Millisecond, reason: "timeout"})
+	}
+	if item := slow.Requests[len(slow.Requests)-1]; item.Written != nil || item.Headers != nil || item.Body != nil || item.Error != "timeout" {
+		t.Fatalf("failed write fabricated a timestamp: %+v", item)
+	}
+	slow.record(result{class: homeHTML, latency: time.Second})
+	if slow.Omitted != 1 || len(slow.Requests) != slowRequestLimit {
+		t.Fatalf("cap not enforced: kept=%d omitted=%d", len(slow.Requests), slow.Omitted)
+	}
+}
+
 func TestSupplyTimelineSeparatesPhasesAndIncludesLateDrain(t *testing.T) {
 	start := time.Now()
 	at := func(ms int) time.Time { return start.Add(time.Duration(ms) * time.Millisecond) }
@@ -170,7 +204,7 @@ func TestCancelledScheduleDrainsEveryAttempt(t *testing.T) {
 			pool[i].close()
 		}
 	}()
-	_, elapsed, counts, rows := measure(ctx, pool, w, 8000, 1)
+	_, elapsed, counts, rows := measure(ctx, pool, w, 8000, 1, nil)
 	all := counts["all"]
 	var wake, admitted, dropped, written, headers, bodies, finished, correct int
 	for _, row := range rows {
@@ -224,12 +258,12 @@ func TestWarmupCarriesAnActualConnectionAndDoesNotRetryStaleSocket(t *testing.T)
 		Headers: map[string]string{"SearchIndexGeneration": header},
 	}}
 	w.paths[homeHTML] = []expectation{{class: homeHTML, path: "/", request: request, length: len(body), digest: sha256.Sum256(body)}}
-	_, _, warm, _ := measure(context.Background(), pool, w, 1, 1)
+	_, _, warm, _ := measure(context.Background(), pool, w, 1, 1, nil)
 	if warm["all"].OK != 1 || pool[0].conn == nil {
 		t.Fatalf("warmup: %+v", warm["all"])
 	}
 	retainWarmSockets(pool)
-	_, _, measured, _ := measure(context.Background(), pool, w, 1, 1)
+	_, _, measured, _ := measure(context.Background(), pool, w, 1, 1, nil)
 	if got := continuity(pool); got != (connectionReuse{1, 1, 1, 1, 1}) || measured["all"].OK != 1 {
 		t.Fatalf("one valid reused exchange expected: %+v", got)
 	}
@@ -242,11 +276,11 @@ func TestWarmupCarriesAnActualConnectionAndDoesNotRetryStaleSocket(t *testing.T)
 	server.CloseClientConnections()
 	pool[0].reuse = connectionReuse{}
 	retainWarmSockets(pool)
-	_, _, stale, _ := measure(context.Background(), pool, w, 1, 1)
+	_, _, stale, _ := measure(context.Background(), pool, w, 1, 1, nil)
 	if got := continuity(pool); got != (connectionReuse{1, 1, 0, 1, 0}) || stale["all"].OK != 0 || stale["all"].Sent != 1 {
 		t.Fatalf("stale inherited connection must preserve a failed attempt: %+v", got)
 	}
-	_, _, later, _ := measure(context.Background(), pool, w, 1, 1)
+	_, _, later, _ := measure(context.Background(), pool, w, 1, 1, nil)
 	if later["all"].OK != 1 {
 		t.Fatalf("a later request was not allowed a fresh dial: %+v", later["all"])
 	}

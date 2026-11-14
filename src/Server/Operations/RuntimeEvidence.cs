@@ -17,6 +17,8 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
     private const int Publication = 6;
     private const int Lease = 7;
     private const int Comments = 8;
+    private const int SlowRequestLimit = 4096;
+    private const int SlowRequestMilliseconds = 20;
     private static readonly string[] Classes =
         ["homeHtml", "detailHtml", "homeAeds", "detailAeds", "background", "otherHttp", "publication", "lease", "comments"];
     private readonly string _directory;
@@ -30,6 +32,8 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
     private readonly long[] _opens = new long[Classes.Length];
     private readonly long[] _requests = new long[Classes.Length];
     private readonly long[] _successes = new long[Classes.Length];
+    private readonly bool _captureSlowRequests;
+    private readonly ConcurrentQueue<SlowRequest> _slowRequests = new();
     private readonly Task _recording;
     private long _refreshes;
     private long _rebuilt;
@@ -37,15 +41,18 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
     private long _observerTicks;
     private long _observerRequests;
     private long _observerSeen;
+    private int _slowRequestCount;
+    private bool _measureActive;
     private int _active;
     private int _pending;
     private int _activePeak;
     private int _pendingPeak;
 
-    internal RuntimeEvidence(string directory, string output, IHttpContextAccessor http)
+    internal RuntimeEvidence(string directory, string output, IHttpContextAccessor http, bool captureSlowRequests = false)
     {
         _directory = directory;
         _http = http;
+        _captureSlowRequests = captureSlowRequests;
         if (!Path.IsPathFullyQualified(directory) || !Directory.Exists(directory) || !Path.IsPathFullyQualified(output))
             throw new InvalidOperationException("Runtime evidence requires absolute local control and output paths.");
         _output = new StreamWriter(new FileStream(output, FileMode.CreateNew, FileAccess.Write, FileShare.Read));
@@ -72,11 +79,20 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
             Interlocked.Increment(ref _queries[bucket]);
     }
 
-    internal void CountRequest(HttpContext context, int bucket)
+    internal long SlowRequestStart(int bucket) => _captureSlowRequests && bucket < Background && Volatile.Read(ref _measureActive)
+        ? Stopwatch.GetTimestamp() : 0;
+
+    internal void CountRequest(HttpContext context, int bucket, long started)
     {
         Interlocked.Increment(ref _requests[bucket]);
         if (context.Response.StatusCode == StatusCodes.Status200OK)
             Interlocked.Increment(ref _successes[bucket]);
+        if (started == 0) return;
+        var elapsed = Stopwatch.GetElapsedTime(started);
+        if (elapsed.TotalMilliseconds < SlowRequestMilliseconds || Interlocked.Increment(ref _slowRequestCount) > SlowRequestLimit) return;
+        var finished = DateTime.UtcNow;
+        _slowRequests.Enqueue(new(Classes[bucket], finished - elapsed, finished, elapsed.TotalMilliseconds,
+            context.Response.StatusCode, context.Response.ContentLength));
     }
 
     internal bool SampleObserverCost() => (Interlocked.Increment(ref _observerSeen) & 1023) == 0;
@@ -163,7 +179,9 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
                 {
                     Interlocked.Exchange(ref _activePeak, Volatile.Read(ref _active));
                     Interlocked.Exchange(ref _pendingPeak, Volatile.Read(ref _pending));
+                    Volatile.Write(ref _measureActive, true);
                 }
+                else if (mark == "measure-after") Volatile.Write(ref _measureActive, false);
                 Capture(now, mark);
                 next = now.AddSeconds(5);
                 if (mark is not null)
@@ -179,6 +197,12 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
         var memory = GC.GetGCMemoryInfo();
         var pauses = new List<Pause>();
         while (_gc.Pauses.TryDequeue(out var pause)) pauses.Add(pause);
+        List<SlowRequest>? slow = null;
+        if (_captureSlowRequests)
+        {
+            slow = [];
+            while (_slowRequests.TryDequeue(out var request)) slow.Add(request);
+        }
         _output.WriteLine(JsonSerializer.Serialize(new
         {
             utc, mark, pid = Environment.ProcessId,
@@ -193,6 +217,8 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
             threadPoolPending = ThreadPool.PendingWorkItemCount, threadPoolThreads = ThreadPool.ThreadCount,
             observerRequestSamples = Interlocked.Read(ref _observerRequests),
             observerRequestMeasuredTicks = Interlocked.Read(ref _observerTicks), clockTicksPerSecond = Stopwatch.Frequency,
+            slowRequests = slow, slowRequestThresholdMs = _captureSlowRequests ? SlowRequestMilliseconds : (int?)null,
+            slowRequestOmitted = Math.Max(0, Volatile.Read(ref _slowRequestCount) - SlowRequestLimit),
             coldPending = Volatile.Read(ref _pending), coldActive = Volatile.Read(ref _active),
             coldPendingPeak = Volatile.Read(ref _pendingPeak), coldActivePeak = Volatile.Read(ref _activePeak),
             coldRenders = Interlocked.Read(ref _renders),
@@ -227,6 +253,9 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
         public double ResumeMilliseconds => (EndUtc - RestartUtc).TotalMilliseconds;
         public double Milliseconds => (EndUtc - StartUtc).TotalMilliseconds;
     }
+
+    private sealed record SlowRequest(string Route, DateTime StartUtc, DateTime EndUtc, double Milliseconds,
+        int Status, long? ContentLength);
 
     private sealed class CollectionEvents : EventListener
     {

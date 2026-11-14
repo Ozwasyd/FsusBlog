@@ -1,7 +1,63 @@
+using System.Diagnostics;
+using System.Text.Json;
 using FsusBlog.V2.Server.Operations;
+using Microsoft.AspNetCore.Http;
 
 public sealed class RuntimeEvidenceTests
 {
+    [Fact]
+    public async Task RecordsSlowRequestsOnlyInTheMeasurementWindowWithABoundedBuffer()
+    {
+        var directory = Directory.CreateTempSubdirectory();
+        var output = Path.Combine(directory.FullName, "runtime.ndjson");
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        try
+        {
+            await using var observer = new RuntimeEvidence(directory.FullName, output, new HttpContextAccessor(), captureSlowRequests: true);
+            Assert.Equal(0, observer.SlowRequestStart(0));
+            await Mark("measure-before");
+            Assert.Equal(0, observer.SlowRequestStart(4));
+            var request = new DefaultHttpContext();
+            request.Response.StatusCode = StatusCodes.Status200OK;
+            request.Response.ContentLength = 42;
+            Assert.NotEqual(0, observer.SlowRequestStart(1));
+            var slow = Stopwatch.GetTimestamp() - Stopwatch.Frequency / 10;
+            for (int i = 0; i < 4097; i++) observer.CountRequest(request, 1, slow);
+            await Mark("measure-after");
+            Assert.Equal(0, observer.SlowRequestStart(1));
+            var lines = await File.ReadAllLinesAsync(output, timeout.Token);
+            int retained = 0;
+            int omitted = 0;
+            foreach (var line in lines)
+            {
+                using var document = JsonDocument.Parse(line);
+                var data = document.RootElement;
+                omitted = data.GetProperty("slowRequestOmitted").GetInt32();
+                foreach (var observed in data.GetProperty("slowRequests").EnumerateArray())
+                {
+                    Assert.Equal("detailHtml", observed.GetProperty("Route").GetString());
+                    Assert.Equal(42, observed.GetProperty("ContentLength").GetInt64());
+                    Assert.Equal(200, observed.GetProperty("Status").GetInt32());
+                    Assert.True(observed.GetProperty("Milliseconds").GetDouble() >= 20);
+                    Assert.True(observed.GetProperty("StartUtc").GetDateTime() < observed.GetProperty("EndUtc").GetDateTime());
+                    retained++;
+                }
+            }
+            Assert.Equal(4096, retained);
+            Assert.Equal(1, omitted);
+        }
+        finally { directory.Delete(recursive: true); }
+
+        async Task Mark(string value)
+        {
+            var next = Path.Combine(directory.FullName, "runtime.mark.next");
+            await File.WriteAllTextAsync(next, value, timeout.Token);
+            File.Move(next, Path.Combine(directory.FullName, "runtime.mark"));
+            var acknowledgment = Path.Combine(directory.FullName, value + ".ack");
+            while (!File.Exists(acknowledgment)) await Task.Delay(10, timeout.Token);
+        }
+    }
+
     [Fact]
     public async Task CapturesSplitPauseFromTheCurrentClr()
     {

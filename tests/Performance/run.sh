@@ -8,15 +8,17 @@ repo=$PWD
 mode=${1:-}
 output_arg=${2:-}
 if [[ $# != 2 || ( "$mode" != smoke && "$mode" != direct && "$mode" != soak && "$mode" != cold &&
-    "$mode" != proxy-smoke && "$mode" != proxy ) ]]; then
-  echo 'Usage: tests/Performance/run.sh {smoke|direct|soak|cold|proxy-smoke|proxy} NEW_EVIDENCE_DIRECTORY' >&2
+    "$mode" != proxy-smoke && "$mode" != proxy && "$mode" != peak && "$mode" != proxy-peak ) ]]; then
+  echo 'Usage: tests/Performance/run.sh {smoke|direct|soak|cold|proxy-smoke|proxy|peak|proxy-peak} NEW_EVIDENCE_DIRECTORY' >&2
   exit 2
 fi
 proxy_mode=false
 runtime_evidence=false
-if [[ "$mode" == soak || ( "$mode" == *smoke && "${FSUSBLOG_PERF_RUNTIME:-}" == 1 ) ]]; then runtime_evidence=true; fi
+slow_requests=false
+if [[ "$mode" == *peak ]]; then slow_requests=true; fi
+if [[ "$mode" == soak || "$slow_requests" == true || ( "$mode" == *smoke && "${FSUSBLOG_PERF_RUNTIME:-}" == 1 ) ]]; then runtime_evidence=true; fi
 shared_warmup=false
-if [[ "${FSUSBLOG_PERF_REUSE_CONNECTIONS:-}" == 1 ]]; then
+if [[ "$slow_requests" == true || "${FSUSBLOG_PERF_REUSE_CONNECTIONS:-}" == 1 ]]; then
   if [[ "$mode" == cold || ( "$mode" == *smoke && "$runtime_evidence" != true ) || "${FSUSBLOG_PERF_PRECONNECT_TLS:-}" == 1 ]]; then
     echo 'Connection reuse requires a hot stage with its own warmup and no serial preconnection.' >&2
     exit 2
@@ -267,6 +269,7 @@ runtime_env=(FSUSBLOG_RUNTIME_EVIDENCE_CONTROL= FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT
 if [[ "$runtime_evidence" == true ]]; then
   runtime_env=("FSUSBLOG_RUNTIME_EVIDENCE_CONTROL=$run" "FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT=$evidence/runtime.ndjson")
 fi
+runtime_env+=("FSUSBLOG_RUNTIME_SLOW_REQUESTS=$slow_requests")
 unset FSUSBLOG_PASSKEY_ORIGIN FSUSBLOG_PASSKEY_RP_ID
 if [[ "$proxy_mode" == true ]]; then
   target="https://127.0.0.1:$(choose_loopback_port)"
@@ -339,6 +342,7 @@ measure() {
   args+=("${load_flags[@]+"${load_flags[@]}"}")
   if ((warm_seconds != 0)); then args+=(-shared-warmup-seconds "$warm_seconds"); fi
   if [[ "$runtime_evidence" == true && "$stage" != warmup-* ]]; then args+=(-runtime-control "$run"); fi
+  if [[ "$slow_requests" == true ]]; then args+=(-slow-requests); fi
   { printf 'load'; printf ' %q' "${args[@]}"; printf '\n'; } >> "$evidence/commands.txt"
   "$run/load" "${args[@]}" > "$evidence/$stage.log" 2>&1 &
   load_pid=$!
@@ -388,6 +392,9 @@ case "$mode" in
         measure "$mode-$rate" "$rate" 60
       fi
     done
+    ;;
+  peak|proxy-peak)
+    measure "$mode-10500" 10500 60 30
     ;;
   soak)
     if [[ "$shared_warmup" == true ]]; then

@@ -602,6 +602,71 @@ type result struct {
 	planned       time.Time
 }
 
+const (
+	slowRequestThreshold = 20 * time.Millisecond
+	slowRequestLimit     = 4096
+)
+
+type slowRequest struct {
+	Route        string     `json:"route"`
+	Planned      time.Time  `json:"plannedUtc"`
+	Worker       time.Time  `json:"workerUtc"`
+	Written      *time.Time `json:"writtenUtc,omitempty"`
+	Headers      *time.Time `json:"headersUtc,omitempty"`
+	Body         *time.Time `json:"bodyUtc,omitempty"`
+	Finished     time.Time  `json:"finishedUtc"`
+	Milliseconds float64    `json:"milliseconds"`
+	Phases       slowPhases `json:"phasesMs"`
+	Status       int        `json:"status"`
+	Bytes        int64      `json:"bytes"`
+	Error        string     `json:"error,omitempty"`
+}
+
+type slowPhases struct {
+	PlannedToWorker float64  `json:"plannedToWorker"`
+	WorkerToWrite   *float64 `json:"workerToWrite,omitempty"`
+	WriteToHeaders  *float64 `json:"writeToHeaders,omitempty"`
+	HeadersToBody   *float64 `json:"headersToBody,omitempty"`
+	BodyToFinish    *float64 `json:"bodyToFinish,omitempty"`
+}
+
+type slowRequests struct {
+	ThresholdMS float64       `json:"thresholdMs"`
+	Omitted     int           `json:"omitted"`
+	Requests    []slowRequest `json:"requests"`
+}
+
+func (s *slowRequests) record(r result) {
+	if r.reason == "dropped" || r.latency < slowRequestThreshold {
+		return
+	}
+	if len(s.Requests) == slowRequestLimit {
+		s.Omitted++
+		return
+	}
+	timestamp := func(value time.Time) *time.Time {
+		if value.IsZero() {
+			return nil
+		}
+		utc := value.UTC()
+		return &utc
+	}
+	between := func(first, last time.Time) *float64 {
+		if first.IsZero() || last.IsZero() {
+			return nil
+		}
+		ms := millis(last.Sub(first))
+		return &ms
+	}
+	worker := r.planned.Add(r.dispatch)
+	s.Requests = append(s.Requests, slowRequest{Route: names[r.class], Planned: r.planned.UTC(),
+		Worker: worker.UTC(), Written: timestamp(r.written), Headers: timestamp(r.headers),
+		Body: timestamp(r.bodyCompleted), Finished: r.completed.UTC(), Milliseconds: millis(r.latency),
+		Phases: slowPhases{millis(r.dispatch), between(worker, r.written), between(r.written, r.headers),
+			between(r.headers, r.bodyCompleted), between(r.bodyCompleted, r.completed)},
+		Status: r.status, Bytes: r.bytes, Error: r.reason})
+}
+
 func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan<- result, w workload) {
 	copyBuffer := make([]byte, 32*1024)
 	readBuffer := make([]byte, 0, 48*1024)
@@ -994,7 +1059,7 @@ func sampleProducer() (producerSample, error) {
 	}, nil
 }
 
-func measure(ctx context.Context, pool []connection, w workload, rate, seconds int) (time.Time, time.Duration, map[string]*stats, []supplySecond) {
+func measure(ctx context.Context, pool []connection, w workload, rate, seconds int, slow *slowRequests) (time.Time, time.Duration, map[string]*stats, []supplySecond) {
 	// Admission counts queued jobs and active requests against the same limit.
 	// A worker briefly between reads must not turn unused capacity into an offered drop.
 	jobs := make(chan job, maxInFlight)
@@ -1012,6 +1077,9 @@ func measure(ctx context.Context, pool []connection, w workload, rate, seconds i
 			totals["all"].add(r)
 			totals[names[r.class]].add(r)
 			timeline.recordTransfer(r)
+			if slow != nil {
+				slow.record(r)
+			}
 		}
 	})
 	for i := range pool {
@@ -1069,15 +1137,18 @@ func startRuntimeMeasurement(ctx context.Context, directory string) error {
 	return errors.New("runtime evidence did not mark the start of load measurement")
 }
 
-func captureStage(ctx context.Context, pool []connection, w workload, rate, seconds int, report map[string]any) {
+func captureStage(ctx context.Context, pool []connection, w workload, rate, seconds int, report map[string]any, slow *slowRequests) {
 	producerBefore, beforeErr := sampleProducer()
-	measured, elapsed, totals, timeline := measure(ctx, pool, w, rate, seconds)
+	measured, elapsed, totals, timeline := measure(ctx, pool, w, rate, seconds, slow)
 	finished := time.Now().UTC()
 	producerAfter, afterErr := sampleProducer()
 	all := totals["all"]
 	report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, finished, totals
 	report["measurementElapsedSeconds"] = elapsed.Seconds()
 	report["supplyBySecond"] = timeline
+	if slow != nil {
+		report["slowRequests"] = slow
+	}
 	report["schedulerUnreached"] = rate*seconds - all.Sent - all.Dropped
 	if supplyErr := errors.Join(beforeErr, afterErr); supplyErr != nil {
 		report["producerResourceError"] = supplyErr.Error()
@@ -1104,6 +1175,7 @@ func run() int {
 	coldLog := flag.String("cold-log", "", "existing private Kestrel log from a fresh, owned cold-cache run")
 	coldPressure := flag.Bool("cold-pressure", false, "after standard cold rounds run overload and actual disconnect diagnostics")
 	runtimeControl := flag.String("runtime-control", "", "private run directory for a runtime measurement boundary")
+	captureSlow := flag.Bool("slow-requests", false, "record bounded 20ms client spans in a marked peak diagnostic")
 	preconnect := flag.Bool("preconnect-tls", false, "establish the 256 TLS connections serially before load")
 	sharedWarmup := flag.Int("shared-warmup-seconds", 0, "2000/s warmup on the measured pool, 30 seconds or 3-second diagnostic")
 	output := flag.String("out", "", "new JSON evidence path")
@@ -1135,6 +1207,9 @@ func run() int {
 	}
 	if *sharedWarmup != 0 && (*rate == 0 || *preconnect || *sharedWarmup != 30 && *sharedWarmup != 3) {
 		return fail(errors.New("shared warmup requires hot load, no TLS preconnection, and 30 or 3 seconds"))
+	}
+	if *captureSlow && (*runtimeControl == "" || *sharedWarmup != 30 || *rate != 10500 || *seconds != 60 || *coldLog != "") {
+		return fail(errors.New("slow request recording requires the marked 10500/s peak diagnostic with 30 seconds of shared warmup"))
 	}
 	out, err := os.OpenFile(*output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
@@ -1188,7 +1263,7 @@ func run() int {
 	}()
 	if code == 0 && *sharedWarmup != 0 {
 		warm := map[string]any{"pid": os.Getpid(), "target": origin.String(), "generation": w.generation, "fixtureSha256": w.fixture}
-		captureStage(ctx, pool, w, 2000, *sharedWarmup, warm)
+		captureStage(ctx, pool, w, 2000, *sharedWarmup, warm, nil)
 		report["warmup"] = warm
 		retainWarmSockets(pool)
 		report["connectionReuse"] = continuity(pool)
@@ -1215,7 +1290,11 @@ func run() int {
 		}
 	}
 	if code == 0 && *rate > 0 {
-		captureStage(ctx, pool, w, *rate, *seconds, report)
+		var slow *slowRequests
+		if *captureSlow {
+			slow = &slowRequests{ThresholdMS: millis(slowRequestThreshold), Requests: []slowRequest{}}
+		}
+		captureStage(ctx, pool, w, *rate, *seconds, report, slow)
 		if *sharedWarmup != 0 {
 			report["connectionReuse"] = continuity(pool)
 			report["pid"] = os.Getpid()

@@ -5,7 +5,7 @@ import argparse
 import csv
 from datetime import datetime, timedelta
 import json
-from math import ceil
+from math import ceil, floor
 from pathlib import Path
 import re
 from statistics import median
@@ -19,6 +19,7 @@ ROUTES = {
     "home-aeds": "homeAeds",
     "detail-aeds": "detailAeds",
 }
+SLOW_LIMIT = 4096
 
 
 def timestamp(text):
@@ -138,6 +139,11 @@ def summarize(rows, load, rss, pid):
         errors.append("GC pause events did not reconcile to the built-in total pause time.")
     if guard_before > 1 or guard_after > 3:
         errors.append("Runtime and client measurement bounds have excessive idle margins.")
+    slow = None
+    if "slowRequests" in load:
+        slow = summarize_slow_requests(rows, load, gc_events, start_at, end_at)
+        if not slow["complete"]:
+            errors.append("Slow request diagnostics were truncated or lack matching collection boundaries.")
 
     rss_values = [(timestamp(row["utc"]), int(row["rss_kib"])) for row in rss if int(row["pid"]) == pid]
     rss_peak = max((kb for stamp, kb in rss_values if measured_at <= stamp <= measured_end), default=None)
@@ -220,8 +226,70 @@ def summarize(rows, load, rss, pid):
         "serverRssLast5MinutesMedianKiB": median(end_rss) if end_rss else None,
         "serverRssGrowthFraction": rss_growth,
         "serverRssStabilityPassed": stability,
+        **({"slowRequests": slow} if slow is not None else {}),
         "result": "verified" if not errors else "incomplete",
         "errors": errors,
+    }
+
+
+def summarize_slow_requests(rows, load, gc_events, start_at, end_at):
+    client = load["slowRequests"]
+    server = [event for row in rows for event in row.get("slowRequests") or []]
+    server_thresholds = {row.get("slowRequestThresholdMs") for row in rows}
+    server_omitted = max(row.get("slowRequestOmitted", 0) for row in rows)
+    gc_intervals = [(timestamp(event["StartUtc"]), timestamp(event["EndUtc"])) for event in gc_events]
+    load_start = timestamp(load["measurementStartedAt"])
+    drained = timestamp(load["measurementCompletedAt"])
+    cells = {}
+
+    def bucket(at):
+        second = floor((at - load_start).total_seconds())
+        return cells.setdefault(second, {"second": second, "server": 0, "client": 0, "gcSuspensionMs": 0.0,
+                                         "schedulerDropped": 0})
+
+    def overlap(first, last):
+        return sum(max(0, (min(last, end) - max(first, start)).total_seconds() * 1000)
+                   for start, end in gc_intervals)
+
+    for row in load.get("supplyBySecond", []):
+        if row["dropped"]:
+            bucket(load_start + timedelta(seconds=row["second"]))["schedulerDropped"] = row["dropped"]
+    for event in gc_events:
+        bucket(timestamp(event["StartUtc"]))["gcSuspensionMs"] += event.get("SuspensionMilliseconds", event["Milliseconds"])
+
+    server_overlap = 0
+    clients = client["requests"]
+    for event in server:
+        start, finish = timestamp(event["StartUtc"]), timestamp(event["EndUtc"])
+        bucket(finish)["server"] += 1
+        server_overlap += overlap(start, finish) > 0
+
+    client_overlap = 0
+    timings = {"plannedToWorker": [], "workerToWrite": [], "writeToHeaders": [], "headersToBody": [], "bodyToFinish": []}
+    for event in clients:
+        finished = timestamp(event["finishedUtc"])
+        bucket(finished)["client"] += 1
+        written = timestamp(event["writtenUtc"]) if "writtenUtc" in event else None
+        body = timestamp(event["bodyUtc"]) if "bodyUtc" in event else None
+        if written is not None:
+            client_overlap += overlap(written, body or finished) > 0
+        for phase, elapsed in event["phasesMs"].items():
+            timings[phase].append(elapsed)
+
+    return {
+        "complete": client["thresholdMs"] == 20 and server_thresholds == {20}
+                    and not client["omitted"] and not server_omitted
+                    and len(server) <= SLOW_LIMIT and len(clients) <= SLOW_LIMIT
+                    and all(start_at <= timestamp(event["StartUtc"]) <= timestamp(event["EndUtc"]) <= end_at for event in server)
+                    and all(load_start <= timestamp(event["plannedUtc"]) <= timestamp(event["finishedUtc"]) <= drained
+                            for event in clients),
+        "thresholdMs": client["thresholdMs"],
+        "server": {"retained": len(server), "omitted": server_omitted, "intersectedClrPause": server_overlap,
+                   "maxMilliseconds": max((event["Milliseconds"] for event in server), default=None)},
+        "client": {"retained": len(clients), "omitted": client["omitted"], "transferIntersectedClrPause": client_overlap,
+                   "phases": {phase: {"count": len(values), "p95Ms": percentile(values, .95), "maxMs": max(values, default=None)}
+                              for phase, values in timings.items()}},
+        "secondsWithEvents": [cells[second] for second in sorted(cells)],
     }
 
 

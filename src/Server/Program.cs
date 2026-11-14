@@ -38,7 +38,9 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
     var output = builder.Configuration["FSUSBLOG_RUNTIME_EVIDENCE_OUTPUT"] ??
         throw new InvalidOperationException("Runtime evidence output is required.");
     builder.Services.AddHttpContextAccessor();
-    builder.Services.AddSingleton(services => new RuntimeEvidence(evidenceDirectory, output, services.GetRequiredService<IHttpContextAccessor>()));
+    var slowRequests = builder.Configuration.GetValue("FSUSBLOG_RUNTIME_SLOW_REQUESTS", false);
+    builder.Services.AddSingleton(services => new RuntimeEvidence(evidenceDirectory, output,
+        services.GetRequiredService<IHttpContextAccessor>(), slowRequests));
 }
 var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
 if (sitePageEditor && (adminIdentity?.Origin.Scheme != Uri.UriSchemeHttps || publicSite.Origin is null))
@@ -94,11 +96,12 @@ if (app.Services.GetService<RuntimeEvidence>() is { } runtimeEvidence)
         var started = sample ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         var category = RuntimeEvidence.Classify(ctx);
         var before = sample ? System.Diagnostics.Stopwatch.GetTimestamp() - started : 0;
+        var requestStarted = runtimeEvidence.SlowRequestStart(category);
         try { await next(ctx); }
         finally
         {
             if (sample) started = System.Diagnostics.Stopwatch.GetTimestamp();
-            runtimeEvidence.CountRequest(ctx, category);
+            runtimeEvidence.CountRequest(ctx, category, requestStarted);
             if (sample) runtimeEvidence.AccountObserverSample(before + System.Diagnostics.Stopwatch.GetTimestamp() - started);
         }
     });

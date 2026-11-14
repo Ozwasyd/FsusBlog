@@ -16,6 +16,8 @@ export CADDY_BIN=/absolute/path/to/caddy
 tests/Performance/run.sh proxy-smoke artifacts/p2-proxy-smoke-1
 tests/Performance/run.sh proxy artifacts/p2-proxy-1
 FSUSBLOG_PERF_REUSE_CONNECTIONS=1 tests/Performance/run.sh proxy artifacts/p2-proxy-shared-warmup-1
+tests/Performance/run.sh peak artifacts/p2-direct-peak-diagnostic
+tests/Performance/run.sh proxy-peak artifacts/p2-proxy-peak-diagnostic
 ```
 
 - `smoke` 用完整数据集和 3 秒 100 QPS 验证接入。`direct` 依次做 30 秒预热和 60 秒采样的 2,000、5,000、8,000、10,500 QPS 档位。`soak` 做 30 秒预热和 15 分钟 8,000 QPS 采样。跨运行比较时留出足够主机容量，避免同时启动编译器、浏览器测试或其他负载。
@@ -34,6 +36,8 @@ FSUSBLOG_PERF_REUSE_CONNECTIONS=1 tests/Performance/run.sh proxy artifacts/p2-pr
 soak 和显式启用运行时观察的 smoke 使用私有文件标记划定计时窗口。观察器在 5 秒采样之外保留阶段开始和结束时的累积值。四条热读由服务端实际路由识别，并单独统计归因到请求的 Npgsql 命令 Activity、物理连接 Activity 和 HTTP 响应数。驱动内部事务控制消息及连接复位不计入命令 Activity。计时之前访问一次真实 PostgreSQL 评论列表验证 HTTP 请求归因，并查验启动期间的物理连接事件。发布轮询及 lease 后台命令单列。诊断不记录 SQL、客户端路径或凭据。GC 按 CLR 实例配对暂停开始、恢复开始和恢复结束三个原生事件。单列暂停至恢复开始、恢复阶段和完整部分的分位。仅前一段与不同时间边界的内置总暂停交叉核验。历史日志只有完整暂停，仍以原口径验算。另采样堆、进程 RSS、冷渲染和线程池排队，运行结束时生成 `runtime-result.json`。 [Npgsql 10.0.3 Activity 实现](https://github.com/npgsql/npgsql/blob/v10.0.3/src/Npgsql/NpgsqlActivitySource.cs) · [.NET 10.0.15 事件定义](https://github.com/dotnet/runtime/blob/v10.0.15/src/coreclr/vm/ClrEtwAll.man)
 
 当前运行器的客户端和服务端共用主机。调度器把已排队和已发出请求一起限制在 256，按原计划发送时间计延迟。容量耗尽才记录漏发，空闲工作线程处于调度间隙时仍可接收请求。每档退出码表示执行和证据状态，容量按协议原始指标判定。运行时观察会增加少量计数、文件采样和诊断事件开销，独立供给者仍需另行验证。
+
+`peak` 和 `proxy-peak` 以同一池完成 30 秒 2,000 QPS 预热及 60 秒 10,500 QPS 计时。两端各记录最多 4,096 条至少 20 ms 的慢请求及超额数量。客户端阈值从计划发车计起，并记录工作线程、写入、响应头、响应体和校验完成时间。Kestrel 阈值从运行时观察中间件计起，覆盖后续应用处理及响应写回，记录声明的响应长度。时间线同时给出供给漏发和 CLR 暂停，并统计慢区间与暂停是否交叉。聚合按各自完成时间分桶。两端可比较绝对时间窗；请求无额外关联标记，时段交叉不能确认因果。观察诊断单独执行，完整验收仍用冻结的矩阵与长测入口。
 
 用 `python3 tests/Performance/capacity.py --direct PATH --proxy PATH` 复算已完成矩阵的数字门槛。两种参数均可重复传入独立运行目录。脚本检查冻结档位、请求配比、每条路由的延迟、完整失败分母及清理记录，输出样本的最高档判定；同机供给余量和双次独立资格仍由验收记录确认。
 
