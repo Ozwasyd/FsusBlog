@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" Version="10.0.3" />
+    <Compile Include="../Storage/*.cs" Link="Storage/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="*.sql" LogicalName="FsusBlogV2.Schema.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

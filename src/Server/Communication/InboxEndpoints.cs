@@ -1,0 +1,90 @@
+using System.Globalization;
+using FsusBlog.V2.Contracts;
+using FsusBlog.V2.Core;
+using FsusBlog.V2.Core.Communication;
+
+namespace FsusBlog.V2.Server.Communication;
+
+internal static class InboxEndpoints
+{
+    internal static void Map(WebApplication app, string cookie, Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
+    {
+        app.MapGet(WireRoutes.InboxList, (HttpContext ctx, Store store, CancellationToken ct) =>
+            Account(ctx, store, cookie, async inbox =>
+            {
+                var size = QueryInt(ctx, "size") ?? 20;
+                var encoded = Query(ctx, "cursor", 32);
+                var cursor = string.IsNullOrWhiteSpace(encoded) ? (Contracts.InboxCursor?)null : InboxWire.DecodeCursor(encoded);
+                var position = cursor is { } c
+                    ? new Core.Communication.InboxCursor(c.SnapshotMessageId, c.LastMessageAt, c.ConversationId)
+                    : (Core.Communication.InboxCursor?)null;
+                var page = await inbox.ListAsync(position, (int)Math.Clamp(size <= 0 ? 20 : size, 1, 50), Query(ctx, "filter", 32), ct);
+                var items = page.Conversations.Select(c => new InboxListRecord(c.Id, c.Subject, (int)c.Status, Count(c.UnreadCount),
+                    c.LastMessageAt, c.UpdatedAt, c.IsSystem, c.Status != ConversationStatus.Closed,
+                    new InboxPreviewRecord((int)c.LastSender, c.LastMessageAt, c.Preview, Name(c.LastSender)))).ToArray();
+                var next = page.Next is { } n ? InboxWire.EncodeCursor(new(n.SnapshotMessageId, n.LastMessageAt, n.ConversationId)) : null;
+                return InboxWire.EncodeList(items, Count(page.Total), next);
+            }, ct)).RequireRateLimiting("command");
+
+        app.MapGet(WireRoutes.InboxDetail, (long id, HttpContext ctx, Store store, CancellationToken ct) =>
+            Account(ctx, store, cookie, async inbox =>
+            {
+                var before = QueryInt(ctx, "beforeMessageId");
+                var after = QueryInt(ctx, "afterMessageId");
+                if (before <= 0 || after <= 0 || (before.HasValue && after.HasValue))
+                    throw Invalid("Invalid message cursor.");
+                var detail = after is long last
+                    ? await inbox.DeltaAsync(id, last, 50, ct)
+                    : await inbox.GetAsync(id, before, 50, ct);
+                if (detail is null) throw new BusinessException(Rejection.NotFound, "Conversation not found.");
+                return InboxWire.EncodeDetail(new(detail.Id, detail.Subject, (int)detail.Status, Count(detail.UnreadCount),
+                    detail.LastMessageAt, detail.ReadSnapshot, detail.IsSystem, detail.Status != ConversationStatus.Closed,
+                    detail.Messages.Select(m => new InboxMessageRecord(m.Id, m.ConversationId, (int)m.Sender, m.SentAt,
+                        m.Body, Name(m.Sender))).ToArray(), detail.Previous));
+            }, ct)).RequireRateLimiting("command");
+
+        app.MapPost(WireRoutes.InboxRead, (long id, HttpContext ctx, Store store, CancellationToken ct) =>
+            Account(ctx, store, cookie, async inbox =>
+            {
+                var readThrough = InboxWire.DecodeRead(await readFrame(ctx, Aeds.HeaderSize + sizeof(long), ct));
+                await inbox.MarkReadAsync(id, readThrough, ct);
+                return Wire.EncodeEmptySuccess();
+            }, ct)).RequireRateLimiting("command");
+    }
+
+    private static async Task<IResult> Account(HttpContext ctx, Store store, string cookie, Func<InboxStore, Task<byte[]>> operation,
+        CancellationToken cancellationToken)
+    {
+        var response = await store.WithSession(ctx.Request.Cookies[cookie], false, async (connection, transaction, actor) =>
+        {
+            var frame = await operation(new InboxStore(connection, transaction, actor.Id));
+            return (Frame: frame, actor.ExpiresAt);
+        }, cancellationToken);
+        ctx.Response.Headers[WireHeaders.AccessExpiresAtUtc] = response.ExpiresAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
+        return Results.Bytes(response.Frame, Aeds.ContentType);
+    }
+
+    private static string? Query(HttpContext ctx, string field, int maximum)
+    {
+        if (!ctx.Request.Query.TryGetValue(field, out var input)) return null;
+        return input.Count == 1 && input[0] is { } text && text.Length <= maximum ? text : throw Invalid("Invalid query parameter.");
+    }
+
+    private static long? QueryInt(HttpContext ctx, string field)
+    {
+        var text = Query(ctx, field, 20);
+        return text is null ? null : long.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value)
+            ? value : throw Invalid("Invalid numeric query parameter.");
+    }
+
+    private static string Name(InboxSender sender) => sender switch
+    {
+        InboxSender.Account => "你",
+        InboxSender.Administrator => "管理员",
+        InboxSender.System => "系统",
+        _ => throw new InvalidOperationException("Unsupported inbox sender.")
+    };
+
+    private static int Count(long value) => (int)Math.Min(int.MaxValue, value);
+    private static BusinessException Invalid(string message) => new(Rejection.Invalid, message);
+}
