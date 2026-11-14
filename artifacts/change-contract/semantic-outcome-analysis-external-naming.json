@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/outcomes/strong-outcome-analysis.mjs",
+                "tools/test-matrix/outcomes/aggregate-outcome-analysis.mjs",
+                "tools/test-matrix/outcomes/domain-outcome-analysis.mjs",
+                "tools/test-matrix/outcomes/producer-outcome-analysis.mjs",
+                "tools/test-matrix/outcomes/semantic-outcome-diff.mjs"
+            ],
+            "reason": "Process environment spelling is external while option variables remain internal."
+        }
+    ]
+}

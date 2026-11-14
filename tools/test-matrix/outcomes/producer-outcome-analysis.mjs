@@ -7,7 +7,9 @@ import {
     validateOutcomeFieldDispositions,
     validateProducerSemanticOutcomeCandidate
 } from './outcome-contract.mjs';
-import { canonicalJson, digestCanonical } from '../../test/attempt-provenance.mjs';
+
+const { canonicalJson, digestCanonical } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+const { normalizeOutcomeIdsMap, normalizeScopedOutcomeReasons } = await import('./domain-outcome-analysis.mjs');
 
 export const producerOutcomeAnalysisSchema = 'fsusblog.producer-outcome-analysis.v1';
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
@@ -18,7 +20,10 @@ const omitted = Symbol('non-semantic field');
 
 function require(condition, message)
 {
-    if (!condition) throw new Error(`outcome analysis: ${message}`);
+    if (!condition)
+    {
+        throw new Error(`outcome analysis: ${message}`);
+    }
 }
 
 function object(value, label)
@@ -80,7 +85,10 @@ function preflight(candidate, options)
         }
         require(entry.depth <= limits.maxDepth, 'JSON depth budget exceeded');
         const value = entry.value;
-        if (value === null || typeof value === 'boolean') continue;
+        if (value === null || typeof value === 'boolean')
+        {
+            continue;
+        }
         if (typeof value === 'string')
         {
             chargeString(value);
@@ -115,7 +123,10 @@ function preflight(candidate, options)
         require(scheduledNodes <= limits.maxNodes, 'JSON node budget exceeded');
         for (const key of keys)
         {
-            if (!array) chargeString(key);
+            if (!array)
+            {
+                chargeString(key);
+            }
             pending.push({ value: descriptors[key].value, depth: entry.depth + 1 });
         }
     }
@@ -203,7 +214,10 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
     let result;
     if (rule === 'canonical-object' || rule === 'schema-object' || rule === 'nullable-schema-object')
     {
-        if (rule === 'nullable-schema-object' && value === null) return null;
+        if (rule === 'nullable-schema-object' && value === null)
+        {
+            return null;
+        }
         object(value, schemaPath);
         const children = [...map.keys()].filter((key) => key.startsWith(`${schemaPath}.`)
             && !key.slice(schemaPath.length + 1).includes('.')
@@ -219,7 +233,10 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
         for (const key of Object.keys(value).sort())
         {
             const child = normalize(value[key], `${schemaPath}.${key}`, map, taxonomy, producerId, semanticOnly);
-            if (child !== omitted) result[key] = child;
+            if (child !== omitted)
+            {
+                result[key] = child;
+            }
         }
     }
     else if (rule === 'sort-by-kind')
@@ -238,7 +255,10 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
             {
                 const child = normalize(reference[key], `${schemaPath}[].${key}`,
                     map, taxonomy, producerId, semanticOnly);
-                if (child !== omitted) item[key] = child;
+                if (child !== omitted)
+                {
+                    item[key] = child;
+                }
             }
             return item;
         }).sort((left, right) => compareText(canonicalJson(left), canonicalJson(right)));
@@ -260,8 +280,18 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
         });
         result = records.sort((left, right) => compareText(left.key, right.key)).map((item) => item.normalized);
     }
-    else if (rule === 'ids') result = ids(value, schemaPath);
-    else if (rule === 'text') result = text(value, schemaPath);
+    else if (rule === 'ids')
+    {
+        result = ids(value, schemaPath);
+    }
+    else if (rule === 'ids-map')
+    {
+        result = normalizeOutcomeIdsMap(value);
+    }
+    else if (rule === 'text')
+    {
+        result = text(value, schemaPath);
+    }
     else if (rule === 'repository-relative-path')
     {
         text(value, schemaPath);
@@ -270,7 +300,10 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
         `${schemaPath} must be an exact repository-relative reference`);
         result = value;
     }
-    else if (['digest', 'content-seal', 'derived-digest'].includes(rule)) result = digest(value, schemaPath);
+    else if (['digest', 'content-seal', 'derived-digest'].includes(rule))
+    {
+        result = digest(value, schemaPath);
+    }
     else if (rule === 'positive-integer')
     {
         require(Number.isSafeInteger(value) && value > 0, `${schemaPath} must be a positive safe integer`);
@@ -300,7 +333,10 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
         for (const id of Object.keys(value).sort())
         {
             text(id, 'semantic artifact ID');
-            if (rule === 'digest-map') result[id] = digest(value[id], `${schemaPath}.${id}`);
+            if (rule === 'digest-map')
+            {
+                result[id] = digest(value[id], `${schemaPath}.${id}`);
+            }
             else
             {
                 exact(value[id], ['contentDigest', 'imageDigest', 'manifestDigest', 'provenanceDigest'], 'build artifact');
@@ -316,6 +352,15 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
     else if (rule === 'reasons')
     {
         sequence(value, 'reasons');
+        const scopeFields = ['testId', 'caseId', 'assertionId', 'scenarioId', 'phase', 'actionId', 'projectId', 'browserId'];
+        const scoped = value.some((reason) => ['failureClass', 'diagnosticEvidenceId', 'semanticArtifactIds', 'stateIds']
+            .some((key) => Object.hasOwn(reason, key)) || Object.keys(reason.identity).some((key) =>
+            scopeFields.includes(key) && !taxonomy.get(reason.kind)?.requiredIdentity.includes(key)));
+        if (scoped)
+        {
+            result = normalizeScopedOutcomeReasons(value, producerId, taxonomy);
+            return result;
+        }
         const seen = new Set();
         result = value.map((reason) =>
         {
@@ -348,8 +393,15 @@ function normalize(value, schemaPath, map, taxonomy, producerId, semanticOnly)
             'redacted secret digest does not preserve presence');
         throw new Error('outcome analysis: secret semantic-context authority bridge is required');
     }
+    else
+    {
+        throw new Error(`outcome analysis: unsupported normalization rule ${rule}`);
+    }
     if (semanticOnly && (['evidence-location', 'diagnostic-metadata', 'volatile-metadata'].includes(disposition.category)
-        || ['content-seal', 'derived-digest'].includes(rule))) return omitted;
+        || ['content-seal', 'derived-digest'].includes(rule)))
+    {
+        return omitted;
+    }
     return result;
 }
 
@@ -447,7 +499,10 @@ export function analyzeProducerSemanticOutcomeCandidate(candidate, options)
     {
         canonical[key] = normalize(candidate[key], `$.${key}`, map, taxonomy, candidate.producerId, false);
         const value = normalize(candidate[key], `$.${key}`, map, taxonomy, candidate.producerId, true);
-        if (value !== omitted) semantic[key] = value;
+        if (value !== omitted)
+        {
+            semantic[key] = value;
+        }
     }
     const canonicalMetadata = normalize(metadata, '$metadata', map, taxonomy, candidate.producerId, false);
     const semanticMetadata = normalize(metadata, '$metadata', map, taxonomy, candidate.producerId, true);
