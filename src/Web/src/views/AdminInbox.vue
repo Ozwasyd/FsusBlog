@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElOption, ElSelect } from '@ozwasyd/element-plus'
-import { adminInbox, adminInboxThread, type AdminInboxFilter, type AdminInboxRow, type AdminInboxThread } from '../../../Contracts/admin-inbox'
+import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
+import { ApiError } from '../../../Contracts/client'
+import { adminInbox, adminInboxThread, adminReply, type AdminInboxFilter, type AdminInboxRow, type AdminInboxThread } from '../../../Contracts/admin-inbox'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
 const emit = defineEmits<{ sessionLost: [error: unknown] }>()
@@ -13,10 +14,13 @@ const expanded = ref(false)
 const pending = ref(false)
 const failed = ref('')
 const title = ref<HTMLElement>()
+const reply = ref('')
+const notice = ref('')
 const statuses = ['Open', 'Pending', 'Closed'] as const
 const senders = ['Account', 'Administrator', 'System'] as const
 let operation = new AbortController()
 let opener: HTMLElement | undefined
+let attempt: { conversation: bigint; body: string; key: string } | undefined
 
 function reset() {
   operation.abort()
@@ -27,14 +31,16 @@ function reset() {
   failed.value = ''
   pending.value = false
   opener = undefined
+  clearReply()
 }
 
 function closeThread() {
   thread.value = undefined
+  clearReply()
   void nextTick(() => { if (opener?.isConnected) opener.focus() })
 }
 
-async function read(load: (signal: AbortSignal) => Promise<void>) {
+async function read(load: (signal: AbortSignal) => Promise<void>, message = 'Could not read the administrator inbox. Refresh and try again.') {
   if (pending.value || props.sessionSignal.aborted) return
   const signal = AbortSignal.any([props.sessionSignal, operation.signal])
   pending.value = true
@@ -42,8 +48,8 @@ async function read(load: (signal: AbortSignal) => Promise<void>) {
   try { await load(signal) }
   catch (error) {
     if (signal.aborted) return
-    emit('sessionLost', error)
-    failed.value = 'Could not read the administrator inbox. Refresh and try again.'
+    if (!(error instanceof ApiError && error.details.startsWith('pow_'))) emit('sessionLost', error)
+    failed.value = message
   } finally { if (!signal.aborted) pending.value = false }
 }
 
@@ -65,6 +71,31 @@ function openThread(id: bigint, before: string | null = null, event?: MouseEvent
       ? { ...page, messages: [...page.messages, ...thread.value.messages] } : page
     if (!before) void nextTick(() => title.value?.focus())
   })
+}
+
+function clearReply() {
+  reply.value = ''
+  notice.value = ''
+  attempt = undefined
+}
+
+function sendReply() {
+  const current = thread.value
+  if (!current || current.conversation.status === 2 || !current.repliesEnabled || !reply.value.trim() || pending.value) return
+  const conversation = current.conversation.id
+  const body = reply.value
+  if (attempt?.conversation !== conversation || attempt.body !== body) attempt = { conversation, body, key: crypto.randomUUID() }
+  const key = attempt.key
+  notice.value = ''
+  void read(async signal => {
+    const saved = await adminReply(conversation, body, key, signal)
+    if (signal.aborted) return
+    if (!current.messages.some(message => message.id === saved.id))
+      thread.value = { ...current, messages: [...current.messages, { id: saved.id, sender: 1 as const, internal: false, at: saved.createdAt, body: saved.body }]
+        .sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0) }
+    clearReply()
+    notice.value = 'Reply sent to the account.'
+  }, 'Could not send the reply. Retry to keep the same command.')
 }
 
 function toggle() {
@@ -114,6 +145,12 @@ onBeforeUnmount(() => operation.abort())
             <p class="inbox-admin-body">{{ message.body }}</p>
           </li>
         </ol>
+        <form v-if="thread.repliesEnabled && thread.conversation.status !== 2" class="inbox-admin-reply" @submit.prevent="sendReply">
+          <label for="admin-inbox-reply">Reply to the account</label>
+          <ElInput id="admin-inbox-reply" v-model="reply" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :disabled="pending" />
+          <ElButton native-type="submit" type="primary" :loading="pending" :disabled="!reply.trim()">Send reply</ElButton>
+        </form>
+        <p v-if="notice" role="status">{{ notice }}</p>
       </section>
     </template>
   </section>
@@ -129,4 +166,6 @@ onBeforeUnmount(() => operation.abort())
 .inbox-admin-subject:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; }
 .inbox-admin-account, .inbox-admin-body { overflow-wrap: anywhere; }
 .inbox-admin-body { white-space: pre-wrap; }
+.inbox-admin-reply { display: grid; gap: var(--fsus-space-2); padding-block: var(--fsus-space-3); }
+.inbox-admin-reply > button { justify-self: start; }
 </style>

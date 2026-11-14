@@ -64,7 +64,7 @@ internal static partial class CurrentSchema
     ];
 
     internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
-        bool? requireSubscription = null, bool? requireRecoveryKey = null)
+        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -88,7 +88,7 @@ internal static partial class CurrentSchema
         }
 
         await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
-            requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey);
+            requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -109,7 +109,7 @@ internal static partial class CurrentSchema
         bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion,
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
-        bool? requireRecoveryKey = null)
+        bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null)
     {
         if (requireArticleMedia is null)
         {
@@ -125,6 +125,11 @@ internal static partial class CurrentSchema
         var hasRecoveryKey = await HasSiteRecoveryKeySchemaAsync(connection, transaction, cancellationToken);
         if (requireRecoveryKey.HasValue && requireRecoveryKey.Value != hasRecoveryKey)
             throw new InvalidOperationException("The site Recovery Key schema presence does not match the requested operation.");
+        await using var adminInboxRelation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
+        adminInboxRelation.Parameters.AddWithValue(AdminInboxReplyRelation);
+        var hasAdminInboxReply = await adminInboxRelation.ExecuteScalarAsync(cancellationToken) is true;
+        if (requireAdminInboxReply.HasValue && requireAdminInboxReply.Value != hasAdminInboxReply)
+            throw new InvalidOperationException("The administrator inbox reply schema presence does not match the requested operation.");
         var requireModerationVersion = requireAdminIdentity && adminIdentityVersion >= AdminModerationVersion;
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
@@ -136,6 +141,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleMedia.Value ? ArticleMediaColumns : [])
             .Concat(requireSubscription.Value ? SiteSubscriptionColumns : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
+            .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
@@ -149,6 +155,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleMedia.Value ? ArticleMediaConstraints : [])
             .Concat(requireSubscription.Value ? SiteSubscriptionConstraints : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyConstraints : [])
+            .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();

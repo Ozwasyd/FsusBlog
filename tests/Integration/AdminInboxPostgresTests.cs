@@ -1,8 +1,10 @@
 using System.Net;
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using FsusBlog.V2.Contracts;
 using FsusBlog.V2.Server;
+using FsusBlog.V2.Server.Administration;
 using FsusBlogV2.Storage;
 
 namespace FsusBlog.V2.Integration.Tests;
@@ -40,9 +42,11 @@ public sealed class AdminInboxPostgresTests
             from generate_series(100,124) id;
             update public.inbox_conversation set last_message_id=124 where id=26
             """);
+        await Sql("select setval(pg_get_serial_sequence('public.inbox_message','id'),124)");
         await using var server = await ServerProcess.Start(fixture.ConnectionString, ct, new Dictionary<string, string>
         {
-            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost"
+            ["FSUSBLOG_ADMIN_ORIGIN"] = "http://localhost", ["FSUSBLOG_ADMIN_RP_ID"] = "localhost",
+            [AdminInboxEndpoints.ReplySetting] = "true"
         });
         await Get(WireRoutes.AdminInboxQueue, HttpStatusCode.NotFound, adminToken, host: false);
         await Get(WireRoutes.AdminInboxQueue, HttpStatusCode.Unauthorized, siteToken, site: true);
@@ -74,10 +78,78 @@ public sealed class AdminInboxPostgresTests
         var account = await Get(WireRoutes.InboxDetail.Replace("{id:long}", "26", StringComparison.Ordinal), HttpStatusCode.OK, siteToken,
             host: false, site: true);
         Assert.Equal(-1, account.AsSpan().IndexOf("invisible internal text"u8));
+        const string replyText = "Support member confirmed the account reply.";
+        const string command = "support:01";
+        const string nonce = "253ad5c923194c56b9d7e6622ffabeab";
+        var frame = InboxWire.EncodeAdminReply(replyText);
+        var path = WireRoutes.AdminInboxReply.Replace("{id:long}", "26", StringComparison.Ordinal);
+        var challenge = WireRoutes.AdminInboxReplyPow.Replace("{id:long}", "26", StringComparison.Ordinal);
+        await Post(path, HttpStatusCode.Unauthorized, adminToken, command, frame);
+        await Post(challenge, HttpStatusCode.Unauthorized, siteToken, command, frame, nonce);
+        await Post(challenge.Replace("/26/", "/1/", StringComparison.Ordinal), HttpStatusCode.Conflict, adminToken, command, frame, nonce);
+        var proof = await Work();
+        await Post(path, HttpStatusCode.Forbidden, adminToken, command, frame, proof: proof, origin: "http://127.0.0.1");
+        await Post(path.Replace("/26/", "/25/", StringComparison.Ordinal), HttpStatusCode.Unauthorized, adminToken, command, frame, proof: proof);
+        await Post(path, HttpStatusCode.Unauthorized, otherToken, command, frame, proof: proof);
+        await Post(path, HttpStatusCode.Unauthorized, adminToken, "support:other", frame, proof: proof);
+        var response = Aeds.Decode(await Post(path, HttpStatusCode.OK, adminToken, command, frame, proof: proof), FrameType.ConversationMessage).ToArray();
+        var replyId = BinaryPrimitives.ReadInt64LittleEndian(response);
+        Assert.Equal(0, response[29]);
+        await Post(path, HttpStatusCode.Unauthorized, adminToken, command, frame, proof: proof);
+        var retry = Aeds.Decode(await Post(path, HttpStatusCode.OK, adminToken, command, frame, proof: await Work()), FrameType.ConversationMessage).ToArray();
+        Assert.Equal(replyId, BinaryPrimitives.ReadInt64LittleEndian(retry));
+        Assert.Equal(1, retry[29]);
+        var receipt = await Get(WireRoutes.InboxDetail.Replace("{id:long}", "26", StringComparison.Ordinal), HttpStatusCode.OK, siteToken,
+            host: false, site: true);
+        Assert.True(receipt.AsSpan().IndexOf(Encoding.UTF8.GetBytes(replyText)) >= 0);
+        var accountDetail = Aeds.Decode(receipt, FrameType.ConversationDetailV3).ToArray();
+        Assert.Equal(25, BinaryPrimitives.ReadInt32LittleEndian(accountDetail.AsSpan(12)));
+        var replay = await Get(WireRoutes.InboxReplay, HttpStatusCode.OK, siteToken, host: false, site: true);
+        var replayData = Aeds.Decode(replay, FrameType.InboxReplay).ToArray();
+        Assert.Equal(2, BinaryPrimitives.ReadInt32LittleEndian(replayData.AsSpan(4)));
+        await using (var audit = Store.Sql(db, null, """
+            select principal_id,session_reference,conversation_id,message_id from public.inbox_admin_reply
+            """))
+        await using (var rows = await audit.ExecuteReaderAsync(ct))
+        {
+            Assert.True(await rows.ReadAsync(ct));
+            Assert.Equal(admin, rows.GetGuid(0));
+            Assert.Equal(SHA256.HashData(Store.TokenDigest(adminToken)!), rows.GetFieldValue<byte[]>(1));
+            Assert.Equal(26L, rows.GetInt64(2));
+            Assert.Equal(replyId, rows.GetInt64(3));
+            Assert.False(await rows.ReadAsync(ct));
+        }
+        await using (var delivery = Store.Sql(db, null, "select array_agg(kind order by sequence) from public.inbox_event where account_id=$1 and message_id=$2", user, replyId))
+            Assert.Equal(new short[] { 12, 13 }, (short[])(await delivery.ExecuteScalarAsync(ct))!);
         await using (var stored = Store.Sql(db, null, "select read_through from public.inbox_conversation where id=26"))
             Assert.Equal(26L, await stored.ExecuteScalarAsync(ct));
         await Sql("update public.admin_principal set generation=generation+1 where id=$1", admin);
         await Get(thread, HttpStatusCode.Unauthorized, adminToken);
+
+        async Task<string> Work()
+        {
+            var result = Aeds.Decode(await Post(challenge, HttpStatusCode.OK, adminToken, command, frame, nonce), FrameType.PowChallenge).ToArray();
+            return CommentReadPostgresTests.Solve(Encoding.UTF8.GetString(result.AsSpan(0, WireLayouts.PowChallengeSaltBytes)).TrimEnd('\0'),
+                Encoding.UTF8.GetString(result.AsSpan(WireLayouts.PowChallengeSignatureOffset)).TrimEnd('\0'),
+                BinaryPrimitives.ReadInt32LittleEndian(result.AsSpan(WireLayouts.PowChallengeSaltBytes)),
+                BinaryPrimitives.ReadInt64LittleEndian(result.AsSpan(WireLayouts.PowChallengeTimestampOffset)), nonce);
+        }
+
+        async Task<byte[]> Post(string path, HttpStatusCode expected, string secret, string key, byte[] data, string? nonce = null,
+            string? proof = null, string? origin = null)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = new ByteArrayContent(data) };
+            request.Headers.Host = "localhost";
+            request.Headers.Add("Cookie", $"fsus-v2-admin-session={secret}");
+            request.Headers.Add(WireHeaders.ClientMutationId, key);
+            if (origin is not null) request.Headers.Add("Origin", origin);
+            if (nonce is not null) request.Headers.Add(WireHeaders.PowClientNonce, nonce);
+            if (proof is not null) request.Headers.Add(WireHeaders.PowProof, proof);
+            request.Content.Headers.ContentType = new(Aeds.ContentType);
+            using var http = await server.Client.SendAsync(request, ct);
+            Assert.Equal(expected, http.StatusCode);
+            return await http.Content.ReadAsByteArrayAsync(ct);
+        }
 
         async Task Administrator(Guid id, string handle, string token)
         {

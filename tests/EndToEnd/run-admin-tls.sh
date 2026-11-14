@@ -161,6 +161,11 @@ FSUSBLOG_TEST_SITE_TICKET=$("$dotnet" "$migrate" operator tls-site-fixture)
 if [[ ${FSUSBLOG_TEST_ADMIN_INBOX:-0} == 1 ]]; then
   "${pg}psql" -X -w -v ON_ERROR_STOP=1 -d "$database" -f tests/EndToEnd/admin-inbox-fixture.sql > "$evidence/admin-inbox-fixture.log"
   shasum -a 256 tests/EndToEnd/admin-inbox-fixture.sql >> "$evidence/run.txt"
+  if [[ ${FSUSBLOG_TEST_ADMIN_INBOX_REPLY:-0} == 1 ]]; then
+    export FSUSBLOG_ADMIN_INBOX_REPLIES=true
+  else
+    export FSUSBLOG_ADMIN_INBOX_REPLIES=false
+  fi
 fi
 FSUSBLOG_TEST_ADMIN_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-admin-fixture admin.manage)
 export FSUSBLOG_TEST_SITE_TICKET FSUSBLOG_TEST_ADMIN_TICKET

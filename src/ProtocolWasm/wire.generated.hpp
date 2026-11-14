@@ -309,6 +309,7 @@ enum class FrameType : uint16_t {
     ConversationList = 56,
     ConversationMessage = 58,
     ConversationCreateRequest = 59,
+    ConversationReplyRequest = 60,
     PasskeyRegisterBegin = 63,
     PasskeyLoginBegin = 64,
     PasskeyRegisterCompleteRequest = 66,
@@ -416,6 +417,7 @@ constexpr bool known(FrameType type) {
         case FrameType::ConversationList:
         case FrameType::ConversationMessage:
         case FrameType::ConversationCreateRequest:
+        case FrameType::ConversationReplyRequest:
         case FrameType::PasskeyRegisterBegin:
         case FrameType::PasskeyLoginBegin:
         case FrameType::PasskeyRegisterCompleteRequest:

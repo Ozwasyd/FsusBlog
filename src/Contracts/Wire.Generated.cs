@@ -29,6 +29,7 @@ public enum FrameType : ushort
     ConversationList = 56,
     ConversationMessage = 58,
     ConversationCreateRequest = 59,
+    ConversationReplyRequest = 60,
     PasskeyRegisterBegin = 63,
     PasskeyLoginBegin = 64,
     PasskeyRegisterCompleteRequest = 66,
@@ -462,6 +463,8 @@ public static class WireRoutes
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
     public const string AdminInboxQueue = "/api/v2/admin/identity/inbox.aeds";
     public const string AdminInboxThread = "/api/v2/admin/identity/inbox/{id:long}.aeds";
+    public const string AdminInboxReplyPow = "/api/v2/admin/identity/inbox/{id:long}/reply-pow.aeds";
+    public const string AdminInboxReply = "/api/v2/admin/identity/inbox/{id:long}/reply.aeds";
     public const string AdminModerationClaim = "/api/v2/admin/identity/comments/claim.aeds";
     public const string AdminModerationRenew = "/api/v2/admin/identity/comments/claim/renew.aeds";
     public const string AdminModerationRelease = "/api/v2/admin/identity/comments/claim/release.aeds";
@@ -538,6 +541,7 @@ public static class WireHeaders
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
     public const string InboxWriteEnabled = "X-Fsus-Inbox-Write-Enabled";
+    public const string AdminInboxReplyEnabled = "X-Fsus-Admin-Inbox-Reply-Enabled";
     public const string PrivateMediaDigest = "X-Fsus-Private-Media-SHA256";
     public const string PrivateMediaResumable = "X-Fsus-Private-Media-Resumable";
     public const string MfaProof = "X-Fsus-Mfa-Proof";

@@ -111,7 +111,7 @@ internal static class AdminIdentityEndpoints
             Frame(Wire.EncodeAdminCommentQueue(await store.CommentQueue(ctx.Request.Cookies[session], ctx.Request.Query, ct))))
             .RequireRateLimiting("command");
         AdminModerationEndpoints.Map(app, config.Origin, store, session, Limit, readFrame);
-        AdminInboxEndpoints.Map(app, store, session);
+        AdminInboxEndpoints.Map(app, store, session, readFrame);
         AdminSitePages.Map(app, store, session);
         app.MapGet(WireRoutes.AdminCategories, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             Frame(Wire.EncodeAdminTaxonomyPage(await store.Taxonomy(ctx.Request.Cookies[session], false, ctx.Request.Query, publications, ct))))

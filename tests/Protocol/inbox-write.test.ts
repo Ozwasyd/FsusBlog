@@ -5,6 +5,7 @@ import { decodeFrame } from '../../src/Contracts/aeds.ts';
 import { inboxCreateFrame, inboxReplyFrame } from '../../src/Contracts/inbox-write.ts';
 import { decodeInboxCreated, decodeInboxReplied } from '../../src/Contracts/inbox.ts';
 import { FrameType } from '../../src/Contracts/wire.generated.ts';
+import { adminReplyFrame } from '../../src/Contracts/admin-inbox.ts';
 
 const fixture = (name: string) => Uint8Array.from(Buffer.from(readFileSync(new URL(`./fixtures/${name}.hex`, import.meta.url), 'utf8').replace(/\s/g, ''), 'hex'));
 
@@ -20,4 +21,10 @@ test('inbox writes preserve the fixed v1 AEDS request and response layouts', () 
   assert.equal(decodeInboxReplied(replied, coordinates.getBigInt64(8, true)).id, coordinates.getBigInt64(0, true));
   assert.throws(() => decodeInboxReplied(replied, coordinates.getBigInt64(8, true) + 1n));
   assert.throws(() => decodeInboxCreated(created.subarray(0, created.length - 1)));
+});
+
+test('admin reply uses v1 packed string coordinates and multibyte UTF-8', () => {
+  const bytes = decodeFrame(adminReplyFrame('A café 🐈'), FrameType.ConversationReplyRequest);
+  assert.deepEqual(bytes.payload, Uint8Array.from(Buffer.from('000000000c0000000c0000004120636166c3a920f09f9088', 'hex')));
+  assert.throws(() => adminReplyFrame('\ud800'));
 });

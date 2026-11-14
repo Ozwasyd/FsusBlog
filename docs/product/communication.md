@@ -20,7 +20,11 @@ v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话
 
 2026-11-15 使用独立 Caddy TLS 站点、原生 PostgreSQL 和 Chrome 验证管理员登录、队列筛选、桌面和窄屏键盘操作及焦点恢复。账号 API 不返回内部注记，公开站点拒绝管理员队列路径。另用 PostgreSQL 验证分页、游标隔离、已读位置不变和撤销会话。证据位于 `artifacts/admin-inbox-native/`。
 
-v1 的共享管理员未读投影、管理回复和状态修改、公开及管理员事件、握手 PoW 与签发授权、广播、历史迁移和自动生产者仍待接入。
+独立管理员回复默认关闭。先停服执行 `admin-inbox-replies`，再设 `FSUSBLOG_ADMIN_INBOX_REPLIES=true`。回复需要同一管理员会话下的真实 Classic PoW，挑战绑定当前会话、来源、会话编号、命令键和完整请求字节。管理员使用 v1 固定回复请求帧 60 和响应帧 58，经 v2 专用管理员站点 `/api/v2/admin/identity/inbox/{id}/reply.aeds` 使用。已关闭会话拒绝新回复。账号的已读位置不变，回复可通过原有账号详情、回放和 WebSocket 唤醒读取。证明消费、回复、原管理员身份和不可逆会话摘要、幂等命令及账号事件共用一次 PostgreSQL 提交。网络失败可携带同一命令键重新申请证明。
+
+2026-11-15 完成原生 PostgreSQL 工单回归和停服迁移复验。Chrome 经交付 Caddy TLS 验证管理员实际获取并完成挑战、发送后账号站点显示回复，以及默认关闭时隐藏录入。两次浏览器运行均清理临时资源。证据位于 `artifacts/admin-inbox-reply/`。
+
+v1 的共享管理员未读投影、管理员状态修改、适应性 PoW、精确旧管理端路径、公开及管理员事件、握手 PoW 与签发授权、广播、历史迁移和自动生产者仍待接入。
 
 协议测试使用 v1 固定列表、工单请求和消息样本，以及独立构造的当前详情和回放帧。五项原生 PostgreSQL 18 测试覆盖默认关闭、证明缺失、跨账号和跨会话拒绝、一次性消费、换证明幂等重试、并发写入、请求冲突、内部注记、已读校验、列表分页、回滚、断线续读、事件缺口、会话撤销和错误帧。WebSocket 测试实际拒绝跨源与匿名连接，检查只有目标账号的已提交事件产生唤醒，并验证撤销后返回策略关闭。`FSUSBLOG_TEST_DB` 指向允许创建临时数据库的 PostgreSQL。浏览器通过 `bash tests/EndToEnd/run-inbox-native.sh` 使用临时数据库和实际 Kestrel，验证桌面及 375px 页面在断开后获取期间提交的消息。设 `FSUSBLOG_TEST_INBOX_TLS=1` 并指定 `CADDY_BIN` 可用交付配置和独立证书复验 HTTPS。
 

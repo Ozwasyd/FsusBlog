@@ -44,6 +44,19 @@ public static class InboxWire
         return writer.Frame(FrameType.AccountConversationReplyRequest);
     }
 
+    public static byte[] EncodeAdminReply(string body)
+    {
+        var writer = new PodWriter();
+        writer.Text(body, BodyBytes);
+        return writer.Frame(FrameType.ConversationReplyRequest);
+    }
+
+    public static string DecodeAdminReply(ReadOnlySpan<byte> frame)
+    {
+        var payload = DecodeRequest(frame, FrameType.ConversationReplyRequest);
+        return ReadText(payload, ReadArena(payload, 8), BodyBytes);
+    }
+
     public static (string Subject, string Body) DecodeCreate(ReadOnlySpan<byte> frame)
     {
         var payload = DecodeRequest(frame, FrameType.ConversationCreateRequest);

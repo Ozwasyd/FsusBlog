@@ -192,6 +192,18 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         await CheckReadTarget(conversationId, readThrough, current, token);
     }
 
+    internal async Task<InboxMessage> AppendAdministratorReply(long conversationId, string body, CancellationToken ct)
+    {
+        await LockDeliveryAsync(ct);
+        var (status, _) = await ReadConversationAsync(conversationId, ct);
+        if (status == ConversationStatus.Closed)
+            throw new BusinessException(Rejection.Conflict, "The conversation is closed.");
+        var message = await AppendAsync(conversationId, InboxSender.Administrator, InboxRules.Body(body), ct);
+        await RecordEventAsync(InboxEventKind.ConversationUpsert, conversationId, message.Id, ct);
+        await RecordEventAsync(InboxEventKind.MessageAppend, conversationId, message.Id, ct);
+        return message;
+    }
+
     public async Task<InboxReadState> MarkReadAsync(long conversationId, long readThrough, CancellationToken cancellationToken)
     {
         Positive(conversationId);

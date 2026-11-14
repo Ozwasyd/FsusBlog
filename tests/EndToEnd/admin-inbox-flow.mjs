@@ -39,6 +39,33 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   const account = await context.request.get(siteOrigin + path)
   assert.equal(account.status(), 200)
   assert.equal((await account.body()).includes(Buffer.from(marker)), false)
+  if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_REPLY === '1') {
+    const reply = 'Inbox QA reply sent by the current administrator.'
+    await panel.getByLabel('Reply to the account', { exact: true }).fill(reply)
+    const proof = page.waitForResponse(response => response.url().endsWith('/reply-pow.aeds') && response.request().method() === 'POST')
+    const saved = page.waitForResponse(response => response.url().endsWith('/reply.aeds') && response.request().method() === 'POST')
+    await panel.getByRole('button', { name: 'Send reply', exact: true }).click()
+    assert.equal((await proof).status(), 200)
+    assert.equal((await saved).status(), 200)
+    await panel.getByText('Reply sent to the account.', { exact: true }).waitFor()
+    await panel.getByText(reply, { exact: true }).waitFor()
+    const publicOrigin = await context.request.get(siteOrigin + path)
+    assert.equal(publicOrigin.status(), 200)
+    const body = await publicOrigin.body()
+    assert(body.includes(Buffer.from(reply)))
+    assert(!body.includes(Buffer.from(marker)))
+    const reader = await context.newPage()
+    try {
+      await reader.goto(`${siteOrigin}/user/messagebox`)
+      await reader.getByRole('button', { name: /Inbox QA support case/ }).click()
+      await reader.getByRole('heading', { name: 'Inbox QA support case', exact: true }).waitFor()
+      await reader.getByText(reply, { exact: true }).last().waitFor()
+      assert.equal(await reader.getByText(marker, { exact: true }).count(), 0)
+      await reader.screenshot({ path: join(evidence, 'admin-inbox-account-reply.png'), animations: 'disabled' })
+    } finally { await reader.close() }
+  } else {
+    assert.equal(await panel.getByRole('button', { name: 'Send reply', exact: true }).count(), 0)
+  }
   for (const [name, viewport] of Object.entries({ desktop: { width: 1280, height: 800 }, mobile: { width: 375, height: 812 } })) {
     await page.setViewportSize(viewport)
     await panel.getByRole('heading', { name: 'Support inbox' }).evaluate(node => node.scrollIntoView({ block: 'start' }))

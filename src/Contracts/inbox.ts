@@ -211,11 +211,11 @@ function decodeThread(payload: Uint8Array, created: boolean): InboxThread {
     previous: previous === 0n ? null : previous, isSystem, subject: packet.text(flags + 4, subjectBytes), messages };
 }
 
-export function decodeInboxReplied(payload: Uint8Array, conversation: bigint): InboxMessage {
+export function decodeInboxReplied(payload: Uint8Array, conversation: bigint, expectedSender: InboxSender = 0): InboxMessage {
   const packet = new Packet(payload);
   packet.setArena(messageRecordBytes);
   const message = readMessage(packet, 0, conversation);
-  if (message.sender !== 0) invalid();
+  if (message.sender !== expectedSender) invalid();
   return message;
 }
 

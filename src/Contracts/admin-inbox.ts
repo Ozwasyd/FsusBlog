@@ -1,12 +1,15 @@
+import { encodeFrame } from './aeds.ts';
 import { ProtocolError, request } from './client.ts';
 import { PodReader } from './binary.ts';
-import { FrameType, WireRoutes } from './wire.generated.ts';
+import { decodeInboxReplied } from './inbox.ts';
+import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
+import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
 export type AdminInboxFilter = '' | 'open' | 'pending' | 'closed';
 export type AdminInboxRow = { id: bigint; account: string; subject: string; status: 0 | 1 | 2; system: boolean; updated: number };
 export type AdminInboxMessage = { id: bigint; sender: 0 | 1 | 2; internal: boolean; at: number; body: string };
 export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null };
-export type AdminInboxThread = { conversation: AdminInboxRow; messages: AdminInboxMessage[]; previous: string | null };
+export type AdminInboxThread = { conversation: AdminInboxRow; messages: AdminInboxMessage[]; previous: string | null; repliesEnabled: boolean };
 
 export function adminInbox(filter: AdminInboxFilter, next: string | null, signal: AbortSignal): Promise<AdminInboxPage> {
   const query = new URLSearchParams();
@@ -24,7 +27,7 @@ export function adminInbox(filter: AdminInboxFilter, next: string | null, signal
 
 export function adminInboxThread(id: bigint, before: string | null, signal: AbortSignal): Promise<AdminInboxThread> {
   const path = WireRoutes.AdminInboxThread.replace('{id:long}', String(id));
-  return request(before ? `${path}?${new URLSearchParams({ before })}` : path, FrameType.AdminInboxThread, payload => {
+  return request(before ? `${path}?${new URLSearchParams({ before })}` : path, FrameType.AdminInboxThread, (payload, headers) => {
     const reader = new PodReader(payload);
     const conversation = row(reader);
     const previous = cursor(reader);
@@ -33,8 +36,38 @@ export function adminInboxThread(id: bigint, before: string | null, signal: Abor
     if (conversation.id !== id || !messages.length || messages.some((item, index) =>
       !item.body || index > 0 && item.id <= messages[index - 1].id)) throw invalid();
     reader.finish();
-    return { conversation, previous, messages };
+    const flag = headers.get(WireHeaders.AdminInboxReplyEnabled);
+    if (flag !== null && flag !== '1') throw invalid();
+    return { conversation, previous, messages, repliesEnabled: flag === '1' };
   }, signal);
+}
+
+export function adminReplyFrame(body: string) {
+  if (!body.trim() || body.length > 16000 || body.includes('\0')) throw invalid();
+  const bytes = new TextEncoder().encode(body);
+  if (bytes.length > 16000 || new TextDecoder().decode(bytes) !== body) throw invalid();
+  const payload = new Uint8Array(12 + bytes.length);
+  const view = new DataView(payload.buffer);
+  view.setInt32(4, bytes.length, true);
+  view.setInt32(8, bytes.length, true);
+  payload.set(bytes, 12);
+  return encodeFrame(FrameType.ConversationReplyRequest, payload);
+}
+
+export async function adminReply(id: bigint, body: string, key: string, signal: AbortSignal) {
+  if (id <= 0n || BigInt.asIntN(64, id) !== id || !/^[A-Za-z0-9_.:-]{1,64}$/.test(key)) throw invalid();
+  const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
+  const frame = adminReplyFrame(body);
+  const at = (route: string) => route.replace('{id:long}', String(id));
+  const challenge = await request(at(WireRoutes.AdminInboxReplyPow), FrameType.PowChallenge, decodePowChallenge, signal, 'POST', frame,
+    { [WireHeaders.ClientMutationId]: key, [WireHeaders.PowClientNonce]: nonce });
+  const work = await solveScopedPow(challenge, nonce, signal);
+  const proof = encodePowProof(challenge, work, nonce);
+  return request(at(WireRoutes.AdminInboxReply), FrameType.ConversationMessage, payload => {
+    const message = decodeInboxReplied(payload, id, 1);
+    if (message.body !== body) throw invalid();
+    return message;
+  }, signal, 'POST', frame, { [WireHeaders.ClientMutationId]: key, [WireHeaders.PowProof]: proof });
 }
 
 function row(reader: PodReader): AdminInboxRow {
