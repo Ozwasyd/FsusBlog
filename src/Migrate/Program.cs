@@ -50,6 +50,8 @@ internal static partial class Migration
                                         Inspect the v1 article catalog and exact table counts
                   legacy plan postgres|mysql|sqlite
                                         Audit v1 article coordinates and report import blockers
+                  legacy rehearse postgres|mysql|sqlite OWNER_MAP.json
+                                        Transform and verify article rows in a disposable offline database
                 """);
             return 0;
         }
@@ -65,7 +67,11 @@ internal static partial class Migration
         {
             if (arguments is ["legacy", var mode, var provider])
             {
-                return await RunLegacyAsync(mode, provider, cancelled.Token);
+                return await RunLegacyAsync(mode, provider, ownerMap: null, cancelled.Token);
+            }
+            if (arguments is ["legacy", "rehearse", var rehearsalProvider, var ownerMap])
+            {
+                return await RunLegacyAsync("rehearse", rehearsalProvider, ownerMap, cancelled.Token);
             }
 
             var connectionString = Environment.GetEnvironmentVariable(DatabaseVariable);

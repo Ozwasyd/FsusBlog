@@ -21,6 +21,30 @@ SDK 10.0.404 下，PostgreSQL 18.7、SQLite 和 MySQL 8.4.13 使用符合 v1 旧
 
 测试入口为 [legacy-source.sh](../tests/Integration/Migration/legacy-source.sh)，接受 `sqlite`、`postgres` 或 `mysql`。MySQL 分支使用 `MYSQL_TOOLS_DIR` 或 PATH 中的原生 MySQL 8.4 工具。在独立的临时数据目录启动无 TCP 监听的实例，以仅有 SELECT 权限的账号验证预检，结束时关闭和清理实例。2026-11-14 22:14 实跑退出码为 0，基准提交、工作树文件摘要及原始输出在本地 `artifacts/native-migration/mysql-20261114T141427.log`。
 
+### 文章影子转换演练
+
+`dotnet run --no-build --project src/Migrate -- legacy rehearse postgres owner-map.json` 在同一个只读源快照中重跑计划，再写入仅供此次演练使用的 SQLite 内存库。另两种源可用 `mysql` 或 `sqlite`。现有 v2 数据库连接串不参与此命令。预检报告的 `audit.projections` 提供 `article` 投影的 SHA-256，`sourceAdminIdentitySha256` 绑定源库管理员 ID 和 handle。由持有完整站点权限证据的操作者在受控目录提供映射文件。
+
+```json
+{
+  "sourceArticleSha256": "<article projection SHA-256 from plan>",
+  "sourceAdminIdentitySha256": "<administrator identity SHA-256 from plan>",
+  "owners": [
+    {
+      "articleId": 42,
+      "legacyAdminId": 7,
+      "v2UserId": "968ffb2b-77ef-4868-89ec-6a0a19b28b95"
+    }
+  ]
+}
+```
+
+每篇文章需有唯一归属，管理员 ID 和 v2 用户 UUID 一一对应。演练核对管理员存在及两份源摘要，拒绝把修订作者当成文章所有者。影子库保留 int32 文章标识、int64 v1 修订和发布标识、各文章内的修订号与发布号、未发布正文、当前发布指针和历史发布。公开候选修订由 v1 发布和删除状态约束，最终按计划时间与权利规则另行验证。写入后回读核对行数、归属、修订和发布坐标，并输出影子表摘要。报告不含正文，演练结束后内存库释放。影子转换限定每张投影 5,000 行及 128 MB 文本。
+
+演练成功返回 0，报告仍明确保留 `readyToApply: false` 和未覆盖条款。管理员映射只证明影子归属引用可解析，实际权限、账号合并或 Passkey 的 int32 账户标识和用户句柄、凭据及会话迁移需要各自验收。完整迁移还需保全发布权利和责任快照、分类标签、媒体、待处理工作、草稿及附属关联。
+
+2026-11-14 22:29 使用 .NET SDK 10.0.404 在 SQLite、PostgreSQL 18.7 和 MySQL 8.4.13 的隔离旧字段样本验证通过。每个提供方的重复演练摘要一致，引用不存在的管理员或重用了旧身份摘要的映射均被拒绝。临时库和实例已清理，运行基准、工作树文件摘要与原始输出在本地 `artifacts/native-migration/shadow-20261114T142936.log`。
+
 只读 PostgreSQL 结构盘点示例。表级计数与哈希在已确认候选集合内逐表运行，表名来自 catalog 并按提供方规则引用。预估行数可协助安排盘点，完成验收时应保存精确行数。
 
 ```sql

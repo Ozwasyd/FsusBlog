@@ -42,7 +42,7 @@ cleanup() {
         printf 'Could not remove owned test database %s\n' "$database" >&2
         if [[ "$code" == 0 ]]; then code=1; fi
     fi
-    if ! rm -f -- "$scratch/source.sqlite" "$scratch/"{inventory,plan,repeat,corrupt,incomplete}.json ||
+    if ! rm -f -- "$scratch/source.sqlite" "$scratch/"{inventory,plan,repeat,corrupt,incomplete,owner,rehearsal,owner-invalid}.json ||
        ! rmdir -- "$scratch"; then
         printf 'Could not remove owned scratch directory %s\n' "$scratch" >&2
         if [[ "$code" == 0 ]]; then code=1; fi
@@ -112,7 +112,48 @@ assert actual == {
 }
 assert all(len(p['sha256']) == 64 for p in plan['audit']['projections'])
 assert 'Private edit' not in plan_raw and 'published ☃' not in plan_raw
+article = next(p for p in plan['audit']['projections'] if p['table'] == 'article')
+mapping = {
+    'sourceArticleSha256': article['sha256'],
+    'sourceAdminIdentitySha256': plan['sourceAdminIdentitySha256'],
+    'owners': [{'articleId': 42, 'legacyAdminId': 7, 'v2UserId': '968ffb2b-77ef-4868-89ec-6a0a19b28b95'}],
+}
+(root / 'owner.json').write_text(json.dumps(mapping))
+mapping['owners'][0]['legacyAdminId'] = 404
+(root / 'owner-invalid.json').write_text(json.dumps(mapping))
 PY
+
+"${migrate[@]}" legacy rehearse "$provider" "$scratch/owner.json" > "$scratch/rehearsal.json"
+"${migrate[@]}" legacy rehearse "$provider" "$scratch/owner.json" > "$scratch/repeat.json"
+cmp "$scratch/rehearsal.json" "$scratch/repeat.json"
+if "${migrate[@]}" legacy rehearse "$provider" "$scratch/owner-invalid.json" > /dev/null; then
+    printf '%s\n' 'Missing legacy owner unexpectedly accepted.' >&2
+    exit 1
+fi
+python3 - "$scratch/rehearsal.json" <<'PY'
+import json
+import pathlib
+import sys
+
+raw = pathlib.Path(sys.argv[1]).read_text()
+report = json.loads(raw)
+assert report['readyToApply'] is False and report['blockers']
+rehearsal = report['rehearsal']
+assert len(rehearsal['ownerMapSha256']) == 64
+assert rehearsal['sourceAdminIdentitySha256'] == report['sourceAdminIdentitySha256']
+assert {entry['table']: entry['rows'] for entry in rehearsal['counts']} == {
+    'shadow_article': 1, 'shadow_revision': 3, 'shadow_publication': 2,
+}
+assert all(len(entry['sha256']) == 64 for entry in rehearsal['counts'])
+assert 'Private edit' not in raw and 'published ☃' not in raw
+PY
+
+"${source_sql[@]}" "UPDATE admin_principal SET handle = 'different-editor' WHERE id = 7"
+if "${migrate[@]}" legacy rehearse "$provider" "$scratch/owner.json" > /dev/null; then
+    printf '%s\n' 'Owner map accepted for a different principal identity set.' >&2
+    exit 1
+fi
+"${source_sql[@]}" "UPDATE admin_principal SET handle = 'fixture-editor' WHERE id = 7"
 
 "${source_sql[@]}" "UPDATE article_revision_content_block SET markdown_content = 'wrong' WHERE id = 200"
 "${source_sql[@]}" 'UPDATE article_publication SET revision_no = 3 WHERE id = 900000002'
@@ -128,4 +169,4 @@ if [[ "$provider" == mysql ]]; then
     expect_blocked "$scratch/incomplete.json"
     rg -F 'article_body: relation is not a supported transactional base table' "$scratch/incomplete.json"
 fi
-printf 'Legacy %s read-only inventory and blocker checks passed.\n' "$provider"
+printf 'Legacy %s read-only inventory, shadow rehearsal and blocker checks passed.\n' "$provider"

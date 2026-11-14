@@ -26,6 +26,8 @@ CREATE TABLE article_publication (
     responsibility_snapshot_id bigint, transition_kind varchar(32) NOT NULL,
     published_at timestamp NOT NULL, created_at timestamp NOT NULL
 );
+CREATE TABLE admin_principal (id bigint PRIMARY KEY, handle varchar(64) NOT NULL UNIQUE);
+INSERT INTO admin_principal VALUES (7, 'fixture-editor');
 
 INSERT INTO article (id, title, categoryid, createtime, metadata_updated_at, isdeleted, status,
                      current_revision_id, current_publication_id, published_at)

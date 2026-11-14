@@ -13,16 +13,16 @@ internal static partial class Migration
     private const string LegacySchemaVariable = "FSUSBLOG_V1_SCHEMA";
     private const int LegacyCommandTimeout = 30;
 
-    private static async Task<int> RunLegacyAsync(string mode, string provider, CancellationToken token)
+    private static async Task<int> RunLegacyAsync(string mode, string provider, string? ownerMap, CancellationToken token)
     {
-        if (mode is not ("inventory" or "plan"))
-            throw new ArgumentException("Use legacy inventory or legacy plan.");
+        if (mode is not ("inventory" or "plan") && (mode != "rehearse" || ownerMap is null))
+            throw new ArgumentException("Use legacy inventory, legacy plan, or legacy rehearse with an owner map.");
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
         deadline.CancelAfter(TimeSpan.FromMinutes(4));
         try
         {
-            return await InspectLegacyAsync(mode, provider, deadline.Token);
+            return await InspectLegacyAsync(mode, provider, ownerMap, deadline.Token);
         }
         catch (OperationCanceledException) when (!token.IsCancellationRequested && deadline.IsCancellationRequested)
         {
@@ -44,7 +44,7 @@ internal static partial class Migration
         }
     }
 
-    private static async Task<int> InspectLegacyAsync(string mode, string provider, CancellationToken token)
+    private static async Task<int> InspectLegacyAsync(string mode, string provider, string? ownerMap, CancellationToken token)
     {
         var source = ParseLegacySource(provider);
         await using var connection = source.Connection;
@@ -83,15 +83,40 @@ internal static partial class Migration
         }
 
         var audit = blockers.Count == 0
-            ? await AuditLegacyAsync(source, transaction, tables, mode == "plan", token)
+            ? await AuditLegacyAsync(source, transaction, tables, mode != "inventory", token)
             : null;
         if (audit is not null)
             blockers.AddRange(audit.Issues.Select(issue => $"{issue.Kind}: {issue.Count}"));
 
-        if (mode == "plan")
+        string? sourceAdminIdentitySha256 = null;
+        ShadowReport? shadow = null;
+        if (mode != "inventory" && audit is not null && blockers.Count == 0)
         {
-            blockers.Add("v2 activation requires an approved legacy principal and article owner map");
-            blockers.Add("preserve rights, responsibility, credentials, media, pending work and other durable v1 domains");
+            var principals = catalog.Where(table => table.Name.Equals("admin_principal", StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (principals is [var table] && source.IsSnapshotTable(table.Kind) &&
+                table.Columns.Count(field => field.Name.Equals("id", StringComparison.OrdinalIgnoreCase)) == 1 &&
+                table.Columns.Count(field => field.Name.Equals("handle", StringComparison.OrdinalIgnoreCase)) == 1)
+            {
+                if (ownerMap is not null)
+                {
+                    shadow = await RehearseLegacyAsync(source, transaction, tables, table, audit, ownerMap, token);
+                    sourceAdminIdentitySha256 = shadow.SourceAdminIdentitySha256;
+                }
+                else
+                {
+                    sourceAdminIdentitySha256 = await FingerprintLegacyPrincipalsAsync(source, transaction, table, owners: null, token);
+                }
+            }
+            else
+            {
+                blockers.Add("admin_principal.id and handle must be readable from one supported v1 base table");
+            }
+        }
+        bool rehearsed = shadow is not null && blockers.Count == 0;
+        if (mode is "plan" or "rehearse")
+        {
+            blockers.Add("v2 activation requires an approved complete principal, role and article ownership mapping");
+            blockers.Add("preserve rights, responsibility, credentials, media, properties, Canvas, drafts, pending work and other durable v1 domains");
             blockers.Add("the full v1-to-v2 converter and independent restore acceptance are unavailable");
         }
 
@@ -106,8 +131,11 @@ internal static partial class Migration
             readyToApply = false,
             catalog,
             audit,
+            sourceAdminIdentitySha256,
+            rehearsal = shadow,
             blockers
         }, Json));
+        if (mode == "rehearse" && rehearsed) return 0;
         return blockers.Count == 0 ? 0 : 2;
     }
 
