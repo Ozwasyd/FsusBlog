@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
 import AdminModerationControls from './AdminModerationControls.vue'
 import AdminTaxonomy from './AdminTaxonomy.vue'
+import AdminInbox from './AdminInbox.vue'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   bootstrapAdminPasskey,
@@ -176,6 +177,7 @@ function logOut() {
       <ElButton native-type="button" :loading="busy" @click="logOut">Log out of administrator session</ElButton>
     </section>
     <AdminModerationControls v-if="authority?.status === 'active'" :session-signal="moderationAuthority.signal" @session-lost="handleSessionLoss" />
+    <AdminInbox v-if="authority?.status === 'active'" :session-signal="moderationAuthority.signal" @session-lost="handleSessionLoss" />
     <section v-if="authority?.status === 'active'" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">
       <h2 id="admin-operations-heading">Operations status</h2>
       <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">Check operations status</ElButton>

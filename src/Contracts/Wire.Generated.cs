@@ -47,6 +47,8 @@ public enum FrameType : ushort
     AdminOperationsStatus = 32850,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
+    AdminInboxPage = 32896,
+    AdminInboxThread = 32897,
     AdminModerationIntent = 32866,
     AdminModerationClaimRequest = 32867,
     AdminModerationClaim = 32868,
@@ -448,6 +450,8 @@ public static class WireRoutes
     public const string AdminCategories = "/api/v2/admin/identity/taxonomy/categories.aeds";
     public const string AdminTags = "/api/v2/admin/identity/taxonomy/tags.aeds";
     public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
+    public const string AdminInboxQueue = "/api/v2/admin/identity/inbox.aeds";
+    public const string AdminInboxThread = "/api/v2/admin/identity/inbox/{id:long}.aeds";
     public const string AdminModerationClaim = "/api/v2/admin/identity/comments/claim.aeds";
     public const string AdminModerationRenew = "/api/v2/admin/identity/comments/claim/renew.aeds";
     public const string AdminModerationRelease = "/api/v2/admin/identity/comments/claim/release.aeds";

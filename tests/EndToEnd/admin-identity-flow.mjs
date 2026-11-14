@@ -10,6 +10,7 @@ import { PodReader } from '../../src/Contracts/binary.ts'
 import { decodeCommentRoots } from '../../src/Contracts/comment-read.ts'
 import { readMfaProof } from '../../src/Contracts/mfa.ts'
 import { verifyTaxonomy } from './admin-taxonomy-flow.mjs'
+import { verifyAdminInbox } from './admin-inbox-flow.mjs'
 import {
   decodeAdminModerationClaim, decodeAdminModerationDecision, decodeAdminModerationIntent, decodeAdminOperationsStatus, decodeAdminSessionSnapshot,
   encodeAdminModerationIntent, FrameType, WireHeaders, WireLimits, WireRoutes,
@@ -230,6 +231,12 @@ try {
     checks.taxonomyRequiresIndependentGrant = true
     checks.taxonomyCountersAndCursorUseStoredRevisions = true
     checks.taxonomyGrantAndRevokeInvalidateOldSessions = true
+  }
+
+  if (process.env.FSUSBLOG_TEST_ADMIN_INBOX === '1') {
+    phase = 'support-inbox'
+    await verifyAdminInbox(admin, context, adminOrigin.origin, siteOrigin.origin, siteCookie, adminCookieName, credentialProbe, evidence)
+    checks.adminInboxOnlyShowsPrivateThreadsToCurrentAdmin = true
   }
 
   phase = 'logout'

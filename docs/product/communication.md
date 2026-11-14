@@ -16,7 +16,11 @@ v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话
 
 设置 `FSUSBLOG_PRIVATE_INBOX_WRITES=true` 可开放账号提交工单和回复。部署前应确定实际处理工单的运维流程。现有 v1 创建和回复路径保留 AEDS 请求及响应帧，并要求 `X-Fsus-Client-Mutation-Id`。客户端先向 `/api/v2/notifications/inbox/pow-create.aeds` 或 `/api/v2/notifications/inbox/{id}/pow-reply.aeds` 提交原始请求取得 v2 随机挑战，再通过浏览器 Worker 完成 Classic PoW。证明绑定当前会话、来源、命令键、操作、会话编号和原始请求字节，在写入消息的同一事务中消费，失败后可用新的证明和原命令键重试。v1 自适应风险规则和 PoW 策略仍待迁移。
 
-v1 公开及管理员事件、握手 PoW 与签发授权、广播、管理队列、会话状态变更、历史迁移和自动生产者仍待接入。
+独立管理员站点 `/admin/identity` 提供只读工单队列。管理员须通过自己的 Passkey 登录，并持有固定 v1 管理接口使用的 `admin.manage`。服务在每次读取时检查当前会话、权限、撤销代次和租约。v2 队列按会话创建编号倒序分页，可筛选进行中、待处理和已关闭；详情按消息编号分页。游标绑定管理员当前会话及筛选或会话编号。管理详情显示原账号消息和内部注记，账号视图仍排除内部注记。打开队列、读取详情或返回列表不会更改账号已读位置。
+
+2026-11-15 使用独立 Caddy TLS 站点、原生 PostgreSQL 和 Chrome 验证管理员登录、队列筛选、桌面和窄屏键盘操作及焦点恢复。账号 API 不返回内部注记，公开站点拒绝管理员队列路径。另用 PostgreSQL 验证分页、游标隔离、已读位置不变和撤销会话。证据位于 `artifacts/admin-inbox-native/`。
+
+v1 的共享管理员未读投影、管理回复和状态修改、公开及管理员事件、握手 PoW 与签发授权、广播、历史迁移和自动生产者仍待接入。
 
 协议测试使用 v1 固定列表、工单请求和消息样本，以及独立构造的当前详情和回放帧。五项原生 PostgreSQL 18 测试覆盖默认关闭、证明缺失、跨账号和跨会话拒绝、一次性消费、换证明幂等重试、并发写入、请求冲突、内部注记、已读校验、列表分页、回滚、断线续读、事件缺口、会话撤销和错误帧。WebSocket 测试实际拒绝跨源与匿名连接，检查只有目标账号的已提交事件产生唤醒，并验证撤销后返回策略关闭。`FSUSBLOG_TEST_DB` 指向允许创建临时数据库的 PostgreSQL。浏览器通过 `bash tests/EndToEnd/run-inbox-native.sh` 使用临时数据库和实际 Kestrel，验证桌面及 375px 页面在断开后获取期间提交的消息。设 `FSUSBLOG_TEST_INBOX_TLS=1` 并指定 `CADDY_BIN` 可用交付配置和独立证书复验 HTTPS。
 
