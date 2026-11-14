@@ -193,6 +193,15 @@ BEGIN
             END IF;
             CONTINUE;
         END IF;
+        IF relation.relname = 'site_page_content' THEN
+            EXECUTE 'SELECT count(*) = 4 AND array_agg(slug ORDER BY slug) = ARRAY[''about'',''copyright'',''guidelines'',''privacy'']
+                AND bool_and(revision = 0 AND markdown IS NULL) FROM public.site_page_content'
+                INTO valid_bootstrap;
+            IF valid_bootstrap IS DISTINCT FROM true THEN
+                RAISE EXCEPTION 'Fixture target has nonempty or incomplete site page bootstrap data';
+            END IF;
+            CONTINUE;
+        END IF;
         EXECUTE format('SELECT EXISTS (SELECT 1 FROM public.%I)', relation.relname) INTO contains_rows;
         IF contains_rows THEN
             RAISE EXCEPTION 'Fixture target contains business data in %', relation.relname;
