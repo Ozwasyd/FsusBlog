@@ -316,7 +316,7 @@ public sealed class AuthoringCommandRegistry
             command.When.IsDefault || command.When.Length > 16 ||
             command.When.Distinct().Count() != command.When.Length ||
             command.When.Any(static condition =>
-                !Enum.IsDefined(condition.Fact) || !Enum.IsDefined(condition.Operator)) ||
+                condition is null || !Enum.IsDefined(condition.Fact) || !Enum.IsDefined(condition.Operator)) ||
             command.RequiredCapabilities.IsDefault ||
             command.RequiredCapabilities.Distinct().Count() != command.RequiredCapabilities.Length ||
             command.RequiredCapabilities.Any(static capability => !Enum.IsDefined(capability)) ||
@@ -340,7 +340,7 @@ public sealed class AuthoringCommandRegistry
             (command.Shortcut.Modifiers.IsDefaultOrEmpty ||
             command.Shortcut.Modifiers.Distinct().Count() != command.Shortcut.Modifiers.Length ||
             command.Shortcut.Modifiers.Any(static modifier => !Enum.IsDefined(modifier)) ||
-            command.Shortcut.Key.Length != 1 || !char.IsLetterOrDigit(command.Shortcut.Key[0])))
+            command.Shortcut.Key is null || command.Shortcut.Key.Length != 1 || !char.IsLetterOrDigit(command.Shortcut.Key[0])))
         {
             throw new AuthoringExtensionContractException("Shortcut request is not a closed key chord.");
         }
