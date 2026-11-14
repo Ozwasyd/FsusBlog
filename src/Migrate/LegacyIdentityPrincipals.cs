@@ -61,9 +61,7 @@ internal static partial class Migration
                     if (id < 1 || !administrators.Add(id))
                         throw new InvalidOperationException("The v1 administrator identity set is ambiguous.");
                     var handle = IdentityText(row, 1);
-                    if (handle is not { Length: >= 1 and <= 64 } || handle[0] is < 'a' or > 'z' ||
-                        !handle.All(character => character is >= 'a' and <= 'z' or >= '0' and <= '9' or '_' or '.' or '-') ||
-                        !handles.Add(handle))
+                    if (!IsLegacyAdminHandle(handle) || !handles.Add(handle!))
                         AddIssue("administrator-handle-invalid");
                     var state = IdentityText(row, 2);
                     long generation = AssetInteger(row.GetValue(3));

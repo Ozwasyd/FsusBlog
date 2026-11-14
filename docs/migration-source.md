@@ -145,6 +145,29 @@ dotnet run --no-build --project src/Migrate -- legacy identity postgres > "$iden
 
 2026-11-15 在 SDK 10.0.404 下运行 `tests/Integration/Migration/legacy-identity.sh [postgres|sqlite|mysql]`。PostgreSQL 18.7、SQLite 3.54.0 和 MySQL 8.4.13 分别通过旧字段形状的隔离样本验证。核对同号的两类主体、跨身份错误绑定、撤销与在用的恢复密钥、当前和历史会话、不认识的权限、缺表和报告脱敏。精确输入摘要与原始输出见本地 `artifacts/native-migration/identity-20261114T164928.log`。
 
+### 演练选定的独立管理员
+
+该流程使用单独的新 v2 PostgreSQL 候选，`FSUSBLOG_IMPORT_DB` 指向本机 Unix socket 的 `fsusv2_import_*` 数据库。用当前迁移工具初始化空库，先生成并独立验证其备份，再保留清单 SHA-256。目标 UUID 读取候选的 `authoring_recovery_site.site_id`，旧站 UUID 由操作者用独立站点记录确认。PostgreSQL 旧源与候选必须属于不同的集群，连接需具备读取 `pg_catalog.pg_control_system()` 的权限。将旧数据库置为冻结的只读来源，SQLite 的来源绑定包含规范文件位置及已选元数据，凭据页不参与读取摘要。
+
+```bash
+umask 077
+dotnet run --no-build --project src/Migrate -- legacy admin plan postgres \
+  "$source_site_uuid" "$target_site_uuid" "$verified_backup_dir" "$manifest_sha256" 42 103 > "$draft"
+```
+
+只按 `admin_principal` 的旧正 Int64 ID 选择，普通账号同号无关。审批人员确认旧 handle、状态、验证代次、明确的权限名和新 UUID 映射后，只填写 `principals[].targetAdminId`。权限以旧站每行一个标识的实际格式读取，仅保留能明确识别的 v2 对应项。root、TOTP 或其残留状态、重复或不认识的权限、未知身份状态均拒绝。旧 Passkey 和会话只按归属计数。草案和审核文件含身份元数据，使用操作者私有文件；保存经审核文件的原字节 SHA-256。
+
+```bash
+dotnet run --no-build --project src/Migrate -- legacy admin stage \
+  "$reviewed_json" "$review_sha256" "$verified_backup_dir" "$manifest_sha256"
+dotnet run --no-build --project src/Migrate -- legacy admin verify \
+  "$reviewed_json" "$review_sha256" "$verified_backup_dir" "$manifest_sha256" "$candidate_sha256"
+```
+
+首次写入在同一事务封禁启动、记录独立管理员映射并写入当前形状的禁用管理员。保留旧管理 handle 和验证代次，为每条记录产生新的 32 字节 WebAuthn handle。审核权限只留在隔离谱系，`public.admin_permission`、邀请、凭据和会话均为空。重新执行 stage 会重读源和目标，verify 使用首次输出的独立 `candidateSha256`、审核文件和备份做只读复验，无需连接源库。数据库标记、备份覆盖、管理员、权限行或隔离结构的变化均会停止演练。候选仅供核验，正式账号权限审批及新凭据登记需要独立完成。
+
+2026-11-15 在 macOS ARM64、SDK 10.0.404 上通过 `tests/Integration/Migration/legacy-admin-rehearsal.sh [postgres|sqlite|mysql]`。SQLite 3.54.0、独立 PostgreSQL 18.7 和 MySQL 8.4.13 的旧结构样本均通过映射、只读复验和独立的 PostgreSQL 备份恢复。PostgreSQL 和 MySQL 使用不能读取原凭据与会话秘密字段的旧源角色。测试拒绝旧根权限或 MFA、变更的来源、修改的管理员与回执、同名约束替换和发布态站点页面，确认普通身份同号不影响结果且旧源保持原样。原始输出与输入摘要见 `artifacts/native-migration/legacy-admin-rehearsal-20261114T184119Z.log`。
+
 只读 PostgreSQL 结构盘点示例。表级计数与哈希在已确认候选集合内逐表运行，表名来自 catalog 并按提供方规则引用。预估行数可协助安排盘点，完成验收时应保存精确行数。
 
 ```sql

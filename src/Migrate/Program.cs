@@ -106,6 +106,10 @@ internal static partial class Migration
                                         Rehearse an offline, quarantined attachment copy
                   legacy identity PROVIDER
                                         Audit account and administrator compatibility without activating credentials
+                  legacy admin plan PROVIDER SOURCE_SITE_UUID TARGET_SITE_UUID BACKUP_DIR MANIFEST_SHA256 ADMIN_ID...
+                  legacy admin stage REVIEW_JSON REVIEW_SHA256 BACKUP_DIR MANIFEST_SHA256
+                  legacy admin verify REVIEW_JSON REVIEW_SHA256 BACKUP_DIR MANIFEST_SHA256 CANDIDATE_SHA256
+                                        Rehearse reviewed administrator identities without enabling login
                 """);
             return 0;
         }
@@ -127,6 +131,8 @@ internal static partial class Migration
                 return await RunLegacyMediaRehearsalAsync(mediaArguments, cancelled.Token);
             if (arguments is ["legacy", "identity", var identityProvider])
                 return await VerifyLegacyIdentityAsync(identityProvider, cancelled.Token);
+            if (arguments is ["legacy", "admin", .. var legacyAdminArguments])
+                return await RunLegacyAdminRehearsalAsync(legacyAdminArguments, cancelled.Token);
             if (arguments is ["legacy", "import", .. var importArguments])
             {
                 return await RunLegacyImportAsync(importArguments, cancelled.Token);

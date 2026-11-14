@@ -40,7 +40,7 @@ internal static partial class Migration
                     return 0;
                 case ["plan", var provider, var publicRoot, var privateRoot, var sourceSite, var targetSite]:
                     return await CaptureLegacyMediaAsync(provider, publicRoot, privateRoot,
-                        ParseMediaSite(sourceSite), ParseMediaSite(targetSite), null, null, ct);
+                        ParseLegacySiteId(sourceSite), ParseLegacySiteId(targetSite), null, null, ct);
                 case ["copy", var provider, var publicRoot, var privateRoot, var reviewedPath, var reviewDigest,
                         var outputParent, var name]:
                     ValidateLegacyAssetRoots(publicRoot, outputParent);
@@ -66,7 +66,7 @@ internal static partial class Migration
 
     private sealed record MediaOutput(string Parent, string Name, string ReviewDigest);
 
-    private static Guid ParseMediaSite(string value) =>
+    private static Guid ParseLegacySiteId(string value) =>
         Guid.TryParseExact(value, "D", out var id) && id != Guid.Empty
             ? id : throw new ArgumentException("Supply explicit nonempty source and target site UUIDs.");
 
@@ -80,7 +80,7 @@ internal static partial class Migration
         await target.OpenAsync(token);
         await RequireBackupDatabaseLockAsync(target, token);
         await using var targetRead = await BeginReadOnlyAsync(target, token);
-        var targetCluster = await ReadMediaClusterAsync(target, targetRead, token);
+        var targetCluster = await ReadLegacyPostgresClusterAsync(target, targetRead, token);
         string? sourceFingerprint = null;
         return await ObserveLegacyAssetSnapshotAsync(provider, publicPath, privatePath, async (snapshot, ct) =>
         {
@@ -111,7 +111,7 @@ internal static partial class Migration
             return 0;
         }, token, async (source, transaction, ct) =>
         {
-            sourceFingerprint = await ReadMediaSourceFingerprintAsync(source, transaction, targetCluster, ct);
+            sourceFingerprint = await ReadLegacySourceDatabaseFingerprintAsync(source, transaction, targetCluster, ct);
         });
     }
 

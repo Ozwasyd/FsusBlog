@@ -19,12 +19,12 @@ internal static partial class Migration
     private static readonly HashSet<string> MappedAdminPermissions = new(StringComparer.Ordinal)
     {
         CurrentSchema.AdminManagePermission, CurrentSchema.AuditReadPermission, CurrentSchema.CommentModeratePermission,
-        CurrentSchema.ArticleWritePermission
+        CurrentSchema.ArticleWritePermission, CurrentSchema.SystemConfigPermission
     };
     private static readonly HashSet<string> KnownUnmappedAdminPermissions = new(StringComparer.Ordinal)
     {
         "article.publish", "anonymous.comment.configure", "anonymous.nullifier.block", "anonymous.credential.revoke",
-        "audit.investigate", "system.config"
+        "audit.investigate"
     };
     private sealed record IdentityRelation(string Name, bool Present, long Rows);
 

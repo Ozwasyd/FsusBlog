@@ -8,17 +8,17 @@ using Npgsql;
 
 internal static partial class Migration
 {
-    private static async Task<string> ReadMediaSourceFingerprintAsync(LegacySource source, DbTransaction transaction,
-        string targetCluster, CancellationToken token)
+    private static async Task<string> ReadLegacySourceDatabaseFingerprintAsync(LegacySource source, DbTransaction transaction,
+        string targetCluster, CancellationToken token, bool bindSqliteBytes = true)
     {
         switch (source.Connection)
         {
             case NpgsqlConnection postgres:
                 var pgRead = (NpgsqlTransaction)transaction;
-                var cluster = await ReadMediaClusterAsync(postgres, pgRead, token);
+                var cluster = await ReadLegacyPostgresClusterAsync(postgres, pgRead, token);
                 if (cluster == targetCluster)
                     throw new InvalidOperationException("The PostgreSQL source and rehearsal candidate must use separate clusters.");
-                return await FingerprintMediaPostgresAsync(postgres, pgRead, cluster, token);
+                return await FingerprintLegacyPostgresDatabaseAsync(postgres, pgRead, cluster, token);
             case SqliteConnection sqlite:
                 var path = sqlite.DataSource;
                 if (path != Path.GetFullPath(path))
@@ -29,6 +29,8 @@ internal static partial class Migration
                 {
                     if (handle.IsInvalid)
                         throw new InvalidOperationException("The frozen SQLite source file is unavailable or linked.");
+                    // Administrator staging binds selected metadata and external site identity without reading credential pages.
+                    if (!bindSqliteBytes) return DigestMediaDocument(new { provider = "sqlite", database = path });
                     await using var file = new FileStream(handle, FileAccess.Read);
                     long size = file.Length;
                     if (size is < 512 or > ImportBackupBytes)
@@ -50,7 +52,7 @@ internal static partial class Migration
         }
     }
 
-    private static async Task<string> ReadMediaClusterAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+    private static async Task<string> ReadLegacyPostgresClusterAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         CancellationToken token)
     {
         await using var command = new NpgsqlCommand(
@@ -61,7 +63,7 @@ internal static partial class Migration
         return cluster.ToString(CultureInfo.InvariantCulture);
     }
 
-    private static async Task<string> FingerprintMediaPostgresAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
+    private static async Task<string> FingerprintLegacyPostgresDatabaseAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         string cluster, CancellationToken token)
     {
         var identity = await ReadTargetAsync(connection, transaction, token);
@@ -98,7 +100,7 @@ internal static partial class Migration
             if (await occupied.ExecuteScalarAsync(token) is not false)
                 throw new InvalidOperationException("The isolated media rehearsal candidate contains operational rows.");
         }
-        return await FingerprintMediaPostgresAsync(connection, transaction, cluster, token);
+        return await FingerprintLegacyPostgresDatabaseAsync(connection, transaction, cluster, token);
     }
 
     private static async Task CheckMediaDestinationOwnersAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
