@@ -24,6 +24,8 @@ Deploy a domain-policy migration as one closure: the policy bytes, four v2 recei
 
 The `ui-orchestration.mjs` CLI is intentionally bounded. It reads exactly four schema files, checks their `additionalProperties` and required `schema` declarations, checks the external-orchestration policy boundary, validates one in-memory contract fixture, and executes the 18 permanent negative controls. It accepts no receipt-file argument. The exported `validateBlogUiBundle` additionally checks the exact receipt shapes, policy and baseline identities, candidate bindings, independent acceptance, and absence of scheduler-owned fields. These checks do not validate or execute an external scheduler, qualify a provider/model/route/runtime, inspect a real FsusUI checkout, or certify rendered artifacts or remote CI.
 
+Receipt validation consumes the existing `validateJsonSchema(document, schema)` API in `tools/test-matrix/schema-validator/validate.mjs` and its locked Ajv2020 dependency. It enforces the deployed schemas recursively, including required observation fields, nested closed objects, input modes, artifact kinds, and array uniqueness; a fresh receipt digest cannot admit malformed evidence. Every bundle input must be present, including an explicit boolean implementation-overlap declaration. Adjudication classification must reference the same issue, owner, affected surfaces, candidate, baseline, and design authorities as the implementation classification. The standalone `sealBlogUiAdjudication` API validates its supplied classification before consuming its digest. These are contract/input checks, not verification of artifact bytes, actual reviewer independence, or current rendered behavior.
+
 The current baseline also has one unrelated document-authority limitation: `node --test tests/tools/public-design-document-authority.test.mjs` fails its `shell, composition, reading typography and page title rules have distinct authorities` assertion because it finds no `docs/design/page-title-scale.md` authority for `唯一 page-title authority`. The static `check-article-title-authority.mjs` probe and the focused `articleTitleAuthority.test.ts` Vitest test pass; this policy change does not alter that page-title contract.
 
 ## Verify
@@ -31,6 +33,7 @@ The current baseline also has one unrelated document-authority limitation: `node
 After a reviewed domain-policy change, run:
 
 ```bash
+npm ci --ignore-scripts --prefix tools/test-matrix/schema-validator
 node .agents/skills/fsusblog-design-conformance/scripts/ui-orchestration.mjs
 node --test tests/tools/agent-context-routing.test.mjs tests/tools/blog-ui-orchestration.test.mjs
 ```
