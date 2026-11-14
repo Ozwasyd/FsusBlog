@@ -11,6 +11,7 @@ internal static class AdminInboxEndpoints
     internal const string ReplySetting = "FSUSBLOG_ADMIN_INBOX_REPLIES";
     internal const string StatusSetting = "FSUSBLOG_ADMIN_INBOX_STATUS";
     internal const string NoticeSetting = "FSUSBLOG_ADMIN_INBOX_NOTICE";
+    internal const string SharedReadSetting = "FSUSBLOG_ADMIN_INBOX_SHARED_READ";
 
     internal static void Map(WebApplication app, AdminPasskeyStore store, string session,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
@@ -18,25 +19,31 @@ internal static class AdminInboxEndpoints
         var replies = app.Configuration.GetValue(ReplySetting, false);
         var status = app.Configuration.GetValue(StatusSetting, false);
         var notice = app.Configuration.GetValue(NoticeSetting, false);
+        var sharedRead = app.Configuration.GetValue(SharedReadSetting, false);
         app.MapGet(WireRoutes.AdminInboxQueue, async (HttpContext ctx, CancellationToken ct) =>
         {
+            var shared = Shared(ctx);
             var filter = Query(ctx.Request.Query, "status", 7) switch
             {
                 null => -1, "open" => 0, "pending" => 1, "closed" => 2,
+                "unread" when shared => 3, "system" when shared => 4,
                 _ => throw new BusinessException(Rejection.Invalid, "Invalid administrator inbox filter.")
             };
-            var page = await store.ReadInbox(ctx.Request.Cookies[session], filter, Query(ctx.Request.Query, "cursor", 64), ct);
+            var page = await store.ReadInbox(ctx.Request.Cookies[session], filter, Query(ctx.Request.Query, "cursor", 64), ct, shared);
             if (notice) ctx.Response.Headers[WireHeaders.AdminInboxNoticeEnabled] = "1";
-            return Results.Bytes(Wire.EncodeAdminInboxPage(page), Aeds.ContentType);
+            if (sharedRead) ctx.Response.Headers[WireHeaders.AdminInboxSharedRead] = "1";
+            return Results.Bytes(Wire.EncodeAdminInboxPage(page, shared), Aeds.ContentType);
         }).RequireRateLimiting("command");
 
         app.MapGet(WireRoutes.AdminInboxThread, async (long id, HttpContext ctx, CancellationToken ct) =>
         {
             if (id <= 0) throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
-            var thread = await store.ReadInboxThread(ctx.Request.Cookies[session], id, Query(ctx.Request.Query, "before", 64), ct);
+            var shared = Shared(ctx);
+            var thread = await store.ReadInboxThread(ctx.Request.Cookies[session], id, Query(ctx.Request.Query, "before", 64), ct, shared);
             if (replies) ctx.Response.Headers[WireHeaders.AdminInboxReplyEnabled] = "1";
             if (status) ctx.Response.Headers[WireHeaders.AdminInboxVersion] = thread.Version;
-            return Results.Bytes(Wire.EncodeAdminInboxThread(thread), Aeds.ContentType);
+            if (thread.ReadSnapshot is not null) ctx.Response.Headers[WireHeaders.AdminInboxReadSnapshot] = thread.ReadSnapshot;
+            return Results.Bytes(Wire.EncodeAdminInboxThread(thread, shared), Aeds.ContentType);
         }).RequireRateLimiting("command");
 
         if (replies)
@@ -60,6 +67,28 @@ internal static class AdminInboxEndpoints
             app.MapPost(WireRoutes.AdminInboxSendNotice, (HttpContext ctx, ScopedPow pow, CancellationToken ct) =>
                 SendNotice(ctx, pow, false, ct)).RequireRateLimiting("command");
         }
+        if (sharedRead)
+        {
+            app.MapPost(WireRoutes.AdminInboxAcknowledge, async (long id, HttpContext ctx, CancellationToken ct) =>
+            {
+                if (id <= 0) throw new BusinessException(Rejection.NotFound, "Administrator inbox conversation not found.");
+                if (!ctx.Request.Headers.TryGetValue(WireHeaders.AdminInboxReadSnapshot, out var header) || header.Count != 1 ||
+                    header[0] is not { Length: 64 } snapshot)
+                    throw new BusinessException(Rejection.Invalid, "An administrator read snapshot is required.");
+                var through = InboxWire.DecodeRead(await readFrame(ctx, Aeds.HeaderSize + sizeof(long), ct));
+                var unread = await store.AcknowledgeInboxRead(ctx.Request.Cookies[session], id, through, snapshot, ct);
+                ctx.Response.Headers[WireHeaders.AdminInboxUnread] = unread.ToString(CultureInfo.InvariantCulture);
+                return Results.Bytes(Wire.EncodeEmptySuccess(), Aeds.ContentType);
+            }).RequireRateLimiting("command");
+        }
+
+        bool Shared(HttpContext ctx) => Query(ctx.Request.Query, "shared", 1) switch
+        {
+            null => false,
+            "1" when sharedRead => true,
+            "1" => throw new BusinessException(Rejection.NotFound, "The shared administrator inbox is unavailable."),
+            _ => throw new BusinessException(Rejection.Invalid, "Invalid administrator inbox projection.")
+        };
 
         Task<IResult> Reply(long id, HttpContext ctx, ScopedPow pow, bool issue, CancellationToken ct) =>
             ScopedPow.Protect(ctx, async () =>

@@ -3,7 +3,7 @@ import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
 import { adminSendNotice, isNoticeRecipient, newNoticeEventId } from '../../../Contracts/admin-inbox-notice'
-import { adminChangeStatus, adminInbox, adminInboxThread, adminReply, type AdminInboxFilter, type AdminInboxRow,
+import { acknowledgeAdminInboxRead, adminChangeStatus, adminInbox, adminInboxThread, adminReply, type AdminInboxFilter, type AdminInboxRow,
   type AdminInboxStatus, type AdminInboxThread } from '../../../Contracts/admin-inbox'
 
 const props = defineProps<{ sessionSignal: AbortSignal }>()
@@ -21,6 +21,8 @@ const notice = ref('')
 const destination = ref<AdminInboxStatus>()
 const reason = ref('')
 const needsRefresh = ref(false)
+const sharedRead = ref(false)
+const unreadAckFailed = ref(false)
 const noticesEnabled = ref(false)
 const composeNotice = ref(false)
 const recipient = ref('')
@@ -48,10 +50,13 @@ function reset() {
   clearStatus()
   clearNotice()
   noticesEnabled.value = false
+  sharedRead.value = false
+  unreadAckFailed.value = false
 }
 
 function closeThread() {
   thread.value = undefined
+  unreadAckFailed.value = false
   clearReply()
   clearStatus()
   void nextTick(() => { if (opener?.isConnected) opener.focus() })
@@ -72,26 +77,55 @@ async function read(load: (signal: AbortSignal) => Promise<void>, message = 'Cou
 
 function loadQueue(cursor: string | null = null) {
   void read(async signal => {
-    const page = await adminInbox(filter.value, cursor, signal)
+    let page = await adminInbox(filter.value, cursor, signal, sharedRead.value)
+    if (!cursor && !sharedRead.value && page.sharedAvailable)
+      page = await adminInbox(filter.value, null, signal, true)
     if (signal.aborted) return
     rows.value = cursor ? [...rows.value, ...page.rows] : page.rows
     next.value = page.next
     noticesEnabled.value = page.noticesEnabled
+    sharedRead.value = page.sharedAvailable
   })
 }
 
 function openThread(id: bigint, before: string | null = null, event?: MouseEvent) {
   if (event?.currentTarget instanceof HTMLElement) opener = event.currentTarget
   void read(async signal => {
-    const page = await adminInboxThread(id, before, signal)
+    const page = await adminInboxThread(id, before, signal, sharedRead.value)
     if (signal.aborted) return
     thread.value = before && thread.value?.conversation.id === id
-      ? { ...page, messages: [...page.messages, ...thread.value.messages] } : page
+      ? { ...page, messages: [...page.messages, ...thread.value.messages], readSnapshot: thread.value.readSnapshot } : page
     if (!before) {
       clearStatus()
-      void nextTick(() => title.value?.focus())
+      await nextTick()
+      title.value?.focus()
+      await acknowledge(id, signal)
     }
   })
+}
+
+async function acknowledge(id: bigint, signal: AbortSignal) {
+  const seen = thread.value
+  if (signal.aborted || seen?.conversation.id !== id || !seen.readSnapshot) return
+  unreadAckFailed.value = false
+  try {
+    const unread = await acknowledgeAdminInboxRead(id, seen.readSnapshot, signal)
+    if (signal.aborted || thread.value?.readSnapshot !== seen.readSnapshot) return
+    const updated = { ...seen.conversation, unread }
+    thread.value = { ...seen, conversation: updated, readSnapshot: null }
+    rows.value = filter.value === 'unread' && unread === 0
+      ? rows.value.filter(item => item.id !== id)
+      : rows.value.map(item => item.id === id ? { ...item, unread } : item)
+  } catch (error) {
+    if (signal.aborted) return
+    emit('sessionLost', error)
+    unreadAckFailed.value = true
+  }
+}
+
+function retryRead() {
+  const current = thread.value
+  if (current) void read(signal => acknowledge(current.conversation.id, signal))
 }
 
 function clearReply() {
@@ -128,7 +162,7 @@ function sendNotice() {
     if (signal.aborted) return
     clearNotice()
     notice.value = 'System notice sent to the account.'
-    const page = await adminInbox(filter.value, null, signal)
+    const page = await adminInbox(filter.value, null, signal, sharedRead.value)
     if (!signal.aborted) {
       rows.value = page.rows
       next.value = page.next
@@ -138,7 +172,7 @@ function sendNotice() {
 }
 
 async function refreshThread(id: bigint, signal: AbortSignal) {
-  const latest = await adminInboxThread(id, null, signal)
+  const latest = await adminInboxThread(id, null, signal, sharedRead.value)
   if (signal.aborted) return
   const current = thread.value
   if (current?.conversation.id !== id) return
@@ -146,6 +180,8 @@ async function refreshThread(id: bigint, signal: AbortSignal) {
   const older = current.messages.filter(message => message.id < first)
   thread.value = older.length ? { ...latest, previous: current.previous, messages: [...older, ...latest.messages] } : latest
   needsRefresh.value = false
+  await nextTick()
+  await acknowledge(id, signal)
 }
 
 function sendReply() {
@@ -186,7 +222,7 @@ function saveStatus() {
     if (signal.aborted) return
     const updated = { ...current.conversation, status: saved.current }
     thread.value = { ...current, conversation: updated, version: null }
-    rows.value = filter.value && filter.value !== statusFilters[saved.current]
+    rows.value = statusFilters.some(status => status === filter.value) && filter.value !== statusFilters[saved.current]
       ? rows.value.filter(item => item.id !== conversation)
       : rows.value.map(item => item.id === conversation ? updated : item)
     clearStatus()
@@ -203,12 +239,19 @@ function reloadThread() {
 
 function toggle() {
   expanded.value = !expanded.value
+  filter.value = ''
   reset()
   if (expanded.value) loadQueue()
 }
 
-watch(filter, () => { if (expanded.value) { reset(); loadQueue() } })
-watch(() => props.sessionSignal, () => { expanded.value = false; reset() }, { flush: 'sync' })
+watch(filter, () => {
+  if (!expanded.value) return
+  const shared = sharedRead.value
+  reset()
+  sharedRead.value = shared
+  loadQueue()
+})
+watch(() => props.sessionSignal, () => { expanded.value = false; filter.value = ''; reset() }, { flush: 'sync' })
 onBeforeUnmount(() => operation.abort())
 </script>
 
@@ -224,6 +267,8 @@ onBeforeUnmount(() => operation.abort())
           <ElOption label="Open" value="open" />
           <ElOption label="Pending" value="pending" />
           <ElOption label="Closed" value="closed" />
+          <ElOption v-if="sharedRead" label="Unread by support" value="unread" />
+          <ElOption v-if="sharedRead" label="System notices" value="system" />
         </ElSelect>
         <ElButton native-type="button" text :loading="pending" @click="loadQueue()">Refresh conversations</ElButton>
         <ElButton v-if="noticesEnabled && !composeNotice" native-type="button" :disabled="pending"
@@ -246,6 +291,7 @@ onBeforeUnmount(() => operation.abort())
           <li v-for="item in rows" :key="String(item.id)">
             <button type="button" class="inbox-admin-subject" :disabled="pending" @click="openThread(item.id, null, $event)">{{ item.subject }}</button>
             <small>{{ statuses[item.status] }} · {{ item.system ? 'System notice' : 'Account ticket' }}</small>
+            <small v-if="item.unread">{{ item.unread }} unread by support</small>
           </li>
         </ul>
         <ElButton v-if="next" native-type="button" text :disabled="pending" @click="loadQueue(next)">Load more conversations</ElButton>
@@ -257,6 +303,11 @@ onBeforeUnmount(() => operation.abort())
         <h3 id="admin-inbox-thread" ref="title" tabindex="-1">{{ thread.conversation.subject }}</h3>
         <p>{{ statuses[thread.conversation.status] }} · {{ thread.conversation.system ? 'System notice' : 'Account ticket' }}</p>
         <p class="inbox-admin-account">Account {{ thread.conversation.account }}</p>
+        <p v-if="thread.conversation.unread">{{ thread.conversation.unread }} unread by support</p>
+        <template v-if="unreadAckFailed">
+          <ElAlert title="Could not mark the displayed messages as read." type="warning" :closable="false" />
+          <ElButton native-type="button" :disabled="pending" @click="retryRead">Retry marking as read</ElButton>
+        </template>
         <ElButton v-if="thread.previous" native-type="button" text :disabled="pending"
           @click="openThread(thread.conversation.id, thread.previous)">Load earlier messages</ElButton>
         <ol class="inbox-admin-list">

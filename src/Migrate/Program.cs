@@ -57,6 +57,7 @@ internal static partial class Migration
                   admin-inbox-replies   Add administrator reply attribution with the server stopped
                   admin-inbox-status    Add administrator status auditing with the server stopped
                   admin-inbox-notice    Add targeted administrator notice auditing with the server stopped
+                  admin-inbox-read      Add shared administrator inbox read tracking with the server stopped
                   site-subscription schema
                                         Add optional subscription storage with the server stopped
                   site-subscription issue-cancel rss|email
@@ -255,6 +256,9 @@ internal static partial class Migration
                 case ["admin-inbox-notice"]:
                     await InitializeAdminInboxNoticeAsync(connection, token);
                     break;
+                case ["admin-inbox-read"]:
+                    await InitializeAdminInboxReadAsync(connection, token);
+                    break;
                 case ["site-subscription", "schema"]:
                     await InitializeSiteSubscriptionAsync(connection, token);
                     break;
@@ -355,7 +359,7 @@ internal static partial class Migration
         if (!await CurrentSchema.HasAuthoringWorkspaceLayoutAsync(connection, transaction, token))
             throw new InvalidOperationException("Authoring workspace layout was not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
-            requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireSiteRefresh: true,
+            requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireAdminInboxStatus: true, requireAdminInboxNotice: true, requireAdminInboxRead: true, requireSiteRefresh: true,
             requireSitePageEditor: true, requireAdminArticleRollback: true, requireSavedViews: true, requireSavedViewPlacement: true, requireAdminTagMetadata: true,
             requireAppearanceActivation: true);
         await ExecuteAsync(connection, transaction,

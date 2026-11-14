@@ -1,39 +1,47 @@
-import { encodeFrame } from './aeds.ts';
+import { decodeSuccess, encodeFrame } from './aeds.ts';
 import { ProtocolError, request } from './client.ts';
-import { PodReader } from './binary.ts';
+import { PodReader, PodWriter } from './binary.ts';
 import { decodeInboxReplied } from './inbox.ts';
 import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
 import { FrameType, WireHeaders, WireRoutes } from './wire.generated.ts';
 
-export type AdminInboxFilter = '' | 'open' | 'pending' | 'closed';
+export type AdminInboxFilter = '' | 'open' | 'pending' | 'closed' | 'unread' | 'system';
 export type AdminInboxStatus = 0 | 1 | 2;
-export type AdminInboxRow = { id: bigint; account: string; subject: string; status: AdminInboxStatus; system: boolean; updated: number };
+export type AdminInboxRow = { id: bigint; account: string; subject: string; status: AdminInboxStatus; system: boolean; updated: number;
+  unread: number | null };
 export type AdminInboxMessage = { id: bigint; sender: 0 | 1 | 2; internal: boolean; at: number; body: string };
-export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null; noticesEnabled: boolean };
+export type AdminInboxPage = { rows: AdminInboxRow[]; next: string | null; noticesEnabled: boolean; sharedAvailable: boolean };
 export type AdminInboxThread = { conversation: AdminInboxRow; messages: AdminInboxMessage[]; previous: string | null; repliesEnabled: boolean;
-  version: string | null };
+  version: string | null; readSnapshot: { token: string; through: bigint } | null };
 
-export function adminInbox(filter: AdminInboxFilter, next: string | null, signal: AbortSignal): Promise<AdminInboxPage> {
+export function adminInbox(filter: AdminInboxFilter, next: string | null, signal: AbortSignal, shared = false): Promise<AdminInboxPage> {
   const query = new URLSearchParams();
   if (filter) query.set('status', filter);
   if (next) query.set('cursor', next);
-  return request(`${WireRoutes.AdminInboxQueue}?${query}`, FrameType.AdminInboxPage, (payload, headers) => {
+  if (shared) query.set('shared', '1');
+  const frame = shared ? FrameType.AdminInboxSharedPage : FrameType.AdminInboxPage;
+  return request(`${WireRoutes.AdminInboxQueue}?${query}`, frame, (payload, headers) => {
     const reader = new PodReader(payload);
     const following = cursor(reader);
-    const rows = Array.from({ length: count(reader, following) }, () => row(reader));
+    const rows = Array.from({ length: count(reader, following) }, () => row(reader, shared));
     if (rows.some((item, index) => index > 0 && item.id >= rows[index - 1].id)) throw invalid();
     reader.finish();
     const flag = headers.get(WireHeaders.AdminInboxNoticeEnabled);
-    if (flag !== null && flag !== '1') throw invalid();
-    return { rows, next: following, noticesEnabled: flag === '1' };
+    const capability = headers.get(WireHeaders.AdminInboxSharedRead);
+    if (flag !== null && flag !== '1' || capability !== null && capability !== '1' || shared && capability !== '1') throw invalid();
+    return { rows, next: following, noticesEnabled: flag === '1', sharedAvailable: capability === '1' };
   }, signal);
 }
 
-export function adminInboxThread(id: bigint, before: string | null, signal: AbortSignal): Promise<AdminInboxThread> {
+export function adminInboxThread(id: bigint, before: string | null, signal: AbortSignal, shared = false): Promise<AdminInboxThread> {
   const path = WireRoutes.AdminInboxThread.replace('{id:long}', String(id));
-  return request(before ? `${path}?${new URLSearchParams({ before })}` : path, FrameType.AdminInboxThread, (payload, headers) => {
+  const query = new URLSearchParams();
+  if (before) query.set('before', before);
+  if (shared) query.set('shared', '1');
+  const frame = shared ? FrameType.AdminInboxSharedThread : FrameType.AdminInboxThread;
+  return request(`${path}?${query}`, frame, (payload, headers) => {
     const reader = new PodReader(payload);
-    const conversation = row(reader);
+    const conversation = row(reader, shared);
     const previous = cursor(reader);
     const messages = Array.from({ length: count(reader, previous) }, () => ({ id: positive(reader.i64()), sender: kind(reader.i32()),
       internal: reader.bool(), at: time(reader.i64()), body: reader.text(16000) }));
@@ -42,9 +50,27 @@ export function adminInboxThread(id: bigint, before: string | null, signal: Abor
     reader.finish();
     const flag = headers.get(WireHeaders.AdminInboxReplyEnabled);
     const version = headers.get(WireHeaders.AdminInboxVersion);
-    if (flag !== null && flag !== '1' || version !== null && !validVersion(version)) throw invalid();
-    return { conversation, previous, messages, repliesEnabled: flag === '1', version };
+    const token = headers.get(WireHeaders.AdminInboxReadSnapshot);
+    const through = shared && !before ? messages.filter(message => !message.internal).at(-1)?.id : undefined;
+    if (flag !== null && flag !== '1' || version !== null && !validVersion(version) ||
+        token !== null && !validCursor(token) || (token === null) !== (through === undefined)) throw invalid();
+    return { conversation, previous, messages, repliesEnabled: flag === '1', version,
+      readSnapshot: token !== null && through !== undefined ? { token, through } : null };
   }, signal);
+}
+
+export function acknowledgeAdminInboxRead(id: bigint, snapshot: NonNullable<AdminInboxThread['readSnapshot']>, signal: AbortSignal) {
+  if (id <= 0n || !validCursor(snapshot.token) || snapshot.through <= 0n) throw invalid();
+  const fields = new PodWriter();
+  fields.i64(snapshot.through);
+  const path = WireRoutes.AdminInboxAcknowledge.replace('{id:long}', String(id));
+  return request(path, FrameType.EmptySuccess, (payload, headers) => {
+    decodeSuccess(payload);
+    const raw = headers.get(WireHeaders.AdminInboxUnread);
+    if (raw === null || !/^(0|[1-9][0-9]{0,9})$/.test(raw) || Number(raw) > 0x7fffffff)
+      throw invalid();
+    return Number(raw);
+  }, signal, 'POST', encodeFrame(FrameType.ConversationReadRequest, fields.finish()), { [WireHeaders.AdminInboxReadSnapshot]: snapshot.token });
 }
 
 export function adminReplyFrame(body: string) {
@@ -115,18 +141,21 @@ function validVersion(value: string) {
   return /^[1-9][0-9]{0,9}$/.test(value) && Number(value) <= 0xffffffff;
 }
 
-function row(reader: PodReader): AdminInboxRow {
+function row(reader: PodReader, shared: boolean): AdminInboxRow {
   const item = { id: positive(reader.i64()), account: reader.uuid(), subject: reader.text(640), status: kind(reader.i32()),
-    system: reader.bool(), updated: time(reader.i64()) };
-  if (item.account === '00000000-0000-0000-0000-000000000000' || !item.subject) throw invalid();
+    system: reader.bool(), updated: time(reader.i64()), unread: shared ? reader.i32() : null };
+  if (item.account === '00000000-0000-0000-0000-000000000000' || !item.subject || item.unread !== null && item.unread < 0)
+    throw invalid();
   return item;
 }
 
 function cursor(reader: PodReader) {
   const value = reader.text(100);
-  if (value && !/^[a-zA-Z0-9_-]{64}$/.test(value)) throw invalid();
+  if (value && !validCursor(value)) throw invalid();
   return value || null;
 }
+
+function validCursor(value: string) { return /^[a-zA-Z0-9_-]{64}$/.test(value); }
 
 function count(reader: PodReader, more: string | null) {
   const value = reader.i32();

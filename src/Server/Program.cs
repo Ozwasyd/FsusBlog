@@ -128,6 +128,7 @@ await lease.Start(app.Logger, app.Lifetime.ApplicationStopping, requireSubscript
     requireRecoveryKey: recoveryKey is null ? null : true,
     requireAdminInboxStatus: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.StatusSetting, false) ? true : null,
     requireAdminInboxNotice: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.NoticeSetting, false) ? true : null,
+    requireAdminInboxRead: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.SharedReadSetting, false) ? true : null,
     requireAdminInboxReply: adminIdentity is not null && app.Configuration.GetValue(FsusBlog.V2.Server.Administration.AdminInboxEndpoints.ReplySetting, false) ? true : null, requireSiteRefresh: persistentSite ? true : null, requireSitePageEditor: sitePageEditor ? true : null,
     requireAdminArticleRollback: adminArticleRollback ? true : null, requireAppearanceActivation: onlineAppearance ? true : null,
     requireAdminTagMetadata: adminTagMetadata ? true : null);

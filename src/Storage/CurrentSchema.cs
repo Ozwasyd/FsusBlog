@@ -64,7 +64,7 @@ internal static partial class CurrentSchema
     ];
 
     internal static async Task VerifyAsync(NpgsqlConnection connection, CancellationToken cancellationToken,
-        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null)
+        bool? requireSubscription = null, bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null, bool? requireAdminInboxStatus = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null)
     {
         await using var transaction = await connection.BeginTransactionAsync(IsolationLevel.RepeatableRead, cancellationToken);
         await using (var protect = new NpgsqlCommand("SET TRANSACTION READ ONLY; SET LOCAL search_path TO pg_catalog", connection, transaction))
@@ -89,7 +89,7 @@ internal static partial class CurrentSchema
 
         await VerifyCatalogAsync(connection, transaction, cancellationToken, requireArticleMedia: true,
             requireSubscription: requireSubscription, requireRecoveryKey: requireRecoveryKey, requireAdminInboxReply: requireAdminInboxReply, requireSiteRefresh: requireSiteRefresh,
-            requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata);
+            requireSitePageEditor: requireSitePageEditor, requireAdminArticleRollback: requireAdminArticleRollback, requireAdminInboxStatus: requireAdminInboxStatus, requireAdminInboxNotice: requireAdminInboxNotice, requireAppearanceActivation: requireAppearanceActivation, requireAdminTagMetadata: requireAdminTagMetadata, requireAdminInboxRead: requireAdminInboxRead);
         await VerifyAdminIdentityMarkerAsync(connection, transaction, cancellationToken);
         await ReadRecoverySiteIdAsync(connection, transaction, cancellationToken);
         await using var marker = new NpgsqlCommand("SELECT version FROM public.v2_schema", connection, transaction);
@@ -111,7 +111,7 @@ internal static partial class CurrentSchema
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
         bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null, bool? requireSiteRefresh = null, bool? requireSitePageEditor = null, bool? requireAdminArticleRollback = null,
-        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null)
+        bool? requireSavedViews = null, bool? requireAdminInboxStatus = null, bool? requireSavedViewPlacement = null, bool? requireAdminInboxNotice = null, bool? requireAppearanceActivation = null, bool? requireAdminTagMetadata = null, bool? requireAdminInboxRead = null)
     {
         if (requireArticleMedia is null)
         {
@@ -142,6 +142,11 @@ internal static partial class CurrentSchema
         var hasAdminInboxNotice = await adminInboxNoticeRelation.ExecuteScalarAsync(cancellationToken) is true;
         if (requireAdminInboxNotice.HasValue && requireAdminInboxNotice.Value != hasAdminInboxNotice)
             throw new InvalidOperationException("The administrator inbox notice schema presence does not match the requested operation.");
+        await using var adminInboxReadRelation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
+        adminInboxReadRelation.Parameters.AddWithValue(AdminInboxReadRelation);
+        var hasAdminInboxRead = await adminInboxReadRelation.ExecuteScalarAsync(cancellationToken) is true;
+        if (requireAdminInboxRead.HasValue && requireAdminInboxRead.Value != hasAdminInboxRead)
+            throw new InvalidOperationException("The shared administrator inbox read schema presence does not match the requested operation.");
         if (requireAuthoringWorkspace is null)
         {
             await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
@@ -196,6 +201,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusColumns : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeColumns : [])
+            .Concat(hasAdminInboxRead ? AdminInboxReadColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
             .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
@@ -222,6 +228,7 @@ internal static partial class CurrentSchema
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(hasAdminInboxStatus ? AdminInboxStatusConstraints : [])
             .Concat(hasAdminInboxNotice ? AdminInboxNoticeConstraints : [])
+            .Concat(hasAdminInboxRead ? AdminInboxReadConstraints : [])
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();

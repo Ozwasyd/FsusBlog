@@ -16,6 +16,10 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   const closed = panel.getByRole('button', { name: 'Inbox QA closed case' })
   await subject.waitFor()
   await closed.waitFor()
+  const shared = process.env.FSUSBLOG_TEST_ADMIN_INBOX_SHARED === '1'
+  const visibleRow = subject.locator('..')
+  if (shared) await visibleRow.getByText('1 unread by support', { exact: true }).waitFor()
+  else assert.equal(await visibleRow.getByText(/unread by support/).count(), 0)
   if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_NOTICE === '1') {
     const list = await context.request.get(queue)
     assert.equal(list.status(), 200)
@@ -55,17 +59,34 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   await filter.click()
   await page.getByRole('option', { name: 'Open', exact: true }).click()
   await closed.waitFor({ state: 'hidden' })
-  const response = page.waitForResponse(reply => reply.url().startsWith(adminOrigin + '/api/v2/admin/identity/inbox/'))
+  const response = page.waitForResponse(reply => reply.url().startsWith(adminOrigin + '/api/v2/admin/identity/inbox/') &&
+    reply.request().method() === 'GET')
+  let firstReadSnapshot = null
+  if (shared) await page.route('**/read.aeds', route => {
+    firstReadSnapshot = route.request().headers()[WireHeaders.AdminInboxReadSnapshot.toLowerCase()]
+    return route.abort('failed')
+  }, { times: 1 })
   await subject.focus()
   await page.keyboard.press('Enter')
   const detail = await response
   assert.equal(detail.status(), 200)
   assert((await detail.headerValue('Cache-Control'))?.includes('no-store'))
-  assert.equal(decodeFrame(await detail.body()).type, FrameType.AdminInboxThread)
-  const marker = 'Inbox QA internal note <strong>literal</strong>'
+  assert.equal(decodeFrame(await detail.body()).type, shared ? FrameType.AdminInboxSharedThread : FrameType.AdminInboxThread)
   const heading = panel.getByRole('heading', { name: 'Inbox QA support case' })
   await heading.waitFor()
   assert(await heading.evaluate(node => document.activeElement === node))
+  if (shared) {
+    const retry = panel.getByRole('button', { name: 'Retry marking as read', exact: true })
+    await retry.waitFor()
+    assert.equal(firstReadSnapshot, await detail.headerValue(WireHeaders.AdminInboxReadSnapshot))
+    const response = page.waitForResponse(reply => reply.url().endsWith('/read.aeds') && reply.request().method() === 'POST')
+    await retry.click()
+    const update = await response
+    assert.equal(update.status(), 200)
+    assert.equal(update.request().headers()[WireHeaders.AdminInboxReadSnapshot.toLowerCase()], firstReadSnapshot)
+    assert.equal(await update.headerValue(WireHeaders.AdminInboxUnread), '0')
+  }
+  const marker = 'Inbox QA internal note <strong>literal</strong>'
   await panel.getByText(marker, { exact: true }).waitFor()
   assert.equal(await panel.locator('strong').filter({ hasText: 'literal' }).count(), 0)
   const row = await context.request.get(siteOrigin + WireRoutes.InboxList)
@@ -143,6 +164,13 @@ export async function verifyAdminInbox(page, context, adminOrigin, siteOrigin, s
   await subject.waitFor()
   if (process.env.FSUSBLOG_TEST_ADMIN_INBOX_STATUS !== '1')
     assert(await subject.evaluate(node => document.activeElement === node))
+  if (shared) {
+    await visibleRow.getByText('1 unread by support', { exact: true }).waitFor({ state: 'hidden' })
+    await filter.click()
+    await page.getByRole('option', { name: 'Unread by support', exact: true }).click()
+    await closed.waitFor()
+    await subject.waitFor({ state: 'hidden' })
+  }
   await panel.getByRole('button', { name: 'Close support inbox' }).click()
   assert.equal(await panel.getByText(marker, { exact: true }).count(), 0)
 }

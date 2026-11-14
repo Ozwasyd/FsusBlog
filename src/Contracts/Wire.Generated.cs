@@ -69,6 +69,8 @@ public enum FrameType : ushort
     AdminInboxPage = 32896,
     AdminInboxThread = 32897,
     AdminInboxNotice = 32942,
+    AdminInboxSharedPage = 32949,
+    AdminInboxSharedThread = 32950,
     AdminTagMetadataCommand = 32944,
     AdminTagMetadata = 32945,
     AdminModerationIntent = 32866,
@@ -551,6 +553,7 @@ public static class WireRoutes
     public const string AdminInboxStatus = "/api/v2/admin/identity/inbox/{id:long}/status.aeds";
     public const string AdminInboxSendNoticePow = "/api/v2/admin/identity/inbox/system-send-pow.aeds";
     public const string AdminInboxSendNotice = "/api/v2/admin/identity/inbox/system-send.aeds";
+    public const string AdminInboxAcknowledge = "/api/v2/admin/identity/inbox/{id:long}/read.aeds";
     public const string AdminModerationClaim = "/api/v2/admin/identity/comments/claim.aeds";
     public const string AdminModerationRenew = "/api/v2/admin/identity/comments/claim/renew.aeds";
     public const string AdminModerationRelease = "/api/v2/admin/identity/comments/claim/release.aeds";
@@ -635,6 +638,9 @@ public static class WireHeaders
     public const string AdminInboxReplyEnabled = "X-Fsus-Admin-Inbox-Reply-Enabled";
     public const string AdminInboxVersion = "X-Fsus-Admin-Inbox-Version";
     public const string AdminInboxNoticeEnabled = "X-Fsus-Admin-Inbox-Notice-Enabled";
+    public const string AdminInboxSharedRead = "X-Fsus-Admin-Inbox-Shared-Read";
+    public const string AdminInboxReadSnapshot = "X-Fsus-Admin-Inbox-Read-Snapshot";
+    public const string AdminInboxUnread = "X-Fsus-Admin-Inbox-Unread";
     public const string SourceEventId = "X-Fsus-Source-Event-Id";
     public const string PrivateMediaDigest = "X-Fsus-Private-Media-SHA256";
     public const string PrivateMediaResumable = "X-Fsus-Private-Media-Resumable";
