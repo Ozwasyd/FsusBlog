@@ -269,7 +269,6 @@ export function useArticleDetailView()
             ? createAnonymousThreadScope(article.value.id, replyTarget.value.rootId)
             : createAnonymousTopLevelScope(article.value.id);
     });
-    const commentChallengeRouteKey = computed(() => riskChallengeRoutes.commentCreate.routeKey);
     const commentChallengeAttributes = computed<Record<string, unknown>>(() => ({
         surface: 'article-detail-comment',
         authorMode: resolveCommentAuthorModeForPolicy(),

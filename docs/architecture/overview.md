@@ -84,6 +84,168 @@ FsusUI supplies the visual system and reusable UI foundation. FsusBlog owns appl
 
 The frontend fast gate runs `check:fsusui-boundary` in strict-by-default mode, so any FsusUI boundary warning fails before merge.
 
+Writer submit validation captures the first invalid property through the public
+FsusUI Form validation callback and scrolls with its exposed `scrollToField`.
+Product-owned field markers locate the corresponding focusable control when it
+has no invalid-state attribute. No private Form field array or field element is
+read; each submission clears the previous invalid-property observation.
+
+## Authoring navigation history boundary
+
+`AuthoringNavigationHistory` in
+`src/frontend/src/services/authoring/authoringNavigationHistory.ts` owns one
+process-local semantic history per canonical `OpenArticleDocumentRegistry`.
+The closed v1 state binds session, workspace, user and site scopes. It retains
+at most 128 entries (64 by default) and 256 command fingerprints. It has no
+hydration or persistence API: reload discards the history; logout or workspace
+replacement must discard the owning Registry and create a new scope. Clearing
+this session removes entries and pending intents while retaining command/user
+sequence watermarks and bounded retry fingerprints to prevent delayed reentry.
+
+Entries preserve Registry article/draft/document identities, its original
+string-or-null source/draft revisions and document epoch, exact owning and target
+group IDs, explicit user action sequence/time, cause, validity observation refs
+and digests. An optional anchor preserves the public source node ID, node-bound
+range and affinity, original numeric Anchor source revision and source/context
+identity digests. The two upstream revision types are never converted into each
+other. No body, title, heading text, URL, DOM coordinate, editor instance,
+private selection, browser route state or undo state is retained. A range without
+a public node ID is inadmissible as an anchor identity.
+
+The closed cause registry admits internal link, relation inspector, Rail, Quick
+Switcher, future global search, explicit anchor reveal and recent-closed restore
+visits. Automatic activation/restore/refresh and caret/scroll/input events have
+no visit cause. Same-action route-to-anchor settling preserves its user action
+timestamp and sequence and coalesces only the same document, revisions, groups
+and cause within 500 ms of the action, using a separate recording timestamp;
+an existing anchor cannot be replaced by another anchor in the same action.
+A rapid identical semantic target/cause coalesces within that window. Distinct
+anchors form distinct visits. Every new visit truncates the forward branch and
+evicts oldest entries above capacity; entry IDs survive coalescing.
+
+Append/coalesce admits current visits only; an unavailable attempt cannot move
+the cursor by masquerading as a completed user visit. Commands carry exact
+scope, expected history revision, increasing command sequence and idempotency
+coordinates. An identical retry within the bounded
+fingerprint window returns a replay receipt with no executable target. Conflicts
+fail closed; older commands outside that window fail CAS or sequence checks.
+User sequence/time watermarks also reject delayed visit settling after branch
+changes, eviction or clear. Receipts contain only semantic command/cursor/entry,
+cause/validity/ref/digest projections. Digests detect changed coordinates; they
+are not producer authentication or permission grants.
+
+Back/forward revalidates the adjacent entry, emits a closed semantic target
+intent and leaves the committed cursor unchanged. A matching CAS settlement
+commits the cursor only for `completed`; cancellation/failure preserves it.
+Pending traversal rejects another back/forward; a new user visit, invalidation
+or clear cancels that pending intent, so late settlement fails closed. Missing,
+deleted, archived, stale revision, permission revoked, missing/partial anchor,
+missing group and unknown targets produce an unavailable intent without moving
+or skipping the cursor. Unknown observations never become current implicitly.
+`replace-invalid` updates validity only, preserving document/group/anchor facts.
+
+The pure observation helper consumes actual Registry status/context and coherent
+Group projections. The Group registry's actual `revision` is retained separately
+from the local group's `revision`, and its `articleRegistryRevision` must match
+the observed Registry revision. Group command publication order is monotonic
+for the same canonical owner; a local group revision is not a lifetime epoch.
+An empty group can close and its exact `groupId` can be created again at local
+revision 0. A newer Group registry publication therefore admits a lower local
+revision; at the same publication the local coordinate must agree exactly.
+Neither producer-wide counter may move backwards, and no coordinate is inferred
+or replaced with a fabricated group epoch. Missing owner coordinates or
+incoherent Registry/Group projections fail closed.
+
+For example, move the same document out of a group at local revision 2, close
+the empty group, recreate the same ID at revision 0, and move the document back.
+The original Group producer advances its registry revision on each of those
+four commands, while the returned group's local revision is 1. History can
+consume that later coherent observation without having seen the intermediate
+missing group. The exact document/epoch/source/anchor and group ID checks remain.
+Replay checks publication order independently of the mutation freshness
+predicate. Anchor currentness additionally requires the exact numeric source
+and context digest projection supplied by the Anchor owner. An absent mounted
+entry alone proves only unknown; a confirmed missing fact must come from its
+source owner. Existing ownership is never moved to satisfy the requested target
+group. A recent restore visit stores only upstream entry/restore-receipt refs
+and a digest, after the recent-closed owner has validated the real restore. It
+has no recent stack, close policy or restore implementation.
+
+The independent verifier reconstructs each command transition without invoking
+the mutation reducer or owner, checks full seals, bounds, branch/coalescing,
+cursor/cancellation/idempotency and receipt/target equality, and replays up to
+1,024 supplied transitions from explicit genesis. External observation and
+recent-restore provenance remain upstream obligations; replay cannot certify
+them. Closed validators reject added URL/title/heading/DOM/offset or recent
+payload fields. The module exposes no event subscriptions, component stacks,
+browser-history replacement or persistence hooks.
+
+The ordinary static source control
+`node tools/frontend/check-authoring-navigation-history-source.mjs` consumes the
+canonical in-memory frontend source index and writes no receipt or qualification
+artifact. It checks the named history owner, required exported boundaries,
+canonical type-only imports, fixed digest imports, browser/event/activation
+calls, forbidden payload fields and named local navigation stacks. It does not
+replace independent runtime or mutation coverage, and is not attached to the
+held test matrix in this source slice. Its authored group-reuse control covers
+move-out/close/same-ID-create/move-back using the original producer's global and
+local coordinates, plus regressing/equal-publication counter negatives. It
+checks the independent replay ordering and the coherent observation schema by
+AST only. The control added for this path is UNRUN under the execution HOLD;
+prior static observations do not qualify the corrected candidate. Full types
+remain blocked by the prerequisite closure; an own-module zero-diagnostic
+observation is not a passing full compilation.
+
+This isolated source composition retains the original Group, ratio owner and
+atomic Registry ownership implementation as one dependency set, together with
+the original Anchor, its position-map bridge and the matching Doc owner. It does
+not take the older Group/Registry pair from the Anchor branch, which lacks the
+original startup-custody guard. Inherited producer files remain byte-exact. The consumed Snapshot API uses the
+independently accepted producer compatibility repair with explicit fields and
+constructor assignments in place of parameter properties. Only that already
+consumed dependency is intaken; Cache/Status/Sync and their restore/router edges
+are not introduced merely to import the repair's other paths. The composition
+does not create another Registry, ratio owner or source context.
+
+The original TabStrip Vue ref typing increment is also consumed from its exact
+producer: the callback admits `ComponentPublicInstance` as well as `Element`
+and keeps the existing `instanceof HTMLElement` filter and all runtime
+expressions. This adds no view logic or navigation authority. The source-only
+ref correction does not establish rendered acceptance or byte-identical actual
+production wrappers/scoped styles, whose identities depend on the SFC source.
+
+`observeAuthoringNavigationTargetFromOwners` first checks
+`groupOwner.verifyBinding(canonicalRegistry)`, then takes one real
+`exportProjection()` and the canonical Registry snapshot. The local group
+coordinate and both Group registry coordinates come from that same projection;
+its article revision must agree with the Registry snapshot. The caller rechecks
+binding and canonical revision after constructing the observation. An article
+absent from the open Registry stays unknown. The supplied anchor observation
+remains an obligation of the actual Anchor owner; a history anchor projection
+cannot be cast into a complete `ArticleAnchorContext`, current map or mounted
+session. This caller creates no owner, activates no tab and restores no anchor.
+
+The original position-map bridge's `MarkdownEditorSessionExpose` is exported
+by the actual UI948 source: its definition is in
+`vue/packages/components/markdown-editor/src/markdown-editor-session.ts`, with a
+type-only export through `markdown-editor.ts` and the public component/package
+chain. The earlier consumer failure used a different local source checkout;
+it does not establish that UI948 lacks this interface. The existing local alias
+producer can select an independent exact UI source worktree via
+`FSUSBLOG_LOCAL_FSUSUI_ROOT`; it must resolve both the package root and Markdown
+runtime into that same source, not a registry package or copied interface.
+
+The accepted Snapshot API repair removes its parameter-property syntax under
+the existing consumer `erasableSyntaxOnly` policy, preserving the producer's
+public types, defaults and constructor ordering. Other complete consumer
+application diagnostics remain failed; the UI owner's separate Web project result
+and historical failures are not interchangeable with this application/project result.
+This composition does not substitute an export, cast, shim, reduced compilation
+surface or relaxed consumer policy. All inherited producer files remain exact.
+Recent restore receipt provenance remains with the actual recent-closed owner.
+This slice does not attach to Write, Frame, Main, SDK, routing, transport or
+storage and establishes no runtime, privacy/security, IME or full issue acceptance.
+
 ## Standalone document export boundary
 
 Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.

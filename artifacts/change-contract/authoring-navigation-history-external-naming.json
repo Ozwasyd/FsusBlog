@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-authoring-navigation-history-source.mjs"
+            ],
+            "reason": "Preserve the existing source-index toolchain process-environment contracts unchanged; the new static control uses internal camelCase option and helper identifiers."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve caller-visible CSS and token spellings in the registered current architecture document; the navigation-history addition does not rename or introduce CSS authorities."
+        }
+    ]
+}
