@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { siteTitle } from '../siteBrand'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ElAlert, ElButton, ElMarkdownRenderer } from '@ozwasyd/element-plus'
@@ -32,7 +33,7 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
     const value = readInitialArticle(Number(id)) ?? await api.publicArticle(Number(id), request.signal)
     if (!request.signal.aborted) {
       article.value = value
-      document.title = `${value.title} · Fsu's Blog`
+      document.title = `${value.title} · ${siteTitle}`
     }
   } catch (cause) {
     if (!request.signal.aborted) {

@@ -5,6 +5,8 @@ import { writeThemeMode, type ThemeMode } from '@ozwasyd/element-plus/theme'
 import { ElPublicShell, ElSiteHeader, ElThemeModeToggle, ElButton } from '@ozwasyd/element-plus'
 import { currentSession, refreshSession, signOut } from './session'
 import { isSitePageSlug, sitePages } from './sitePageEntry'
+import { siteTitle } from './siteBrand'
+import { getSiteCompliance, type SiteCompliance } from '../../Contracts/site-config.ts'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,8 +34,33 @@ watch(() => route.query.q, value => {
 }, { immediate: true })
 
 const lifetime = new AbortController()
+const compliance = ref<SiteCompliance>()
+const legal = computed(() => compliance.value?.enabled ? compliance.value : undefined)
+const year = new Date().getFullYear()
+const copyright = computed(() => {
+  const value = legal.value
+  if (!value) return `© ${year} ${siteTitle}. All rights reserved.`
+  const start = value.copyrightStartYear
+  const years = start && start < year ? `${start}–${year}` : year
+  return `© ${years} ${value.copyrightOwner || siteTitle}${value.copyrightText ? ` ${value.copyrightText}` : ''}`
+})
+function publicLink(value: string) {
+  const url = URL.parse(value)
+  return url?.protocol === 'https:' && !url.username && !url.password ? url.href : undefined
+}
+function contactLink(value: string) {
+  return /^[A-Za-z0-9._+@-]+$/.test(value) ? `mailto:${value}` : undefined
+}
 const sync = () => { if (route.name !== 'admin-identity') void refreshSession(lifetime.signal).catch(() => {}) }
 const whenVisible = () => { if (document.visibilityState === 'visible') sync() }
+watch(() => route.name, (name, _, cleanup) => {
+  if (!name || accountArea.value || name === 'login' || name === 'admin-identity' || compliance.value) return
+  const request = new AbortController()
+  cleanup(() => request.abort())
+  void getSiteCompliance(request.signal).then(value => {
+    if (!request.signal.aborted) compliance.value = value
+  }).catch(() => {})
+}, { immediate: true })
 onMounted(() => {
   sync()
   window.addEventListener('pageshow', sync)
@@ -67,7 +94,7 @@ async function leave() {
   <RouterView v-else-if="route.name === 'admin-identity'" />
   <div v-else-if="accountArea" class="workspace">
     <ElSiteHeader max-width="64rem">
-      <template #brand><RouterLink class="workspace-brand" to="/">Fsu's Blog</RouterLink></template>
+      <template #brand><RouterLink class="workspace-brand" to="/">{{ siteTitle }}</RouterLink></template>
       <template #desktop-actions>
         <RouterLink to="/">Public site</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">站内信</RouterLink>
@@ -91,7 +118,7 @@ async function leave() {
   <template v-else>
     <a class="skip-link" href="#page-content">Skip to content</a>
     <ElPublicShell
-      brand="Fsu's Blog"
+      :brand="siteTitle"
       :nav-items="navigation"
       :active-nav="String(route.name ?? '')"
       active-nav-motion="indicator"
@@ -126,8 +153,18 @@ async function leave() {
       </div>
       <template #footer>
         <div class="site-footer">
-          <strong>Fsu's Blog</strong>
-          <p>© {{ new Date().getFullYear() }} Fsu's Blog. All rights reserved.</p>
+          <strong>{{ siteTitle }}</strong>
+          <p>{{ copyright }}</p>
+          <div v-if="legal" class="site-policy-links" aria-label="站点合规">
+            <a v-if="legal.contentLicenseName && publicLink(legal.contentLicenseUrl)" :href="publicLink(legal.contentLicenseUrl)">{{ legal.contentLicenseName }}</a>
+            <span v-else-if="legal.contentLicenseName">{{ legal.contentLicenseName }}</span>
+            <template v-if="legal.regionMode === 'mainland-cn'">
+              <a v-if="legal.icpRecordNumber && publicLink(legal.icpRecordUrl)" :href="publicLink(legal.icpRecordUrl)">{{ legal.icpRecordNumber }}</a>
+              <a v-if="legal.policeRecordNumber && publicLink(legal.policeRecordUrl)" :href="publicLink(legal.policeRecordUrl)">{{ legal.policeRecordNumber }}</a>
+            </template>
+            <span v-if="legal.operatorName">{{ legal.operatorName }}</span>
+            <a v-if="legal.contactEmail && contactLink(legal.contactEmail)" :href="contactLink(legal.contactEmail)">{{ legal.contactEmail }}</a>
+          </div>
           <nav class="site-policy-links" aria-label="站点政策">
             <RouterLink v-for="(label, slug) in sitePages" :key="slug" :to="{ name: slug }">{{ label }}</RouterLink>
           </nav>

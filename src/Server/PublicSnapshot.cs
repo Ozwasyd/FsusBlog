@@ -41,7 +41,7 @@ internal sealed class PublicSnapshot
         _details.Warm(articles.Take(1200), previous?._details, cancellationToken);
         _listing = new PublicListProjection(Generation, articles, cursor);
         var first = articles.Take(10).ToArray();
-        Home = pages.Page("<main><h1>FsusBlog</h1>" + (first.Length > 0
+        Home = pages.Page($"<main><h1>{HtmlEncoder.Default.Encode(pages.SiteTitle)}</h1>" + (first.Length > 0
             ? "<ol>" + string.Concat(first.Select(article => $"<li><a href=\"/article/{article.Id}\">{HtmlEncoder.Default.Encode(article.Title)}</a></li>")) + "</ol>"
             : "<p>暂无文章</p>") + "</main>", publicPath: "/");
         _index = articles.Count == 0 ? [PublicArticles.EncodeSearch([], 0)] : articles.Chunk(WireLimits.SearchIndexPageSize)
@@ -210,32 +210,64 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
     }
 }
 
-internal sealed class WebPages(string template, string? origin = null)
+internal sealed class WebPages(string template, PublicSiteConfiguration? site = null)
 {
+    internal string SiteTitle => site?.Seo.Title ?? PublicSiteConfiguration.DefaultTitle;
+
     internal byte[] Page(string content = "", string? title = null, string? description = null, string? language = null,
         bool noIndex = false, string? publicPath = null)
     {
-        var document = template.Replace("<!--fsus-public-content-->", content, StringComparison.Ordinal);
-        if (title is not null)
-            document = document.Replace("<title>Fsu's Blog</title>", $"<title>{HtmlEncoder.Default.Encode(title)} · Fsu's Blog</title>", StringComparison.Ordinal);
+        var document = template;
+        var titleText = title is null ? SiteTitle : $"{title} · {SiteTitle}";
+        document = document.Replace("<title>Fsu's Blog</title>", $"<title>{HtmlEncoder.Default.Encode(titleText)}</title>", StringComparison.Ordinal);
+        var canonical = publicPath is not null && !noIndex && site?.Origin is { } origin ? origin + publicPath : null;
+        if (publicPath is not null && !noIndex)
+            description = string.IsNullOrWhiteSpace(description) ? site?.Seo.Description : description;
         if (!string.IsNullOrWhiteSpace(description))
             document = document.Replace("</head>", $"<meta name=\"description\" content=\"{HtmlEncoder.Default.Encode(description)}\"></head>", StringComparison.Ordinal);
         if (language is not null)
             document = document.Replace("<html lang=\"en\">", $"<html lang=\"{HtmlEncoder.Default.Encode(language)}\">", StringComparison.Ordinal);
         if (noIndex)
             document = document.Replace("</head>", "<meta name=\"robots\" content=\"noindex, follow\"></head>", StringComparison.Ordinal);
-        if (origin is not null && publicPath is not null && !noIndex)
+        if (canonical is not null)
         {
-            var canonical = HtmlEncoder.Default.Encode(origin + publicPath);
             document = document.Replace("</head>", $"""
-                <link rel="canonical" href="{canonical}">
+                <link rel="canonical" href="{HtmlEncoder.Default.Encode(canonical)}">
                 <link rel="alternate" type="application/rss+xml" title="RSS" href="{DistributionSnapshot.RssPath}">
                 <link rel="alternate" type="application/atom+xml" title="Atom" href="{DistributionSnapshot.AtomPath}">
                 <link rel="alternate" type="application/feed+json" title="JSON Feed" href="{DistributionSnapshot.JsonPath}">
                 </head>
                 """, StringComparison.Ordinal);
         }
-        return Encoding.UTF8.GetBytes(document);
+        if (site is not null)
+        {
+            var encoder = HtmlEncoder.Default;
+            var metadata = new StringBuilder($"<meta name=\"fsus-site-title\" content=\"{encoder.Encode(SiteTitle)}\">");
+            if (publicPath is not null && !noIndex)
+            {
+                Meta("author", site.Seo.Author);
+                Meta("theme-color", site.Seo.ThemeColor);
+                Meta("og:image", site.Seo.OgImage, "property");
+                Link("icon", site.Seo.FaviconSvgUrl, "image/svg+xml");
+                Link("icon", site.Seo.FaviconIcoUrl, "image/x-icon");
+                Link("icon", site.Seo.FaviconPngUrl, "image/png");
+                Link("apple-touch-icon", site.Seo.AppleTouchIconUrl, null);
+            }
+            document = document.Replace("</head>", metadata.Append("</head>").ToString(), StringComparison.Ordinal);
+
+            void Meta(string name, string value, string attribute = "name")
+            {
+                if (value.Length > 0) metadata.Append($"<meta {attribute}=\"{name}\" content=\"{encoder.Encode(value)}\">");
+            }
+
+            void Link(string relation, string url, string? type)
+            {
+                if (url.Length == 0) return;
+                var typed = type is null ? "" : $" type=\"{type}\"";
+                metadata.Append($"<link rel=\"{relation}\"{typed} href=\"{encoder.Encode(url)}\">");
+            }
+        }
+        return Encoding.UTF8.GetBytes(document.Replace("<!--fsus-public-content-->", content, StringComparison.Ordinal));
     }
 }
 

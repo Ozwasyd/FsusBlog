@@ -8,6 +8,7 @@ import { readThemeMode, syncThemeMode } from '@ozwasyd/element-plus/theme'
 import './blog.css'
 import App from './App.vue'
 import { preloadPublicEntry } from './publicEntry'
+import { siteTitle } from './siteBrand'
 import { captureInitialSitePage, isSitePageSlug, sitePages } from './sitePageEntry'
 
 const publicListing = () => import('./views/PublicListing.vue')
@@ -47,7 +48,7 @@ router.afterEach((to, from) => {
   document.documentElement.lang = isSitePageSlug(to.name) || to.name === 'private-media' ? 'zh-CN' : 'en'
   if (to.name === 'article' && !from.name) return
   const title = isSitePageSlug(to.name) ? sitePages[to.name] : (labels[String(to.name)] ?? 'Article')
-  document.title = to.name === 'home' ? "Fsu's Blog" : `${title} · Fsu's Blog`
+  document.title = to.name === 'home' ? siteTitle : `${title} · ${siteTitle}`
   document.querySelector('meta[name="robots"]')?.remove()
   if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'admin-identity' || to.name === 'messages' || to.name === 'security' ||
       to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'private-media') {

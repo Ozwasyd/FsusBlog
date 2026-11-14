@@ -8,6 +8,7 @@ import {
 } from '../../../Contracts/taxonomy-client'
 import { pageNumber, readInitialListing } from '../publicEntry'
 import { searchLocal } from '../localSearch'
+import { siteTitle } from '../siteBrand'
 import { WireLimits } from '../../../Contracts/wire.generated.ts'
 
 const route = useRoute()
@@ -80,7 +81,7 @@ watch([isSearch, isHome, taxonomy, taxonomyId, page, cursor, query, reload], asy
       ])
       if (request.signal.aborted) return
       filter.value = metadata
-      document.title = `${metadata.name} · Fsu's Blog`
+      document.title = `${metadata.name} · ${siteTitle}`
       result = page
     } else {
       result = (!token && home ? readInitialListing(ordinal) : undefined)

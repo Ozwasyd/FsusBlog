@@ -36,6 +36,7 @@ inline constexpr uint32_t TitleBytes = 256;
 inline constexpr uint32_t NameBytes = 256;
 inline constexpr uint32_t PageContentChars = 200000;
 inline constexpr uint32_t PageContentBytes = 600000;
+inline constexpr uint32_t SiteConfigBlobBytes = 4096;
 inline constexpr uint32_t BodyBytes = 1048576;
 inline constexpr uint32_t MaxPayloadBytes = 4194304;
 inline constexpr uint32_t SearchIndexPageSize = 200;
@@ -104,6 +105,48 @@ inline constexpr uint32_t ErrorTraceIdOffset = 520;
 inline constexpr uint32_t SuccessBytes = 4;
 inline constexpr uint32_t PageContentSlugBytes = 128;
 inline constexpr uint32_t PageContentBlobOffset = 140;
+inline constexpr uint32_t SeoConfigTitleOffset = 0;
+inline constexpr uint32_t SeoConfigDescriptionOffset = 256;
+inline constexpr uint32_t SeoConfigKeywordsOffset = 264;
+inline constexpr uint32_t SeoConfigAuthorOffset = 520;
+inline constexpr uint32_t SeoConfigOgImageOffset = 584;
+inline constexpr uint32_t SeoConfigBaseUrlOffset = 840;
+inline constexpr uint32_t SeoConfigFaviconSvgUrlOffset = 1096;
+inline constexpr uint32_t SeoConfigFaviconIcoUrlOffset = 1352;
+inline constexpr uint32_t SeoConfigFaviconPngUrlOffset = 1608;
+inline constexpr uint32_t SeoConfigAppleTouchIconUrlOffset = 1864;
+inline constexpr uint32_t SeoConfigManifestNameOffset = 2120;
+inline constexpr uint32_t SeoConfigManifestShortNameOffset = 2248;
+inline constexpr uint32_t SeoConfigPwaIcon192UrlOffset = 2376;
+inline constexpr uint32_t SeoConfigPwaIcon512UrlOffset = 2632;
+inline constexpr uint32_t SeoConfigPwaMaskableIconUrlOffset = 2888;
+inline constexpr uint32_t SeoConfigThemeColorOffset = 3144;
+inline constexpr uint32_t SeoConfigBackgroundColorOffset = 3176;
+inline constexpr uint32_t SeoConfigSiteLogoUrlOffset = 3208;
+inline constexpr uint32_t SeoConfigSiteLogoDarkUrlOffset = 3464;
+inline constexpr uint32_t SeoConfigSiteWordmarkUrlOffset = 3720;
+inline constexpr uint32_t SeoConfigAdminLogoUrlOffset = 3976;
+inline constexpr uint32_t SeoConfigAdminCollapsedIconUrlOffset = 4232;
+inline constexpr uint32_t SeoConfigLoginLogoUrlOffset = 4488;
+inline constexpr uint32_t SeoConfigLoginIconUrlOffset = 4744;
+inline constexpr uint32_t SeoConfigPodBytes = 5000;
+inline constexpr uint32_t SeoConfigBlobOffset = 5004;
+inline constexpr uint32_t SiteComplianceEnabledOffset = 0;
+inline constexpr uint32_t SiteComplianceRegionModeOffset = 1;
+inline constexpr uint32_t SiteComplianceCopyrightStartYearOffset = 33;
+inline constexpr uint32_t SiteComplianceCopyrightOwnerOffset = 37;
+inline constexpr uint32_t SiteComplianceCopyrightTextOffset = 165;
+inline constexpr uint32_t SiteComplianceContentLicenseNameOffset = 173;
+inline constexpr uint32_t SiteComplianceContentLicenseUrlOffset = 301;
+inline constexpr uint32_t SiteComplianceIcpRecordNumberOffset = 557;
+inline constexpr uint32_t SiteComplianceIcpRecordUrlOffset = 621;
+inline constexpr uint32_t SiteCompliancePoliceRecordNumberOffset = 877;
+inline constexpr uint32_t SiteCompliancePoliceRecordUrlOffset = 941;
+inline constexpr uint32_t SiteCompliancePoliceBadgeIconUrlOffset = 1197;
+inline constexpr uint32_t SiteComplianceOperatorNameOffset = 1453;
+inline constexpr uint32_t SiteComplianceContactEmailOffset = 1581;
+inline constexpr uint32_t SiteCompliancePodBytes = 1709;
+inline constexpr uint32_t SiteComplianceBlobOffset = 1713;
 inline constexpr uint32_t TaxonomyHeaderBytes = 8;
 inline constexpr uint32_t TaxonomyListRecordSize = 16;
 inline constexpr uint32_t TaxonomyMetadataRecordSize = 16;
@@ -227,6 +270,8 @@ enum class FrameType : uint16_t {
     CategoryList = 9,
     TagList = 10,
     PageContent = 14,
+    SeoConfig = 13,
+    SiteComplianceConfig = 26,
     AuthLoginFlow = 18,
     ConversationList = 56,
     ConversationMessage = 58,
@@ -300,6 +345,8 @@ constexpr bool known(FrameType type) {
         case FrameType::CategoryList:
         case FrameType::TagList:
         case FrameType::PageContent:
+        case FrameType::SeoConfig:
+        case FrameType::SiteComplianceConfig:
         case FrameType::AuthLoginFlow:
         case FrameType::ConversationList:
         case FrameType::ConversationMessage:

@@ -7,6 +7,7 @@ using FsusBlog.V2.Integration.Tests;
 using FsusBlog.V2.Server;
 using FsusBlog.V2.Server.Content;
 using FsusBlog.V2.Server.Operations;
+using Microsoft.Extensions.Configuration;
 
 public sealed class DistributionPostgresTests
 {
@@ -21,7 +22,7 @@ public sealed class DistributionPostgresTests
     [InlineData("https://[2001:db8::7]:8443/", "https://[2001:db8::7]:8443")]
     [InlineData("https://bücher.example/", "https://xn--bcher-kva.example")]
     public void CanonicalOriginUsesNormalizedHttpsAuthority(string setting, string expected) =>
-        Assert.Equal(expected, DistributionSettings.ParseOrigin(setting));
+        Assert.Equal(expected, PublicSiteConfiguration.ParseOrigin(setting));
 
     [Theory]
     [InlineData("x")]
@@ -38,7 +39,7 @@ public sealed class DistributionPostgresTests
     [InlineData("https://example.test/%2e")]
     [InlineData("https://example.test\r\nheader")]
     public void UnsupportedOriginFailsAdmission(string setting) =>
-        Assert.Throws<InvalidOperationException>(() => DistributionSettings.ParseOrigin(setting));
+        Assert.Throws<InvalidOperationException>(() => PublicSiteConfiguration.ParseOrigin(setting));
 
     [Fact]
     public void RootSitemapKeepsV1PageBoundaryAndCanonicalNumbers()
@@ -62,7 +63,9 @@ public sealed class DistributionPostgresTests
         var publishedAt = DateTimeOffset.UnixEpoch.AddDays(1);
         var rows = Enumerable.Range(1, 53).Select(id => new Article(id, 1, id, 1, 1, $"title {id}", "body",
             publishedAt, publishedAt, publishedAt)).ToArray();
-        var feeds = DistributionSnapshot.Build(new(Origin, []), rows, CancellationToken.None)!;
+        var site = PublicSiteConfiguration.Read(new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string?> { [PublicSiteConfiguration.OriginKey] = Origin }).Build());
+        var feeds = DistributionSnapshot.Build(new(site, []), rows, CancellationToken.None)!;
         var expected = Enumerable.Range(4, 50).Reverse().Select(id => Origin + $"/article/{id}").ToArray();
         Assert.Equal(expected, Parse(feeds.Rss).Descendants("item").Select(item => item.Element("guid")!.Value));
         Assert.Equal(expected, Parse(feeds.Atom).Descendants(Atom + "entry").Select(item => item.Element(Atom + "id")!.Value));
@@ -78,7 +81,7 @@ public sealed class DistributionPostgresTests
         await using var database = await ScratchDatabase.Create(Environment.GetEnvironmentVariable(ScratchDatabase.Variable)!, ct);
         await using var server = await ServerProcess.Start(database.ConnectionString, ct, new Dictionary<string, string>
         {
-            [DistributionSettings.OriginKey] = "", ["FSUSBLOG_SITE_PAGES"] = ""
+            [PublicSiteConfiguration.OriginKey] = "", ["FSUSBLOG_SITE_PAGES"] = ""
         });
         foreach (var path in FeedPaths.Append("/sitemap/1.xml"))
         {
@@ -122,7 +125,7 @@ public sealed class DistributionPostgresTests
                 await File.WriteAllTextAsync(Path.Combine(path, slug + ".md"), $"Public {slug} body.", ct);
             await using var server = await ServerProcess.Start(database.ConnectionString, ct, new Dictionary<string, string>
             {
-                [DistributionSettings.OriginKey] = Origin, ["FSUSBLOG_SITE_PAGES"] = path
+                [PublicSiteConfiguration.OriginKey] = Origin, ["FSUSBLOG_SITE_PAGES"] = path
             });
             var client = server.Client;
             const string title = "Visible <em>Title</em> & 世界";

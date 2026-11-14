@@ -8,29 +8,8 @@ using FsusBlog.V2.Contracts;
 
 namespace FsusBlog.V2.Server.Content;
 
-internal sealed record DistributionSettings(string? Origin, IReadOnlyList<string> SitePagePaths)
+internal sealed record DistributionSettings(PublicSiteConfiguration Site, IReadOnlyList<string> SitePagePaths)
 {
-    internal const string OriginKey = "FSUSBLOG_PUBLIC_ORIGIN";
-    internal const string Title = "Fsu's Blog";
-    internal const string Description = "Public articles from Fsu's Blog.";
-
-    internal static string? ParseOrigin(string? setting)
-    {
-        if (string.IsNullOrWhiteSpace(setting)) return null;
-        var value = setting.Trim();
-        var slash = value.Length >= "https://".Length ? value.IndexOf('/', "https://".Length) : -1;
-        if (value.Length > 320 || value.Any(glyph => char.IsWhiteSpace(glyph) || char.IsControl(glyph)) ||
-            value.IndexOfAny(['\\', '?', '#', '@', '%']) >= 0 ||
-            !value.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
-            !Uri.TryCreate(value, UriKind.Absolute, out var origin) || origin.Scheme != Uri.UriSchemeHttps ||
-            origin.HostNameType is not (UriHostNameType.Dns or UriHostNameType.IPv4 or UriHostNameType.IPv6) ||
-            origin.Port == 0 || (slash >= 0 && slash != value.Length - 1))
-            throw new InvalidOperationException($"{OriginKey} must be an HTTPS origin without credentials, path, query, or fragment.");
-
-        var host = origin.HostNameType == UriHostNameType.IPv6 ? $"[{origin.IdnHost.Trim('[', ']')}]" : origin.IdnHost;
-        return origin.IsDefaultPort ? $"https://{host}" : $"https://{host}:{Number(origin.Port)}";
-    }
-
     internal static string Number(int number) => number.ToString(CultureInfo.InvariantCulture);
 }
 
@@ -44,7 +23,6 @@ internal sealed record DistributionSnapshot(byte[] Rss, byte[] Atom, byte[] Json
     internal const int SitemapPageSize = 45_000;
     private const int FeedLimit = 50;
     private const int SitemapMaxPages = 50_000;
-    private const string Author = "Fsu";
     private static readonly XNamespace AtomNs = "http://www.w3.org/2005/Atom";
     private static readonly XNamespace SitemapNs = "http://www.sitemaps.org/schemas/sitemap/0.9";
     private static readonly XNamespace DublinCore = "http://purl.org/dc/elements/1.1/";
@@ -53,36 +31,39 @@ internal sealed record DistributionSnapshot(byte[] Rss, byte[] Atom, byte[] Json
 
     internal static DistributionSnapshot? Build(DistributionSettings? settings, IReadOnlyList<Article> articles, CancellationToken ct)
     {
-        if (settings?.Origin is not { } origin) return null;
+        if (settings?.Site.Origin is not { } origin) return null;
         ct.ThrowIfCancellationRequested();
 
         var entries = articles.OrderByDescending(article => article.PublishedAt).ThenByDescending(article => article.Id)
             .Take(FeedLimit).Select(article => new Entry(ArticleUrl(origin, article.Id), XmlText(article.Title),
                 XmlText(string.IsNullOrWhiteSpace(article.Summary) ? article.Title : article.Summary), article)).ToArray();
         var updated = entries.Select(entry => (DateTimeOffset?)Modified(entry.Article)).Max();
-        return BuildDocuments(origin, entries, updated, settings.SitePagePaths, articles, ct);
+        return BuildDocuments(origin, entries, updated, settings, articles, ct);
     }
 
     private static DistributionSnapshot BuildDocuments(string origin, Entry[] entries, DateTimeOffset? updated,
-        IReadOnlyList<string> sitePagePaths, IReadOnlyList<Article> articles, CancellationToken ct)
+        DistributionSettings settings, IReadOnlyList<Article> articles, CancellationToken ct)
     {
+        var (title, description, author) = (settings.Site.Seo.Title, settings.Site.Seo.Description, settings.Site.Seo.Author);
+        var copyright = settings.Site.Compliance is { Enabled: true } legal
+            ? CopyrightText(legal, title, DateTimeOffset.UtcNow) : $"© {author}";
         var rss = Document(new XElement("rss", new XAttribute("version", "2.0"),
             new XAttribute(XNamespace.Xmlns + "dc", DublinCore), new XAttribute(XNamespace.Xmlns + "atom", AtomNs), new XElement("channel",
-                new XElement("title", DistributionSettings.Title), new XElement("link", origin + "/"),
-                new XElement("description", DistributionSettings.Description), new XElement("language", "zh-CN"),
+                new XElement("title", title), new XElement("link", origin + "/"),
+                new XElement("description", HtmlEncoder.Default.Encode(description)), new XElement("language", "zh-CN"),
                 AtomLink(origin + RssPath, "self"),
-                new XElement("copyright", $"© {Author}"),
+                new XElement("copyright", copyright),
                 updated is { } rssDate ? new XElement("lastBuildDate", Rfc822(rssDate)) : null,
                 entries.Select(entry => new XElement("item",
                     new XElement("title", entry.Title), new XElement("link", entry.Url),
                     new XElement("guid", new XAttribute("isPermaLink", "true"), entry.Url),
                     new XElement("description", HtmlEncoder.Default.Encode(entry.Summary)),
-                    new XElement(DublinCore + "creator", Author), new XElement("pubDate", Rfc822(entry.Article.PublishedAt)))))));
+                    new XElement(DublinCore + "creator", author), new XElement("pubDate", Rfc822(entry.Article.PublishedAt)))))));
         var atom = Document(new XElement(AtomNs + "feed",
-            new XElement(AtomNs + "title", DistributionSettings.Title), new XElement(AtomNs + "subtitle", DistributionSettings.Description),
+            new XElement(AtomNs + "title", title), new XElement(AtomNs + "subtitle", description),
             new XElement(AtomNs + "id", origin + "/"), new XElement(AtomNs + "updated", IsoDate(updated ?? DateTimeOffset.UnixEpoch)),
             AtomLink(origin + "/", "alternate"), AtomLink(origin + AtomPath, "self"),
-            new XElement(AtomNs + "author", new XElement(AtomNs + "name", Author)),
+            new XElement(AtomNs + "author", new XElement(AtomNs + "name", author)),
             entries.Select(entry => new XElement(AtomNs + "entry",
                 new XElement(AtomNs + "title", entry.Title), new XElement(AtomNs + "id", entry.Url), AtomLink(entry.Url, "alternate"),
                 new XElement(AtomNs + "published", IsoDate(entry.Article.PublishedAt)),
@@ -91,11 +72,11 @@ internal sealed record DistributionSnapshot(byte[] Rss, byte[] Atom, byte[] Json
         var json = JsonSerializer.SerializeToUtf8Bytes(new
         {
             version = "https://jsonfeed.org/version/1.1",
-            title = DistributionSettings.Title,
+            title = title,
             home_page_url = origin + "/",
             feed_url = origin + JsonPath,
-            description = DistributionSettings.Description,
-            authors = new[] { new { name = Author } },
+            description = description,
+            authors = new[] { new { name = author } },
             items = entries.Select(entry => new
             {
                 id = DistributionSettings.Number(entry.Article.Id), url = entry.Url, title = entry.Title,
@@ -103,7 +84,7 @@ internal sealed record DistributionSnapshot(byte[] Rss, byte[] Atom, byte[] Json
                 date_published = entry.Article.PublishedAt.ToUniversalTime(), date_modified = Modified(entry.Article).ToUniversalTime()
             })
         });
-        var paths = SitemapLocations(articles, sitePagePaths, ct).ToArray();
+        var paths = SitemapLocations(articles, settings.SitePagePaths, ct).ToArray();
         var sitemap = BuildSitemap(origin, paths, ct);
         var robots = Utf8.GetBytes("User-agent: *\nAllow: /\nAllow: /feed/\nAllow: /sitemap.xml\nAllow: /robots.txt\n" +
             "Disallow: /login\nDisallow: /register\nDisallow: /recover\nDisallow: /user\nDisallow: /admin\nDisallow: /api/\n" +
@@ -170,6 +151,15 @@ internal sealed record DistributionSnapshot(byte[] Rss, byte[] Atom, byte[] Json
         return result.ToString();
     }
 
+    private static string CopyrightText(SiteCompliance config, string author, DateTimeOffset date)
+    {
+        var owner = config.CopyrightOwner.Length == 0 ? author : config.CopyrightOwner;
+        var end = date.UtcDateTime.Year;
+        var year = config.CopyrightStartYear is { } start && start < end ? $"{DistributionSettings.Number(start)}–{DistributionSettings.Number(end)}" : DistributionSettings.Number(end);
+        var notice = config.CopyrightText.Length == 0 ? "" : $" {config.CopyrightText}";
+        return $"© {year} {owner}{notice}";
+    }
+
     private static string ArticlePath(int id) => $"/article/{DistributionSettings.Number(id)}";
     private static string ArticleUrl(string origin, int id) => origin + ArticlePath(id);
     private static DateTimeOffset Modified(Article article) => article.UpdatedAt > article.PublishedAt ? article.UpdatedAt : article.PublishedAt;
@@ -211,7 +201,7 @@ internal static class DistributionEndpoints
         app.MapMethods(DistributionSnapshot.RobotsPath, ReadMethods, (HttpContext ctx) =>
         {
             ctx.Response.Headers.CacheControl = "no-store";
-            return settings.Origin is null ? Results.Bytes(DistributionSnapshot.ClosedRobots, Text)
+            return settings.Site.Origin is null ? Results.Bytes(DistributionSnapshot.ClosedRobots, Text)
                 : (IResult)new Artifact(publications, Text, snapshot => snapshot.Robots);
         });
 

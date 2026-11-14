@@ -32,12 +32,11 @@ if (!string.IsNullOrEmpty(evidenceDirectory))
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddSingleton(services => new RuntimeEvidence(evidenceDirectory, output, services.GetRequiredService<IHttpContextAccessor>()));
 }
-var publicOrigin = FsusBlog.V2.Server.Content.DistributionSettings.ParseOrigin(
-    builder.Configuration[FsusBlog.V2.Server.Content.DistributionSettings.OriginKey]);
-builder.Services.AddSingleton(new WebPages(template, publicOrigin));
+var publicSite = FsusBlog.V2.Server.Content.PublicSiteConfiguration.Read(builder.Configuration);
+builder.Services.AddSingleton(new WebPages(template, publicSite));
 builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.SitePages(builder.Configuration,
     services.GetRequiredService<WebPages>()));
-builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.DistributionSettings(publicOrigin,
+builder.Services.AddSingleton(services => new FsusBlog.V2.Server.Content.DistributionSettings(publicSite,
     services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().ConfiguredPaths));
 builder.Services.AddSingleton<Store>();
 builder.Services.AddSingleton<Publications>();
@@ -173,6 +172,7 @@ if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null
     FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor, Cookie, ReadFrame);
 app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
+publicSite.Map(app);
 FsusBlog.V2.Server.Content.DistributionEndpoints.Map(app, publications,
     app.Services.GetRequiredService<FsusBlog.V2.Server.Content.DistributionSettings>());
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
