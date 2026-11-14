@@ -1,4 +1,6 @@
 using System.Collections.Frozen;
+using System.Buffers.Binary;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using FsusBlog.V2.Contracts;
@@ -15,18 +17,22 @@ internal sealed class PublicSnapshot
     private readonly byte[][] _index;
     private readonly FrozenDictionary<int, PublicEntry> _byId;
     internal long Generation { get; }
+    internal long Watermark { get; }
     internal byte[] Home { get; }
     internal byte[] FirstPage { get; }
+    private readonly byte[] _twenty;
     internal int IndexPageCount => _index.Length;
 
-    internal PublicSnapshot(long generation, IReadOnlyList<Article> articles, WebPages pages)
+    internal PublicSnapshot(long watermark, IReadOnlyList<Article> articles, WebPages pages)
     {
-        Generation = generation;
+        Watermark = watermark;
+        Generation = PublicGeneration(articles);
         _ordered = articles.Select(article => new PublicEntry(article, PublicArticles.EncodeDetail(article),
             pages.Page($"<main><article><h1>{HtmlEncoder.Default.Encode(article.Title)}</h1><pre>{HtmlEncoder.Default.Encode(article.Body)}</pre></article></main>", article.Title))).ToArray();
         _byId = _ordered.ToFrozenDictionary(entry => entry.Article.Id);
         var first = articles.Take(10).ToArray();
         FirstPage = PublicArticles.EncodeList(first, articles.Count);
+        _twenty = PublicArticles.EncodeList(articles.Take(20).ToArray(), articles.Count);
         Home = pages.Page("<main><h1>FsusBlog</h1>" + (first.Length > 0
             ? "<ol>" + string.Concat(first.Select(article => $"<li><a href=\"/article/{article.Id}\">{HtmlEncoder.Default.Encode(article.Title)}</a></li>")) + "</ol>"
             : "<p>暂无文章</p>") + "</main>");
@@ -40,7 +46,11 @@ internal sealed class PublicSnapshot
 
     internal byte[] List(int page, int size, string? keyword, string? sort)
     {
-        if (page == 1 && size == 10 && string.IsNullOrWhiteSpace(keyword) && string.IsNullOrEmpty(sort)) return FirstPage;
+        if (page == 1 && string.IsNullOrWhiteSpace(keyword) && string.IsNullOrEmpty(sort))
+        {
+            if (size == 10) return FirstPage;
+            if (size == 20) return _twenty;
+        }
         var matching = Match(keyword, sort);
         var skip = ((long)page - 1) * size;
         return PublicArticles.EncodeList(skip < matching.Length ? matching.Skip((int)skip).Take(size).ToArray() : [], matching.Length);
@@ -50,6 +60,20 @@ internal sealed class PublicSnapshot
     {
         var matching = Match(keyword, null);
         return PublicArticles.EncodeSearch(matching.Take(100).ToArray(), matching.Length);
+    }
+
+    private static long PublicGeneration(IReadOnlyList<Article> articles)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        Span<byte> coordinates = stackalloc byte[20];
+        foreach (var article in articles)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(coordinates, article.Id);
+            BinaryPrimitives.WriteInt64LittleEndian(coordinates[4..], article.Revision);
+            BinaryPrimitives.WriteInt64LittleEndian(coordinates[12..], article.Publication);
+            hash.AppendData(coordinates);
+        }
+        return BinaryPrimitives.ReadInt64LittleEndian(hash.GetHashAndReset()) & long.MaxValue;
     }
 
     private Article[] Match(string? keyword, string? sort)
@@ -119,7 +143,7 @@ internal sealed class Publications(NpgsqlDataSource db, WebPages pages, ILogger<
         await using (var watermark = Store.Sql(connection, tx, "select coalesce(max(id),0) from public.blog_outbox"))
             maxEvent = (long)(await watermark.ExecuteScalarAsync(ct))!;
         var next = Snapshot;
-        if (next is null || next.Generation != maxEvent)
+        if (next is null || next.Watermark != maxEvent)
         {
             await using var cmd = Store.Sql(connection, tx, """
                 select a.id,r.revision,p.publication_id,r.title,r.body,a.created_at,r.happened_at,p.published_at

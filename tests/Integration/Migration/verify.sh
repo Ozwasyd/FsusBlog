@@ -91,7 +91,7 @@ expect_failure 'requires an empty database' "${migrate[@]}" apply "$scratch/plan
 ticket=$("${migrate[@]}" operator 'Native author')
 [[ "$ticket" =~ ^[0-9a-f]{64}$ ]]
 digest="$(printf '%s' "$ticket" | xxd -r -p | openssl dgst -sha256 | awk '{print $NF}')"
-[[ "$("${psql_source[@]}" -qAtc 'SELECT encode(digest, $f$hex$f$) FROM public.login_ticket')" == "$digest" ]]
+[[ "$("${psql_source[@]}" -qAtc "SELECT encode(digest, 'hex') FROM public.login_ticket")" == "$digest" ]]
 unset ticket digest
 "${migrate[@]}" revoke 'Native author'
 [[ "$("${psql_source[@]}" -qAtc 'SELECT count(*) FROM public.login_ticket')" == 0 ]]

@@ -102,7 +102,14 @@ internal static partial class CurrentSchema
             )
             SELECT 'column', c.relname || ' ' || string_agg(a.attname || ':' || t.typname ||
                 CASE WHEN a.attnotnull THEN '' ELSE '?' END ||
-                CASE WHEN a.attidentity = '' THEN '' ELSE ':' || a.attidentity::text END ||
+                CASE WHEN a.attidentity = '' THEN '' ELSE ':' || a.attidentity::text ||
+                    CASE WHEN EXISTS (
+                        SELECT FROM pg_depend dep JOIN pg_sequence seq ON seq.seqrelid = dep.objid
+                        WHERE dep.classid = 'pg_class'::regclass AND dep.refclassid = 'pg_class'::regclass
+                          AND dep.refobjid = c.oid AND dep.refobjsubid = a.attnum AND dep.deptype = 'i'
+                          AND seq.seqtypid = a.atttypid AND seq.seqincrement = 1 AND seq.seqmin = 1
+                          AND seq.seqstart = 1 AND seq.seqcache = 1 AND NOT seq.seqcycle
+                    ) THEN '' ELSE ' unexpected-identity-sequence' END END ||
                 CASE WHEN a.atttypmod = -1 AND a.attgenerated = '' AND tn.nspname = 'pg_catalog'
                          AND a.attcollation = t.typcollation THEN '' ELSE ' unexpected-modifier' END ||
                 CASE WHEN d.oid IS NULL THEN '' ELSE '=' || replace(pg_get_expr(d.adbin, d.adrelid), '()', '') END,
@@ -129,7 +136,11 @@ internal static partial class CurrentSchema
                          CASE WHEN k.confdeltype = 'a' AND k.confupdtype = 'a' AND k.confmatchtype = 's'
                               THEN '' ELSE ' unexpected-action' END
                      ELSE '' END ||
-                CASE WHEN NOT k.convalidated OR NOT k.conislocal THEN ' not-validated'
+                CASE WHEN NOT k.convalidated OR NOT k.conislocal
+                           OR coalesce(to_jsonb(k)->>'conenforced', 'true') <> 'true' THEN ' not-validated'
+                     WHEN k.contype IN ('p', 'u') AND NOT EXISTS (
+                         SELECT FROM pg_index idx WHERE idx.indexrelid = k.conindid AND idx.indisvalid AND idx.indisready
+                     ) THEN ' unexpected-index'
                      WHEN k.condeferrable AND k.condeferred THEN ' deferred'
                      WHEN k.condeferrable THEN ' deferrable' ELSE '' END
             FROM owned c JOIN pg_constraint k ON k.conrelid = c.oid

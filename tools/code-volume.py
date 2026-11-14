@@ -110,7 +110,7 @@ def classify(path, suffix, source):
     if suffix == '.json' and (
         path.startswith('docs/reports/')
         or (path.startswith('docs/baseline-') and not path.endswith('.schema.json'))
-        or path.startswith('docs/issues/observed/')
+        or (path.startswith('docs/issues/') and not path.endswith('.schema.json'))
     ):
         return 'evidence_snapshot', False
     if suffix == '.json' and (
@@ -301,7 +301,7 @@ def census(repo, revision, jobs):
         'schema': 1, 'tree': identity,
         'commit': commit,
         'total': metrics, 'budget_90_percent_reduction_ncloc': ncloc // 10,
-        'total_including_historical_test_evidence': metrics + by_category['historical_test_evidence/handwritten'],
+        'total_including_historical_test_evidence': metrics + by_category.get('historical_test_evidence/handwritten', Counter()),
         'by_category': dict(by_category), 'by_area': dict(by_area), 'formatting': formatter_counts,
         'formatter_fallbacks': failures, 'excluded_file_counts': excluded, 'reviewable_exclusions': unmapped,
     }

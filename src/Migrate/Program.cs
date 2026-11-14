@@ -286,7 +286,7 @@ internal static partial class Migration
         NpgsqlTransaction transaction, CancellationToken token)
     {
         await using var command = new NpgsqlCommand("""
-            SELECT oid::bigint, datname
+            SELECT oid::bigint, datname, pg_catalog.pg_postmaster_start_time()
             FROM pg_catalog.pg_database
             WHERE datname = pg_catalog.current_database()
             """, connection, transaction);
@@ -296,7 +296,8 @@ internal static partial class Migration
             throw new InvalidOperationException("Could not identify the target database.");
         }
 
-        return new DatabaseTarget(connection.Host ?? "", connection.Port, reader.GetInt64(0), reader.GetString(1));
+        return new DatabaseTarget(connection.Host ?? "", connection.Port, reader.GetInt64(0), reader.GetString(1),
+            reader.GetFieldValue<DateTime>(2));
     }
 
     private static async Task RequireEmptyAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
@@ -358,6 +359,6 @@ internal static partial class Migration
     private static string Digest(string sql) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(sql)));
 
     private sealed record Relation(string Schema, string Name, string Kind);
-    private sealed record DatabaseTarget(string Host, int Port, long DatabaseOid, string Database);
+    private sealed record DatabaseTarget(string Host, int Port, long DatabaseOid, string Database, DateTime ServerStartedAtUtc);
     private sealed record BootstrapPlan(int Version, DatabaseTarget Target, string SchemaSha256);
 }
