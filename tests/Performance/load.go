@@ -523,7 +523,7 @@ type result struct {
 	sampled  bool
 }
 
-func worker(c *connection, jobs <-chan job, output chan<- result, w workload) {
+func worker(c *connection, jobs <-chan job, permits <-chan struct{}, output chan<- result, w workload) {
 	defer c.close()
 	copyBuffer := make([]byte, 32*1024)
 	readBuffer := make([]byte, 0, 48*1024)
@@ -567,6 +567,7 @@ func worker(c *connection, jobs <-chan job, output chan<- result, w workload) {
 			}
 		}
 		r.latency = time.Since(j.planned)
+		<-permits
 		output <- r
 	}
 }
@@ -638,7 +639,10 @@ func (s *stats) add(r result) {
 }
 
 func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int) map[string]*stats {
-	jobs := make(chan job)
+	// Admission counts queued jobs and active requests against the same limit.
+	// A worker briefly between reads must not turn unused capacity into an offered drop.
+	jobs := make(chan job, maxInFlight)
+	permits := make(chan struct{}, maxInFlight)
 	results := make(chan result, maxInFlight)
 	var workers sync.WaitGroup
 	var collector sync.WaitGroup
@@ -653,7 +657,7 @@ func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int
 		}
 	})
 	for i := 0; i < maxInFlight; i++ {
-		workers.Go(func() { worker(&connection{origin: origin}, jobs, results, w) })
+		workers.Go(func() { worker(&connection{origin: origin}, jobs, permits, results, w) })
 	}
 	started := time.Now().Add(20 * time.Millisecond)
 	for i := 0; i < rate*seconds && ctx.Err() == nil; i++ {
@@ -661,7 +665,8 @@ func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int
 		time.Sleep(time.Until(planned))
 		j := w.job(i, planned)
 		select {
-		case jobs <- j:
+		case permits <- struct{}{}:
+			jobs <- j
 		default:
 			results <- result{class: j.class, reason: "dropped"}
 		}
