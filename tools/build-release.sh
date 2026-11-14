@@ -90,7 +90,11 @@ cp -- "$scratch/source/deploy/Caddyfile" "$scratch/source/deploy/Caddyfile.admin
 (
   cd "$scratch/package"
   find . -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2 > "$release/payload.sha256"
-  tar -czf "$scratch/fsusblog-v2.tar.gz" .
+  # Distribute file contents and modes without host-specific extended metadata.
+  case $(tar --version) in
+    *bsdtar*) tar --no-mac-metadata --no-xattrs --no-acls --no-fflags -czf "$scratch/fsusblog-v2.tar.gz" . ;;
+    *) tar -czf "$scratch/fsusblog-v2.tar.gz" . ;;
+  esac
 )
 git -C "$repo" bundle create "$scratch/history.bundle" HEAD
 [[ "$(git -C "$repo" bundle list-heads "$scratch/history.bundle" HEAD)" == "$rev HEAD" ]]
