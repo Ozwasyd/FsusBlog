@@ -13,12 +13,13 @@ internal static partial class Migration
             return;
         }
 
-        (string action, string handle) = arguments switch
+        (string action, string handle, string? permission) = arguments switch
         {
-            ["bootstrap", var name, CurrentSchema.AdminManagePermission] => ("bootstrap", name),
-            ["grant" or "revoke", var name, CurrentSchema.AuditReadPermission] => (arguments[0], name),
-            ["rotate-passkey" or "revoke-all" or "disable", var name] => (arguments[0], name),
-            _ => throw new ArgumentException("Use admin-identity schema, bootstrap HANDLE admin.manage, grant|revoke HANDLE audit.read, rotate-passkey HANDLE, revoke-all HANDLE, or disable HANDLE.")
+            ["bootstrap", var name, CurrentSchema.AdminManagePermission] => ("bootstrap", name, null),
+            ["grant" or "revoke", var name, CurrentSchema.AuditReadPermission or CurrentSchema.CommentModeratePermission] =>
+                (arguments[0], name, arguments[2]),
+            ["rotate-passkey" or "revoke-all" or "disable", var name] => (arguments[0], name, null),
+            _ => throw new ArgumentException("Use admin-identity schema, bootstrap HANDLE admin.manage, grant|revoke HANDLE audit.read|comment.moderate, rotate-passkey HANDLE, revoke-all HANDLE, or disable HANDLE.")
         };
         if (handle.Length is < 1 or > 64 || !char.IsAsciiLetterLower(handle[0]) ||
             !handle.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c is '_' or '-' or '.'))
@@ -52,13 +53,13 @@ internal static partial class Migration
                 principal = id;
             }
 
-            if (action is "grant" or "revoke")
+            if (permission is not null)
             {
                 var changed = action == "grant"
                     ? await RunAsync("insert into public.admin_permission(principal_id,permission) values($1,$2) on conflict do nothing",
-                        principal, CurrentSchema.AuditReadPermission)
+                        principal, permission)
                     : await RunAsync("delete from public.admin_permission where principal_id=$1 and permission=$2",
-                        principal, CurrentSchema.AuditReadPermission);
+                        principal, permission);
                 if (changed == 0)
                 {
                     await tx.CommitAsync(ct);
@@ -83,7 +84,7 @@ internal static partial class Migration
         await RunAsync("""
             insert into public.admin_identity_audit(principal_id,action,happened_at,actor)
             values($1,$2,pg_catalog.clock_timestamp(),session_user::text)
-            """, principal, action is "grant" or "revoke" ? $"{action}:{CurrentSchema.AuditReadPermission}" : action);
+            """, principal, permission is null ? action : $"{action}:{permission}");
 
         if (action is "bootstrap" or "rotate-passkey")
         {
@@ -105,8 +106,8 @@ internal static partial class Migration
             Console.WriteLine(action switch
             {
                 "disable" => "Disabled administrator principal.",
-                "grant" => "Granted audit.read and revoked prior administrator sessions and invitations.",
-                "revoke" => "Revoked audit.read and prior administrator sessions and invitations.",
+                "grant" => $"Granted {permission} and revoked prior administrator sessions and invitations.",
+                "revoke" => $"Revoked {permission} and prior administrator sessions and invitations.",
                 _ => "Revoked administrator sessions and invitations."
             });
         }
@@ -145,18 +146,18 @@ internal static partial class Migration
                 requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, requirePublicationRights: hasPublicationRights);
             await ApplySchemaAddition(connection, tx, "admin-identity.sql", ct);
         }
-        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) == 1)
+        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (1 or 2) and var previousVersion)
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
                 requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
-                requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, adminIdentityVersion: 1, requirePublicationRights: hasPublicationRights);
+                requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, adminIdentityVersion: previousVersion, requirePublicationRights: hasPublicationRights);
             await ExecuteAsync(connection, tx, """
                 alter table public.admin_permission drop constraint admin_permission_permission_check;
                 alter table public.admin_permission add constraint admin_permission_permission_check
-                    check (permission = 'admin.manage' or permission = 'audit.read');
+                    check (permission = 'admin.manage' or permission = 'audit.read' or permission = 'comment.moderate');
                 alter table public.admin_identity_schema drop constraint admin_identity_schema_version_check;
-                update public.admin_identity_schema set version=2 where singleton and version=1;
-                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=2);
+                update public.admin_identity_schema set version=3 where singleton and version in (1,2);
+                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=3);
                 """, ct);
         }
 

@@ -42,6 +42,7 @@ public enum FrameType : ushort
     SiteSessionList = 32796,
     AdminSessionSnapshot = 32830,
     AdminOperationsStatus = 32850,
+    AdminCommentQueue = 32862,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -134,6 +135,8 @@ public static class WireLimits
     public const int MaxSignInFrameBytes = 148;
     public const int SiteSessionIdBytes = 64;
     public const int SiteSessionListSize = 101;
+    public const int AdminCommentQueueSize = 24;
+    public const int AdminCommentQueueBodyBytes = 12288;
     public const int MaxCommandFrameBytes = 1048884;
     public const int RevisionHistoryPageSize = 20;
     public const int RevisionHistoryCursorChars = 54;
@@ -402,6 +405,7 @@ public static class WireRoutes
     public const string AdminSession = "/api/v2/admin/identity/session.aeds";
     public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
+    public const string AdminCommentQueue = "/api/v2/admin/identity/comments/queue.aeds";
     public const string PasskeyLoginBegin = "/api/binary/auth/passkey/login/begin";
     public const string PasskeyLoginComplete = "/api/binary/auth/passkey/login/complete";
     public const string PasskeyProvisionBegin = "/api/v2/identity/passkey/register/begin.aeds";

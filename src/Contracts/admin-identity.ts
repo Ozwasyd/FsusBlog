@@ -1,4 +1,5 @@
 import { ApiError, decodeSuccess, ProtocolError } from './aeds.ts';
+import { PodReader } from './binary.ts';
 import { request } from './client.ts';
 import { requestPasskeyAssertion, requestPasskeyAttestation } from './passkey.ts';
 import {
@@ -6,6 +7,7 @@ import {
   decodeAdminSessionSnapshot,
   FrameType,
   WireHeaders,
+  WireLimits,
   WireRoutes,
   type AdminOperationsStatus as WireAdminOperationsStatus,
 } from './wire.generated.ts';
@@ -13,6 +15,9 @@ import {
 export type AdminSession = Readonly<{ handle: string; generation: bigint; expiresAt: number }>;
 export type AdminAuthority = { status: 'unavailable' } | { status: 'signed-out' } | { status: 'active'; session: AdminSession };
 export type AdminOperationsStatus = Readonly<Omit<WireAdminOperationsStatus, 'oldestPendingAt'> & { oldestPendingAt: number | null }>;
+export type AdminCommentCursor = Readonly<{ articleId: number; commentId: bigint }>;
+type AdminQueuedComment = Readonly<AdminCommentCursor & { createdAt: number; displayName: string; body: string }>;
+export type AdminCommentQueue = Readonly<{ comments: readonly AdminQueuedComment[]; next: AdminCommentCursor | null }>;
 
 export function validAdminBootstrapToken(ticket: string): boolean {
   return /^[0-9a-f]{64}$/.test(ticket);
@@ -52,6 +57,40 @@ export async function signOutAdmin(signal?: AbortSignal): Promise<void> {
 
 export function readAdminOperations(signal?: AbortSignal): Promise<AdminOperationsStatus> {
   return request(WireRoutes.AdminOperationsStatus, FrameType.AdminOperationsStatus, readOperationsStatus, signal);
+}
+
+export function readAdminCommentQueue(after: AdminCommentCursor | null, signal?: AbortSignal): Promise<AdminCommentQueue> {
+  const path = after === null ? WireRoutes.AdminCommentQueue : `${WireRoutes.AdminCommentQueue}?${new URLSearchParams({
+    afterComment: String(after.commentId), afterArticle: String(after.articleId),
+  })}`;
+  return request(path, FrameType.AdminCommentQueue, payload => readCommentQueue(payload, after), signal);
+}
+
+function readCommentQueue(payload: Uint8Array, after: AdminCommentCursor | null): AdminCommentQueue {
+  const reader = new PodReader(payload);
+  const hasMore = reader.bool();
+  const count = reader.i32();
+  if (count < 0 || count > WireLimits.AdminCommentQueueSize || (hasMore && count !== WireLimits.AdminCommentQueueSize))
+    throw new ProtocolError('Invalid administrator moderation queue size.');
+
+  const comments: AdminQueuedComment[] = [];
+  let previous = after;
+  for (let index = 0; index < count; index++) {
+    const articleId = reader.i32();
+    const commentId = reader.i64();
+    const createdAt = Number(reader.i64());
+    const displayName = reader.text(WireLimits.PublicCommentHandleBytes);
+    const body = reader.text(WireLimits.AdminCommentQueueBodyBytes);
+    if (articleId <= 0 || commentId <= 0n || !Number.isSafeInteger(createdAt) || createdAt <= 0 || createdAt > 8.64e15 ||
+        displayName.length === 0 || body.length === 0 ||
+        (previous !== null && (commentId < previous.commentId || (commentId === previous.commentId && articleId <= previous.articleId))))
+      throw new ProtocolError('Invalid administrator moderation queue row.');
+
+    previous = { articleId, commentId };
+    comments.push({ ...previous, createdAt, displayName, body });
+  }
+  reader.finish();
+  return { comments, next: hasMore ? previous : null };
 }
 
 function readOperationsStatus(payload: Uint8Array): AdminOperationsStatus {

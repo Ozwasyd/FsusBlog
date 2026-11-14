@@ -152,24 +152,47 @@ FSUSBLOG_TEST_ADMIN_TICKET=$("$dotnet" "$migrate" admin-identity bootstrap tls-a
 export FSUSBLOG_TEST_SITE_TICKET FSUSBLOG_TEST_ADMIN_TICKET
 export FSUSBLOG_TEST_TLS_DOTNET="$dotnet" FSUSBLOG_TEST_TLS_MIGRATE="$migrate"
 export FSUSBLOG_TEST_ADMIN_REVOKE="$scratch/revoke-admin"
-export FSUSBLOG_TEST_ADMIN_AUDIT_GRANT="$scratch/grant-admin-audit-read"
-export FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE="$scratch/revoke-admin-audit-read"
 cat > "$FSUSBLOG_TEST_ADMIN_REVOKE" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 "$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_MIGRATE" admin-identity revoke-all tls-admin-fixture
 EOF
-cat > "$FSUSBLOG_TEST_ADMIN_AUDIT_GRANT" <<'EOF'
+chmod 700 "$FSUSBLOG_TEST_ADMIN_REVOKE"
+permission_fixture() {
+  local path=$1 action=$2 capability=$3
+  cat > "$path" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-"$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_MIGRATE" admin-identity grant tls-admin-fixture audit.read
+"\$FSUSBLOG_TEST_TLS_DOTNET" "\$FSUSBLOG_TEST_TLS_MIGRATE" admin-identity $action tls-admin-fixture $capability
 EOF
-cat > "$FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE" <<'EOF'
+  chmod 700 "$path"
+}
+if [[ ${FSUSBLOG_TEST_ADMIN_MODERATION:-0} == 1 ]]; then
+  unset FSUSBLOG_TEST_ADMIN_AUDIT_GRANT FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
+  export FSUSBLOG_PUBLIC_COMMENT_SUBMISSIONS=true
+  FSUSBLOG_TEST_ADMIN_MODERATOR_SITE_TICKET=$("$dotnet" "$migrate" operator tls-moderation-fixture)
+  export FSUSBLOG_TEST_ADMIN_MODERATOR_SITE_TICKET
+  export FSUSBLOG_TEST_ADMIN_MODERATOR_DATABASE="$database"
+  export FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT="$scratch/grant-comment-moderate"
+  export FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE="$scratch/revoke-comment-moderate"
+  export FSUSBLOG_TEST_ADMIN_MODERATOR_SEED="$scratch/create-pending-comment"
+  export FSUSBLOG_TEST_ADMIN_MODERATOR_BODY='Moderation fixture <strong data-moderation-fixture="1">literal</strong>'
+  permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT" grant comment.moderate
+  permission_fixture "$FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE" revoke comment.moderate
+  cat > "$FSUSBLOG_TEST_ADMIN_MODERATOR_SEED" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-"$FSUSBLOG_TEST_TLS_DOTNET" "$FSUSBLOG_TEST_TLS_MIGRATE" admin-identity revoke tls-admin-fixture audit.read
+exec node tests/EndToEnd/admin-moderation-seed.mjs
 EOF
-chmod 700 "$FSUSBLOG_TEST_ADMIN_REVOKE" "$FSUSBLOG_TEST_ADMIN_AUDIT_GRANT" "$FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE"
+  chmod 700 "$FSUSBLOG_TEST_ADMIN_MODERATOR_SEED"
+else
+  unset FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE \
+    FSUSBLOG_TEST_ADMIN_MODERATOR_SEED FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
+  export FSUSBLOG_TEST_ADMIN_AUDIT_GRANT="$scratch/grant-admin-audit-read"
+  export FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE="$scratch/revoke-admin-audit-read"
+  permission_fixture "$FSUSBLOG_TEST_ADMIN_AUDIT_GRANT" grant audit.read
+  permission_fixture "$FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE" revoke audit.read
+fi
 
 "$caddy" validate --config deploy/Caddyfile.admin --adapter caddyfile > "$evidence/caddy-validation.log" 2>&1
 "$dotnet" "$server" --urls "http://127.0.0.1:$upstream_port" > "$evidence/server.log" 2>&1 &
@@ -216,4 +239,6 @@ node tests/EndToEnd/admin-identity-flow.mjs
   union all select 'offline_audit_with_actor=' || count(*) from public.admin_identity_audit where actor=session_user
   union all select 'offline_ops_permission_changes=' || count(*) from public.admin_identity_audit
     where actor=session_user and action in ('grant:audit.read','revoke:audit.read')
+  union all select 'offline_moderation_permission_changes=' || count(*) from public.admin_identity_audit
+    where actor=session_user and action in ('grant:comment.moderate','revoke:comment.moderate')
 " > "$evidence/after-counts.txt"

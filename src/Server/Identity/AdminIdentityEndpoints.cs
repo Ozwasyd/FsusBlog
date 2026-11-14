@@ -97,6 +97,9 @@ internal static class AdminIdentityEndpoints
         app.MapGet(WireRoutes.AdminOperationsStatus, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             Frame(Wire.EncodeAdminOperationsStatus(await store.OperationsStatus(ctx.Request.Cookies[session], publications, ct))))
             .RequireRateLimiting("command");
+        app.MapGet(WireRoutes.AdminCommentQueue, async (HttpContext ctx, CancellationToken ct) =>
+            Frame(Wire.EncodeAdminCommentQueue(await store.CommentQueue(ctx.Request.Cookies[session], ctx.Request.Query, ct))))
+            .RequireRateLimiting("command");
         app.MapPost(WireRoutes.AdminSignOut, async (HttpContext ctx, CancellationToken ct) =>
         {
             await store.SignOut(ctx.Request.Cookies[session], ct);

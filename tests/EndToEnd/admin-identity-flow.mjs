@@ -6,8 +6,9 @@ import { createRequire } from 'node:module'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
+import { PodReader } from '../../src/Contracts/binary.ts'
 import {
-  decodeAdminOperationsStatus, decodeAdminSessionSnapshot, FrameType, WireHeaders, WireRoutes,
+  decodeAdminOperationsStatus, decodeAdminSessionSnapshot, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 
 const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -19,10 +20,18 @@ const siteTicket = process.env.FSUSBLOG_TEST_SITE_TICKET
 const revokeExecutable = process.env.FSUSBLOG_TEST_ADMIN_REVOKE
 const auditGrant = process.env.FSUSBLOG_TEST_ADMIN_AUDIT_GRANT
 const auditRevoke = process.env.FSUSBLOG_TEST_ADMIN_AUDIT_REVOKE
+const moderatorGrant = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_GRANT
+const moderatorRevoke = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_REVOKE
+const moderatorSeed = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_SEED
+const moderatorBody = process.env.FSUSBLOG_TEST_ADMIN_MODERATOR_BODY
 assert(adminUrl && siteUrl && /^[0-9a-f]{64}$/.test(adminTicket ?? '') && /^[0-9a-f]{64}$/.test(siteTicket ?? ''),
   'Provide isolated site/admin origins and two unused one-time fixture keys.')
 assert.notEqual(adminTicket, siteTicket, 'Use independent site and administrator fixture keys.')
 assert(Boolean(auditGrant) === Boolean(auditRevoke), 'Provide both offline audit permission executables to test grant and revoke.')
+const moderationFixture = [moderatorGrant, moderatorRevoke, moderatorSeed, moderatorBody]
+assert(moderationFixture.every(Boolean) || moderationFixture.every(value => !value),
+  'Provide grant, revoke, seed and test body together for moderation acceptance.')
+assert(!(moderatorGrant && auditGrant), 'Run audit and moderation browser scenarios separately to preserve the administrator rate budget.')
 const adminOrigin = new URL(adminUrl)
 const siteOrigin = new URL(siteUrl)
 assert.equal(adminOrigin.hostname, 'localhost', 'The admin WebAuthn fixture uses localhost as its relying party.')
@@ -35,7 +44,8 @@ const adminPage = adminOrigin.origin + '/admin/identity'
 const {
   AdminBootstrapBegin: bootstrapBegin, AdminBootstrapComplete: bootstrapComplete, AdminPasskeyBegin: passkeyBegin,
   AdminPasskeyComplete: passkeyComplete, AdminSession: adminSession, AdminSignOut: adminLogout,
-  AdminOperationsStatus: operationsStatus,
+  AdminOperationsStatus: operationsStatus, AdminCommentQueue: moderationQueue,
+  CommentRoots: commentRoots,
   Session: siteSession, SignIn: siteSignIn, SignOut: siteSignOut,
 } = WireRoutes
 const secureAdmin = adminOrigin.protocol === 'https:'
@@ -187,6 +197,14 @@ try {
     checks.operationsGrantAndRevokeInvalidateOldSessions = true
   }
 
+  if (moderatorGrant) {
+    phase = 'moderation-permission'
+    finalCookie = await verifyModerationPermissions(admin, context, siteCookie, finalCookie)
+    checks.moderationRequiresIndependentGrant = true
+    checks.moderationBodyIsTextAndPendingIsPrivate = true
+    checks.moderationGrantAndRevokeInvalidateOldSessions = true
+  }
+
   phase = 'logout'
   // Seed the site credential into the admin host only in this test to detect a shared cookie-clearing helper.
   await context.addCookies([{ ...siteCookie, domain: adminOrigin.hostname }])
@@ -312,6 +330,96 @@ async function verifyOperationsPermissions(page, context, siteCookie, priorCooki
   await alert(deniedMessage).waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
   return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+}
+
+async function verifyModerationPermissions(page, context, siteCookie, priorCookie) {
+  const run = promisify(execFile)
+  const { stdout } = await run(moderatorSeed, [], { timeout: 20_000 })
+  assert(/^[1-9][0-9]*$/.test(stdout.trim()), 'The moderation fixture must output one published article ID.')
+  const articleId = Number(stdout.trim())
+  assert(Number.isSafeInteger(articleId) && articleId <= 2_147_483_647)
+  const publicRoute = siteOrigin.origin + commentRoots.replace('{articleId:int}', String(articleId))
+  const anonymous = await request.newContext()
+  try {
+    const publicArticle = await anonymous.get(siteOrigin.origin + '/article/' + articleId)
+    assert.equal(publicArticle.status(), 200, 'The pending comment requires a genuinely published article.')
+    const publicComments = await anonymous.get(publicRoute)
+    assert.equal(publicComments.status(), 200)
+    const publicFrame = decodeFrame(await publicComments.body(), FrameType.CommentTreeRootCursor)
+    assert(!Buffer.from(publicFrame.payload).includes(moderatorBody), 'A pending comment must stay hidden publicly.')
+  } finally { await anonymous.dispose() }
+
+  const endpoint = adminOrigin.origin + moderationQueue
+  const section = page.getByRole('region', { name: 'Moderation queue', exact: true })
+  const load = section.getByRole('button', { name: 'Load moderation queue', exact: true })
+  const checkQueue = async () => (await Promise.all([
+    page.waitForResponse(response => response.url() === endpoint && response.request().method() === 'GET'),
+    load.click(),
+  ]))[0]
+  const denied = page.getByRole('alert').filter({ hasText: 'You do not have permission to view the moderation queue.' })
+  const revoked = page.getByRole('alert').filter({ hasText: 'Your administrator session expired or was revoked. Log in again.' })
+  const bodyText = section.getByText(moderatorBody, { exact: true })
+  const generation = (await snapshot(context)).principal.generation
+  assert.equal((await context.request.get(siteOrigin.origin + moderationQueue)).status(), 404)
+  await credentialProbe(endpoint, siteCookieName, siteCookie.value, 401)
+  await credentialProbe(endpoint, adminCookieName, siteCookie.value, 401)
+  assert.equal((await checkQueue()).status(), 403, 'Administrator access alone must not grant moderation read.')
+  await denied.waitFor()
+  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
+
+  await run(moderatorGrant, [], { timeout: 8_000 })
+  await credentialProbe(endpoint, adminCookieName, priorCookie.value, 401)
+  assert.equal((await checkQueue()).status(), 401)
+  await revoked.waitFor()
+  await logIn(page)
+  const granted = await snapshot(context)
+  assert(granted.principal.generation > generation)
+  const grantedCookie = await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+  assert(grantedCookie.value !== priorCookie.value)
+  const queue = await checkQueue()
+  assert.equal(queue.status(), 200)
+  assert((await queue.headerValue('Cache-Control'))?.includes('no-store'))
+  const payload = await queue.body()
+  assertNoCredential(payload, grantedCookie.value)
+  const row = readModerationFixture(payload, articleId)
+  await bodyText.waitFor()
+  const displayedComment = section.getByRole('article').filter({ has: page.getByText(moderatorBody, { exact: true }) })
+  await displayedComment.getByText(`Article ${articleId} · Comment ${row.commentId}`).waitFor()
+  assert.equal(await displayedComment.locator('time').getAttribute('datetime'), new Date(Number(row.createdAt)).toISOString())
+  assert.equal(await section.locator('[data-moderation-fixture]').count(), 0, 'Pending markup must render as plain text.')
+  await page.screenshot({ path: join(evidence, 'administrator-moderation-queue.png') })
+
+  await run(moderatorRevoke, [], { timeout: 8_000 })
+  await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
+  assert.equal((await checkQueue()).status(), 401)
+  await revoked.waitFor()
+  await bodyText.waitFor({ state: 'hidden' })
+  await logIn(page)
+  assert((await snapshot(context)).principal.generation > granted.principal.generation)
+  assert.equal((await checkQueue()).status(), 403, 'Removing moderation authority must preserve only login.')
+  await denied.waitFor()
+  assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
+  return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+}
+
+function readModerationFixture(frame, articleId) {
+  const reader = new PodReader(decodeFrame(frame, FrameType.AdminCommentQueue).payload)
+  reader.bool()
+  const count = reader.i32()
+  assert(count > 0 && count <= WireLimits.AdminCommentQueueSize, 'The moderation fixture requires a bounded, nonempty queue.')
+  let fixture = null
+  for (let index = 0; index < count; index++) {
+    const currentArticle = reader.i32()
+    const commentId = reader.i64()
+    const createdAt = reader.i64()
+    const displayName = reader.text(WireLimits.PublicCommentHandleBytes)
+    const body = reader.text(WireLimits.AdminCommentQueueBodyBytes)
+    assert(currentArticle > 0 && commentId > 0n && createdAt > 0n && displayName.length > 0)
+    if (currentArticle === articleId && body === moderatorBody) fixture = { commentId, createdAt }
+  }
+  reader.finish()
+  assert(fixture, 'The real moderation queue must contain the seeded pending comment.')
+  return fixture
 }
 
 async function clickAndWait(page, origin, path, label) {

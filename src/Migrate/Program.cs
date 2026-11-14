@@ -44,8 +44,8 @@ internal static partial class Migration
                   admin-identity schema Add the independent administrator schema with the server stopped
                   admin-identity bootstrap HANDLE admin.manage
                                         Create an administrator and issue a one-use Passkey invitation
-                  admin-identity grant|revoke HANDLE audit.read
-                                        Change audit-read access and retire the prior administrator session
+                  admin-identity grant|revoke HANDLE audit.read|comment.moderate
+                                        Change an administrator permission and retire the prior session
                   admin-identity rotate-passkey HANDLE
                                         Revoke existing administrator access and issue a replacement invitation
                   admin-identity revoke-all HANDLE

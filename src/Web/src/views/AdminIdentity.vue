@@ -5,11 +5,14 @@ import { ApiError } from '../../../Contracts/aeds'
 import {
   bootstrapAdminPasskey,
   readAdminAuthority,
+  readAdminCommentQueue,
   readAdminOperations,
   signInAdmin,
   signOutAdmin,
   validAdminBootstrapToken,
   type AdminAuthority,
+  type AdminCommentCursor,
+  type AdminCommentQueue,
   type AdminOperationsStatus,
 } from '../../../Contracts/admin-identity'
 
@@ -25,12 +28,17 @@ const notice = ref('')
 const operations = shallowRef<AdminOperationsStatus | null>(null)
 const operationsBusy = ref(false)
 const operationsFailure = ref('')
+const moderationQueue = shallowRef<AdminCommentQueue | null>(null)
+const moderationBusy = ref(false)
+const moderationFailure = ref('')
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 let operationsRequest: AbortController | undefined
+let moderationRequest: AbortController | undefined
 
 function setAuthority(next: AdminAuthority | null) {
   clearTimeout(expiryTimer)
   clearOperations()
+  clearModeration()
   if (next?.status === 'active') {
     const remaining = next.session.expiresAt - Date.now()
     if (remaining <= 0) {
@@ -72,6 +80,7 @@ onUnmounted(() => {
   lifetime.abort()
   clearTimeout(expiryTimer)
   clearOperations()
+  clearModeration()
   document.removeEventListener('visibilitychange', whenVisible)
 })
 
@@ -94,10 +103,7 @@ async function checkOperations() {
     if (!check.signal.aborted) operations.value = status
   } catch (error) {
     if (check.signal.aborted) return
-    if (error instanceof ApiError && error.status === 401) {
-      setAuthority({ status: 'signed-out' })
-      failure.value = 'Your administrator session expired or was revoked. Log in again.'
-    } else {
+    if (!handleSessionLoss(error)) {
       operationsFailure.value = error instanceof ApiError && error.status === 403
         ? 'You do not have permission to view operations status.'
         : 'Could not check operations status. Try again.'
@@ -106,6 +112,45 @@ async function checkOperations() {
     if (operationsRequest === check) {
       operationsRequest = undefined
       operationsBusy.value = false
+    }
+  }
+}
+
+function handleSessionLoss(error: unknown): boolean {
+  if (!(error instanceof ApiError) || error.status !== 401) return false
+  setAuthority({ status: 'signed-out' })
+  failure.value = 'Your administrator session expired or was revoked. Log in again.'
+  return true
+}
+
+function clearModeration() {
+  moderationRequest?.abort()
+  moderationRequest = undefined
+  moderationQueue.value = null
+  moderationBusy.value = false
+  moderationFailure.value = ''
+}
+
+async function loadModeration(after: AdminCommentCursor | null = null) {
+  if (authority.value?.status !== 'active' || busy.value || moderationBusy.value) return
+  clearModeration()
+  const request = new AbortController()
+  moderationRequest = request
+  moderationBusy.value = true
+  try {
+    const queue = await readAdminCommentQueue(after, request.signal)
+    if (!request.signal.aborted) moderationQueue.value = queue
+  } catch (error) {
+    if (request.signal.aborted) return
+    if (!handleSessionLoss(error)) {
+      moderationFailure.value = error instanceof ApiError && error.status === 403
+        ? 'You do not have permission to view the moderation queue.'
+        : 'Could not load the moderation queue. Try again.'
+    }
+  } finally {
+    if (moderationRequest === request) {
+      moderationRequest = undefined
+      moderationBusy.value = false
     }
   }
 }
@@ -165,6 +210,29 @@ function logOut() {
       </dl>
       <ElButton native-type="button" :loading="busy" @click="logOut">Log out of administrator session</ElButton>
     </section>
+    <section v-if="authority?.status === 'active'" class="auth-form admin-moderation" aria-labelledby="admin-moderation-heading">
+      <h2 id="admin-moderation-heading">Moderation queue</h2>
+      <ElButton native-type="button" :disabled="busy" :loading="moderationBusy" @click="loadModeration()">Load moderation queue</ElButton>
+      <ElAlert v-if="moderationFailure" :title="moderationFailure" type="error" :closable="false" show-icon />
+      <template v-if="moderationQueue">
+        <p v-if="moderationQueue.comments.length === 0" role="status">No comments are waiting for moderation.</p>
+        <ol v-else class="moderation-comments">
+          <li v-for="item in moderationQueue.comments" :key="`${item.articleId}-${item.commentId}`">
+            <article>
+              <h3>{{ item.displayName }}</h3>
+              <p>
+                Article {{ item.articleId }} · Comment {{ item.commentId.toString() }}
+                · <time :datetime="new Date(item.createdAt).toISOString()">{{ new Date(item.createdAt).toLocaleString() }}</time>
+              </p>
+              <p class="moderation-body">{{ item.body }}</p>
+            </article>
+          </li>
+        </ol>
+        <ElButton v-if="moderationQueue.next" native-type="button" :disabled="busy || moderationBusy" @click="loadModeration(moderationQueue.next)">
+          Next page
+        </ElButton>
+      </template>
+    </section>
     <section v-if="authority?.status === 'active'" class="auth-form admin-operations" aria-labelledby="admin-operations-heading">
       <h2 id="admin-operations-heading">Operations status</h2>
       <ElButton native-type="button" :disabled="busy" :loading="operationsBusy" @click="checkOperations">Check operations status</ElButton>
@@ -210,5 +278,8 @@ function logOut() {
 <style scoped>
 .admin-bootstrap-form { display: grid; gap: 0.75rem; }
 .admin-setup-button { margin-inline-start: 0; }
-.admin-operations { margin-block-start: 1.5rem; }
+.admin-operations, .admin-moderation { margin-block-start: 1.5rem; }
+.moderation-comments { display: grid; gap: 1.5rem; padding-inline-start: 1.5rem; }
+.moderation-comments h3, .moderation-body { overflow-wrap: anywhere; }
+.moderation-body { white-space: pre-wrap; }
 </style>
