@@ -48,6 +48,9 @@ EOF
   } > "$evidence/proxy-certificate.log" 2>&1
   curl_flags+=(--cacert "$proxy_ca")
   load_flags+=(-ca "$proxy_ca")
+  if [[ "${FSUSBLOG_PERF_PRECONNECT_TLS:-}" == 1 ]]; then
+    load_flags+=(-preconnect-tls)
+  fi
   "$caddy" adapt --config "$run/source/deploy/Caddyfile" --adapter caddyfile --validate --pretty \
     > "$evidence/proxy-config.json" 2> "$evidence/proxy-validation.log"
   "$caddy" run --config "$run/source/deploy/Caddyfile" --adapter caddyfile > "$evidence/proxy.log" 2>&1 &

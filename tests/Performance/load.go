@@ -246,20 +246,8 @@ func encodeRequest(origin *url.URL, path string) ([]byte, error) {
 }
 
 func (c *connection) requestEncoded(request []byte, deadline time.Time, inspect func(*http.Response) error) (int, error) {
-	if c.conn == nil {
-		dialer := &net.Dialer{Deadline: deadline}
-		var socket net.Conn
-		var err error
-		if c.origin.Scheme == "https" {
-			socket, err = tls.DialWithDialer(dialer, "tcp", c.origin.Host, c.tlsConfig)
-		} else {
-			socket, err = dialer.Dial("tcp", c.origin.Host)
-		}
-		if err != nil {
-			return 0, err
-		}
-		c.conn = socket
-		c.reader = bufio.NewReaderSize(socket, 8192)
+	if err := c.connect(deadline); err != nil {
+		return 0, err
 	}
 	if err := c.conn.SetDeadline(deadline); err != nil {
 		c.close()
@@ -283,6 +271,26 @@ func (c *connection) requestEncoded(request []byte, deadline time.Time, inspect 
 	}
 	response.Body.Close()
 	return response.StatusCode, err
+}
+
+func (c *connection) connect(deadline time.Time) error {
+	if c.conn != nil {
+		return nil
+	}
+	dialer := &net.Dialer{Deadline: deadline}
+	var socket net.Conn
+	var err error
+	if c.origin.Scheme == "https" {
+		socket, err = tls.DialWithDialer(dialer, "tcp", c.origin.Host, c.tlsConfig)
+	} else {
+		socket, err = dialer.Dial("tcp", c.origin.Host)
+	}
+	if err != nil {
+		return err
+	}
+	c.conn = socket
+	c.reader = bufio.NewReaderSize(socket, 8192)
+	return nil
 }
 
 func metadata(response *http.Response, class route, generation, header string) (string, error) {
@@ -691,7 +699,27 @@ func (s *stats) add(r result) {
 	s.latency.add(r.latency)
 }
 
-func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int) (time.Time, time.Duration, map[string]*stats) {
+func loadConnections(origin *url.URL, config *tls.Config) []connection {
+	pool := make([]connection, maxInFlight)
+	for i := range pool {
+		pool[i] = connection{origin: origin, tlsConfig: config}
+	}
+	return pool
+}
+
+func warmTLSConnections(ctx context.Context, pool []connection) error {
+	for i := range pool {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := pool[i].connect(time.Now().Add(requestLimit)); err != nil {
+			return fmt.Errorf("TLS connection %d: %w", i+1, err)
+		}
+	}
+	return nil
+}
+
+func measure(ctx context.Context, pool []connection, w workload, rate, seconds int) (time.Time, time.Duration, map[string]*stats) {
 	// Admission counts queued jobs and active requests against the same limit.
 	// A worker briefly between reads must not turn unused capacity into an offered drop.
 	jobs := make(chan job, maxInFlight)
@@ -709,8 +737,8 @@ func measure(ctx context.Context, origin *url.URL, w workload, rate, seconds int
 			totals[names[r.class]].add(r)
 		}
 	})
-	for i := 0; i < maxInFlight; i++ {
-		workers.Go(func() { worker(&connection{origin: origin, tlsConfig: w.tlsConfig}, jobs, permits, results, w) })
+	for i := range pool {
+		workers.Go(func() { worker(&pool[i], jobs, permits, results, w) })
 	}
 	started := time.Now().Add(20 * time.Millisecond)
 	for i := 0; i < rate*seconds && ctx.Err() == nil; i++ {
@@ -769,6 +797,7 @@ func run() int {
 	coldLog := flag.String("cold-log", "", "existing private Kestrel log from a fresh, owned cold-cache run")
 	coldPressure := flag.Bool("cold-pressure", false, "after standard cold rounds run overload and actual disconnect diagnostics")
 	runtimeControl := flag.String("runtime-control", "", "private run directory for a runtime measurement boundary")
+	preconnect := flag.Bool("preconnect-tls", false, "establish the 256 TLS connections serially before load")
 	output := flag.String("out", "", "new JSON evidence path")
 	flag.Parse()
 	fail := func(err error) int { fmt.Fprintln(os.Stderr, err); return 1 }
@@ -792,6 +821,9 @@ func run() int {
 		}
 	} else if *authority != "" {
 		return fail(errors.New("a certificate authority requires an HTTPS target"))
+	}
+	if *preconnect && (origin.Scheme != "https" || *rate == 0) {
+		return fail(errors.New("TLS preconnection requires an HTTPS target and hot load"))
 	}
 	out, err := os.OpenFile(*output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
@@ -831,6 +863,22 @@ func run() int {
 		}
 		report["preflightPayloads"] = checkedPayloads
 	}
+	pool := loadConnections(origin, w.tlsConfig)
+	defer func() {
+		for i := range pool {
+			pool[i].close()
+		}
+	}()
+	if code == 0 && *preconnect {
+		warmed := time.Now()
+		if err = warmTLSConnections(ctx, pool); err != nil {
+			report["measurement"], report["measurementError"] = "preconnect_failed", err.Error()
+			code = 1
+		} else {
+			report["preconnectedTLS"] = len(pool)
+			report["preconnectSeconds"] = time.Since(warmed).Seconds()
+		}
+	}
 	if code == 0 && *rate > 0 && *runtimeControl != "" {
 		if err = startRuntimeMeasurement(ctx, *runtimeControl); err != nil {
 			report["measurement"], report["measurementError"] = "runtime_boundary_failed", err.Error()
@@ -838,7 +886,7 @@ func run() int {
 		}
 	}
 	if code == 0 && *rate > 0 {
-		measured, elapsed, totals := measure(ctx, origin, w, *rate, *seconds)
+		measured, elapsed, totals := measure(ctx, pool, w, *rate, *seconds)
 		all := totals["all"]
 		report["measurementStartedAt"], report["measurementCompletedAt"], report["routes"] = measured, time.Now().UTC(), totals
 		report["measurementElapsedSeconds"] = elapsed.Seconds()
