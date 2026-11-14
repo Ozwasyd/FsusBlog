@@ -134,6 +134,14 @@ public sealed class TaxonomyPostgresTests
         Assert.Equal(new[] { (4, 0) }, ReadCounts(await GetFrame(WireRoutes.TagList, FrameType.TagList)));
         Assert.Equal(new[] { (1, 1), (2, 0) }, ReadCounts(await GetFrame(WireRoutes.CategoryList, FrameType.CategoryList)));
         await GetFrame($"/api/binary/article/list/category/1/2/1.aeds?cursor={cursor}", FrameType.ApiError, HttpStatusCode.BadRequest);
+        var remaining = await GetFrame("/api/binary/article/list/category/1/1/10.aeds", FrameType.ArticleList);
+        var remainingRecords = WireLayouts.ArticleListCursorOffset + 12 + ReadInt(remaining, WireLayouts.ArticleListCursorOffset + 8);
+        Assert.Equal(1, ReadInt(remaining, WireLayouts.ArticleListTotalOffset));
+        Assert.Equal(second.Id, ReadInt(remaining, remainingRecords + WireLayouts.ArticleIdOffset));
+        var emptyTag = await GetFrame("/api/binary/article/list/tag/4/1/10.aeds", FrameType.ArticleList);
+        Assert.Equal(0, ReadInt(emptyTag, WireLayouts.ArticleListTotalOffset));
+        Assert.DoesNotContain("Taxonomy article one", await client.GetStringAsync("/category/1", ct));
+        Assert.DoesNotContain("Taxonomy article one", await client.GetStringAsync("/tag/4", ct));
 
         async Task Execute(string sql, params object[] values)
         {
@@ -152,6 +160,7 @@ public sealed class TaxonomyPostgresTests
             using var packet = await client.GetAsync(path, ct);
             Assert.Equal(status, packet.StatusCode);
             Assert.Equal("application/octet-stream", packet.Content.Headers.ContentType?.MediaType);
+            Assert.True(packet.Headers.CacheControl?.NoStore);
             return Aeds.Decode(await packet.Content.ReadAsByteArrayAsync(ct), expected).ToArray();
         }
 

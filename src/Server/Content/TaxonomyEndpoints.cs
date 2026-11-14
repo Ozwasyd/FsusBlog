@@ -11,18 +11,19 @@ internal static class TaxonomyEndpoints
     private static readonly string[] ReadMethods = [HttpMethods.Get, HttpMethods.Head];
 
     internal static void Map(WebApplication app, Func<HttpContext, PublicSnapshot> snapshot,
+        Action<HttpContext, PublicSnapshot> requireCurrent,
         Func<HttpContext, string, int, string?> query, Func<HttpContext, string?> cursor, string cookie,
         Func<HttpContext, int, CancellationToken, Task<byte[]>> readFrame)
     {
-        app.MapMethods(WireRoutes.CategoryList, ReadMethods, (HttpContext ctx) => Results.Bytes(snapshot(ctx).Taxonomy.Categories, Binary));
-        app.MapMethods(WireRoutes.TagList, ReadMethods, (HttpContext ctx) => Results.Bytes(snapshot(ctx).Taxonomy.Tags, Binary));
-        app.MapMethods(WireRoutes.CategoryMetadata, ReadMethods, (HttpContext ctx, int id) => Detail(snapshot(ctx), false, id));
-        app.MapMethods(WireRoutes.TagMetadata, ReadMethods, (HttpContext ctx, int id) => Detail(snapshot(ctx), true, id));
+        app.MapMethods(WireRoutes.CategoryList, ReadMethods, (HttpContext ctx) => Summary(ctx, false));
+        app.MapMethods(WireRoutes.TagList, ReadMethods, (HttpContext ctx) => Summary(ctx, true));
+        app.MapMethods(WireRoutes.CategoryMetadata, ReadMethods, (HttpContext ctx, int id) => Metadata(ctx, snapshot(ctx), false, id));
+        app.MapMethods(WireRoutes.TagMetadata, ReadMethods, (HttpContext ctx, int id) => Metadata(ctx, snapshot(ctx), true, id));
         app.MapMethods(WireRoutes.TagMetadataByName, ReadMethods, (HttpContext ctx) =>
         {
             var current = snapshot(ctx);
             var id = current.Taxonomy.TagByName(query(ctx, "name", 256)) ?? throw Missing(true);
-            return Detail(current, true, id);
+            return Metadata(ctx, current, true, id);
         });
         app.MapMethods(WireRoutes.CategoryArticles, ReadMethods, (HttpContext ctx, int id, int page, int size) =>
             List(ctx, false, id, page, size)).RequireRateLimiting("query");
@@ -57,34 +58,49 @@ internal static class TaxonomyEndpoints
             return Results.Bytes(Wire.EncodeDraftTaxonomy(taxonomy), Binary);
         }).RequireRateLimiting("command");
 
-        app.MapMethods("/category/{id:int}", ReadMethods, (HttpContext ctx, int id) => Page(snapshot(ctx), false, id));
-        app.MapMethods("/tag/{id:int}", ReadMethods, (HttpContext ctx, int id) => Page(snapshot(ctx), true, id));
+        app.MapMethods("/category/{id:int}", ReadMethods, (HttpContext ctx, int id) => Metadata(ctx, snapshot(ctx), false, id, asHtml: true));
+        app.MapMethods("/tag/{id:int}", ReadMethods, (HttpContext ctx, int id) => Metadata(ctx, snapshot(ctx), true, id, asHtml: true));
         app.MapMethods("/tag/{name}", ReadMethods, (HttpContext ctx, string name) =>
         {
             // ASP.NET decodes the URI path before routing but intentionally leaves encoded slashes intact.
             if (name.Contains('/') || name.Contains('\\') || name.Contains("%2f", StringComparison.OrdinalIgnoreCase) ||
                 name.Contains("%5c", StringComparison.OrdinalIgnoreCase) || name.All(char.IsAsciiDigit))
                 throw Missing(true);
-            var id = snapshot(ctx).Taxonomy.TagByName(name) ?? throw Missing(true);
-            return Results.Redirect($"/tag/{id.ToString(CultureInfo.InvariantCulture)}{ctx.Request.QueryString}", permanent: true);
+            var current = snapshot(ctx);
+            var id = current.Taxonomy.TagByName(name) ?? throw Missing(true);
+            var location = $"/tag/{id.ToString(CultureInfo.InvariantCulture)}{ctx.Request.QueryString}";
+            return Send(ctx, current, Results.Redirect(location, permanent: true));
         });
 
-        IResult List(HttpContext ctx, bool tag, int id, int page, int size)
+        Task Summary(HttpContext ctx, bool tag)
+        {
+            var current = snapshot(ctx);
+            return Send(ctx, current, Results.Bytes(tag ? current.Taxonomy.Tags : current.Taxonomy.Categories, Binary));
+        }
+
+        Task Metadata(HttpContext ctx, PublicSnapshot current, bool tag, int id, bool asHtml = false)
+        {
+            var page = current.Taxonomy.ById(tag, id) ?? throw Missing(tag);
+            return Send(ctx, current, asHtml ? Results.Bytes(page.Html, Html) : Results.Bytes(page.Wire, Binary));
+        }
+
+        Task List(HttpContext ctx, bool tag, int id, int page, int size)
         {
             var current = snapshot(ctx);
             if (current.Taxonomy.ById(tag, id) is null) throw Missing(tag);
             var scope = string.Create(CultureInfo.InvariantCulture, $"{(tag ? "tag" : "category")}:{id}");
             bool Match(Article article) => tag ? article.Tags?.Any(value => value.Id == id) is true : article.Category?.Id == id;
-            return Results.Bytes(current.List(scope, page, size, query(ctx, "keyword", 256),
-                query(ctx, "sort", 20), cursor(ctx), ctx.RequestAborted, Match), Binary);
+            var bytes = current.List(scope, page, size, query(ctx, "keyword", 256),
+                query(ctx, "sort", 20), cursor(ctx), ctx.RequestAborted, Match);
+            return Send(ctx, current, Results.Bytes(bytes, Binary));
+        }
+
+        Task Send(HttpContext ctx, PublicSnapshot current, IResult result)
+        {
+            requireCurrent(ctx, current);
+            return result.ExecuteAsync(ctx);
         }
     }
-
-    private static IResult Detail(PublicSnapshot snapshot, bool tag, int id) =>
-        Results.Bytes((snapshot.Taxonomy.ById(tag, id) ?? throw Missing(tag)).Wire, Binary);
-
-    private static IResult Page(PublicSnapshot snapshot, bool tag, int id) =>
-        Results.Bytes((snapshot.Taxonomy.ById(tag, id) ?? throw Missing(tag)).Html, Html);
 
     private static BusinessException Missing(bool tag) =>
         new(Rejection.NotFound, tag ? "Tag not found." : "Category not found.");

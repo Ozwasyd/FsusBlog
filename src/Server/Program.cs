@@ -189,7 +189,7 @@ FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
 InboxStreamEndpoints.Map(app, Cookie);
 if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
     FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
-FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor, Cookie, ReadFrame);
+FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, RequireCurrentSnapshot, Query, ReadListCursor, Cookie, ReadFrame);
 app.Services.GetRequiredService<FsusBlog.V2.Server.Content.SitePages>().Map(app);
 publicSite.Map(app);
 if (subscription is not null) SubscriptionEndpoints.Map(app, subscription, publicSite.Origin!, ReadFrame);
