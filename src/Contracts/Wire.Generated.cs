@@ -7,6 +7,7 @@ public enum FrameType : ushort
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
+    ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
     PublicCommentEligibility = 32794,
     PublicCommentSubmissionResult = 32793,
@@ -110,6 +111,8 @@ public static class WireLimits
     public const int SearchCorpusTotalBytes = 67108864;
     public const int SearchCorpusMaxPages = 128;
     public const int SearchQueryChars = 128;
+    public const int RelatedReadingMaxItems = 6;
+    public const int RelatedReadingMaxTextBytes = 2048;
     public const int MaxSignInFrameBytes = 148;
     public const int SiteSessionIdBytes = 64;
     public const int SiteSessionListSize = 101;
@@ -175,6 +178,15 @@ public static class WireLayouts
     public const int ArticleListCursorMaxBytes = 512;
     public const int ArticleListRecordSizeCurrent = 100;
     public const int ArticleSearchV4Magic = 0x34534146;
+    public const int RelatedReadingHeaderSize = 8;
+    public const int RelatedReadingItemSize = 40;
+    public const int RelatedReadingPreviousOffset = 4;
+    public const int RelatedReadingNextOffset = 5;
+    public const int RelatedReadingItemCreatedAtOffset = 4;
+    public const int RelatedReadingItemHasSummaryOffset = 12;
+    public const int RelatedReadingItemTitleOffset = 16;
+    public const int RelatedReadingItemSummaryOffset = 24;
+    public const int RelatedReadingItemReasonOffset = 32;
     public const int SearchPackageMagic = 0x4b505346;
     public const int SearchShardMagic = 0x32534846;
     public const int SearchResultMagic = 0x34525346;
@@ -270,6 +282,7 @@ public static class WireRoutes
     public const string CommentContext = "/api/binary/comment/{articleId:int}/context/{commentId:long}";
     public const string CommentThread = "/api/binary/comment/{articleId:int}/thread/{rootId:long}";
     public const string PublicSearch = "/api/binary/article/search/query.aeds";
+    public const string PublicRelatedReading = "/api/binary/article/{articleId:int}/related.aeds";
     public const string PublicSitePage = "/api/binary/system/page/{slug}";
     public const string CategoryList = "/api/binary/category";
     public const string TagList = "/api/binary/tag";

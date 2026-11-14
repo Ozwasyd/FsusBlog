@@ -5,6 +5,7 @@ import { ElAlert, ElButton, ElMarkdownRenderer } from '@ozwasyd/element-plus'
 import { api, ApiError, type Article } from '../../../Contracts/client'
 import { readInitialArticle } from '../publicEntry'
 import ArticleComments from '../components/ArticleComments.vue'
+import RelatedReading from '../components/RelatedReading.vue'
 import PublicCommentComposer from '../components/PublicCommentComposer.vue'
 
 const route = useRoute()
@@ -68,6 +69,7 @@ watch([() => route.params.id, retry], async ([id], _, cleanup) => {
       <ElAlert title="Formatted view unavailable. Showing the original article text." type="info" :closable="false" />
       <pre class="article-source">{{ article.body }}</pre>
     </template>
+    <RelatedReading :article-id="article.id" :publication="article.publication" />
     <ArticleComments :key="article.id" :article-id="article.id" />
     <PublicCommentComposer :key="article.publication.toString()" :article-id="article.id" :publication="article.publication" />
   </article>

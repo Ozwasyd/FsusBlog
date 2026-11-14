@@ -176,6 +176,18 @@ FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, 
 app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) => PublicList(ctx, "home", page, size)).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicArchive, (HttpContext ctx, int page, int size) => PublicList(ctx, "archive", page, size)).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicArticle, (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: false));
+app.MapGet(WireRoutes.PublicRelatedReading, (HttpContext ctx, int articleId) =>
+{
+    var snapshot = Snapshot(ctx);
+    var article = snapshot.Article(articleId);
+    if (article is null) return Error(ctx, 404, "Article not found.", "article_not_found");
+    var publication = Query(ctx, "publication", 19);
+    if (publication is not null && publication != article.Publication.ToString(CultureInfo.InvariantCulture))
+        return Error(ctx, 409, "The article changed. Reload its latest publication.", "article_publication_changed");
+    var frame = snapshot.RelatedReading.Read(articleId, ctx.RequestAborted);
+    if (!ReferenceEquals(snapshot, publications.Snapshot)) throw new PublicUnavailableException();
+    return frame is null ? Error(ctx, 404, "Article not found.", "article_not_found") : Results.Bytes(frame, Binary);
+}).RequireRateLimiting("query");
 app.MapGet(WireRoutes.PublicSearch, (HttpContext ctx) =>
 {
     var keyword = Query(ctx, "q", 256)?.Trim();

@@ -9,6 +9,7 @@
 | GET `/api/binary/article/list/home/{page}/{size}.aeds` | ArticleList (1)，FSPA v2、100 字节记录 |
 | GET `/api/binary/article/list/archive/{page}/{size}.aeds` | ArticleList (1)，独立的归档游标作用域 |
 | GET `/api/binary/article/{id}.aeds` | ArticleDetail (2)，ARD5 |
+| GET `/api/binary/article/{articleId}/related.aeds` | ArticleRelatedReading (27)，最多六条推荐，并可带前后篇 |
 | GET `/api/binary/article/search/query.aeds?q=…` | ArticleSearch (4)，FAS4 HTTP 本体 |
 | GET `/api/v2/public/index.aeds?page=…&generation=…` | ArticleSearch (4)，同代次 FAS4 静态索引页 |
 | GET `/api/v2/public/search-corpus?page=…&generation=…` | 静态 FSPK v4 包，内含完整 FHS2 v4 分片 |
@@ -33,6 +34,8 @@
 首页和归档列表签发 15 分钟有效的加密游标。第 1 页不传游标，第 2 页起使用上一页的 `nextCursor`。游标绑定当前公开代次、路由作用域、页码、页大小、关键词、排序和最后一篇文章的发布坐标。服务重启或公开代次变化后，旧游标返回 `400 article_cursor_invalid`。
 
 列表 `latest` 根据创建时间和文章 ID 倒序，有关键词时默认采用 `relevance`，依次按标题等于、以…开头、包含和仅摘要包含匹配。关键词按字面匹配，保留大小写，避免 v1 SQL LIKE 的通配符扩展。排序 `hot` 有效输入会返回 `503 article_hot_unavailable`，等待真实的文章浏览量投影。列表首屏的常用页大小通过预编码响应提供。
+
+相关阅读使用固定 v1 的 8 字节头、40 字节记录和长度前缀 UTF-8 字符串区。公开快照以发布时间和文章 ID 排序，从同分类或标签候选中最多取最新 120 篇，按分类、标签、关键词和发布日期距离评分，返回前六篇。上一篇和下一篇按公开快照全局顺序选择，允许与推荐条目重复。没有分类的文章只按标签进入推荐，其余文章仍可用前后篇导航。公开源没有任何可返回项时为 200 和空结果。未发布或已撤回的源与不存在的源共用 AEDS 404，浏览器可附 `publication` 确保同一篇已发布修订，失配返回 409。每个快照至多缓存 256 个编码响应，无逐请求数据库查询。
 
 登录扩展使用一次性运维票据。Passkey、Recovery、MFA、风险决策和 PoW 仍按产品台账追踪。其余固定提交声明的业务帧和路由未通过本阶段验收。
 

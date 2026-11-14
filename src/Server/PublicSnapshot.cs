@@ -23,6 +23,7 @@ internal sealed class PublicSnapshot
     internal long Watermark { get; }
     internal byte[] Home { get; }
     internal TaxonomyProjection Taxonomy { get; }
+    internal RelatedReadingProjection RelatedReading { get; }
     internal DistributionSnapshot? Distribution { get; }
     internal int IndexPageCount => _index.Length;
     internal int CorpusPageCount => _corpus?.Count ?? 0;
@@ -33,6 +34,7 @@ internal sealed class PublicSnapshot
         Watermark = watermark;
         Generation = PublicGeneration(articles);
         Taxonomy = new TaxonomyProjection(taxonomy, articles, pages);
+        RelatedReading = new RelatedReadingProjection(articles, cancellationToken);
         _ordered = articles;
         _byId = articles.ToFrozenDictionary(article => article.Id);
         _details = new PublicArticleCache(_byId, pages, Generation, log, evidence);

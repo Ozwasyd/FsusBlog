@@ -44,6 +44,8 @@ inline constexpr uint32_t SearchCorpusPageBytes = 8388608;
 inline constexpr uint32_t SearchCorpusTotalBytes = 67108864;
 inline constexpr uint32_t SearchCorpusMaxPages = 128;
 inline constexpr uint32_t SearchQueryChars = 128;
+inline constexpr uint32_t RelatedReadingMaxItems = 6;
+inline constexpr uint32_t RelatedReadingMaxTextBytes = 2048;
 inline constexpr uint32_t MaxSignInFrameBytes = 148;
 inline constexpr uint32_t SiteSessionIdBytes = 64;
 inline constexpr uint32_t SiteSessionListSize = 101;
@@ -108,6 +110,15 @@ inline constexpr uint32_t ArticleListCursorVersion = 2;
 inline constexpr uint32_t ArticleListCursorMaxBytes = 512;
 inline constexpr uint32_t ArticleListRecordSizeCurrent = 100;
 inline constexpr uint32_t ArticleSearchV4Magic = 0x34534146;
+inline constexpr uint32_t RelatedReadingHeaderSize = 8;
+inline constexpr uint32_t RelatedReadingItemSize = 40;
+inline constexpr uint32_t RelatedReadingPreviousOffset = 4;
+inline constexpr uint32_t RelatedReadingNextOffset = 5;
+inline constexpr uint32_t RelatedReadingItemCreatedAtOffset = 4;
+inline constexpr uint32_t RelatedReadingItemHasSummaryOffset = 12;
+inline constexpr uint32_t RelatedReadingItemTitleOffset = 16;
+inline constexpr uint32_t RelatedReadingItemSummaryOffset = 24;
+inline constexpr uint32_t RelatedReadingItemReasonOffset = 32;
 inline constexpr uint32_t SearchPackageMagic = 0x4b505346;
 inline constexpr uint32_t SearchShardMagic = 0x32534846;
 inline constexpr uint32_t SearchResultMagic = 0x34525346;
@@ -195,6 +206,7 @@ enum class FrameType : uint16_t {
     ArticleList = 1,
     ArticleDetail = 2,
     ArticleSearch = 4,
+    ArticleRelatedReading = 27,
     CommentThreadReplyCursor = 8,
     PublicCommentEligibility = 32794,
     PublicCommentSubmissionResult = 32793,
@@ -262,6 +274,7 @@ constexpr bool known(FrameType type) {
         case FrameType::ArticleList:
         case FrameType::ArticleDetail:
         case FrameType::ArticleSearch:
+        case FrameType::ArticleRelatedReading:
         case FrameType::CommentThreadReplyCursor:
         case FrameType::PublicCommentEligibility:
         case FrameType::PublicCommentSubmissionResult:

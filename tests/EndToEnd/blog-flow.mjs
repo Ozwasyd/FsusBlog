@@ -6,6 +6,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { api } from '../../src/Contracts/client.ts'
+import { exerciseRelatedReading, verifyRelatedWithdrawal } from './related-reading-flow.mjs'
 import { decodeFrame, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { decodeDraft, encodeArticleCommand, FrameType, WireRoutes } from '../../src/Contracts/wire.generated.ts'
 import { exerciseWorkspace } from './workspace-flow.mjs'
@@ -328,6 +329,11 @@ try {
   }
   assert.match(await visitor.title(), new RegExp(title))
   assert.equal(await visitor.evaluate(() => document.documentElement.scrollWidth), 375)
+  let relatedPrevious
+  if (config.publicFixture) {
+    relatedPrevious = await exerciseRelatedReading(visitor, writtenId, title, origin)
+    observations.push('Related reading ranks shared public taxonomy and navigates previous and next articles with the keyboard and links.')
+  }
   await screen(visitor, 'article-mobile-dark')
 
   await search(visitor, 'release note')
@@ -388,6 +394,7 @@ try {
   const absent = await visitor.goto(`${origin}/article/${writtenId}`)
   assert.equal(absent.status(), 404)
   assert(!(await absent.text()).includes(token))
+  await verifyRelatedWithdrawal(visitor, writtenId, relatedPrevious, origin)
   const priorSearchGeneration = corpus.headers()['x-fsus-search-index-generation']
   assert(priorSearchGeneration)
   const priorSearch = await nativeFetch(`${origin}${WireRoutes.PublicSearchCorpus}?generation=${priorSearchGeneration}`, { method: 'HEAD' })
