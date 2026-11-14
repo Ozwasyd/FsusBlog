@@ -77,6 +77,10 @@ migrate=(dotnet "$scratch/migrate/FsusBlogV2.Migrate.dll")
 "${migrate[@]}" verify >> "$evidence/schema.log"
 FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
 export FSUSBLOG_TEST_TICKET
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == blog ]]; then
+  FSUSBLOG_TEST_PROPERTY_PEER_TICKET=$("${migrate[@]}" operator browser-property-peer)
+  export FSUSBLOG_TEST_PROPERTY_PEER_TICKET
+fi
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator canvas-scale-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET

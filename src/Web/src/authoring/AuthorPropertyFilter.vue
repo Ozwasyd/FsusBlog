@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ElAlert, ElButton, ElInput, ElOption, ElSelect } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/client'
@@ -27,6 +27,7 @@ const field = computed(() => catalog.value?.fields.find(item => item.id === sele
 const pendingChange = shallowRef<Parameters<typeof setPropertyFilterable>[0]>()
 const pendingField = ref('')
 let operation: AbortController | undefined
+onBeforeUnmount(() => operation?.abort())
 
 function reset() {
   operation?.abort()
@@ -38,10 +39,11 @@ function reset() {
   result.value = undefined
 }
 
-watch([open, identityEpoch, retry], async ([show], _, cleanup) => {
+watch([open, identityEpoch, retry], async ([show, epoch], [, previousEpoch], cleanup) => {
   reset()
   catalog.value = undefined
   selection.value = ''
+  if (!show || epoch !== previousEpoch) pendingField.value = ''
   if (!show) return
   const load = new AbortController()
   cleanup(() => load.abort())
