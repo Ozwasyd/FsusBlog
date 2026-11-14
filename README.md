@@ -2,7 +2,7 @@
 
 这是从空目录建立的新实现，以 v1 `2605b438eed8f16d12ddddf033d08a6fa18fcd12` 为静态参考。当前仓库仍在实施 [验收计划](docs/status.md)。实际协议、界面和数据库支持范围以对应证据为准。
 
-- 后端和独立维护工具：.NET SDK `10.0.302`、C# 14、`net10.0`、ASP.NET Core Minimal APIs。
+- 后端和独立维护工具使用 .NET SDK `10.0.404`、运行库 `10.0.15`、C# 14、`net10.0` 和 ASP.NET Core Minimal APIs。
 - 数据：PostgreSQL / Npgsql，服务启动只检查当前 schema。离线工具负责初始化和验证。
 - 前端：Vue / TypeScript，通过 [本地源码 alias](docs/fsusui.md) 消费相邻 `FsusUI` checkout。不会安装 FsusUI 发布包。
 - 跨栈协议：[AEDS v2](docs/protocol.md)，不提供 JSON 业务回退。
