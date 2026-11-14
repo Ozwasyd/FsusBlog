@@ -2,6 +2,10 @@
 
 import { createHash } from 'node:crypto';
 
+/**
+ * @param {unknown} value
+ * @returns {value is Record<string, unknown>}
+ */
 export function plainObject(value)
 {
     return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -10,6 +14,10 @@ export function plainObject(value)
 /**
  * Stable JSON: sorted object keys, array order preserved, no whitespace.
  * Matches tools/testing/fixture-catalog stableStringify so catalog digests align.
+ */
+/**
+ * @param {unknown} value
+ * @returns {string | undefined}
  */
 export function canonicalJson(value)
 {
@@ -24,32 +32,55 @@ export function canonicalJson(value)
     return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
 }
 
+/**
+ * @param {import('node:crypto').BinaryLike} text
+ * @returns {string}
+ */
 export function sha256Text(text)
 {
     return `sha256:${createHash('sha256').update(text).digest('hex')}`;
 }
 
+/**
+ * @param {import('node:crypto').BinaryLike} bytes
+ * @returns {string}
+ */
 export function sha256Bytes(bytes)
 {
     return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 }
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function digestCanonical(value)
 {
     return sha256Text(canonicalJson(value));
 }
 
 /** Body digest excludes the digest field itself. */
+/**
+ * @param {Record<string, unknown>} document
+ * @param {string} [digestField]
+ * @returns {string}
+ */
 export function digestReceiptBody(document, digestField = 'receiptDigest')
 {
     if (!plainObject(document))
     {
         throw new Error('receipt body must be a plain object');
     }
-    const { [digestField]: _ignored, ...body } = document;
+    const { [digestField]: excludedDigest, ...body } = document;
+    void excludedDigest;
     return digestCanonical(body);
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} [label]
+ * @returns {string}
+ */
 export function assertDigest(value, label = 'digest')
 {
     if (typeof value !== 'string' || !/^sha256:[0-9a-f]{64}$/u.test(value))
@@ -59,6 +90,11 @@ export function assertDigest(value, label = 'digest')
     return value;
 }
 
+/**
+ * Objects are projected through their own enumerable keys, so instance members are not preserved.
+ * @param {unknown} value
+ * @returns {unknown}
+ */
 export function freezeDeep(value)
 {
     if (Array.isArray(value))

@@ -18,7 +18,7 @@ const RANDOMIZER_BYTES = 32;
 const DEFAULT_REPUTATION_BUCKET = 'unrated';
 
 interface BlindOpening {
-    preparedMessage: Uint8Array;
+    preparedMessage: Uint8Array<ArrayBuffer>;
     inverse: bigint;
 }
 
@@ -51,7 +51,7 @@ export function createBlindRsaCredentialSuite(
 
             let message: Uint8Array | null = null;
             let randomizer: Uint8Array | null = null;
-            let preparedMessage: Uint8Array | null = null;
+            let preparedMessage: Uint8Array<ArrayBuffer> | null = null;
             let salt: Uint8Array | null = null;
             let encodedMessage: Uint8Array | null = null;
             try
@@ -108,7 +108,7 @@ export function createBlindRsaCredentialSuite(
                 return null;
             }
             let opening: BlindOpening | null = null;
-            let signature: Uint8Array | null = null;
+            let signature: Uint8Array<ArrayBuffer> | null = null;
             let witness: Uint8Array | null = null;
             let credentialCommitment: Uint8Array | null = null;
             let revocationInput: Uint8Array | null = null;
@@ -240,11 +240,12 @@ async function loadValidatedPublicKey(
 
 async function importPublicKey(subtle: SubtleCrypto, spki: Uint8Array): Promise<CryptoKey | null>
 {
+    const ownedSpki = new Uint8Array(spki);
     try
     {
         return await subtle.importKey(
             'spki',
-            spki,
+            ownedSpki,
             { name: 'RSA-PSS', hash: 'SHA-384' },
             true,
             ['verify']);
@@ -252,6 +253,10 @@ async function importPublicKey(subtle: SubtleCrypto, spki: Uint8Array): Promise<
     catch
     {
         return null;
+    }
+    finally
+    {
+        clearBytes(ownedSpki);
     }
 }
 
@@ -420,7 +425,7 @@ function os2ip(bytes: Uint8Array): bigint
     return value;
 }
 
-function i2osp(value: bigint, length: number): Uint8Array
+function i2osp(value: bigint, length: number): Uint8Array<ArrayBuffer>
 {
     if (value < 0n)
     {
@@ -483,7 +488,7 @@ function int64(value: number): Uint8Array
     return output;
 }
 
-function concatBytes(...parts: Uint8Array[]): Uint8Array
+function concatBytes(...parts: Uint8Array[]): Uint8Array<ArrayBuffer>
 {
     const output = new Uint8Array(parts.reduce((sum, part) => sum + part.byteLength, 0));
     let offset = 0;

@@ -264,13 +264,17 @@
 </template>
 
 <script setup lang="ts" generic="TSnapshot, TRequest">
-import { ElAutoResizer, ElButton, ElCheckbox, ElDrawer, ElOption, ElRadio, ElRadioGroup, ElSelect, ElTableV2 } from '@ozwasyd/element-plus';
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-
 
 import { documentExportStatusLabel } from '@/components/document-export/documentExportUiPort';
 import type { DocumentExportPresentation, DocumentExportUiPort } from '@/components/document-export/documentExportUiPort';
 import { useDocumentExport } from '@/composables/useDocumentExport';
+import { FsusUiButton as ElButton } from '@/fsusui/button';
+import { FsusUiCheckbox as ElCheckbox } from '@/fsusui/checkbox';
+import { FsusUiClassicOption as ElOption, FsusUiClassicSelect as ElSelect } from '@/fsusui/classicSelect';
+import { FsusUiDrawer as ElDrawer } from '@/fsusui/drawer';
+import { FsusUiRadio as ElRadio, FsusUiRadioGroup as ElRadioGroup } from '@/fsusui/radio';
+import { FsusUiAutoResizer as ElAutoResizer, FsusUiTableV2 as ElTableV2 } from '@/fsusui/tableV2';
 
 const props = defineProps<{
     visible: boolean;

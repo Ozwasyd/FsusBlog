@@ -137,32 +137,33 @@ const FsusUiTaskPageHeaderStub = defineComponent({
 async function mountAuthoring(params: Record<string, string> = {}, query: Record<string, string> = {}) {
   mocks.routeParams = params
   mocks.routeQuery = query
-  let authoringInstance: ReturnType<typeof useAdminArticleWrite> | null = null
+  const instance: { authoring: ReturnType<typeof useAdminArticleWrite> | null } = { authoring: null }
   const TestComp = defineComponent({
     setup() {
       const authoring = useAdminArticleWrite()
-      authoringInstance = authoring
+      instance.authoring = authoring
       return authoring
     },
     template: '<div></div>'
   })
   const wrapper = mount(TestComp)
   await flushPromises()
-  while (authoringInstance?.pageLoading.value) {
+  while (instance.authoring?.pageLoading.value) {
     await flushPromises()
   }
-  return { wrapper, authoring: authoringInstance! }
+  return { wrapper, authoring: instance.authoring! }
 }
 
 function installWindowTimerHarness() {
   let nextId = 1
   const timers = new Map<number, { handler: TimerHandler; delay: number }>()
-  vi.spyOn(window, 'setTimeout').mockImplementation((handler: TimerHandler, delay?: number) => {
+  const timerWindow: Pick<Window, 'setTimeout' | 'clearTimeout'> = window
+  vi.spyOn(timerWindow, 'setTimeout').mockImplementation((handler: TimerHandler, delay?: number) => {
     const id = nextId++
     timers.set(id, { handler, delay: delay ?? 0 })
     return id
   })
-  vi.spyOn(window, 'clearTimeout').mockImplementation((id?: number) => {
+  vi.spyOn(timerWindow, 'clearTimeout').mockImplementation((id?: number) => {
     if (typeof id === 'number') {
       timers.delete(id)
     }

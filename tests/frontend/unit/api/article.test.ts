@@ -206,9 +206,9 @@ describe('article API (admin)', () => {
     mockBinary.mockRejectedValueOnce(new Error('response lost')).mockResolvedValueOnce({ articleId: 42 } as never)
 
     await expect(createArticle(data)).rejects.toThrow('response lost')
-    const firstId = mockBinary.mock.calls[0][0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+    const firstId = new Headers(mockBinary.mock.calls[0][0].requestOptions?.headers).get('X-Fsus-Client-Mutation-Id')
     await createArticle(data)
-    const retryId = mockBinary.mock.calls[1][0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+    const retryId = new Headers(mockBinary.mock.calls[1][0].requestOptions?.headers).get('X-Fsus-Client-Mutation-Id')
 
     expect(firstId).toMatch(/^[0-9a-f-]{36}$/)
     expect(retryId).toBe(firstId)

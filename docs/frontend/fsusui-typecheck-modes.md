@@ -169,3 +169,31 @@ configuration, and confirm that no installed `@ozwasyd/element-plus` files were
 loaded. A path mapping alone is insufficient: a missing source target can cause
 TypeScript to fall back to package resolution. Report actual local-source errors
 instead of restoring package declarations or reducing the project's coverage.
+
+### Canonical Test Helper Declarations
+
+The original `.mjs` files own the test helpers' runtime and JSDoc contracts.
+`tools/frontend/generate-canonical-test-declarations.mjs` produces the finite
+sixteen adjacent `.d.mts` files and their
+`artifacts/change-contract/canonical-test-declarations.json` binding. Run it with
+the locked frontend TypeScript installation and the same real local FsusUI
+checkout used by the complete test project:
+
+```bash
+node tools/frontend/generate-canonical-test-declarations.mjs --write
+node tools/frontend/generate-canonical-test-declarations.mjs --check
+```
+
+The producer emits from the existing source annotations, rejects declarations
+containing `any`, checks the emitted API, and records its declared source and
+output identities. Edit the source annotations and regenerate; do not edit the
+declarations or their binding by hand. These outputs do not replace the complete
+application or tests programs, reduce their roots, or validate runtime data.
+
+The identity validators preserve their caller's input type. Their existing
+checks do not turn unknown input into a complete browser policy, portable plan,
+or random receipt. The public fixture reader normalizes its entity IDs, title
+and search text while leaving unverified metadata opaque. Canonical deep freeze
+projects an object's own enumerable properties and cannot promise arbitrary
+instance members. Current-run fixture, managed browser, runtime and UX acceptance
+retain their original owners and requirements.

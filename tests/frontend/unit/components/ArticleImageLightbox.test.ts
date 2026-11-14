@@ -38,7 +38,7 @@ const mountLightbox = (props: {
 } = {}) => mount(ArticleImageLightbox, {
   props: {
     open: props.open ?? true,
-    images: props.images ?? [...images],
+    images: [...(props.images ?? images)],
     activeIndex: props.activeIndex ?? 0
   },
   attachTo: document.body,

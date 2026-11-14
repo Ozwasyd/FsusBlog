@@ -98,7 +98,7 @@ describe('message API binary transport', () => {
     const first = messageApi.createAccountConversation(request)
     const second = messageApi.createAccountConversation(request)
     const doubleClickIds = mockBinary.mock.calls.slice(0, 2).map(([call]) =>
-      call.requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+      new Headers(call.requestOptions?.headers).get('X-Fsus-Client-Mutation-Id')
     )
     expect(doubleClickIds[0]).toBe(doubleClickIds[1])
     await Promise.all([first, second])
@@ -108,18 +108,18 @@ describe('message API binary transport', () => {
       body: 'Timeout retry',
       readThroughMessageId: '11'
     })).rejects.toEqual({ status: 408 })
-    const timeoutId = mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+    const timeoutId = new Headers(mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers).get('X-Fsus-Client-Mutation-Id')
     await messageApi.replyAccountConversation(7, {
       body: 'Timeout retry',
       readThroughMessageId: '11'
     })
-    expect(mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']).toBe(timeoutId)
+    expect(new Headers(mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers).get('X-Fsus-Client-Mutation-Id')).toBe(timeoutId)
 
     mockBinary.mockRejectedValueOnce(new TypeError('response lost'))
     await expect(messageApi.adminReplyConversation(9, { body: 'Response loss' })).rejects.toThrow('response lost')
-    const responseLossId = mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']
+    const responseLossId = new Headers(mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers).get('X-Fsus-Client-Mutation-Id')
     await messageApi.adminReplyConversation(9, { body: 'Response loss' })
-    expect(mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers?.['X-Fsus-Client-Mutation-Id']).toBe(responseLossId)
+    expect(new Headers(mockBinary.mock.calls.at(-1)?.[0].requestOptions?.headers).get('X-Fsus-Client-Mutation-Id')).toBe(responseLossId)
   })
 
   it('loads bounded account thread pages with beforeMessageId', async () => {

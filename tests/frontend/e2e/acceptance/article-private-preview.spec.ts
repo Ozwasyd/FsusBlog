@@ -165,7 +165,7 @@ test.describe('article private preview browser contract', () => {
       expect(unexpectedNavigations).toEqual([])
       expect(session.page.url()).toBe(previewUrl)
 
-      let releaseHeldResponse: (() => void) | null = null
+      let releaseHeldResponse!: () => void
       const heldResponseRelease = new Promise<void>((resolve) => {
         releaseHeldResponse = resolve
       })

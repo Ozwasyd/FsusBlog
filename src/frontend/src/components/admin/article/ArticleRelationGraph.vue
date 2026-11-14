@@ -195,9 +195,11 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus';
 import { computed, nextTick, onBeforeUnmount, onMounted, shallowRef, ref, watch } from 'vue';
 
+import { FsusUiButton as ElButton } from '@/fsusui/button';
+import { FsusUiCheckbox as ElCheckbox } from '@/fsusui/checkbox';
+import { FsusUiInput as ElInput } from '@/fsusui/input';
 import { articleGraphEdgeKinds, articleGraphLimits } from '@/services/authoring/articleGraphQuery';
 import type { ArticleGraphIdentity, ArticleGraphNavigationHost, ArticleGraphQueryHost, ArticleGraphScope } from '@/services/authoring/articleGraphQuery';
 import { ArticleGraphSession } from '@/services/authoring/articleGraphSession';

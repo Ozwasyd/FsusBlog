@@ -771,12 +771,12 @@ import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
 import {
     articleWorkspaceTabRouter,
-    createArticleWorkspaceOpenInput,
-    type ArticleWorkspaceStatusSummary
+    createArticleWorkspaceOpenInput
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import type {
     ArticleDocumentContextRef,
-    ArticleDocumentIdentity
+    ArticleDocumentIdentity,
+    ArticleWorkspaceStatusSummary
 } from '@/services/authoring/openArticleDocumentRegistry';
 import { showErrorToast } from '@/utils/errorPresentation';
 
@@ -1192,8 +1192,7 @@ const requestSubmit = async (): Promise<void> =>
     }
 
     await nextTick();
-    const firstErrorField = formRef.value?.fields.find((field) => field.validateState === 'error');
-    focusFirstArticleValidationError(firstErrorField?.$el);
+    focusFirstArticleValidationError();
 };
 
 const insertAssetIntoEditor = (asset: AssetLibraryItemResponse): void =>

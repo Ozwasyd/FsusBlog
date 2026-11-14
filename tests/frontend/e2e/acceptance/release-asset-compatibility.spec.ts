@@ -61,7 +61,7 @@ test.describe('release asset compatibility drill', () => {
     let phase: Phase = 'old'
     let gcApplied = false
     let rejectOldAssetNetwork = false
-    let releaseDelayedRequests: (() => void) | null = null
+    let releaseDelayedRequests!: () => void
     const delayedRequestGate = new Promise<void>((resolve) => {
       releaseDelayedRequests = () => resolve()
     })

@@ -789,8 +789,8 @@ export function useAdminArticleWrite()
     const taskFeedback = useAdminTaskFeedback();
     const buildSignalConfig = (signal: AbortSignal): ApiRequestConfig => ({ signal });
 
-    let draftSaveTimer: ReturnType<typeof window.setTimeout> | null = null;
-    let serverDraftRetryTimer: ReturnType<typeof window.setTimeout> | null = null;
+    let draftSaveTimer: ReturnType<Window['setTimeout']> | null = null;
+    let serverDraftRetryTimer: ReturnType<Window['setTimeout']> | null = null;
     let suppressDraftSave = true;
     let serverDraftSaveToken = 0;
     let draftSaveInFlightIdentity: string | null = null;
@@ -1385,7 +1385,7 @@ export function useAdminArticleWrite()
             return;
         }
         const task = articleDocumentContextAdapter.beginTask('refresh', 'article-write:recovery-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): ReturnType<typeof task.cancel> => task.cancel('parent-task-aborted');
         parentSignal?.addEventListener('abort', abortParent, { once: true });
         const token = ++articleRecoveryRefreshToken;
         try
@@ -1820,7 +1820,7 @@ export function useAdminArticleWrite()
     const refreshAssetLibrary = async (signal?: AbortSignal): Promise<void> =>
     {
         const task = articleDocumentContextAdapter.beginTask('attachment', 'article-write:asset-refresh');
-        const abortParent = (): void => task.cancel('parent-task-aborted');
+        const abortParent = (): ReturnType<typeof task.cancel> => task.cancel('parent-task-aborted');
         signal?.addEventListener('abort', abortParent, { once: true });
         assetLibraryLoading.value = true;
         try

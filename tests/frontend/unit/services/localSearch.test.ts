@@ -33,7 +33,7 @@ vi.mock('@/services/serviceWorkerRuntime', () => ({
   subscribeServiceWorkerMessages: vi.fn()
 }))
 
-function encodeSearchManifest(currentVersion: string, shardUrl: string): Uint8Array {
+function encodeSearchManifest(currentVersion: string, shardUrl: string): Uint8Array<ArrayBuffer> {
   const chunks: Uint8Array[] = []
   const u32 = (value: number) => {
     const bytes = new Uint8Array(4)

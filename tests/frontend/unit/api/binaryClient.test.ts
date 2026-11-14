@@ -47,7 +47,7 @@ describe('typed Font administration private request generation', () => {
 
     it('aborts a deferred administrator transport and drops its stale response before POD decoding', async () => {
         let resolveResponse!: (value: ArrayBuffer) => void
-        let transportSignal: AbortSignal | undefined
+        let transportSignal: RequestInit['signal']
         binaryRequestMock.mockImplementation(async (_url, options) => {
             transportSignal = options?.signal
             return await new Promise<ArrayBuffer>(resolve => { resolveResponse = resolve })
@@ -63,7 +63,7 @@ describe('typed Font administration private request generation', () => {
 
     it('forwards a caller abort through the administrator lease signal', async () => {
         const caller = new AbortController()
-        let transportSignal: AbortSignal | undefined
+        let transportSignal: RequestInit['signal']
         binaryRequestMock.mockImplementation(async (_url, options) => {
             transportSignal = options?.signal
             return await new Promise<ArrayBuffer>((_resolve, reject) => {

@@ -3,6 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { createApp } from 'vue'
 import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import { useUserStore } from '@/store/user'
+import type { CurrentUserSnapshot } from '@/api/auth'
 
 vi.mock('@/api/auth', () => ({
   getMe: vi.fn(),
@@ -368,7 +369,7 @@ describe('useUserStore', () => {
   })
 
   it('logout calls logoutApi and clears state', async () => {
-    mockLogout.mockResolvedValueOnce(undefined)
+    mockLogout.mockResolvedValueOnce(null)
     const store = useUserStore()
     store.markAuthenticated(anonymousUser(1) as never)
     await store.logout()
@@ -379,7 +380,7 @@ describe('useUserStore', () => {
   })
 })
 
-function anonymousUser(id: number) {
+function anonymousUser(id: number): CurrentUserSnapshot {
   return {
     accountId: id,
     identityKind: 'anonymous_account',
@@ -391,6 +392,7 @@ function anonymousUser(id: number) {
     anonymousCredentialLevel: 'basic',
     status: 0,
     banReason: null,
-    deletedAt: null
+    deletedAt: null,
+    accessExpiresAtUtc: '2026-07-19T00:05:00.000Z'
   }
 }

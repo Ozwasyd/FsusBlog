@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 const fixtureRoot = mkdtempSync(join(tmpdir(), 'fsusblog-acceptance-shared-unit-'))
 const fixtureFile = join(fixtureRoot, 'public-content-projection.json')
 const originalFixtureFile = process.env.FSUSBLOG_PUBLIC_ID_PROJECTION_FILE
-const fixturePayload = {
+const fixtureIdentity = {
   schema: 'fsusblog.prepared-public-id-projection.v1',
   authority: 'derived-from-current-run-prepared-public-content',
   notAuthoritative: true,
@@ -39,7 +39,10 @@ const fixturePayload = {
     { producerId: 'public-content', kind: 'article', id: '1', handle: 'Unit fixture', variantId: null },
     { producerId: 'public-content', kind: 'category', id: '1', handle: 'Category', variantId: null },
     { producerId: 'public-content', kind: 'tag', id: '1', handle: 'Tag', variantId: null }
-  ],
+  ]
+}
+const fixturePayload: typeof fixtureIdentity & { projectionDigest: string | null } = {
+  ...fixtureIdentity,
   projectionDigest: null
 }
 const { digestCanonical } = await import('../../../../tools/test-fixtures/receipt/canonical.mjs')

@@ -9,7 +9,7 @@ import {
   type AuthoringCommandInvocation,
   type AuthoringCommandProjectionSnapshot,
 } from '@/fsusui/authoringCommands'
-import type { MarkdownEditorCommandContext } from '@ozwasyd/element-plus'
+import type { MarkdownEditorCommandContext, MarkdownEditorDispatchResult } from '@ozwasyd/element-plus'
 
 const digest = (character: string): string => character.repeat(64)
 
@@ -53,7 +53,7 @@ const projection = (
   ...overrides,
 })
 
-const acceptedDispatchResult = {
+const acceptedDispatchResult: MarkdownEditorDispatchResult = {
   accepted: true,
   beforeRevision: 11,
   documentIdentity: { epoch: 3, id: 'article-42' },

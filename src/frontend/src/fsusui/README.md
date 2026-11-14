@@ -9,10 +9,12 @@ the behavior it adds beyond its package re-exports.
 
 | Classification | Files | Responsibility |
 | --- | --- | --- |
-| Type-preserving re-export | `dangerZone.ts`, `dataList.ts`, `icons.ts`, `keyValueGrid.ts`, `kpiGroup.ts`, `metricPrimitives.ts`, `overlay.ts`, `sectionHeader.ts`, `sectionNav.ts`, `segmentedControl.ts`, `settingsSection.ts`, `siteHeader.ts`, `taskPageHeader.ts`, `theme.ts`, `typedConfirmField.ts` | Rename public package exports without widening component props, slots or emits. `settingsSection.ts` is also the canonical resource-list, metadata-row and inline-actions boundary. |
+| Type-preserving re-export | `button.ts`, `checkbox.ts`, `classicSelect.ts`, `drawer.ts`, `input.ts`, `radio.ts`, `tableV2.ts`, `dangerZone.ts`, `dataList.ts`, `icons.ts`, `keyValueGrid.ts`, `kpiGroup.ts`, `metricPrimitives.ts`, `overlay.ts`, `sectionHeader.ts`, `sectionNav.ts`, `segmentedControl.ts`, `settingsSection.ts`, `siteHeader.ts`, `taskPageHeader.ts`, `theme.ts`, `typedConfirmField.ts` | Rename public package exports without widening component props, slots or emits. `settingsSection.ts` is also the canonical resource-list, metadata-row and inline-actions boundary. |
 | Runtime adapter | `appContext.ts`, `authoringCommands.ts`, `feedback.ts`, `markdown.ts`, `markdownOutline.ts`, `motion.ts`, `result.ts` | Own package runtime setup or invocation that cannot be represented by a re-export alone. |
 | Semantic policy adapter | `blogMotion.ts`, `dialog.ts`, `primitiveAdapters.ts`, `publicShell.ts`, `renderPipeline.ts` | Map an explicit Blog policy to a public FsusUI contract without duplicating package markup or CSS. |
 | Barrel | `index.ts` | Publish the stable Blog-side adapter surface; it contains no implementation. |
+
+The button, input, checkbox, classic-select, drawer, radio and TableV2 entry files preserve the original public component objects. `tableV2.ts` owns the TableV2 component, its AutoResizer composition partner, enums and types. Consumers import these entry files explicitly; they are not duplicated through the general barrel.
 
 Type-preserving component adapters must use named re-exports; `as Component`, namespace casts, and one-line wrapper components erase package prop, slot, and emit types and are forbidden. Runtime adapters are allowed only when they install a provider, activate a package runtime, invoke a programmatic API, or translate a real FsusBlog policy. Semantic adapters may choose policy values but must not copy generic FsusUI DOM, styles, or internal BEM selectors into Blog code.
 

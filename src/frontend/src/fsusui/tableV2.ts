@@ -1,4 +1,6 @@
 export {
+    ElAutoResizer as FsusUiAutoResizer,
+    ElTableV2 as FsusUiTableV2,
     TableV2FixedDir as FsusUiTableV2FixedDir,
     TableV2SortOrder as FsusUiTableV2SortOrder
 } from '@ozwasyd/element-plus';

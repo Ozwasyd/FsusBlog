@@ -61,7 +61,7 @@ export function getSafeBrandIconBaseName(fileName: string): string
     return safe || 'brand-icon';
 }
 
-export function encodeIcoFromPngEntries(entries: readonly IcoPngEntry[]): Uint8Array
+export function encodeIcoFromPngEntries(entries: readonly IcoPngEntry[]): Uint8Array<ArrayBuffer>
 {
     if (entries.length === 0 || entries.length > 16)
     {

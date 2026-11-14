@@ -7,7 +7,8 @@ import {
 import { PUBLIC_SITE_IDENTITY_DEFAULTS } from '@/public-renderers/publicSiteIdentityDefaults'
 import { PUBLIC_SHELL_DEFAULTS } from '@/public-renderers/publicShellState'
 import { LOCALE_CATALOG_DIGEST } from '@/locales/localeCatalog'
-import type { PublicHydrationPayload } from '@/public-renderers/types'
+import { createArticleListViewContract } from '@/view-contracts/articleList'
+import type { PublicHomeHydrationPayload, PublicHydrationPayload } from '@/public-renderers/types'
 
 describe('public site identity', () => {
   it('keeps frontend shell defaults aligned to the public site identity contract', () => {
@@ -44,7 +45,7 @@ describe('public site identity', () => {
   })
 
   it('creates an immutable takeover seed from the public hydration payload', () => {
-    const seed = createPublicTakeoverSeed({
+    const payload: PublicHomeHydrationPayload = {
       pageKind: 'Home',
       routeKey: 'home',
       rendererVersion: 'test',
@@ -56,25 +57,31 @@ describe('public site identity', () => {
       siteLogoUrl: '/logo-light.svg',
       siteLogoDarkUrl: '/logo-dark.svg',
       siteWordmarkUrl: '/wordmark.svg',
-      compliance: { enabled: true, copyrightOwner: ' Seed Owner ' },
+      compliance: {
+        enabled: true,
+        regionMode: 'global',
+        copyrightOwner: ' Seed Owner ',
+        copyrightStartYear: null,
+        copyrightText: '',
+        contentLicenseName: '',
+        contentLicenseUrl: '',
+        icpRecordNumber: '',
+        icpRecordUrl: '',
+        policeRecordNumber: '',
+        policeRecordUrl: '',
+        policeBadgeIconUrl: '',
+        operatorName: '',
+        contactEmail: ''
+      },
       renderYear: 2026,
       currentPage: 1,
       pageSize: 10,
       total: 0,
-      view: {
-        articles: [],
-        pagination: {
-          currentPage: 1,
-          totalPages: 1,
-          canGoPrev: false,
-          canGoNext: false,
-          pageIndicatorText: '1 / 1'
-        },
-        empty: { title: 'empty', actionText: 'home' }
-      },
+      view: createArticleListViewContract({ items: [], total: 0 }, { currentPage: 1, pageSize: 10 }),
       featuredArticles: [],
       hotArticles: []
-    })
+    }
+    const seed = createPublicTakeoverSeed(payload)
 
     expect(seed).toMatchObject({
       siteTitle: "Fsu's Blog",
@@ -91,12 +98,23 @@ describe('public site identity', () => {
   })
 
   it('rejects a takeover payload whose render locale is missing or invalid', () => {
-    const invalid = {
+    const valid: PublicHomeHydrationPayload = {
       pageKind: 'Home',
       routeKey: 'home',
       rendererVersion: 'test',
-      localeCatalogDigest: LOCALE_CATALOG_DIGEST
-    } as unknown as PublicHydrationPayload
+      localeCatalogDigest: LOCALE_CATALOG_DIGEST,
+      renderLocale: 'zh-CN',
+      title: '',
+      currentPage: 1,
+      pageSize: 10,
+      total: 0,
+      view: createArticleListViewContract({ items: [], total: 0 }, { currentPage: 1, pageSize: 10 }),
+      featuredArticles: [],
+      hotArticles: []
+    }
+    const { renderLocale: _renderLocale, ...missingLocale } = valid
+    // Deliberately malformed input exercises the public boundary rejection.
+    const invalid = missingLocale as PublicHydrationPayload
 
     expect(createPublicTakeoverSeed(invalid)).toBeNull()
   })

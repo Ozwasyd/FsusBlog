@@ -362,7 +362,7 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
         status: 'unavailable',
         record: null
       })
-      let recoveryRefreshTimer: ReturnType<typeof window.setInterval> | null = null
+      let recoveryRefreshTimer: ReturnType<Window['setInterval']> | null = null
       let unsubscribeRecoveryCoordination: (() => void) | null = null
 
       const selectedRecovery = computed(() => (

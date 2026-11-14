@@ -19,9 +19,22 @@ import {
   safeRectFromProfile,
   validateSafeAreaMatrix
 } from '../../support/playwright/uxViewportPlan.mjs'
+import type { UxViewportMatrix, ViewportRoute } from '../../support/playwright/uxViewportPlan.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
 const matrix = structuredClone(matrixDocument)
+assertMatrixThemes(matrix)
+
+function assertMatrixThemes(value: typeof matrixDocument): asserts value is typeof matrixDocument & UxViewportMatrix {
+  // JSON imports widen theme literals; validate both source-owned theme locations.
+  const themes = [
+    ...Object.values(value.modes).flatMap((mode) => mode.themes),
+    ...value.safeArea.overlayRiskSurfaces.flatMap((surface) => Object.values(surface.themesByMode).flat())
+  ]
+  if (themes.some((theme) => theme !== 'light' && theme !== 'dark')) {
+    throw new Error('viewport matrix fixture contains an unsupported theme')
+  }
+}
 
 const routeIds = [
   'public-home',
@@ -59,7 +72,7 @@ const routeIds = [
   'manage-login-redirect'
 ]
 
-const routes = routeIds.map((id) => ({
+const routes: ViewportRoute[] = routeIds.map((id) => ({
   id,
   path: `/${id}`,
   expectedUrl: `/${id}`,

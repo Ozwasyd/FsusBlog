@@ -37,9 +37,40 @@ export const PUBLIC_BOOTSTRAP_CAUSAL_EVIDENCE_SCHEMA = 'fsusblog.public-bootstra
  * }>} PublicBootstrapCausalEvidence
  */
 
+// The collector owns this fresh mutable record; causal validators accept its readonly view.
+/**
+ * @typedef {{
+ *   schema: typeof PUBLIC_BOOTSTRAP_CAUSAL_EVIDENCE_SCHEMA
+ *   buildIdentity: string | null
+ *   route: string
+ *   scenario: string
+ *   timestamps: {
+ *     intent: number | null
+ *     entryStart: number | null
+ *     entryEnd: number | null
+ *     coreStart: number | null
+ *     coreEnd: number | null
+ *     componentStart: number | null
+ *     componentEnd: number | null
+ *     snapshotStart: number | null
+ *     snapshotEnd: number | null
+ *     feedbackFirstVisible: number | null
+ *     feedbackHidden: number | null
+ *     commitStart: number | null
+ *     interactive: number | null
+ *     fallback: number | null
+ *   }
+ *   navigationCount: number
+ *   documentNavigationCount: number
+ *   listenerFinalCount: number | null
+ *   overlayFinalCount: number | null
+ *   notes?: readonly string[]
+ * }} MutablePublicBootstrapCausalEvidence
+ */
+
 /**
  * @param {Partial<PublicBootstrapCausalEvidence> & Pick<PublicBootstrapCausalEvidence, 'route' | 'scenario'>} partial
- * @returns {PublicBootstrapCausalEvidence}
+ * @returns {MutablePublicBootstrapCausalEvidence}
  */
 export function createEmptyPublicBootstrapCausalEvidence(partial)
 {
@@ -154,6 +185,7 @@ export function assertPublicBootstrapCausalOrder(evidence)
 /**
  * @param {PublicBootstrapCausalEvidence} evidence
  * @param {string} [context]
+ * @returns {void}
  */
 export function requirePublicBootstrapCausalOrder(evidence, context = 'public-bootstrap-causal')
 {

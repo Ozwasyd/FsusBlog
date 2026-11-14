@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const {assertBrowserPlanActualMatch, bindBrowserRenderingObservation, createCorrectnessBrowserPlan, diagnosticBrowserIdentity, observeCorrectnessBrowser, validateBrowserIdentityPlan, validatePlaywrightBrowserIdentityPolicy} = await import(new URL('../../tools/test/playwright-browser-identity.mjs', import.meta.url));
+const {assertBrowserPlanActualMatch, bindBrowserRenderingObservation, createCorrectnessBrowserPlan, diagnosticBrowserIdentity, observeCorrectnessBrowser, serializableBrowserPlan, validateBrowserIdentityPlan, validatePlaywrightBrowserIdentityPolicy} = await import(new URL('../../tools/test/playwright-browser-identity.mjs', import.meta.url));
 const policy = {
     schema: 'fsusblog.playwright-browser-identity-policy.v1',
     correctness: {
@@ -134,6 +134,25 @@ test('correctness rejects automatic host Chrome selection', () =>
     assert.throws(
         () => value.create({ env: { PLAYWRIGHT_CHROMIUM_PATH: '/usr/bin/google-chrome' } }),
         /forbids host executable override: PLAYWRIGHT_CHROMIUM_PATH/u
+    );
+});
+
+test('serialized identity validation preserves portable fields without creating a browser launcher', () =>
+{
+    const live = fixture().create();
+    const serialized = JSON.parse(JSON.stringify(serializableBrowserPlan(live)));
+    const originalBytes = JSON.stringify(serialized);
+    const validated = validateBrowserIdentityPlan(serialized);
+
+    assert.equal(validated, serialized);
+    assert.equal(Object.hasOwn(validated, 'browserType'), false);
+    assert.equal(validated.browserType, undefined);
+    assert.equal(JSON.stringify(validated), originalBytes);
+    assert.equal(validated.contentDigest, live.contentDigest);
+    assert.equal(live.browserType.executablePath(), live.executablePath);
+    assert.throws(
+        () => validateBrowserIdentityPlan({ ...serialized, revision: '1218' }),
+        /correctness browser plan digest mismatch/u
     );
 });
 

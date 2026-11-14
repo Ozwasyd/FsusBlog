@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, h, nextTick } from 'vue'
+import { flushPromises, mount, type ComponentMountingOptions, type VueWrapper } from '@vue/test-utils'
+import { defineComponent, h, nextTick, type Component } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ElUpload } from '@ozwasyd/element-plus'
 
@@ -93,8 +93,8 @@ function surfaceOf(wrapper: VueWrapper, name: string): Element {
   return node
 }
 
-function mountFsusUi(component: unknown, options: Record<string, unknown> = {}) {
-  return mount(component as never, {
+function mountFsusUi<T extends Component>(component: T, options: ComponentMountingOptions<T> = {}) {
+  return mount<T, T>(component, {
     attachTo: document.body,
     global: {
       components: { ElUpload },
@@ -128,7 +128,7 @@ function mountFsusUi(component: unknown, options: Record<string, unknown> = {}) 
         SettingsPageEditor: passthroughStub('div'),
         ImageUploadOptionsPanel: passthroughStub('div')
       },
-      ...(options.global as object ?? {})
+      ...(options.global ?? {})
     },
     ...options
   })

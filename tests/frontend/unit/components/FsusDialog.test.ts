@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { flushPromises, mount } from '@vue/test-utils'
+import { DOMWrapper, flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -158,7 +158,7 @@ describe('FsusDialog shell (#1787)', () => {
     const focusTarget = wrapper.get('[data-test="focus-target"]').element as HTMLButtonElement
     focusTarget.focus()
     expect(document.activeElement).toBe(focusTarget)
-    expect(wrapper.get('[data-test="footer-action"]').exists()).toBe(true)
+    expect(new DOMWrapper(wrapper.get('[data-test="footer-action"]').element).exists()).toBe(true)
     expect(document.body.style.overflow).toBe(overflowBefore)
     open.value = false
     await nextTick()
@@ -223,7 +223,7 @@ describe('representative workflow shells (#1787)', () => {
     const dialog = wrapper.get('[data-test="workflow-dialog"]')
     expect(dialog.attributes('data-width')).toBe(fsusDialogWidths.longForm)
     expect(dialog.attributes('data-modal-class')).toBe('')
-    expect(wrapper.get('[data-test="dialog-footer"]').exists()).toBe(true)
+    expect(new DOMWrapper(wrapper.get('[data-test="dialog-footer"]').element).exists()).toBe(true)
 
     await wrapper.get('[data-test="emit-closed"]').trigger('click')
     await flushPromises()
@@ -304,7 +304,7 @@ describe('representative workflow shells (#1787)', () => {
     expect(dialog.classes()).toContain('admin-workspace-frame')
     expect(dialog.attributes('data-modal-class')).toBe('')
     expect(dialog.attributes('data-width')).toBe(fsusDialogWidths.compact)
-    expect(wrapper.get('[data-test="dialog-footer"]').exists()).toBe(true)
+    expect(new DOMWrapper(wrapper.get('[data-test="dialog-footer"]').element).exists()).toBe(true)
     wrapper.unmount()
   })
 })

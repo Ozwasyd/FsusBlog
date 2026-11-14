@@ -41,6 +41,15 @@ export const DEFAULT_SITE_BRAND_CONFIG: SiteBrandConfig = {
 
 const DEFAULT_SITE_KEYWORDS = '.NET, 前端性能, 系统设计, UI 系统, 技术博客, FsusBlog';
 
+function nonEmptySeedText(value: string | null | undefined): string | undefined
+{
+    if (value)
+    {
+        return value;
+    }
+    return undefined;
+}
+
 function resolveBaseUrl(): string
 {
     if (typeof window === 'undefined')
@@ -62,14 +71,13 @@ export const useSiteStore = defineStore('site', () =>
         keywords: DEFAULT_SITE_KEYWORDS,
         author: 'Fsu',
         ogImage: DEFAULT_SITE_OG_IMAGE,
-        ogImage: DEFAULT_SITE_OG_IMAGE,
-        baseUrl: payload?.baseUrl || resolveBaseUrl(),
+        baseUrl: nonEmptySeedText(payload?.baseUrl) ?? resolveBaseUrl(),
         ...DEFAULT_SITE_BRAND_CONFIG,
-        siteLogoUrl: payload?.siteLogoUrl || DEFAULT_SITE_BRAND_CONFIG.siteLogoUrl,
-        siteLogoDarkUrl: payload?.siteLogoDarkUrl || DEFAULT_SITE_BRAND_CONFIG.siteLogoDarkUrl,
-        siteWordmarkUrl: payload?.siteWordmarkUrl || DEFAULT_SITE_BRAND_CONFIG.siteWordmarkUrl,
-        loginLogoUrl: payload?.loginLogoUrl || DEFAULT_SITE_BRAND_CONFIG.loginLogoUrl,
-        loginIconUrl: payload?.loginIconUrl || DEFAULT_SITE_BRAND_CONFIG.loginIconUrl
+        siteLogoUrl: nonEmptySeedText(payload?.siteLogoUrl) ?? DEFAULT_SITE_BRAND_CONFIG.siteLogoUrl,
+        siteLogoDarkUrl: nonEmptySeedText(payload?.siteLogoDarkUrl) ?? DEFAULT_SITE_BRAND_CONFIG.siteLogoDarkUrl,
+        siteWordmarkUrl: nonEmptySeedText(payload?.siteWordmarkUrl) ?? DEFAULT_SITE_BRAND_CONFIG.siteWordmarkUrl,
+        loginLogoUrl: nonEmptySeedText(payload?.loginLogoUrl) ?? DEFAULT_SITE_BRAND_CONFIG.loginLogoUrl,
+        loginIconUrl: nonEmptySeedText(payload?.loginIconUrl) ?? DEFAULT_SITE_BRAND_CONFIG.loginIconUrl
     });
     const complianceInfo = shallowRef<SiteComplianceConfigPublic | null>(normalizePublicComplianceConfig(payload?.compliance));
 

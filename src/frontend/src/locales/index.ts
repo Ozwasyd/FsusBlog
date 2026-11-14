@@ -26,7 +26,6 @@ import {
 
 import type {
     LocaleMessages,
-    PluralCategory,
     PluralNode,
     PluralTranslationArguments,
     PluralTranslationKey,
@@ -163,7 +162,7 @@ function isDiscriminatedPluralNode(value: unknown): value is PluralNode
     {
         return false;
     }
-    const forms = Reflect.get(value, 'forms');
+    const forms: unknown = Reflect.get(value, 'forms');
     return !!forms && typeof forms === 'object' && !Array.isArray(forms);
 }
 

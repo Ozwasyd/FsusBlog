@@ -20,7 +20,13 @@ export interface CommentPrivacyProverManifest {
 
 export interface CommentPrivacyWasmProver {
     prewarm(signal?: AbortSignal): Promise<void>;
-    prepareProof(request: CommentPrivacyProofRequest): Promise<CommentPrivacyProofBundle>;
+    prepareProof(request: CommentPrivacyProofRequest): Promise<OwnedCommentPrivacyProofBundle>;
+}
+
+interface OwnedCommentPrivacyProofBundle extends CommentPrivacyProofBundle {
+    proofBytes: Uint8Array<ArrayBuffer>;
+    publicInputs: Uint8Array<ArrayBuffer>;
+    nullifierHash: Uint8Array<ArrayBuffer>;
 }
 
 export interface CommentPrivacyWasmProverOptions {
@@ -94,7 +100,7 @@ export function createCommentPrivacyWasmProver(options: CommentPrivacyWasmProver
             const loaded = await load(signal);
             await loaded.delegate.prewarm?.({ manifest: loaded.manifest, signal });
         },
-        async prepareProof(request: CommentPrivacyProofRequest): Promise<CommentPrivacyProofBundle>
+        async prepareProof(request: CommentPrivacyProofRequest): Promise<OwnedCommentPrivacyProofBundle>
         {
             throwIfAborted(request.signal);
             assertProofRequest(request);
@@ -495,7 +501,7 @@ function getFunction(record: Record<string, unknown>, key: string): ((...args: n
     return typeof record[key] === 'function' ? record[key] as (...args: never[]) => unknown : undefined;
 }
 
-function normalizeProofBundle(result: unknown, request: CommentPrivacyProofRequest): CommentPrivacyProofBundle
+function normalizeProofBundle(result: unknown, request: CommentPrivacyProofRequest): OwnedCommentPrivacyProofBundle
 {
     const record = asRecord(result);
     const proofBytes = toRequiredBytes(record.proofBytes, 'proofBytes');
@@ -591,13 +597,6 @@ function writeUInt16(chunks: Uint8Array[], value: number): void
     chunks.push(bytes);
 }
 
-function writeInt64(chunks: Uint8Array[], value: number): void
-{
-    const bytes = new Uint8Array(8);
-    new DataView(bytes.buffer).setBigInt64(0, BigInt(Math.trunc(value)), true);
-    chunks.push(bytes);
-}
-
 function concatChunks(chunks: Uint8Array[]): Uint8Array
 {
     const output = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0));
@@ -633,7 +632,7 @@ function assertManifestMatchesRequest(manifest: CommentPrivacyProverManifest, re
     }
 }
 
-function toRequiredBytes(value: unknown, field: string): Uint8Array
+function toRequiredBytes(value: unknown, field: string): Uint8Array<ArrayBuffer>
 {
     if (!(value instanceof Uint8Array) || value.byteLength === 0)
     {

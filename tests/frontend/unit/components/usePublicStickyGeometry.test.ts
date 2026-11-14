@@ -73,14 +73,14 @@ describe('usePublicStickyGeometry', () => {
     vi.stubGlobal('ResizeObserver', TestResizeObserver)
     const addEventListener = vi.spyOn(window, 'addEventListener')
     const removeEventListener = vi.spyOn(window, 'removeEventListener')
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function() {
-      return rectForHeight(Number((this as HTMLElement).dataset.testHeight ?? '0'))
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function(this: HTMLElement) {
+      return rectForHeight(Number(this.dataset.testHeight ?? '0'))
     })
 
     const wrapper = mount(Probe, { attachTo: document.body })
     await settleGeometry()
 
-    const root = wrapper.element
+    const root: Element = wrapper.element
     const header = root.querySelector<HTMLElement>(publicStickyHeaderSelector)
     const geometryOwner = root.querySelector<HTMLElement>(publicStickyGeometryOwnerSelector)
     expect(header).not.toBeNull()

@@ -323,7 +323,7 @@ describe('public boot kernel browser scheduling', () => {
   })
 
   it('creates the CSP-authorized SPA entry Trusted Types policy', async () => {
-    const createPolicy = vi.fn((_name: string, rules: TrustedTypePolicyRules) => rules)
+    const createPolicy = vi.fn((_name: string, rules: { createScriptURL(value: string): string }) => rules)
     Object.defineProperty(window, 'trustedTypes', {
       configurable: true,
       value: { createPolicy }

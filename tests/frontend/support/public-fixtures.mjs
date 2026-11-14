@@ -1,8 +1,22 @@
+/**
+ * @typedef {{ articleId?: number; categoryId?: number; tagId?: number; articleTitle?: string; searchKeyword?: string; }} PublicFixtureDefaults
+ * @typedef {{ requireCurrent?: boolean; env?: Record<string, string | undefined>; repoRoot?: string; }} PublicFixtureOptions
+ * @typedef {{ articleId: number; categoryId: number; tagId: number; }} PublicFixtureIds
+ * @typedef {{ kind: string; id: number | string; handle?: string; }} PublicFixtureEntity
+ * Projection metadata passes through without a complete metadata shape check.
+ * @typedef {PublicFixtureIds & Record<string, unknown> & {
+ *   articleTitle: string; searchKeyword: string;
+ *   schema?: string; notAuthoritative?: true; projectionDigest?: string;
+ * }} PublicFixtures
+ */
+
 import { existsSync, readFileSync } from 'node:fs';
 
-import { digestCanonical } from '../../../tools/test-fixtures/receipt/canonical.mjs';
-
 import { resolvePublicFixtureFile } from './fixture-paths.mjs';
+
+const { digestCanonical } = await import(
+    new URL('../../../tools/test-fixtures/receipt/canonical.mjs', import.meta.url)
+);
 
 const verifiedProjectionSchema = 'fsusblog.fixture-id-projection.v1';
 const preparedProjectionSchema = 'fsusblog.prepared-public-id-projection.v1';
@@ -114,6 +128,11 @@ function firstIdByKind(document, kind)
     return match?.id ?? null;
 }
 
+/**
+ * @param {PublicFixtureDefaults} [defaults]
+ * @param {PublicFixtureOptions} [options]
+ * @returns {PublicFixtureIds}
+ */
 export function readPublicFixtureIds(defaults = {}, {
     requireCurrent = false,
     env = process.env,
@@ -166,6 +185,11 @@ export function readPublicFixtureIds(defaults = {}, {
     };
 }
 
+/**
+ * @param {PublicFixtureDefaults} [defaults]
+ * @param {PublicFixtureOptions} [options]
+ * @returns {PublicFixtures}
+ */
 export function readPublicFixtures(defaults = {}, {
     requireCurrent = false,
     env = process.env,

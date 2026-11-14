@@ -74,7 +74,7 @@ if (PerformanceObserver.supportedEntryTypes.includes('event')) {
         durationMs: entry.duration
       })
     }
-  }).observe({ type: 'event', buffered: true, durationThreshold: 16 })
+  }).observe({ type: 'event', buffered: true, durationThreshold: 16 } satisfies PerformanceObserverInit & { durationThreshold: number })
 }
 
 function recordProbe(event: Event): void {

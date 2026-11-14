@@ -45,6 +45,7 @@ const recordUpload = (surface: string) => (options: UploadRequestOptions) => {
   selections[surface] ??= []
   selections[surface].push(options.file.name)
   options.onSuccess?.({})
+  return new XMLHttpRequest()
 }
 
 const ProbeUpload = defineComponent({

@@ -1767,6 +1767,63 @@ Source integration and WIP handoff do not grant product acceptance. Applicable s
 
 The same source stage inspects exactly `Directory.Packages.props` and `src/migration/FsusBlog.Migration.csproj` through the bounded readonly [MSBuild declaration inspector](../tools/test-matrix/msbuild-source-inspector.mjs). It compares the finite original package/project declarations and approved dependency edits as literal data. The held regular inputs and referenced witnesses bind actual Git HEAD, index and physical bytes; the caller independently reopens and reparses the complete receipt before counting either path as checked. Only XML 1.0 boundary whitespace is stripped. DTD/entities, unknown structures or paths, arbitrary properties, SDK/import/task evaluation, changed witnesses and forged or stale receipts fail closed. This port executes no restore, compiler, native provider or runtime qualification. The [original refusal controls](../tests/tools/msbuild-source.test.mjs) retain those boundaries, including non-XML Unicode whitespace.
 
+### Canonical generated declarations in SOURCE integration
+
+The finite output roster in
+[`canonical-test-declaration-inputs.mjs`](../tools/frontend/canonical-test-declaration-inputs.mjs)
+belongs to the original
+[`generate-canonical-test-declarations.mjs`](../tools/frontend/generate-canonical-test-declarations.mjs)
+producer. SOURCE checks those generated ESM declarations through that complete
+producer rather than treating them as handwritten frontend-script declarations.
+The checker supplies its own locked TypeScript implementation, checks the
+original complete test-project resolution against the real local FsusUI source,
+and retains the original syntax, emitted-API semantic, and no-`any` controls.
+Candidate compiler packages and inspected JavaScript module bodies do not run.
+The derived local test-project configuration is supplied in memory. Existing
+scratch aliases are refused before the helper runs, and SOURCE creates or
+modifies no physical configuration file or directory.
+
+The inspector binds the current HEAD, complete index, original source/output
+roster, local FsusUI source, matching compiler lock entries and actual compiler
+module bytes, and every compiler file read and metadata probe. Source reads stay
+in those repositories or their dependency trees; missing inputs and directory
+discovery remain bound. Cross-repository public dependency aliases are limited
+to the original local-install producer's finite lock-derived mappings. Both
+source manifests, the original lock, installed dependency manifests, and each
+logical-to-physical mapping are bound and independently reopened. Unknown,
+retargeted, and escaping aliases remain refusals.
+The original `pnpm@10.33.0` declaration, workspace selectors, and root/member manifests are joined to
+the complete lock importer table before compiler execution. Every declared
+workspace link must resolve to its exact Git member, name, declared version
+(or explicitly absent private version), and relative pnpm symlink. The port
+supports positive single-level workspace selectors, `workspace:*`, and the
+literal caret triplet when its source version equals that triplet; unknown
+selector or range forms fail closed. All projected root and member links and
+their namespaces are checked before emission and independently reopened;
+undeclared source aliases and secondary linked paths receive no source access.
+Full workspace YAML is parsed with the executing style toolchain's original
+locked `js-yaml` and `FAILSAFE_SCHEMA`. Its package, implementation files,
+actual loaded module closure, and directory identities are bound and reopened;
+candidate or local UI parser packages do not execute.
+The locked TypeScript 6.0.3 peer resolver can derive a directory outside the
+repositories from a source package without `node_modules` in its path. Only an
+exact `directoryExists` miss derived from peer keys in a Git-bound source
+manifest actually read by that compiler receives a missing-directory proof.
+The proof uses `lstat` for every path component, refuses links and any existing
+final entry, and binds the absence and ancestor identities before and after
+emission and independent reopening. It grants no file read, file-existence,
+realpath, enumeration, positive directory, or unknown-path capability.
+A separately reconstructed original emission and reopened input closure must
+match the complete nonqualifying receipt before an output receives SOURCE
+coverage. Changed, deleted, substituted, linked, drifting, or unregistered
+declarations remain refusals. This checks reproducible generated source only;
+it grants no application typecheck, browser, native, runtime, package, or release
+qualification and does not replace their original gates. The reviewed toolchain
+installation remains a prerequisite; this port does not independently
+authenticate the complete npm archive.
+The complete refusal controls run through the existing SOURCE regression owner;
+they do not establish product qualification.
+
 ### Registered opaque fixture data in SOURCE integration
 
 `config/development/opaque-source-fixture-policy.json` registers only the frozen

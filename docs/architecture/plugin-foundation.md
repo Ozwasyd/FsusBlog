@@ -73,6 +73,23 @@ Enable/disable/uninstall use the Registry version as optimistic concurrency cont
 a conflicting writer is retried within a small bound and otherwise fails without
 guessing the winning state.
 
+The administrative configuration editor maps enum choices to UI keys while
+retaining the declared JSON values. Object values match independently of property
+order; array order and scalar types remain significant. Selecting an object,
+array or null sends that original JSON value, not its UI key or display label.
+This presentation mapping does not replace schema validation or the sensitive
+action proof required before configuration writes.
+
+Primitive controls read only their declared value kinds from the complete JSON
+draft. Non-enum object, array and null fields keep editable JSON text separately
+while it is incomplete, has the wrong declared type, or contains numbers that
+the existing JSON serializer cannot preserve. Numeric overflow, underflow and
+rounding are rejected instead of being saved as null or a different value;
+equivalent decimal notation and exactly preserved large values remain valid.
+Such text cannot replace the last valid value or enable a configuration write.
+Correcting it restores the write action; the backend still owns full schema
+validation and authorization.
+
 The broader lifecycle vocabulary remains:
 
 ```text

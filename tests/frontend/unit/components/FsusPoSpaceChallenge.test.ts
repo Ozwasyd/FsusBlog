@@ -190,9 +190,13 @@ function payload(challengeId: string, values: Record<string, string> = {}): Secu
 function verifiedResponse(challengeId: string): SecurityChallengeVerifyResponse {
   return {
     verified: true,
+    envelopeId: '01900000-0000-7000-8000-000000000001',
     challengeId,
     kind: SecurityChallengeKind.Argon2IdPoSpaceV1,
     policyVersion: 'policy-v1',
+    completedCount: 1,
+    memberCount: 1,
+    envelopeCompleted: true,
     proofToken: `opaque-proof-${challengeId}`,
     expiresAtUnixMs: Date.now() + 60_000,
     reason: '',

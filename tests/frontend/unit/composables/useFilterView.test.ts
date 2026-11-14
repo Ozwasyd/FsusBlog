@@ -470,16 +470,16 @@ describe('useFilterView exact taxonomy metadata', () => {
   })
 
   it('aborts in-flight exact metadata when the page unmounts', async () => {
-    let seenSignal: AbortSignal | null = null
+    const observed: { signal: AbortSignal | null } = { signal: null }
     mocks.getCategoryExactMetadata.mockImplementation((_id: number, config?: { signal?: AbortSignal }) => {
-      seenSignal = config?.signal ?? null
+      observed.signal = config?.signal ?? null
       return new Promise(() => {})
     })
     const router = await createFilterRouter('/category/7')
     const { wrapper } = mountFilterView(router)
     await Promise.resolve()
-    expect(seenSignal).not.toBeNull()
+    expect(observed.signal).not.toBeNull()
     wrapper.unmount()
-    expect(seenSignal?.aborted).toBe(true)
+    expect(observed.signal?.aborted).toBe(true)
   })
 })

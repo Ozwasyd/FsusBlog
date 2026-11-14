@@ -172,7 +172,7 @@ export function buildPerceptionVerifyProviderPayload(
 
     if (submitPayload.kind !== 'micro-interaction')
     {
-        throw createAppError(AppErrorCode.ContractViolation, GENERIC_PERCEPTION_FAILURE);
+        throw createAppError(AppErrorCode.ProtocolFailure, GENERIC_PERCEPTION_FAILURE);
     }
 
     payload.stepSummary = submitPayload.steps.join(',');
@@ -211,7 +211,7 @@ function resolvePerceptionKind(kind: SecurityChallengeKind, taskKind?: string): 
     {
         return 'micro-interaction';
     }
-    throw createAppError(AppErrorCode.ContractViolation, GENERIC_PERCEPTION_UNAVAILABLE);
+    throw createAppError(AppErrorCode.ProtocolFailure, GENERIC_PERCEPTION_UNAVAILABLE);
 }
 
 function parseRecipe(value: string | undefined): RenderRecipeV2 | null

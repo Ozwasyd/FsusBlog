@@ -235,35 +235,52 @@
                                         :key="field.name"
                                         class="plugin-config-field"
                                     >
-                                        <span>{{ field.title }}</span>
-                                        <small>{{ field.description }}</small>
+                                        <span class="plugin-config-field__label">{{ field.title }}</span>
+                                        <small class="plugin-config-field__description">{{ field.description }}</small>
                                         <ElSwitch
                                             v-if="field.type === 'boolean'"
-                                            v-model="configDraft[field.name]"
+                                            class="plugin-config-field__control"
+                                            :model-value="readPluginConfigBoolean(readPluginConfigValue(configDraft, field.name))"
+                                            @update:model-value="updateBooleanConfig(field, $event)"
                                         />
                                         <ElSelect
-                                            v-else-if="field.enumValues.length"
-                                            v-model="configDraft[field.name]"
+                                            v-else-if="field.enumChoices.length"
+                                            class="plugin-config-field__control"
+                                            :model-value="findPluginConfigEnumChoice(field.enumChoices, readPluginConfigValue(configDraft, field.name))"
                                             :placeholder="field.title"
+                                            @update:model-value="updateEnumChoice(field, $event)"
                                         >
                                             <ElOption
-                                                v-for="option in field.enumValues"
-                                                :key="String(option)"
-                                                :label="String(option)"
-                                                :value="option"
+                                                v-for="option in field.enumChoices"
+                                                :key="option.key"
+                                                :label="option.label"
+                                                :value="option.key"
                                             />
                                         </ElSelect>
                                         <ElInputNumber
                                             v-else-if="field.type === 'integer' || field.type === 'number'"
-                                            v-model="configDraft[field.name]"
+                                            class="plugin-config-field__control"
+                                            :model-value="readPluginConfigNumber(readPluginConfigValue(configDraft, field.name))"
                                             :min="field.minimum"
                                             :max="field.maximum"
+                                            @update:model-value="updateNumberConfig(field, $event)"
                                         />
                                         <ElInput
                                             v-else
-                                            v-model="configDraft[field.name]"
+                                            class="plugin-config-field__control"
+                                            :model-value="configTextValue(field)"
                                             :placeholder="field.title"
+                                            :aria-invalid="configInputErrors.has(field.name) ? 'true' : undefined"
+                                            :aria-describedby="configInputErrors.has(field.name) ? configErrorId(field.name) : undefined"
+                                            @update:model-value="updateTextConfig(field, $event)"
                                         />
+                                        <ElText
+                                            v-if="configInputErrors.has(field.name)"
+                                            class="plugin-config-field__error"
+                                            :id="configErrorId(field.name)"
+                                            type="danger"
+                                            role="alert"
+                                        >{{ configInputErrors.get(field.name) }}</ElText>
                                     </label>
                                     <p
                                         v-if="configFields.length === 0"
@@ -272,16 +289,15 @@
                                         此插件没有可编辑的顶层配置字段。
                                     </p>
                                 </div>
-                                <template #footer>
-                                    <div class="plugin-config-footer">
-                                        <span>版本 {{ detail.config.version }} · {{ detail.config.reloadState }}</span>
-                                        <ElButton
-                                            type="primary"
-                                            :loading="actionLoading === 'update-config'"
-                                            @click="saveConfig"
-                                        >校验并保存</ElButton>
-                                    </div>
-                                </template>
+                                <div class="plugin-config-footer">
+                                    <span>版本 {{ detail.config.version }} · {{ detail.config.reloadState }}</span>
+                                    <ElButton
+                                        type="primary"
+                                        :loading="actionLoading === 'update-config'"
+                                        :disabled="hasConfigInputErrors"
+                                        @click="saveConfig"
+                                    >校验并保存</ElButton>
+                                </div>
                             </FsusUiSettingsSection>
                         </ElTabPane>
 
@@ -503,13 +519,28 @@ import {
 } from '@/fsusui';
 import { confirmDanger, confirmWarning, toast } from '@/fsusui/feedback';
 import { showErrorToast } from '@/utils/errorPresentation';
+import {
+    createPluginConfigEnumChoices,
+    findPluginConfigEnumChoice,
+    readPluginConfigEnumChoice,
+    type PluginConfigEnumChoice
+} from '@/utils/pluginConfigEnum';
+import {
+    formatPluginConfigText,
+    parsePluginConfigText,
+    readPluginConfigBoolean,
+    readPluginConfigNumber,
+    readPluginConfigProperties,
+    readPluginConfigValue,
+    withPluginConfigValue
+} from '@/utils/pluginConfigValue';
 
 interface ConfigField {
     name: string;
     title: string;
     description: string;
     type: string;
-    enumValues: unknown[];
+    enumChoices: readonly PluginConfigEnumChoice[];
     minimum?: number;
     maximum?: number;
 }
@@ -523,25 +554,91 @@ const selectedId = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
 const overview = shallowRef<PluginAdminOverview | null>(null);
 const detail = shallowRef<PluginAdminDetail | null>(null);
-const configDraft = ref<Record<string, any>>({});
+const configDraft = ref<Record<string, unknown>>({});
+const configTextDrafts = ref(new Map<string, string>());
+const configInputErrors = ref(new Map<string, string>());
+const hasConfigInputErrors = computed(() => configInputErrors.value.size > 0);
 
 const configFields = computed<ConfigField[]>(() =>
 {
-    const properties = detail.value?.config.schema?.properties;
-    if (!properties || typeof properties !== 'object' || Array.isArray(properties))
+    const properties = readPluginConfigProperties(detail.value?.config.schema?.properties);
+    if (!properties)
     {
         return [];
     }
-    return Object.entries(properties as Record<string, Record<string, unknown>>).map(([name, schema]) => ({
+    return Object.entries(properties).map(([name, schema]) => ({
         name,
-        title: String(schema.title ?? name),
-        description: String(schema.description ?? ''),
-        type: String(schema.type ?? 'string'),
-        enumValues: Array.isArray(schema.enum) ? schema.enum : [],
+        title: typeof schema.title === 'string' ? schema.title : name,
+        description: typeof schema.description === 'string' ? schema.description : '',
+        type: typeof schema.type === 'string' ? schema.type : 'string',
+        enumChoices: createPluginConfigEnumChoices(Array.isArray(schema.enum) ? schema.enum : []),
         minimum: typeof schema.minimum === 'number' ? schema.minimum : undefined,
         maximum: typeof schema.maximum === 'number' ? schema.maximum : undefined
     }));
 });
+
+function updateEnumChoice(field: ConfigField, key: unknown): void
+{
+    const choice = readPluginConfigEnumChoice(field.enumChoices, key);
+    if (choice.found)
+    {
+        configDraft.value = withPluginConfigValue(configDraft.value, field.name, choice.value);
+    }
+}
+
+function resetConfigDraft(value: Record<string, unknown>): void
+{
+    configDraft.value = structuredClone(value);
+    configTextDrafts.value.clear();
+    configInputErrors.value.clear();
+}
+
+function configErrorId(name: string): string
+{
+    return `plugin-config-error-${encodeURIComponent(name)}`;
+}
+
+function configTextValue(field: ConfigField): string
+{
+    return configTextDrafts.value.has(field.name)
+        ? configTextDrafts.value.get(field.name) ?? ''
+        : formatPluginConfigText(field.type, readPluginConfigValue(configDraft.value, field.name));
+}
+
+function updateBooleanConfig(field: ConfigField, value: unknown): void
+{
+    if (typeof value === 'boolean')
+    {
+        configDraft.value = withPluginConfigValue(configDraft.value, field.name, value);
+    }
+}
+
+function updateNumberConfig(field: ConfigField, value: unknown): void
+{
+    if (typeof value === 'number' || value === null || value === undefined)
+    {
+        configDraft.value = withPluginConfigValue(configDraft.value, field.name, value);
+    }
+}
+
+function updateTextConfig(field: ConfigField, value: unknown): void
+{
+    if (typeof value !== 'string')
+    {
+        return;
+    }
+    configTextDrafts.value.set(field.name, value);
+    const result = parsePluginConfigText(field.type, value);
+    if (result.valid)
+    {
+        configDraft.value = withPluginConfigValue(configDraft.value, field.name, result.value);
+        configInputErrors.value.delete(field.name);
+    }
+    else
+    {
+        configInputErrors.value.set(field.name, result.error);
+    }
+}
 
 async function loadOverview(): Promise<void>
 {
@@ -579,7 +676,7 @@ async function selectPlugin(pluginId: string): Promise<void>
     try
     {
         detail.value = await getPlugin(pluginId);
-        configDraft.value = structuredClone(detail.value.config.value);
+        resetConfigDraft(detail.value.config.value);
     }
     catch (error)
     {
@@ -642,7 +739,7 @@ async function runAction(action: PluginAdminMutation['action']): Promise<void>
         if (result)
         {
             detail.value = result;
-            configDraft.value = structuredClone(result.config.value);
+            resetConfigDraft(result.config.value);
         }
         toast.success(`插件操作已完成：${action}`);
         await loadOverview();
@@ -752,7 +849,7 @@ async function togglePermission(name: string, granted: boolean): Promise<void>
 
 async function saveConfig(): Promise<void>
 {
-    if (!detail.value)
+    if (!detail.value || hasConfigInputErrors.value)
     {
         return;
     }
@@ -772,7 +869,7 @@ async function saveConfig(): Promise<void>
         if (result)
         {
             detail.value = result;
-            configDraft.value = structuredClone(result.config.value);
+            resetConfigDraft(result.config.value);
         }
         toast.success('插件配置已校验并保存');
     }
@@ -965,16 +1062,29 @@ onMounted(loadOverview);
     align-items: center;
 }
 
-.plugin-config-field small
+.plugin-config-field__label
  {
     grid-column: 1;
+    grid-row: 1;
+}
+
+.plugin-config-field__description
+ {
+    grid-column: 1;
+    grid-row: 2;
     color: var(--fsusblog-text-secondary);
 }
 
-.plugin-config-field > *
+.plugin-config-field__control
  {
     grid-column: 2;
     grid-row: 1 / span 2;
+}
+
+.plugin-config-field__error
+ {
+    grid-column: 2;
+    grid-row: 3;
 }
 
 .plugin-config-footer
@@ -1014,7 +1124,10 @@ onMounted(loadOverview);
         justify-content: space-between;
     }
 
-    .plugin-config-field > *
+    .plugin-config-field__label,
+    .plugin-config-field__description,
+    .plugin-config-field__control,
+    .plugin-config-field__error
  {
         grid-column: 1;
         grid-row: auto;

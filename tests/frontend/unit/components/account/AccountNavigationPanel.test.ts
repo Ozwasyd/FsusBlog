@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { mount } from '@vue/test-utils'
+import { DOMWrapper, mount } from '@vue/test-utils'
 import { h, nextTick } from 'vue'
 import {
   createMemoryHistory,
@@ -104,8 +104,8 @@ describe('AccountNavigationPanel', () => {
     const { wrapper } = await mountPanel('/user/manage/moderation/anonymous-risk', 'mobile')
 
     expect(wrapper.attributes('data-variant')).toBe('mobile')
-    expect(wrapper.get('[aria-label="管理一级模块"]').exists()).toBe(true)
-    expect(wrapper.get('[aria-label="互动局部导航"]').exists()).toBe(true)
+    expect(new DOMWrapper(wrapper.get('[aria-label="管理一级模块"]').element).exists()).toBe(true)
+    expect(new DOMWrapper(wrapper.get('[aria-label="互动局部导航"]').element).exists()).toBe(true)
     expect(wrapper.get('.account-local-navigation__link--active').text()).toContain('匿名风险')
   })
 })
