@@ -29,6 +29,9 @@ runtime_positive_control() {
 runtime_report() {
   local stage_name=$1
   runtime_mark measure-after
+  # GC events can arrive from the native dispatcher after the boundary sample.
+  sleep 0.25
+  runtime_mark drain
   python3 "$run/source/tests/Performance/runtime.py" "$evidence/runtime.ndjson" "$evidence/$stage_name.json" \
     "$evidence/server-process.csv" "$server_pid" "$evidence/runtime-result.json" > "$evidence/runtime-report.log" 2>&1
 }

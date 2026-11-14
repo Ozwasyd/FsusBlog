@@ -58,7 +58,8 @@ def summarize(rows, load, rss, pid):
         if start_at <= timestamp(pause["StartUtc"]) <= timestamp(pause["EndUtc"]) <= end_at
     ]
     series = [row for row in rows if start_at <= timestamp(row["utc"]) <= end_at]
-    correct = load["routes"]["all"]["ok"]
+    all_routes = load["routes"]["all"]
+    correct = all_routes["ok"]
     allocated = end["managedAllocatedBytes"] - start["managedAllocatedBytes"]
     query_counts = commands(start, end, "dbCommandStarts")
     opening_counts = commands(start, end, "dbPhysicalOpenStarts")
@@ -68,13 +69,16 @@ def summarize(rows, load, rss, pid):
     control_requests = commands(control_start, control_end, "requestStatus200")["comments"]
     runtime_pause = end["gcTotalPauseMs"] - start["gcTotalPauseMs"]
     traced_pause = sum(gc_pauses)
-    unmatched = rows[-1]["gcUnmatched"] - start["gcUnmatched"]
+    trailing = next((row for row in rows if timestamp(row["utc"]) > end_at), None)
+    unmatched = (trailing or end)["gcUnmatched"] - start["gcUnmatched"]
     guard_before = (measured_at - start_at).total_seconds()
     guard_after = (end_at - drained_at).total_seconds()
     observer_samples = end["observerRequestSamples"] - start["observerRequestSamples"]
     observer_ticks = end["observerRequestMeasuredTicks"] - start["observerRequestMeasuredTicks"]
 
     errors = []
+    if trailing is None:
+        errors.append("No post-measurement sample was available to collect late GC events.")
     if control_commands <= 0 or control_requests != 1:
         errors.append("No instrumented PostgreSQL command found under the positive HTTP comments control.")
     startup_opens = sum(rows[0]["dbPhysicalOpenStarts"].values())
@@ -111,8 +115,15 @@ def summarize(rows, load, rss, pid):
     end_rss = [kb for stamp, kb in rss_values
                if measured_at + timedelta(minutes=10) < stamp <= measured_end]
     rss_growth = (median(end_rss) / median(mid_rss) - 1.0) if len(mid_rss) >= 50 and len(end_rss) >= 50 else None
+    queue_growth = None
     stability = None
     if duration == 900:
+        mid_queue = [row["threadPoolPending"] for row in series
+                     if measured_at + timedelta(minutes=5) < timestamp(row["utc"]) <= measured_at + timedelta(minutes=10)]
+        final_queue = [row["threadPoolPending"] for row in series
+                       if measured_at + timedelta(minutes=10) < timestamp(row["utc"]) <= measured_end]
+        if len(mid_queue) >= 50 and len(final_queue) >= 50:
+            queue_growth = median(final_queue) - median(mid_queue)
         stability = (
             rss_peak is not None
             and rss_peak <= 1.5 * 1024 * 1024
@@ -120,6 +131,8 @@ def summarize(rows, load, rss, pid):
         )
         if not stability:
             errors.append("15-minute RSS ceiling, growth, or sample completeness did not pass.")
+        if queue_growth is None or queue_growth > 0:
+            errors.append("15-minute thread pool samples are incomplete or their final five-minute median grew.")
 
     return {
         "runtimeStart": start["utc"],
@@ -129,7 +142,8 @@ def summarize(rows, load, rss, pid):
         "durationSeconds": duration,
         "serverPid": pid,
         "runtimeSamples": len(series),
-        "measuredCorrectResponses": correct,
+        "load": {"planned": load["expected"], "sent": all_routes["sent"], "correct": correct,
+                 "schedulerDropped": all_routes["dropped"], "clientMeasurement": load["measurement"]},
         "dbCommandStarts": query_counts,
         "dbPhysicalOpenStarts": opening_counts,
         "positiveControl": {"commentsSuccessfulRequests": control_requests, "commentsDatabaseCommands": control_commands,
@@ -152,6 +166,7 @@ def summarize(rows, load, rss, pid):
         "gcHeapPeakBytes": max(row["gcHeapBytes"] for row in series),
         "gcCommittedPeakBytes": max(row["gcCommittedBytes"] for row in series),
         "threadPoolPendingSampleMax": max(row["threadPoolPending"] for row in series),
+        "threadPoolPendingMedianGrowth": queue_growth,
         "coldPendingPeak": end["coldPendingPeak"],
         "coldActivePeak": end["coldActivePeak"],
         "coldRenders": end["coldRenders"] - start["coldRenders"],
@@ -179,8 +194,8 @@ def main():
         # An active recorder may be flushing the next sample at EOF.
         lines = args.runtime.read_bytes().split(b"\n")[:-1]
         rows = [json.loads(line) for line in lines]
-        with args.rss.open(newline="") as stream:
-            report = summarize(rows, json.loads(args.load.read_text()), csv.DictReader(stream), args.pid)
+        rss_lines = args.rss.read_text().split("\n")[:-1]
+        report = summarize(rows, json.loads(args.load.read_text()), csv.DictReader(rss_lines), args.pid)
         with args.out.open("x") as stream:
             json.dump(report, stream, indent=2)
             stream.write("\n")

@@ -152,7 +152,7 @@ internal sealed class RuntimeEvidence : IAsyncDisposable
                 if (File.Exists(command))
                 {
                     mark = File.ReadAllText(command).Trim();
-                    if (mark is not ("positive-before" or "positive-after" or "measure-before" or "measure-after"))
+                    if (mark is not ("positive-before" or "positive-after" or "measure-before" or "measure-after" or "drain"))
                         throw new InvalidOperationException("Unknown runtime evidence interval marker.");
                 }
                 if (mark is null && now < next) continue;
