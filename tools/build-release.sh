@@ -77,7 +77,10 @@ ln -s "$repo/src/Web/node_modules" "$scratch/source/src/Web/node_modules"
 (cd "$wasm" && shasum -a 256 -c "$release/fsusui-wasm.sha256") >> "$release/build.txt"
 for name in ep_wasm markdown_basic markdown_simd; do
   assets=("$scratch/package/web/assets/$name"-*.wasm)
-  [[ ${#assets[@]} == 1 ]] && cmp -- "$wasm/$name.wasm" "${assets[0]}"
+  if [[ ${#assets[@]} != 1 ]] || ! cmp -- "$wasm/$name.wasm" "${assets[0]}"; then
+    printf 'Bundled Wasm differs from the checked FsusUI input: %s\n' "$name" >&2
+    exit 1
+  fi
 done
 cp -- "$scratch/source/deploy/Caddyfile" "$scratch/source/deploy/README.md" "$scratch/package/"
 {
