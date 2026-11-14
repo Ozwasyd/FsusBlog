@@ -15,7 +15,9 @@ assert(/(?:^|;)Database=fsusv2_inbox_[a-f0-9]{32}(?:;|$)/.test(process.env.FSUSB
 const fetchAt = globalThis.fetch
 await mkdir(evidence, { recursive: true })
 
-const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true })
+const tlsPin = process.env.FSUSBLOG_TEST_TLS_SPKI
+const browser = await chromium.launch({ executablePath: process.env.FSUSBLOG_TEST_CHROME, headless: true,
+  args: tlsPin ? [`--ignore-certificate-errors-spki-list=${tlsPin}`] : [] })
 const diagnostics = []
 const observations = []
 let failure

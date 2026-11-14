@@ -8,7 +8,7 @@ with socket.socket() as listener:
 }
 
 start_proxy() {
-  local port=${target##*:} ready
+  local port=${target##*:} ready config=${1:-$run/source/deploy/Caddyfile}
   proxy_ca="$run/ca.pem"
   export FSUSBLOG_PUBLIC_ADDRESS="$target" FSUSBLOG_PROXY_BIND=127.0.0.1
   export FSUSBLOG_UPSTREAM_PORT="${origin##*:}"
@@ -51,9 +51,9 @@ EOF
   if [[ "${FSUSBLOG_PERF_PRECONNECT_TLS:-}" == 1 ]]; then
     load_flags+=(-preconnect-tls)
   fi
-  "$caddy" adapt --config "$run/source/deploy/Caddyfile" --adapter caddyfile --validate --pretty \
+  "$caddy" adapt --config "$config" --adapter caddyfile --validate --pretty \
     > "$evidence/proxy-config.json" 2> "$evidence/proxy-validation.log"
-  "$caddy" run --config "$run/source/deploy/Caddyfile" --adapter caddyfile > "$evidence/proxy.log" 2>&1 &
+  "$caddy" run --config "$config" --adapter caddyfile > "$evidence/proxy.log" 2>&1 &
   proxy_pid=$!
   for _ in {1..100}; do
     own_child "$proxy_pid" || { echo 'Owned Caddy exited before readiness.' >&2; return 1; }

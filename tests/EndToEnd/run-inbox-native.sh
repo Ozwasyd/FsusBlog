@@ -18,18 +18,34 @@ mkdir -p "$FSUSBLOG_TEST_EVIDENCE"
 evidence=$(cd -- "$FSUSBLOG_TEST_EVIDENCE" && pwd)
 [[ -x "$psql" && -f "$dist/index.html" && -f "$server" && -f "$migrate" ]]
 
-database="fsusv2_inbox_$(uuidgen | tr -d '-' | tr A-Z a-z)"
+database="fsusv2_inbox_$(uuidgen | tr -d '-' | LC_ALL=C tr '[:upper:]' '[:lower:]')"
 [[ $database =~ ^fsusv2_inbox_[a-f0-9]{32}$ ]]
 query=("$psql" -X --no-password -v ON_ERROR_STOP=1 -h "$FSUSBLOG_TEST_PGHOST" -p "$FSUSBLOG_TEST_PGPORT" -U "$FSUSBLOG_TEST_PGUSER")
 owned_db=0
 server_pid=
+proxy_pid=
+run=
+target=
+origin=
+own_child() {
+  [[ -n $1 && "$(ps -o ppid= -p "$1" 2>/dev/null | tr -d ' ')" == "$$" ]]
+}
 cleanup() {
   local code=$? cleanup_ok=1
+  local pid address
   trap - EXIT
-  if [[ -n $server_pid ]]; then
-    if kill -0 "$server_pid" 2>/dev/null; then kill "$server_pid"; fi
-    wait "$server_pid" 2>/dev/null || true
-    if kill -0 "$server_pid" 2>/dev/null; then cleanup_ok=0; fi
+  for pid in "$proxy_pid" "$server_pid"; do
+    if [[ -n $pid ]]; then
+      if own_child "$pid"; then kill "$pid"; fi
+      wait "$pid" 2>/dev/null || true
+      if own_child "$pid"; then cleanup_ok=0; fi
+    fi
+  done
+  if [[ -n $run ]]; then
+    rm -rf -- "$run" || cleanup_ok=0
+    for address in "$origin" "$target"; do
+      if [[ -n $address ]] && lsof -n -P -iTCP@"127.0.0.1:${address##*:}" -sTCP:LISTEN > /dev/null 2>&1; then cleanup_ok=0; fi
+    done
   fi
   if (( owned_db )); then
     printf 'DROP DATABASE %s WITH (FORCE);\n' "$database" | "${query[@]}" -d postgres >> "$evidence/db.log" 2>&1 || cleanup_ok=0
@@ -80,17 +96,40 @@ fi
 rg -q 'different request' "$evidence/notice-conflict.log"
 "$dotnet" "$migrate" verify >> "$evidence/schema.log"
 
+if [[ ${FSUSBLOG_TEST_INBOX_TLS:-0} == 1 ]]; then
+  caddy=${CADDY_BIN:-caddy}
+  for executable in "$caddy" python3 openssl lsof; do command -v "$executable" >/dev/null; done
+  run=$(mktemp -d /tmp/fsusv2-inbox-tls.XXXXXXXX)
+  curl_flags=(--http1.1)
+  load_flags=()
+  # shellcheck source=tests/Performance/proxy.sh
+  source tests/Performance/proxy.sh
+  export FSUSBLOG_TRUST_LOOPBACK_PROXY=true
+  "$caddy" version >> "$evidence/run.txt"
+fi
 "$dotnet" "$server" --urls http://127.0.0.1:0 > "$evidence/server.log" 2>&1 &
 server_pid=$!
-url=
 for (( attempt=0; attempt<100; attempt++ )); do
-  url=$(sed -nE 's/^[[:space:]]*Now listening on: (http:\/\/127\.0\.0\.1:[0-9]+)$/\1/p' "$evidence/server.log")
-  if [[ -n $url ]] && curl --silent --fail "$url/health/ready" >/dev/null; then break; fi
-  kill -0 "$server_pid"
+  origin=$(sed -nE 's/^[[:space:]]*Now listening on: (http:\/\/127\.0\.0\.1:[0-9]+)$/\1/p' "$evidence/server.log")
+  if [[ -n $origin ]]; then break; fi
+  own_child "$server_pid"
   sleep 0.2
 done
-[[ -n $url ]] && curl --silent --fail "$url/health/ready" >/dev/null
-export FSUSBLOG_TEST_URL=$url
+[[ -n $origin ]]
+target=$origin
+if [[ -n $run ]]; then
+  target="https://127.0.0.1:$(choose_loopback_port)"
+  start_proxy "$repo/deploy/Caddyfile"
+  export NODE_EXTRA_CA_CERTS="$proxy_ca"
+  FSUSBLOG_TEST_TLS_SPKI=$(openssl x509 -in "$FSUSBLOG_TLS_CERTIFICATE" -noout -pubkey |
+    openssl pkey -pubin -outform DER | openssl dgst -sha256 -binary | openssl base64 -A)
+  [[ -n $FSUSBLOG_TEST_TLS_SPKI ]]
+  export FSUSBLOG_TEST_TLS_SPKI
+  shasum -a 256 deploy/Caddyfile >> "$evidence/run.txt"
+else
+  curl --silent --fail "$origin/health/ready" >/dev/null
+fi
+export FSUSBLOG_TEST_URL=$target
 export FSUSBLOG_INBOX_MIGRATE_DLL=$migrate
 export FSUSBLOG_INBOX_DOTNET=$dotnet
 node tests/EndToEnd/inbox-flow.mjs
