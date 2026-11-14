@@ -34,6 +34,8 @@ internal static class InboxVectors
         var create = Fixture("conversation-create-request");
         var reply = Fixture("conversation-reply-request");
         var read = Fixture("conversation-read-request");
+        Equal(create, InboxWire.EncodeCreate("申诉", "A café 🐈"));
+        Equal(reply, InboxWire.EncodeReply(cursor.SnapshotMessageId, "A café 🐈"));
         if (InboxWire.DecodeCreate(create) != ("申诉", "A café 🐈") ||
             InboxWire.DecodeReply(reply) != (cursor.SnapshotMessageId, "A café 🐈") ||
             InboxWire.DecodeRead(read) != cursor.SnapshotMessageId)

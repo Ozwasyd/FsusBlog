@@ -180,6 +180,18 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
         return new InboxMutation(message, Replayed: false);
     }
 
+    internal async Task AdmitReply(long conversationId, long readThrough, string commandId, string body, CancellationToken token)
+    {
+        Positive(conversationId);
+        Positive(readThrough);
+        var fingerprint = InboxRules.Fingerprint("reply", conversationId, readThrough, "", InboxRules.Body(body));
+        if (await FindCommandAsync(commandId, false, fingerprint, token) is not null) return;
+        var (status, current) = await ReadConversationAsync(conversationId, token);
+        if (status == ConversationStatus.Closed)
+            throw new BusinessException(Rejection.Conflict, "The conversation is closed.");
+        await CheckReadTarget(conversationId, readThrough, current, token);
+    }
+
     public async Task<InboxReadState> MarkReadAsync(long conversationId, long readThrough, CancellationToken cancellationToken)
     {
         Positive(conversationId);
@@ -255,6 +267,14 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
 
     private async Task<bool> AdvanceAsync(long conversationId, long requested, long? current, CancellationToken cancellationToken)
     {
+        await CheckReadTarget(conversationId, requested, current, cancellationToken);
+        if (current == requested) return false;
+        await SetReadAsync(conversationId, requested, cancellationToken);
+        return true;
+    }
+
+    private async Task CheckReadTarget(long conversationId, long requested, long? current, CancellationToken cancellationToken)
+    {
         if (current > requested) throw new BusinessException(Rejection.Conflict, "The read position is already newer.");
         await using var target = Command("""
             SELECT 1 FROM public.inbox_message m JOIN public.inbox_conversation c ON c.id = m.conversation_id
@@ -262,9 +282,6 @@ internal sealed class InboxStore(NpgsqlConnection connection, NpgsqlTransaction 
             """, ("id", conversationId), ("requested", requested));
         if (await target.ExecuteScalarAsync(cancellationToken) is null)
             throw Invalid("The read position does not refer to a visible message in this conversation.");
-        if (current == requested) return false;
-        await SetReadAsync(conversationId, requested, cancellationToken);
-        return true;
     }
 
     private async Task SetReadAsync(long conversationId, long readThrough, CancellationToken cancellationToken)

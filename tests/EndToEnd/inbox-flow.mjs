@@ -41,11 +41,14 @@ try {
       await page.getByText('请先登录', { exact: true }).waitFor()
       assert.equal(await page.getByText('Integration fixture notice', { exact: true }).count(), 0)
       const browserErrors = []
+      const challenges = []
       page.on('pageerror', error => browserErrors.push(error.message))
       page.on('console', message => { if (message.type() === 'error') browserErrors.push(message.text()) })
       page.on('response', response => {
-        if (response.status() === 500 || (response.status() >= 400 && new URL(response.url()).pathname.startsWith('/assets/')))
-          browserErrors.push(`${response.status()} ${new URL(response.url()).pathname}`)
+        const path = new URL(response.url()).pathname
+        if (response.status() === 500 || (response.status() >= 400 && path.startsWith('/assets/')))
+          browserErrors.push(`${response.status()} ${path}`)
+        if (path.includes('/pow-') && response.request().method() === 'POST') challenges.push([path, response.status()])
       })
       await context.addCookies([{ name: 'fsus-v2-session', value: session, url: origin, httpOnly: true, sameSite: 'Strict' }])
       await page.reload()
@@ -77,10 +80,25 @@ try {
         assert.equal(await row.evaluate(element => element === document.activeElement), true)
       }
       assert.equal(await row.getByText('1 条未读', { exact: true }).count(), 0)
+      const subject = `Native support ${name}`
+      await page.getByRole('button', { name: '提交工单' }).click()
+      await page.getByLabel('主题（选填）', { exact: true }).fill(subject)
+      await page.getByLabel('工单内容', { exact: true }).fill('Native proof sent this ticket.')
+      await page.getByRole('button', { name: '发送工单' }).click()
+      await page.getByText('工单已提交。', { exact: true }).waitFor()
+      await page.getByRole('heading', { name: subject, exact: true }).waitFor()
+      await page.getByLabel('回复内容', { exact: true }).fill('Native proof sent this reply.')
+      await page.getByRole('button', { name: '发送回复' }).click()
+      await page.getByText('回复已发送。', { exact: true }).waitFor()
+      await page.getByRole('region', { name: subject }).getByText('Native proof sent this reply.', { exact: true }).waitFor()
+      assert.equal(challenges.length, 2)
+      assert.deepEqual(challenges.map(([path, status]) => [path.split('/').at(-1), status]), [['pow-create.aeds', 200], ['pow-reply.aeds', 200]])
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
+      await page.screenshot({ path: join(evidence, `inbox-${name}-write.png`) })
       assert.deepEqual(browserErrors, [])
       observations.push({ name, viewport, url: page.url(), title: await page.title(), anonymous: 'private list hidden',
         replay: 'a new notice appeared without navigating or reloading',
-        keyboard: 'Enter opened the thread and moved focus', markedRead: true, focusRestored: index === 1 })
+        keyboard: 'Enter opened the thread and moved focus', markedRead: true, focusRestored: index === 1, challenges })
     } catch (error) {
       diagnostics.push({ name, error: String(error) })
       throw error

@@ -70,6 +70,7 @@ internal static class InboxEndpoints
                 return new Response(packet, page.RequiresResync ? null : page.Next);
             }, ct);
         }).RequireRateLimiting("command");
+        InboxWriteEndpoints.Map(app, cookie, readFrame);
     }
 
     private readonly record struct Response(byte[] Frame, long? Cursor = null);

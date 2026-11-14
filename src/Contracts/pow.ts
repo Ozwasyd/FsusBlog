@@ -44,10 +44,10 @@ export function encodePowProof(challenge: PowChallenge, nonce: string, clientNon
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function solveCommentPow(challenge: PowChallenge, clientNonce: string, signal: AbortSignal): Promise<string> {
+export function solveScopedPow(challenge: PowChallenge, clientNonce: string, signal: AbortSignal): Promise<string> {
   if (!/^[A-Fa-f0-9]{32}$/.test(challenge.salt) || !/^[A-Za-z0-9_-]{43}$/.test(challenge.signature) ||
       !/^[A-Fa-f0-9]{32}$/.test(clientNonce) || challenge.difficulty !== WireLimits.PowChallengeDifficulty)
-    throw new ProtocolError('Unsupported comment security challenge');
+    throw new ProtocolError('Unsupported security challenge');
   signal.throwIfAborted();
   return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./pow.worker.ts', import.meta.url), { type: 'module' });

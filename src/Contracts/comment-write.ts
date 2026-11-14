@@ -1,6 +1,6 @@
 import { ProtocolError, encodeFrame } from './aeds.ts';
 import { request } from './client.ts';
-import { decodePowChallenge, encodePowProof, solveCommentPow } from './pow.ts';
+import { decodePowChallenge, encodePowProof, solveScopedPow } from './pow.ts';
 import {
   decodePublicCommentEligibility, decodePublicCommentSubmissionResult, encodePublicCommentSubmission,
   FrameType, WireHeaders, WireRoutes,
@@ -22,7 +22,7 @@ export async function submitPublicComment(articleId: number, publication: bigint
   const clientNonce = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
   const challenge = await request(WireRoutes.PublicCommentPowChallenge, FrameType.PowChallenge, decodePowChallenge,
     signal, 'POST', frame, { [WireHeaders.ClientMutationId]: key, [WireHeaders.PowClientNonce]: clientNonce });
-  const nonce = await solveCommentPow(challenge, clientNonce, signal);
+  const nonce = await solveScopedPow(challenge, clientNonce, signal);
   signal.throwIfAborted();
   return request(WireRoutes.SubmitPublicComment, FrameType.PublicCommentSubmissionResult, payload => {
     const result = decodePublicCommentSubmissionResult(payload);

@@ -55,6 +55,7 @@ printf 'CREATE DATABASE %s TEMPLATE template0;\n' "$database" | "${query[@]}" -d
 owned_db=1
 export FSUSBLOG_DB="Host=$FSUSBLOG_TEST_PGHOST;Port=$FSUSBLOG_TEST_PGPORT;Username=$FSUSBLOG_TEST_PGUSER;Database=$database;SSL Mode=Disable"
 export FSUSBLOG_WEB_DIST=$dist
+export FSUSBLOG_PRIVATE_INBOX_WRITES=true
 "$dotnet" "$migrate" plan > "$evidence/schema-plan.json"
 "$dotnet" "$migrate" apply "$evidence/schema-plan.json" > "$evidence/schema.log"
 FSUSBLOG_INBOX_DESKTOP_TICKET=$("$dotnet" "$migrate" operator inbox-desktop --reader)
@@ -95,3 +96,5 @@ export FSUSBLOG_INBOX_DOTNET=$dotnet
 node tests/EndToEnd/inbox-flow.mjs
 
 [[ $("${query[@]}" -d "$database" -qAtc "SELECT count(*) FROM public.inbox_conversation WHERE subject='Integration fixture notice' AND read_through=last_message_id;") == 2 ]]
+[[ $("${query[@]}" -d "$database" -qAtc "SELECT count(*) FROM public.inbox_conversation WHERE subject IN ('Native support desktop', 'Native support mobile') AND NOT is_system;") == 2 ]]
+[[ $("${query[@]}" -d "$database" -qAtc "SELECT count(*) FROM public.inbox_message m JOIN public.inbox_conversation c ON c.id=m.conversation_id WHERE c.subject IN ('Native support desktop', 'Native support mobile') AND m.sender=0 AND NOT m.is_internal AND m.body IN ('Native proof sent this ticket.', 'Native proof sent this reply.');") == 4 ]]

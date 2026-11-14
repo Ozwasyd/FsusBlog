@@ -27,6 +27,23 @@ public static class InboxWire
 
     public const int MaxRequestFrameBytes = 20 * 1024;
 
+    public static byte[] EncodeCreate(string subject, string body)
+    {
+        var writer = new PodWriter();
+        writer.Text(subject, SubjectBytes);
+        writer.Text(body, BodyBytes);
+        return writer.Frame(FrameType.ConversationCreateRequest);
+    }
+
+    public static byte[] EncodeReply(long readThroughMessageId, string body)
+    {
+        if (readThroughMessageId <= 0) throw Invalid();
+        var writer = new PodWriter();
+        writer.Int64(readThroughMessageId);
+        writer.Text(body, BodyBytes);
+        return writer.Frame(FrameType.AccountConversationReplyRequest);
+    }
+
     public static (string Subject, string Body) DecodeCreate(ReadOnlySpan<byte> frame)
     {
         var payload = DecodeRequest(frame, FrameType.ConversationCreateRequest);

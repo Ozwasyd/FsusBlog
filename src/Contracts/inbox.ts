@@ -174,33 +174,58 @@ export function decodeInboxList(payload: Uint8Array, headers: Headers): InboxLis
 }
 
 export function decodeInboxThread(payload: Uint8Array): InboxThread {
+  return decodeThread(payload, false);
+}
+
+export function decodeInboxCreated(payload: Uint8Array): InboxThread {
+  return decodeThread(payload, true);
+}
+
+function decodeThread(payload: Uint8Array, created: boolean): InboxThread {
   const packet = new Packet(payload);
   const id = packet.position(0);
   const state = knownValue(packet, 8);
   const readThrough = packet.position(24);
-  const previous = packet.i64(32);
-  if (previous < 0n || packet.flag(41) !== (state !== 2) || packet.flag(42) !== (previous > 0n)) invalid();
-  packet.reserved(43, 1);
-  const count = packet.i32(threadHeaderBytes);
-  if (count < 0 || count > 50) invalid();
-  const first = threadHeaderBytes + 4;
+  const flags = created ? 32 : 40;
+  const header = created ? threadHeaderBytes - 8 : threadHeaderBytes;
+  const previous = created ? 0n : packet.i64(32);
+  const isSystem = packet.flag(flags);
+  const canReply = packet.flag(flags + 1);
+  const hasPreviousOrReplayed = packet.flag(flags + 2);
+  if (previous < 0n || canReply !== (state !== 2) || (!created && hasPreviousOrReplayed !== (previous > 0n))) invalid();
+  packet.reserved(flags + 3, 1);
+  const count = packet.i32(header);
+  if (count < (created ? 1 : 0) || count > 50 || (created && isSystem)) invalid();
+  const first = header + 4;
   packet.setArena(first + count * messageRecordBytes);
   const messages: InboxMessage[] = [];
   let lastMessage = 0n;
   for (let index = 0; index < count; index++) {
-    const start = first + index * messageRecordBytes;
-    const messageId = packet.position(start);
-    if (messageId <= lastMessage || packet.position(start + 8) !== id) invalid();
-    lastMessage = messageId;
-    const hasName = packet.flag(start + 28);
-    packet.flag(start + 29);
-    packet.reserved(start + 30, 2);
-    const name = packet.text(start + 32, subjectBytes);
-    if (hasName !== Boolean(name)) invalid();
-    messages.push({ id: messageId, sender: knownValue(packet, start + 16), createdAt: packet.time(start + 20),
-      name: hasName ? name : null, body: packet.text(start + 40, bodyBytes) });
+    const message = readMessage(packet, first + index * messageRecordBytes, id);
+    if (message.id <= lastMessage) invalid();
+    lastMessage = message.id;
+    messages.push(message);
   }
   if (count > 0 && lastMessage !== readThrough) invalid();
   return { id, status: state, unreadCount: unread(packet, 12), lastMessageAt: packet.time(16), readThrough,
-    previous: previous === 0n ? null : previous, isSystem: packet.flag(40), subject: packet.text(44, subjectBytes), messages };
+    previous: previous === 0n ? null : previous, isSystem, subject: packet.text(flags + 4, subjectBytes), messages };
+}
+
+export function decodeInboxReplied(payload: Uint8Array, conversation: bigint): InboxMessage {
+  const packet = new Packet(payload);
+  packet.setArena(messageRecordBytes);
+  const message = readMessage(packet, 0, conversation);
+  if (message.sender !== 0) invalid();
+  return message;
+}
+
+function readMessage(packet: Packet, start: number, conversation: bigint): InboxMessage {
+  if (packet.position(start + 8) !== conversation) invalid();
+  const hasName = packet.flag(start + 28);
+  packet.flag(start + 29);
+  packet.reserved(start + 30, 2);
+  const name = packet.text(start + 32, subjectBytes);
+  if (hasName !== Boolean(name)) invalid();
+  return { id: packet.position(start), sender: knownValue(packet, start + 16), createdAt: packet.time(start + 20),
+    name: hasName ? name : null, body: packet.text(start + 40, bodyBytes) };
 }

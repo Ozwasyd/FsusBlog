@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ElAlert, ElButton, ElEmptyState, ElOption, ElSelect, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
+import { ElAlert, ElButton, ElEmptyState, ElInput, ElOption, ElSelect, ElSkeleton, ElTaskPageHeader } from '@ozwasyd/element-plus'
 import { api, ApiError, ProtocolError, type InboxFilter, type InboxListItem, type InboxThread } from '../../../Contracts/client'
+import { createInboxConversation, inboxComposeEnabled, replyInboxConversation } from '../../../Contracts/inbox-write'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 
 const filters: ReadonlyArray<{ value: InboxFilter; label: string }> = [
@@ -21,6 +22,13 @@ const listPending = ref(false)
 const threadPending = ref(false)
 const markPending = ref(false)
 const checking = ref(true)
+const writable = ref(false)
+const sending = ref(false)
+const composing = ref(false)
+const subject = ref('')
+const ticket = ref('')
+const reply = ref('')
+const notice = ref('')
 const error = ref('')
 const threadHeading = ref<HTMLElement>()
 const listHeading = ref<HTMLElement>()
@@ -35,6 +43,8 @@ let threadRequest = 0
 let cursor: string | undefined
 let pollTimer: ReturnType<typeof setTimeout> | undefined
 let opener: HTMLButtonElement | undefined
+let createAttempt: { subject: string; body: string; key: string } | undefined
+const replies = new Map<bigint, { body: string; snapshot?: bigint; key?: string }>()
 
 function current(signal: AbortSignal, identity: number) {
   const session = currentSession.value
@@ -43,7 +53,7 @@ function current(signal: AbortSignal, identity: number) {
 
 function report(failure: unknown, signal: AbortSignal, identity: number, fallback: string) {
   if (!current(signal, identity)) return
-  if (failure instanceof ApiError && failure.status === 401) invalidateSession()
+  if (failure instanceof ApiError && failure.status === 401 && !failure.details.startsWith('pow_')) invalidateSession()
   else error.value = fallback
 }
 
@@ -98,6 +108,7 @@ async function loadThread(id: bigint, older?: bigint): Promise<boolean> {
 function selectConversation(id: bigint, event: MouseEvent) {
   opener = event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : undefined
   selected.value = id
+  reply.value = replies.get(id)?.body ?? ''
   thread.value = null
   void nextTick(() => threadHeading.value?.focus())
   void loadThread(id)
@@ -107,8 +118,78 @@ function backToList() {
   selected.value = null
   thread.value = null
   threadPending.value = false
+  reply.value = ''
   threadRequest++
   void nextTick(() => (opener?.isConnected ? opener : listHeading.value)?.focus())
+}
+
+watch(reply, body => {
+  if (selected.value === null) return
+  if (!body) {
+    replies.delete(selected.value)
+    return
+  }
+  const previous = replies.get(selected.value)
+  if (!previous || previous.body !== body) replies.set(selected.value, { body })
+}, { flush: 'sync' })
+
+async function sendTicket() {
+  const signal = scope.signal
+  const identity = identityEpoch.value
+  if (!current(signal, identity) || !writable.value || sending.value || !ticket.value.trim()) return
+  const input = { subject: subject.value, body: ticket.value }
+  if (!createAttempt || createAttempt.body !== input.body || createAttempt.subject !== input.subject)
+    createAttempt = { ...input, key: crypto.randomUUID() }
+  sending.value = true
+  error.value = ''
+  try {
+    const id = await createInboxConversation(input.subject, input.body, createAttempt.key, signal)
+    if (!current(signal, identity)) return
+    createAttempt = undefined
+    subject.value = ''
+    ticket.value = ''
+    composing.value = false
+    notice.value = '工单已提交。'
+    opener = undefined
+    selected.value = id
+    reply.value = replies.get(id)?.body ?? ''
+    thread.value = null
+    await nextTick(() => threadHeading.value?.focus())
+    await Promise.all([loadList(), loadThread(id)])
+  } catch (reason) { report(reason, signal, identity, '无法提交工单。请检查内容或稍后重试。') }
+  finally { if (current(signal, identity)) sending.value = false }
+}
+
+async function sendReply() {
+  const detail = thread.value
+  const signal = scope.signal
+  const identity = identityEpoch.value
+  if (!detail || selected.value !== detail.id || !current(signal, identity) || !writable.value || sending.value || !reply.value.trim()) return
+  const saved = replies.get(detail.id)
+  const body = reply.value
+  const snapshot = saved?.body === body && saved.snapshot ? saved.snapshot : detail.readThrough
+  const key = saved?.body === body && saved.key ? saved.key : crypto.randomUUID()
+  replies.set(detail.id, { body, snapshot, key })
+  sending.value = true
+  error.value = ''
+  try {
+    await replyInboxConversation(detail.id, snapshot, body, key, signal)
+    if (!current(signal, identity)) return
+    replies.delete(detail.id)
+    if (selected.value === detail.id) {
+      reply.value = ''
+      await loadThread(detail.id)
+    }
+    notice.value = '回复已发送。'
+    await loadList()
+  } catch (reason) {
+    if (current(signal, identity) && reason instanceof ApiError && reason.status === 409) {
+      replies.set(detail.id, { body })
+      await loadThread(detail.id)
+    }
+    report(reason, signal, identity, '回复发送失败。请检查内容或稍后重试。')
+  }
+  finally { if (current(signal, identity)) sending.value = false }
 }
 
 async function markRead() {
@@ -142,7 +223,7 @@ async function reloadInbox(fallback?: string) {
 async function poll(signal: AbortSignal, identity: number) {
   if (!current(signal, identity)) return
   try {
-    if (document.visibilityState !== 'visible' || listPending.value || markPending.value) return
+    if (document.visibilityState !== 'visible' || listPending.value || markPending.value || sending.value) return
     if (!cursor) {
       await reloadInbox()
       return
@@ -173,6 +254,15 @@ watch(identityEpoch, identity => {
   thread.value = null
   rows.value = []
   nextPage.value = null
+  writable.value = false
+  sending.value = false
+  composing.value = false
+  subject.value = ''
+  ticket.value = ''
+  reply.value = ''
+  notice.value = ''
+  createAttempt = undefined
+  replies.clear()
   cursor = undefined
   opener = undefined
   error.value = ''
@@ -181,6 +271,9 @@ watch(identityEpoch, identity => {
   markPending.value = false
   if (current(scope.signal, identity)) {
     const signal = scope.signal
+    void inboxComposeEnabled(signal).then(enabled => {
+      if (current(signal, identity)) writable.value = enabled
+    }).catch(() => {})
     void loadList().then(() => poll(signal, identity))
   }
 }, { immediate: true, flush: 'sync' })
@@ -209,6 +302,7 @@ onBeforeUnmount(() => {
 <template>
   <main class="inbox-page">
     <ElTaskPageHeader title="我的站内信" density="compact" />
+    <p v-if="notice" role="status">{{ notice }}</p>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" show-icon>
       <ElButton v-if="currentSession" text @click="reloadInbox(cursor)">重试</ElButton>
     </ElAlert>
@@ -220,16 +314,24 @@ onBeforeUnmount(() => {
       <section v-show="!mobile || !hasSelection" class="inbox-pane" aria-labelledby="inbox-list" :aria-busy="listPending">
         <header class="inbox-pane-heading">
           <h2 id="inbox-list" ref="listHeading" tabindex="-1">消息列表</h2>
+          <ElButton v-if="writable" size="small" type="primary" :disabled="sending" @click="composing = !composing">提交工单</ElButton>
           <ElSelect v-model="filter" ariaLabel="筛选消息" class="inbox-filter">
             <ElOption v-for="item in filters" :key="item.value" :label="item.label" :value="item.value" />
           </ElSelect>
         </header>
+        <form v-if="composing" class="inbox-composer" @submit.prevent="sendTicket">
+          <label for="ticket-subject">主题（选填）</label>
+          <ElInput id="ticket-subject" v-model="subject" :disabled="sending" />
+          <label for="ticket-body">工单内容</label>
+          <ElInput id="ticket-body" v-model="ticket" type="textarea" :autosize="{ minRows: 4, maxRows: 8 }" :disabled="sending" />
+          <ElButton type="primary" native-type="submit" :disabled="!ticket.trim()" :loading="sending">发送工单</ElButton>
+        </form>
         <ElSkeleton v-if="listPending && !rows.length" :rows="6" animated />
         <ElEmptyState v-else-if="!rows.length && !error" title="没有消息" />
         <ul v-else-if="rows.length" class="inbox-items">
           <li v-for="row in rows" :key="String(row.id)">
             <button type="button" class="inbox-choice" :aria-current="row.id === selected ? 'true' : undefined"
-              @click="selectConversation(row.id, $event)">
+              :disabled="sending" @click="selectConversation(row.id, $event)">
               <strong class="inbox-row-title">{{ row.subject }}</strong>
               <span v-if="row.preview" class="inbox-preview">{{ row.preview }}</span>
               <span class="inbox-meta">
@@ -244,7 +346,7 @@ onBeforeUnmount(() => {
 
       <section v-show="!mobile || hasSelection" class="inbox-pane" aria-labelledby="inbox-thread" :aria-busy="threadPending">
         <header class="inbox-pane-heading">
-          <ElButton v-if="mobile && hasSelection" text @click="backToList">返回消息列表</ElButton>
+          <ElButton v-if="mobile && hasSelection" text :disabled="sending" @click="backToList">返回消息列表</ElButton>
           <h2 id="inbox-thread" ref="threadHeading" tabindex="-1">{{ thread?.subject ?? '会话' }}</h2>
           <ElButton v-if="thread?.unreadCount" text :loading="markPending" @click="markRead">标记已读</ElButton>
         </header>
@@ -262,6 +364,11 @@ onBeforeUnmount(() => {
               <p class="inbox-message-text">{{ message.body }}</p>
             </li>
           </ol>
+          <form v-if="writable && thread.status !== 2" class="inbox-composer" @submit.prevent="sendReply">
+            <label for="reply-body">回复内容</label>
+            <ElInput id="reply-body" v-model="reply" type="textarea" :autosize="{ minRows: 3, maxRows: 8 }" :disabled="sending" />
+            <ElButton type="primary" native-type="submit" :disabled="!reply.trim()" :loading="sending">发送回复</ElButton>
+          </form>
         </template>
       </section>
     </div>
@@ -284,5 +391,7 @@ onBeforeUnmount(() => {
 .inbox-preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inbox-message { padding-block: var(--fsus-space-3); border-bottom: 1px solid var(--el-border-color-lighter); }
 .inbox-message-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.inbox-composer { display: grid; gap: var(--fsus-space-2); padding-block: var(--fsus-space-4); }
+.inbox-composer > button { justify-self: start; }
 @media (min-width: 1024px) { .inbox-layout { grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr); } }
 </style>

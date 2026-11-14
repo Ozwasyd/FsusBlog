@@ -12,12 +12,14 @@ v2 私有回放入口是 `GET /api/v2/notifications/private.aeds`。首张会话
 
 受控运维进程可使用离线工具 `notify ACCOUNT_ID EVENT_ID` 给一个启用账号发系统通知。命令从标准输入读取 UTF-8 JSON 对象 `{"subject":"…","body":"…"}`，用配置中的数据库身份完成当前结构校验和写入。`ACCOUNT_ID` 是明确给出的 v2 账号 UUID，`EVENT_ID` 在该收件人范围内用于幂等。重复提交相同通知返回原会话和消息坐标，修改内容后重用事件键会失败。命令输出坐标和是否重放，正文由账号会话授权读取。
 
-工单创建和回复已实现服务端存储。v1 这两项操作需要 PoW，HTTP 路由和页面操作待接入实际证明校验后启用。通知 WebSocket 握手、公开和管理事件、广播、管理队列、会话状态变更、历史迁移和自动生产者仍待接入。
+设置 `FSUSBLOG_PRIVATE_INBOX_WRITES=true` 可开放账号提交工单和回复。部署前应确定实际处理工单的运维流程。现有 v1 创建和回复路径保留 AEDS 请求及响应帧，并要求 `X-Fsus-Client-Mutation-Id`。客户端先向 `/api/v2/notifications/inbox/pow-create.aeds` 或 `/api/v2/notifications/inbox/{id}/pow-reply.aeds` 提交原始请求取得 v2 随机挑战，再通过浏览器 Worker 完成 Classic PoW。证明绑定当前会话、来源、命令键、操作、会话编号和原始请求字节，在写入消息的同一事务中消费，失败后可用新的证明和原命令键重试。v1 自适应风险规则和 PoW 策略仍待迁移。
 
-协议测试使用 v1 固定列表和消息样本，以及独立构造的当前详情、请求和回放帧。三项原生 PostgreSQL 18 测试通过，覆盖并发重试、请求冲突、跨账号隔离、内部注记、已读校验、列表分页、回滚、断线续读、事件缺口、会话撤销和错误帧。`FSUSBLOG_TEST_DB` 指向允许创建临时数据库的 PostgreSQL。浏览器脚本 `tests/EndToEnd/run-inbox-native.sh` 使用各自的临时数据库和实际 Kestrel，配置见脚本。
+通知 WebSocket 握手、公开和管理事件、广播、管理队列、会话状态变更、历史迁移和自动生产者仍待接入。
 
-界面按 FsusUI 消费契约归为 `bounded-composition`，验收范围为 `ux-path`。采用固定 v1 的 `Messages.vue`、会话列表和详情源码定位产品结构，参考的明暗截图只有列表工具栏裁切。组件契约绑定 FsusUI `f2d929a5d045439c35e93b4771f912ce50ec2337`。本轮目标是登录隔离、桌面及窄屏、头部筛选、会话阅读、回放、已读状态及焦点。工单写入及完整账户外壳仍有依赖。未用库私有选择器或覆盖主题令牌修复标签对比度，直接在产品行的状态文字中展示来源和未读数量。
+协议测试使用 v1 固定列表、工单请求和消息样本，以及独立构造的当前详情和回放帧。四项原生 PostgreSQL 18 测试覆盖默认关闭、证明缺失、跨账号和跨会话拒绝、一次性消费、换证明幂等重试、并发写入、请求冲突、内部注记、已读校验、列表分页、回滚、断线续读、事件缺口、会话撤销和错误帧。`FSUSBLOG_TEST_DB` 指向允许创建临时数据库的 PostgreSQL。浏览器脚本 `tests/EndToEnd/run-inbox-native.sh` 使用各自的临时数据库和实际 Kestrel，配置见脚本。
 
-2026-11-14 21:44 的浏览器验证使用本机 Chrome、桌面日间主题 1280×800、窄屏夜间主题 375×850。匿名看不到列表，已登录后通过键盘打开详情，离线 `notify` 新发消息无需刷新即可出现。页面标记已读后，SQL 确认两个会话都保存了实际的已读位置。窄屏返回时焦点回到原会话按钮。日志、页面截图、部署文件摘要和清理状态位于 `artifacts/inbox-native-20261114-134420/`。同键同内容重试和冲突重试在同一次运行验证，运行退出码为 0，临时数据库已删除。浏览器脚本仍需扩展到所有筛选组合、网络恢复和更多浏览器。
+界面按 FsusUI 消费契约归为 `bounded-composition`，验收范围为 `ux-path`。采用固定 v1 的 `Messages.vue`、会话列表和详情源码定位产品结构，参考的明暗截图只有列表工具栏裁切。组件契约绑定 FsusUI `f2d929a5d045439c35e93b4771f912ce50ec2337`。页面覆盖登录隔离、桌面及窄屏、头部筛选、会话阅读、回放、已读状态及焦点。启用账号写入时显示工单和回复表单，输入和重试键会随登录账号变更清空。产品行的状态文字直接展示来源和未读数量。完整账户外壳仍待接入。
+
+2026-11-14 23:27 用本机 Chrome 在桌面日间主题 1280×800 和窄屏夜间主题 375×850 复验。匿名看不到列表，登录后可以用键盘阅读详情，`notify` 新消息无需刷新即可出现。页面标记已读后，SQL 确认两个会话保存了实际的已读位置。窄屏返回时焦点回到原会话按钮。两种尺寸均通过浏览器 Worker 完成真实 PoW，SQL 确认每个账号写入一条工单和一条回复。协议和数据库日志、部署文件摘要、截图及清理状态在 `artifacts/inbox-pow-native/`，临时数据库已删除。浏览器验收仍需覆盖所有筛选组合、网络恢复和更多浏览器。
 
 参考：[固定提交的站内信 HTTP 路由](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs)、[通知握手约束](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/docs/architecture/notification-stream-handshake-use-case-boundaries.md)。

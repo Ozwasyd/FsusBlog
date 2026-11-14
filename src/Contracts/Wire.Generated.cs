@@ -357,7 +357,10 @@ public static class WireRoutes
     public const string PublicIndex = "/api/v2/public/index.aeds";
     public const string PublicSearchCorpus = "/api/v2/public/search-corpus";
     public const string InboxList = "/api/binary/messages/conversations";
+    public const string InboxWriteAvailability = "/api/v2/notifications/inbox/write-availability.aeds";
+    public const string InboxCreatePowChallenge = "/api/v2/notifications/inbox/pow-create.aeds";
     public const string InboxDetail = "/api/binary/messages/conversations/{id:long}";
+    public const string InboxReplyPowChallenge = "/api/v2/notifications/inbox/{id:long}/pow-reply.aeds";
     public const string InboxReply = "/api/binary/messages/conversations/{id:long}/reply";
     public const string InboxRead = "/api/binary/messages/conversations/{id:long}/read";
     public const string InboxReplay = "/api/v2/notifications/private.aeds";
@@ -423,6 +426,7 @@ public static class WireHeaders
     public const string SearchIndexGeneration = "X-Fsus-Search-Index-Generation";
     public const string SearchIndexPages = "X-Fsus-Search-Index-Pages";
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
+    public const string InboxWriteEnabled = "X-Fsus-Inbox-Write-Enabled";
     public const string MfaProof = "X-Fsus-Mfa-Proof";
     public const string CurrentSession = "X-Fsus-Current-Session";
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
