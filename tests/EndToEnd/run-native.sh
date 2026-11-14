@@ -85,6 +85,10 @@ if [[ ${FSUSBLOG_TEST_FLOW:-blog} == canvas-scale ]]; then
   FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator canvas-scale-outsider)
   export FSUSBLOG_TEST_OUTSIDER_TICKET
 fi
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery ]]; then
+  FSUSBLOG_TEST_OUTSIDER_TICKET=$("${migrate[@]}" operator workspace-recovery-outsider)
+  export FSUSBLOG_TEST_OUTSIDER_TICKET
+fi
 if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media || ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
   FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator mobile-author)
   export FSUSBLOG_TEST_MOBILE_TICKET
@@ -128,6 +132,8 @@ elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == article-media ]]; then
   node tests/EndToEnd/article-media-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == editor-readiness ]]; then
   node tests/EndToEnd/editor-readiness-flow.mjs
+elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == workspace-recovery ]]; then
+  node tests/EndToEnd/workspace-recovery-flow.mjs
 elif [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then
   node tests/EndToEnd/private-media-flow.mjs
   if [[ ${FSUSBLOG_TEST_RESUMABLE_MEDIA:-0} == 1 ]]; then

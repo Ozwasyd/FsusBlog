@@ -4,6 +4,10 @@
 
 预览只会替换同组内已有且干净的预览。编辑和显式固定都会固定标签。切换回来会重新检查授权和持久化修订，有新修订时保护本机内容并显示冲突。关闭含未确认内容的标签需要确认。待处理请求禁止直接关闭。最近关闭仅保存最多 12 条同账户的文章 ID 和固定模式，重新打开要加载当前授权的草稿。
 
+从文章管理的「工作区」或编辑页的「Open saved workspace」进入默认工作区。服务器按当前数据库站点和作者保存一个布局，覆盖最多 100 个已保存文章的顺序、固定或预览状态以及活动文章。写入对布局修订做 CAS，另一浏览器已提交新布局时保留本页的编辑与临时布局，并提示重载。重新进入时逐篇验证当前草稿后才创建标签，删除或不可见的文章会跳过。浏览器新标签仍独立工作。未保存的新文章和已有文章的未确认文字由原本的草稿恢复处理。旧部署可停机运行 `authoring-workspace` 添加布局表。[#1856](https://github.com/Ozwasyd/FsusBlog/issues/1856)
+
+当前持久化覆盖单组标签布局。分栏比例、Rail 和 Inspector 状态、旧布局偏好迁移与 FsusUI 编辑器内部状态留待后续切片。刷新或重开恢复最近一次已获服务器确认的布局。
+
 桌面按活动标签位置投影最多 24 个标签，溢出每页最多 12 个，375px 下使用当前文章切换器。键盘以 Arrow、Home、End 移动焦点，以 Enter 或 Space 激活。Delete 和中键请求关闭。取消关闭后焦点返回原控件。路由最多挂载一个 FsusUI Markdown 编辑面，当前 registry 最多容纳 100 个会话。
 
 固定 v1 提交的标签栏位于编辑区之前，窄屏只显示当前标题和切换入口，标签不展示文章详情。v2 保留这些关系和交互。v1 另有 Rail、Quick Switcher 和跨组布局合同。v2 已提供共享打开命令和按 ID 入口，完整 Rail、跨组布局及全量 Quick Switcher 交互仍待接入。 [v1 标签组件](https://github.com/Ozwasyd/FsusBlog/blob/2605b438eed8f16d12ddddf033d08a6fa18fcd12/src/frontend/src/components/admin/article/ArticleWorkspaceTabStrip.vue) · [#2295](https://github.com/Ozwasyd/FsusBlog/issues/2295) · [#2296](https://github.com/Ozwasyd/FsusBlog/issues/2296)

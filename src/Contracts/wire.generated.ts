@@ -98,6 +98,8 @@ export const FrameType = {
   PropertyArticlePage: 32883,
   PropertyArticleQueryGroup: 32912,
   DraftRecoveryScope: 32787,
+  AuthoringWorkspaceSnapshot: 32910,
+  AuthoringWorkspaceCommand: 32911,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
   MfaSetupStart: 48,
@@ -139,6 +141,8 @@ export const WireLimits = {
   AdminTaxonomyPageSize: 24,
   TaxonomyDescriptionBytes: 2000,
   TaxonomyTagCount: 32,
+  AuthoringWorkspaceTabs: 100,
+  MaxAuthoringWorkspaceFrameBytes: 432,
   TaxonomyAssignmentFrameBytes: 180,
   TicketBytes: 128,
   TitleBytes: 256,
@@ -517,6 +521,7 @@ export const WireRoutes = {
   PropertyFilterability: "/api/v2/authoring/properties/filter/definition.aeds",
   PropertyArticleQuery: "/api/v2/authoring/properties/filter/articles.aeds",
   DraftRecoveryScope: "/api/v2/authoring/recovery-scope.aeds",
+  AuthoringWorkspace: "/api/v2/authoring/workspace.aeds",
   MfaSetupStart: "/api/binary/auth/mfa/setup/start",
   MfaSetupVerify: "/api/binary/auth/mfa/setup/verify",
   MfaProfile: "/api/binary/auth/mfa/profile",
@@ -830,6 +835,68 @@ export function decodeAdminSitePages(payload: Uint8Array): AdminSitePages {
   const reader = new PodReader(payload);
   const value: AdminSitePages = {
     configuredMask: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AuthoringWorkspaceSnapshot {
+  schemaVersion: number;
+  revision: bigint;
+  updatedAtUnixMs: bigint;
+  activeArticleId: number;
+  tabs: readonly number[];
+  skipped: number;
+}
+
+export function encodeAuthoringWorkspaceSnapshot(value: AuthoringWorkspaceSnapshot): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.schemaVersion);
+  writer.i64(value.revision);
+  writer.i64(value.updatedAtUnixMs);
+  writer.i32(value.activeArticleId);
+  writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
+  writer.i32(value.skipped);
+  return writer.finish();
+}
+
+export function decodeAuthoringWorkspaceSnapshot(payload: Uint8Array): AuthoringWorkspaceSnapshot {
+  const reader = new PodReader(payload);
+  const value: AuthoringWorkspaceSnapshot = {
+    schemaVersion: reader.i32(),
+    revision: reader.i64(),
+    updatedAtUnixMs: reader.i64(),
+    activeArticleId: reader.i32(),
+    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+    skipped: reader.i32(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AuthoringWorkspaceCommand {
+  schemaVersion: number;
+  expectedRevision: bigint;
+  activeArticleId: number;
+  tabs: readonly number[];
+}
+
+export function encodeAuthoringWorkspaceCommand(value: AuthoringWorkspaceCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.schemaVersion);
+  writer.i64(value.expectedRevision);
+  writer.i32(value.activeArticleId);
+  writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
+  return writer.finish();
+}
+
+export function decodeAuthoringWorkspaceCommand(payload: Uint8Array): AuthoringWorkspaceCommand {
+  const reader = new PodReader(payload);
+  const value: AuthoringWorkspaceCommand = {
+    schemaVersion: reader.i32(),
+    expectedRevision: reader.i64(),
+    activeArticleId: reader.i32(),
+    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
   };
   reader.finish();
   return value;

@@ -109,7 +109,7 @@ internal static partial class CurrentSchema
         bool requireMediaUpload = true, bool legacyCanvas = false, int adminIdentityVersion = AdminIdentityVersion,
         bool requirePublicationRights = true,
         bool requireCanvasHistory = true, bool? requireArticleMedia = null, bool? requireSubscription = null,
-        bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null)
+        bool? requireRecoveryKey = null, bool? requireAdminInboxReply = null, bool? requireAuthoringWorkspace = null)
     {
         if (requireArticleMedia is null)
         {
@@ -130,6 +130,12 @@ internal static partial class CurrentSchema
         var hasAdminInboxReply = await adminInboxRelation.ExecuteScalarAsync(cancellationToken) is true;
         if (requireAdminInboxReply.HasValue && requireAdminInboxReply.Value != hasAdminInboxReply)
             throw new InvalidOperationException("The administrator inbox reply schema presence does not match the requested operation.");
+        if (requireAuthoringWorkspace is null)
+        {
+            await using var relation = new NpgsqlCommand("SELECT pg_catalog.to_regclass($1) IS NOT NULL", connection, transaction);
+            relation.Parameters.AddWithValue(AuthoringWorkspaceRelation);
+            requireAuthoringWorkspace = await relation.ExecuteScalarAsync(cancellationToken) is true;
+        }
         var requireModerationVersion = requireAdminIdentity && adminIdentityVersion >= AdminModerationVersion;
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
@@ -141,6 +147,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleMedia.Value ? ArticleMediaColumns : [])
             .Concat(requireSubscription.Value ? SiteSubscriptionColumns : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
+            .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceColumns : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])
@@ -155,6 +162,7 @@ internal static partial class CurrentSchema
             .Concat(requireArticleMedia.Value ? ArticleMediaConstraints : [])
             .Concat(requireSubscription.Value ? SiteSubscriptionConstraints : [])
             .Concat(hasRecoveryKey ? SiteRecoveryKeyConstraints : [])
+            .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceConstraints : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyConstraints : [])
             .Concat(requirePublicationRights ? PublicationRightsConstraints : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryConstraints : [])

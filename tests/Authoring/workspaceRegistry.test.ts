@@ -35,6 +35,36 @@ async function activate(registry: WorkspaceRegistry<Draft>, id: number, group?: 
   return result.tab
 }
 
+test('saved layout restores only ready drafts, retaining order, preview and selected article', async () => {
+  const held = deferred<DraftLoad<Draft>>()
+  const registry = setup({ load: async id => id === 2 ? held.promise : id === 3
+    ? { kind: 'blocked', reason: 'forbidden' } : { kind: 'ready', draft: draft(id) } })
+  const pending = registry.restoreLayout({ tabs: [1, 3, -2], activeArticleId: 2 }, new AbortController().signal)
+  assert.deepEqual(registry.tabs, [])
+  held.resolve({ kind: 'ready', draft: draft(2) })
+  assert.equal(await pending, 1)
+  assert.deepEqual(registry.savedLayout, { tabs: [1, -2], activeArticleId: 2 })
+  assert.equal(registry.activeTab?.mode, 'preview')
+  assert.equal(registry.activeDraft?.id, 2)
+})
+
+test('layout hydration loses authority on identity changes even if its draft request completes', async () => {
+  const held = deferred<DraftLoad<Draft>>()
+  const registry = setup({ load: () => held.promise })
+  const pending = registry.restoreLayout({ tabs: [1], activeArticleId: 1 }, new AbortController().signal)
+  registry.setIdentity({ ...author, principalId: 'other-author' })
+  held.resolve({ kind: 'ready', draft: draft(1) })
+  assert.equal(await pending, undefined)
+  assert.deepEqual(registry.savedLayout, { tabs: [], activeArticleId: 0 })
+})
+
+test('a transient failed read does not turn a recoverable layout into an authoritative partial one', async () => {
+  const registry = setup({ load: async id => id === 2 ? { kind: 'blocked', reason: 'unavailable' }
+    : { kind: 'ready', draft: draft(id) } })
+  assert.equal(await registry.restoreLayout({ tabs: [1, -2], activeArticleId: 1 }, new AbortController().signal), undefined)
+  assert.deepEqual(registry.tabs, [])
+})
+
 test('duplicate entrypoints await one ready receipt and activate the original group', async () => {
   const pending = deferred<DraftLoad<Draft>>()
   let loads = 0

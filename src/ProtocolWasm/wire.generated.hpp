@@ -34,6 +34,8 @@ inline constexpr uint32_t TaxonomyNameBytes = 512;
 inline constexpr uint32_t AdminTaxonomyPageSize = 24;
 inline constexpr uint32_t TaxonomyDescriptionBytes = 2000;
 inline constexpr uint32_t TaxonomyTagCount = 32;
+inline constexpr uint32_t AuthoringWorkspaceTabs = 100;
+inline constexpr uint32_t MaxAuthoringWorkspaceFrameBytes = 432;
 inline constexpr uint32_t TaxonomyAssignmentFrameBytes = 180;
 inline constexpr uint32_t TicketBytes = 128;
 inline constexpr uint32_t TitleBytes = 256;
@@ -381,6 +383,8 @@ enum class FrameType : uint16_t {
     PropertyArticlePage = 32883,
     PropertyArticleQueryGroup = 32912,
     DraftRecoveryScope = 32787,
+    AuthoringWorkspaceSnapshot = 32910,
+    AuthoringWorkspaceCommand = 32911,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -490,6 +494,8 @@ constexpr bool known(FrameType type) {
         case FrameType::PropertyArticlePage:
         case FrameType::PropertyArticleQueryGroup:
         case FrameType::DraftRecoveryScope:
+        case FrameType::AuthoringWorkspaceSnapshot:
+        case FrameType::AuthoringWorkspaceCommand:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
         case FrameType::MfaSetupStart:

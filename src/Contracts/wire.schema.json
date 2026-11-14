@@ -110,6 +110,8 @@
     "PropertyArticlePage": 32883,
     "PropertyArticleQueryGroup": 32912,
     "DraftRecoveryScope": 32787,
+    "AuthoringWorkspaceSnapshot": 32910,
+    "AuthoringWorkspaceCommand": 32911,
     "DraftTaxonomy": 32790,
     "TaxonomyAssignment": 32791,
     "MfaSetupStart": 48,
@@ -248,6 +250,7 @@
     "PropertyFilterability": "/api/v2/authoring/properties/filter/definition.aeds",
     "PropertyArticleQuery": "/api/v2/authoring/properties/filter/articles.aeds",
     "DraftRecoveryScope": "/api/v2/authoring/recovery-scope.aeds",
+    "AuthoringWorkspace": "/api/v2/authoring/workspace.aeds",
     "MfaSetupStart": "/api/binary/auth/mfa/setup/start",
     "MfaSetupVerify": "/api/binary/auth/mfa/setup/verify",
     "MfaProfile": "/api/binary/auth/mfa/profile",
@@ -291,6 +294,8 @@
     "AdminTaxonomyPageSize": 24,
     "TaxonomyDescriptionBytes": 2000,
     "TaxonomyTagCount": 32,
+    "AuthoringWorkspaceTabs": 100,
+    "MaxAuthoringWorkspaceFrameBytes": 432,
     "TaxonomyAssignmentFrameBytes": 180,
     "TicketBytes": 128,
     "TitleBytes": 256,
@@ -583,6 +588,14 @@
     "AdminSitePages": {
       "frame": "AdminSitePages",
       "fields": [["ConfiguredMask", "i32"]]
+    },
+    "AuthoringWorkspaceSnapshot": {
+      "frame": "AuthoringWorkspaceSnapshot",
+      "fields": [["SchemaVersion", "i32"], ["Revision", "i64"], ["UpdatedAtUnixMs", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["Skipped", "i32"]]
+    },
+    "AuthoringWorkspaceCommand": {
+      "frame": "AuthoringWorkspaceCommand",
+      "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"]]
     },
     "DraftRecoveryScope": {
       "frame": "DraftRecoveryScope",

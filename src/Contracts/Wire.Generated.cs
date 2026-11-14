@@ -99,6 +99,8 @@ public enum FrameType : ushort
     PropertyArticlePage = 32883,
     PropertyArticleQueryGroup = 32912,
     DraftRecoveryScope = 32787,
+    AuthoringWorkspaceSnapshot = 32910,
+    AuthoringWorkspaceCommand = 32911,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
     MfaSetupStart = 48,
@@ -142,6 +144,8 @@ public static class WireLimits
     public const int AdminTaxonomyPageSize = 24;
     public const int TaxonomyDescriptionBytes = 2000;
     public const int TaxonomyTagCount = 32;
+    public const int AuthoringWorkspaceTabs = 100;
+    public const int MaxAuthoringWorkspaceFrameBytes = 432;
     public const int TaxonomyAssignmentFrameBytes = 180;
     public const int TicketBytes = 128;
     public const int TitleBytes = 256;
@@ -522,6 +526,7 @@ public static class WireRoutes
     public const string PropertyFilterability = "/api/v2/authoring/properties/filter/definition.aeds";
     public const string PropertyArticleQuery = "/api/v2/authoring/properties/filter/articles.aeds";
     public const string DraftRecoveryScope = "/api/v2/authoring/recovery-scope.aeds";
+    public const string AuthoringWorkspace = "/api/v2/authoring/workspace.aeds";
     public const string MfaSetupStart = "/api/binary/auth/mfa/setup/start";
     public const string MfaSetupVerify = "/api/binary/auth/mfa/setup/verify";
     public const string MfaProfile = "/api/binary/auth/mfa/profile";
@@ -563,6 +568,8 @@ public sealed record AdminModerationIntent(int ArticleId, long CommentId, int Ex
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
 public sealed record AdminSitePages(int ConfiguredMask);
+public sealed record AuthoringWorkspaceSnapshot(int SchemaVersion, long Revision, long UpdatedAtUnixMs, int ActiveArticleId, IReadOnlyList<int> Tabs, int Skipped);
+public sealed record AuthoringWorkspaceCommand(int SchemaVersion, long ExpectedRevision, int ActiveArticleId, IReadOnlyList<int> Tabs);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
 public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
@@ -802,6 +809,48 @@ public static partial class Wire
     {
         var reader = new Reader(Aeds.Decode(frame, FrameType.AdminSitePages));
         var value = new AdminSitePages(reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAuthoringWorkspaceSnapshot(AuthoringWorkspaceSnapshot value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.SchemaVersion);
+        writer.I64(value.Revision);
+        writer.I64(value.UpdatedAtUnixMs);
+        writer.I32(value.ActiveArticleId);
+        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
+        writer.I32(value.Skipped);
+        return Aeds.Encode(FrameType.AuthoringWorkspaceSnapshot, writer.Written);
+    }
+
+    public static AuthoringWorkspaceSnapshot DecodeAuthoringWorkspaceSnapshot(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceSnapshot));
+        var value = new AuthoringWorkspaceSnapshot(reader.I32(), reader.I64(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs), reader.I32());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
+    public static byte[] EncodeAuthoringWorkspaceCommand(AuthoringWorkspaceCommand value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.SchemaVersion);
+        writer.I64(value.ExpectedRevision);
+        writer.I32(value.ActiveArticleId);
+        writer.I32s(value.Tabs, WireLimits.AuthoringWorkspaceTabs);
+        return Aeds.Encode(FrameType.AuthoringWorkspaceCommand, writer.Written);
+    }
+
+    public static AuthoringWorkspaceCommand DecodeAuthoringWorkspaceCommand(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AuthoringWorkspaceCommand));
+        var value = new AuthoringWorkspaceCommand(reader.I32(), reader.I64(), reader.I32(), reader.I32s(WireLimits.AuthoringWorkspaceTabs));
         reader.Finish();
         Validate(value);
         return value;

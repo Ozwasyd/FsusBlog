@@ -54,6 +54,8 @@ export type WorkspaceTab = Readonly<EditorSessionRef & {
 
 export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: string; mode: TabMode }>
 
+export type SavedWorkspaceLayout = Readonly<{ tabs: readonly number[]; activeArticleId: number }>
+
 export type Activation =
   | Readonly<{ kind: 'ready'; tab: WorkspaceTab; workspaceRevision: number }>
   | Blocked
@@ -165,6 +167,15 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     return this.#currentIdentity() ? Object.freeze([...this.#recent]) : Object.freeze([])
   }
 
+  get savedLayout(): SavedWorkspaceLayout {
+    if (!this.#currentIdentity()) return { tabs: [], activeArticleId: 0 }
+    return {
+      tabs: [...this.#sessions.values()].filter(session => session.id > 0 && session.phase === 'ready')
+        .map(session => session.mode === 'pinned' ? session.id : -session.id),
+      activeArticleId: this.#active?.id ?? 0,
+    }
+  }
+
   editSequence(tab: EditorSessionRef): number | undefined {
     return this.#find(tab)?.edit
   }
@@ -181,6 +192,39 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     this.#expired = false
     this.#clear()
     this.#changed()
+  }
+
+  async restoreLayout(layout: SavedWorkspaceLayout, signal: AbortSignal): Promise<number | undefined> {
+    if (signal.aborted || !this.#currentIdentity() || this.#sessions.size !== 0 || layout.tabs.length > this.#limit)
+      return undefined
+    const ids = new Set(layout.tabs.map(Math.abs))
+    if (ids.size !== layout.tabs.length || layout.tabs.some(id => !Number.isInteger(id) || id === 0 || Math.abs(id) > 2_147_483_647) ||
+        layout.tabs.filter(id => id < 0).length > 1 || (layout.activeArticleId !== 0 && !ids.has(layout.activeArticleId))) return undefined
+    const intent = ++this.#activation
+    const restored: { id: number; mode: TabMode; draft: Draft }[] = []
+    // Load every retained position through the normal draft authority, publishing no intermediate active tab.
+    // Batches stay below the shared command concurrency limit and retain the server's order.
+    for (let index = 0; index < layout.tabs.length; index += 8) {
+      const batch = await Promise.all(layout.tabs.slice(index, index + 8).map(async reference => {
+        const id = Math.abs(reference)
+        const loaded = await untilAborted(signal, () => this.#transport.load(id, signal)).catch(() => undefined)
+        if (loaded?.kind === 'blocked' && (loaded.reason === 'missing' || loaded.reason === 'deleted' || loaded.reason === 'forbidden')) return null
+        if (loaded?.kind !== 'ready' || loaded.draft.id !== id || loaded.draft.revision <= 0n) return undefined
+        return { id, mode: reference > 0 ? 'pinned' as const : 'preview' as const, draft: loaded.draft }
+      }))
+      if (signal.aborted || intent !== this.#activation || !this.#currentIdentity() || batch.includes(undefined)) return undefined
+      for (const item of batch) {
+        if (item) restored.push(item)
+      }
+    }
+    if (signal.aborted || intent !== this.#activation || !this.#currentIdentity()) return undefined
+    for (const item of restored) {
+      this.#sessions.set(item.id, { ...item, draft: structuredClone(item.draft), sessionId: ++this.#sequence, group: 'main',
+        controller: new AbortController(), phase: 'ready', dirty: false, conflict: false, recovery: false, pending: false, edit: 0 })
+    }
+    this.#active = this.#sessions.get(layout.activeArticleId)
+    if (restored.length) this.#changed()
+    return layout.tabs.length - restored.length
   }
 
   async openOrActivate(

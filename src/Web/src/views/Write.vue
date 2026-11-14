@@ -19,6 +19,7 @@ import ArticleRights from '../authoring/ArticleRights.vue'
 import ArticleMedia from '../authoring/ArticleMedia.vue'
 import MarkdownExportControl from '../authoring/MarkdownExportControl.vue'
 import { editorRecovery } from '../authoring/editorRecovery'
+import { workspacePersistence } from '../authoring/workspacePersistence'
 import type { RecoveryCandidate } from '../authoring/draftJournal'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 import {
@@ -64,6 +65,7 @@ const recoveryWorking = ref(false)
 const recoveryBlocked = computed(() => recoveryWorking.value || recoveryChecking.value || recoveryItems.value.length > 0)
 const failure = ref('')
 const authorizationReady = ref(false)
+const layoutRestoring = ref(false)
 const loading = ref(false)
 const reload = ref(0)
 const lifetime = new AbortController()
@@ -75,7 +77,7 @@ const dirty = computed(() => articleDirty.value || taxonomyDirty.value)
 const hasConflict = computed(() => taxonomyStale.value || tab.value?.risk === 'conflict')
 const articlePending = computed(() => tab.value?.risk === 'saving')
 const pending = computed(() => articlePending.value || propertyPending.value)
-const canSwitch = computed(() => !propertyPending.value && !taxonomyDirty.value && !recoveryWorking.value &&
+const canSwitch = computed(() => !layoutRestoring.value && !propertyPending.value && !taxonomyDirty.value && !recoveryWorking.value &&
   !(articlePending.value && tab.value?.articleId === 0))
 const retry = computed(() => tab.value?.retry)
 const encoder = new TextEncoder()
@@ -174,6 +176,12 @@ const registry = new WorkspaceRegistry<Draft>({
   save: send('save'),
   confirmed: recovery.confirmed,
 })
+const persistence = workspacePersistence(() => registry.savedLayout)
+const layoutNotice = persistence.notice
+const workspaceState = { articleWorkspace: true }
+const persistentWorkspace = ref(route.name === 'article-workspace' || history.state?.articleWorkspace === true)
+let layoutStarted = false
+let persistedSession = currentSession.value?.siteSessionId
 const unsubscribe = registry.subscribe(() => {
   const next = registry.activeDraft
   if (next?.id !== original.value?.id || next?.revision !== original.value?.revision) {
@@ -185,12 +193,25 @@ const unsubscribe = registry.subscribe(() => {
   workspaceTabs.value = registry.tabs
   recentlyClosed.value = registry.recentlyClosed
   recovery.setCurrent(tab.value, next, registry.activeEditSequence)
+  persistence.changed()
 })
 watch([currentSession, identityEpoch], ([session, epoch]) => {
+  const handle = session?.siteSessionId
+  if (handle !== persistedSession || !session?.canAuthor) {
+    persistence.reset()
+    layoutStarted = false
+    layoutRestoring.value = false
+    persistedSession = handle
+  }
   registry.setIdentity(session?.canAuthor
     ? { site: location.origin, principalId: String(epoch), generation: session.generation, expiresAt: session.expiresAt }
     : null)
 }, { immediate: true, flush: 'sync' })
+watch(identityEpoch, () => {
+  persistence.reset()
+  layoutStarted = false
+  layoutRestoring.value = false
+}, { flush: 'sync' })
 watch([identityEpoch, () => currentSession.value?.canAuthor], ([epoch, author]) => {
   if (!author) recovery.close()
   else void recovery.attach(epoch, () => identityEpoch.value === epoch && currentSession.value?.canAuthor === true)
@@ -203,13 +224,18 @@ onMounted(() => {
     if (!lifetime.signal.aborted) authorizationReady.value = true
   })
   window.addEventListener('beforeunload', onUnload)
+  window.addEventListener('pagehide', flushWorkspace)
+  document.addEventListener('visibilitychange', flushHiddenWorkspace)
 })
 onUnmounted(() => {
   lifetime.abort()
   recovery.close()
+  persistence.reset()
   registry.setIdentity(null)
   unsubscribe()
   window.removeEventListener('beforeunload', onUnload)
+  window.removeEventListener('pagehide', flushWorkspace)
+  document.removeEventListener('visibilitychange', flushHiddenWorkspace)
 })
 watch(identityEpoch, () => {
   ++navigation
@@ -217,13 +243,26 @@ watch(identityEpoch, () => {
   navigationNotice.value = ''
 })
 
-watch([id, identityEpoch, authorizationReady, reload], async ([articleId, identity], _, cleanup) => {
+watch([id, identityEpoch, authorizationReady, reload, persistentWorkspace], async ([articleId, identity], _, cleanup) => {
   let valid = true
   cleanup(() => { valid = false })
   if (!authorizationReady.value || !currentSession.value?.canAuthor) {
     opening.value = false
     loading.value = false
     return
+  }
+  const handle = currentSession.value.siteSessionId
+  if (persistentWorkspace.value && !layoutStarted && handle) {
+    layoutStarted = true
+    layoutRestoring.value = true
+    loading.value = true
+    await persistence.restore(handle, (layout, signal) => registry.restoreLayout(layout, signal))
+    if (identity === identityEpoch.value) layoutRestoring.value = false
+    if (!valid || identity !== identityEpoch.value) return
+    if (articleId === undefined && tab.value) {
+      await router.replace({ ...address(tab.value.articleId), state: workspaceState })
+      if (!valid || identity !== identityEpoch.value) return
+    }
   }
   if (articleId === undefined) {
     registry.idle()
@@ -289,12 +328,25 @@ function address(articleId: number) {
   return articleId === 0 ? { name: 'write' } : { name: 'edit', params: { id: articleId } }
 }
 
+async function openSavedWorkspace() {
+  const identity = identityEpoch.value
+  if (!await allowLeave(true) || lifetime.signal.aborted || identity !== identityEpoch.value) return
+  if (await router.replace({ name: 'article-workspace', state: workspaceState })) return
+  if (lifetime.signal.aborted || identity !== identityEpoch.value) return
+  registry.setIdentity(null)
+  const session = currentSession.value
+  if (!session?.canAuthor) return
+  registry.setIdentity({ site: location.origin, principalId: String(identity),
+    generation: session.generation, expiresAt: session.expiresAt })
+  persistentWorkspace.value = true
+}
+
 async function navigateTo(articleId: number, restore?: RecentlyClosed) {
   if (!canSwitch.value) return
   const destination = address(articleId)
   const intent = restore && { group: restore.group, mode: restore.mode, path: router.resolve(destination).path }
   recoveryGroup = intent
-  try { await router.push(destination) }
+  try { await router.push({ ...destination, state: persistentWorkspace.value ? workspaceState : undefined }) }
   finally { if (recoveryGroup === intent) recoveryGroup = undefined }
 }
 
@@ -355,8 +407,9 @@ async function closeTab(target: WorkspaceTab) {
   }
   if (target.active) {
     const next = workspaceTabs.value.find(candidate => candidate.risk !== 'blocked' && candidate.risk !== 'saving')
-    const rejected = await router.replace(next ? address(next.articleId) : { name: 'article-workspace' })
-    if (rejected && !registry.activeTab) await router.replace({ name: 'article-workspace' })
+    const state = persistentWorkspace.value ? workspaceState : undefined
+    const rejected = await router.replace({ ...(next ? address(next.articleId) : { name: 'article-workspace' }), state })
+    if (rejected && !registry.activeTab) await router.replace({ name: 'article-workspace', state })
   }
   await nextTick()
   if (registry.activeTab) tabsControl.value?.focusActive()
@@ -365,6 +418,14 @@ async function closeTab(target: WorkspaceTab) {
 
 function onUnload(event: BeforeUnloadEvent) {
   if (dirty.value || pending.value || retry.value || workspaceTabs.value.some(item => item.risk !== 'clean' && item.risk !== 'blocked')) event.preventDefault()
+}
+
+function flushWorkspace() {
+  void persistence.flush()
+}
+
+function flushHiddenWorkspace() {
+  if (document.visibilityState === 'hidden') flushWorkspace()
 }
 
 async function allowLeave(allTabs = false) {
@@ -394,11 +455,13 @@ async function allowLeave(allTabs = false) {
     return false
   }
 }
-onBeforeRouteLeave(() => {
+onBeforeRouteLeave(async () => {
   ++navigation
   registry.cancelOpening()
   opening.value = false
-  return allowLeave(true)
+  if (!await allowLeave(true)) return false
+  await persistence.flush()
+  return true
 })
 
 function edit(field: 'title' | 'body', value: string) {
@@ -481,7 +544,7 @@ async function submit(action: Action, selection?: TaxonomySelection, restore?: R
       'save-rights': 'Publication rights saved.',
       'save-attachment': 'Private attachments saved.',
     }[action]
-    if (!document.id) await router.replace({ name: 'edit', params: { id: result.articleId } })
+    if (!document.id) await router.replace({ ...address(result.articleId), state: persistentWorkspace.value ? workspaceState : undefined })
   } else if (result.kind === 'conflict') {
     failure.value = 'The server has a newer revision. Copy your changes before loading it.'
   } else if (result.kind === 'blocked') {
@@ -530,7 +593,8 @@ async function reloadDraft() {
           :disabled="!canSwitch" />
         <ElButton native-type="submit" :disabled="!canSwitch">Open article</ElButton>
         <RouterLink v-if="openAddress" :to="openAddress" target="_blank" rel="noopener">Open in browser tab</RouterLink>
-        <RouterLink :to="{ name: 'write' }">New draft</RouterLink>
+        <RouterLink :to="{ name: 'write', state: persistentWorkspace ? workspaceState : undefined }">New draft</RouterLink>
+        <ElButton v-if="!persistentWorkspace && id !== undefined" text native-type="button" :disabled="!canSwitch" @click="openSavedWorkspace">Open saved workspace</ElButton>
       </form>
       <details v-if="recentlyClosed.length">
         <summary>Recently closed</summary>
@@ -544,6 +608,7 @@ async function reloadDraft() {
       </details>
       <p v-if="opening" role="status">Opening article…</p>
       <p v-if="navigationNotice" role="alert">{{ navigationNotice }}</p>
+      <p v-if="layoutNotice" role="status">{{ layoutNotice }}</p>
     </section>
     <p v-if="!authorizationReady || loading" role="status">Opening the editor…</p>
     <template v-else-if="!currentSession?.canAuthor">

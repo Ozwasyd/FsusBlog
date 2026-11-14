@@ -44,12 +44,13 @@ export async function request<T>(
   body?: Uint8Array<ArrayBuffer> | Blob,
   headersInit?: HeadersInit,
   credentials: RequestCredentials = 'same-origin',
+  keepalive = false,
 ): Promise<T> {
   const contentType = 'application/octet-stream';
   const headers = new Headers(headersInit);
   headers.set('Accept', contentType);
   if (body && !headers.has('Content-Type')) headers.set('Content-Type', contentType);
-  const options: RequestInit = { method, credentials, redirect: 'error', headers };
+  const options: RequestInit = { method, credentials, redirect: 'error', headers, keepalive };
   if (body) options.body = body;
   if (signal) options.signal = signal;
 
