@@ -23,6 +23,7 @@ inline constexpr uint32_t PowProofHeaderChars = 416;
 inline constexpr uint32_t PowChallengeDifficulty = 12;
 inline constexpr uint32_t PowChallengeSeconds = 120;
 inline constexpr uint32_t PowWorkerMilliseconds = 12000;
+inline constexpr uint32_t PrivateMediaBytes = 20971520;
 inline constexpr uint32_t PublicCommentFrameBytes = 4533;
 inline constexpr uint32_t PublicCommentHandleBytes = 384;
 inline constexpr uint32_t PublicCommentBodyBytes = 4096;
@@ -77,6 +78,7 @@ inline constexpr uint32_t PowChallengeSaltBytes = 64;
 inline constexpr uint32_t PowChallengeTimestampOffset = 68;
 inline constexpr uint32_t PowChallengeSignatureOffset = 76;
 inline constexpr uint32_t PowProofHeaderBytes = 17;
+inline constexpr uint32_t PrivateMediaVersion = 1;
 inline constexpr uint32_t ErrorBytes = 584;
 inline constexpr uint32_t ErrorStatusOffset = 4;
 inline constexpr uint32_t ErrorMessageOffset = 8;
@@ -191,6 +193,7 @@ enum class FrameType : uint16_t {
     PublicCommentEligibility = 32794,
     PublicCommentSubmissionResult = 32793,
     PublicCommentSubmission = 32792,
+    PrivateMediaItems = 32795,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -253,6 +256,7 @@ constexpr bool known(FrameType type) {
         case FrameType::PublicCommentEligibility:
         case FrameType::PublicCommentSubmissionResult:
         case FrameType::PublicCommentSubmission:
+        case FrameType::PrivateMediaItems:
         case FrameType::CommentTreeRootCursor:
         case FrameType::CommentChildCursor:
         case FrameType::CommentPermalinkContext:

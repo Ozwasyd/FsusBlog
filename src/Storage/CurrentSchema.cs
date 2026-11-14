@@ -97,9 +97,10 @@ internal static partial class CurrentSchema
         CancellationToken cancellationToken, bool requireRecoveryScope = true)
     {
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(CanvasColumns).Concat(PropertyColumns)
-            .Concat(PasskeyColumns).Concat(MfaColumns).Concat(CommentColumns).Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
+            .Concat(PasskeyColumns).Concat(MfaColumns).Concat(CommentColumns).Concat(MediaColumns)
+            .Concat(requireRecoveryScope ? RecoveryScopeColumns : []).ToArray();
         var expectedConstraints = Constraints.Concat(CommunicationConstraints).Concat(TaxonomyConstraints).Concat(CanvasConstraints)
-            .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(CommentConstraints)
+            .Concat(PropertyConstraints).Concat(PasskeyConstraints).Concat(MfaConstraints).Concat(CommentConstraints).Concat(MediaConstraints)
             .Concat(requireRecoveryScope ? RecoveryScopeConstraints : []).ToArray();
         const string sql = """
             WITH owned AS (

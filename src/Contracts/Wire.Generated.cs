@@ -11,6 +11,7 @@ public enum FrameType : ushort
     PublicCommentEligibility = 32794,
     PublicCommentSubmissionResult = 32793,
     PublicCommentSubmission = 32792,
+    PrivateMediaItems = 32795,
     CommentTreeRootCursor = 208,
     CommentChildCursor = 209,
     CommentPermalinkContext = 210,
@@ -84,6 +85,7 @@ public static class WireLimits
     public const int PowChallengeDifficulty = 12;
     public const int PowChallengeSeconds = 120;
     public const int PowWorkerMilliseconds = 12000;
+    public const int PrivateMediaBytes = 20971520;
     public const int PublicCommentFrameBytes = 4533;
     public const int PublicCommentHandleBytes = 384;
     public const int PublicCommentBodyBytes = 4096;
@@ -139,6 +141,7 @@ public static class WireLayouts
     public const int PowChallengeTimestampOffset = 68;
     public const int PowChallengeSignatureOffset = 76;
     public const int PowProofHeaderBytes = 17;
+    public const int PrivateMediaVersion = 1;
     public const int ErrorBytes = 584;
     public const int ErrorStatusOffset = 4;
     public const int ErrorMessageOffset = 8;
@@ -274,6 +277,10 @@ public static class WireRoutes
     public const string InboxReply = "/api/binary/messages/conversations/{id:long}/reply";
     public const string InboxRead = "/api/binary/messages/conversations/{id:long}/read";
     public const string InboxReplay = "/api/v2/notifications/private.aeds";
+    public const string PrivateMediaList = "/api/v2/media/list.aeds";
+    public const string PrivateMediaUpload = "/api/v2/media/upload.aeds";
+    public const string PrivateMediaRead = "/api/v2/media/raw/{id}";
+    public const string PrivateMediaRemove = "/api/v2/media/{id}/remove.aeds";
     public const string SignIn = "/api/v2/identity/sign-in.aeds";
     public const string Session = "/api/v2/identity/session.aeds";
     public const string SignOut = "/api/v2/identity/sign-out.aeds";

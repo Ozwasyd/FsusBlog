@@ -27,6 +27,7 @@ const router = createRouter({
     { path: '/login', name: 'login', component: () => import('./views/Login.vue') },
     { path: '/user/identity/mfa', name: 'security', component: () => import('./views/AccountSecurity.vue') },
     { path: '/user/messagebox', name: 'messages', component: () => import('./views/Messages.vue') },
+    { path: '/user/manage/assets', name: 'private-media', component: () => import('./views/PrivateMedia.vue') },
     {
       path: '/user/manage/article',
       component: editor,
@@ -40,12 +41,13 @@ const router = createRouter({
   ],
 })
 router.afterEach((to, from) => {
-  document.documentElement.lang = isSitePageSlug(to.name) ? 'zh-CN' : 'en'
+  document.documentElement.lang = isSitePageSlug(to.name) || to.name === 'private-media' ? 'zh-CN' : 'en'
   if (to.name === 'article' && !from.name) return
   const title = isSitePageSlug(to.name) ? sitePages[to.name] : (labels[String(to.name)] ?? 'Article')
   document.title = to.name === 'home' ? "Fsu's Blog" : `${title} · Fsu's Blog`
   document.querySelector('meta[name="robots"]')?.remove()
-  if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'messages' || to.name === 'security' || to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace') {
+  if (isSitePageSlug(to.name) || to.name === 'search' || to.name === 'login' || to.name === 'messages' || to.name === 'security' ||
+      to.name === 'write' || to.name === 'edit' || to.name === 'article-workspace' || to.name === 'private-media') {
     const robots = document.createElement('meta')
     robots.name = 'robots'
     robots.content = 'noindex'
@@ -59,6 +61,7 @@ const labels: Record<string, string> = {
   tag: 'Tag',
   login: 'Log in',
   messages: '我的站内信',
+  'private-media': '资产库',
   security: 'Account security',
   write: 'New article',
   'article-workspace': 'Article workspace',

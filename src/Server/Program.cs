@@ -35,12 +35,21 @@ builder.Services.AddSingleton(new WebPages(template));
 builder.Services.AddSingleton<Store>();
 builder.Services.AddSingleton<Publications>();
 builder.Services.AddSingleton<FsusBlog.V2.Server.Comments.CommentReadStore>();
+if (builder.Configuration[FsusBlog.V2.Server.Content.MediaEndpoints.StorageSetting] is { Length: > 0 } mediaRoot)
+{
+    builder.Services.AddSingleton(_ => new FsusBlog.V2.Server.Content.MediaFiles(mediaRoot, dist));
+    builder.Services.AddSingleton<FsusBlog.V2.Server.Content.MediaStore>();
+}
 builder.Services.AddHostedService<OutboxWorker>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = 429;
     options.OnRejected = async (context, ct) =>
-        await Error(context.HttpContext, 429, "Rate limit reached.").ExecuteAsync(context.HttpContext);
+    {
+        if (context.HttpContext.GetEndpoint()?.Metadata.GetMetadata<FsusBlog.V2.Server.Content.MediaEndpoints.PrivateRead>() is not null)
+            FsusBlog.V2.Server.Content.MediaEndpoints.SetHidden(context.HttpContext.Response);
+        else await Error(context.HttpContext, 429, "Rate limit reached.").ExecuteAsync(context.HttpContext);
+    };
     options.AddPolicy("sign-in", context => RateLimitPartition.GetFixedWindowLimiter(
         context.Connection.RemoteIpAddress, _ => new FixedWindowRateLimiterOptions { PermitLimit = 12, Window = TimeSpan.FromMinutes(1) }));
     options.AddPolicy("mfa", context => RateLimitPartition.GetFixedWindowLimiter(
@@ -48,6 +57,7 @@ builder.Services.AddRateLimiter(options =>
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(1) }));
     options.AddConcurrencyLimiter("command", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
     options.AddConcurrencyLimiter("query", limiter => { limiter.PermitLimit = 32; limiter.QueueLimit = 0; });
+    FsusBlog.V2.Server.Content.MediaEndpoints.AddRateLimits(options);
 });
 
 await using var app = builder.Build();
@@ -108,6 +118,11 @@ app.Use(async (ctx, next) =>
     catch (OperationCanceledException) when (ctx.RequestAborted.IsCancellationRequested) { }
     catch (Exception ex) when (!ctx.Response.HasStarted)
     {
+        if (ctx.GetEndpoint()?.Metadata.GetMetadata<FsusBlog.V2.Server.Content.MediaEndpoints.PrivateRead>() is not null)
+        {
+            FsusBlog.V2.Server.Content.MediaEndpoints.SetHidden(ctx.Response);
+            return;
+        }
         var (status, message) = ex switch
         {
             BusinessException err => (err.Rejection switch
@@ -138,6 +153,8 @@ foreach (var asset in new[] { "assets", "dist" })
 app.UseRateLimiter();
 FsusBlog.V2.Server.Passkeys.PasskeyEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Communication.InboxEndpoints.Map(app, Cookie, ReadFrame);
+if (app.Services.GetService<FsusBlog.V2.Server.Content.MediaStore>() is not null)
+    FsusBlog.V2.Server.Content.MediaEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListCursor, Cookie, ReadFrame);
 FsusBlog.V2.Server.Content.SitePages.Map(app, app.Services.GetRequiredService<WebPages>());
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
@@ -214,7 +231,8 @@ Mutation(WireRoutes.Delete, ArticleAction.Delete);
 var shell = app.Services.GetRequiredService<WebPages>().Page();
 app.MapGet("/", (HttpContext ctx) => Results.Bytes(Snapshot(ctx).Home, Html));
 app.MapGet("/article/{id:int}", (HttpContext ctx, int id) => PublicDetail(ctx, id, asHtml: true));
-foreach (var route in new[] { "/archive", "/search", "/login", "/user/identity/mfa", "/user/messagebox", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
+foreach (var route in new[] { "/archive", "/search", "/login", "/user/identity/mfa", "/user/messagebox",
+    "/user/manage/assets", "/user/manage/article/write", "/user/manage/article/workspace", "/user/manage/article/edit/{id:int}" })
     app.MapGet(route, (HttpContext ctx) => { NoStore(ctx); return Results.Bytes(shell, Html); });
 app.MapGet("/health/ready", (HttpContext ctx) => { NoStore(ctx); return Results.StatusCode(publications.Snapshot is null ? 503 : 204); });
 app.MapFallback("/api/{**rest}", ctx => Error(ctx, 404, "Unknown API route.").ExecuteAsync(ctx));

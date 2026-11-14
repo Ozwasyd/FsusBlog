@@ -31,13 +31,13 @@ export async function request<T>(
   decode: (payload: Uint8Array, headers: Headers) => T,
   signal: AbortSignal | undefined,
   method = 'GET',
-  body?: Uint8Array<ArrayBuffer>,
+  body?: Uint8Array<ArrayBuffer> | Blob,
   headersInit?: HeadersInit,
 ): Promise<T> {
   const contentType = 'application/octet-stream';
   const headers = new Headers(headersInit);
   headers.set('Accept', contentType);
-  if (body) headers.set('Content-Type', contentType);
+  if (body && !headers.has('Content-Type')) headers.set('Content-Type', contentType);
   const options: RequestInit = { method, credentials: 'same-origin', redirect: 'error', headers };
   if (body) options.body = body;
   if (signal) options.signal = signal;

@@ -77,6 +77,13 @@ migrate=(dotnet "$scratch/migrate/FsusBlogV2.Migrate.dll")
 "${migrate[@]}" verify >> "$evidence/schema.log"
 FSUSBLOG_TEST_TICKET=$("${migrate[@]}" operator browser-author)
 export FSUSBLOG_TEST_TICKET
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then
+  FSUSBLOG_TEST_MOBILE_TICKET=$("${migrate[@]}" operator mobile-author)
+  export FSUSBLOG_TEST_MOBILE_TICKET
+  mkdir -m 700 "$scratch/media"
+  FSUSBLOG_PRIVATE_MEDIA_ROOT=$(cd "$scratch/media" && pwd -P)
+  export FSUSBLOG_PRIVATE_MEDIA_ROOT
+fi
 if [[ ${FSUSBLOG_TEST_PUBLIC_FIXTURE:-1} == 1 ]]; then
   "$PG_TOOLS_DIR/psql" -X -v ON_ERROR_STOP=1 -h "$scratch/socket" -p 54930 -U fsusqa -d postgres \
     -f tests/EndToEnd/public-fixture.sql > "$evidence/public-fixture.log"
@@ -95,4 +102,8 @@ for (( attempt=0; attempt<100; attempt++ )); do
 done
 [[ -n "$url" ]] && curl --silent --fail "$url/health/ready" >/dev/null
 export FSUSBLOG_TEST_URL="$url"
-node tests/EndToEnd/blog-flow.mjs
+if [[ ${FSUSBLOG_TEST_FLOW:-blog} == private-media ]]; then
+  node tests/EndToEnd/private-media-flow.mjs
+else
+  node tests/EndToEnd/blog-flow.mjs
+fi

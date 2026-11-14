@@ -22,7 +22,8 @@ const navigation = [
   { key: 'archive', label: 'Archive', href: '/archive' },
   { key: 'about', label: sitePages.about, href: '/about' },
 ]
-const accountArea = computed(() => route.name === 'write' || route.name === 'edit' || route.name === 'article-workspace' || route.name === 'messages' || route.name === 'security')
+const accountArea = computed(() => route.name === 'write' || route.name === 'edit' || route.name === 'article-workspace' ||
+  route.name === 'messages' || route.name === 'security' || route.name === 'private-media')
 const ownerPath = '/user/manage/article/write'
 const authHref = computed(() => currentSession.value?.canAuthor ? ownerPath : '/login')
 const authLabel = computed(() => currentSession.value?.canAuthor ? 'Write' : 'Log in')
@@ -69,6 +70,7 @@ async function leave() {
       <template #desktop-actions>
         <RouterLink to="/">Public site</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">站内信</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets">资产库</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">Account security</RouterLink>
         <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
         <ElButton v-if="currentSession || logoutFailure" text @click="leave">Log out</ElButton>
@@ -76,6 +78,7 @@ async function leave() {
       </template>
       <template #mobile-primary-actions>
         <RouterLink v-if="currentSession && route.name !== 'messages'" to="/user/messagebox">站内信</RouterLink>
+        <RouterLink v-if="currentSession?.canAuthor && route.name !== 'private-media'" to="/user/manage/assets">资产库</RouterLink>
         <RouterLink v-if="currentSession && route.name !== 'security'" to="/user/identity/mfa">Account security</RouterLink>
         <ElThemeModeToggle :model-value="themeMode" variant="menu-button" @update:model-value="useTheme" />
         <ElButton v-if="currentSession || logoutFailure" text @click="leave">Log out</ElButton>
