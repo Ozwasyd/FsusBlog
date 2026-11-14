@@ -5,10 +5,12 @@ import {
   createInspectorFocus, focusInspectorOpener, type InspectorHost, type InspectorPresentation,
 } from './inspectorFocus'
 
-const props = withDefaults(defineProps<{ title?: string; triggerLabel?: string; nestedModalActive?: boolean }>(), {
+const props = withDefaults(defineProps<{ title?: string; triggerLabel?: string; nestedModalActive?: boolean; opened?: boolean }>(), {
   title: 'Article inspector',
   triggerLabel: 'Inspector',
+  opened: undefined,
 })
+const emit = defineEmits<{ 'update:opened': [value: boolean] }>()
 
 const compactQuery = '(max-width: 1023px)'
 const host = ref<InspectorHost>('pane')
@@ -64,17 +66,19 @@ function renderHost() {
     : undefined
 }
 
-function open() {
+function open(requested = false) {
   if (expanded.value) return
-  current = focus.open(host.value, launcher.value)
+  current = focus.open(host.value, requested ? launcher.value : null)
   expanded.value = true
   renderHost()
+  if (requested) emit('update:opened', true)
 }
 
-function close(owner: InspectorPresentation | null) {
+function close(owner: InspectorPresentation | null, requested = true) {
   if (!owner?.close()) return
   expanded.value = false
   if (host.value === 'pane') void owner.closed()
+  if (requested) emit('update:opened', false)
 }
 
 function rehost() {
@@ -98,10 +102,15 @@ function onDesktopEscape(event: KeyboardEvent) {
 watch(() => props.nestedModalActive, active => {
   if (!active) rehost()
 })
+watch(() => props.opened, opened => {
+  if (opened === true) open()
+  if (opened === false && expanded.value) close(current, false)
+})
 
 onMounted(() => {
   media = window.matchMedia(compactQuery)
   rehost()
+  if (props.opened) open()
   media.addEventListener('change', rehost)
   window.addEventListener('keydown', onDesktopEscape)
 })
@@ -119,7 +128,7 @@ onBeforeUnmount(() => {
     class="inspector-launcher" type="button" :aria-expanded="expanded"
     :aria-controls="host === 'pane' || drawer?.target.value ? inspectorId : undefined"
     :aria-haspopup="host === 'drawer' ? 'dialog' : undefined"
-    @click="expanded ? close(current) : open()"
+    @click="expanded ? close(current) : open(true)"
   >{{ triggerLabel }}</button>
   <aside
     v-if="host === 'pane'" v-show="expanded" :id="inspectorId"

@@ -178,6 +178,7 @@ const registry = new WorkspaceRegistry<Draft>({
 })
 const persistence = workspacePersistence(() => registry.savedLayout)
 const layoutNotice = persistence.notice
+const inspectorOpen = ref(false)
 const workspaceState = { articleWorkspace: true }
 const persistentWorkspace = ref(route.name === 'article-workspace' || history.state?.articleWorkspace === true)
 let layoutStarted = false
@@ -192,6 +193,7 @@ const unsubscribe = registry.subscribe(() => {
   tab.value = registry.activeTab
   workspaceTabs.value = registry.tabs
   recentlyClosed.value = registry.recentlyClosed
+  inspectorOpen.value = registry.inspectorOpen
   recovery.setCurrent(tab.value, next, registry.activeEditSequence)
   persistence.changed()
 })
@@ -357,6 +359,10 @@ function openArticle() {
     return
   }
   void navigateTo(articleId)
+}
+
+function setInspectorOpen(open: boolean) {
+  if (persistentWorkspace.value && tab.value) registry.setInspectorOpen(tab.value, open)
 }
 
 const openAddress = computed(() => {
@@ -658,7 +664,8 @@ async function reloadDraft() {
         </div>
       </section>
       <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
-      <EditorInspector v-if="original && original.id > 0" :nested-modal-active="revisionComparisonActive">
+      <EditorInspector v-if="original && original.id > 0" :nested-modal-active="revisionComparisonActive"
+        :opened="persistentWorkspace ? inspectorOpen : undefined" @update:opened="setInspectorOpen">
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
           :disabled="pending || hasConflict" />
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"

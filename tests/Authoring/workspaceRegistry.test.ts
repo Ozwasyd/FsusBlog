@@ -43,7 +43,7 @@ test('saved layout restores only ready drafts, retaining order, preview and sele
   assert.deepEqual(registry.tabs, [])
   held.resolve({ kind: 'ready', draft: draft(2) })
   assert.equal(await pending, 1)
-  assert.deepEqual(registry.savedLayout, { tabs: [1, -2], activeArticleId: 2 })
+  assert.deepEqual(registry.savedLayout, { tabs: [1, -2], activeArticleId: 2, inspectorOpen: false })
   assert.equal(registry.activeTab?.mode, 'preview')
   assert.equal(registry.activeDraft?.id, 2)
 })
@@ -55,7 +55,23 @@ test('layout hydration loses authority on identity changes even if its draft req
   registry.setIdentity({ ...author, principalId: 'other-author' })
   held.resolve({ kind: 'ready', draft: draft(1) })
   assert.equal(await pending, undefined)
-  assert.deepEqual(registry.savedLayout, { tabs: [], activeArticleId: 0 })
+  assert.deepEqual(registry.savedLayout, { tabs: [], activeArticleId: 0, inspectorOpen: false })
+})
+
+test('the Inspector restores as workspace presentation and rejects another session or identity', async () => {
+  const registry = setup()
+  await registry.restoreLayout({ tabs: [1, 2], activeArticleId: 2, inspectorOpen: true }, new AbortController().signal)
+  assert.equal(registry.inspectorOpen, true)
+  const first = registry.tabs.find(tab => tab.articleId === 1)!
+  registry.setInspectorOpen(first, false)
+  assert.equal(registry.inspectorOpen, true)
+  const active = registry.activeTab!
+  registry.setInspectorOpen(active, false)
+  assert.equal(registry.inspectorOpen, false)
+  registry.setInspectorOpen(active, true)
+  registry.setIdentity({ ...author, generation: 2n })
+  registry.setInspectorOpen(active, true)
+  assert.equal(registry.inspectorOpen, false)
 })
 
 test('a transient failed read does not turn a recoverable layout into an authoritative partial one', async () => {

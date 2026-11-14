@@ -3,19 +3,31 @@ namespace FsusBlog.V2.Contracts;
 public static partial class Wire
 {
     public static void Validate(AuthoringWorkspaceSnapshot value)
+        => ValidateSnapshot(value.SchemaVersion, 1, value.Revision, value.UpdatedAtUnixMs, value.ActiveArticleId, value.Tabs, value.Skipped);
+
+    internal static void Validate(AuthoringWorkspaceCommand value) =>
+        ValidateWorkspace(value.SchemaVersion, 1, value.ExpectedRevision, value.ActiveArticleId, value.Tabs);
+
+    internal static void Validate(AuthoringWorkspaceLayout value)
     {
-        ValidateWorkspace(value.SchemaVersion, value.Revision, value.ActiveArticleId, value.Tabs);
-        if (value.Skipped is < 0 or > WireLimits.AuthoringWorkspaceTabs ||
-            (value.Revision == 0 ? value.UpdatedAtUnixMs != 0 || value.Tabs.Count != 0 || value.Skipped != 0 : value.UpdatedAtUnixMs <= 0))
+        ValidateSnapshot(value.SchemaVersion, 2, value.Revision, value.UpdatedAtUnixMs, value.ActiveArticleId, value.Tabs, value.Skipped);
+        if (value.Revision == 0 && value.InspectorOpen) throw new ProtocolException("Invalid authoring workspace layout.");
+    }
+
+    internal static void Validate(AuthoringWorkspaceLayoutCommand value)
+        => ValidateWorkspace(value.SchemaVersion, 2, value.ExpectedRevision, value.ActiveArticleId, value.Tabs);
+
+    private static void ValidateSnapshot(int version, int expected, long revision, long updated, int active, IReadOnlyList<int> tabs, int skipped)
+    {
+        ValidateWorkspace(version, expected, revision, active, tabs);
+        if (skipped is < 0 or > WireLimits.AuthoringWorkspaceTabs ||
+            (revision == 0 ? updated != 0 || tabs.Count != 0 || skipped != 0 : updated <= 0))
             throw new ProtocolException("Invalid authoring workspace revision.");
     }
 
-    internal static void Validate(AuthoringWorkspaceCommand value) =>
-        ValidateWorkspace(value.SchemaVersion, value.ExpectedRevision, value.ActiveArticleId, value.Tabs);
-
-    private static void ValidateWorkspace(int version, long revision, int active, IReadOnlyList<int> tabs)
+    private static void ValidateWorkspace(int version, int expected, long revision, int active, IReadOnlyList<int> tabs)
     {
-        if (version != 1 || revision < 0 || active < 0 || tabs.Count > WireLimits.AuthoringWorkspaceTabs)
+        if (version != expected || revision < 0 || active < 0 || tabs.Count > WireLimits.AuthoringWorkspaceTabs)
             throw new ProtocolException("Invalid authoring workspace coordinates.");
         // A negative ID represents the group's sole preview. The magnitude is always a positive article ID.
         var ids = new HashSet<int>();

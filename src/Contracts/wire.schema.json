@@ -114,6 +114,8 @@
     "DraftRecoveryScope": 32787,
     "AuthoringWorkspaceSnapshot": 32910,
     "AuthoringWorkspaceCommand": 32911,
+    "AuthoringWorkspaceLayout": 32913,
+    "AuthoringWorkspaceLayoutCommand": 32914,
     "DraftTaxonomy": 32790,
     "TaxonomyAssignment": 32791,
     "MfaSetupStart": 48,
@@ -262,6 +264,7 @@
     "PropertyArticleQuery": "/api/v2/authoring/properties/filter/articles.aeds",
     "DraftRecoveryScope": "/api/v2/authoring/recovery-scope.aeds",
     "AuthoringWorkspace": "/api/v2/authoring/workspace.aeds",
+    "AuthoringWorkspaceLayout": "/api/v2/authoring/workspace/layout.aeds",
     "MfaSetupStart": "/api/binary/auth/mfa/setup/start",
     "MfaSetupVerify": "/api/binary/auth/mfa/setup/verify",
     "MfaProfile": "/api/binary/auth/mfa/profile",
@@ -308,7 +311,8 @@
     "TaxonomyDescriptionBytes": 2000,
     "TaxonomyTagCount": 32,
     "AuthoringWorkspaceTabs": 100,
-    "MaxAuthoringWorkspaceFrameBytes": 432,
+    "MaxAuthoringWorkspaceFrameBytes": 436,
+    "MaxAuthoringWorkspaceLayoutCommandFrameBytes": 437,
     "TaxonomyAssignmentFrameBytes": 180,
     "TicketBytes": 128,
     "TitleBytes": 256,
@@ -620,6 +624,14 @@
     "AuthoringWorkspaceCommand": {
       "frame": "AuthoringWorkspaceCommand",
       "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"]]
+    },
+    "AuthoringWorkspaceLayout": {
+      "frame": "AuthoringWorkspaceLayout",
+      "fields": [["SchemaVersion", "i32"], ["Revision", "i64"], ["UpdatedAtUnixMs", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["Skipped", "i32"], ["InspectorOpen", "bool"]]
+    },
+    "AuthoringWorkspaceLayoutCommand": {
+      "frame": "AuthoringWorkspaceLayoutCommand",
+      "fields": [["SchemaVersion", "i32"], ["ExpectedRevision", "i64"], ["ActiveArticleId", "i32"], ["Tabs", "i32s", "AuthoringWorkspaceTabs"], ["InspectorOpen", "bool"]]
     },
     "DraftRecoveryScope": {
       "frame": "DraftRecoveryScope",

@@ -54,7 +54,7 @@ export type WorkspaceTab = Readonly<EditorSessionRef & {
 
 export type RecentlyClosed = Readonly<{ articleId: number; title: string; group: string; mode: TabMode }>
 
-export type SavedWorkspaceLayout = Readonly<{ tabs: readonly number[]; activeArticleId: number }>
+export type SavedWorkspaceLayout = Readonly<{ tabs: readonly number[]; activeArticleId: number; inspectorOpen?: boolean }>
 
 export type Activation =
   | Readonly<{ kind: 'ready'; tab: WorkspaceTab; workspaceRevision: number }>
@@ -120,6 +120,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #identity: WorkspaceIdentity | null = null
   #expired = false
   #active: Session<Draft> | undefined
+  #inspectorOpen = false
   #opening: AbortController | undefined
   #activation = 0
   #sequence = 0
@@ -168,16 +169,28 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   }
 
   get savedLayout(): SavedWorkspaceLayout {
-    if (!this.#currentIdentity()) return { tabs: [], activeArticleId: 0 }
+    if (!this.#currentIdentity()) return { tabs: [], activeArticleId: 0, inspectorOpen: false }
     return {
       tabs: [...this.#sessions.values()].filter(session => session.id > 0 && session.phase === 'ready')
         .map(session => session.mode === 'pinned' ? session.id : -session.id),
       activeArticleId: this.#active?.id ?? 0,
+      inspectorOpen: this.#inspectorOpen,
     }
+  }
+
+  get inspectorOpen(): boolean {
+    return this.#currentIdentity() && this.#inspectorOpen
   }
 
   editSequence(tab: EditorSessionRef): number | undefined {
     return this.#find(tab)?.edit
+  }
+
+  setInspectorOpen(tab: EditorSessionRef, open: boolean): void {
+    const session = this.#find(tab)
+    if (!session || session !== this.#active || session.id === 0 || this.#inspectorOpen === open) return
+    this.#inspectorOpen = open
+    this.#changed()
   }
 
   subscribe(listener: () => void): () => void {
@@ -223,7 +236,8 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
         controller: new AbortController(), phase: 'ready', dirty: false, conflict: false, recovery: false, pending: false, edit: 0 })
     }
     this.#active = this.#sessions.get(layout.activeArticleId)
-    if (restored.length) this.#changed()
+    this.#inspectorOpen = layout.inspectorOpen === true
+    if (restored.length || this.#inspectorOpen) this.#changed()
     return layout.tabs.length - restored.length
   }
 
@@ -610,6 +624,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     this.#sessions.clear()
     this.#recent.length = 0
     this.#active = undefined
+    this.#inspectorOpen = false
     this.cancelOpening()
     for (const session of previous) {
       delete session.draft

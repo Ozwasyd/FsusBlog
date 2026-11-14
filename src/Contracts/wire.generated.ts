@@ -102,6 +102,8 @@ export const FrameType = {
   DraftRecoveryScope: 32787,
   AuthoringWorkspaceSnapshot: 32910,
   AuthoringWorkspaceCommand: 32911,
+  AuthoringWorkspaceLayout: 32913,
+  AuthoringWorkspaceLayoutCommand: 32914,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
   MfaSetupStart: 48,
@@ -144,7 +146,8 @@ export const WireLimits = {
   TaxonomyDescriptionBytes: 2000,
   TaxonomyTagCount: 32,
   AuthoringWorkspaceTabs: 100,
-  MaxAuthoringWorkspaceFrameBytes: 432,
+  MaxAuthoringWorkspaceFrameBytes: 436,
+  MaxAuthoringWorkspaceLayoutCommandFrameBytes: 437,
   TaxonomyAssignmentFrameBytes: 180,
   TicketBytes: 128,
   TitleBytes: 256,
@@ -536,6 +539,7 @@ export const WireRoutes = {
   PropertyArticleQuery: "/api/v2/authoring/properties/filter/articles.aeds",
   DraftRecoveryScope: "/api/v2/authoring/recovery-scope.aeds",
   AuthoringWorkspace: "/api/v2/authoring/workspace.aeds",
+  AuthoringWorkspaceLayout: "/api/v2/authoring/workspace/layout.aeds",
   MfaSetupStart: "/api/binary/auth/mfa/setup/start",
   MfaSetupVerify: "/api/binary/auth/mfa/setup/verify",
   MfaProfile: "/api/binary/auth/mfa/profile",
@@ -969,6 +973,74 @@ export function decodeAuthoringWorkspaceCommand(payload: Uint8Array): AuthoringW
     expectedRevision: reader.i64(),
     activeArticleId: reader.i32(),
     tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AuthoringWorkspaceLayout {
+  schemaVersion: number;
+  revision: bigint;
+  updatedAtUnixMs: bigint;
+  activeArticleId: number;
+  tabs: readonly number[];
+  skipped: number;
+  inspectorOpen: boolean;
+}
+
+export function encodeAuthoringWorkspaceLayout(value: AuthoringWorkspaceLayout): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.schemaVersion);
+  writer.i64(value.revision);
+  writer.i64(value.updatedAtUnixMs);
+  writer.i32(value.activeArticleId);
+  writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
+  writer.i32(value.skipped);
+  writer.bool(value.inspectorOpen);
+  return writer.finish();
+}
+
+export function decodeAuthoringWorkspaceLayout(payload: Uint8Array): AuthoringWorkspaceLayout {
+  const reader = new PodReader(payload);
+  const value: AuthoringWorkspaceLayout = {
+    schemaVersion: reader.i32(),
+    revision: reader.i64(),
+    updatedAtUnixMs: reader.i64(),
+    activeArticleId: reader.i32(),
+    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+    skipped: reader.i32(),
+    inspectorOpen: reader.bool(),
+  };
+  reader.finish();
+  return value;
+}
+
+export interface AuthoringWorkspaceLayoutCommand {
+  schemaVersion: number;
+  expectedRevision: bigint;
+  activeArticleId: number;
+  tabs: readonly number[];
+  inspectorOpen: boolean;
+}
+
+export function encodeAuthoringWorkspaceLayoutCommand(value: AuthoringWorkspaceLayoutCommand): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.schemaVersion);
+  writer.i64(value.expectedRevision);
+  writer.i32(value.activeArticleId);
+  writer.i32s(value.tabs, WireLimits.AuthoringWorkspaceTabs);
+  writer.bool(value.inspectorOpen);
+  return writer.finish();
+}
+
+export function decodeAuthoringWorkspaceLayoutCommand(payload: Uint8Array): AuthoringWorkspaceLayoutCommand {
+  const reader = new PodReader(payload);
+  const value: AuthoringWorkspaceLayoutCommand = {
+    schemaVersion: reader.i32(),
+    expectedRevision: reader.i64(),
+    activeArticleId: reader.i32(),
+    tabs: reader.i32s(WireLimits.AuthoringWorkspaceTabs),
+    inspectorOpen: reader.bool(),
   };
   reader.finish();
   return value;

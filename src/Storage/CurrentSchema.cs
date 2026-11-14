@@ -144,6 +144,7 @@ internal static partial class CurrentSchema
         if (requireSitePageEditor.HasValue && requireSitePageEditor.Value != hasSitePageEditor)
             throw new InvalidOperationException("The site page editor schema presence does not match the requested operation.");
         var requireModerationVersion = requireAdminIdentity && adminIdentityVersion >= AdminModerationVersion;
+        var hasWorkspaceLayout = requireAuthoringWorkspace.Value && await HasAuthoringWorkspaceLayoutAsync(connection, transaction, cancellationToken);
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(GetCommentColumns(requireModerationVersion)).Concat(MediaColumns)
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
@@ -156,7 +157,7 @@ internal static partial class CurrentSchema
             .Concat(hasRecoveryKey ? SiteRecoveryKeyColumns : [])
             .Concat(hasSiteRefresh ? SiteRefreshColumns : [])
             .Concat(hasSitePageEditor ? SitePageEditorColumns : [])
-            .Concat(requireAuthoringWorkspace.Value ? AuthoringWorkspaceColumns : [])
+            .Concat(requireAuthoringWorkspace.Value ? GetAuthoringWorkspaceColumns(hasWorkspaceLayout) : [])
             .Concat(hasAdminInboxReply ? AdminInboxReplyColumns : [])
             .Concat(requirePublicationRights ? PublicationRightsColumns : [])
             .Concat(!legacyCanvas && requireCanvasHistory ? CanvasHistoryColumns : [])

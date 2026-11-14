@@ -309,6 +309,8 @@ internal static partial class Migration
 
         await RequireEmptyAsync(connection, transaction, token);
         await ExecuteAsync(connection, transaction, schema, token);
+        if (!await CurrentSchema.HasAuthoringWorkspaceLayoutAsync(connection, transaction, token))
+            throw new InvalidOperationException("Authoring workspace layout was not installed.");
         await CurrentSchema.VerifyCatalogAsync(connection, transaction, token, requireArticleMedia: true,
             requireSubscription: true, requireRecoveryKey: true, requireAuthoringWorkspace: true, requireAdminInboxReply: true, requireSiteRefresh: true,
             requireSitePageEditor: true);

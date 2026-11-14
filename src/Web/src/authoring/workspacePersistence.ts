@@ -3,13 +3,15 @@ import { authoringWorkspace } from '../../../Contracts/authoring-workspace'
 import { ApiError } from '../../../Contracts/client'
 import type { SavedWorkspaceLayout } from './workspaceRegistry'
 
-const layoutKey = (layout: SavedWorkspaceLayout) => `${layout.activeArticleId}:${layout.tabs.join(',')}`
+const layoutKey = (layout: SavedWorkspaceLayout, legacy: boolean) =>
+  `${layout.activeArticleId}:${layout.tabs.join(',')}:${legacy ? '' : layout.inspectorOpen === true}`
 
 export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
   let lifetime = new AbortController()
   let timer: ReturnType<typeof setTimeout> | undefined
   let session: string | undefined
   let revision = 0n
+  let legacy = false
   let stored = ''
   let writing: Promise<void> | undefined
   const notice = ref('')
@@ -34,15 +36,17 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
       if (skipped === undefined) throw new Error('Workspace restoration was interrupted')
       revision = value.revision
       session = handle
-      stored = layoutKey(layout())
+      legacy = value.schemaVersion === 1
+      stored = layoutKey(layout(), legacy)
       if (skipped + value.skipped > 0) notice.value = 'Some articles from the saved workspace are unavailable.'
+      else if (legacy) notice.value = 'The Inspector setting stays in this tab until workspace storage is upgraded.'
     } catch {
       if (!scope.aborted) notice.value = 'The saved workspace could not be restored. Layout changes stay in this tab.'
     }
   }
 
   function changed() {
-    if (!session || writing || layoutKey(layout()) === stored) return
+    if (!session || writing || layoutKey(layout(), legacy) === stored) return
     clearTimeout(timer)
     timer = setTimeout(() => { void flush() }, 175)
   }
@@ -57,16 +61,17 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
     }
     const handle = session
     const desired = layout()
-    if (!handle || layoutKey(desired) === stored) return
+    if (!handle || layoutKey(desired, legacy) === stored) return
     const scope = lifetime.signal
     const signal = AbortSignal.any([scope, AbortSignal.timeout(3_000)])
     writing = (async () => {
       try {
-        const saved = await authoringWorkspace(handle, signal, { ...desired, expectedRevision: revision })
+        const saved = await authoringWorkspace(handle, signal, { ...desired, inspectorOpen: desired.inspectorOpen === true,
+          expectedRevision: revision }, legacy)
         if (signal.aborted) return
         revision = saved.revision
         // Suppress repeated writes of the same stale positions if the server had to filter them out.
-        stored = layoutKey(desired)
+        stored = layoutKey(desired, legacy)
         if (saved.skipped) notice.value = 'Some articles could not be included in the saved workspace.'
       } catch (error) {
         if (scope.aborted) return
@@ -77,7 +82,7 @@ export function workspacePersistence(layout: () => SavedWorkspaceLayout) {
       } finally {
         if (!scope.aborted) {
           writing = undefined
-          if (session && layoutKey(layout()) !== stored) changed()
+          if (session && layoutKey(layout(), legacy) !== stored) changed()
         }
       }
     })()

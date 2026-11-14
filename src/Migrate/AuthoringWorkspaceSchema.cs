@@ -15,8 +15,10 @@ internal static partial class Migration
         if (!exists)
         {
             await ApplySchemaAddition(connection, tx, "authoring-workspace.sql", ct);
-            await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireArticleMedia: true, requireAuthoringWorkspace: true);
         }
+        if (!await CurrentSchema.HasAuthoringWorkspaceLayoutAsync(connection, tx, ct))
+            await ApplySchemaAddition(connection, tx, "workspace-layout.sql", ct);
+        await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, requireArticleMedia: true, requireAuthoringWorkspace: true);
         await tx.CommitAsync(ct);
         Console.WriteLine("Verified the authoring workspace schema.");
     }
