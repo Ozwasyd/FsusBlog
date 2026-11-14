@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, shallowRef, watch } from 'vue'
-import { ElAlert, ElButton, ElInput } from '@ozwasyd/element-plus'
+import { computed, onScopeDispose, ref, shallowRef, useId, watch } from 'vue'
+import { ElAlert, ElButton, ElDialog, ElInput } from '@ozwasyd/element-plus'
 import { ApiError } from '../../../Contracts/aeds'
 import {
   compareDraftRevision, draftRevisionHistory, validRollbackReason, type RevisionHistoryItem,
@@ -15,25 +15,42 @@ const items = shallowRef<readonly RevisionHistoryItem[]>([])
 const cursor = ref<string | null>(null)
 const published = ref<bigint | null>(null)
 const pair = shallowRef<RevisionComparison>()
+const comparisonOpen = ref(false)
+const comparisonError = ref('')
 const reason = ref('')
 const error = ref('')
 const loading = ref(false)
 const comparing = ref(false)
 const date = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 const allowed = computed(() => !!pair.value && props.canRollback && validRollbackReason(reason.value.trim()))
+const compareId = useId()
+const sources = computed(() => pair.value ? [
+  { key: 'earlier', label: 'Earlier revision', revision: pair.value.sourceRevision, title: pair.value.sourceTitle, body: pair.value.sourceBody },
+  { key: 'current', label: 'Current saved revision', revision: pair.value.revision, title: pair.value.title, body: pair.value.body },
+] : [])
+const changed = computed(() => pair.value ? {
+  title: pair.value.title !== pair.value.sourceTitle,
+  body: pair.value.body !== pair.value.sourceBody,
+} : undefined)
 let historyRequest: AbortController | undefined
 let compareRequest: AbortController | undefined
 
 function reset() {
   historyRequest?.abort()
-  compareRequest?.abort()
+  closeComparison()
   items.value = []
   cursor.value = null
   published.value = null
-  pair.value = undefined
-  reason.value = ''
   error.value = ''
   loading.value = false
+}
+
+function closeComparison() {
+  comparisonOpen.value = false
+  compareRequest?.abort()
+  pair.value = undefined
+  reason.value = ''
+  comparisonError.value = ''
   comparing.value = false
 }
 
@@ -65,15 +82,29 @@ async function load(more = false) {
 async function compare(source: bigint) {
   compareRequest?.abort()
   const controller = compareRequest = new AbortController()
+  comparisonOpen.value = true
   comparing.value = true
-  error.value = ''
+  comparisonError.value = ''
   reason.value = ''
   pair.value = undefined
   try {
     const result = await compareDraftRevision(props.articleId, props.revision, source, controller.signal)
     if (!controller.signal.aborted) pair.value = result
   } catch (cause) {
-    if (!controller.signal.aborted) requestError(cause)
+    if (controller.signal.aborted) return
+    if (cause instanceof ApiError && [401, 403, 409].includes(cause.status)) {
+      historyRequest?.abort()
+      items.value = []
+      cursor.value = null
+      published.value = null
+      loading.value = false
+      error.value = cause.status === 409 ? 'Load the current draft to view revision history.' : 'Revision history is unavailable.'
+      comparisonError.value = cause.status === 409 ? 'The saved draft changed. Load its current revision and compare again.' : 'This comparison is unavailable.'
+    } else {
+      comparisonError.value = cause instanceof ApiError && cause.status === 404
+        ? 'The selected revision is unavailable.'
+        : 'Could not load both revisions. Close the comparison and try again.'
+    }
   } finally {
     if (!controller.signal.aborted) comparing.value = false
   }
@@ -93,8 +124,10 @@ function toggle(event: Event) {
 }
 
 function restore() {
-  if (allowed.value && pair.value)
-    emit('restore', { sourceRevision: pair.value.sourceRevision, reason: reason.value.trim() })
+  if (!allowed.value || !pair.value) return
+  const selection = { sourceRevision: pair.value.sourceRevision, reason: reason.value.trim() }
+  closeComparison()
+  emit('restore', selection)
 }
 
 watch(() => [open.value, props.articleId, props.revision], () => {
@@ -110,7 +143,7 @@ onScopeDispose(() => {
 <template>
   <details class="revision-history" @toggle="toggle">
     <summary>Revision history</summary>
-    <p v-if="loading || comparing" role="status">{{ comparing ? 'Loading comparison…' : 'Loading revisions…' }}</p>
+    <p v-if="loading" role="status">Loading revisions…</p>
     <ElAlert v-if="error" :title="error" type="error" :closable="false" />
     <ElButton v-if="error && !items.length" text @click="load()">Reload revisions</ElButton>
     <ul class="revision-items">
@@ -122,29 +155,37 @@ onScopeDispose(() => {
           <span v-if="item.revision === published"> · Published</span>
         </small>
         <p v-if="item.sourceRevision">Restored from revision {{ item.sourceRevision }}. {{ item.reason }}</p>
-        <ElButton v-if="item.revision < props.revision" text @click="compare(item.revision)">
+        <ElButton v-if="item.revision < props.revision" text v-bind="{ 'aria-haspopup': 'dialog' }" @click="compare(item.revision)">
           Compare revision {{ item.revision }}
         </ElButton>
       </li>
     </ul>
     <ElButton v-if="cursor" :disabled="loading" text @click="load(true)">Older revisions</ElButton>
-    <section v-if="pair" class="revision-comparison" aria-label="Revision comparison">
-      <h3>Revision {{ pair.sourceRevision }} compared with revision {{ pair.revision }}</h3>
-      <details>
-        <summary>Current draft · {{ pair.title }}</summary>
-        <pre>{{ pair.body }}</pre>
-      </details>
-      <details open>
-        <summary>Earlier revision · {{ pair.sourceTitle }}</summary>
-        <pre>{{ pair.sourceBody }}</pre>
-      </details>
-      <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" />
-      <label for="revision-rollback-reason">Reason for restoring this draft</label>
-      <ElInput id="revision-rollback-reason" v-model="reason" />
-      <p>Use 8 to 500 characters. This restores the title, content and classification. Publishing stays a separate step.</p>
-      <p v-if="!props.canRollback">Save pending changes before restoring a revision.</p>
-      <ElButton :disabled="!allowed" @click="restore">Restore as new draft</ElButton>
-    </section>
+    <ElDialog
+      :model-value="comparisonOpen" title="Revision comparison" append-to-body destroy-on-close
+      width="min(72rem, calc(100vw - 2rem))" top="4vh"
+      :z-index="2100"
+      @update:model-value="value => { if (!value) closeComparison() }"
+    >
+      <p v-if="comparing" role="status">Loading both saved revisions…</p>
+      <ElAlert v-if="comparisonError" :title="comparisonError" type="error" :closable="false" />
+      <div v-if="pair && changed" class="revision-comparison">
+        <p>{{ changed.title ? 'Title changed.' : 'Title unchanged.' }} {{ changed.body ? 'Markdown changed.' : 'Markdown unchanged.' }}</p>
+        <div class="revision-sources">
+          <section v-for="source in sources" :key="source.key" class="revision-source" :aria-labelledby="`${compareId}-${source.key}`">
+            <h3 :id="`${compareId}-${source.key}`">{{ source.label }} · {{ source.revision }}</h3>
+            <p>{{ source.title }}</p>
+            <pre tabindex="0" :aria-label="`${source.label} Markdown`">{{ source.body }}</pre>
+          </section>
+        </div>
+        <MarkdownExportControl :article="props.articleId" :revision="props.revision" :selected="pair.sourceRevision" />
+        <label :for="`${compareId}-reason`">Reason for restoring this draft</label>
+        <ElInput :id="`${compareId}-reason`" v-model="reason" />
+        <p>Use 8 to 500 characters. Restoring copies the selected title, Markdown, classification, and any stored rights policy into a new draft.</p>
+        <p v-if="!props.canRollback">Save pending changes before restoring a revision.</p>
+        <ElButton :disabled="!allowed" @click="restore">Restore as new draft</ElButton>
+      </div>
+    </ElDialog>
   </details>
 </template>
 
@@ -153,6 +194,24 @@ onScopeDispose(() => {
 .revision-items { list-style: none; margin: .75rem 0 0; padding: 0; }
 .revision-items > li { padding: .5rem 0; overflow-wrap: anywhere; }
 .revision-comparison { display: grid; gap: .6rem; }
-.revision-comparison h3, .revision-comparison p { margin: 0; }
-.revision-comparison pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 16rem; overflow: auto; }
+.revision-comparison p, .revision-source h3 { margin: 0; }
+.revision-sources { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fsus-space-4); }
+.revision-source {
+  min-inline-size: 0;
+  padding: var(--fsus-space-3);
+  border: 1px solid var(--fsus-border);
+  border-radius: var(--fsus-radius-control);
+  overflow-wrap: anywhere;
+}
+.revision-source h3 { font-size: 1rem; }
+.revision-source pre {
+  white-space: pre-wrap;
+  max-block-size: min(40dvh, 24rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin-block: var(--fsus-space-2) 0;
+}
+@media (max-width: 740px) {
+  .revision-sources { grid-template-columns: minmax(0, 1fr); }
+}
 </style>
