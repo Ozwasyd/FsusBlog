@@ -89,6 +89,42 @@ async function open(page, article) {
   await expect(page.getByLabel('Title', { exact: true })).toHaveValue(article.title)
 }
 
+async function saveBesideInspector(page, width, article) {
+  await page.setViewportSize({ width, height: 800 })
+  const pane = page.getByRole('complementary', { name: 'Article inspector' })
+  await expect(pane).toBeVisible()
+  const value = `Editable body beside Inspector at ${width}px.`
+  await bodyInput(page).fill(value)
+  const save = button(page, 'Save draft')
+  await expect(save).toBeEnabled()
+  await save.scrollIntoViewIfNeeded()
+  const hit = await save.evaluate(element => {
+    const bounds = element.getBoundingClientRect()
+    const top = document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)
+    return { acceptsPointer: !!top && element.contains(top), hit: top?.closest('aside')?.getAttribute('aria-labelledby') ?? top?.tagName }
+  })
+  assert.equal(hit.acceptsPointer, true, `Save draft is overlaid at ${width}px by ${hit.hit}`)
+  const [receipt] = await Promise.all([page.waitForResponse(response => response.url() === `${origin}${WireRoutes.Save}` &&
+    response.request().method() === 'POST'), save.click()])
+  assert.equal(receipt.status(), 200)
+  const saved = decodeDraft(decodeFrame(await receipt.body(), FrameType.Draft).payload)
+  assert.equal(saved.id, article.id)
+  assert.equal(saved.body, value)
+  await expect(page.getByText('Draft saved.', { exact: true })).toBeVisible()
+  await expect(pane).toBeVisible()
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), width)
+  await page.screenshot({ path: join(evidence, `workspace-inspector-save-${width}.png`) })
+  const list = tabList(page)
+  if (await list.isVisible()) {
+    const selected = list.getByRole('tab', { selected: true })
+    await selected.focus()
+    await page.keyboard.press('Home')
+    await expect(list.getByRole('tab').first()).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(editUrl(article))
+  }
+}
+
 async function journalContains(page, body) {
   await page.waitForFunction(source => new Promise(resolve => {
     const request = indexedDB.open('fsusblog-v2-draft-recovery')
@@ -209,6 +245,8 @@ try {
     await button(desktopInspector, 'Inspector').click()
     await expect(desktopInspector.getByRole('complementary', { name: 'Article inspector' })).toBeVisible()
     await expect.poll(async () => (await inspectorLayout(reopened, session)).inspectorOpen).toBe(true)
+    await saveBesideInspector(desktopInspector, 1280, first)
+    await saveBesideInspector(desktopInspector, 1024, first)
     const beforeLegacy = await inspectorLayout(reopened, session)
     const legacy = await layout(reopened, session, { expectedRevision: beforeLegacy.revision, activeArticleId: first.id, tabs: [first.id] })
     const afterLegacy = await inspectorLayout(reopened, session)

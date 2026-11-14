@@ -156,6 +156,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .inspector-launcher {
+  grid-area: launcher;
   justify-self: start;
   min-block-size: var(--fsus-control-height-action);
   padding-inline: var(--fsus-space-4);
@@ -174,12 +175,13 @@ onBeforeUnmount(() => {
   outline-offset: 2px;
 }
 .inspector-pane {
-  position: fixed;
-  z-index: 30;
-  inset-block: calc(6rem + var(--fsus-space-4)) var(--fsus-space-4);
-  inset-inline-end: var(--fsus-space-4);
+  grid-area: pane;
+  position: sticky;
+  inset-block-start: var(--fsus-space-4);
+  align-self: start;
   display: grid;
-  inline-size: min(32rem, 42vw);
+  min-inline-size: 0;
+  max-block-size: calc(100dvh - 2 * var(--fsus-space-4));
   grid-template-rows: auto minmax(0, 1fr);
   border: 1px solid var(--fsus-border);
   border-radius: var(--fsus-radius-panel);

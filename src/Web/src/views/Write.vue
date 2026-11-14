@@ -643,43 +643,45 @@ async function reloadDraft() {
       <ElButton class="retry" @click="reload++">Retry</ElButton>
     </template>
     <section v-else id="workspace-editor" class="editor-document" role="tabpanel" :aria-label="selectedPanelTitle">
-      <p v-if="notice" class="write-notice" role="status">
-        {{ notice }} <RouterLink v-if="publishedPath" :to="publishedPath">Read the published article</RouterLink>
-      </p>
-      <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
-      <ElButton v-if="hasConflict" class="retry" @click="reloadDraft">Load latest revision</ElButton>
-      <p v-if="recoveryChecking" role="status">Checking local draft recovery…</p>
-      <label for="article-title">Title</label>
-      <ElInput id="article-title" :model-value="original?.title" @update:model-value="edit('title', $event)" placeholder="Write the article title" size="large" :disabled="pending || taxonomyDirty || recoveryBlocked" />
-      <p v-if="id === 0 || articleDirty" class="metadata">Save the draft before publishing.</p>
-      <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
-      <label for="article-body">Body</label>
-      <ElMarkdownEditor
-        v-if="nativeMarkdown" textarea-id="article-body" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }" :model-value="original?.body" @update:model-value="edit('body', $event)" placeholder="Start writing here."
-        :document-identity="documentIdentity"
-        :disabled="pending || taxonomyDirty || recoveryBlocked" :show-actions="false"
-      />
-      <template v-else>
-        <ElAlert title="Rich editing unavailable. Edit the original Markdown below." type="info" :closable="false" />
-        <ElInput id="article-body" :model-value="original?.body" @update:model-value="edit('body', $event)" type="textarea" :autosize="{ minRows: 14 }" placeholder="Start writing here." :disabled="pending || taxonomyDirty || recoveryBlocked" />
-      </template>
-      <p v-if="recoveryFailure" role="status">Local draft recovery is unavailable. Save to keep your changes on the server.</p>
-      <section v-if="recoveryItems.length" aria-labelledby="draft-recovery-title">
-        <h2 id="draft-recovery-title">Recover an unsaved draft</h2>
-        <p>Unsaved text is stored in this browser for up to seven days. It is not encrypted.</p>
-        <div v-for="item in recoveryItems" :key="`${item.writer}-${item.editSequence}`">
-          <h3>{{ item.title || 'Untitled draft' }}</h3>
-          <p v-if="item.relationship === 'compare'">This recovery copy and the server draft have different revisions.</p>
-          <details>
-            <summary>Compare drafts</summary>
-            <h4>Server draft</h4><pre>{{ original?.body }}</pre>
-            <h4>Recovery copy</h4><pre>{{ item.body }}</pre>
-          </details>
-          <ElButton native-type="button" :disabled="pending || recoveryWorking || articleDirty" @click="restoreDraft(item)">Restore draft</ElButton>
-          <ElButton native-type="button" :disabled="pending || recoveryWorking" @click="recovery.remove(item)">Discard recovery copy</ElButton>
-        </div>
-      </section>
-      <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
+      <div class="editor-source">
+        <p v-if="notice" class="write-notice" role="status">
+          {{ notice }} <RouterLink v-if="publishedPath" :to="publishedPath">Read the published article</RouterLink>
+        </p>
+        <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
+        <ElButton v-if="hasConflict" class="retry" @click="reloadDraft">Load latest revision</ElButton>
+        <p v-if="recoveryChecking" role="status">Checking local draft recovery…</p>
+        <label for="article-title">Title</label>
+        <ElInput id="article-title" :model-value="original?.title" @update:model-value="edit('title', $event)" placeholder="Write the article title" size="large" :disabled="pending || taxonomyDirty || recoveryBlocked" />
+        <p v-if="id === 0 || articleDirty" class="metadata">Save the draft before publishing.</p>
+        <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
+        <label for="article-body">Body</label>
+        <ElMarkdownEditor
+          v-if="nativeMarkdown" textarea-id="article-body" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }" :model-value="original?.body" @update:model-value="edit('body', $event)" placeholder="Start writing here."
+          :document-identity="documentIdentity"
+          :disabled="pending || taxonomyDirty || recoveryBlocked" :show-actions="false"
+        />
+        <template v-else>
+          <ElAlert title="Rich editing unavailable. Edit the original Markdown below." type="info" :closable="false" />
+          <ElInput id="article-body" :model-value="original?.body" @update:model-value="edit('body', $event)" type="textarea" :autosize="{ minRows: 14 }" placeholder="Start writing here." :disabled="pending || taxonomyDirty || recoveryBlocked" />
+        </template>
+        <p v-if="recoveryFailure" role="status">Local draft recovery is unavailable. Save to keep your changes on the server.</p>
+        <section v-if="recoveryItems.length" aria-labelledby="draft-recovery-title">
+          <h2 id="draft-recovery-title">Recover an unsaved draft</h2>
+          <p>Unsaved text is stored in this browser for up to seven days. It is not encrypted.</p>
+          <div v-for="item in recoveryItems" :key="`${item.writer}-${item.editSequence}`">
+            <h3>{{ item.title || 'Untitled draft' }}</h3>
+            <p v-if="item.relationship === 'compare'">This recovery copy and the server draft have different revisions.</p>
+            <details>
+              <summary>Compare drafts</summary>
+              <h4>Server draft</h4><pre>{{ original?.body }}</pre>
+              <h4>Recovery copy</h4><pre>{{ item.body }}</pre>
+            </details>
+            <ElButton native-type="button" :disabled="pending || recoveryWorking || articleDirty" @click="restoreDraft(item)">Restore draft</ElButton>
+            <ElButton native-type="button" :disabled="pending || recoveryWorking" @click="recovery.remove(item)">Discard recovery copy</ElButton>
+          </div>
+        </section>
+        <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
+      </div>
       <EditorInspector v-if="original && original.id > 0" :nested-modal-active="revisionComparisonActive"
         :opened="persistentWorkspace ? inspectorOpen : undefined" @update:opened="setInspectorOpen">
         <MarkdownExportControl :article="original.id" :revision="original.revision" :selected="original.revision"
@@ -749,5 +751,23 @@ async function reloadDraft() {
 }
 .workspace-actions summary {
   cursor: pointer;
+}
+.editor-document {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "source" "launcher";
+}
+.editor-source {
+  grid-area: source;
+  display: grid;
+  gap: .5rem;
+  min-inline-size: 0;
+}
+@media (min-width: 1024px) {
+  .editor-document:has(> .inspector-launcher[aria-expanded="true"]) {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 36%);
+    grid-template-areas: "source pane" "launcher pane";
+    align-items: start;
+    column-gap: var(--fsus-space-4);
+  }
 }
 </style>
