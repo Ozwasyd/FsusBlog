@@ -57,10 +57,11 @@ ui_rev=$(git -C "$ui" rev-parse HEAD)
 } > "$release/build.txt"
 
 mkdir "$scratch/source" "$scratch/package"
+export COPYFILE_DISABLE=1
 git archive "$rev" | tar -xf - -C "$scratch/source"
 ln -s "$ui" "$scratch/FsusUI"
 ln -s "$repo/src/Web/node_modules" "$scratch/source/src/Web/node_modules"
-{
+(
   cd "$scratch/source"
   "$dotnet" restore FsusBlog.V2.slnx --locked-mode
   "$dotnet" publish src/Server/FsusBlog.V2.Server.csproj -c Release --no-restore \
@@ -70,7 +71,7 @@ ln -s "$repo/src/Web/node_modules" "$scratch/source/src/Web/node_modules"
   cd src/Web
   node node_modules/vue-tsc/bin/vue-tsc.js --noEmit
   FSUSBLOG_FSUSUI_WASM_DIST="$wasm" node node_modules/vite/bin/vite.js build --outDir "$scratch/package/web"
-} >> "$release/build.txt" 2>&1
+) >> "$release/build.txt" 2>&1
 
 [[ "$(git -C "$ui" rev-parse HEAD)" == "$ui_rev" && -z "$(git -C "$ui" status --porcelain)" ]]
 (cd "$wasm" && shasum -a 256 -c "$release/fsusui-wasm.sha256") >> "$release/build.txt"
@@ -86,11 +87,11 @@ cp -- "$scratch/source/deploy/Caddyfile" "$scratch/source/deploy/README.md" "$sc
 (
   cd "$scratch/package"
   find . -type f -print0 | xargs -0 shasum -a 256 | LC_ALL=C sort -k2 > "$release/payload.sha256"
-  COPYFILE_DISABLE=1 tar -czf "$scratch/fsusblog-v2.tar.gz" .
+  tar -czf "$scratch/fsusblog-v2.tar.gz" .
 )
-git bundle create "$scratch/history.bundle" HEAD
-[[ "$(git bundle list-heads "$scratch/history.bundle" HEAD)" == "$rev HEAD" ]]
-git bundle verify "$scratch/history.bundle" >> "$release/build.txt" 2>&1
+git -C "$repo" bundle create "$scratch/history.bundle" HEAD
+[[ "$(git -C "$repo" bundle list-heads "$scratch/history.bundle" HEAD)" == "$rev HEAD" ]]
+git -C "$repo" bundle verify "$scratch/history.bundle" >> "$release/build.txt" 2>&1
 mv -- "$scratch/fsusblog-v2.tar.gz" "$scratch/history.bundle" "$release/"
 (
   cd "$release"
