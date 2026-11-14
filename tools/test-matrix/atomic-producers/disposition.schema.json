@@ -1,0 +1,101 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.composite-leaf-disposition.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "matrixDigest",
+        "observationDigest",
+        "entries"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.composite-leaf-disposition.v1"
+        },
+        "matrixDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "observationDigest": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "entries": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "location",
+                    "parentId",
+                    "childCommandIdentity",
+                    "currentBehavior",
+                    "classification",
+                    "migrationOwner",
+                    "proofTestId",
+                    "reason",
+                    "commandSourceRef"
+                ],
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "parentId": {
+                        "type": "string",
+                        "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                    },
+                    "childCommandIdentity": {
+                        "type": "string",
+                        "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                    },
+                    "currentBehavior": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "classification": {
+                        "enum": [
+                            "atomic-producer",
+                            "hard-prerequisite",
+                            "settled-join",
+                            "always-run-finalizer",
+                            "diagnostic-only",
+                            "not-independent"
+                        ]
+                    },
+                    "migrationOwner": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "proofTestId": {
+                        "type": "string",
+                        "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "commandSourceRef": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "id",
+                            "contentDigest"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "string",
+                                "pattern": "^(?!(?:issue|pr|ticket|gh)[-_:]?[0-9])(?!(?:[0-9]+)[-_:])[a-z][a-z0-9]*(?:[-.:][a-z0-9]+)*$"
+                            },
+                            "contentDigest": {
+                                "type": "string",
+                                "pattern": "^sha256:[a-f0-9]{64}$"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
