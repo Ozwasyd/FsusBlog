@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the original execution-authority wire keys while its unchanged canonical producer projects only current source identities; declarations, target roster, independent index and qualification semantics stay unchanged."
+        }
+    ]
+}
