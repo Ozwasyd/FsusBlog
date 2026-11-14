@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/runtime-state-domain-catalog.json"
+            ],
+            "reason": "Preserve the canonical runtime-state catalog schema and existing externally consumed JSON field names while declaring the already observed fixture creation."
+        }
+    ]
+}
