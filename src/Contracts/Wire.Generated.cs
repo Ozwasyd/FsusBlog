@@ -46,6 +46,7 @@ public enum FrameType : ushort
     AdminOperationsStatus = 32850,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
+    AdminModerationIntent = 32866,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -142,6 +143,8 @@ public static class WireLimits
     public const int SiteSessionListSize = 101;
     public const int AdminCommentQueueSize = 24;
     public const int AdminCommentQueueBodyBytes = 12288;
+    public const int AdminModerationReasonBytes = 1024;
+    public const int AdminModerationFrameBytes = 1064;
     public const int MaxCommandFrameBytes = 1048884;
     public const int RevisionHistoryPageSize = 20;
     public const int RevisionHistoryCursorChars = 54;
@@ -413,6 +416,8 @@ public static class WireRoutes
     public const string AdminPasskeyComplete = "/api/v2/admin/identity/passkey/complete.aeds";
     public const string AdminSession = "/api/v2/admin/identity/session.aeds";
     public const string AdminSignOut = "/api/v2/admin/identity/sign-out.aeds";
+    public const string AdminStepUpBegin = "/api/v2/admin/identity/step-up/passkey/begin.aeds";
+    public const string AdminStepUpComplete = "/api/v2/admin/identity/step-up/passkey/complete.aeds";
     public const string AdminOperationsStatus = "/api/v2/admin/identity/operations/status.aeds";
     public const string AdminCategories = "/api/v2/admin/identity/taxonomy/categories.aeds";
     public const string AdminTags = "/api/v2/admin/identity/taxonomy/tags.aeds";
@@ -479,6 +484,7 @@ public static class WireHeaders
     public const string AdminBootstrapToken = "X-Fsus-Admin-Bootstrap-Token";
 }
 
+public sealed record AdminModerationIntent(int ArticleId, long CommentId, int ExpectedStatus, int Decision, string Reason);
 public sealed record AdminSessionSnapshot(string Handle, long Generation, long ExpiresAt);
 public sealed record AdminOperationsStatus(bool SnapshotReady, long PublicationWatermark, long PendingPublicationEvents, long OldestPendingAt);
 public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
@@ -510,6 +516,27 @@ public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevisi
 
 public static partial class Wire
 {
+    public static byte[] EncodeAdminModerationIntent(AdminModerationIntent value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.I32(value.ArticleId);
+        writer.I64(value.CommentId);
+        writer.I32(value.ExpectedStatus);
+        writer.I32(value.Decision);
+        writer.Text(value.Reason, WireLimits.AdminModerationReasonBytes);
+        return Aeds.Encode(FrameType.AdminModerationIntent, writer.Written);
+    }
+
+    public static AdminModerationIntent DecodeAdminModerationIntent(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.AdminModerationIntent));
+        var value = new AdminModerationIntent(reader.I32(), reader.I64(), reader.I32(), reader.I32(), reader.Text(WireLimits.AdminModerationReasonBytes));
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
     public static byte[] EncodeAdminSessionSnapshot(AdminSessionSnapshot value)
     {
         Validate(value);

@@ -13,12 +13,17 @@ internal sealed partial class AdminPasskeyStore
 {
     private sealed record Principal(Guid Id, string Handle, byte[] UserHandle, long Generation, DateTimeOffset GenerationChangedAt);
     private sealed record Challenge(Guid? Principal, long? Generation, string Options, DateTimeOffset StartedAt);
+    private sealed record LiveAdmin(Guid Id, byte[] Digest, AdminSessionSnapshot Snapshot);
 
     internal Task<AdminSessionSnapshot> Session(string? token, CancellationToken ct) =>
         WithSession(token, Permission, (_, _, session) => Task.FromResult(session), ct);
 
-    private async Task<T> WithSession<T>(string? token, string requiredPermission,
-        Func<NpgsqlConnection, NpgsqlTransaction, AdminSessionSnapshot, Task<T>> use, CancellationToken ct)
+    private Task<T> WithSession<T>(string? token, string requiredPermission,
+        Func<NpgsqlConnection, NpgsqlTransaction, AdminSessionSnapshot, Task<T>> use, CancellationToken ct) =>
+        WithLiveAdmin(token, requiredPermission, (db, tx, actor) => use(db, tx, actor.Snapshot), ct);
+
+    private async Task<T> WithLiveAdmin<T>(string? token, string requiredPermission,
+        Func<NpgsqlConnection, NpgsqlTransaction, LiveAdmin, Task<T>> use, CancellationToken ct)
     {
         var digest = Store.TokenDigest(token) ?? throw Denied();
         await using var db = await _source.OpenConnectionAsync(ct);
@@ -53,7 +58,7 @@ internal sealed partial class AdminPasskeyStore
             if (await grant.ExecuteScalarAsync(ct) is not true)
                 throw new BusinessException(Rejection.Forbidden, "This administrator does not hold the required permission.");
         }
-        var result = await use(db, tx, new AdminSessionSnapshot(handle, generation, expiration));
+        var result = await use(db, tx, new LiveAdmin(principal, digest, new AdminSessionSnapshot(handle, generation, expiration)));
         if (expiration <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()) throw Denied();
         await InstanceLease.CommitProtected(tx, _lease, ct);
         return result;

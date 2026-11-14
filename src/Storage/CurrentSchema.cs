@@ -116,7 +116,7 @@ internal static partial class CurrentSchema
         var expectedColumns = Columns.Concat(CommunicationColumns).Concat(TaxonomyColumns).Concat(legacyCanvas ? LegacyCanvasColumns : CanvasColumns).Concat(PropertyColumns)
             .Concat(PasskeyColumns).Concat(MfaColumns).Concat(CommentColumns).Concat(MediaColumns)
             .Concat(requireRevisionHistory ? RevisionHistoryColumns : [])
-            .Concat(requireAdminIdentity ? AdminIdentityColumns : [])
+            .Concat(requireAdminIdentity ? GetAdminIdentityColumns(adminIdentityVersion) : [])
             .Concat(requirePublicationHistory ? PublicationHistoryColumns : [])
             .Concat(requireArticleSchedule ? ArticleScheduleColumns : [])
             .Concat(requireMediaUpload ? MediaUploadColumns : [])
@@ -174,8 +174,11 @@ internal static partial class CurrentSchema
                          (SELECT string_agg(a.attname, ',' ORDER BY i)
                           FROM unnest(k.confkey) WITH ORDINALITY AS keys(attnum, i)
                           JOIN pg_attribute a ON a.attrelid = target.oid AND a.attnum = keys.attnum) ||
-                         CASE WHEN k.confdeltype = 'a' AND k.confupdtype = 'a' AND k.confmatchtype = 's'
-                              THEN '' ELSE ' unexpected-action' END
+                         CASE WHEN k.confupdtype <> 'a' OR k.confmatchtype <> 's' THEN ' unexpected-action'
+                              WHEN k.confdeltype = 'a' THEN ''
+                              WHEN k.confdeltype = 'c' AND c.relname = 'admin_step_up' AND n.nspname = 'public'
+                                   AND target.relname = 'admin_session' THEN ' delete-cascade'
+                              ELSE ' unexpected-action' END
                      ELSE '' END ||
                 CASE WHEN NOT k.convalidated OR NOT k.conislocal
                            OR coalesce(to_jsonb(k)->>'conenforced', 'true') <> 'true' THEN ' not-validated'

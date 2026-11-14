@@ -27,16 +27,14 @@ export async function loginWithPasskey(signal?: AbortSignal): Promise<PasskeyLog
   return pending ? { status: 'mfa', token: pending } : { status: 'signed-in', session: await api.session(signal) };
 }
 
-export async function requestPasskeyAssertion(beginPath: string, signal?: AbortSignal) {
+export async function requestPasskeyAssertion(beginPath: string, signal?: AbortSignal, body?: Uint8Array<ArrayBuffer>, restricted = false) {
   const { token, options } = await request(beginPath, FrameType.PasskeyLoginBegin,
-    payload => decodeLoginBegin(payload, false), signal, 'POST');
+    payload => decodeLoginBegin(payload, restricted), signal, 'POST', body);
   return getAssertion(token, options, signal);
 }
 
 export async function proveMfaSetup(signal?: AbortSignal): Promise<string> {
-  const { token, options } = await request(WireRoutes.PasskeyStepUpBegin, FrameType.PasskeyLoginBegin,
-    payload => decodeLoginBegin(payload, true), signal, 'POST', mfaStartData(mfaAction.setup));
-  const assertion = await getAssertion(token, options, signal);
+  const assertion = await requestPasskeyAssertion(WireRoutes.PasskeyStepUpBegin, signal, mfaStartData(mfaAction.setup), true);
   return request(WireRoutes.PasskeyStepUpComplete, FrameType.MfaChallengeResult,
     payload => readMfaProof(payload, mfaAction.setup, true), signal, 'POST', assertion);
 }

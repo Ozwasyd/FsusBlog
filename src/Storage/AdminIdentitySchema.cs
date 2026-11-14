@@ -8,7 +8,7 @@ namespace FsusBlogV2.Storage;
 internal static partial class CurrentSchema
 {
     internal const string AdminIdentityMarker = "public.admin_identity_schema";
-    internal const int AdminIdentityVersion = 4;
+    internal const int AdminIdentityVersion = 5;
     internal const string AdminManagePermission = "admin.manage";
     internal const string AuditReadPermission = "audit.read";
     internal const string CommentModeratePermission = "comment.moderate";
@@ -67,6 +67,12 @@ internal static partial class CurrentSchema
         "admin_identity_audit c actor octet_length(actor)>=1ANDoctet_length(actor)<=255"
     ];
 
+    private static string[] GetAdminIdentityColumns(int version) => version == AdminIdentityVersion
+        ? [.. AdminIdentityColumns, "admin_step_up digest:bytea principal_id:uuid session_digest:bytea generation:int8 action:int4 body_digest:bytea options:text? expires_at:timestamptz kind:int2"]
+        : AdminIdentityColumns;
+
+    private const string CurrentPermissionConstraint = "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::textORpermission='comment.moderate'::textORpermission='article.write'::text";
+
     private static string[] GetAdminIdentityConstraints(int version) => version switch
     {
         1 =>
@@ -87,11 +93,28 @@ internal static partial class CurrentSchema
             "admin_identity_schema c version version=3",
             "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::textORpermission='comment.moderate'::text"
         ],
-        AdminIdentityVersion =>
+        4 =>
         [
             .. AdminIdentityConstraints,
             "admin_identity_schema c version version=4",
-            "admin_permission c permission permission='admin.manage'::textORpermission='audit.read'::textORpermission='comment.moderate'::textORpermission='article.write'::text"
+            CurrentPermissionConstraint
+        ],
+        AdminIdentityVersion =>
+        [
+            .. AdminIdentityConstraints,
+            "admin_identity_schema c version version=5",
+            CurrentPermissionConstraint,
+            "admin_step_up p digest",
+            "admin_step_up f principal_id public.admin_principal:id",
+            "admin_step_up f session_digest public.admin_session:digest delete-cascade",
+            "admin_step_up u session_digest,kind",
+            "admin_step_up c digest octet_length(digest)=32",
+            "admin_step_up c session_digest octet_length(session_digest)=32",
+            "admin_step_up c generation generation>0",
+            "admin_step_up c action action=1",
+            "admin_step_up c body_digest octet_length(body_digest)=32",
+            "admin_step_up c options octet_length(options)>=1ANDoctet_length(options)<=8192",
+            "admin_step_up c kind,options kind=1ANDoptionsISNOTNULLORkind=2ANDoptionsISNULL"
         ],
         _ => throw new InvalidOperationException("Unsupported admin identity schema version.")
     };

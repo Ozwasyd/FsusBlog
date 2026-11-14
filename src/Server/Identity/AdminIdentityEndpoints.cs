@@ -94,6 +94,16 @@ internal static class AdminIdentityEndpoints
         {
             return Frame(Wire.EncodeAdminSessionSnapshot(await store.Session(ctx.Request.Cookies[session], ct)));
         }).RequireRateLimiting("command");
+        app.MapPost(WireRoutes.AdminStepUpBegin, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            var intent = Wire.DecodeAdminModerationIntent(await readFrame(ctx, WireLimits.AdminModerationFrameBytes, ct));
+            return Frame(await store.BeginModerationStepUp(ctx.Request.Cookies[session], intent, ct));
+        }).RequireRateLimiting(Limit);
+        app.MapPost(WireRoutes.AdminStepUpComplete, async (HttpContext ctx, CancellationToken ct) =>
+        {
+            var input = PasskeyWire.ReadLogin(await readFrame(ctx, WireLimits.MaxPasskeyFrameBytes, ct), discoverable: false);
+            return Frame(await store.CompleteModerationStepUp(ctx.Request.Cookies[session], input, ct));
+        }).RequireRateLimiting(Limit);
         app.MapGet(WireRoutes.AdminOperationsStatus, async (HttpContext ctx, Publications publications, CancellationToken ct) =>
             Frame(Wire.EncodeAdminOperationsStatus(await store.OperationsStatus(ctx.Request.Cookies[session], publications, ct))))
             .RequireRateLimiting("command");

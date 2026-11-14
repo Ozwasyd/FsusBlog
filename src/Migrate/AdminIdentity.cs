@@ -136,35 +136,47 @@ internal static partial class Migration
         var hasArticleSchedule = await HasRelation(connection, tx, CurrentSchema.ArticleScheduleRelation, ct);
         var hasPublicationHistory = await HasRelation(connection, tx, CurrentSchema.PublicationHistoryRelation, ct);
         var hasMediaUpload = await HasRelation(connection, tx, CurrentSchema.MediaUploadRelation, ct);
-        var legacyCanvas = !await HasRelation(connection, tx, "public.canvas_node", ct);
-        if (legacyCanvas && await HasRelation(connection, tx, "public.canvas_document_event", ct))
+        var hasCanvasNode = await HasRelation(connection, tx, "public.canvas_node", ct);
+        var hasCanvasEvent = await HasRelation(connection, tx, "public.canvas_document_event", ct);
+        var hasCanvasHistory = await HasRelation(connection, tx, "public.canvas_history_patch", ct);
+        var hasCanvasTransition = await HasRelation(connection, tx, "public.canvas_history_transition", ct);
+        if (hasCanvasNode != hasCanvasEvent || hasCanvasHistory != hasCanvasTransition || hasCanvasHistory && !hasCanvasNode)
             throw new InvalidOperationException("The Canvas schema matches neither exact supported layout.");
+        var legacyCanvas = !hasCanvasNode;
         var hasPublicationRights = await HasRelation(connection, tx, CurrentSchema.PublicationRightsRelation, ct);
         if (!await HasRelation(connection, tx, CurrentSchema.AdminIdentityMarker, ct))
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
                 requireAdminIdentity: false, requirePublicationHistory: hasPublicationHistory,
-                requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, requirePublicationRights: hasPublicationRights);
+                requireArticleSchedule: hasArticleSchedule, requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas,
+                requirePublicationRights: hasPublicationRights, requireCanvasHistory: hasCanvasHistory);
             await ApplySchemaAddition(connection, tx, "admin-identity.sql", ct);
+            await ApplySchemaAddition(connection, tx, "admin-step-up.sql", ct);
         }
-        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (1 or 2 or 3) and var previousVersion)
+        else if (await CurrentSchema.ReadAdminIdentityVersionAsync(connection, tx, ct) is (1 or 2 or 3 or 4) and var previousVersion)
         {
             await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
                 requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
-                requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, adminIdentityVersion: previousVersion, requirePublicationRights: hasPublicationRights);
+                requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, adminIdentityVersion: previousVersion,
+                requirePublicationRights: hasPublicationRights, requireCanvasHistory: hasCanvasHistory);
+            if (previousVersion < 4)
+                await ExecuteAsync(connection, tx, """
+                    alter table public.admin_permission drop constraint admin_permission_permission_check;
+                    alter table public.admin_permission add constraint admin_permission_permission_check
+                        check (permission = 'admin.manage' or permission = 'audit.read' or permission = 'comment.moderate' or permission = 'article.write');
+                    """, ct);
+            await ApplySchemaAddition(connection, tx, "admin-step-up.sql", ct);
             await ExecuteAsync(connection, tx, """
-                alter table public.admin_permission drop constraint admin_permission_permission_check;
-                alter table public.admin_permission add constraint admin_permission_permission_check
-                    check (permission = 'admin.manage' or permission = 'audit.read' or permission = 'comment.moderate' or permission = 'article.write');
                 alter table public.admin_identity_schema drop constraint admin_identity_schema_version_check;
-                update public.admin_identity_schema set version=4 where singleton and version in (1,2,3);
-                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=4);
+                update public.admin_identity_schema set version=5 where singleton and version in (1,2,3,4);
+                alter table public.admin_identity_schema add constraint admin_identity_schema_version_check check (version=5);
                 """, ct);
         }
 
         await CurrentSchema.VerifyCatalogAsync(connection, tx, ct, hasRecoveryScope, hasRevisionHistory,
             requirePublicationHistory: hasPublicationHistory, requireArticleSchedule: hasArticleSchedule,
-            requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas, requirePublicationRights: hasPublicationRights);
+            requireMediaUpload: hasMediaUpload, legacyCanvas: legacyCanvas,
+            requirePublicationRights: hasPublicationRights, requireCanvasHistory: hasCanvasHistory);
         await CurrentSchema.VerifyAdminIdentityMarkerAsync(connection, tx, ct);
         if (hasRecoveryScope) await CurrentSchema.ReadRecoverySiteIdAsync(connection, tx, ct);
         await tx.CommitAsync(ct);

@@ -55,6 +55,8 @@ inline constexpr uint32_t SiteSessionIdBytes = 64;
 inline constexpr uint32_t SiteSessionListSize = 101;
 inline constexpr uint32_t AdminCommentQueueSize = 24;
 inline constexpr uint32_t AdminCommentQueueBodyBytes = 12288;
+inline constexpr uint32_t AdminModerationReasonBytes = 1024;
+inline constexpr uint32_t AdminModerationFrameBytes = 1064;
 inline constexpr uint32_t MaxCommandFrameBytes = 1048884;
 inline constexpr uint32_t RevisionHistoryPageSize = 20;
 inline constexpr uint32_t RevisionHistoryCursorChars = 54;
@@ -308,6 +310,7 @@ enum class FrameType : uint16_t {
     AdminOperationsStatus = 32850,
     AdminTaxonomyPage = 32864,
     AdminCommentQueue = 32862,
+    AdminModerationIntent = 32866,
     Draft = 32770,
     ArticleCommand = 32771,
     RevisionHistory = 32800,
@@ -396,6 +399,7 @@ constexpr bool known(FrameType type) {
         case FrameType::AdminOperationsStatus:
         case FrameType::AdminTaxonomyPage:
         case FrameType::AdminCommentQueue:
+        case FrameType::AdminModerationIntent:
         case FrameType::Draft:
         case FrameType::ArticleCommand:
         case FrameType::RevisionHistory:

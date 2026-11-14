@@ -45,6 +45,7 @@ export const FrameType = {
   AdminOperationsStatus: 32850,
   AdminTaxonomyPage: 32864,
   AdminCommentQueue: 32862,
+  AdminModerationIntent: 32866,
   Draft: 32770,
   ArticleCommand: 32771,
   RevisionHistory: 32800,
@@ -139,6 +140,8 @@ export const WireLimits = {
   SiteSessionListSize: 101,
   AdminCommentQueueSize: 24,
   AdminCommentQueueBodyBytes: 12288,
+  AdminModerationReasonBytes: 1024,
+  AdminModerationFrameBytes: 1064,
   MaxCommandFrameBytes: 1048884,
   RevisionHistoryPageSize: 20,
   RevisionHistoryCursorChars: 54,
@@ -408,6 +411,8 @@ export const WireRoutes = {
   AdminPasskeyComplete: "/api/v2/admin/identity/passkey/complete.aeds",
   AdminSession: "/api/v2/admin/identity/session.aeds",
   AdminSignOut: "/api/v2/admin/identity/sign-out.aeds",
+  AdminStepUpBegin: "/api/v2/admin/identity/step-up/passkey/begin.aeds",
+  AdminStepUpComplete: "/api/v2/admin/identity/step-up/passkey/complete.aeds",
   AdminOperationsStatus: "/api/v2/admin/identity/operations/status.aeds",
   AdminCategories: "/api/v2/admin/identity/taxonomy/categories.aeds",
   AdminTags: "/api/v2/admin/identity/taxonomy/tags.aeds",
@@ -474,6 +479,37 @@ export const WireHeaders = {
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
+
+export interface AdminModerationIntent {
+  articleId: number;
+  commentId: bigint;
+  expectedStatus: number;
+  decision: number;
+  reason: string;
+}
+
+export function encodeAdminModerationIntent(value: AdminModerationIntent): Uint8Array {
+  const writer = new PodWriter();
+  writer.i32(value.articleId);
+  writer.i64(value.commentId);
+  writer.i32(value.expectedStatus);
+  writer.i32(value.decision);
+  writer.text(value.reason, WireLimits.AdminModerationReasonBytes);
+  return writer.finish();
+}
+
+export function decodeAdminModerationIntent(payload: Uint8Array): AdminModerationIntent {
+  const reader = new PodReader(payload);
+  const value: AdminModerationIntent = {
+    articleId: reader.i32(),
+    commentId: reader.i64(),
+    expectedStatus: reader.i32(),
+    decision: reader.i32(),
+    reason: reader.text(WireLimits.AdminModerationReasonBytes),
+  };
+  reader.finish();
+  return value;
+}
 
 export interface AdminSessionSnapshot {
   handle: string;

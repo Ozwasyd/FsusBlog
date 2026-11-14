@@ -114,30 +114,7 @@ internal sealed partial class AdminPasskeyStore(NpgsqlDataSource source, Instanc
             select principal_id from public.admin_passkey_credential where credential_id=$1
             """, request.RawId, ct);
         if (challenge.StartedAt <= principal.GenerationChangedAt) throw Denied();
-        byte[] key;
-        uint counter;
-        bool backupEligible;
-        await using (var credential = Store.Sql(db, tx, """
-            select public_key,sign_count,backup_eligible from public.admin_passkey_credential
-            where principal_id=$1 and credential_id=$2 for update
-            """, principal.Id, request.RawId))
-        await using (var row = await credential.ExecuteReaderAsync(ct))
-        {
-            if (!await row.ReadAsync(ct)) throw Denied();
-            (key, counter, backupEligible) = (row.GetFieldValue<byte[]>(0), checked((uint)row.GetInt64(1)), row.GetBoolean(2));
-        }
-        if (!CryptographicOperations.FixedTimeEquals(principal.UserHandle, request.UserHandle)) throw Denied();
-        VerifyAssertionResult verified;
-        try
-        {
-            verified = await PasskeyVerification.Assert(_verifier, request, AssertionOptions.FromJson(challenge.Options),
-                principal.UserHandle, key, counter, ct);
-        }
-        catch (Fido2VerificationException) { throw Denied(); }
-        if (((request.AuthenticatorData[32] & 0x08) != 0) != backupEligible) throw Denied();
-        await Execute(db, tx, ct, """
-            update public.admin_passkey_credential set sign_count=$2,backed_up=$3 where credential_id=$1
-            """, request.RawId, (long)verified.SignCount, verified.IsBackedUp);
+        await VerifyCredential(db, tx, principal.Id, principal.UserHandle, request, AssertionOptions.FromJson(challenge.Options), ct);
         var raw = RandomNumberGenerator.GetBytes(32);
         try
         {
@@ -150,5 +127,34 @@ internal sealed partial class AdminPasskeyStore(NpgsqlDataSource source, Instanc
             return Convert.ToHexStringLower(raw);
         }
         finally { CryptographicOperations.ZeroMemory(raw); }
+    }
+
+    private async Task VerifyCredential(NpgsqlConnection db, NpgsqlTransaction tx, Guid principal, byte[] handle,
+        PasskeyLoginRequest request, AssertionOptions options, CancellationToken ct, bool requireHandle = true)
+    {
+        if (request.AuthenticatorData.Length < 37 || (requireHandle || request.UserHandle.Length != 0) &&
+            !CryptographicOperations.FixedTimeEquals(handle, request.UserHandle)) throw Denied();
+        byte[] key;
+        uint counter;
+        bool backupEligible;
+        await using (var credential = Store.Sql(db, tx, """
+            select public_key,sign_count,backup_eligible from public.admin_passkey_credential
+            where principal_id=$1 and credential_id=$2 for update
+            """, principal, request.RawId))
+        await using (var row = await credential.ExecuteReaderAsync(ct))
+        {
+            if (!await row.ReadAsync(ct)) throw Denied();
+            (key, counter, backupEligible) = (row.GetFieldValue<byte[]>(0), checked((uint)row.GetInt64(1)), row.GetBoolean(2));
+        }
+        VerifyAssertionResult verified;
+        try
+        {
+            verified = await PasskeyVerification.Assert(_verifier, request, options, handle, key, counter, ct);
+        }
+        catch (Fido2VerificationException) { throw Denied(); }
+        if (((request.AuthenticatorData[32] & 0x08) != 0) != backupEligible) throw Denied();
+        await Execute(db, tx, ct, """
+            update public.admin_passkey_credential set sign_count=$2,backed_up=$3 where credential_id=$1
+            """, request.RawId, (long)verified.SignCount, verified.IsBackedUp);
     }
 }

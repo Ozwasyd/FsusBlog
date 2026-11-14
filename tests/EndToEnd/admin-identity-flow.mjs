@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { createRequire, stripTypeScriptTypes } from 'node:module'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import { decodeFrame, decodeSuccess } from '../../src/Contracts/aeds.ts'
+import { decodeFrame, decodeSuccess, encodeFrame } from '../../src/Contracts/aeds.ts'
 import { PodReader } from '../../src/Contracts/binary.ts'
+import { readMfaProof } from '../../src/Contracts/mfa.ts'
 import { verifyTaxonomy } from './admin-taxonomy-flow.mjs'
 import {
-  decodeAdminOperationsStatus, decodeAdminSessionSnapshot, FrameType, WireHeaders, WireLimits, WireRoutes,
+  decodeAdminModerationIntent, decodeAdminOperationsStatus, decodeAdminSessionSnapshot,
+  encodeAdminModerationIntent, FrameType, WireHeaders, WireLimits, WireRoutes,
 } from '../../src/Contracts/wire.generated.ts'
 
 const packages = createRequire(new URL('../../src/Web/package.json', import.meta.url))
@@ -53,6 +55,7 @@ const {
   AdminBootstrapBegin: bootstrapBegin, AdminBootstrapComplete: bootstrapComplete, AdminPasskeyBegin: passkeyBegin,
   AdminPasskeyComplete: passkeyComplete, AdminSession: adminSession, AdminSignOut: adminLogout,
   AdminOperationsStatus: operationsStatus, AdminCommentQueue: moderationQueue,
+  AdminStepUpBegin: stepUpBegin, AdminStepUpComplete: stepUpComplete,
   CommentRoots: commentRoots,
   Session: siteSession, SignIn: siteSignIn, SignOut: siteSignOut,
 } = WireRoutes
@@ -211,6 +214,7 @@ try {
     checks.moderationRequiresIndependentGrant = true
     checks.moderationBodyIsTextAndPendingIsPrivate = true
     checks.moderationGrantAndRevokeInvalidateOldSessions = true
+    checks.adminSensitivePasskeyProofIsScopedAndOneUse = true
   }
 
   if (taxonomyGrant) {
@@ -384,6 +388,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   assert.equal((await checkQueue()).status(), 403, 'Administrator access alone must not grant moderation read.')
   await denied.waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
+  assert.equal((await postModerationIntent(context.request, moderationIntent(articleId, 1n))).status(), 403)
 
   await run(moderatorGrant, [], { timeout: 8_000 })
   await credentialProbe(endpoint, adminCookieName, priorCookie.value, 401)
@@ -406,6 +411,7 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   assert.equal(await displayedComment.locator('time').getAttribute('datetime'), new Date(Number(row.createdAt)).toISOString())
   assert.equal(await section.locator('[data-moderation-fixture]').count(), 0, 'Pending markup must render as plain text.')
   await page.screenshot({ path: join(evidence, 'administrator-moderation-queue.png') })
+  const intent = await verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue)
 
   await run(moderatorRevoke, [], { timeout: 8_000 })
   await credentialProbe(endpoint, adminCookieName, grantedCookie.value, 401)
@@ -414,10 +420,74 @@ async function verifyModerationPermissions(page, context, siteCookie, priorCooki
   await bodyText.waitFor({ state: 'hidden' })
   await logIn(page)
   assert((await snapshot(context)).principal.generation > granted.principal.generation)
+  assert.equal((await postModerationIntent(context.request, intent)).status(), 403)
   assert.equal((await checkQueue()).status(), 403, 'Removing moderation authority must preserve only login.')
   await denied.waitFor()
   assert.equal((await context.request.get(adminOrigin.origin + adminSession)).status(), 200)
   return readCookie(context, adminOrigin.origin + adminSession, adminCookieName)
+}
+
+async function verifyAdminModerationProof(page, context, siteCookie, priorCookie, grantedCookie, articleId, row, checkQueue) {
+  const intent = moderationIntent(articleId, row.commentId)
+  const unauthenticated = await request.newContext()
+  try {
+    assert.equal((await postModerationIntent(unauthenticated, intent, siteCookie.value)).status(), 401)
+    assert.equal((await postModerationIntent(unauthenticated, intent, priorCookie.value)).status(), 401)
+  } finally { await unauthenticated.dispose() }
+  const wrongTarget = { ...intent, commentId: BigInt('9223372036854775807') }
+  assert.equal((await postModerationIntent(context.request, wrongTarget)).status(), 404,
+    'A proof challenge needs a real pending moderation target.')
+
+  // Load the production TypeScript codecs into this browser. Only fixture module requests are intercepted.
+  const modulePath = '/assets/test-admin-step-up/'
+  await page.route(adminOrigin.origin + modulePath + '*.ts', async route => {
+    const name = new URL(route.request().url()).pathname.slice(modulePath.length)
+    if (!/^[a-z][a-z0-9.-]+\.ts$/.test(name)) return route.abort()
+    const source = await readFile(new URL('../../src/Contracts/' + name, import.meta.url), 'utf8')
+    await route.fulfill({ contentType: 'application/javascript', body: stripTypeScriptTypes(source) })
+  })
+  const [begin, complete, issued] = await Promise.all([
+    waitPost(page, adminOrigin, stepUpBegin),
+    waitPost(page, adminOrigin, stepUpComplete),
+    page.evaluate(async ({ modulePath, articleId, commentId, expectedStatus, decision, reason }) => {
+      const { proveAdminModeration } = await import(modulePath + 'admin-step-up.ts')
+      const proof = await proveAdminModeration({ articleId, commentId: BigInt(commentId), expectedStatus, decision, reason })
+      return /^[A-Za-z0-9_-]{43}$/.test(proof)
+    }, { ...intent, commentId: intent.commentId.toString(), modulePath }),
+  ])
+  assert.equal(issued, true, 'The production browser codec must accept a signed administrator proof.')
+  assert.equal(await frameType(begin), FrameType.PasskeyLoginBegin)
+  assert.deepEqual(decodeAdminModerationIntent(decodeFrame(begin.request().postDataBuffer(), FrameType.AdminModerationIntent).payload), intent)
+  assert.equal(complete.status(), 200)
+  assert((await complete.headerValue('Cache-Control'))?.includes('no-store'))
+  const result = decodeFrame(await complete.body(), FrameType.MfaChallengeResult)
+  assert(/^[A-Za-z0-9_-]{43}$/.test(readMfaProof(result.payload, 'admin-sensitive', true)))
+  assert((await readCookie(context, adminOrigin.origin + adminSession, adminCookieName)).value === grantedCookie.value,
+    'Administrator step-up must leave the current login credential unchanged.')
+
+  const requestBody = complete.request().postDataBuffer()
+  decodeFrame(requestBody, FrameType.PasskeyLoginCompleteRequest)
+  const cookies = await complete.request().headerValue('Cookie')
+  const replay = await context.request.post(adminOrigin.origin + stepUpComplete, {
+    headers: { 'Content-Type': 'application/octet-stream', ...(cookies ? { Cookie: cookies } : {}) }, data: requestBody,
+  })
+  assert.equal(replay.status(), 401, 'A completed administrator assertion must be one-use.')
+  const queueAfterProof = await checkQueue()
+  assert.equal(queueAfterProof.status(), 200)
+  assert.equal(readModerationFixture(await queueAfterProof.body(), articleId).commentId, intent.commentId,
+    'Issuing a proof must leave the comment pending until a separate authorized transaction.')
+  return intent
+}
+
+function moderationIntent(articleId, commentId) {
+  return { articleId, commentId, expectedStatus: 0, decision: 1, reason: 'Administrator proof fixture' }
+}
+
+function postModerationIntent(client, intent, session) {
+  return client.post(adminOrigin.origin + stepUpBegin, {
+    headers: { 'Content-Type': 'application/octet-stream', ...(session ? { Cookie: adminCookieName + '=' + session } : {}) },
+    data: Buffer.from(encodeFrame(FrameType.AdminModerationIntent, encodeAdminModerationIntent(intent))),
+  })
 }
 
 function readModerationFixture(frame, articleId) {

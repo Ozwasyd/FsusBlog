@@ -57,6 +57,7 @@
     "AdminOperationsStatus": 32850,
     "AdminTaxonomyPage": 32864,
     "AdminCommentQueue": 32862,
+    "AdminModerationIntent": 32866,
     "Draft": 32770,
     "ArticleCommand": 32771,
     "RevisionHistory": 32800,
@@ -159,6 +160,8 @@
     "AdminPasskeyComplete": "/api/v2/admin/identity/passkey/complete.aeds",
     "AdminSession": "/api/v2/admin/identity/session.aeds",
     "AdminSignOut": "/api/v2/admin/identity/sign-out.aeds",
+    "AdminStepUpBegin": "/api/v2/admin/identity/step-up/passkey/begin.aeds",
+    "AdminStepUpComplete": "/api/v2/admin/identity/step-up/passkey/complete.aeds",
     "AdminOperationsStatus": "/api/v2/admin/identity/operations/status.aeds",
     "AdminCategories": "/api/v2/admin/identity/taxonomy/categories.aeds",
     "AdminTags": "/api/v2/admin/identity/taxonomy/tags.aeds",
@@ -259,6 +262,8 @@
     "SiteSessionListSize": 101,
     "AdminCommentQueueSize": 24,
     "AdminCommentQueueBodyBytes": 12288,
+    "AdminModerationReasonBytes": 1024,
+    "AdminModerationFrameBytes": 1064,
     "MaxCommandFrameBytes": 1048884,
     "RevisionHistoryPageSize": 20,
     "RevisionHistoryCursorChars": 54,
@@ -467,6 +472,10 @@
     "MfaChallengeProofOffset": 168
   },
   "records": {
+    "AdminModerationIntent": {
+      "frame": "AdminModerationIntent",
+      "fields": [["ArticleId", "i32"], ["CommentId", "i64"], ["ExpectedStatus", "i32"], ["Decision", "i32"], ["Reason", "text", "AdminModerationReasonBytes"]]
+    },
     "AdminSessionSnapshot": {
       "frame": "AdminSessionSnapshot",
       "fields": [["Handle", "text", "NameBytes"], ["Generation", "i64"], ["ExpiresAt", "i64"]]
