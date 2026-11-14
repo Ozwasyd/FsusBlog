@@ -47,6 +47,10 @@ public enum FrameType : ushort
     PropertyTextCommand = 32781,
     PropertyCommandReceipt = 32782,
     PropertyWorkspace = 32783,
+    PropertySchemaCommand = 32784,
+    PropertyValueCommand = 32785,
+    PropertyEditor = 32786,
+    DraftRecoveryScope = 32787,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
 }
@@ -97,6 +101,10 @@ public static class WireLimits
     public const int PropertyValueBytes = 65536;
     public const int PropertyMaxCommandBytes = 65792;
     public const int PropertyPageSize = 25;
+    public const int PropertyOptionCount = 32;
+    public const int PropertyDecimalBytes = 64;
+    public const int PropertyDateBytes = 40;
+    public const int PropertyUrlBytes = 8192;
     public const int InboxReplayMaxEvents = 512;
     public const int InboxReplayCursorChars = 54;
     public const int MaxPasskeyFrameBytes = 32768;
@@ -257,6 +265,10 @@ public static class WireRoutes
     public const string PropertyDefinitionCommand = "/api/v2/authoring/properties/definition.aeds";
     public const string PropertyWorkspace = "/api/v2/authoring/properties/workspace.aeds";
     public const string PropertyTextCommand = "/api/v2/authoring/properties/text.aeds";
+    public const string PropertySchemaCommand = "/api/v2/authoring/properties/schema.aeds";
+    public const string PropertyValueCommand = "/api/v2/authoring/properties/values.aeds";
+    public const string PropertyEditor = "/api/v2/authoring/properties/editor.aeds";
+    public const string DraftRecoveryScope = "/api/v2/authoring/recovery-scope.aeds";
 }
 
 public static class WireHeaders
@@ -270,6 +282,7 @@ public static class WireHeaders
     public const string InboxReplayCursor = "X-Fsus-Inbox-Replay-Cursor";
 }
 
+public sealed record DraftRecoveryScope(Guid SiteId, Guid UserId);
 public sealed record PublicCommentEligibility(int ArticleId, long Publication, string DisplayName);
 public sealed record PublicCommentSubmission(int ArticleId, long Publication, Guid IdempotencyKey, bool ExplicitPublic, string DisplayName, string Body);
 public sealed record PublicCommentSubmissionResult(int ArticleId, long CommentId, int ModerationStatus, bool Replayed);
@@ -292,6 +305,24 @@ public sealed record PropertyCommandReceipt(Guid DefinitionId, long SchemaRevisi
 
 public static partial class Wire
 {
+    public static byte[] EncodeDraftRecoveryScope(DraftRecoveryScope value)
+    {
+        Validate(value);
+        var writer = new Writer();
+        writer.Uuid(value.SiteId);
+        writer.Uuid(value.UserId);
+        return Aeds.Encode(FrameType.DraftRecoveryScope, writer.Written);
+    }
+
+    public static DraftRecoveryScope DecodeDraftRecoveryScope(ReadOnlySpan<byte> frame)
+    {
+        var reader = new Reader(Aeds.Decode(frame, FrameType.DraftRecoveryScope));
+        var value = new DraftRecoveryScope(reader.Uuid(), reader.Uuid());
+        reader.Finish();
+        Validate(value);
+        return value;
+    }
+
     public static byte[] EncodePublicCommentEligibility(PublicCommentEligibility value)
     {
         Validate(value);

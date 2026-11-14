@@ -1,6 +1,7 @@
 import { readonly, ref, shallowRef } from 'vue'
 import { api, ApiError, type Session } from '../../Contracts/client'
 import { loginWithPasskey, provisionPasskey } from '../../Contracts/passkey'
+import { purgeVerifiedDraftScope, verifyDraftScope } from './authoring/draftScope'
 
 const session = shallowRef<Session | null>(null)
 const sessionEpoch = ref(0)
@@ -75,11 +76,28 @@ async function mutateLogin(perform: () => Promise<Session | null>, signal?: Abor
 }
 
 export async function signOut(signal?: AbortSignal) {
-  invalidateSession()
-  const request = requestEpoch
+  const epoch = sessionEpoch.value
+  const author = session.value?.canAuthor === true
+  const request = ++requestEpoch
   mutation = request
   try {
-    await api.signOut(signal)
+    let recoveryError: unknown
+    if (author) {
+      try { await verifyDraftScope(epoch, () => request === requestEpoch, signal) }
+      catch (error) {
+        if (!(error instanceof ApiError && error.status === 401)) recoveryError = error
+      }
+    }
+    if (request !== requestEpoch || signal?.aborted) return
+    updateSession(null)
+    try { await api.signOut(signal) }
+    catch (logoutError) {
+      try { await purgeVerifiedDraftScope(epoch) }
+      catch (cleanupError) { throw new AggregateError([logoutError, cleanupError]) }
+      throw logoutError
+    }
+    await purgeVerifiedDraftScope(epoch)
+    if (recoveryError) throw recoveryError
   } finally {
     if (mutation === request) mutation = undefined
   }

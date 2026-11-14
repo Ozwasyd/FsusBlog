@@ -14,6 +14,12 @@ internal static class PropertyEndpoints
             Wire.EncodePropertyCommandReceipt(await store.Change(Wire.DecodePropertyDefinitionCommand(frame), ct)));
         Map(WireRoutes.PropertyTextCommand, async (store, frame, ct) =>
             Wire.EncodePropertyCommandReceipt(await store.WriteText(Wire.DecodePropertyTextCommand(frame), ct)));
+        Map(WireRoutes.PropertyEditor, async (store, frame, ct) =>
+            Wire.EncodePropertyEditor(await store.ReadEditor(Wire.DecodePropertyWorkspaceRequest(frame), kind: null, ct)));
+        Map(WireRoutes.PropertySchemaCommand, async (store, frame, ct) =>
+            Wire.EncodePropertyCommandReceipt(await store.Change(Wire.DecodePropertySchemaInput(frame), textOnly: false, ct)));
+        Map(WireRoutes.PropertyValueCommand, async (store, frame, ct) =>
+            Wire.EncodePropertyCommandReceipt(await store.Write(Wire.DecodePropertyValueInput(frame), textOnly: false, frame, ct)));
 
         void Map(string path, Func<PropertyStore, byte[], CancellationToken, Task<byte[]>> operation)
         {

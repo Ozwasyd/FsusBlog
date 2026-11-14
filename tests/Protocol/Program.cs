@@ -81,4 +81,5 @@ Equal(Fixture("inbox-replay.hex"), InboxReplayWire.Encode(702, true, false, inbo
 Reject(() => InboxReplayWire.Encode(703, true, false, inboxEvents));
 Reject(() => InboxReplayWire.Encode(702, true, true, inboxEvents));
 LocalSearchVectors.Run(fixtures);
+PropertyValueVectors.Run(fixtures);
 Console.WriteLine("AEDS C# vectors and malformed data checks passed");

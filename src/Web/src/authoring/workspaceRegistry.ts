@@ -20,6 +20,15 @@ export type DraftSave<Draft> = Readonly<{ kind: 'saved'; draft: Draft }> | { kin
 export interface EditorTransport<Draft> {
   load(id: number, signal: AbortSignal): Promise<DraftLoad<Draft>>
   save(draft: Draft, signal: AbortSignal, idempotencyKey: string): Promise<DraftSave<Draft>>
+  confirmed?(write: Readonly<{
+    command: WriteCommand
+    sessionId: number
+    previousArticleId: number
+    acknowledgedEdit: number
+    current: Draft
+    currentEdit: number
+    dirty: boolean
+  }>): void
 }
 
 type ContentCommand<Draft> = (draft: Draft, signal: AbortSignal, idempotencyKey: string) => Promise<DraftSave<Draft>>
@@ -106,6 +115,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   #active: Session<Draft> | undefined
   #activation = 0
   #sequence = 0
+  #editSequence = 0
   #revision = 0
 
   constructor(
@@ -132,6 +142,10 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
   get activeDraft(): Draft | undefined {
     const draft = this.#currentIdentity() && this.#active?.draft
     return draft ? structuredClone(draft) : undefined
+  }
+
+  get activeEditSequence(): number {
+    return this.#active && this.#currentIdentity() ? this.#active.edit : 0
   }
 
   get tabs(): readonly WorkspaceTab[] {
@@ -246,7 +260,7 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
     session.draft = structuredClone(draft)
     session.mode = 'pinned'
     session.dirty = true
-    session.edit++
+    session.edit = ++this.#editSequence
     this.#changed()
     return true
   }
@@ -319,6 +333,14 @@ export class WorkspaceRegistry<Draft extends ArticleDraft> {
         session.draft = { ...session.draft, id: articleId, revision: result.draft.revision }
       }
       delete session.request
+      try {
+        this.#transport.confirmed?.({
+          command, sessionId: session.sessionId, previousArticleId: draft.id, acknowledgedEdit: edit,
+          current: structuredClone(session.draft), currentEdit: session.edit, dirty: session.dirty,
+        })
+      } catch {
+        // A local recovery failure cannot change an acknowledged server write.
+      }
     }
     if (result.kind === 'blocked' && result.reason !== 'unavailable') {
       this.invalidate(tab, result.reason)

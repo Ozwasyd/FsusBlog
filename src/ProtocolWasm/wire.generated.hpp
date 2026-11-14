@@ -48,6 +48,10 @@ inline constexpr uint32_t PropertyLabelBytes = 1024;
 inline constexpr uint32_t PropertyValueBytes = 65536;
 inline constexpr uint32_t PropertyMaxCommandBytes = 65792;
 inline constexpr uint32_t PropertyPageSize = 25;
+inline constexpr uint32_t PropertyOptionCount = 32;
+inline constexpr uint32_t PropertyDecimalBytes = 64;
+inline constexpr uint32_t PropertyDateBytes = 40;
+inline constexpr uint32_t PropertyUrlBytes = 8192;
 inline constexpr uint32_t InboxReplayMaxEvents = 512;
 inline constexpr uint32_t InboxReplayCursorChars = 54;
 inline constexpr uint32_t MaxPasskeyFrameBytes = 32768;
@@ -204,6 +208,10 @@ enum class FrameType : uint16_t {
     PropertyTextCommand = 32781,
     PropertyCommandReceipt = 32782,
     PropertyWorkspace = 32783,
+    PropertySchemaCommand = 32784,
+    PropertyValueCommand = 32785,
+    PropertyEditor = 32786,
+    DraftRecoveryScope = 32787,
     DraftTaxonomy = 32790,
     TaxonomyAssignment = 32791,
 };
@@ -254,6 +262,10 @@ constexpr bool known(FrameType type) {
         case FrameType::PropertyTextCommand:
         case FrameType::PropertyCommandReceipt:
         case FrameType::PropertyWorkspace:
+        case FrameType::PropertySchemaCommand:
+        case FrameType::PropertyValueCommand:
+        case FrameType::PropertyEditor:
+        case FrameType::DraftRecoveryScope:
         case FrameType::DraftTaxonomy:
         case FrameType::TaxonomyAssignment:
             return true;

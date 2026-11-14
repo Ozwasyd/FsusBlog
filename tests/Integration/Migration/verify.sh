@@ -127,6 +127,16 @@ rg -A 3 '"name": "article",' "$scratch/inventory.json" | rg -F '"rows": 1'
 pg_dump --no-password --format=custom --dbname "$source_db" --file "$scratch/backup.dump"
 pg_restore --no-password --single-transaction --exit-on-error --dbname "$restore_db" "$scratch/backup.dump"
 FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" verify
+source_site=$("${psql_source[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')
+restore_site=$("${psql_restore[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')
+[[ -n "$source_site" && "$source_site" == "$restore_site" ]]
+"${migrate[@]}" recovery-scope
+[[ "$source_site" == "$("${psql_source[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')" ]]
+"${psql_restore[@]}" -c 'DROP TABLE public.authoring_recovery_site'
+FSUSBLOG_DB="$settings;Database=$restore_db" expect_failure 'relation/column shape mismatch' "${migrate[@]}" verify
+FSUSBLOG_DB="$settings;Database=$restore_db" "${migrate[@]}" recovery-scope
+new_site=$("${psql_restore[@]}" -Atc 'SELECT site_id FROM public.authoring_recovery_site WHERE singleton')
+[[ -n "$new_site" && "$new_site" != "$source_site" ]]
 [[ "$("${psql_restore[@]}" -qAtc 'SELECT generation FROM public.blog_user')" == 2 ]]
 read_public="SELECT r.title FROM public.article_publication p
 JOIN public.article_revision r ON (r.article_id, r.revision) = (p.article_id, p.revision)"

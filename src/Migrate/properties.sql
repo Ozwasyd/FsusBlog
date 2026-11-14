@@ -28,11 +28,12 @@ CREATE TABLE public.property_article (
     UNIQUE (article_id, owner_id)
 );
 
-CREATE TABLE public.property_text_value (
+CREATE TABLE public.property_value (
     article_id integer NOT NULL,
     owner_id uuid NOT NULL,
     definition_id uuid NOT NULL,
-    value text NOT NULL CHECK (char_length(value) <= 16384),
+    data jsonb NOT NULL,
+    references_ids integer[] NOT NULL CHECK (cardinality(references_ids) <= 32),
     PRIMARY KEY (article_id, definition_id),
     FOREIGN KEY (article_id, owner_id) REFERENCES public.property_article(article_id, owner_id),
     FOREIGN KEY (owner_id, definition_id) REFERENCES public.property_definition(owner_id, id)
@@ -47,4 +48,5 @@ CREATE TABLE public.property_value_command (
     PRIMARY KEY (article_id, request_id)
 );
 
-CREATE INDEX property_value_by_definition ON public.property_text_value(owner_id, definition_id);
+CREATE INDEX property_value_by_definition ON public.property_value(owner_id, definition_id);
+CREATE INDEX property_value_references ON public.property_value USING gin (references_ids);

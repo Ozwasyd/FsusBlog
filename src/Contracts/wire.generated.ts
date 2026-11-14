@@ -46,6 +46,10 @@ export const FrameType = {
   PropertyTextCommand: 32781,
   PropertyCommandReceipt: 32782,
   PropertyWorkspace: 32783,
+  PropertySchemaCommand: 32784,
+  PropertyValueCommand: 32785,
+  PropertyEditor: 32786,
+  DraftRecoveryScope: 32787,
   DraftTaxonomy: 32790,
   TaxonomyAssignment: 32791,
 } as const;
@@ -94,6 +98,10 @@ export const WireLimits = {
   PropertyValueBytes: 65536,
   PropertyMaxCommandBytes: 65792,
   PropertyPageSize: 25,
+  PropertyOptionCount: 32,
+  PropertyDecimalBytes: 64,
+  PropertyDateBytes: 40,
+  PropertyUrlBytes: 8192,
   InboxReplayMaxEvents: 512,
   InboxReplayCursorChars: 54,
   MaxPasskeyFrameBytes: 32768,
@@ -252,6 +260,10 @@ export const WireRoutes = {
   PropertyDefinitionCommand: "/api/v2/authoring/properties/definition.aeds",
   PropertyWorkspace: "/api/v2/authoring/properties/workspace.aeds",
   PropertyTextCommand: "/api/v2/authoring/properties/text.aeds",
+  PropertySchemaCommand: "/api/v2/authoring/properties/schema.aeds",
+  PropertyValueCommand: "/api/v2/authoring/properties/values.aeds",
+  PropertyEditor: "/api/v2/authoring/properties/editor.aeds",
+  DraftRecoveryScope: "/api/v2/authoring/recovery-scope.aeds",
 } as const;
 
 export const WireHeaders = {
@@ -265,6 +277,28 @@ export const WireHeaders = {
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];
+
+export interface DraftRecoveryScope {
+  siteId: string;
+  userId: string;
+}
+
+export function encodeDraftRecoveryScope(value: DraftRecoveryScope): Uint8Array {
+  const writer = new PodWriter();
+  writer.uuid(value.siteId);
+  writer.uuid(value.userId);
+  return writer.finish();
+}
+
+export function decodeDraftRecoveryScope(payload: Uint8Array): DraftRecoveryScope {
+  const reader = new PodReader(payload);
+  const value: DraftRecoveryScope = {
+    siteId: reader.uuid(),
+    userId: reader.uuid(),
+  };
+  reader.finish();
+  return value;
+}
 
 export interface PublicCommentEligibility {
   articleId: number;

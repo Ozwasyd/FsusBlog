@@ -110,6 +110,7 @@ FsusBlog.V2.Server.Content.TaxonomyEndpoints.Map(app, Snapshot, Query, ReadListC
 FsusBlog.V2.Server.Content.SitePages.Map(app, app.Services.GetRequiredService<WebPages>());
 FsusBlog.V2.Server.Authoring.CanvasEndpoints.Map(app, Cookie, ReadFrame);
 FsusBlog.V2.Server.Authoring.PropertyEndpoints.Map(app, Cookie, ReadFrame);
+FsusBlog.V2.Server.Authoring.RecoveryScopeEndpoints.Map(app, Cookie);
 FsusBlog.V2.Server.Comments.CommentReadEndpoints.Map(app, publications, Cookie, ReadFrame);
 
 app.MapGet(WireRoutes.PublicList, (HttpContext ctx, int page, int size) => PublicList(ctx, "home", page, size)).RequireRateLimiting("query");

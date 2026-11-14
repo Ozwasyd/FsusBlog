@@ -58,6 +58,10 @@
     "PropertyTextCommand": 32781,
     "PropertyCommandReceipt": 32782,
     "PropertyWorkspace": 32783,
+    "PropertySchemaCommand": 32784,
+    "PropertyValueCommand": 32785,
+    "PropertyEditor": 32786,
+    "DraftRecoveryScope": 32787,
     "DraftTaxonomy": 32790,
     "TaxonomyAssignment": 32791
   },
@@ -107,7 +111,11 @@
     "CanvasConfirm": "/api/v2/authoring/canvas/link/confirm.aeds",
     "PropertyDefinitionCommand": "/api/v2/authoring/properties/definition.aeds",
     "PropertyWorkspace": "/api/v2/authoring/properties/workspace.aeds",
-    "PropertyTextCommand": "/api/v2/authoring/properties/text.aeds"
+    "PropertyTextCommand": "/api/v2/authoring/properties/text.aeds",
+    "PropertySchemaCommand": "/api/v2/authoring/properties/schema.aeds",
+    "PropertyValueCommand": "/api/v2/authoring/properties/values.aeds",
+    "PropertyEditor": "/api/v2/authoring/properties/editor.aeds",
+    "DraftRecoveryScope": "/api/v2/authoring/recovery-scope.aeds"
   },
   "headers": {
     "TraceId": "X-Fsus-Trace-Id",
@@ -148,6 +156,10 @@
     "PropertyValueBytes": 65536,
     "PropertyMaxCommandBytes": 65792,
     "PropertyPageSize": 25,
+    "PropertyOptionCount": 32,
+    "PropertyDecimalBytes": 64,
+    "PropertyDateBytes": 40,
+    "PropertyUrlBytes": 8192,
     "InboxReplayMaxEvents": 512,
     "InboxReplayCursorChars": 54,
     "MaxPasskeyFrameBytes": 32768,
@@ -258,6 +270,10 @@
     "PasskeySliceSize": 8
   },
   "records": {
+    "DraftRecoveryScope": {
+      "frame": "DraftRecoveryScope",
+      "fields": [["SiteId", "uuid"], ["UserId", "uuid"]]
+    },
     "PublicCommentEligibility": {
       "frame": "PublicCommentEligibility",
       "fields": [["ArticleId", "i32"], ["Publication", "i64"], ["DisplayName", "text", "PublicCommentHandleBytes"]]

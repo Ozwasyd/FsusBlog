@@ -62,7 +62,7 @@ const responses = []
 const startedAt = new Date().toISOString()
 const desktop = await browser.newContext({ viewport: { width: 1280, height: 800 }, colorScheme: 'light' })
 const mobile = await browser.newContext({ viewport: { width: 375, height: 850 }, colorScheme: 'light' })
-const publisher = await desktop.newPage()
+let publisher = await desktop.newPage()
 const visitor = await mobile.newPage()
 function monitor(page, name) {
   page.on('pageerror', error => diagnostics.push({ name, kind: 'uncaught', message: error.message }))
@@ -163,6 +163,56 @@ try {
   await screen(publisher, 'editor-desktop')
   observations.push('Login, draft navigation protection, durable save, and unpublished omission from index.')
 
+  const unsavedRecovery = `Recovery text ${token}`
+  const editorUrl = publisher.url()
+  const durableRecords = () => publisher.evaluate(() => new Promise((resolve, reject) => {
+    const request = indexedDB.open('fsusblog-v2-draft-recovery')
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => {
+      const database = request.result
+      const transaction = database.transaction('recovery')
+      const read = transaction.objectStore('recovery').getAll()
+      read.onerror = () => reject(read.error)
+      read.onsuccess = () => resolve(read.result.map(item => ({ document: item.document, body: item.body })))
+      transaction.oncomplete = () => database.close()
+    }
+  }))
+  // Wait for the author-only scope and its storage connection before creating the recovery copy.
+  const scopeLoaded = await publisher.request.get(`${origin}${WireRoutes.DraftRecoveryScope}`)
+  assert.equal(scopeLoaded.status(), 200)
+  await publisher.getByLabel('Body', { exact: true }).fill(unsavedRecovery)
+  await publisher.waitForFunction(source => new Promise(resolve => {
+    const request = indexedDB.open('fsusblog-v2-draft-recovery')
+    request.onerror = () => resolve(false)
+    request.onsuccess = () => {
+      const database = request.result
+      if (!database.objectStoreNames.contains('recovery')) {
+        database.close()
+        resolve(false)
+        return
+      }
+      const tx = database.transaction('recovery')
+      const rows = tx.objectStore('recovery').getAll()
+      rows.onsuccess = () => resolve(rows.result.some(row => row.body === source))
+      rows.onerror = () => resolve(false)
+      tx.oncomplete = () => database.close()
+    }
+  }), unsavedRecovery)
+  // Release the old editor page without taking its explicit discard route.
+  await publisher.close({ runBeforeUnload: false })
+  publisher = await desktop.newPage()
+  monitor(publisher, 'publisher-recovered')
+  await publisher.goto(editorUrl)
+  await visible(publisher.getByRole('heading', { name: 'Recover an unsaved draft' }))
+  assert.equal(await publisher.getByLabel('Body', { exact: true }).inputValue(), body)
+  await button(publisher, 'Restore draft').click()
+  await publisher.waitForFunction(source => document.querySelector('#article-body')?.value === source, unsavedRecovery)
+  await publisher.getByLabel('Body', { exact: true }).fill(body)
+  await button(publisher, 'Save draft').click()
+  await visible(publisher.getByText('Draft saved.', { exact: true }))
+  assert(!(await durableRecords()).some(item => item.document === `article:${writtenId}`))
+  observations.push('The author inspects and restores an unconfirmed IndexedDB draft in a new page. Server acknowledgement purges it.')
+
   if (config.publicFixture) {
     await publisher.getByRole('combobox', { name: 'Category', exact: true }).click()
     await publisher.getByRole('option', { name: 'Web engineering', exact: true }).click()
@@ -176,7 +226,7 @@ try {
     observations.push('Save classification commits against the current article revision and remains private until publication.')
   }
 
-  await button(publisher, 'Add text property').click()
+  await button(publisher, 'Add property').click()
   await publisher.getByLabel('Property label').fill('Article subtitle')
   await publisher.getByLabel('Property key').fill('article-subtitle')
   await button(publisher, 'Create property').click()
@@ -184,10 +234,37 @@ try {
   await publisher.getByLabel('Article subtitle value').fill(`Private subtitle ${token}`)
   await button(publisher, 'Save property').click()
   await visible(publisher.getByText(`Private subtitle ${token}`, { exact: true }))
+
+  await button(publisher, 'Add property').click()
+  await publisher.getByLabel('Property label').fill('Editorial score')
+  await publisher.getByLabel('Property key').fill('editorial-score')
+  await publisher.getByRole('combobox', { name: 'Property type' }).click()
+  await publisher.getByRole('option', { name: 'Number', exact: true }).click()
+  await button(publisher, 'Create property').click()
+  await button(publisher, 'Edit Editorial score').click()
+  const exactScore = '12345678901234567890.12345678'
+  await publisher.getByLabel('Editorial score value').fill(exactScore)
+  await button(publisher, 'Save property').click()
+  await visible(publisher.getByText(exactScore, { exact: true }))
+
+  await button(publisher, 'Add property').click()
+  await publisher.getByLabel('Property label').fill('Editorial approval')
+  await publisher.getByLabel('Property key').fill('editorial-approval')
+  await publisher.getByRole('combobox', { name: 'Property type' }).click()
+  await publisher.getByRole('option', { name: 'Boolean', exact: true }).click()
+  await button(publisher, 'Create property').click()
+  await button(publisher, 'Edit Editorial approval').click()
+  const approval = publisher.getByRole('radiogroup', { name: 'Editorial approval value' })
+  await approval.getByText('False', { exact: true }).click()
+  assert.equal(await approval.getByRole('radio', { name: 'False', exact: true }).isChecked(), true)
+  await button(publisher, 'Save property').click()
+
   await publisher.reload()
   await visible(publisher.getByText(`Private subtitle ${token}`, { exact: true }))
+  await visible(publisher.getByText(exactScore, { exact: true }))
+  await visible(publisher.getByText('False', { exact: true }))
   await screen(publisher, 'editor-properties')
-  observations.push('The editor creates a stable text property and reloads a persisted private value.')
+  observations.push('The editor reloads a private text value, an exact decimal and a false Boolean without coercion.')
 
   await button(publisher, 'Publish article').click()
   await visible(publisher.getByText('Article published.', { exact: false }))

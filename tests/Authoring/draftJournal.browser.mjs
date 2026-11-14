@@ -47,6 +47,7 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
       const second = await DraftJournal.open({ site: 'example.test', userId: 'user-1' })
       const a = { articleId: 21 }
       const b = { articleId: 22 }
+      const fresh = { createDraftId: '89bf111b-e994-4788-9218-583ec33dce95' }
       const source = { baseRevision: 1n, title: '原始 🐝', body: '未确认的内容', editSequence: 1 }
       const dispositions = await Promise.all([
         first.write(a, source),
@@ -60,6 +61,7 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
       const updated = first.write(a, { ...source, body: '新内容 🐈', editSequence: 3 })
       await Promise.all([old, updated])
       await first.acknowledge(a, 2)
+      await first.write(fresh, { ...source, body: 'New unpersisted draft', baseRevision: 0n })
       first.close()
       second.close()
       return dispositions
@@ -78,6 +80,7 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
       const otherSite = await DraftJournal.open({ ...scope, site: 'test.example.test' })
       Date.now = () => time + draftJournalLifetimeMs - 1
       const beforeExpiry = await journal.inspect(target, durable)
+      const newDrafts = await journal.inspectNew()
       const clean = (await journal.inspect({ articleId: 22 }, durable)).length
       const isolated = [await other.inspect(target, durable), await otherSite.inspect(target, durable)].flat().length
       const removed = beforeExpiry.find(record => record.body === 'Another tab')
@@ -103,12 +106,14 @@ test('IndexedDB recovery after browser restart, local writer isolation, expiry a
       otherSite.close()
       return {
         records: beforeExpiry.map(({ body, relationship }) => [body, relationship]).sort(),
+        newDrafts: newDrafts.map(({ body, target }) => [body, target]),
         clean, isolated, afterDiscard, afterExpiry, purgeDisposition, afterPurge, oldTabAfterLogout, afterReauth,
         next: next[0]?.relationship, localStorageKeys: Object.keys(localStorage), sessionStorageKeys: Object.keys(sessionStorage),
       }
     }, { modulePath, time })
     deepStrictEqual(actual, {
       records: [['Another tab', 'compare'], ['新内容 🐈', 'compare']],
+      newDrafts: [['New unpersisted draft', { createDraftId: '89bf111b-e994-4788-9218-583ec33dce95' }]],
       clean: 0, isolated: 0, afterDiscard: 1, afterExpiry: 0, purgeDisposition: 'closed', afterPurge: 0,
       oldTabAfterLogout: 'closed', afterReauth: 'stored',
       next: 'restore', localStorageKeys: [], sessionStorageKeys: [],

@@ -32,6 +32,7 @@ internal static partial class Migration
                   plan                   Print a fresh-schema plan without changing the database
                   apply PLAN.json        Apply that plan atomically to an empty database
                   verify                 Check the current marker, shape and publication coordinates
+                  recovery-scope         Initialize the durable draft recovery site ID on a matching existing database
                   operator NAME         Create an author and issue an expiring one-use login ticket
                   operator NAME --reader
                                         Create a reader and issue an expiring one-use login ticket
@@ -100,6 +101,9 @@ internal static partial class Migration
                     await CurrentSchema.VerifyAsync(connection, token);
                     await VerifyPublicationsAsync(connection, token);
                     Console.WriteLine($"Verified FsusBlog V2 schema version {CurrentSchema.Version}.");
+                    break;
+                case ["recovery-scope"]:
+                    await InitializeRecoveryScopeAsync(connection, token);
                     break;
                 case ["operator", var name]:
                     await IssueAsync(connection, name, create: true, author: true, token);

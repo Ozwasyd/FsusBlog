@@ -7,6 +7,8 @@ import { WireLimits } from '../../../Contracts/wire.generated'
 import { assignTaxonomy, type TaxonomySelection } from '../../../Contracts/taxonomy-client'
 import ArticleTaxonomy from './ArticleTaxonomy.vue'
 import ArticleProperties from './ArticleProperties.vue'
+import { editorRecovery } from '../authoring/editorRecovery'
+import type { RecoveryCandidate } from '../authoring/draftJournal'
 import { currentSession, identityEpoch, invalidateSession, refreshSession } from '../session'
 import {
   WorkspaceRegistry,
@@ -25,6 +27,11 @@ const notice = ref('')
 const taxonomyDirty = ref(false)
 const taxonomyStale = ref(false)
 const propertyPending = ref(false)
+const recovery = editorRecovery()
+const recoveryItems = recovery.candidates
+const recoveryFailure = recovery.failure
+const recoveryWorking = ref(false)
+const recoveryBlocked = computed(() => recoveryWorking.value || recovery.guarded.value || recoveryItems.value.length > 0)
 const failure = ref('')
 const authorizationReady = ref(false)
 const loading = ref(false)
@@ -47,7 +54,7 @@ const validBody = computed(() => {
   return body.length <= 200_000 && !body.includes('\0') && encoder.encode(body).length <= WireLimits.BodyBytes
 })
 const editable = computed(() => Boolean(currentSession.value?.canAuthor && original.value?.id === id.value && !loading.value))
-const cannotWrite = computed(() => pending.value || hasConflict.value || taxonomyDirty.value || !validBody.value || !validTitle.value)
+const cannotWrite = computed(() => pending.value || recoveryBlocked.value || hasConflict.value || taxonomyDirty.value || !validBody.value || !validTitle.value)
 const publishedPath = computed(() => original.value?.published ? `/article/${original.value.id}` : '')
 
 const failureByReason: Record<WorkspaceBlock, string> = {
@@ -108,6 +115,7 @@ const registry = new WorkspaceRegistry<Draft>({
     }
   },
   save: send('save'),
+  confirmed: recovery.confirmed,
 })
 const unsubscribe = registry.subscribe(() => {
   const next = registry.activeDraft
@@ -117,12 +125,17 @@ const unsubscribe = registry.subscribe(() => {
   }
   original.value = next
   tab.value = registry.activeTab
+  recovery.setCurrent(tab.value, next, registry.activeEditSequence)
 })
 watch([currentSession, identityEpoch], ([session, epoch]) => {
   registry.setIdentity(session?.canAuthor
     ? { site: location.origin, principalId: String(epoch), generation: session.generation, expiresAt: session.expiresAt }
     : null)
 }, { immediate: true, flush: 'sync' })
+watch([identityEpoch, () => currentSession.value?.canAuthor], ([epoch, author]) => {
+  if (!author) recovery.close()
+  else void recovery.attach(epoch, () => identityEpoch.value === epoch && currentSession.value?.canAuthor === true)
+}, { immediate: true, flush: 'post' })
 
 onMounted(() => {
   void refreshSession(lifetime.signal).catch(() => {
@@ -134,6 +147,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   lifetime.abort()
+  recovery.close()
   registry.setIdentity(null)
   unsubscribe()
   window.removeEventListener('beforeunload', onUnload)
@@ -171,6 +185,7 @@ async function allowLeave() {
   if (!current || current.risk === 'clean' && !taxonomyDirty.value) return true
   if (current.risk === 'saving' || current.risk === 'pending' || current.retry) return false
   const revision = registry.revision
+  const edit = registry.activeEditSequence
   try {
     const outcome = await ElMessageBox.confirm('Your changes will be lost if you leave this page.', 'Discard unsaved changes?', {
       type: 'warning',
@@ -178,7 +193,9 @@ async function allowLeave() {
       cancelButtonText: 'Keep writing',
       closeOnClickModal: false,
     })
-    return outcome.ok && registry.discard(current, revision).kind === 'closed'
+    if (!outcome.ok || registry.discard(current, revision).kind !== 'closed') return false
+    await recovery.discardArticle(current.articleId, current.sessionId, edit)
+    return true
   } catch {
     return false
   }
@@ -189,15 +206,35 @@ onBeforeRouteUpdate((to, from) => to.path === from.path || allowLeave())
 function edit(field: 'title' | 'body', value: string) {
   const document = original.value
   const current = tab.value
-  if (editable.value && !taxonomyDirty.value && !propertyPending.value && current && document && document[field] !== value) {
-    registry.updateDraft(current, { ...document, [field]: value })
+  if (editable.value && !recoveryBlocked.value && !taxonomyDirty.value && !propertyPending.value
+      && current && document && document[field] !== value) {
+    const next = { ...document, [field]: value }
+    if (registry.updateDraft(current, next)) recovery.persist(next, registry.activeEditSequence)
+  }
+}
+
+async function restoreDraft(candidate: RecoveryCandidate) {
+  const current = tab.value
+  const document = original.value
+  if (!current || !document || current.risk !== 'clean' || pending.value || recoveryWorking.value ||
+      !recoveryItems.value.includes(candidate)) return
+  const restored = { ...document, title: candidate.title, body: candidate.body }
+  recoveryWorking.value = true
+  try {
+    if (registry.updateDraft(current, restored)) {
+      if (!await recovery.remove(candidate, { draft: restored, edit: registry.activeEditSequence })) {
+        recovery.dismissCandidates()
+      }
+    }
+  } finally {
+    recoveryWorking.value = false
   }
 }
 
 async function submit(action: Action, selection?: TaxonomySelection) {
   const current = tab.value
   const document = original.value
-  if (!current || !document || !editable.value || pending.value) return
+  if (!current || !document || !editable.value || pending.value || recoveryBlocked.value) return
   if (current.retry) {
     if (action !== current.retry) return
   } else if (action === 'assign-taxonomy') {
@@ -276,25 +313,41 @@ async function reloadDraft() {
       <ElAlert v-if="failure" :title="failure" type="error" :closable="false" show-icon />
       <ElButton v-if="hasConflict" class="retry" @click="reloadDraft">Load latest revision</ElButton>
       <label for="article-title">Title</label>
-      <ElInput id="article-title" :model-value="original?.title" @update:model-value="edit('title', $event)" placeholder="Write the article title" size="large" :disabled="pending || taxonomyDirty" />
+      <ElInput id="article-title" :model-value="original?.title" @update:model-value="edit('title', $event)" placeholder="Write the article title" size="large" :disabled="pending || taxonomyDirty || recoveryBlocked" />
       <p v-if="id === 0 || articleDirty" class="metadata">Save the draft before publishing.</p>
       <p class="metadata">{{ titleLength }} / {{ WireLimits.TitleBytes }} bytes</p>
       <label for="article-body">Body</label>
       <ElMarkdownEditor
         v-if="nativeMarkdown" textarea-id="article-body" :locale-text="{ textarea: { source: 'Body', live: 'Body' } }" :model-value="original?.body" @update:model-value="edit('body', $event)" placeholder="Start writing here."
-        :disabled="pending || taxonomyDirty" :show-actions="false"
+        :disabled="pending || taxonomyDirty || recoveryBlocked" :show-actions="false"
       />
       <template v-else>
         <ElAlert title="Rich editing unavailable. Edit the original Markdown below." type="info" :closable="false" />
-        <ElInput id="article-body" :model-value="original?.body" @update:model-value="edit('body', $event)" type="textarea" :autosize="{ minRows: 14 }" placeholder="Start writing here." :disabled="pending || taxonomyDirty" />
+        <ElInput id="article-body" :model-value="original?.body" @update:model-value="edit('body', $event)" type="textarea" :autosize="{ minRows: 14 }" placeholder="Start writing here." :disabled="pending || taxonomyDirty || recoveryBlocked" />
       </template>
+      <p v-if="recoveryFailure" role="status">Local draft recovery is unavailable. Save to keep your changes on the server.</p>
+      <section v-if="recoveryItems.length" aria-labelledby="draft-recovery-title">
+        <h2 id="draft-recovery-title">Recover an unsaved draft</h2>
+        <p>Unsaved text is stored in this browser for up to seven days. It is not encrypted.</p>
+        <div v-for="item in recoveryItems" :key="`${item.writer}-${item.editSequence}`">
+          <h3>{{ item.title || 'Untitled draft' }}</h3>
+          <p v-if="item.relationship === 'compare'">This recovery copy and the server draft have different revisions.</p>
+          <details>
+            <summary>Compare drafts</summary>
+            <h4>Server draft</h4><pre>{{ original?.body }}</pre>
+            <h4>Recovery copy</h4><pre>{{ item.body }}</pre>
+          </details>
+          <ElButton native-type="button" :disabled="pending || recoveryWorking || articleDirty" @click="restoreDraft(item)">Restore draft</ElButton>
+          <ElButton native-type="button" :disabled="pending || recoveryWorking" @click="recovery.remove(item)">Discard recovery copy</ElButton>
+        </div>
+      </section>
       <p v-if="!validBody" role="alert">The article exceeds the size limit.</p>
       <ArticleTaxonomy
         v-if="original && original.id > 0"
         :article-id="original.id"
         :revision="original.revision"
         :identity="identityEpoch"
-        :disabled="articleDirty || pending || !!retry || hasConflict"
+        :disabled="articleDirty || pending || recoveryBlocked || !!retry || hasConflict"
         @change="taxonomyDirty = $event"
         @save="submit('assign-taxonomy', $event)"
         @stale="taxonomyStale = true"
@@ -304,7 +357,7 @@ async function reloadDraft() {
         :article-id="original.id"
         :revision="original.revision"
         :identity="identityEpoch"
-        :disabled="articleDirty || taxonomyDirty || articlePending || !!retry || hasConflict"
+        :disabled="articleDirty || taxonomyDirty || articlePending || recoveryBlocked || !!retry || hasConflict"
         @pending="propertyPending = $event"
       />
     </section>
