@@ -6,22 +6,38 @@ dotnet_bin="${DOTNET_BIN:-dotnet}"
 if [[ -n "${PG_TOOLS_DIR:-}" ]]; then PATH="$PG_TOOLS_DIR:$PATH"; fi
 
 provider="${1:-}"
-if [[ "$provider" != sqlite && "$provider" != postgres ]]; then
-    printf 'Usage: %s sqlite|postgres\n' "$0" >&2
+if [[ "$provider" != sqlite && "$provider" != postgres && "$provider" != mysql ]]; then
+    printf 'Usage: %s sqlite|postgres|mysql\n' "$0" >&2
     exit 2
 fi
 if [[ "$provider" == postgres && ( -z "${FSUSBLOG_TEST_DB:-}" || -z "${PGHOST:-}" || -z "${PGUSER:-}" ) ]]; then
     printf '%s\n' "Set FSUSBLOG_TEST_DB, PGHOST and PGUSER to the same isolated PostgreSQL test cluster." >&2
     exit 2
 fi
+if [[ "$provider" == mysql ]]; then
+    # shellcheck source=tests/Integration/Migration/mysql-scratch.sh
+    source tests/Integration/Migration/mysql-scratch.sh
+    check_mysql_tools
+fi
 umask 077
-scratch="$(mktemp -d "${TMPDIR:-/tmp}/fsusv2-legacy.XXXXXXXX")"
+if [[ "$provider" == mysql ]]; then
+    # Keep the Unix socket path below macOS and Linux limits.
+    scratch="$(mktemp -d "/tmp/fsusv2-legacy.XXXXXXXX")"
+    scratch="$(cd "$scratch" && pwd -P)"
+else
+    scratch="$(mktemp -d "${TMPDIR:-/tmp}/fsusv2-legacy.XXXXXXXX")"
+fi
 fixture="tests/Integration/Migration/legacy-source-fixture.sql"
 database="fsusv2_legacy_$(openssl rand -hex 12)"
 created=0
 pg=(psql -X --no-password -v ON_ERROR_STOP=1)
 cleanup() {
     local code=$?
+    if [[ "$provider" == mysql ]] && ! stop_mysql_scratch "$scratch"; then
+        printf 'MySQL cleanup did not complete. Preserving %s\n' "$scratch" >&2
+        if [[ "$code" == 0 ]]; then code=1; fi
+        exit "$code"
+    fi
     if [[ "$created" == 1 ]] && ! "${pg[@]}" -d postgres -c "DROP DATABASE \"$database\""; then
         printf 'Could not remove owned test database %s\n' "$database" >&2
         if [[ "$code" == 0 ]]; then code=1; fi
@@ -30,6 +46,9 @@ cleanup() {
        ! rmdir -- "$scratch"; then
         printf 'Could not remove owned scratch directory %s\n' "$scratch" >&2
         if [[ "$code" == 0 ]]; then code=1; fi
+    fi
+    if [[ "$provider" == mysql && "$code" == 0 ]]; then
+        printf 'Removed the MySQL scratch server, socket and data directory.\n'
     fi
     exit "$code"
 }
@@ -42,6 +61,14 @@ if [[ "$provider" == postgres ]]; then
     export FSUSBLOG_V1_DB="${FSUSBLOG_TEST_DB%;};Database=$database;Options=-c default_transaction_read_only=on"
     export FSUSBLOG_V1_SCHEMA=public
     source_sql=("${pg[@]}" -d "$database" -c)
+elif [[ "$provider" == mysql ]]; then
+    start_mysql_scratch "$scratch"
+    "${mysql_admin[@]}" -e "CREATE DATABASE $database CHARACTER SET utf8mb4;
+        CREATE USER 'fsus_read'@'localhost';
+        GRANT SELECT ON $database.* TO 'fsus_read'@'localhost'"
+    "${mysql_admin[@]}" "$database" < "$fixture"
+    export FSUSBLOG_V1_DB="Server=$scratch/mysql.sock;Protocol=Unix;User ID=fsus_read;Database=$database;SSL Mode=Disabled"
+    source_sql=("${mysql_admin[@]}" "$database" -e)
 else
     export FSUSBLOG_V1_SQLITE_PATH="$scratch/source.sqlite"
     sqlite3 "$FSUSBLOG_V1_SQLITE_PATH" < "$fixture"
@@ -95,4 +122,10 @@ rg -F '"kind": "publication missing parent article, matching revision or require
 "${source_sql[@]}" 'ALTER TABLE article RENAME COLUMN current_publication_id TO unknown'
 expect_blocked "$scratch/incomplete.json"
 rg -F 'article.current_publication_id: required v1 column missing or ambiguous' "$scratch/incomplete.json"
+if [[ "$provider" == mysql ]]; then
+    "${source_sql[@]}" 'ALTER TABLE article RENAME COLUMN unknown TO current_publication_id'
+    "${source_sql[@]}" 'ALTER TABLE article_body ENGINE=MyISAM'
+    expect_blocked "$scratch/incomplete.json"
+    rg -F 'article_body: relation is not a supported transactional base table' "$scratch/incomplete.json"
+fi
 printf 'Legacy %s read-only inventory and blocker checks passed.\n' "$provider"
