@@ -167,6 +167,7 @@ test('smart gate selects producer exactly when an immutable build consumer is se
     const base = execFileSync('git', ['-C', root, 'rev-parse', '--verify', 'HEAD^{commit}'], { encoding: 'utf8' }).trim();
     execFileSync('git', ['-c', `core.hooksPath=${hooks}`, 'clone', '--quiet', '--shared', '--no-checkout', '--', root, candidate]);
     git('checkout', '--quiet', '--detach', base);
+    let caseEnvironment;
     const run = changedFile =>
     {
         // Each case is an actual clean commit against the same immutable baseline.
@@ -179,6 +180,14 @@ test('smart gate selects producer exactly when an immutable build consumer is se
             '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'test: exercise PR impact');
         const head = git('rev-parse', '--verify', 'HEAD^{commit}');
         assert.equal(git('status', '--porcelain', '--untracked-files=all'), '');
+        // Bind the isolated candidate, not an enclosing CI run's identity or plan.
+        caseEnvironment = { ...process.env, GITHUB_SHA: head, GITHUB_WORKSPACE: candidate,
+            FSUSBLOG_REPO_ROOT: candidate, FSUSBLOG_TEST_SOURCE_COMMIT: head,
+            FSUSBLOG_BASE_REF: base, FSUSBLOG_PR_EVENT_NAME: 'pull_request', FSUSBLOG_CI_STAGE: 'qualification' };
+        for (const key of ['FSUSBLOG_TEST_SOURCE_FINGERPRINT', 'FSUSBLOG_CI_PR_SMART_GATE_PLAN', 'FSUSBLOG_PR_PLAN_DIGEST'])
+        {
+            delete caseEnvironment[key];
+        }
         const changed = path.join(temp, `${path.basename(changedFile)}.txt`);
         const output = path.join(temp, `${path.basename(changedFile)}.json`);
         const githubOutput = path.join(temp, `${path.basename(changedFile)}.github-output`);
@@ -190,7 +199,7 @@ test('smart gate selects producer exactly when an immutable build consumer is se
             '--changed-files', changed,
             '--out', output,
             '--github-output', githubOutput
-        ], { cwd: candidate, encoding: 'utf8' });
+        ], { cwd: candidate, env: caseEnvironment, encoding: 'utf8' });
         assert.equal(result.status, 0, result.stderr);
         const plan = JSON.parse(fs.readFileSync(output, 'utf8'));
         assert.equal(plan.sourceState.commit, head);
@@ -214,7 +223,7 @@ test('smart gate selects producer exactly when an immutable build consumer is se
     const refused = spawnSync(process.execPath, [
         'tools/run-test-matrix.mjs', 'ci-pr-plan', '--event-name', 'pull_request',
         '--base-ref', base, '--changed-files', mismatched
-    ], { cwd: candidate, encoding: 'utf8' });
+    ], { cwd: candidate, env: caseEnvironment, encoding: 'utf8' });
     assert.notEqual(refused.status, 0);
     assert.match(refused.stderr, /changed files input does not match the actual merge-base Git diff/u);
 
