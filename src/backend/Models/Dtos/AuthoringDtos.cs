@@ -77,6 +77,7 @@ public sealed record class ArticleRevisionRightsSnapshotResponse(
     bool AllowCodeCopy,
     bool ShowPublicBadge,
     bool ProofBindingEnabled,
+    string? CanonicalUrl,
     string PolicyHash,
     string ContentCanonicalHash,
     DateTime CreatedAt);

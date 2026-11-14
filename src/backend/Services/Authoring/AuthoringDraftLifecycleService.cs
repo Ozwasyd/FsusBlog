@@ -612,6 +612,7 @@ public sealed class AuthoringDraftLifecycleService(
                 rights.AllowCodeCopy,
                 rights.ShowPublicBadge,
                 rights.ProofBindingEnabled,
+                rights.CanonicalUrl,
                 rights.PolicyHash,
                 rights.ContentCanonicalHash,
                 rights.CreatedAt),
