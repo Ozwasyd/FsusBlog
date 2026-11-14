@@ -168,6 +168,8 @@ dotnet run --no-build --project src/Migrate -- legacy admin verify \
 
 2026-11-15 在 macOS ARM64、SDK 10.0.404 上通过 `tests/Integration/Migration/legacy-admin-rehearsal.sh [postgres|sqlite|mysql]`。SQLite 3.54.0、独立 PostgreSQL 18.7 和 MySQL 8.4.13 的旧结构样本均通过映射、只读复验和独立的 PostgreSQL 备份恢复。PostgreSQL 和 MySQL 使用不能读取原凭据与会话秘密字段的旧源角色。测试拒绝旧根权限或 MFA、变更的来源、修改的管理员与回执、同名约束替换和发布态站点页面，确认普通身份同号不影响结果且旧源保持原样。原始输出与输入摘要见 `artifacts/native-migration/legacy-admin-rehearsal-20261114T184119Z.log`。
 
+文章暂存、当前表投影和附件演练也接受新版建库生成的四个站点页面空槽，限于原始 slug、修订号 0 及空正文。若安装了外观激活结构，也只允许修订号 0 的空主题和空字体。对照备份时这些行仍参与摘要。SQLite、PostgreSQL、MySQL 文章暂存与恢复、SQLite 文章投影，以及 SQLite 与独立 PostgreSQL 附件演练都通过了新版初始结构的回归。原始输出见 `artifacts/native-migration/legacy-pristine-baseline-20261114T185057Z.log`。
+
 只读 PostgreSQL 结构盘点示例。表级计数与哈希在已确认候选集合内逐表运行，表名来自 catalog 并按提供方规则引用。预估行数可协助安排盘点，完成验收时应保存精确行数。
 
 ```sql

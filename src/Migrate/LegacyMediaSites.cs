@@ -93,8 +93,8 @@ internal static partial class Migration
         {
             if (relation.Schema != "public" || relation.Kind is not ("r" or "S"))
                 throw new InvalidOperationException("The isolated media rehearsal candidate contains an unreviewed relation.");
-            if (relation.Kind == "S" || relation.Name is "v2_schema" or "blog_user" or "authoring_recovery_site" or
-                "admin_identity_schema") continue;
+            if (relation.Kind == "S" || relation.Name == "blog_user" ||
+                await IsPristineLegacyCandidateSeedAsync(connection, transaction, relation.Name, token)) continue;
             var table = '"' + relation.Name.Replace("\"", "\"\"", StringComparison.Ordinal) + '"';
             await using var occupied = new NpgsqlCommand($"SELECT EXISTS (SELECT FROM public.{table})", connection, transaction);
             if (await occupied.ExecuteScalarAsync(token) is not false)

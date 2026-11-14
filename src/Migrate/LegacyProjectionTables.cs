@@ -115,14 +115,12 @@ internal static partial class Migration
             target.PostgreSqlVersion.Major.ToString(CultureInfo.InvariantCulture))
             throw new InvalidOperationException("The quarantined candidate no longer matches its pre-projection backup coverage.");
         foreach (var relation in observed)
-        {
             if (!original.TryGetValue(relation.Name, out var expected) || relation.Kind != expected.Kind ||
                 relation.Name == "v2_schema" && relation.Rows != expected.Rows ||
                 relation.Name != "v2_schema" && (!already || !touched.Contains(relation.Name)) && relation != expected ||
-                relation.Kind == "r" && expected.Rows > 0 &&
-                    relation.Name is not ("v2_schema" or "blog_user" or "authoring_recovery_site" or "admin_identity_schema"))
+                relation.Kind == "r" && expected.Rows > 0 && relation.Name != "blog_user" &&
+                    !await IsPristineLegacyCandidateSeedAsync(target, tx, relation.Name, ct))
                 throw new InvalidOperationException($"Candidate relation {relation.Name} differs from its permitted empty backup baseline.");
-        }
     }
 
     private static async Task InsertLegacyProjectionAsync(NpgsqlConnection target, NpgsqlTransaction tx,

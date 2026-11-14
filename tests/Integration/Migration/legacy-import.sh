@@ -117,6 +117,16 @@ PY
 
 plan=("${migrate[@]}" legacy import plan "$provider" "$root/owner.json" "$backup" "$manifest")
 apply=("${migrate[@]}" legacy import apply "$provider" "$root/owner.json" "$backup" "$manifest" "$root/import.json")
+"${target_sql[@]}" -c "INSERT INTO public.admin_principal (id,handle,user_handle,enabled,generation)
+    VALUES ('4ebd2ccb-f588-492c-94cb-f14d0ac890e5','fixture-page-editor',decode(repeat('b4',32),'hex'),false,1);
+    UPDATE public.site_page_content SET revision=1,markdown='Unreviewed page' WHERE slug='about';
+    INSERT INTO public.site_page_publish_audit VALUES ('about',1,'4ebd2ccb-f588-492c-94cb-f14d0ac890e5',
+        sha256(convert_to('','UTF8')),sha256(convert_to('Unreviewed page','UTF8')),now())"
+if "${plan[@]}" > "$root/rejected.json" 2> "$root/error.log"; then exit 1; fi
+rg -Fx 'The independent target business and sequence digests differ from the backup.' "$root/error.log"
+"${target_sql[@]}" -c "DELETE FROM public.site_page_publish_audit WHERE slug='about';
+    UPDATE public.site_page_content SET revision=0,markdown=NULL WHERE slug='about';
+    DELETE FROM public.admin_principal WHERE id='4ebd2ccb-f588-492c-94cb-f14d0ac890e5'"
 "${plan[@]}" > "$root/import.json"
 python3 - "$root/import.json" <<'PY'
 import json, pathlib, sys

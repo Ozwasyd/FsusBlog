@@ -127,7 +127,7 @@ internal static partial class Migration
             throw new InvalidOperationException("The independent target business and sequence digests differ from the backup.");
 
         foreach (var row in relations.Where(row => row.Kind == "r" && row.Rows != 0))
-            if (row.Name is not ("v2_schema" or "blog_user" or "authoring_recovery_site" or "admin_identity_schema"))
+            if (row.Name != "blog_user" && !await IsPristineLegacyCandidateSeedAsync(target, transaction, row.Name, token))
                 throw new InvalidOperationException($"The disposable target contains operational rows in {row.Name}.");
 
         await using var accounts = new NpgsqlCommand("""
